@@ -1,0 +1,328 @@
+﻿(function()
+{
+    return function()
+    {
+        if (!this._is_form)
+            return;
+        
+        this.on_create = function()
+        {
+            // Declare Reference
+            var obj = null;
+            
+            if (Form == this.constructor) {
+                this.set_name("BasBnqMgmtPop");
+                this.set_titletext("연회장검색");
+                this._setFormPosition(0,0,420,458);
+            }
+
+            
+            // Object(Dataset, ExcelExportObject) Initialize
+            obj = new Dataset("ds_grd", this);
+            obj.set_firefirstcount("0");
+            obj.getSetter("firenextcount").set("0");
+            obj.set_useclientlayout("false");
+            obj.set_updatecontrol("true");
+            obj.set_enableevent("true");
+            obj.set_loadkeymode("keep");
+            obj.set_loadfiltermode("keep");
+            obj.set_reversesubsum("false");
+            obj._setContents("<ColumnInfo><Column id=\"caterchfCd\" type=\"STRING\" size=\"256\"/><Column id=\"caterchfNm\" type=\"STRING\" size=\"256\"/><Column id=\"menuCd\" type=\"STRING\" size=\"256\"/><Column id=\"menuNm\" type=\"STRING\" size=\"256\"/><Column id=\"menuClass\" type=\"STRING\" size=\"256\"/><Column id=\"menuClsfi\" type=\"STRING\" size=\"256\"/><Column id=\"menuSclass\" type=\"STRING\" size=\"256\"/><Column id=\"applyPrice\" type=\"STRING\" size=\"256\"/></ColumnInfo>");
+            this.addChild(obj.name, obj);
+
+
+            
+            // UI Components Initialize
+            obj = new Static("staFormSize", "absolute", "0", "0", "420", "458", null, null, this);
+            obj.set_taborder("44");
+            obj.set_cssclass("sta_POP_Bg");
+            this.addChild(obj.name, obj);
+
+            obj = new Static("Static04", "absolute", "0", "0", "420", "70", null, null, this);
+            obj.set_taborder("46");
+            obj.set_cssclass("sta_POP_TitleBg");
+            obj.set_text("연회장검색");
+            this.addChild(obj.name, obj);
+
+            obj = new Static("Static06", "absolute", "0", "70", "420", "10", null, null, this);
+            obj.set_taborder("47");
+            obj.set_text("h10");
+            obj.set_cssclass("sta_GUIDE_Area");
+            obj.set_visible("false");
+            obj.style.set_align("center middle");
+            this.addChild(obj.name, obj);
+
+            obj = new Static("Static13", "absolute", "410", "80", "10", "358", null, null, this);
+            obj.set_taborder("48");
+            obj.set_text("w10");
+            obj.set_cssclass("sta_GUIDE_Area");
+            obj.set_visible("false");
+            obj.style.set_align("center middle");
+            this.addChild(obj.name, obj);
+
+            obj = new Static("Static15", "absolute", "0", "80", "10", "358", null, null, this);
+            obj.set_taborder("50");
+            obj.set_text("w10");
+            obj.set_cssclass("sta_GUIDE_Area");
+            obj.set_visible("false");
+            obj.style.set_align("center middle");
+            this.addChild(obj.name, obj);
+
+            obj = new Button("btnClose", "absolute", "350", "0", "70", "70", null, null, this);
+            obj.set_taborder("45");
+            obj.set_cssclass("btn_POP_XBtn");
+            this.addChild(obj.name, obj);
+
+            obj = new Static("Static03", "absolute", "0", "438", "420", "20", null, null, this);
+            obj.set_taborder("54");
+            obj.set_text("h20");
+            obj.set_cssclass("sta_GUIDE_Area");
+            obj.set_visible("false");
+            obj.style.set_align("center middle");
+            this.addChild(obj.name, obj);
+
+            obj = new Edit("edt_detailNm", "absolute", "10", "80", "295", "47", null, null, this);
+            obj.set_taborder("71");
+            obj.set_displaynulltext("코드/명칭");
+            this.addChild(obj.name, obj);
+
+            obj = new Button("btn_search", "absolute", "310", "80", "100", "47", null, null, this);
+            obj.set_taborder("72");
+            obj.set_text("검색");
+            obj.set_cssclass("btn_WF_Search");
+            this.addChild(obj.name, obj);
+
+            obj = new Static("Static01", "absolute", "305", "86", "5", "30", null, null, this);
+            obj.set_taborder("73");
+            obj.set_text("h05");
+            obj.set_cssclass("sta_GUIDE_Area2");
+            obj.set_visible("false");
+            obj.style.set_align("center middle");
+            this.addChild(obj.name, obj);
+
+            obj = new Static("Static02", "absolute", "0", "127", "420", "10", null, null, this);
+            obj.set_taborder("74");
+            obj.set_text("h10");
+            obj.set_cssclass("sta_GUIDE_Area");
+            obj.set_visible("false");
+            obj.style.set_align("center middle");
+            this.addChild(obj.name, obj);
+
+            obj = new Grid("grd_list", "absolute", "10", "137", "400", "301", null, null, this);
+            obj.set_taborder("75");
+            obj.set_binddataset("ds_grd");
+            obj.set_scrollbars("autovert");
+            obj.set_scrollpixel("all");
+            obj._setContents("<Formats><Format id=\"default\"><Columns><Column size=\"91\"/><Column size=\"210\"/><Column size=\"100\"/></Columns><Rows><Row size=\"0\" band=\"head\"/><Row size=\"50\" band=\"head\"/><Row size=\"50\"/></Rows><Band id=\"head\"><Cell text=\"Column0\"/><Cell col=\"1\"/><Cell col=\"2\"/><Cell row=\"1\" text=\"코드\"/><Cell row=\"1\" col=\"1\" text=\"명칭\"/><Cell row=\"1\" col=\"2\" text=\"대관료\"/></Band><Band id=\"body\"><Cell style=\"align:center middle;padding:0 5 0 5;\" text=\"bind:caterchfCd\" wordwrap=\"char\"/><Cell col=\"1\" style=\"align:left middle;padding:0 5 0 5;\" text=\"bind:caterchfNm\" wordwrap=\"char\"/><Cell col=\"2\" displaytype=\"number\" style=\"align:right middle;padding:0 5 0 5;\" text=\"bind:applyPrice\" wordwrap=\"char\"/></Band></Format></Formats>");
+            this.addChild(obj.name, obj);
+
+
+            
+            // Layout Functions
+            //-- Default Layout
+            obj = new Layout("default", "", 420, 458, this,
+            	//-- Layout function
+            	function(p) {
+            		p.set_classname("GUIDE_class");
+            		p.set_titletext("연회장검색");
+
+            	}
+            );
+            this.addLayout(obj.name, obj);
+
+
+            
+            // BindItem Information
+
+            
+            // Remove Reference
+            obj = null;
+        };
+        
+
+        
+        // User Script
+        this.addIncludeScript("BasBnqMgmtPop.xfdl", "lib::lib_Com.xjs");
+        this.registerScript("BasBnqMgmtPop.xfdl", function(exports) {
+        //########################################################
+        // [프로젝트]		FC종합전산 모바일시스템 구축
+        // [시스템명]		연회웨딩 장소 검색
+        // [부시스템명]	연회웨딩 장소 검색 - 조회
+        // [설명]
+        // 		연회웨딩 장소 검색하기.
+        // [작성자명] 		강대성
+        // [작성일자]		2015.03.17
+        // -----------------[수정이력]--------------------------
+        // 수정일자 : 수정자 : 수정내용
+        // 2015.03.17 : 강대성 : 수정이 필요하여 수정함.
+        //########################################################
+        if (this.executeIncludeScript) { this.executeIncludeScript("lib::lib_Com.xjs", null, exports); }	//include "lib::lib_Com.xjs"
+        /*================================================================================
+         * 1. 변수 선언
+         *===============================================================================*/
+
+        /*================================================================================
+         * 2. Form관련 Script
+         *===============================================================================*/
+        /** 
+         * Form의 모든 컴포넌트가 생성되고, 모든 Object가 Load 되었을 때에 발생하는 Event
+         * @param
+        	obj : Event가 발생한 Object
+        	e : Event Object
+         * @return : 없음
+         */ 
+        this.CmmnDeptSearchPop_onload = function(obj,e)
+        {
+        	//필수
+        	this.arg = application.goMain.gfn_POP_getArg();
+        	
+        	application.goMain.gfn_POP_resize(this);
+        }
+
+        /*==========================================================================
+         * 3. DataSet관련 Script
+        *========================================================================*/
+        /** 
+         * 테이터셋셋팅
+         * @param  
+        	value  : 셋팅값
+         * @return : 없음
+         */
+
+        /*==========================================================================
+         * 4. Component관련 Script
+        *========================================================================*/
+
+        /** 
+         * 취소버튼클릭
+         * @param  
+        	obj, e
+         * @return : 없음
+         */
+        this.btnClose_onclick = function(obj,e)
+        {
+        	application.goMain.gfn_POP_close(this, "CLOSEONLY");
+        }
+
+        this.staBtnClose_onclick = function(obj,e)
+        {
+        	application.goMain.gfn_POP_close(this, "CLOSEONLY");
+        }
+
+        
+        /** 
+         * 그리드 셀클릭
+         * @param  
+        	obj, e
+         * @return : 없음
+         */
+        this.grdList_oncellclick = function(obj,e)
+        {
+        	var arg = new Array();
+        	arg[0] = "OK";
+        	arg[1] = this.ds_grd.getColumn(e.row,"caterchfCd"); 	//장소코드
+        	arg[2] = this.ds_grd.getColumn(e.row,"caterchfNm"); 	//분류명
+        	arg[3] = this.ds_grd.getColumn(e.row,"menuClass");    	//장소명
+        	arg[4] = this.ds_grd.getColumn(e.row,"menuClsfi"); 	    //비고1
+        	arg[5] = this.ds_grd.getColumn(e.row,"menuSclass"); 	//비고2
+        	arg[6] = this.ds_grd.getColumn(e.row,"applyPrice"); 	//비고3
+        	
+        	application.goMain.gfn_POP_close(this, arg);
+
+        }
+        /*================================================================================
+         * 5. UserFunction관련 Script
+         *===============================================================================*/
+        /** 
+         * 사용자정의 함수
+         * @param  : 없음
+         * @return : true, false
+         */
+
+        /*******************************************************************************
+        * 기      능   :  검색
+        * 설      명   :  등록
+        ********************************************************************************/
+        this.btnSearch_onclick = function(obj,e)
+        {
+        	this.fn_search();
+        }
+
+        
+        this.fn_search = function()
+        {	
+        	var strSvcID   		 = "placeSearchPop";
+        	var strUrl     		 = "rc/bms/basCaterchMgmt/selectCaterchList.xdo";
+        	var strInDataset     = "";
+        	var strOutDataset    = "ds_grd=ds_caterchfMst";
+        	var strArguments	 = "outletCd="    + this.gfn_Nvl(this.arg[0],"")
+        						 + " muCd="       + this.gfn_Nvl(this.arg[1],"")     
+        					     + " tmCd="       + this.gfn_Nvl(this.arg[2],"")
+        					     + " classCd="    + this.gfn_Nvl(this.arg[3],"")
+        					     + " useYn=1"
+        					     + " caterchfNm=" + this.gfn_Nvl(this.edt_detailNm.value,""); 
+        	var strCallbackFunc	 = "fn_callBack";
+        	var bAsync			 = true;
+
+        	this.gfn_transaction(this, strSvcID, strUrl, strInDataset, strOutDataset, strArguments, strCallbackFunc, bAsync);
+
+        	// connect the server 
+        	
+        }
+        /*******************************************************************************
+        * 기      능   : 부서명 조회 callback
+        ********************************************************************************/
+        /*----------------------------------------------------------------------------------------------
+         * 설명      : 트랜잭션 콜백 함수 (필수)
+         *---------------------------------------------------------------------------------------------*/
+        this.fn_callBack = function (strSvcID,nErrorCode,strErrorMsg)
+        {	
+        	
+        	// 에러시 gfn_callBack에서 메시지 제공, 화면별 특정 에러 발생시에만 사용하세요.
+        	if (nErrorCode < 0) 
+        	{
+        		return;
+        	}
+        	
+            switch(strSvcID)
+            {		
+        		//연회장검색
+                case "placeSearchPop" :
+        						
+                    // 조회 건수 확인  
+                    if (this.ds_grd.getRowCount() == 0) 
+                    {
+                        application.goMain.gfn_Msg("alertTest", "Information", "해당하는 사용자 정보가 없습니다.", "OK");	//해당하는 사용자 정보가 없습니다.
+                        return;
+                    }else{
+        				
+        				this.fv_totalpageRow = this.ds_grd.getRowCount();	
+        				this.btn_moreView.set_visible(true);
+        				this.btn_moreView.set_text("총건수:"+this.fv_totalpageRow);
+        				
+                    }
+                    
+          		break;
+            }  
+            
+        }
+        });
+
+
+        
+        // Regist UI Components Event
+        this.on_initEvent = function()
+        {
+            this.addEventHandler("onload", this.CmmnDeptSearchPop_onload, this);
+            this.btnClose.addEventHandler("onclick", this.btnClose_onclick, this);
+            this.btn_search.addEventHandler("onclick", this.btnSearch_onclick, this);
+            this.grd_list.addEventHandler("oncellclick", this.grdList_oncellclick, this);
+
+        };
+
+        this.loadIncludeScript("BasBnqMgmtPop.xfdl", true);
+
+       
+    };
+}
+)();

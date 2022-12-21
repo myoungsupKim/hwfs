@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.roa.helperSupportDAO">
+	<desc>HELPER 지원 내역 HQML Query</desc>
+
+	<!-- HELPER 지원 내역 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.rc.roa.dao.HelperSupportDAO.selectList */
+		<![CDATA[
+		SELECT A.MUCD AS MU_CD,
+		       A.UPJANG,
+		       B.UPJANGNM AS UPJANG_NM,
+		       A.EMPNO,
+		       A.OCCUR_DATE,
+		       A.SUP_UPJANG,
+		       C.UPJANGNM AS SUP_UPJANG_NM,
+		       A.HELPER_GRADE_CD,
+		       D.HELPER_GRADE_CD_NM,
+		       D.SUP_AMT AS HELPER_AMT,
+		       A.EMPNM,
+		       A.SUP_TIME,
+		       A.SUP_AMT,
+		       A.SLIP_CREATION_YN,
+		       A.SLIP_NUM,
+		       A.SLIP_CUSER,
+		       A.SLIP_CREATION_DATE,
+		       A.CUSER,
+		       A.CDATE,
+		       A.UUSER,
+		       A.UDATE
+		FROM   RSS_HELPER_SUP_INFO A,
+			(  SELECT DISTINCT UPJANG, 
+					  UPJANGNM
+			   FROM   ST_UPJANG
+			)  B,
+			(  SELECT DISTINCT UPJANG, 
+					  UPJANGNM
+			   FROM   ST_UPJANG
+			)  C,
+			RSS_HELPER_GRADE_INFO D
+		WHERE  A.UPJANG = B.UPJANG(+)
+		AND	   A.SUP_UPJANG = C.UPJANG(+)
+		AND	   A.HELPER_GRADE_CD = D.HELPER_GRADE_CD(+)
+		<#if muCd?has_content>
+		AND    A.MUCD = :muCd
+		</#if>
+		<#if upjang?has_content>
+		AND    A.UPJANG = :upjang
+		</#if>
+		<#if sOccurDate?has_content>
+		AND    TO_CHAR(TO_DATE(A.OCCUR_DATE, 'YYYYMMDD'), 'YYYYMM') >= :sOccurDate
+		</#if>
+		<#if eOccurDate?has_content>
+		AND    TO_CHAR(TO_DATE(A.OCCUR_DATE, 'YYYYMMDD'), 'YYYYMM') <= :eOccurDate
+		</#if>
+		<#if empnm?has_content>
+		AND    A.EMPNM LIKE '%' || :empnm || '%'
+		</#if>
+		ORDER BY A.OCCUR_DATE DESC, A.EMPNM ASC
+		]]>
+	</statement>
+	
+	<!-- HELPER 지원 내역 중복을 체크한다. -->
+	<statement name="selectExists" type="select">
+		/*+ com.hwfs.rc.roa.dao.HelperSupportDAO.selectExists */
+		<![CDATA[
+		SELECT COUNT(*)
+		FROM   RSS_HELPER_SUP_INFO
+		WHERE  MUCD = :muCd
+		AND	   UPJANG = :upjang
+		AND	   EMPNO = :empno
+		AND	   OCCUR_DATE = :occurDate
+		AND	   SUP_UPJANG = :supUpjang 
+		]]>
+	</statement>
+
+	<!-- HELPER 지원 내역(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.rc.roa.dao.HelperSupportDAO.insert */
+		<![CDATA[
+		INSERT INTO RSS_HELPER_SUP_INFO 
+		(
+		       MUCD,
+		       UPJANG,
+		       EMPNO,
+		       OCCUR_DATE,
+		       SUP_UPJANG,
+		       HELPER_GRADE_CD,
+		       EMPNM,
+		       SUP_TIME,
+		       SUP_AMT,
+		       SLIP_CREATION_YN,
+		       SLIP_NUM,
+		       SLIP_CUSER,
+		       SLIP_CREATION_DATE,
+		       CUSER,
+		       CDATE,
+		       UUSER,
+		       UDATE
+		)
+		VALUES
+		(
+		       :muCd,
+		       :upjang,
+		       :empno,
+		       :occurDate,
+		       :supUpjang,
+			   <#if helperGradeCd?has_content> :helperGradeCd, <#else> null, </#if>
+			   <#if empnm?has_content> :empnm, <#else> null, </#if>
+			   <#if supTime?has_content> :supTime, <#else> null, </#if>
+			   <#if supAmt?has_content> :supAmt, <#else> null, </#if>
+			   <#if slipCreationYn?has_content> :slipCreationYn, <#else> 'N', </#if>
+			   <#if slipNum?has_content> :slipNum, <#else> null, </#if>
+			   <#if slipCuser?has_content> :slipCuser, <#else> null, </#if>
+			   <#if slipCreationDate?has_content> :slipCreationDate, <#else> null, </#if>
+			   :loginSabun,
+		       SYSDATE,
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- HELPER 지원 내역(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.rc.roa.dao.HelperSupportDAO.update */
+		<![CDATA[
+		UPDATE RSS_HELPER_SUP_INFO 
+		SET    HELPER_GRADE_CD = :helperGradeCd,
+			   EMPNM = :empnm,
+		       SUP_TIME = :supTime,
+		       SUP_AMT = :supAmt,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  MUCD = :muCd
+		AND	   UPJANG = :upjang
+		AND    EMPNO = :empno
+		AND    OCCUR_DATE = :occurDate
+		AND	   SUP_UPJANG = :supUpjang
+		]]>
+	</statement>
+
+	<!-- HELPER 지원 내역(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.rc.roa.dao.HelperSupportDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   RSS_HELPER_SUP_INFO 
+		WHERE  MUCD = :muCd
+		AND	   UPJANG = :upjang
+		AND    EMPNO = :empno
+		AND    OCCUR_DATE = :occurDate
+		AND	   SUP_UPJANG = :supUpjang
+		]]>
+	</statement>
+
+</hqml>

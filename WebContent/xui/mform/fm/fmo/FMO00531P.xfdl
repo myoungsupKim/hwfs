@@ -1,0 +1,180 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FMO00531P" onkeydown="fn_FormKeyDown" onload="form_onload" titletext="입금상세내역" position="absolute 0 0 500 392" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Static id="st_Title" text="000000 올아바웃푸드" position="absolute 15 40 341 59" class="sta_WF_Title01"/>
+        <Button id="btn_search" onclick="btn_search_OnClick" taborder="0" text="조회" position="absolute 376 10 435 35" class="btn_WF_searchCm" image=""/>
+        <Grid autoenter="select" binddataset="ds_List" cellmovingtype="col" cellsizingtype="both" readonly="false" enable="true" id="gd_list" useinputpanel="false" selecttype="row" onheadclick="gd_list_OnHeadClick" taborder="5" tabstop="true" usecontextmenu="true" useselcolor="true" visible="true" wheelscrollrow="1" position="absolute 15 58 485 377" autofittype="col">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="28"/>
+                <Column size="156"/>
+                <Column size="121"/>
+                <Column size="150"/>
+                <Column size="116"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+                <Row size="24" band="summ"/>
+              </Rows>
+              <Band id="head">
+                <Cell class="head_Excel"/>
+                <Cell col="1" text="거래처"/>
+                <Cell col="2" text="일자"/>
+                <Cell col="3" displaytype="text" text="입금액"/>
+                <Cell col="4" text="구분"/>
+              </Band>
+              <Band id="body">
+                <Cell celltype="head" displaytype="text" style="align:right;padding:0 6 0 6;" expr="expr:currow + 1"/>
+                <Cell col="1" style="align:left;padding:0 6 0 6;" text="bind:CUST_NM"/>
+                <Cell col="2" displaytype="text" style="align:center;" text="bind:JDATE"/>
+                <Cell col="3" displaytype="number" style="align:right;padding:0 6 0 6;" text="bind:AMT" mask="#,##0"/>
+                <Cell col="4" displaytype="text" text="bind:GUBUN"/>
+              </Band>
+              <Band id="summary">
+                <Cell colspan="3" displaytype="text" style="align:center;" text="합계"/>
+                <Cell col="3" displaytype="number" style="align:right;" expr="expr:getSum(&quot;AMT&quot;)" mask="#,##0"/>
+                <Cell col="4"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <TextArea id="ta_Sql" readonly="true" taborder="6" tabstop="false" position="absolute 0 0 0 32"/>
+        <Static id="Static00" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 226"/>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 305 10"/>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 0 377 290 392"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 485 0 500 226"/>
+        <Static id="Static06" text="h05" class="Guide01_AreaRed" visible="false" position="absolute 15 35 305 40"/>
+        <Button id="btn_close" onclick="btn_close_OnClick" taborder="1" text="닫기" position="absolute 438 10 483 35" class="btn_WF_CRUD" image=""/>
+        <Static id="Static01" text="h05" class="Guide01_AreaRed" visible="false" position="absolute 15 53 305 58"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_List">
+        <ColumnInfo>
+          <Column id="JDATE" size="50" type="STRING"/>
+          <Column id="AMT" size="22" type="BIGDECIMAL"/>
+          <Column id="CUST_NM" type="STRING" size="256"/>
+          <Column id="GUBUN" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 식재영업/급식채권관리
+ * 프로그램명   : FMO00531P.XML
+ * 기      능   : 입금 및 여신현황조회/입금상세내역
+ * 작  성  자   : 박은규
+ * 작성  일자   : 2008-02-21
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+*/
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "lib::sc_comon.js"				// 시스템 공통
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js"		//JAVA 코딩시
+//@@컨버터에서 주석처리 #include "LIB::tit_comm_0001.js"		// X-Framework Lib
+//@@컨버터에서 주석처리 #include "lib::sc_sql_common.js"		// 공통팝업
+//@@컨버터에서 주석처리 #include "lib::fm_common.js"			// FM공통
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+//var fa_Upjang, fa_UpjangNm, fa_Date;
+
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	//초기화
+   	fsp_init(this);
+   	//ta_Sql.Visible = (global.g_AuthLevel == "999");
+   	
+   	st_Title.text = fa_Upjang + ' ' + fa_UpjangNm;
+   	
+   	fn_search();
+}
+
+function fn_search()
+{
+	// 초기화
+	ds_List.clearData();
+	// 조회
+	var strSvcID, strURL, strInDatasets, strOutDatasets, strArgument, strCallbackFunc;
+	// 경로 설정
+	strSvcID = "FMO00531P_T001";
+	strURL   = "U_svc::" + "fm/fmo/FMO00531P_T001.jsp";
+	// 데이터셋 설정
+	strInDatasets  = "";
+	strOutDatasets = "ds_List=ds_List";
+	// 파라메터 설정
+	strArgument  = "g_Upjang=" + wrapQuote(g_Upjang);
+	strArgument += " g_EmpNo=" + wrapQuote(g_EmpNo);
+	strArgument += " sUpjang=" + wrapQuote(fa_Upjang);
+	strArgument += " sDate=" + wrapQuote(fa_Date);
+	// 콜백함수 지정
+	strCallbackFunc = "fn_CallBack_Search";
+	// 서버 호출 
+	//Transaction(strSvcID, strURL, strInDatasets, strOutDatasets, strArgument, strCallbackFunc);
+	jsp_transaction(this, strSvcID, strURL, strInDatasets, strOutDatasets, strArgument, strCallbackFunc, false, false, false);
+}
+
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+//콜백
+//function fn_CallBack_Search(SvcID, errCode, errMsg)
+function fn_CallBack_Search(errCode, errMsg)
+{
+ta_Sql.value = opener.fa_Sql;
+	if (errCode == 0)
+	{
+		if (ds_List.rowcount > 0)
+			gd_list.setFocus();
+		else
+			g_Message("EE","입금내역이 없습니다.");
+	}
+	else
+		g_Message("EE","조회중 오류가 발생하였습니다.");
+}
+
+function btn_close_OnClick(obj:Button, e:ClickEventInfo)
+{
+	close();
+}
+
+function fn_FormKeyDown(obj:Form, e:KeyEventInfo)
+{
+	gfn_formKeyDown(obj, e); //(obj,e.fromreferenceobject,e.keycode,e.shiftKey,e.ctrlKey,e.altKey,-1,-1);
+	if ( e.keycode == 27 ) close();
+}
+
+function gd_list_OnHeadClick(obj:Grid, e:GridClickEventInfo)
+{
+	gfn_gridSort(obj, e); //(eval(obj.binddataset), obj, e.cell);
+}
+
+function btn_search_OnClick(obj:Button, e:ClickEventInfo)
+{
+	fn_search();
+}
+]]></Script>
+  </Form>
+</FDL>

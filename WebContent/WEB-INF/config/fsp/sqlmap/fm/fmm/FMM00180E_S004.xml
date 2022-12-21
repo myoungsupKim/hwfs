@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+       A.GUBUN,
+       A.RECIPE_CD,
+       A.RECIPE_NAME,
+       SUM(NVL(C.OP_PRICE,0) ) RECIPE_COST,
+       COST_RATE,
+       SALE_PRICE,
+       PREFER,
+       PREFER_LABEL,
+       RECIPE_CLASS,
+       RECIPE_TYPE,
+       CUISINE_TYPE,
+       PHF,
+       DI_MON
+  FROM
+       (
+       SELECT '0' GUBUN,       --한화
+              A.RECIPE_CD,     --레시피코드
+              A.RECIPE_NAME,   --레시피명
+              B.ITEM_CODE,
+              0 AS COST_RATE,  -- 수식으로 해결 => 판매가가 0이 아닐 경우 ROUND((레시피원가/판매가)*100)
+              A.SALE_PRICE,    -- 판매가
+              '' AS PREFER,
+              '' AS PREFER_LABEL,
+              A.RECIPE_CLASS,
+              A.RECIPE_TYPE,
+              A.CUISINE_TYPE,
+              A.PHF,
+              CASE
+                     WHEN MONTHS_BETWEEN( SYSDATE, DECODE(A.CDATE, NULL, SYSDATE, A.CDATE) )&lt;= 1.0
+                     THEN 1
+                     ELSE 0
+              END
+              DI_MON
+         FROM FSR_STD_RECIPE_MST A ,
+              FSR_STD_RECIPE_ITEM B
+        WHERE A.RECIPE_CD = B.RECIPE_CD
+ <isNotNull col="RECIPE_NAME">
+          AND A.RECIPE_NAME LIKE '%'||#RECIPE_NAME#||'%'
+ </isNotNull>
+ <isNotNull col="RECIPE_CLASS">
+          AND A.RECIPE_CLASS = #RECIPE_CLASS#
+ </isNotNull>
+ <isNotNull col="RECIPE_TYPE">
+          AND A.RECIPE_TYPE = #RECIPE_TYPE#
+ </isNotNull>
+ <isNotNull col="CUISINE_TYPE">
+          AND A.CUISINE_TYPE = #CUISINE_TYPE#
+ </isNotNull>
+ <isNotNull col="MAIN_ITEM_CODE1">
+          AND A.MAIN_ITEM_CODE1 = #MAIN_ITEM_CODE1#
+ </isNotNull>
+ <isNotNull col="RESP_NUT1">
+          AND A.RESP_NUT1 = #RESP_NUT1#
+ </isNotNull>
+ <isEqual col="STD_CHK" value="0">
+          AND to_char(A.CDATE,'yyyymmdd')='99999999'	-- 본사 레시피 미체크이면 데이타 없도록
+ </isEqual>
+        UNION ALL
+       SELECT '1' GUBUN,       --본사
+              A.RECIPE_CD,     --레시피코드
+              A.RECIPE_NAME,   --레시피명
+              B.ITEM_CODE,
+              0 AS COST_RATE,  -- 수식으로 해결 => 판매가가 0이 아닐 경우 ROUND((레시피원가/판매가)*100)
+              A.SALE_PRICE,    -- 판매가
+              '' AS PREFER,
+              '' AS PREFER_LABEL,
+              A.RECIPE_CLASS,
+              A.RECIPE_TYPE,
+              A.CUISINE_TYPE,
+              A.PHF,
+              CASE
+                     WHEN MONTHS_BETWEEN( SYSDATE, DECODE(A.CDATE, NULL, SYSDATE, A.CDATE) )&lt;= 1.0
+                     THEN 1
+                     ELSE 0
+              END
+              DI_MON
+         FROM FMM_STD_RECIPE_MST A ,
+              FMM_STD_RECIPE_ITEM B
+        WHERE A.RECIPE_CD = B.RECIPE_CD
+          AND A.UPJANG = #UPJANG#
+ <isNotNull col="RECIPE_NAME">
+          AND A.RECIPE_NAME LIKE '%'||#RECIPE_NAME#||'%'
+ </isNotNull>
+ <isNotNull col="RECIPE_CLASS">
+          AND A.RECIPE_CLASS = #RECIPE_CLASS#
+ </isNotNull>
+ <isNotNull col="RECIPE_TYPE">
+          AND A.RECIPE_TYPE = #RECIPE_TYPE#
+ </isNotNull>
+ <isNotNull col="CUISINE_TYPE">
+          AND A.CUISINE_TYPE = #CUISINE_TYPE#
+ </isNotNull>
+ <isNotNull col="MAIN_ITEM_CODE1">
+          AND A.MAIN_ITEM_CODE1 = #MAIN_ITEM_CODE1#
+ </isNotNull>
+ <isNotNull col="RESP_NUT1">
+          AND A.RESP_NUT1 = #RESP_NUT1#
+ </isNotNull>
+ <isEqual col="UPJANG_CHK" value="0">
+          AND to_char(A.CDATE,'yyyymmdd')='99999999'	-- 본사 레시피 미체크이면 데이타 없도록
+ </isEqual>
+       ) A,
+       (
+       SELECT /*+ USE_HASH (C A) */
+              A.ITEM_CODE,
+              DECODE(SIGN(NVL(C.OP_PRICE, 0) ) , 0, SCC_CEIL(A.SALE_PRICE + ROUND(A.SALE_PRICE * NVL(C.OP_RATE, 0) / 100),C.CEIL_VAL), C.OP_PRICE) AS OP_PRICE  --운영단가(1인원가)
+         FROM FMS_ITEM_V B,
+              FMU_OP_RATE C ,
+              (
+              SELECT /*+ INDEX_DESC(C PO_CONTRACT_FSALE_U1) */ #UPJANG# AS UPJANG,
+                     NVL( '' , TO_CHAR(SYSDATE, 'YYYYMMDD' ) ) AS NEED_DATE,
+                     C.ITEM_CODE,
+                     TO_NUMBER(SUBSTR(MAX(C.ROWID||C.SALE_PRICE) , 19, 100) ) SALE_PRICE,
+                     C.CENTER_CODE
+                FROM HLDC_PO_CONTRACT_FSALE C,
+                     HLDC_PO_UPJANG_CENTER D,
+                     HLDC_ST_UPJANG E
+               WHERE C.CENTER_CODE = D.CENTER_CODE
+                 AND D.UPJANG = E.AP_UNITPRICE_UPJANG
+                 AND E.UPJANG = #UPJANG#
+                 AND C.UPJANG = E.AP_UNITPRICE_UPJANG
+                 AND C.ITEM_CODE > ' '
+                 AND C.CONTRACT_START &lt;= NVL( '' , TO_CHAR(SYSDATE, 'YYYYMMDD' ) )
+                 AND C.SALE_PRICE > 0
+                 AND EXISTS
+                     (
+                     SELECT 1
+                       FROM HLDC_PO_TREAT_UPJANG X
+                      WHERE X.ITEM_CODE = C.ITEM_CODE
+                        AND X.UPJANG = C.UPJANG
+                     )
+               GROUP BY C.CENTER_CODE,
+                     C.UPJANG,
+                     C.ITEM_CODE
+              -----------
+               UNION ALL
+              -----------
+              SELECT #UPJANG# AS UPJANG,
+                     NVL( '' , TO_CHAR(SYSDATE, 'YYYYMMDD' ) ) AS NEED_DATE ,
+                     A.ITEM_CODE,
+                     A.SALE_PRICE,
+                     0 CENTER_CODE
+                FROM FMP_OTCUST_PRICE_AVA_V A ,
+                     (
+                     SELECT UPJANG,
+                            ITEM_CODE,
+                            MAX(SDATE) AS SDATE
+                       FROM FMP_OTCUST_PRICE_AVA_V
+                      WHERE UPJANG =
+                            (
+                            SELECT OTCUST_PRICE_UPJANG
+                              FROM FMS_UPJANG
+                             WHERE UPJANG = #UPJANG#
+                            )
+                        AND SDATE &lt;= NVL( '' , TO_CHAR(SYSDATE, 'YYYYMMDD' ) )
+                      GROUP BY UPJANG,
+                            ITEM_CODE
+                     ) B
+               WHERE A.UPJANG = B.UPJANG
+                 AND A.SDATE = B.SDATE
+                 AND A.ITEM_CODE = B.ITEM_CODE
+                 AND A.SALE_PRICE > 0
+                 AND A.USE_YN = 'Y'
+              ) A
+        WHERE A.ITEM_CODE = B.ITEM_CODE
+          AND A.UPJANG = C.UPJANG(+)
+          AND A.NEED_DATE BETWEEN C.SDATE(+) AND C.EDATE(+)
+          AND A.ITEM_CODE BETWEEN C.ITEM_CODE(+) AND C.ITEM_CODE(+)||'9999'
+          AND C.USE_YN(+) = 'Y'
+       ) C
+ WHERE A.ITEM_CODE = C.ITEM_CODE(+)
+ <isNotNull col="UNITPRICE_FROM">
+   AND A.RECIPE_COST &gt; #UNITPRICE_FROM#
+ </isNotNull>
+ <isNotNull col="UNITPRICE_TO">
+   AND A.RECIPE_COST &lt; #UNITPRICE_TO#
+ </isNotNull>
+ <isNotNull col="SALEPRICE_FROM">
+   AND A.SALE_PRICE &gt; #SALEPRICE_FROM#
+ </isNotNull>
+ <isNotNull col="SALEPRICE_TO">
+   AND A.SALE_PRICE &lt; #SALEPRICE_TO#
+ </isNotNull>
+ GROUP BY A.GUBUN,
+       A.RECIPE_CD,
+       A.RECIPE_NAME,
+       COST_RATE,
+       SALE_PRICE,
+       PREFER,
+       PREFER_LABEL,
+       RECIPE_CLASS,
+       RECIPE_TYPE,
+       CUISINE_TYPE,
+       PHF,
+       DI_MON
+ ORDER BY GUBUN DESC,
+       RECIPE_CD	</statement>
+	<input default-name="ds_List">
+	</input>
+	<output default-name="ds_List">
+	</output>
+</query>

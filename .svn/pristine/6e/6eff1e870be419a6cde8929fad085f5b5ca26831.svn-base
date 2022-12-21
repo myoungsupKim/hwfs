@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[대상 지정이 아닐 경우 게시판 전체 검색 건수 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+		NVL(COUNT(CON_ID), 0 ) TOT_CNT
+FROM SCC_BBS_CON		
+WHERE USE_YN = 'Y'
+AND BBS_ID = #BBS_ID#
+AND EDATE &gt;= TO_CHAR(SYSDATE, 'YYYYMMDD')
+<isNotNull col="WRITE_SABUN">
+	AND ( WRITE_SABUN = #WRITE_SABUN# OR UPJANG IN(  SELECT CODE FROM SCC_UPJANGCUST_V WHERE MAIN_CODE = #g_Upjang#) ) 
+</isNotNull>
+<isEqual col="S_GBN" value="1">
+	AND TITLE LIKE '%' || #S_WORD# || '%'
+</isEqual>
+<isEqual col="S_GBN" value="2">
+	AND CONTENTS LIKE '%' || #S_WORD# || '%'
+</isEqual>
+<isEqual col="S_GBN" value="3">
+	AND ( CONTENTS  LIKE '%' || #S_WORD# || '%'
+		OR TITLE LIKE '%' || #S_WORD# || '%' )
+</isEqual>
+<isEqual col="S_GBN" value="4">
+	AND WRITE_SABUN IN ( SELECT SABUN FROM SCC_USERINFO WHERE NM_KOR LIKE '%' || #S_WORD# || '%' )
+</isEqual>
+<isEqual col="S_GBN" value="5">
+	AND UPJANG IN ( SELECT CODE FROM SCC_UPJANGCUST_V WHERE CODE_NAME LIKE '%' || #S_WORD# || '%' )
+</isEqual>
+	<isNotNull col="MAIN_UPJANG">
+		AND UPJANG IN ( SELECT CODE FROM SCC_UPJANGCUST_V WHERE MAIN_CODE = #MAIN_UPJANG# )
+	</isNotNull>	
+</statement>
+	<input default-name="ds_cond">
+		<col name="BBS_ID" size="255" type="NUMERIC" description="" /> 
+		<col name="WRITE_SABUN" size="255" type="VARCHAR" description="" /> 
+		<col name="S_WORD" size="255" type="VARCHAR" description="" /> 
+		<col name="S_GBN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_total">
+		<col name="TOT_CNT" size="22" type="NUMERIC" description="" /> 
+	</output>
+</query>

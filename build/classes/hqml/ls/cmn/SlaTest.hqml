@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="ls.cmn.slaTestDAO">
+    <desc>Fax 발송 테스트</desc>
+
+    <statement name="faxTransferTest" type="select">
+        /*+ com.hwfs.ls.cmn.dao.SlaTestDAO.faxTransferTest */
+        <![CDATA[
+WITH T1 AS
+(
+     SELECT A.WH_CD
+           ,A.VD_NM_LOC AS VD_NM_LOC_NM
+           ,A.VD_NM_LOC||'( FAX : '||DECODE(A.FAX_NO,'--','',A.FAX_NO)||' )' VD_NM_LOC
+           ,A.RELEASE_NUM AS RELEASE_NUM
+           ,A.FAX_NO
+           ,A.SALE_PRCG_ID
+           ,'한화호텔앤드리조트(주)('||A.NM_KOR||A.OTHER_NAME||'/'||DECODE(OFFICE_TEL_NUM,'--','',OFFICE_TEL_NUM)||')' SEND_INFO
+           ,RELEASE_DATE
+           ,CUST_CD
+           ,CUST_NM
+       FROM (
+             SELECT A.WH_CD
+                   ,SCC_TELNO_SAUPNO_EXPR('TELNO', SCC_CRYPTO.DEC_FUN(B.FAX_NO)) AS FAX_NO
+                   ,(SELECT WH_NM FROM INVENTORY_MGMT_DELIVER WHERE WH_CD = A.WH_CD AND ROWNUM = 1) AS VD_NM_LOC --B.VD_NM_LOC
+                   ,A.RELEASE_NUM
+                   ,A.SALE_PRCG_ID
+                   ,C.OTHER_NAME
+                   ,'한화호텔앤드리조트(주)('||C.NM_KOR||C.OTHER_NAME||'/'||scc_crypto.DEC_FUN(C.OFFICE_TEL_NUM)||')' SEND_INFO
+                   ,C.NM_KOR
+                   ,SCC_TELNO_SAUPNO_EXPR('TELNO', SCC_CRYPTO.DEC_FUN(C.OFFICE_TEL_NUM)) AS OFFICE_TEL_NUM
+                   ,TO_CHAR(TO_DATE(A.RELEASE_DATE), 'YYYY-MM-YY') RELEASE_DATE
+                   ,A.CUST_CD
+                   ,(
+                     SELECT A.CUSTNM
+                       FROM ST_CUST A,
+                            ST_UPJANG B,
+                            FMS_UPJANG C
+                      WHERE B.CUSTCD = A.CUSTCD
+                        AND C.UPJANG = B.UPJANG
+                        AND C.CUST_TYPE ='도매'
+                        AND A.CUSTCD = A.CUST_CD
+                    ) CUST_NM
+                   ,ROW_NUMBER() OVER (PARTITION BY A.WH_CD ORDER BY A.WH_CD, A.RELEASE_NUM) AS RN
+               FROM RELEASE_ITEM_MGMT A
+                   ,EPROCUSR.ESMVDFW B
+                   ,(SELECT T.* FROM   HR_PERSONAL T, SCC_CC T2 WHERE  T2.CC_CD = T.CC_CD ) C
+              WHERE A.WH_CD = B.VD_CD(+)
+                AND A.SALE_PRCG_ID =C.SABUN(+)
+                AND B.CUS_VD_CLS(+)  IN ('10', '50')
+                AND A.RELEASE_NUM IN ('DO1507000410','DO1507000408','DO1507000407','DO1507000405','DO1507000404','DO1507000402','DO1507000401')
+                AND B.FAX_NO IS NOT NULL
+            ) A
+      WHERE 1 = 1
+        AND A.RN = 1
+        AND A.WH_CD IN ('1038542','1041442','1064429','1064429','1038542','1064429','1041442')
+)
+SELECT ROWNUM AS RN
+      ,T.WH_CD
+      ,T.VD_NM_LOC_NM
+      ,T.VD_NM_LOC
+      ,T.RELEASE_NUM
+      ,T.FAX_NO
+      ,T.SALE_PRCG_ID
+      ,T.SEND_INFO
+      ,T.RELEASE_DATE
+      ,T.CUST_CD
+      ,NVL(T.CUST_NM,' ') AS CUST_NM
+      ,ROW_NUMBER() OVER (PARTITION BY T.WH_CD ORDER BY T.WH_CD, T.RELEASE_NUM) AS NUM
+      ,A.ITEM_CD
+      ,A.ITEM_NM
+      ,A.REAL_WGT
+      ,A.UNIT
+       --입고-((주문+출고대기+출고완료)+(반품+창고이동))
+      ,NVL(E.DELIVER_QUANTITY,0)
+       -NVL(E.ORDER_REMAIN_QUANTITY,0)
+       -NVL(E.RELEASE_WAIT_QUANTITY,0)
+       +NVL(A.RELEASE_QUANTITY,0)   --지금 출고대상은 제외
+       -NVL(E.RELEASE_END_QUANTITY,0)
+       -NVL(E.RMA_QUANTITY,0)
+       -NVL(E.WH_MOVE_QUANTITY,0) AS BEFORE_INVENTORY
+      --전재고 - 출고(주문) = 현재고
+      ,NVL(E.DELIVER_QUANTITY,0)
+       -NVL(E.ORDER_REMAIN_QUANTITY,0)
+       -NVL(E.RELEASE_WAIT_QUANTITY,0)
+       +NVL(A.RELEASE_QUANTITY,0)   --지금 출고대상은 제외
+       -NVL(E.RELEASE_END_QUANTITY,0)
+       -NVL(E.RMA_QUANTITY,0)
+       -NVL(E.WH_MOVE_QUANTITY,0)
+       -NVL(A.RELEASE_QUANTITY,0) AS CURR_INVENTORY
+      ,A.RELEASE_QUANTITY
+      ,TO_CHAR(TO_DATE(E.FIRST_DELIVER_DATE), 'YYYY-MM-DD') FIRST_DELIVER_DATE
+      ,TO_CHAR(TO_DATE(E.CURRENT_WH_DELIVER_DATE), 'YYYY-MM-DD') CURRENT_WH_DELIVER_DATE
+      ,NVL(E.EST_NO,' ') AS EST_NO
+      ,F.BL_NUM
+      ,NVL(A.REMARK,' ') AS REMARK
+  FROM RELEASE_ITEM_MGMT A,
+       SALE_ORDER_ITEM_MGMT C,
+       PO_ORDER_MST D,
+       INVENTORY_MGMT_DELIVER E,
+       PO_ORDER_MST F,
+       T1 T
+ WHERE 1 = 1
+   AND A.SALE_ORDER_NUM = C.SALE_ORDER_NUM
+   AND A.SALE_ORDER_NUM_SEQ = C.SALE_ORDER_NUM_SEQ
+   AND C.PO_ORDER_NUM =D.PO_ORDER_NUM
+   AND C.DELIVER_NUM = E.DELIVER_NUM
+   AND E.PO_ORDER_NUM = F.PO_ORDER_NUM
+   AND A.RELEASE_NUM IN ('DO1507000410','DO1507000408','DO1507000407','DO1507000405','DO1507000404','DO1507000402','DO1507000401')
+   AND A.WH_CD = T.WH_CD
+ ORDER BY A.WH_CD
+        ]]>
+    </statement>
+
+</hqml>

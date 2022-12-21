@@ -1,0 +1,701 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="sm.saa.saleColletionListDAO">
+	<desc>판매/수금 부동처 현황 HQML Query</desc>
+
+	<!-- 판매부동처 및 수금부동처 현황을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sm.saa.dao.SaleColletionListDAO.selectList */
+		<![CDATA[
+/*     급식      */
+SELECT Z.MU_NM,
+       Z.TM_CD,
+       Z.TM_NM AS TEAM_NM,
+       Z.UPJANG,
+       Z.UPJANGNM, 
+       Z.CUSTCD AS CUST_CD,
+       Z.CUSTNM AS CUST_NM,
+       Z.PART_SALES_SABUN,
+       Z.PART_SALES_SABUNNM AS SALES_SABUN_NM,     
+       Z.GICHO_AMT_BEFORE,
+       Z.MACHU_AMT_BEFORE,
+       Z.RCP_AMT_BEFORE,       
+       Z.GIMAL_AMT_BEFORE,
+       Z.GICHO_AMT_01,
+       Z.MACHU_AMT_01,
+       Z.RCP_AMT_01,
+       Z.GIMAL_AMT_01,
+       Z.GICHO_AMT_02,
+       Z.MACHU_AMT_02,
+       Z.RCP_AMT_02,
+       Z.GIMAL_AMT_02,
+       Z.GICHO_AMT_03,
+       Z.MACHU_AMT_03,
+       Z.RCP_AMT_03,
+       Z.GIMAL_AMT_03,
+       Z.GICHO_AMT_04,
+       Z.MACHU_AMT_04,
+       Z.RCP_AMT_04,
+       Z.GIMAL_AMT_04,
+       Z.GICHO_AMT_05,
+       Z.MACHU_AMT_05,
+       Z.RCP_AMT_05,
+       Z.GIMAL_AMT_05,
+       Z.GICHO_AMT_06,
+       Z.MACHU_AMT_06,
+       Z.RCP_AMT_06,
+       Z.GIMAL_AMT_06,
+       Z.TM_CD||'-'||Z.UPJANG||'-'||Z.CUSTCD PL_CD,
+       '1' PL_UP_CD,
+       '0' BL_SHOW,
+       3 LEVEL_NO,
+       '+' BL_PLUS       
+  FROM (
+            SELECT V.TM_CD TM_CD,
+            		(SELECT MU_NM FROM HLDC_SC_MU WHERE MU_CD = v.MU_CD) MU_NM,
+                   (SELECT TM_NM FROM HLDC_SC_TM WHERE TM_CD = V.TM_CD) TM_NM,
+                   V.UPJANG,
+                   (SELECT UPJANGNM FROM SCO_UPJANG_MST_V WHERE UPJANG = V.UPJANG) UPJANGNM, 
+                   V.CUSTCD,
+                   (SELECT CUSTNM FROM HLDC_ST_CUST WHERE CUSTCD = V.CUSTCD) CUSTNM,
+                   V.CHARGE_SABUN PART_SALES_SABUN,
+                   (SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN = V.CHARGE_SABUN) PART_SALES_SABUNNM,     
+                   (SELECT (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0015' AND CODE = PAY_GUBUN_CD)||' '||PAY_DATE FROM SCO_UPJANG_CUST WHERE UPJANG = V.UPJANG AND CUSTCD = V.CUSTCD) 여신회전일,                      
+                   TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), 0), 'YY/MM') DATE1,
+                   0                                                                                                                                                                        GICHO_AMT_BEFORE,
+                   SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -6), 'YYYYMM') THEN V.AMT              ELSE 0 END))   MACHU_AMT_BEFORE,
+                   SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -6), 'YYYYMM') THEN V.RCP_AMT1         ELSE 0 END))   RCP_AMT_BEFORE,       
+                   0                                                                                                                                                                        +
+                   SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -6), 'YYYYMM') THEN V.AMT              ELSE 0 END)) -
+                   SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -6), 'YYYYMM') THEN V.RCP_AMT1         ELSE 0 END))   GIMAL_AMT_BEFORE,
+                   SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -1), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_01,
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), 0), 'YYYYMM'),                              V.AMT, 0))                        MACHU_AMT_01,
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), 0), 'YYYYMM'),                              V.RCP_AMT1, 0))                   RCP_AMT_01,
+                   SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -1), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), 0), 'YYYYMM'),                              V.AMT, 0))                      -  
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), 0), 'YYYYMM'),                              V.RCP_AMT1, 0))                   GIMAL_AMT_01,
+                   SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -2), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_02,
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -1), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_02,
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -1), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_02,
+                   SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -2), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -1), 'YYYYMM'),                              V.AMT, 0))                      -  
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -1), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_02,
+                   SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -3), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_03,
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -2), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_03,
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -2), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_03,
+                   SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -3), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -2), 'YYYYMM'),                              V.AMT, 0))                      -  
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -2), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_03,
+                   SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -4), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_04,
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -3), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_04,
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -3), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_04,
+                   SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -4), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -3), 'YYYYMM'),                              V.AMT, 0))                      -  
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -3), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_04,
+                   SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -5), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_05,
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -4), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_05,
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -4), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_05,
+                   SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -5), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -4), 'YYYYMM'),                              V.AMT, 0))                      -  
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -4), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_05,
+                   SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -6), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_06,
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -5), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_06,
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -5), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_06,
+                   SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -6), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -5), 'YYYYMM'),                              V.AMT, 0))                      -  
+                   SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -5), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_06,    
+                   NVL(SUM(MI_BOND_AMT), 0)            MI_BOND_AMT,
+                   NVL(SUM(DO_BOND_AMT), 0)            DO_BOND_AMT,
+                   NVL(SUM(AK_BOND_AMT), 0)            AK_BOND_AMT,
+                   NVL(SUM(MI_BOND_AMT), 0) + NVL(SUM(DO_BOND_AMT), 0) +  NVL(SUM(AK_BOND_AMT), 0) BOND_TOTAL_AMT         
+                 --  V.TM_CD||'-'||V.UPJANG||'-'||V.CUSTCD PL_CD,
+                 --  '1' PL_UP_CD,
+                  -- '0' BL_SHOW,
+                 --  3 LEVEL_NO,
+                 --  '+' BL_PLUS
+              FROM (  	
+              			/*  채권 */
+                    SELECT C.TM_CD,
+              		       C.MU_CD,
+                           V.UPJANG_CD UPJANG,
+                           V.CUST_CD CUSTCD,
+                           NVL(V.AR_AMT, 0) AMT,
+                           V.OCCUR_DATE BOND_DATE,
+            			  (SELECT NVL(SUM(V1.RECEIVE_AMT),0) FROM SLA_AR_RECEIVE_DETAIL V1 WHERE V1.RECEIVE_DATE BETWEEN '19000101' AND :basisByymm
+            																											 AND    V1.RECD_STATUS = 'L'
+            																											 AND    V1.AR_NUM=V.AR_NUM) AS RCP_AMT1,
+                           0 MI_BOND_AMT,
+                           0 DO_BOND_AMT,
+                           0 AK_BOND_AMT,
+                           C.CHARGE_SABUN
+                      FROM SLA_AR_MST V
+                         , SCO_UPJANG_MST_V C
+                    WHERE  V.UPJANG_CD     = C.UPJANG
+                    --AND    V.SYS_CLASS='13'
+                    AND    V.RECD_STATUS='L'
+                    AND    V.OCCUR_DATE   BETWEEN '19000101' AND :basisByymm
+                             AND   (C.MU_CD      = :muCd)
+                             <#if tmCd?has_content>
+                   		          AND   (C.TM_CD      = :tmCd)
+                             </#if>
+                             <#if upjangCd?has_content>
+                        	     AND   (C.UPJANG     = :upjangCd)
+                             </#if>
+                             <#if custCd?has_content>
+                            	 AND   (V.CUST_CD     = :custCd)
+                             </#if>
+                             <#if ccCd?has_content>
+                            	 AND   (V.CC_CD     = :ccCd)
+                             </#if>
+                    UNION ALL
+                    SELECT V.TM_CD,
+                           v.MU_CD,
+                           V.UPJANG,
+                           V.CUSTCD,
+                           0 AMT,
+                           V.BOND_DATE,
+                           0 RCP_AMT1,
+                           DECODE(V.DUE_GUBUN, '미도래채권', V.AMT - (V.RCP_AMT1 + V.RCP_AMT2), 0)   MI_BOND_AMT,
+                           DECODE(V.DUE_GUBUN, '도래채권',   V.AMT - (V.RCP_AMT1 + V.RCP_AMT2), 0)   DO_BOND_AMT,
+                           DECODE(V.DUE_GUBUN, '악성채권',   V.AMT - (V.RCP_AMT1 + V.RCP_AMT2), 0)   AK_BOND_AMT,
+                           V.CHARGE_SABUN
+                    FROM (                     
+                            SELECT C.TM_CD,
+                            	   V.MU_CD,
+                                   V.UPJANG_CD UPJANG,
+                                   V.CUST_CD CUSTCD,
+                                   NVL(V.AR_AMT, 0) AMT,
+                                   V.OCCUR_DATE BOND_DATE,
+                                   (CASE WHEN :basisByymm >  DECODE(B.PAY_GUBUN_CD, '999', TO_CHAR(ADD_MONTHS(LAST_DAY(TO_DATE(V.OCCUR_DATE, 'YYYYMMDD')),1),'YYYYMMDD'), TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(B.PAY_GUBUN_CD)+1), 'YYYYMM')||
+                                                         LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(B.PAY_GUBUN_CD)+1), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(B.PAY_DATE, 2, '0'))
+                                                         ) THEN
+                                              '악성채권'
+                                         WHEN :basisByymm <=  DECODE(B.PAY_GUBUN_CD, '999', TO_CHAR(ADD_MONTHS(LAST_DAY(TO_DATE(V.OCCUR_DATE, 'YYYYMMDD')),1),'YYYYMMDD'), TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(B.PAY_GUBUN_CD)+1), 'YYYYMM')||
+                                                         LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(B.PAY_GUBUN_CD)+1), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(B.PAY_DATE, 2, '0'))
+                                                         ) AND
+                                              :basisByymm > DECODE(B.PAY_GUBUN_CD, '999', TO_CHAR(LAST_DAY(TO_DATE(V.OCCUR_DATE, 'YYYYMMDD')),'YYYYMMDD'), TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(B.PAY_GUBUN_CD)), 'YYYYMM')||
+                                                         LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(B.PAY_GUBUN_CD)), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(B.PAY_DATE, 2, '0'))
+                                                         ) THEN
+                                              '도래채권'
+                                         WHEN :basisByymm <=  DECODE(B.PAY_GUBUN_CD, '999', TO_CHAR(LAST_DAY(TO_DATE(V.OCCUR_DATE, 'YYYYMMDD')),'YYYYMMDD'), TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(B.PAY_GUBUN_CD)), 'YYYYMM')||
+                                                         LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(B.PAY_GUBUN_CD)), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(B.PAY_DATE, 2, '0'))
+                                                         ) THEN
+                                              '미도래채권' END) DUE_GUBUN,
+            					   (SELECT NVL(SUM(V1.RECEIVE_AMT), 0) FROM SLA_AR_RECEIVE_DETAIL V1 WHERE V1.RECD_STATUS = 'L' AND V1.RECEIVE_DATE BETWEEN '19000101' AND :basisByymm AND V1.AR_NUM = V.AR_NUM) AS RCP_AMT1,
+                                   0 RCP_AMT2,
+                                   C.CHARGE_SABUN
+                              FROM SLA_AR_MST V ,
+                                         (
+                                            SELECT UPJANG,
+                                                   MAX(PAY_GUBUN_CD) AS PAY_GUBUN_CD,
+                                                   MAX(PAY_DATE) AS PAY_DATE
+                                            FROM SCO_UPJANG_CUST
+                                            GROUP BY UPJANG
+                                        ) B ,
+                                   SCO_UPJANG_MST_V C
+                            WHERE  (V.OCCUR_DATE  BETWEEN '19000101' AND :basisByymm)
+                            AND    (V.RECD_STATUS         = 'L')
+            				AND     (V.UPJANG_CD         = B.UPJANG)
+                            AND    (B.UPJANG            = C.UPJANG)
+                            --AND    (V.SYS_CLASS(+)           = '13')
+            				 			AND   (C.MU_CD      = :muCd)
+            				 			<#if tmCd?has_content>
+            				                 AND   (C.TM_CD      = :tmCd)
+            				            </#if>     
+            				 			<#if upjangCd?has_content>
+                                             AND   (C.UPJANG     = :upjangCd)
+            				            </#if>     
+            				 			<#if custCd?has_content>
+                                             AND   (V.CUST_CD     = :custCd)
+            				            </#if>  
+			                            <#if ccCd?has_content>
+			                                AND   (V.CC_CD     = :ccCd)
+			                            </#if>            				               
+                                         ) V    
+                   ) V
+            GROUP BY V.TM_CD,
+                     V.UPJANG,
+                     V.CUSTCD,
+                     V.CHARGE_SABUN,
+                     v.MU_CD      
+      ) Z,
+      SCO_UPJANG_CUST  Y
+ WHERE Z.UPJANG = Y.UPJANG
+   AND Z.CUSTCD = Y.CUSTCD
+   <#if empNo?has_content>
+   AND Z.PART_SALES_SABUN = :empNo
+   </#if>
+   
+   <#if srcType == '1'>
+   		<#if srcMonth == '1'>
+		 	 AND  (Z.MACHU_AMT_01) = 0 
+   		<#elseif srcMonth == '2'>
+			 AND (Z.MACHU_AMT_01 + Z.MACHU_AMT_02) = 0
+   		<#elseif srcMonth == '3'>
+			 AND (Z.MACHU_AMT_01 + Z.MACHU_AMT_02 + Z.MACHU_AMT_03) = 0
+   		<#elseif srcMonth == '4'>
+			 AND (Z.MACHU_AMT_01 + Z.MACHU_AMT_02 + Z.MACHU_AMT_03 + Z.MACHU_AMT_04) = 0
+   		<#elseif srcMonth == '5'>
+			 AND (Z.MACHU_AMT_01 + Z.MACHU_AMT_02 + Z.MACHU_AMT_03 + Z.MACHU_AMT_04 + Z.MACHU_AMT_05) = 0
+   		<#elseif srcMonth == '6'>
+			 AND (Z.MACHU_AMT_01 + Z.MACHU_AMT_02 + Z.MACHU_AMT_03 + Z.MACHU_AMT_04 + Z.MACHU_AMT_05 + Z.MACHU_AMT_06) = 0
+		</#if>
+	</#if>
+
+   <#if srcType == '2'>
+   		<#if srcMonth == '1'>
+			 AND  (Z.RCP_AMT_01) = 0 
+   		<#elseif srcMonth == '2'>
+			 AND (Z.RCP_AMT_01 + Z.RCP_AMT_02) = 0
+   		<#elseif srcMonth == '3'>
+			 AND (Z.RCP_AMT_01 + Z.RCP_AMT_02 + Z.RCP_AMT_03) = 0
+   		<#elseif srcMonth == '4'>
+			 AND (Z.RCP_AMT_01 + Z.RCP_AMT_02 + Z.RCP_AMT_03 + Z.RCP_AMT_04) = 0
+   		<#elseif srcMonth == '5'>
+			 AND (Z.RCP_AMT_01 + Z.RCP_AMT_02 + Z.RCP_AMT_03 + Z.RCP_AMT_04 + Z.RCP_AMT_05) = 0
+   		<#elseif srcMonth == '6'>
+			 AND (Z.RCP_AMT_01 + Z.RCP_AMT_02 + Z.RCP_AMT_03 + Z.RCP_AMT_04 + Z.RCP_AMT_05 + Z.RCP_AMT_05) = 0
+		</#if>			
+	</#if>
+ 	ORDER BY MU_NM,TM_CD,UPJANG,CUST_CD
+        ]]>
+	</statement>
+
+
+	<!-- 판매부동처 및 수금부동처 현황(식재)을 조회한다. -->
+	<statement name="selectListFms" type="select"><![CDATA[
+/*        식재    판매부동처    */
+SELECT A.MAIN_UPJANG,
+       A.MAIN_UPJANGNM,
+       A.UPJANG,
+       A.UPJANGNM,
+       A.PART_SALES_SABUN,
+       A.SALES_SABUN_NM,
+       A.GICHO_AMT_BEFORE,
+       A.MACHU_AMT_BEFORE,
+       A.RCP_AMT_BEFORE,
+       A.GIMAL_AMT_BEFORE,
+       A.GICHO_AMT_01,
+       A.MACHU_AMT_01,
+       A.RCP_AMT_01,
+       A.GIMAL_AMT_01,
+       A.GICHO_AMT_02,
+       A.MACHU_AMT_02,
+       A.RCP_AMT_02,
+       A.GIMAL_AMT_02,
+       A.GICHO_AMT_03,
+       A.MACHU_AMT_03,
+       A.RCP_AMT_03,
+       A.GIMAL_AMT_03,
+       A.GICHO_AMT_04,
+       A.MACHU_AMT_04,
+       A.RCP_AMT_04,
+       A.GIMAL_AMT_04,
+       A.GICHO_AMT_05,
+       A.MACHU_AMT_05,
+       A.RCP_AMT_05,
+       A.GIMAL_AMT_05,
+       A.GICHO_AMT_06,
+       A.MACHU_AMT_06,
+       A.RCP_AMT_06,
+       A.GIMAL_AMT_06,
+       A.MI_BOND_AMT,
+       A.DO_BOND_AMT,
+       A.AK_BOND_AMT,
+       A.BOND_TOTAL_AMT,
+       A.부서명,
+       B.CREDIT_AMOUNT
+  FROM (
+        SELECT XX.MAIN_UPJANG,
+               XX.MAIN_UPJANGNM,
+               XX.UPJANG,
+               XX.UPJANGNM,
+               XX.PART_SALES_SABUN,
+               XX.PART_SALES_SABUNNM AS SALES_SABUN_NM,
+               XX.GICHO_AMT_BEFORE,
+               XX.MACHU_AMT_BEFORE,
+               XX.RCP_AMT_BEFORE,
+               XX.GIMAL_AMT_BEFORE,
+               XX.GICHO_AMT_01,
+               XX.MACHU_AMT_01,
+               XX.RCP_AMT_01,
+               XX.GIMAL_AMT_01,
+               XX.GICHO_AMT_02,
+               XX.MACHU_AMT_02,
+               XX.RCP_AMT_02,
+               XX.GIMAL_AMT_02,
+               XX.GICHO_AMT_03,
+               XX.MACHU_AMT_03,
+               XX.RCP_AMT_03,
+               XX.GIMAL_AMT_03,
+               XX.GICHO_AMT_04,
+               XX.MACHU_AMT_04,
+               XX.RCP_AMT_04,
+               XX.GIMAL_AMT_04,
+               XX.GICHO_AMT_05,
+               XX.MACHU_AMT_05,
+               XX.RCP_AMT_05,
+               XX.GIMAL_AMT_05,
+               XX.GICHO_AMT_06,
+               XX.MACHU_AMT_06,
+               XX.RCP_AMT_06,
+               XX.GIMAL_AMT_06,
+               XX.MI_BOND_AMT,
+               XX.DO_BOND_AMT,
+               XX.AK_BOND_AMT,
+               XX.BOND_TOTAL_AMT,
+               XX.부서명,
+               XX.여신회전일
+          FROM (
+                    SELECT /*+ USE_HASH(V2) */ 
+                            A.MAIN_UPJANG,
+                           (SELECT UPJANGNM_DISP FROM FMS_UPJANG WHERE UPJANG = A.MAIN_UPJANG) MAIN_UPJANGNM,
+                           V.UPJANG,
+                           (SELECT UPJANGNM FROM SCO_UPJANG_MST_V WHERE UPJANG = V.UPJANG) UPJANGNM,    
+                           A.PART_SALES_SABUN,
+                           (SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN = A.PART_SALES_SABUN) PART_SALES_SABUNNM,
+                           NVL(MAX(A.CREDIT_TURN_DAYS), 0) + NVL(SUM(V2.CREDIT_EXT_DAYS), 0) 여신회전일,
+                           '(' || A.DEPT_ID || ')' || NVL((SELECT CC_NM FROM HLDC_SC_DEPT_V WHERE DEPT_ID = A.DEPT_ID), '') 부서명,
+                           TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), 0), 'YY/MM') DATE1,
+                           0                                                                                                                                                                        GICHO_AMT_BEFORE,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -12), 'YYYYMM') THEN V.AMT              ELSE 0 END))   MACHU_AMT_BEFORE,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -12), 'YYYYMM') THEN V.RCP_AMT1         ELSE 0 END))   RCP_AMT_BEFORE,       
+                           0                                                                                                                                                                        +
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -12), 'YYYYMM') THEN V.AMT              ELSE 0 END)) -
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -12), 'YYYYMM') THEN V.RCP_AMT1         ELSE 0 END))   GIMAL_AMT_BEFORE,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -1), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_01,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), 0), 'YYYYMM'),                              V.AMT, 0))                        MACHU_AMT_01,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), 0), 'YYYYMM'),                              V.RCP_AMT1, 0))                   RCP_AMT_01,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -1), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), 0), 'YYYYMM'),                              V.AMT, 0))                      -  
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), 0), 'YYYYMM'),                              V.RCP_AMT1, 0))                   GIMAL_AMT_01,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -2), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_02,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -1), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_02,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -1), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_02,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -2), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -1), 'YYYYMM'),                              V.AMT, 0))                      -  
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -1), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_02,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -3), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_03,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -2), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_03,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -2), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_03,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -3), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -2), 'YYYYMM'),                              V.AMT, 0))                      -  
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -2), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_03,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -4), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_04,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -3), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_04,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -3), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_04,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -4), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -3), 'YYYYMM'),                              V.AMT, 0))                      -  
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -3), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_04,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -5), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_05,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -4), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_05,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -4), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_05,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -5), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -4), 'YYYYMM'),                              V.AMT, 0))                      -  
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -4), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_05,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -6), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_06,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -5), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_06,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -5), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_06,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -6), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -5), 'YYYYMM'),                              V.AMT, 0))                      -  
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -5), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_06,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -7), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_07,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -6), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_07,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -6), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_07,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -7), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -6), 'YYYYMM'),                              V.AMT, 0))                      -  
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -6), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_07,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -8), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_08,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -7), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_08,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -7), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_08,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -8), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -7), 'YYYYMM'),                              V.AMT, 0))                      -  
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -7), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_08,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -9), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_09,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -8), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_09,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -8), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_09,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -9), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -8), 'YYYYMM'),                              V.AMT, 0))                      -  
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -8), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_09,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -10), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_10,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -9), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_10,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -9), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_10,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -10), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -9), 'YYYYMM'),                              V.AMT, 0))                      -  
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -9), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_10,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -11), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_11,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -10), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_11,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -10), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_11,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -11), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -10), 'YYYYMM'),                              V.AMT, 0))                      -  
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -10), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_11,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -12), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_12,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -11), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_12,
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -11), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_12,
+                           SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -12), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -11), 'YYYYMM'),                              V.AMT, 0))                      -  
+                           SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(:basisByymm, 'YYYYMMDD'), -11), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_12,       
+                           NVL(SUM(MI_BOND_AMT), 0)            MI_BOND_AMT,
+                           NVL(SUM(DO_BOND_AMT), 0)            DO_BOND_AMT,
+                           NVL(SUM(AK_BOND_AMT), 0)            AK_BOND_AMT,
+                           NVL(SUM(MI_BOND_AMT), 0) + NVL(SUM(DO_BOND_AMT), 0) +  NVL(SUM(AK_BOND_AMT), 0) BOND_TOTAL_AMT,   
+                           A.MAIN_UPJANG||'-'||V.UPJANG PL_CD,
+                           '1' PL_UP_CD,
+                           '0' BL_SHOW,
+                           2 LEVEL_NO,
+                           '+' BL_PLUS
+                 FROM (
+                                       -- 채권
+                                SELECT 
+                                       V.UPJANG_CD UPJANG
+                                     , V.AR_AMT AMT
+                                     , V.OCCUR_DATE BOND_DATE
+                                     , 0 AS RCP_AMT1
+                                     , ( CASE WHEN V.OCCUR_DATE BETWEEN SUBSTR(:basisByymm, 1, 6)||'01' AND SUBSTR(:basisByymm , 1, 6)||'31'
+                                               THEN V.AR_AMT ELSE 0 END ) CURR_MACHUL
+                                     , 0 MI_BOND_AMT
+                                     , 0 DO_BOND_AMT
+                                     , 0 AK_BOND_AMT   
+                                  FROM SLA_AR_MST V INNER JOIN FMS_UPJANG B ON 1 = 1
+                                                            <#if mainUpjangCd?has_content>
+                                                            AND   (B.MAIN_UPJANG          = :mainUpjangCd )
+                                                            </#if>
+                                                            <#if upjangCd?has_content> 
+                                                            AND   (B.UPJANG               = :upjangCd )
+                                                            </#if>
+                                                            <#if empNo?has_content>
+                                                            AND   (B.PART_SALES_SABUN     =  :empNo )
+                                                            </#if> 
+                                                            AND  V.UPJANG_CD = B.UPJANG
+                                                   INNER JOIN ST_UPJANG S ON 1 = 1
+                                                            <#if ccCd?has_content>
+                                                            AND   (S.CC_CD     = :ccCd )
+                                                            </#if>
+                                                            AND    B.UPJANG = S.UPJANG
+                                                   INNER JOIN HLDC_SC_DEPT_V D ON 1 = 1
+                                                            AND   (D.MU_CD      = :muCd )
+                                                            <#if tmCd?has_content>
+                                                            AND   (D.TM_CD      = :tmCd )
+                                                            </#if>
+                                                            AND    S.DEPT_ID = D.DEPT_ID
+                                 WHERE V.OCCUR_DATE BETWEEN '19000101' AND :basisByymm
+                                       AND V.SYS_CLASS IN ('13','14')
+                                       AND V.RECD_STATUS='L'
+           
+                       UNION ALL
+                        
+                                -- 입금
+                                SELECT 
+                                       V.UPJANG_CD UPJANG
+                                     , 0 AS  AMT
+                                     , V1.RECEIVE_DATE BOND_DATE
+                                     , NVL(V1.RECEIVE_AMT,0) AS RCP_AMT1
+                                     , 0 AS CURR_MACHUL
+                                     , 0 MI_BOND_AMT
+                                     , 0 DO_BOND_AMT
+                                     , 0 AK_BOND_AMT
+                                  FROM SLA_AR_MST V INNER JOIN SLA_AR_RECEIVE_DETAIL V1 ON V1.RECEIVE_DATE BETWEEN '19000101' AND :basisByymm
+                                                                                                                       AND V1.RECD_STATUS = 'L'    
+                                                                                                                       AND V.AR_NUM = V1.AR_NUM
+                                                                 INNER JOIN FMS_UPJANG B ON 1 = 1
+                                                                                                    <#if mainUpjangCd?has_content>                
+                                                                                                    AND   (B.MAIN_UPJANG        = :mainUpjangCd )
+                                                                                                    </#if>    
+                                                                                                    <#if upjangCd?has_content>                 
+                                                                                                    AND   (B.UPJANG             = :upjangCd )
+                                                                                                    </#if>    
+                                                                                                    <#if empNo?has_content>   
+                                                                                                    AND   (B.PART_SALES_SABUN    =  :empNo )
+                                                                                                    </#if> 
+                                                                                                    AND V.UPJANG_CD = B.UPJANG
+                                                                INNER JOIN ST_UPJANG S ON 1 = 1
+                                                                                                    <#if ccCd?has_content> 
+                                                                                                    AND   (S.CC_CD     =  :ccCd )
+                                                                                                    </#if>
+                                                                                                    AND  B.UPJANG = S.UPJANG
+                                                                INNER JOIN HLDC_SC_DEPT_V D ON  1 = 1
+                                                                                                    AND   (D.MU_CD       = :muCd )
+                                                                                                    <#if tmCd?has_content>
+                                                                                                    AND   (D.TM_CD      = :tmCd )
+                                                                                                    </#if>
+                                                                                                    AND S.DEPT_ID = D.DEPT_ID
+                                 WHERE V.SYS_CLASS IN ('13','14')
+                                 AND    V.RECD_STATUS='L'
+
+                                    UNION ALL
+                                
+                                SELECT TO_NUMBER(UPJANG) AS UPJANG,
+                                       0          AMT,
+                                       :basisByymm  BOND_DATE,
+                                       0          RCP_AMT1,
+                                       0          CURR_MACHUL,
+                                       SUM(DECODE(V.DUE_GUBUN, '미도래채권', V.AMT - (V.RCP_AMT1 + V.RCP_AMT2), 0))              MI_BOND_AMT,
+                                       SUM(DECODE(V.DUE_GUBUN, '도래채권',   V.AMT - (V.RCP_AMT1 + V.RCP_AMT2), 0))             DO_BOND_AMT,
+                                       SUM(DECODE(V.DUE_GUBUN, '악성채권',   V.AMT - (V.RCP_AMT1 + V.RCP_AMT2), 0))             AK_BOND_AMT
+                                FROM (
+                                      SELECT DEPT_ID, PART_SALES_SABUN, MAIN_UPJANG, UPJANG,
+                                             SUM(AMT) AMT,
+                                             BOND_DATE,
+                                             DUE_GUBUN,
+                                             SUM(RCP_AMT1) RCP_AMT1,
+                                             SUM(RCP_AMT2) RCP_AMT2
+                                        FROM (
+                                              SELECT /*+ NO_MERGE FULL(V) USE_HASH(V1)  */ B.DEPT_ID, B.PART_SALES_SABUN, B.MAIN_UPJANG, V.UPJANG_CD UPJANG,
+                                                     V.AR_AMT AMT,
+                                                     V.OCCUR_DATE                  BOND_DATE,
+                                                     (CASE WHEN :basisByymm >  DECODE(C.PAY_GUBUN_CD, '999', TO_CHAR(ADD_MONTHS(LAST_DAY(TO_DATE(V.OCCUR_DATE, 'YYYYMMDD')),1),'YYYYMMDD'), TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(C.PAY_GUBUN_CD) + 1), 'YYYYMM')||
+                                                                           LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(C.PAY_GUBUN_CD) + 1), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(C.PAY_DATE, 2, '0'))
+                                                                           ) THEN
+                                                                '악성채권'
+                                                           WHEN :basisByymm <=  DECODE(C.PAY_GUBUN_CD, '999', TO_CHAR(ADD_MONTHS(LAST_DAY(TO_DATE(V.OCCUR_DATE, 'YYYYMMDD')),1),'YYYYMMDD'), TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(C.PAY_GUBUN_CD) + 1), 'YYYYMM')||
+                                                                           LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(C.PAY_GUBUN_CD) + 1), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(C.PAY_DATE, 2, '0'))
+                                                                           ) AND
+                                                                :basisByymm > DECODE(C.PAY_GUBUN_CD, '999', TO_CHAR(LAST_DAY(TO_DATE(V.OCCUR_DATE, 'YYYYMMDD')),'YYYYMMDD'), TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(C.PAY_GUBUN_CD)), 'YYYYMM')||
+                                                                           LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(C.PAY_GUBUN_CD)), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(C.PAY_DATE, 2, '0'))
+                                                                           ) THEN
+                                                                '도래채권'
+                                                           WHEN :basisByymm <=  DECODE(C.PAY_GUBUN_CD, '999', TO_CHAR(LAST_DAY(TO_DATE(V.OCCUR_DATE, 'YYYYMMDD')),'YYYYMMDD'), TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(C.PAY_GUBUN_CD)), 'YYYYMM')||
+                                                                           LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(C.PAY_GUBUN_CD)), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(C.PAY_DATE, 2, '0'))
+                                                                           ) THEN
+                                                                '미도래채권' END) DUE_GUBUN,
+                                                    (SELECT NVL(SUM(V1.RECEIVE_AMT), 0) FROM SLA_AR_RECEIVE_DETAIL V1 WHERE V1.RECD_STATUS = 'L' AND V1.RECEIVE_DATE BETWEEN '19000101' AND :basisByymm AND V1.AR_NUM = V.AR_NUM) AS RCP_AMT1,
+                                                     0 RCP_AMT2
+                                                FROM SLA_AR_MST V , 
+                                                     FMS_UPJANG B,
+                                                     (
+                                                        SELECT UPJANG,
+                                                               MAX(PAY_GUBUN_CD) AS PAY_GUBUN_CD,
+                                                               MAX(PAY_DATE) AS PAY_DATE
+                                                        FROM SCO_UPJANG_CUST
+                                                        GROUP BY UPJANG
+                                                    ) C ,
+                                                    ST_UPJANG S,
+                                                    HLDC_SC_DEPT_V D
+                                              WHERE   (V.OCCUR_DATE  BETWEEN '19000101' AND :basisByymm )
+                                              AND    (V.SYS_CLASS      IN ('13','14'))
+                                              AND    (V.RECD_STATUS  = 'L')
+                                              AND    (V.UPJANG_CD = B.UPJANG)
+                                              AND    (B.UPJANG       = C.UPJANG)
+                                              AND    (B.UPJANG       = S.UPJANG)
+                                              AND    (S.DEPT_ID       = D.DEPT_ID)
+                                              AND    (D.MU_CD      = :muCd )
+                                              <#if tmCd?has_content>
+                                              AND   (D.TM_CD      = :tmCd )     
+                                              </#if>
+                                              <#if mainUpjangCd?has_content>                
+                                              AND   (B.MAIN_UPJANG          = :mainUpjangCd )
+                                              </#if>     
+                                              <#if upjangCd?has_content>                 
+                                              AND   (B.UPJANG         = :upjangCd )
+                                              </#if>     
+                                              <#if empNo?has_content>     
+                                              AND   (B.PART_SALES_SABUN      =  :empNo )
+                                              </#if>                                        
+                                              <#if ccCd?has_content> 
+                                              AND   (S.CC_CD     = :ccCd )
+                                             </#if> 
+                                              )
+                                        GROUP BY DEPT_ID, PART_SALES_SABUN, MAIN_UPJANG, UPJANG,BOND_DATE,DUE_GUBUN
+                                       ) V
+                                GROUP BY DEPT_ID, PART_SALES_SABUN, MAIN_UPJANG, UPJANG        
+                                
+                                ) V,
+                                FMS_UPJANG A,
+                                ST_UPJANG S,
+                                (
+                                 SELECT V.UPJANG, SUM(V.CREDIT_EXT_DAYS) CREDIT_EXT_DAYS
+                                   FROM FMS_CREDIT_EXT V
+                                  WHERE :basisByymm BETWEEN V.SUPPLY_START AND V.SUPPLY_END
+                                    AND V.APPR_YN = 'Y'
+                                  GROUP BY V.UPJANG
+                                ) V2
+                        WHERE (V.UPJANG = A.UPJANG)
+                          AND A.UPJANG = S.UPJANG
+                          AND V2.UPJANG(+) = V.UPJANG
+                        <#if mainUpjangCd?has_content>
+                        AND   (A.MAIN_UPJANG           = :mainUpjangCd )
+                        </#if>
+                        <#if upjangCd?has_content>
+                        AND   (A.UPJANG         = :upjangCd )
+                        </#if>
+                        <#if empNo?has_content> 
+                        AND   (A.PART_SALES_SABUN      =  :empNo )
+                        </#if>
+                        <#if ccCd?has_content> 
+                        AND   (S.DEPT_ID              = :ccCd  )
+                        </#if>     
+                        GROUP BY A.MAIN_UPJANG,
+                                 V.UPJANG,
+                                 A.DEPT_ID,
+                                 A.PART_SALES_SABUN
+                 ) XX
+          <#if srcType == '1'>
+                   <#if srcMonth == '1'>
+                      WHERE  (XX.MACHU_AMT_01) = 0 
+                   <#elseif srcMonth == '2'>
+                     WHERE (XX.MACHU_AMT_01 + XX.MACHU_AMT_02) = 0
+                   <#elseif srcMonth == '3'>
+                     WHERE (XX.MACHU_AMT_01 + XX.MACHU_AMT_02 + XX.MACHU_AMT_03) = 0
+                   <#elseif srcMonth == '4'>
+                     WHERE (XX.MACHU_AMT_01 + XX.MACHU_AMT_02 + XX.MACHU_AMT_03 + XX.MACHU_AMT_04) = 0
+                   <#elseif srcMonth == '5'>
+                     WHERE (XX.MACHU_AMT_01 + XX.MACHU_AMT_02 + XX.MACHU_AMT_03 + XX.MACHU_AMT_04 + XX.MACHU_AMT_05) = 0
+                   <#elseif srcMonth == '6'>
+                     WHERE (XX.MACHU_AMT_01 + XX.MACHU_AMT_02 + XX.MACHU_AMT_03 + XX.MACHU_AMT_04 + XX.MACHU_AMT_05 + XX.MACHU_AMT_06) = 0
+                </#if>
+            </#if>
+        
+           <#if srcType == '2'>
+                   <#if srcMonth == '1'>
+                     WHERE  (XX.RCP_AMT_01) = 0 
+                   <#elseif srcMonth == '2'>
+                     WHERE (XX.RCP_AMT_01 + XX.RCP_AMT_02) = 0
+                   <#elseif srcMonth == '3'>
+                     WHERE (XX.RCP_AMT_01 + XX.RCP_AMT_02 + XX.RCP_AMT_03) = 0
+                   <#elseif srcMonth == '4'>
+                     WHERE (XX.RCP_AMT_01 + XX.RCP_AMT_02 + XX.RCP_AMT_03 + XX.RCP_AMT_04) = 0
+                   <#elseif srcMonth == '5'>
+                     WHERE (XX.RCP_AMT_01 + XX.RCP_AMT_02 + XX.RCP_AMT_03 + XX.RCP_AMT_04 + XX.RCP_AMT_05) = 0
+                   <#elseif srcMonth == '6'>
+                     WHERE (XX.RCP_AMT_01 + XX.RCP_AMT_02 + XX.RCP_AMT_03 + XX.RCP_AMT_04 + XX.RCP_AMT_05 + XX.RCP_AMT_05) = 0
+                </#if>            
+            </#if>         
+    ) A,
+           (
+              SELECT    UJ.MAIN_UPJANG
+                      , UJ.UPJANG
+                      , NVL(UJ.CREDIT_AMOUNT,0) CREDIT_AMOUNT
+              FROM    FMS_UPJANG_V UJ, HLDC_SC_DEPT_V DJ, HLDC_ST_UPJANG HUJ, HLDC_ST_CUST HST
+                      , FMS_UPJANG_V UJ2
+                      , HLDC_HR_PERSONAL HR1
+                      , HLDC_HR_PERSONAL HR2
+                      , ( SELECT   UPJANG
+                                   , SUM(CREDIT_EXT_DAYS) AS CREDIT_EXT_DAYS
+                                   , SUM(CREDIT_EXT_AMOUNT) AS CREDIT_EXT_AMOUNT
+                          FROM     FMS_CREDIT_EXT
+                          WHERE    APPR_YN = 'Y'
+                          AND      TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN SUPPLY_START AND SUPPLY_END
+                          GROUP BY UPJANG
+                        ) CEXT
+                        ,( SELECT UPJANG
+                               , MAX(PAY_GUBUN_CD) AS PAY_GUBUN_CD
+                               , MAX(PAY_DATE) AS PAY_DATE
+                            FROM SCO_UPJANG_CUST
+                           GROUP BY UPJANG  
+                        ) SUC
+              WHERE   UJ.MAIN_UPJANG = UJ2.UPJANG
+              AND     UJ.CS_SABUN = HR1.SABUN(+)
+              AND     UJ.UPJANG = CEXT.UPJANG(+)
+              AND     UJ.PART_SALES_SABUN = HR2.SABUN(+)
+              AND     UJ.DEPT_ID = DJ.DEPT_ID(+)
+              AND     UJ.UPJANG = HUJ.UPJANG
+              AND     HUJ.CUSTCD = HST.CUSTCD
+              AND     UJ.UPJANG = SUC.UPJANG(+)
+              --AND     UJ.USE_YN = 'Y'
+               ORDER BY UPJANG
+             ) B
+      WHERE A.MAIN_UPJANG = B.MAIN_UPJANG(+)
+        AND A.UPJANG = B.UPJANG(+)
+        ]]></statement>
+
+</hqml>

@@ -1,0 +1,251 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Script type="xscript4.0"><![CDATA[/*------------------------------------------------------------------------------------------------------------------------------------------------------
+= 프로그램 : PO 공통 처리모듈
+= 화 일 명 : po_common.js
+= 기능설명 : 공통기능을 처리하기 위한 공통처리모듈
+------------------------------------------------------------------------------------------------------------------------------------------------------
+*/
+
+// 자재이미지 경로
+var gfspImgPathH = "http://203.233.82.173/UpImages/item/";
+
+// 자재정보
+var strPOQuery_Item             	 = " SELECT ITEM_CODE, DECODE(USE_YN,'N','※')||ITEM_CODE||' '||ITEM_NAME||';'||ITEM_SIZE||';'||UOM_CODE AS ITEM_NAME FROM HLDC_PO_ITEM_MST WHERE (1=1) ";
+var strPOQuery_ItemKeyField		     = "ITEM_CODE";
+var strPOQuery_ItemValueField   	 = "ITEM_NAME";
+var strPOQuery_ItemKeyFieldNM   	 = "자재코드";
+var strPOQuery_ItemValueFieldNM 	 = "자재명"; 
+var strPOQuery_ItemCaption      	 = "자재조회";
+// 입출고자재정보
+var strPOQuery_InOutItem           	 = " SELECT A.ITEM_CODE, A.ITEM_CODE||' '||A.ITEM_NAME||';'||A.ITEM_SIZE||';'||A.UOM_CODE  AS ITEM_NAME FROM HLDC_PO_ITEM_MST A, HLDC_PO_SUBINV_ITEM_CLASS B WHERE A.ITEM_CLASS1 = B.CLASS_CODE ";
+var strPOQuery_InOutItemKeyField		 = "ITEM_CODE";
+var strPOQuery_InOutItemValueField   	 = "A.ITEM_CODE||' '||A.ITEM_NAME||';'||A.ITEM_SIZE||';'||A.PO_UOM";
+var strPOQuery_InOutItemKeyFieldNM   	 = "자재코드";
+var strPOQuery_InOutItemValueFieldNM 	 = "자재명"; 
+var strPOQuery_InOutItemCaption      	 = "입출고자재조회";
+// 자재군분류
+var strPOQuery_ItemClass1             = " SELECT /*+ INDEX_ASC(PO_ITEM_CLASS_HLDC_V PO_ITEM_CLASS_HLDC_V_PK) */ CLASS_CODE, CLASS_NAME FROM HLDC_PO_ITEM_CLASS_HLDC_V WHERE (CLASS_TYPE = 'L') AND (USE_YN = 'Y') ";
+var strPOQuery_ItemClass1KeyField     = "CLASS_CODE";
+var strPOQuery_ItemClass1ValueField   = "CLASS_NAME";
+var strPOQuery_ItemClass1KeyFieldNM   = "군분류코드";
+var strPOQuery_ItemClass1ValueFieldNM = "군분류명"; 
+var strPOQuery_ItemClass1Caption      = "자재군분류조회";
+// 자재대분류
+var strPOQuery_ItemClass2             = " SELECT /*+ INDEX_ASC(PO_ITEM_CLASS_HLDC_V PO_ITEM_CLASS_HLDC_V_PK) */ CLASS_CODE, CLASS_NAME FROM HLDC_PO_ITEM_CLASS_HLDC_V WHERE (CLASS_TYPE = 'M') AND (USE_YN = 'Y') ";
+var strPOQuery_ItemClass2KeyField     = "CLASS_CODE";
+var strPOQuery_ItemClass2ValueField   = "CLASS_NAME";
+var strPOQuery_ItemClass2KeyFieldNM   = "대분류코드";
+var strPOQuery_ItemClass2ValueFieldNM = "대분류명"; 
+var strPOQuery_ItemClass2Caption      = "자재대분류조회";
+// 자재중분류
+var strPOQuery_ItemClass3             = " SELECT /*+ INDEX_ASC(PO_ITEM_CLASS_HLDC_V PO_ITEM_CLASS_HLDC_V_PK) */ CLASS_CODE, CLASS_NAME FROM HLDC_PO_ITEM_CLASS_HLDC_V WHERE (CLASS_TYPE = 'S') AND (USE_YN = 'Y') ";
+var strPOQuery_ItemClass3KeyField     = "CLASS_CODE";
+var strPOQuery_ItemClass3ValueField   = "CLASS_NAME";
+var strPOQuery_ItemClass3KeyFieldNM   = "중분류코드";
+var strPOQuery_ItemClass3ValueFieldNM = "중분류명"; 
+var strPOQuery_ItemClass3Caption      = "자재중분류조회";
+// 자재소분류
+var strPOQuery_ItemClass4             = " SELECT /*+ INDEX_ASC(PO_ITEM_CLASS_HLDC_V PO_ITEM_CLASS_HLDC_V_PK) */ CLASS_CODE, CLASS_NAME FROM HLDC_PO_ITEM_CLASS_HLDC_V WHERE (CLASS_TYPE = 'D') AND (USE_YN = 'Y') ";
+var strPOQuery_ItemClass4KeyField     = "CLASS_CODE";
+var strPOQuery_ItemClass4ValueField   = "CLASS_NAME";
+var strPOQuery_ItemClass4KeyFieldNM   = "소분류코드";
+var strPOQuery_ItemClass4ValueFieldNM = "소분류명"; 
+var strPOQuery_ItemClass4Caption      = "자재소분류조회";
+// 거래처코드
+var strPOQuery_CUST                = " SELECT CUSTCD, CUSTNM || ';' || SAUPNO AS CUSTNM FROM HLDC_ST_CUST WHERE (1=1) ";
+var strPOQuery_CUSTKeyField      = "VD_CD";
+var strPOQuery_CUSTValueField    = "VD_NM";
+var strPOQuery_CUSTKeyFieldNM    = "업체코드";
+var strPOQuery_CUSTValueFieldNM  = "업체명"; 
+var strPOQuery_CUSTCaption       = "업체정보조회";
+var strPOQuery_CUSTAllField      = "CUSTCD;CUSTNM";
+// 센터코드
+var strPOQuery_CENTER                = " SELECT CENTER_CODE, CENTER_NAME FROM HLDC_PO_CENTER WHERE USE_YN = 'Y' ";
+var strPOQuery_CENTERKeyField      = "CENTER_CODE";
+var strPOQuery_CENTERValueField    = "CENTER_NAME";
+var strPOQuery_CENTERKeyFieldNM    = "센터코드";
+var strPOQuery_CENTERValueFieldNM  = "센터명"; 
+var strPOQuery_CENTERCaption       = "센터정보조회";
+// 창고코드
+var strPOQuery_SUBINV              = " SELECT A.SUBINV_CODE AS SUBINV_CODE, DECODE(A.USE_YN,'N','폐장')||A.SUBINV_CODE||' '||A.SUBINV_NAME||'('||B.UPJANGNM||')' AS SUBINV_NAME FROM HLDC_PO_SUBINVENTORY A, HLDC_ST_UPJANG B WHERE A.UPJANG = B.UPJANG ";
+var strPOQuery_SUBINVKeyField      = "SUBINV_CODE";
+var strPOQuery_SUBINVValueField    = "DECODE(A.USE_YN,'N','폐장')||A.SUBINV_CODE||' '||A.SUBINV_NAME||'('||B.UPJANGNM||')' ";
+var strPOQuery_SUBINVKeyFieldNM    = "창고코드";
+var strPOQuery_SUBINVValueFieldNM  = "창고명"; 
+var strPOQuery_SUBINVCaption       = "창고정보조회";
+
+//진행상황 관리 DataSet ###############################################################################
+function fn_PoCommon()
+{
+	// Line Status
+	create("Dataset", "dsPoLineStatus");
+	dsPoLineStatus.addColumn("GroupCode", "String", 255);
+	dsPoLineStatus.addColumn("PRSave", "String", 255);
+	dsPoLineStatus.addColumn("PRFix", "String", 255);
+	dsPoLineStatus.addColumn("PRCancel", "String", 255);
+	dsPoLineStatus.addColumn("PRApprove", "String", 255);
+	dsPoLineStatus.addColumn("POCancel", "String", 255);
+	dsPoLineStatus.addColumn("POFix", "String", 255);
+	dsPoLineStatus.addColumn("POApprove", "String", 255);
+	dsPoLineStatus.addColumn("POCancel", "String", 255);
+	dsPoLineStatus.addColumn("POFix", "String", 255);
+	dsPoLineStatus.addColumn("POApprove", "String", 255);
+	dsPoLineStatus.addColumn("POOrder", "String", 255);
+	dsPoLineStatus.addColumn("PODelivering", "String", 255);
+	dsPoLineStatus.addColumn("INVPartial", "String", 255);
+	dsPoLineStatus.addColumn("INVNormal", "String", 255);
+	dsPoLineStatus.addColumn("INVReducing", "String", 255);
+	dsPoLineStatus.addColumn("INVPoor", "String", 255);
+	dsPoLineStatus.addColumn("INVDamaged", "String", 255);
+	dsPoLineStatus.addColumn("AUTOReducing", "String", 255);
+	dsPoLineStatus.addColumn("POReturn", "String", 255);
+	dsPoLineStatus.addColumn("POClosing", "String", 255);
+	dsPoLineStatus.addColumn("INVClosing", "String", 255);
+	dsPoLineStatus.addRow();
+	dsPoLineStatus.setColumn(0,"GroupCode","007");
+	dsPoLineStatus.setColumn(0,"PRSave","001");
+	dsPoLineStatus.setColumn(0,"PRFix","002");
+	dsPoLineStatus.setColumn(0,"PRCancel","003");
+	dsPoLineStatus.setColumn(0,"PRApprove","004");
+	dsPoLineStatus.setColumn(0,"POCancel","005");
+	dsPoLineStatus.setColumn(0,"POFix","006");
+	dsPoLineStatus.setColumn(0,"POApprove","007");
+	dsPoLineStatus.setColumn(0,"POOrder","008");
+	dsPoLineStatus.setColumn(0,"PODelivering","009");
+	dsPoLineStatus.setColumn(0,"INVPartial","010");
+	dsPoLineStatus.setColumn(0,"INVNormal","011");
+	dsPoLineStatus.setColumn(0,"INVReducing","012");
+	dsPoLineStatus.setColumn(0,"INVPoor","013");
+	dsPoLineStatus.setColumn(0,"INVDamaged","014");
+	dsPoLineStatus.setColumn(0,"AUTOReducing","015");
+	dsPoLineStatus.setColumn(0,"POReturn","016");
+	dsPoLineStatus.setColumn(0,"POClosing","017");
+	dsPoLineStatus.setColumn(0,"INVClosing","018");
+	
+	// Auth Type
+	create("Dataset", "dsPoAuthType");	
+	dsPoAuthType.addColumn("Inf", "String", 255);
+	dsPoAuthType.addColumn("Upr", "String", 255);
+	dsPoAuthType.addColumn("Pr", "String", 255);
+	dsPoAuthType.addColumn("PrSgn", "String", 255);
+	dsPoAuthType.addColumn("PO", "String", 255);
+	dsPoAuthType.addColumn("POSgn", "String", 255);
+	dsPoAuthType.addColumn("Ct", "String", 255);
+	dsPoAuthType.addColumn("Inv", "String", 255);
+	dsPoAuthType.addColumn("Ap", "String", 255);
+	dsPoAuthType.addRow();
+	dsPoAuthType.setColumn(0,"Inf","002");
+	dsPoAuthType.setColumn(0,"Upr","003");
+	dsPoAuthType.setColumn(0,"Pr","004");
+	dsPoAuthType.setColumn(0,"PrSgn","005");
+	dsPoAuthType.setColumn(0,"PO","006");
+	dsPoAuthType.setColumn(0,"POSgn","007");
+	dsPoAuthType.setColumn(0,"Ct","008");
+	dsPoAuthType.setColumn(0,"Inv","009");
+	dsPoAuthType.setColumn(0,"Ap","010");
+	
+                           
+	create("Dataset", "dsPoType");	             
+	dsPoType.addColumn("FoodAutoCondo", "String", 255);
+	dsPoType.addColumn("FoodAddCondo", "String", 255);
+	dsPoType.addColumn("FoodLocalCondo", "String", 255);
+	dsPoType.addColumn("FoodAutoFS", "String", 255);
+	dsPoType.addColumn("FoodAddFS", "String", 255);
+	dsPoType.addColumn("FoodLocalFs", "String", 255);
+	dsPoType.addColumn("FoodSalesFs", "String", 255);
+	dsPoType.addColumn("GoodsCondo", "String", 255);
+	dsPoType.addColumn("SMGoodsCondo", "String", 255);
+	dsPoType.addColumn("SMGoodsEventCondo", "String", 255);
+	dsPoType.addColumn("GoodsFS", "String", 255);
+	dsPoType.addColumn("GoodsSalesFS", "String", 255);
+	dsPoType.addColumn("Material", "String", 255);
+	dsPoType.addColumn("Fixture", "String", 255);
+	dsPoType.addRow();
+	dsPoType.setColumn(0,"FoodAutoCondo","01");
+	dsPoType.setColumn(0,"FoodAddCondo","02");
+	dsPoType.setColumn(0,"FoodLocalCondo","03");
+	dsPoType.setColumn(0,"FoodAutoFS","04");
+	dsPoType.setColumn(0,"FoodAddFS","05");
+	dsPoType.setColumn(0,"FoodLocalFs","06");
+	dsPoType.setColumn(0,"FoodSalesFs","07");
+	dsPoType.setColumn(0,"GoodsCondo","08");
+	dsPoType.setColumn(0,"SMGoodsCondo","09");
+	dsPoType.setColumn(0,"SMGoodsEventCondo","10");
+	dsPoType.setColumn(0,"GoodsFS","11");
+	dsPoType.setColumn(0,"GoodsSalesFS","12");
+	dsPoType.setColumn(0,"Material","13");
+	dsPoType.setColumn(0,"Fixture","14");
+	
+	create("Dataset", "dsTransType");
+	dsTransType.addColumn("I_IMPORT", "String", 255);
+	dsTransType.addColumn("I_PO", "String", 255);
+	dsTransType.addColumn("I_TRANS", "String", 255);
+	dsTransType.addColumn("I_LOSS", "String", 255);
+	dsTransType.addColumn("I_FSBoothCash", "String", 255);
+	dsTransType.addColumn("I_SYS", "String", 255);
+	dsTransType.addColumn("O_SALE", "String", 255);
+	dsTransType.addColumn("O_TRANS", "String", 255);
+	dsTransType.addColumn("O_LOSS", "String", 255);
+	dsTransType.addColumn("O_SYS", "String", 255);
+	dsTransType.addRow();
+	dsTransType.setColumn(0,"I_IMPORT","I000");			//기초재고생성
+	dsTransType.setColumn(0,"I_PO","I001");				//정상구매입고
+	dsTransType.setColumn(0,"I_TRANS","I002");			//이관인수입고
+	dsTransType.setColumn(0,"I_LOSS","I003");			//실사후 조정입고(과부족)
+	dsTransType.setColumn(0,"I_FSBoothCash","I004");	//FS매점 전도금입고
+	dsTransType.setColumn(0,"I_SYS","I004");			//I004까지는 시스템에서 사용(즉, 수정 및 삭제불가)
+	dsTransType.setColumn(0,"O_SALE","O001");			//정상매출출고
+	dsTransType.setColumn(0,"O_TRANS","O002");			//이관출고
+	dsTransType.setColumn(0,"O_LOSS","O003");			//실사후 조정출고(로스)
+	dsTransType.setColumn(0,"O_SYS","O003");			//'O003'까지는 시스템에서 사용(즉, 수정 및 삭제불가)
+}
+
+function fn_FormatDateTime (strDate, strFormat, datesplit, timesplit)
+{
+	var Ds, Ts, strFormatDate = "";
+	
+	Ds = iif(gfn_length(datesplit)==0, "-", datesplit);
+	Ts = iif(gfn_length(timesplit)==0, ":", timesplit);
+	
+	if(gfn_isNull(strDate))
+	{
+		g_Message("EE","Error !! 변환할 입력값이 없습니다.");
+		return strDate;
+	}
+
+	if(gfn_length(strDate)< 4 || gfn_length(strDate)> 14)
+	{
+		g_Message("EE","Error !! 현재 입력값은 적절한 날짜 형식으로 변환될 수 없습니다.");
+		return strDate;
+	}
+	
+	switch(gfn_length(strDate))
+	{
+		case 4:	// MMDD or HHMI or MISS
+			if(strFormat == "" || strFormat == "MMDD") 
+				strFormatDate = gfn_subStr(strDate,0,2)+ Ds + gfn_subStr(strDate,2,2);
+			else if(strFormat == "HHMI" || strFormat == "MISS")
+				strFormatDate = gfn_subStr(strDate,0,2)+ Ts + gfn_subStr(strDate,2,2);
+			break;
+		case 6:	//YYMMDD
+			strFormatDate = gfn_subStr(strDate,0,2)+ Ds + gfn_subStr(strDate,2,2)+ Ds + gfn_subStr(strDate,4,2);
+			break;
+		case 8:	//YYYYMMDD
+			strFormatDate = gfn_subStr(strDate,0,4)+ Ds + gfn_subStr(strDate,4,2)+ Ds + gfn_subStr(strDate,6,2);
+			break;
+		case 10:	//YYYYMMDDHH
+			strFormatDate = gfn_subStr(strDate,0,4)+ Ds + gfn_subStr(strDate,4,2)+ Ds + gfn_subStr(strDate,6,2)+ " " + gfn_subStr(strDate,8,2);
+			break;
+		case 12:	//YYYYMMDDHHMI
+			strFormatDate = gfn_subStr(strDate,0,4)+ Ds + gfn_subStr(strDate,4,2)+ Ds + gfn_subStr(strDate,6,2)+ " " + gfn_subStr(strDate,8,2)+ Ts + gfn_subStr(strDate,10,2);
+			break;
+		case 14:	//YYYYMMDDHHMISS
+			strFormatDate = gfn_subStr(strDate,0,4)+ Ds + gfn_subStr(strDate,4,2)+ Ds + gfn_subStr(strDate,6,2)+ " " + gfn_subStr(strDate,8,2)+ Ts + gfn_subStr(strDate,10,2)+ Ts + gfn_subStr(strDate,12,2);
+			break;
+		default:	//오류
+			strFormatDate = strDate;
+			break;
+	}		
+	
+	return strFormatDate;	
+}]]></Script>

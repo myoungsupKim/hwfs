@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+    SELECT B.DEPT_ID RTNDEPT_ID,
+           (SELECT MU_NM||' '||CC_NM FROM HLDC_SC_DEPT_V WHERE DEPT_ID = B.DEPT_ID) RTNDEPT_IDNM,
+           B.DEPT_ID BUDDEPT_ID,
+           (SELECT MU_NM||' '||CC_NM FROM HLDC_SC_DEPT_V WHERE DEPT_ID = B.DEPT_ID) BUDDEPT_IDNM,
+           A.ACCTCD,
+           (SELECT ACCTNM6 FROM HLDC_ST_ACCOUNT WHERE ACCTCD = A.ACCTCD) ACCTCDNM,
+           A.CUSTCD,
+           B.DEPT_ID       MANAGE_DEPT_ID,
+           DECODE(A.BILL_TYPE, '310', '001', '410', '002', '350', '001') GWA_GUBUN,
+           DECODE(A.BILL_TYPE, '310', '320', '410', '420', '350', '360') TAX_GUBUN,
+           (SELECT VAT_UPJANG FROM HLDC_ST_UPJANG WHERE UPJANG = A.UPJANG) VAT_UPJANG,
+     	     NVL(A.AMT, 0) SLPAMT,
+     	     NVL(A.VAT, 0) VATAMT,
+     	     A.BILL_DATE,
+     	     A.TAX_APPROVAL_NO BILL_NO,
+           B.UPJANGNM || A.BILL_DESC DESCRIPTION_NM,
+           DECODE((SELECT NVL(TRIM(SAUPNO), '9999999999') SAUPNO FROM HLDC_ST_CUST WHERE CUSTCD = A.CUSTCD), '9999999999', 'Y', 'N') RRN_GUBUN,
+           (SELECT PARACD1 FROM HLDC_ST_ACCOUNT WHERE ACCTCD = A.ACCTCD) PARACD1,
+           (SELECT PARACD2 FROM HLDC_ST_ACCOUNT WHERE ACCTCD = A.ACCTCD) PARACD2,
+           (SELECT PARACD3 FROM HLDC_ST_ACCOUNT WHERE ACCTCD = A.ACCTCD) PARACD3,
+           (SELECT PARACD4 FROM HLDC_ST_ACCOUNT WHERE ACCTCD = A.ACCTCD) PARACD4,
+           (SELECT PARACD5 FROM HLDC_ST_ACCOUNT WHERE ACCTCD = A.ACCTCD) PARACD5,
+           (SELECT PARACD6 FROM HLDC_ST_ACCOUNT WHERE ACCTCD = A.ACCTCD) PARACD6,
+           A.TAX_IF_GB,
+           DECODE(A.TAX_IF_GB, 'N', '1', A.TAX_SEND_GB) TAX_SEND_GB       
+    FROM MAS_BILL A,
+         SCO_UPJANG_MST_V B,
+         HLDC_IF_SEND_MST C         
+    WHERE (A.UPJANG     = B.UPJANG) 
+    AND   (A.BILL_NO    = C.IF_INVO_NUM(+))
+    AND   (A.BILL_DATE  BETWEEN #TRX_DATE#||'01' AND #TRX_DATE#||'31')
+    AND   (TRIM(A.GAMU) IS NULL)
+    AND   (NVL(A.CANCEL_YN, 'N') &lt;&gt; 'Y')
+    AND   (DECODE(A.TAX_IF_GB, 'Y', SUBSTR(HLDC_IF_INVO_STAT_QRY_FUN(A.BILL_NO), 1, 3), 'Y') &lt;&gt; '450')
+    ORDER BY B.DEPT_ID, A.BILL_DATE, A.BILL_NO
+</statement>
+	<input default-name="ds_cond">
+	<col name="TRX_DATE" size="255" type="VARCHAR" description="" /> 		
+	</input>
+	<output default-name="ds_listSource">
+		<col name="RTNDEPT_ID" size="" type="NUMERIC" description="" /> 
+    <col name="RTNDEPT_IDNM" size="255" type="VARCHAR" description="" /> 		
+    <col name="BUDDEPT_ID" size="" type="NUMERIC" description="" /> 
+    <col name="BUDDEPT_IDNM" size="255" type="VARCHAR" description="" /> 		
+    <col name="ACCTCD" size="255" type="VARCHAR" description="" /> 		
+    <col name="ACCTCDNM" size="255" type="VARCHAR" description="" /> 			
+    <col name="CUSTCD" size="" type="NUMERIC" description="" /> 
+    <col name="MANAGE_DEPT_ID" size="" type="NUMERIC" description="" /> 
+    <col name="GWA_GUBUN" size="255" type="VARCHAR" description="" /> 		
+    <col name="TAX_GUBUN" size="255" type="VARCHAR" description="" /> 		
+    <col name="VAT_UPJANG" size="" type="NUMERIC" description="" /> 	
+    <col name="SLPAMT" size="" type="NUMERIC" description="" /> 	
+    <col name="VATAMT" size="" type="NUMERIC" description="" /> 	
+    <col name="BILL_DATE" size="255" type="VARCHAR" description="" /> 	
+    <col name="BILL_NO" size="255" type="VARCHAR" description="" /> 	    
+    <col name="DESCRIPTION_NM" size="255" type="VARCHAR" description="" /> 	
+    <col name="RRN_GUBUN" size="255" type="VARCHAR" description="" /> 	
+    <col name="PARACD1" size="255" type="VARCHAR" description="" /> 	
+    <col name="PARACD2" size="255" type="VARCHAR" description="" /> 	
+    <col name="PARACD3" size="255" type="VARCHAR" description="" /> 	
+    <col name="PARACD4" size="255" type="VARCHAR" description="" /> 	
+    <col name="PARACD5" size="255" type="VARCHAR" description="" /> 	
+    <col name="PARACD6" size="255" type="VARCHAR" description="" /> 	
+    
+		<col name="TAX_IF_GB" size="20" type="VARCHAR" description="" /> 	
+		<col name="TAX_SEND_GB" size="20" type="VARCHAR" description="" /> 		        
+	</output>
+</query>

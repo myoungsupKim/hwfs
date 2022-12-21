@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>update</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>-1</result-count>
+	<statement>
+UPDATE FSM_REAL_RECIPE_ITEM
+   SET ITEM_CODE    = #AFTER_ITEM_CODE#,
+       EDIBLE_QTY   = NEED_QTY - ROUND(NEED_QTY * #DISUSE_RATE#/100,2),
+       UNIT_PRICE   = #CONTRACT_PRICE#,
+       MARGIN_RATE  = #MARGIN_RATE#,
+       MARGIN_PRICE = #ITEM_PRICE#,
+       ATTR06       = 2,
+       UUSER        = #g_EmpNo#,
+       UDATE        = SYSDATE
+ WHERE ITEM_CODE    = #BEFORE_ITEM_CODE#
+ AND   UPJANG       = #UPJANG#
+ AND   MENU_CD     IN (#ds_MENU_CD.MENU_CD$#)
+ AND   ORDER_YN     = 'N'
+<isNotNull col="RECIPE_CD">
+ AND   RECIPE_CD   IN (#ds_MENU_CD.RECIPE_CD$#)
+</isNotNull>
+ AND   RECIPE_CD NOT IN (SELECT RECIPE_CD 
+                           FROM FSM_REAL_RECIPE_ITEM 
+                          WHERE ITEM_CODE = #AFTER_ITEM_CODE# 
+                            AND UPJANG    = #UPJANG# 
+                            AND MENU_CD  IN (#ds_MENU_CD.MENU_CD$#)
+                         )
+</statement>
+	<input default-name="ds_where050">
+		<col name="AFTER_ITEM_CODE" size="255" type="VARCHAR" description="" /> 
+		<col name="BEFORE_ITEM_CODE" size="255" type="VARCHAR" description="" />
+		<col name="UPJANG" size="255" type="VARCHAR" description="" />
+		<col name="ds_MENU_CD.MENU_CD" size="255" type="VARCHAR" description="" />
+		<col name="ds_MENU_CD.RECIPE_CD" size="255" type="VARCHAR" description="" /> 
+		<col name="DISUSE_RATE" size="22" type="NUMBER" description="" /> 
+		<col name="CONTRACT_PRICE" size="22" type="NUMBER" description="" /> 
+		<col name="MARGIN_RATE" size="22" type="NUMBER" description="" /> 
+		<col name="ITEM_PRICE" size="" type="NUMBER" description="" /> 
+	</input>
+	<output default-name="ds_out">
+	</output>
+</query>

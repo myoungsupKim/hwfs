@@ -1,0 +1,279 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FSC00021P" onkeydown="frm_OnKeyDown" onload="form_onload" titletext="신규등록" position="absolute 0 0 258 139" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Static id="Static06" class="sta_WFDA_Labelbg" position="absolute 15 66 243 93"/>
+        <Static id="Static03" position="absolute 15 40 243 67" class="sta_WFDA_Labelbg"/>
+        <Static id="Static22" text="점검표구분" position="absolute 15 40 100 67" class="sta_WFDA_Label01"/>
+        <Static id="Static29" text="양         식" position="absolute 15 66 100 93" class="sta_WFDA_Label01"/>
+        <Combo codecolumn="CODE" datacolumn="CODE_NAME" id="cbo_TABLE_TYPE" index="0" innerdataset="ds_TABLE_TYPE" taborder="1" position="absolute 102 43 240 64"/>
+        <Combo id="cbo_FORM_CD" index="0" innerdataset="@ds_FORM_CD" taborder="2" position="absolute 102 69 240 90" codecolumn="FORM_CD" datacolumn="FORM_NAME"/>
+        <Button id="btn_Confirm" onclick="fn_Confirm" taborder="3" text="확인" position="absolute 193 103 243 125" class="btn_POP_Default" image=""/>
+        <Static id="MenuID" text="신규등록" position="absolute 15 16 169 40" class="sta_WF_Title"/>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 140"/>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 258 10"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 243 0 258 140"/>
+        <Static id="Static00" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 15 125 258 140"/>
+        <Static id="Static04" text="h06" class="Guide01_AreaRed" visible="false" position="absolute 15 10 215 16"/>
+        <Static id="Static05" text="아이콘기준 h08" class="Guide01_AreaRed" visible="false" position="absolute 15 32 215 40"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_input" oncolumnchanged="ds_input_OnColumnChanged">
+        <ColumnInfo>
+          <Column id="TABLE_TYPE" size="256" type="STRING"/>
+          <Column id="FORM_CD" size="256" type="STRING"/>
+          <Column id="UPJANG" size="256" type="STRING"/>
+          <Column id="TABLE_TYPE_NM" size="256" type="STRING"/>
+          <Column id="FORM_NAME" size="256" type="STRING"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="FORM_CD"/>
+            <Col id="FORM_NAME"/>
+            <Col id="TABLE_TYPE"/>
+            <Col id="TABLE_TYPE_NM"/>
+            <Col id="UPJANG"/>
+          </Row>
+        </Rows>
+      </Dataset>
+      <Dataset id="ds_FORM_CD">
+        <ColumnInfo>
+          <Column id="FORM_CD" size="256" type="STRING"/>
+          <Column id="FORM_NAME" size="256" type="STRING"/>
+          <Column id="TABLE_TYPE" size="256" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_list1"/>
+      <Dataset id="ds_list2"/>
+      <Dataset id="ds_TABLE_TYPE">
+        <ColumnInfo>
+          <Column id="CODE" size="256" type="STRING"/>
+          <Column id="code_name" size="256" type="STRING"/>
+          <Column id="SET1" size="256" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Bind>
+      <BindItem id="cbo_TABLE_TYPE_value" compid="cbo_TABLE_TYPE" propid="value" datasetid="ds_input" columnid="TABLE_TYPE"/>
+      <BindItem id="item0" compid="cbo_FORM_CD" propid="value" datasetid="ds_input" columnid="FORM_CD"/>
+    </Bind>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 메뉴관리/위생관리/점검결과등록
+ * 프로그램명   : FSC90021P.XML
+ * 기      능   : 점검결과등록-신규등록
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2008-03-20
+ * 비      고   : 
+ *		- ds_input				: [input DS] 조회조건 파라미터 DS
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "lib::sc_comon.js"
+//@@컨버터에서 주석처리 #include "lib::tit_comm_0001.js"
+//@@컨버터에서 주석처리 #include "lib::lib_comm_0001.js"
+//@@컨버터에서 주석처리 #include "lib::sc_sql_common.js"
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+var fstrQuery = "SELECT FORM_CD, FORM_NAME, TABLE_TYPE FROM FSC_SAFE_FORM_MST WHERE USE_YN = 'Y'   AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN START_DATE AND NVL(END_DATE,'99999999') ORDER BY START_DATE DESC, FORM_CD";
+var pParent = this.opener.parent;
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	// 업데이트 DS
+	v_ds_check = "";
+	
+	// X-Framework : Action 정보 생성 
+	fsp_init(this);
+	
+	// 양식조회
+	fn_sql_common("C", fstrQuery,"","","non",cbo_FORM_CD,-1,ds_FORM_CD);
+	
+	// 초기값
+	
+	ds_input.setColumn(0,"UPJANG",pParent.ds_input.getColumn(0,"UPJANG"));
+	ds_TABLE_TYPE.copyData(pParent.ds_TABLE_TYPE);
+	
+	cbo_TABLE_TYPE.index = 0;
+}
+
+function frm_OnKeyDown(obj:Form, e:KeyEventInfo)
+{
+	gfn_formKeyDown(obj, e); //(obj,e.fromreferenceobject,e.keycode,e.shiftKey,e.ctrlKey,e.altKey,-1,-1);
+}
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Confirm()
+ * 기      능   : [확인버튼] 신규등록
+ ******************************************************************************************
+ */
+function fn_Confirm(obj:Button, e:ClickEventInfo)
+{
+	fn_search();
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Search()
+ * 기      능   : [조회버튼] 검색조건에 해당하는 정보를 조회
+ ******************************************************************************************
+ */
+function fn_search()
+{
+	if (!fn_SearchCheck())		// 조회조건체크
+	{
+		return;
+	}
+	
+	// 초기화
+	ds_list1.clearData();
+	ds_list2.clearData();
+	
+	ds_input.setColumn(0,"TABLE_TYPE_NM",cbo_TABLE_TYPE.text);
+	ds_input.setColumn(0,"FORM_NAME",cbo_FORM_CD.text);
+	
+	var actionName, cmdName, inData, outData, otherArg, callBackFnc;
+	
+	actionName		= "FSC90021P_T001";
+	cmdName			= "U_svc::" + "fs/fsc/FSC90021P_T001.jsp";
+	inData			= "ds_input=ds_input";
+	outData			= "ds_list1=ds_list1 ds_list2=ds_list2";
+	callBackFnc		= "fn_afterSearch";
+	
+	jsp_transaction(this,actionName, cmdName ,inData ,outData,otherArg,callBackFnc,false,false,true);
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Insert()
+ * 기      능   : [입력버튼] 입력 시 처리되는 작업
+ * 비      고	: 팝업사용
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_SearchCheck()
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : 확인시 필수조회조건 체크
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2007-12-10  
+ ******************************************************************************************
+ */
+function fn_SearchCheck()
+{
+	if (gfn_length(ds_input.getColumn(0,"TABLE_TYPE"))== 0)
+	{
+		g_Message("EE", "점검표구분을 선택하세요.");
+		cbo_TABLE_TYPE.setFocus();
+		return false;
+	}
+
+	if (gfn_length(ds_input.getColumn(0,"FORM_CD"))== 0)
+	{
+		g_Message("EE", "양식을 선택하세요.");
+		cbo_FORM_CD.setFocus();
+		return false;
+	}
+	
+    return true;
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_afterSearch()
+ * 입      력   : errCode 	= 에러코드
+				  errMsg	= 에러메세지
+ * 반      환   : 없음
+ * 기      능   : 사업장 조회 후 실행 함수
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2008-03-18  
+ ******************************************************************************************
+ */
+function fn_afterSearch(errCode, errMsg)
+{
+	if(errCode!=0)
+	{
+		g_Message("EE", "서비스 오류:시스템 관리자에게 문의하십시오");
+		return;
+	}
+	
+	// Master
+	pParent.ds_Master.clearData();
+	pParent.ds_Master.addRow();
+	pParent.ds_Master.copyRow(0,ds_list1,0);
+	
+	/*
+	parent.ds_Master.SetColumn(0,"TABLE_TYPE",cbo_TABLE_TYPE.Value);
+	parent.ds_Master.SetColumn(0,"TABLE_TYPE_NM",cbo_TABLE_TYPE.Text);
+	parent.ds_Master.SetColumn(0,"FORM_CD",cbo_FORM_CD.Value);
+	parent.ds_Master.SetColumn(0,"FORM_NAME",cbo_FORM_CD.Text);
+	*/
+	
+	// Detail
+	pParent.ds_Detail.clearData();
+	for(i=0;i<ds_list2.rowcount;i++)
+	{
+		pParent.ds_Detail.addRow();
+		pParent.ds_Detail.copyRow(i,ds_list2,i);
+		pParent.ds_Detail.setColumn(i, "CHK", 1);
+		pParent.ds_Detail.setColumn(i, "MAX_YN","Y");
+		pParent.ds_Detail.setColumn(i, "MARK", pParent.ds_Detail.getColumn(i, "MARK_1"));
+		pParent.ds_Detail.setColumn(i, "CHK_POINT", pParent.ds_Detail.getColumn(i, "MARK_1"));
+	}
+
+	this.close(true);
+}
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : ds_input_OnColumnChanged(obj,nRow,strColumnID,varOldValue,varNewValue,nPivotIndex)
+ * 기      능   : 양식
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2008-03-19  
+ ******************************************************************************************
+ */
+function ds_input_OnColumnChanged(obj:Dataset, e:DSColChangeEventInfo)
+{
+	if (e.columnid == "TABLE_TYPE")
+	{
+		ds_FORM_CD.filter("TABLE_TYPE==" + wrapQuote(e.newvalue));
+		cbo_FORM_CD.index = 0;
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

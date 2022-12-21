@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.scu.userListDAO">
+	<desc>사용자 검색 HQML Query</desc>
+
+	<!-- 사용자 검색 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sc.scu.dao.UserListDAO.selectList */
+		<![CDATA[
+SELECT K.* FROM 
+(		
+		SELECT A.SABUN,
+		       A.USERID,
+		       A.NM_KOR,
+		       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = '사용자군' AND CODE = A.USER_GROUP) AS USER_GROUP_NAME,
+		       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'USER_TYPE' AND CODE = A.USER_TYPE) AS USER_TYPE_NAME,
+		       --(SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = A.UPJANG) AS UPJANGNM,
+		       (SELECT X.CC_CD  FROM ST_UPJANG X, SCC_CC Y WHERE X.UPJANG = A.UPJANG AND X.CC_CD = Y.CC_CD) AS CC_UPJANG,
+		       (SELECT X.CC_CD  FROM HR_PERSONAL X, SCC_CC Y WHERE X.SABUN = A.SABUN AND X.CC_CD = Y.CC_CD) AS CC_HRM,
+		       (SELECT X.CC_CD || ' ( ' || Y.CC_NM || ' )' FROM ST_UPJANG X, SCC_CC Y WHERE X.UPJANG = A.UPJANG AND X.CC_CD = Y.CC_CD) AS UPJANGNM,
+		       (SELECT X.CC_CD || ' ( ' || Y.CC_NM || ' )' FROM HR_PERSONAL X, SCC_CC Y WHERE X.SABUN = A.SABUN AND X.CC_CD = Y.CC_CD) AS CC_HR_NM,
+		       (SELECT CUSTNM FROM ST_CUST WHERE CUSTCD = A.CUSTCD) AS CUSTNM,
+		       (SELECT OTCUSTNM FROM FMP_OTHER_CUST WHERE OTCUSTCD = A.OTCUSTCD) AS OTCUSTNM,
+		       A.SDATE,
+		       A.EDATE,
+		       A.JOIN_DATE,
+		       A.REMARK,
+		       A.USE_YN,
+		       A.SYSTEM_MST,
+		       A.BOARD_MST,
+		       A.PERS_INFO_PROC_LEVEL,
+		       (SELECT PERS_INFO_PROC_GRADE || '-' || PERS_INFO_PROC_GRADE_DESC FROM SCC_PERS_INFO_PROC_GRADE WHERE PERS_INFO_PROC_GRADE = A.PERS_INFO_PROC_GRADE) AS PERS_INFO_PROC_GRADE,
+		       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'ACCT_STATUS' AND CODE = A.ACCT_STATUS) AS ACCT_STATUS,
+		       TO_CHAR(A.ACCT_LK_DD, 'YYYY-MM-DD HH24:MI') AS ACCT_LK_DD,
+		       A.ACCT_LK_REASON_CD,
+		       A.UDATE AS LAST_MOD_DATE	
+		FROM   SCC_USERINFO A
+		WHERE  1 = 1
+		<#if sabun?has_content>AND    SABUN = :sabun</#if>
+		<#if userid?has_content>AND    USERID = :userid</#if>
+		<#if nmKor?has_content>AND    NM_KOR LIKE '%' || :nmKor || '%'</#if>
+		<#if userGroup?has_content>AND    USER_GROUP = :userGroup</#if>
+		<#if userType?has_content>AND    USER_TYPE = :userType</#if>
+		<#if upjang?has_content>AND    UPJANG = :upjang</#if>
+		<#if custcd?has_content>AND    CUSTCD = :custcd</#if>
+		<#if otcustcd?has_content>AND    OTCUSTCD = :otcustcd</#if>
+		<#if useYn?has_content>AND    USE_YN = :useYn</#if>
+) K
+WHERE 1=1
+<#if syncYn == 'N'>
+	AND K.CC_UPJANG <> K.CC_HRM
+</#if>		
+ORDER BY NM_KOR
+		]]>
+	</statement>
+</hqml>

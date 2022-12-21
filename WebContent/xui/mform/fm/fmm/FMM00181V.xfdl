@@ -1,0 +1,241 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FMM00014E" titletext="조리법" position="absolute 0 0 955 352" onload="form_onload" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Grid id="grd_CookMethod" taborder="0" binddataset="ds_CookMethod" wheelscrollrow="1" autoenter="select" useinputpanel="false" onkeydown="grd_CookMethod_OnKeyDown" onheadclick="grd_CookMethod_OnHeadClick" position="absolute 0 31 945 352" autofittype="col" anchor="all">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="30"/>
+                <Column size="896"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="text" class="head_Excel"/>
+                <Cell col="1" displaytype="text" text="조리법"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" style="align:left;" expr="expr:currow+1"/>
+                <Cell col="1" displaytype="text" edittype="none" style="align:left;" text="bind:CUISINE_DESC"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="sta_WF_Title01" text="조리법" class="sta_WF_Title01" position="absolute 0 13 450 31"/>
+        <Static id="Static19" text="h05" class="Guide01_AreaRed" visible="false" position="absolute 801 26 945 31" anchor="top right"/>
+        <Static id="Static10" text="h06" class="Guide01_AreaRed" visible="false" position="absolute 801 0 945 6" anchor="top right"/>
+        <Button id="btn_SubAdd" taborder="1" onclick="btn_SubInsert_OnClick" class="btn_WF_GrdPlus" position="absolute 907 6 925 26" anchor="top right" visible="false"/>
+        <Button id="btn_SubDelete" taborder="2" onclick="btn_SubDelete_OnClick" class="btn_WF_GrdMinus" position="absolute 927 6 945 26" anchor="top right" visible="false"/>
+        <Static id="Static13" text="w02" class="Guide01_AreaRed" visible="false" position="absolute 925 6 927 26" anchor="top right"/>
+        <Static id="Static16" text="글자기준간격 h05" class="Guide01_AreaRed" visible="false" position="absolute 0 26 450 31"/>
+        <Static id="Static15" text="h13" class="Guide01_AreaRed" visible="false" position="absolute 0 0 450 13" anchor="left top"/>
+        <Static id="Static01" text="w10" class="Guide01_AreaRed" visible="false" position="absolute 945 0 955 347"/>
+      </Layout>
+    </Layouts>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+//@@컨버터에서 주석처리 #include "lib::sc_comon.js"
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js"		//JAVA 코딩시
+//@@컨버터에서 주석처리 #include "lib::tit_comm_0001.js"
+
+function fn_SubDetail0()
+{
+	trace(ds_Recipe.getColumn(0,"RECIPE_CD")); 
+	ds_cond.clear();
+	ds_cond.addColumn("RECIPE_CD","STRING");
+	ds_cond.addRow();
+	ds_cond.setColumn(0,"RECIPE_CD",gfn_nvl(ds_Recipe.getColumn(0,"RECIPE_CD")));
+
+	fsp_clear(this);
+	ds_CookMethod.clearData();
+	fsp_addSearch(this,"fs/fsr:FSR00010E_S011");
+	fsp_callService(this,"","","ds_cond=ds_cond","ds_CookMethod=ds_CookMethod","","fn_call_back_subdiv","",true);
+}
+function fn_call_back_subdiv(cd,errmsg)
+{
+	if(cd!=0)
+	{
+//		alert(fn_AlertMsg("002");
+		return;
+	}
+	else
+	{
+	}
+}
+function btn_SubInsert_OnClick(obj:Button, e:ClickEventInfo)
+{
+	if(ds_CookMethod.findRowExpr("gfn_length(gfn_trim(CUISINE_DESC))==0")!=-1)
+	{
+		gfn_alert(fn_AlertMsg("007"));
+		return;
+	}
+	ds_CookMethod.addRow(); 
+}
+
+function btn_SubDelete_OnClick(obj:Button, e:ClickEventInfo)
+{
+	if(v_gbn==0)
+	{
+		return;
+	}
+	for(i=ds_CookMethod.getRowCount();i>=0;i--)
+	{
+		if(ds_CookMethod.getSelect(i))
+		{
+			ds_CookMethod.deleteRow(i);
+		}
+	}
+	
+}
+
+function grd_CookMethod_OnKeyDown(obj:Grid, e:KeyEventInfo)
+{
+	return;
+	if(e.keycode==13)
+	{
+		fn_addCooking();
+	}
+	if(e.keycode==45)
+	{
+		if(ds_CookMethod.getRowCount()==0)
+		{
+			fn_addCooking();
+		}
+		else
+		{
+			fn_insCooking();
+		}
+	}
+	
+	if(e.keycode==13)
+	{
+		if(ds_Recipe.getRowCount()==0)
+		{
+			return;
+		}
+		if(v_gbn==0)
+		{
+			return;
+		}
+
+		if(ds_CookMethod.findRowExpr("gfn_length(gfn_trim(CUISINE_DESC))==0 || gfn_trim(CUISINE_DESC)==null")!=-1)
+		{
+			return;
+		}
+		if(ds_MainRecipeList.getRowCount()>0)
+		{
+			ds_CookMethod.addRow();
+			ds_CookMethod.setColumn(ds_CookMethod.rowposition,"UPJANG",ds_MainRecipeList.getColumn(0,"UPJANG") );
+		}
+		else
+		{
+			if(gfn_length(gfn_trim(div_NoReci.ed_UpjangCD.value))==0)
+			{
+				g_Message("EE",fn_AlertMsg("051"));
+				return;
+			}
+			ds_CookMethod.addRow();
+			ds_CookMethod.setColumn(ds_CookMethod.rowposition,"UPJANG",gfn_trim(div_NoReci.ed_UpjangCD.value));
+		}		
+		ds_CookMethod.setColumn(ds_CookMethod.rowposition,"RECIPE_CD",ds_Recipe.getColumn(0,"RECIPE_CD"));
+		// ds_CookMethod.SetColumn(ds_CookMethod.row,"PHOTO_PATH",ds_Recipe.GetColumn(0,"PHOTO_PATH"));
+		// ds_CookMethod.SetColumn(ds_CookMethod.row,"SPHOTO_PATH",ds_Recipe.GetColumn(0,"SPHOTO_PATH"));
+	}
+}
+
+function fn_addCooking()
+{
+	if(ds_Recipe.getRowCount()==0)
+	{
+		return;
+	}
+	if(v_gbn==0)
+	{
+		return;
+	}
+
+	if(ds_CookMethod.findRowExpr("gfn_length(gfn_trim(CUISINE_DESC))==0 || gfn_trim(CUISINE_DESC)==null")!=-1)
+	{
+		return;
+	}
+	if(ds_MainRecipeList.getRowCount()>0)
+	{
+		ds_CookMethod.addRow();
+		ds_CookMethod.setColumn(ds_CookMethod.rowposition,"UPJANG",ds_MainRecipeList.getColumn(0,"UPJANG") );
+	}
+	else
+	{
+		if(gfn_length(gfn_trim(div_NoReci.ed_UpjangCD.value))==0)
+		{
+			g_Message("EE",fn_AlertMsg("051"));
+			return;
+		}
+		ds_CookMethod.addRow();
+		ds_CookMethod.setColumn(ds_CookMethod.rowposition,"UPJANG",gfn_trim(div_NoReci.ed_UpjangCD.value));
+	}		
+	ds_CookMethod.setColumn(ds_CookMethod.rowposition,"RECIPE_CD",ds_Recipe.getColumn(0,"RECIPE_CD"));
+	// ds_CookMethod.SetColumn(ds_CookMethod.row,"PHOTO_PATH",ds_Recipe.GetColumn(0,"PHOTO_PATH"));
+	// ds_CookMethod.SetColumn(ds_CookMethod.row,"SPHOTO_PATH",ds_Recipe.GetColumn(0,"SPHOTO_PATH"));
+}
+
+function fn_insCooking()
+{
+	if(ds_Recipe.getRowCount()==0)
+	{
+		return;
+	}
+	if(v_gbn==0)
+	{
+		return;
+	}
+//
+	if(gfn_dsIsUpdated(ds_CookMethod)==true)
+	{
+		for(i=0;i<ds_CookMethod.getRowCount();i++)
+		{
+			if(GetRowType(ds_CookMethod,i)=="insert" && gfn_length(gfn_trim(ds_CookMethod.getColumn(i,"CUISINE_DESC")))==0)
+			{
+				ds_CookMethod.deleteRow(i);
+				break;
+			}
+		}
+	}
+	if(ds_CookMethod.findRowExpr("gfn_length(gfn_trim(CUISINE_DESC))==0 || gfn_trim(CUISINE_DESC)==null")!=-1)
+	{
+		return;
+	}
+	ds_CookMethod.insertRow(ds_CookMethod.rowposition);
+	ds_CookMethod.setColumn(ds_CookMethod.rowposition,"UPJANG",ds_MainRecipeList.getColumn(0,"UPJANG") );	
+	ds_CookMethod.setColumn(ds_CookMethod.rowposition,"RECIPE_CD",ds_Recipe.getColumn(0,"RECIPE_CD"));
+	// ds_CookMethod.SetColumn(ds_CookMethod.row,"PHOTO_PATH",ds_Recipe.GetColumn(0,"PHOTO_PATH"));
+	// ds_CookMethod.SetColumn(ds_CookMethod.row,"SPHOTO_PATH",ds_Recipe.GetColumn(0,"SPHOTO_PATH"));		
+
+}
+function grd_CookMethod_OnHeadClick(obj:Grid, e:GridClickEventInfo)
+{
+	switch(e.cell)
+	{
+		case 0:
+			if( isAlpha(gfn_subStr(ds_Recipe.getColumn(0,"RECIPE_CD"),0,1)))
+			{
+				g_Message("04",fn_AlertMsg("052"));
+				return;
+			}		
+			gfn_exportExcel(grd_CookMethod, "sheet1");
+			break;
+        default :
+            break;
+	}
+}
+
+function btn_Append_OnClick(obj:Button, e:ClickEventInfo)
+{
+	fn_addCooking();
+}
+]]></Script>
+  </Form>
+</FDL>

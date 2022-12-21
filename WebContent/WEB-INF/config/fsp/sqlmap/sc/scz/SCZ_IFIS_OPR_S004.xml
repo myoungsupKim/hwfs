@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.TITLE, --구분
+       DECODE(TO_CHAR(TO_DATE(A.TITLE, 'YYYYMMDD'), 'dy','NLS_DATE_LANGUAGE=KOREAN'), '월', '月', '화', '火', '수', '水', '목', '木', '금', '金', '토', '土', '일', '日') TRX_DAY,
+       NVL(DECODE(R_AMT, 0, 0,(DECODE(R_AMT_COST, 0, 0,  ROUND((R_AMT_COST/R_AMT) * 100, 1)))),0) R_AMT_RATIO, --식음원가율
+       NVL(R_AMT,0) R_AMT, --식음매출
+       NVL(R_AMT_COST,0) R_AMT_COST --식음원가
+  FROM  (
+         SELECT DECODE(ROWNUM, 1, TO_CHAR(SYSDATE - 7, 'YYYYMMDD'),
+                               2, TO_CHAR(SYSDATE - 6, 'YYYYMMDD'),
+                               3, TO_CHAR(SYSDATE - 5, 'YYYYMMDD'),
+                               4, TO_CHAR(SYSDATE - 4, 'YYYYMMDD'),
+                               5, TO_CHAR(SYSDATE - 3, 'YYYYMMDD'),
+                               6, TO_CHAR(SYSDATE - 2, 'YYYYMMDD'),
+                               7, TO_CHAR(SYSDATE - 1, 'YYYYMMDD')) TITLE
+         FROM DICT
+         WHERE (ROWNUM < 8)
+        ) A,
+        (
+         SELECT V.TRX_DATE,
+                ROUND(NVL(SUM(V.P_AMT), 0)/ 1000) P_AMT,
+                ROUND(NVL(SUM(V.F_AMT), 0)/ 1000) F_AMT,
+                ROUND(NVL(SUM(V.R_AMT), 0)/ 1000) R_AMT,
+                ROUND(NVL(SUM(V.P_AMT_COST), 0)/ 1000) P_AMT_COST,
+                ROUND(NVL(SUM(V.F_AMT_COST), 0)/ 1000) F_AMT_COST,
+                ROUND(NVL(SUM(V.R_AMT_COST), 0)/ 1000) R_AMT_COST
+         FROM (
+                SELECT V.UPJANG,
+                       V.TRX_DATE,
+                       0 P_AMT,
+                       0 F_AMT,
+                       V.AMT R_AMT,
+                       0 P_AMT_COST,
+                       0 F_AMT_COST,
+                       0 R_AMT_COST
+                  FROM MAS_DD_ACCTCD_SALE V,
+                       MAS_BOND_CODE A
+                WHERE (V.TRX_DATE BETWEEN TO_CHAR(SYSDATE-7, 'YYYYMMDD') AND TO_CHAR(SYSDATE - 1, 'YYYYMMDD'))
+                AND   (A.BOND_GUBUN = 'MACHUL')
+                AND   (V.ACCTCD     = A.ACCTCD)
+                AND   (A.ACCT_NAME  = '식음료매출액')
+                AND   (V.UPJANG IN  (SELECT UPJANG FROM SCO_UPJANG_MST_V WHERE TM_CD = #TM_CD#)) --팀장사번
+                UNION ALL
+                SELECT V.UPJANG,
+                       V.TRX_DATE,
+                       0 P_AMT,
+                       0 F_AMT,
+                       0 R_AMT,
+                       0 P_AMT_COST,
+                       0 F_AMT_COST,
+                       V.UNIT_AMT R_AMT_COST --영양사화면 : MARGIN_AMT(출하가), 그외 : UNIT_AMT(매입가)
+                  FROM MAS_DD_ACCTCD_COST V,
+                       MAS_BOND_CODE A
+                WHERE (V.TRX_DATE BETWEEN TO_CHAR(SYSDATE - 7, 'YYYYMMDD') AND TO_CHAR(SYSDATE - 1, 'YYYYMMDD'))
+                AND   (A.BOND_GUBUN = 'COST')
+                AND   (V.ACCTCD     = A.ACCTCD)
+                AND   (A.ACCT_NAME  = '식음료원가')
+                AND   (V.UPJANG IN  (SELECT UPJANG FROM SCO_UPJANG_MST_V WHERE TM_CD = #TM_CD#)) --팀장사번
+                ) V
+         GROUP BY V.TRX_DATE
+        ) V
+WHERE A.TITLE = V.TRX_DATE(+)
+ORDER BY A.TITLE	]]></statement>
+	<input default-name="ds_in">
+	</input>
+	<output default-name="ds_chart01">
+	</output>
+</query>

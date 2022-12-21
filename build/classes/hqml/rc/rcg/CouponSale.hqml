@@ -1,0 +1,442 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.rcg.couponSaleDAO">
+	<desc>쿠폰 판매 처리 HQML Query</desc>
+
+	<!-- 쿠폰 판매 처리 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.rc.rcg.dao.CouponSaleDAO.selectList */
+		<![CDATA[
+			SELECT A.COUPON_PROC_NUM,
+			       A.PROC_DATE,
+			       A.COUPON_PROC_OCCUR_CLASS,
+			       DECODE(A.FOC_YN, 'Y', 1, 0) AS FOC_YN,
+			       A.CUST_CD,
+			       A.CUST_NM,
+			       A.MU_CD,
+			       A.CC_CD,
+			       (SELECT CC_NM FROM SCC_CC WHERE CC_CD=A.CC_CD) CC_NM,
+			       A.COUPON_AMT,
+			       A.SUPPLY_AMT,
+			       A.VAT_AMT,
+			       A.VAT_CD,
+			       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'TAX_CD' AND CODE = A.VAT_CD) AS VAT_NM,
+			       A.NEWHGHT_UPJANG,
+			       A.TAX_BILL_PUBLISH_DATE,
+			       A.EXC_AMT,
+			       A.PROC_AMT,
+			       A.PAY_GRP,
+			       A.PAY_TYPE,
+			       DECODE(A.PAY_TYPE,'1','V') AS CASH_CHK,
+			       DECODE(A.PAY_TYPE,'2','V') AS CARD_CHK,
+			       DECODE(A.PAY_TYPE,'7','V') AS PAYMENT_CHK,
+			       DECODE(A.PAY_TYPE,'P2','V') AS ADVANCE_CHK,
+			       A.PAY_SCHD_DATE,
+			       A.REMARK,
+			       A.UPJANG_CD,
+			       A.RECEIPT_NUM,
+			       A.POS_NUM,
+			       A.AR_TYPE_CD,
+			       A.AR_NUM,
+			       (SELECT COUNT(*) FROM SLA_AR_RECEIVE_DETAIL D WHERE D.AR_NUM = A.AR_NUM AND D.RECD_STATUS='L') AS AR_RECEIVE_COUNT,
+			       A.BATCH_ID,
+			       A.RECD_STATUS,
+			       DECODE(A.JOURNALZ_YN, 'Y', 1, 0) AS JOURNALZ_YN,
+			       A.JOURNALZ_NUM,
+           	 	   B.SEQ,
+                   B.RECEIVE_TYPE_CD,
+                   B.BUYCPNY_CD,
+                   B.SELF_BU_CLASS_CD,
+                   B.CREDIT_CARD_NUM,
+                   B.APPRV_NUM,
+                   B.VALID_YYMM,
+                   B.RECEIVE_BANKCD,
+                   B.IMNO_CRGLEFT_NUM,
+                   B.SUSPENSE_DATE,
+                   B.IMNO_RECEIVE_SEQ,
+                   B.SUSPENSE_SRLNUM,
+                   B.IMNO_ALT_NUM,
+                   B.ADVANCE_NUM,
+                   B.RECEIVE_AMT,
+                   B.ADVANCE_ALT_NUM,
+                   --쿠폰판매 조회 시 쿠폰 종류 추가 20190409 김호석                   
+                   (SELECT MAX(D.COUPON_KIND_CD) FROM SLA_COUPON_PROC_DETAIL D WHERE A.COUPON_PROC_NUM = D.COUPON_PROC_NUM ) COUPON_KIND_CD,
+                   (SELECT C.COUPON_KIND_NM FROM SLA_COUPON_KIND_MST C WHERE C.COUPON_KIND_CD = ((SELECT MAX(D.COUPON_KIND_CD) FROM SLA_COUPON_PROC_DETAIL D WHERE D.COUPON_PROC_NUM = A.COUPON_PROC_NUM ))) COUPON_KIND_NM
+			FROM   SLA_COUPON_PROC_MST A, SLA_COUPON_RECEIVE_WAY B
+            WHERE A.COUPON_PROC_NUM = B.COUPON_PROC_NUM
+              AND A.COUPON_PROC_OCCUR_CLASS='1'
+            	<#if muCd?has_content>AND    A.MU_CD = :muCd</#if>
+				<#if couponProcNum?has_content>AND    A.COUPON_PROC_NUM = :couponProcNum</#if>
+				<#if procDateFr?has_content>AND A.PROC_DATE >= :procDateFr</#if>
+				<#if procDateTo?has_content>AND A.PROC_DATE <= :procDateTo</#if>
+				<#if custCd?has_content>AND    A.CUST_CD >= :custCd</#if>
+				AND A.RECD_STATUS = 'L'
+			ORDER BY A.COUPON_PROC_NUM DESC
+		]]>
+	</statement>
+
+	<!-- 쿠폰 판매 처리 목록을 조회한다. -->
+	<statement name="selectDetailList" type="select">
+		/*+ com.hwfs.rc.rcg.dao.CouponSaleDAO.selectDetailList */
+		<![CDATA[
+			SELECT A.COUPON_PROC_NUM,
+			       A.COUPON_NUM,
+			       A.COUPON_KIND_CD,
+			       B.COUPON_KIND_NM,
+			       A.COUPON_AMT,
+			       DECODE(A.VAT_INCLUDE_YN, 'Y', 1, 0) AS VAT_INCLUDE_YN,
+			       A.VAT_CD,
+			       A.SUPPLY_AMT,
+			       A.VAT_AMT,
+			       ADVANCE_AMT,
+			       RELEASE_DATE,
+			       A.RECD_STATUS,
+			       A.CUSER,
+			       A.CDATE,
+			       A.UUSER,
+			       A.UDATE,
+                   C.USE_DATE
+			FROM   SLA_COUPON_PROC_DETAIL A, SLA_COUPON_KIND_MST B, SLA_COUPON_NUM_MST C
+			WHERE  1=1 AND A.COUPON_KIND_CD = B.COUPON_KIND_CD
+				AND A.COUPON_NUM = C.COUPON_NUM
+				<#if couponProcNum?has_content>AND    A.COUPON_PROC_NUM = :couponProcNum</#if>
+				AND A.RECD_STATUS = 'L'
+		]]>
+	</statement>
+
+	<!-- 쿠폰 판매 처리시 판매번호 MAX값을  조회한다. -->
+	<statement name="selectMaxProcNum" type="select">
+		/*+ com.hwfs.rc.rcg.dao.CouponDestributionDAO.selectList */
+		<![CDATA[
+			SELECT :procDate || SUBSTR('0000' || (NVL(MAX(TO_NUMBER(SUBSTR(COUPON_PROC_NUM,9,4))),0)+1), -4) AS maxCouponProcNum
+			FROM SLA_COUPON_PROC_MST WHERE SUBSTR(COUPON_PROC_NUM,1,8) = :procDate
+		]]>
+	</statement>
+	
+	<!-- 쿠폰 판매 처리(을)를 등록한다. -->
+	<statement name="insertMst" type="insert">
+		/*+ com.hwfs.rc.rcg.dao.CouponSaleDAO.insert */
+		<![CDATA[
+		INSERT INTO SLA_COUPON_PROC_MST
+		(
+			 COUPON_PROC_NUM,
+			 PROC_DATE,
+			 COUPON_PROC_OCCUR_CLASS,
+			 FOC_YN,
+			 CUST_CD,
+			 CUST_NM,
+			 MU_CD,
+			 CC_CD,
+			 COUPON_AMT,
+			 SUPPLY_AMT,
+			 VAT_AMT,
+			 VAT_CD,
+			 NEWHGHT_UPJANG,
+			 TAX_BILL_PUBLISH_DATE,
+			 EXC_AMT,
+			 PROC_AMT,
+			 PAY_GRP,
+			 PAY_TYPE,
+			 PAY_SCHD_DATE,
+			 REMARK,
+			 UPJANG_CD,
+			 RECEIPT_NUM,
+			 POS_NUM,
+			 AR_TYPE_CD,
+			 AR_NUM,
+			 BATCH_ID,
+			 RECD_STATUS,
+			 JOURNALZ_YN,
+			 JOURNALZ_NUM,
+			 CUSER,
+			 CDATE,
+			 UUSER,
+			 UDATE
+		) VALUES (
+			 :maxCouponProcNum,
+			 :procDate,
+			 :couponProcOccurClass,
+			<#if focYn?exists> DECODE(:focYn, '1', 'Y', 'N'), <#else> null, </#if>
+			<#if custCd?exists> :custCd, <#else> null, </#if>
+			<#if custNm?exists> :custNm, <#else> null, </#if>
+			<#if muCd?exists> :muCd, <#else> null, </#if>
+			<#if ccCd?exists> :ccCd, <#else> null, </#if>
+			 :couponAmt,
+			 :supplyAmt,
+			<#if vatAmt?exists> :vatAmt, <#else> null, </#if>
+			<#if vatCd?exists> :vatCd, <#else> null, </#if>
+			<#if newhghtUpjang?exists> :newhghtUpjang, <#else> null, </#if>
+			<#if taxBillPublishDate?exists> :taxBillPublishDate, <#else> null, </#if>
+			<#if excAmt?exists> :excAmt, <#else> null, </#if>
+			<#if procAmt?exists> :procAmt, <#else> null, </#if>
+			<#if payGrp?exists> :payGrp, <#else> null, </#if>
+			<#if payType?exists> :payType, <#else> null, </#if>
+			<#if paySchdDate?exists> :paySchdDate, <#else> null, </#if>
+			 :remark,
+			<#if upjangCd?exists> :upjangCd, <#else> null, </#if>
+			<#if receiptNum?exists> :receiptNum, <#else> null, </#if>
+			<#if posNum?exists> :posNum, <#else> null, </#if>
+			<#if arTypeCd?exists> :arTypeCd, <#else> null, </#if>
+			<#if arNum?exists> :arNum, <#else> null, </#if>
+			<#if batchId?exists> :batchId, <#else> null, </#if>
+			'L', 
+			 DECODE(:journalzYn, '1', 'Y', 'N'),
+			<#if journalzNum?exists> :journalzNum, <#else> null, </#if>
+			 :loginSabun,
+			 SYSDATE,
+			 :loginSabun,
+			 SYSDATE
+		)
+
+		]]>
+	</statement>
+	
+	<!-- 쿠폰 판매 처리(을)를 수정한다. -->
+	<statement name="updateMst" type="update">
+		/*+ com.hwfs.rc.rcg.dao.CouponSaleDAO.updateMst */
+		<![CDATA[
+		UPDATE SLA_COUPON_PROC_MST SET
+		       PROC_DATE = :procDate,
+		       COUPON_PROC_OCCUR_CLASS = :couponProcOccurClass,
+		<#if focYn?exists> FOC_YN = DECODE(:focYn, '1', 'Y', 'N'), </#if>
+		<#if custCd?exists> CUST_CD = :custCd, </#if>
+		<#if custNm?exists> CUST_NM = :custNm, </#if>
+		<#if muCd?exists> MU_CD = :muCd, </#if>
+		<#if ccCd?exists> CC_CD = :ccCd, </#if>
+		       COUPON_AMT = :couponAmt,
+		       SUPPLY_AMT = :supplyAmt,
+		<#if vatAmt?exists> VAT_AMT = :vatAmt, </#if>
+		<#if vatCd?exists> VAT_CD = :vatCd, </#if>
+		<#if newhghtUpjang?exists> NEWHGHT_UPJANG = :newhghtUpjang, </#if>
+		<#if taxBillPublishDate?exists> TAX_BILL_PUBLISH_DATE = :taxBillPublishDate, </#if>
+		<#if excAmt?exists> EXC_AMT = :excAmt, </#if>
+		<#if procAmt?exists> PROC_AMT = :procAmt, </#if>
+		<#if payGrp?exists> PAY_GRP = :payGrp, </#if>
+		<#if payType?exists> PAY_TYPE = :payType, </#if>
+		<#if paySchdDate?exists> PAY_SCHD_DATE = :paySchdDate, </#if>
+		       REMARK = :remark,
+		<#if upjangCd?exists> UPJANG_CD = :upjangCd, </#if>
+		<#if receiptNum?exists> RECEIPT_NUM = :receiptNum, </#if>
+		<#if posNum?exists> POS_NUM = :posNum, </#if>
+		<#if arTypeCd?exists> AR_TYPE_CD = :arTypeCd, </#if>
+		<#if arNum?exists> AR_NUM = :arNum, </#if>
+		<#if batchId?exists> BATCH_ID = :batchId, </#if>
+		<#if recdStatus?exists> RECD_STATUS = :recdStatus, </#if>
+		       JOURNALZ_YN = DECODE(:journalzYn, '1', 'Y', 'N'),
+		<#if journalzNum?exists> JOURNALZ_NUM = :journalzNum, </#if>
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COUPON_PROC_NUM = :couponProcNum
+
+		]]>
+	</statement>
+	
+	<!-- 쿠폰 판매 처리 상세(을)를 등록한다. -->
+	<statement name="insertDetail" type="insert">
+		/*+ com.hwfs.rc.rcg.dao.CouponDestributionDAO.insert */
+		<![CDATA[
+		INSERT INTO SLA_COUPON_PROC_DETAIL
+		(
+			 COUPON_PROC_NUM,
+			 COUPON_NUM,
+			 COUPON_KIND_CD,
+			 COUPON_AMT,
+			 VAT_INCLUDE_YN,
+			 VAT_CD,
+			 SUPPLY_AMT,
+			 VAT_AMT,
+			 ADVANCE_AMT,
+			 RELEASE_DATE,
+			 RECD_STATUS,
+			 CUSER,
+			 CDATE,
+			 UUSER,
+			 UDATE
+		) VALUES (
+			 :maxCouponProcNum,
+			 :couponNum,
+			<#if couponKindCd?exists> :couponKindCd, <#else> null, </#if>
+			 :couponAmt,
+			<#if vatIncludeYn?exists> DECODE(:vatIncludeYn, '1', 'Y', 'N'), <#else> null, </#if>
+			<#if vatCd?exists> :vatCd, <#else> null, </#if>
+			<#if supplyAmt?exists> :supplyAmt, <#else> null, </#if>
+			<#if vatAmt?exists> :vatAmt, <#else> null, </#if>
+			<#if advanceAmt?exists> :advanceAmt, <#else> null, </#if>
+			<#if releaseDate?exists> :releaseDate, <#else> null, </#if>
+			<#if recdStatus?exists> :recdStatus, <#else> null, </#if>
+			 :loginSabun,
+			 SYSDATE,
+			 :loginSabun,
+			 SYSDATE
+		)
+
+		]]>
+	</statement>
+	
+	
+	<!-- 쿠폰 번호 마스터에 판매 업데이트 처리(을)를 수정한다. -->
+	<statement name="updateNumMst" type="update">
+		/*+ com.hwfs.rc.rcg.dao.CouponSaleDAO.updateNumMst */
+		<![CDATA[
+		UPDATE SLA_COUPON_NUM_MST 
+		SET    COUPON_STATUS = :couponStatus,
+		       <#if couponCass?exists> COUPON_CLASS = :couponCass,</#if>
+		       <#if disuseStatus?exists> DISUSE_STATUS = :disuseStatus,</#if>
+			   COUPON_PROC_NUM = :maxCouponProcNum,
+		       <#if procDate?exists> SALE_DATE = :procDate,</#if>
+		       <#if extinctionDate?exists> EXTINCTION_DATE = :extinctionDate,</#if>
+		       <#if advanceNum?exists> ADVANCE_NUM = :advanceNum,</#if>
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COUPON_NUM = :couponNum
+		]]>
+	</statement>
+	
+	<!-- 쿠폰 번호 마스터에 판매 취소 업데이트 처리(을)를 수정한다. -->
+	<statement name="updateNumCancleMst" type="update">
+		/*+ com.hwfs.rc.rcg.dao.CouponSaleDAO.updateNumCancleMst */
+		<![CDATA[
+		UPDATE SLA_COUPON_NUM_MST 
+		SET    COUPON_STATUS = :couponStatus,
+			   COUPON_PROC_NUM = '',
+		       SALE_DATE = '',
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COUPON_PROC_NUM = :couponProcNum
+		]]>
+	</statement>
+
+	<!-- 쿠폰 판매 처리(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.rc.rcg.dao.CouponSaleDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   SLA_COUPON_PROC_DETAIL 
+		WHERE COUPON_PROC_NUM = :couponProcNum
+		]]>
+	</statement>
+	
+	<!-- 쿠폰 판매 취소 처리(을)시 업데이트한다. -->
+	<statement name="deleteMst" type="delete">
+		/*+ com.hwfs.rc.rcg.dao.CouponSaleDAO.deleteMst */
+		<![CDATA[
+		UPDATE SLA_COUPON_PROC_MST 
+		SET RECD_STATUS = 'D'
+		WHERE COUPON_PROC_NUM = :couponProcNum
+		]]>
+	</statement>
+
+	<!-- 쿠폰 판매 취소 처리(을)시 업데이트한다. -->
+	<statement name="deleteDetail" type="delete">
+		/*+ com.hwfs.rc.rcg.dao.CouponSaleDAO.deleteMst */
+		<![CDATA[
+		UPDATE SLA_COUPON_PROC_DETAIL 
+		SET RECD_STATUS = 'D'
+		WHERE COUPON_PROC_NUM = :couponProcNum
+		]]>
+	</statement>
+
+	<!-- 쿠폰 판매 처리(을)를 등록한다. -->
+	<statement name="insertReceiveWay" type="insert">
+		/*+ com.hwfs.rc.rcg.dao.CouponSaleDAO.insertReceiveWay */
+		<![CDATA[
+		INSERT INTO SLA_COUPON_RECEIVE_WAY
+		(
+			 COUPON_PROC_NUM,
+			 SEQ,
+			 RECEIVE_TYPE_CD,
+			 CUST_CD,
+			 AR_TYPE_CD,
+			 AR_NUM,
+			 BUYCPNY_CD,
+			 SELF_BU_CLASS_CD,
+			 CREDIT_CARD_NUM,
+			 APPRV_NUM,
+			 VALID_YYMM,
+			 RECEIVE_BANKCD,
+			 IMNO_CRGLEFT_NUM,
+			 SUSPENSE_DATE,
+			 IMNO_RECEIVE_SEQ,
+			 SUSPENSE_SRLNUM,
+			 IMNO_ALT_NUM,
+			 ADVANCE_NUM,
+			 RECEIVE_AMT,
+			 RECD_STATUS,
+			 CUSER,
+			 CDATE,
+			 UUSER,
+			 UDATE
+		) VALUES (
+			 :maxCouponProcNum,
+			 :seq,
+			 :payType,
+			<#if custCd?exists> :custCd, <#else> null, </#if>
+			<#if arTypeCd?exists> :arTypeCd, <#else> null, </#if>
+			<#if arNum?exists> :arNum, <#else> null, </#if>
+			<#if buycpnyCd?exists> :buycpnyCd, <#else> null, </#if>
+			<#if selfBuClassCd?exists> :selfBuClassCd, <#else> null, </#if>
+			<#if creditCardNum?exists> :creditCardNum, <#else> null, </#if>
+			<#if apprvNum?exists> :apprvNum, <#else> null, </#if>
+			<#if validYymm?exists> :validYymm, <#else> null, </#if>
+			<#if receiveBankcd?exists> :receiveBankcd, <#else> null, </#if>
+			<#if imnoCrgleftNum?exists> :imnoCrgleftNum, <#else> null, </#if>
+			<#if suspenseDate?exists> :suspenseDate, <#else> null, </#if>
+			<#if imnoReceiveSeq?exists> :imnoReceiveSeq, <#else> null, </#if>
+			<#if suspenseSrlnum?exists> :suspenseSrlnum, <#else> null, </#if>
+			<#if imnoAltNum?exists> :imnoAltNum, <#else> null, </#if>
+			<#if advanceNum?exists> :advanceNum, <#else> null, </#if>
+			<#if receiveAmt?exists> :receiveAmt, <#else> null, </#if>
+			'L',
+			 :loginSabun,
+			 SYSDATE,
+			 :loginSabun,
+			 SYSDATE
+		)
+
+		]]>
+	</statement>
+	
+	<!-- 쿠폰 판매 처리 지불수단을 수정한다. -->
+	<statement name="updateReceiveWay" type="update">
+		/*+ com.hwfs.rc.rcg.dao.CouponSaleDAO.updateReceiveWay */
+		<![CDATA[
+			UPDATE SLA_COUPON_RECEIVE_WAY SET
+			       RECEIVE_TYPE_CD = :payType,
+			<#if custCd?exists> CUST_CD = :custCd, </#if>
+			<#if arTypeCd?exists> AR_TYPE_CD = :arTypeCd, </#if>
+			<#if arNum?exists> AR_NUM = :arNum, </#if>
+			<#if buycpnyCd?exists> BUYCPNY_CD = :buycpnyCd, </#if>
+			<#if selfBuClassCd?exists> SELF_BU_CLASS_CD = :selfBuClassCd, </#if>
+			<#if creditCardNum?exists> CREDIT_CARD_NUM = :creditCardNum, </#if>
+			<#if apprvNum?exists> APPRV_NUM = :apprvNum, </#if>
+			<#if validYymm?exists> VALID_YYMM = :validYymm, </#if>
+			<#if receiveBankcd?exists> RECEIVE_BANKCD = :receiveBankcd, </#if>
+			<#if imnoCrgleftNum?exists> IMNO_CRGLEFT_NUM = :imnoCrgleftNum, </#if>
+			<#if suspenseDate?exists> SUSPENSE_DATE = :suspenseDate, </#if>
+			<#if imnoReceiveSeq?exists> IMNO_RECEIVE_SEQ = :imnoReceiveSeq, </#if>
+			<#if suspenseSrlnum?exists> SUSPENSE_SRLNUM = :suspenseSrlnum, </#if>
+			<#if imnoAltNum?exists> IMNO_ALT_NUM = :imnoAltNum, </#if>
+			<#if advanceNum?exists> ADVANCE_NUM = :advanceNum, </#if>
+			<#if receiveAmt?exists> RECEIVE_AMT = :receiveAmt, </#if>
+			<#if recdStatus?exists> RECD_STATUS = :recdStatus, </#if>
+			       UUSER = :loginSabun,
+			       UDATE = SYSDATE
+			WHERE  COUPON_PROC_NUM = :couponProcNum
+			AND    SEQ = :seq
+
+
+		]]>
+	</statement>
+	
+	<!-- 쿠폰입금수단 선수금대체번호를 수정한다. -->
+	<statement name="updateReceiveWayAtlNum" type="update">
+		/*+ com.hwfs.rc.rcg.dao.CouponSaleDAO.updateReceiveWayAtlNum */
+		<![CDATA[
+			UPDATE SLA_COUPON_RECEIVE_WAY SET
+			    ADVANCE_ALT_NUM = :atlNum,
+			    UUSER = :loginSabun,
+			    UDATE = SYSDATE
+			WHERE  COUPON_PROC_NUM = :couponProcNum
+
+		]]>
+	</statement>
+</hqml>

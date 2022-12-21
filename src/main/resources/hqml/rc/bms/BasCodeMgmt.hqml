@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.bms.basCodeMgmtDAO">
+	<desc>시스템에서 사용되는 공통코드를 관리한다.</desc>
+
+	<!-- 코드의 그룹에 해당하는 DATA를 조회한다. -->
+	<statement name="selectGroupList" type="select">
+		<![CDATA[
+			SELECT CLSFI_CD,
+			       DETAIL_CD,
+			       CLSFI_NM,
+			       DETAIL_NM,
+			       REMARK1,
+			       REMARK2,
+			       REMARK3,
+			       DECODE(NVL(USE_YN, '0'), 'Y', '1', '0') AS USE_YN
+			FROM   BMS_CDMGMT
+			WHERE  DETAIL_CD = ' '
+			ORDER BY CLSFI_CD
+		]]>
+	</statement>
+
+	<!-- 특정 그룹코드에 해당하는 상세코드 DATA를 조회한다. -->
+	<statement name="selectCodeList" type="select">
+		<![CDATA[
+		 
+			SELECT CLSFI_CD,
+			       DETAIL_CD,
+			       CLSFI_NM,
+			       DETAIL_NM,
+			       REMARK1,
+			       REMARK2,
+			       REMARK3,
+			       DECODE(NVL(USE_YN, '0'), 'Y', '1', '0') AS USE_YN 
+			       
+			FROM   BMS_CDMGMT
+			WHERE  CLSFI_CD = :clsfiCd
+			  AND  DETAIL_CD <> ' '
+			  <#if detailNm?has_content> AND DETAIL_NM LIKE :detailNm || '%'  </#if>
+			ORDER BY DETAIL_CD
+	
+
+		]]>
+	</statement>
+	
+	<!-- 공통 코드의 자료를 검색 한다. -->
+	<statement name="selectListSCC" type="select">
+		<![CDATA[
+		 
+			SELECT 	 CODE
+					,CODE_NAME 
+			FROM SCC_COMMON_CODE 
+			WHERE GROUP_CODE = :groupCode
+			--  AND CODE BETWEEN :strCd AND :endCd
+
+		]]>
+	</statement>
+	
+	
+	<!-- 그룹코드를 생성한다. -->
+	<statement name="insertGroupList" type="insert">
+		<![CDATA[
+INSERT INTO BMS_CDMGMT (
+       CLSFI_CD,
+       DETAIL_CD,
+       CLSFI_NM,
+       DETAIL_NM,
+       REMARK1,
+       REMARK2,
+       REMARK3,
+       USE_YN,
+       CDATE,
+       CUSER,
+       UDATE,
+       UUSER
+       
+) VALUES (
+       :clsfiCd,
+       ' ',
+       :clsfiNm,
+       '',
+ 	   '',
+ 	   '',
+ 	   '',
+ 	   DECODE(:useYn, '1', 'Y', 'N'),
+       
+       SYSDATE,
+       :loginSabun,
+       SYSDATE,
+       :loginSabun
+)
+		]]>
+	</statement>
+
+	<!-- 그룹코드를 수정한다. -->
+	<statement name="updateGroupList" type="update">
+		<![CDATA[
+UPDATE BMS_CDMGMT
+SET    
+		CLSFI_NM   = :clsfiNm,
+		USE_YN     = DECODE(:useYn, '1', 'Y', 'N'),
+        UDATE      = SYSDATE,
+        UUSER      = :loginSabun
+
+WHERE  CLSFI_CD  = :clsfiCd
+  AND  DETAIL_CD = ' '
+		]]>
+	</statement>
+
+	<!-- 코드를 생성한다. -->
+	<statement name="insertCodeList" type="insert">
+		<![CDATA[
+INSERT INTO BMS_CDMGMT (
+       CLSFI_CD,
+       DETAIL_CD,
+       CLSFI_NM,
+       DETAIL_NM,
+       REMARK1,
+       REMARK2,
+       REMARK3,
+       USE_YN,
+       CDATE,
+       CUSER,
+       UDATE,
+       UUSER
+) VALUES (
+       	:clsfiCd,
+       	:detailCd,
+       	:clsfiNm,
+      
+		<#if detailNm?exists> :detailNm, <#else> null, </#if>
+		<#if remark1?exists> :remark1, <#else> null, </#if>
+		<#if remark2?exists> :remark2, <#else> null, </#if>
+		<#if remark3?exists> :remark3, <#else> null, </#if>
+
+ 	   	DECODE(:useYn, '1', 'Y', 'N'),
+       	SYSDATE,
+       	:loginSabun,
+       	SYSDATE,
+       	:loginSabun
+)
+		]]>
+	</statement>
+
+	<!-- 코드를 수정한다. -->
+	<statement name="updateCodeList" type="update">
+		<![CDATA[
+UPDATE BMS_CDMGMT
+SET
+ 
+		<#if detailNm?exists> DETAIL_NM = :detailNm, </#if>
+		<#if remark1?exists> REMARK1 = :remark1, </#if>
+		<#if remark2?exists> REMARK2 = :remark2, </#if>
+		<#if remark3?exists> REMARK3 = :remark3, </#if>
+		USE_YN     = DECODE(:useYn, '1', 'Y', 'N'),
+       	UUSER = :loginSabun,
+       	UDATE = SYSDATE
+WHERE  	CLSFI_CD = :clsfiCd
+AND    	DETAIL_CD = :detailCd
+		]]>
+	</statement>
+
+<statement name="updateUseAllCode" type="update">
+		<![CDATA[
+UPDATE BMS_CDMGMT
+SET    USE_YN = :useYn,
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+WHERE  	CLSFI_CD = :clsfiCd
+		]]>
+	</statement>
+	 
+</hqml>

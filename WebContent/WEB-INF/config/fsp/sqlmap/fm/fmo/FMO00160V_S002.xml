@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[월별 사업장별 매출추이 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  ACC_OCC.UPJANG
+        , SUBSTR(ACC_OCC.OCCUR_DATE,0,6) AS OCCUR_DATE
+        , SUBSTR(ACC_OCC.OCCUR_DATE,0,4) || '-' || SUBSTR(ACC_OCC.OCCUR_DATE,5,2) AS OCCUR_DATE_1
+        , SUM(ACC_OCC.OCCUR_AMT)            AS OCCUR_AMT
+        , SUM(CASE WHEN ACC_OCC.TAX_CODE = '100' THEN ROUND(ACC_OCC.OCCUR_AMT/1.1) ELSE ACC_OCC.OCCUR_AMT END) AS OCCUR_SUPAMT
+        , SUM(ACC_OCC.OCCUR_QTY)            AS OCCUR_QTY
+        , UJV.UPJANGNM
+FROM    FMO_ACCT_OCCUR ACC_OCC
+        , FMS_UPJANG_V UJV
+WHERE   ACC_OCC.UPJANG = UJV.UPJANG (+)
+AND     ACC_OCC.USE_YN = 'Y'
+AND     UJV.USE_YN     = 'Y'
+AND     SUBSTR(ACC_OCC.OCCUR_DATE,0,6) BETWEEN #OCCUR_F_DATE# AND #OCCUR_T_DATE#
+<isNotNull col="MAIN_UPJANG">
+AND     UJV.MAIN_UPJANG = #MAIN_UPJANG#
+</isNotNull>
+<isEqual col="g_UserKind" value="사업장">
+  -- 사업장인 경우
+  AND (ACC_OCC.UPJANG = #g_Upjang#
+         OR ACC_OCC.UPJANG IN ( SELECT UPJANG FROM FMS_USER_UPJANG WHERE USE_YN='Y' AND SABUN = #g_EmpNo# ))
+</isEqual>
+GROUP BY ACC_OCC.UPJANG, UJV.UPJANGNM, SUBSTR(ACC_OCC.OCCUR_DATE,0,6),SUBSTR(ACC_OCC.OCCUR_DATE,0,4),SUBSTR(ACC_OCC.OCCUR_DATE,5,2)
+ORDER BY ACC_OCC.UPJANG, SUBSTR(ACC_OCC.OCCUR_DATE,0,6)	</statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

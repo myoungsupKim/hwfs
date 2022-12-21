@@ -1,0 +1,458 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fs.fsl.upjangSaleRegMgntCopyDAO">
+	<desc>매출등록 카피 HQML Query</desc>
+
+	<!--- 전일 매출 복사 마스터를 등록한다. -->
+	<statement name="selectMst" type="select">
+		/*+ com.hwfs.fs.fsl.dao.UpjangSaleRegMgntCopyDAO.selectList */
+		<![CDATA[
+               SELECT A.OCCUR_DATE
+				     , A.SYS_CLASS
+				     , A.UPJANG_CD
+				     , A.RECEIPT_NUM
+				     , A.MU_CD
+				     , A.CC_CD
+				     , A.POS_NUM
+				     , A.CUST_CD
+				     , C.PAY_CD
+				  FROM SLA_IF_UPJANG_SALS_MST A 
+				     , SLA_IF_UPJANG_SALS_DETAIL B 
+				     , SLA_IF_UPJANG_PAYMENT C
+				 WHERE A.OCCUR_DATE=B.OCCUR_DATE 
+				       AND A.MU_CD=B.MU_CD 
+				       AND A.UPJANG_CD=B.UPJANG_CD
+				       AND A.RECEIPT_NUM = B.RECEIPT_NUM
+				       AND B.OCCUR_DATE = C.OCCUR_DATE
+				       AND B.MU_CD = C.MU_CD
+				       AND B.UPJANG_CD = C.UPJANG_CD
+				       AND B.RECEIPT_NUM = C.RECEIPT_NUM 
+				       AND B.SEQ = C.SEQ
+				       AND A.OCCUR_DATE = :occurCopyDate
+				       AND A.UPJANG_CD = :upjangCd
+				       AND A.MU_CD= :muCd
+				       AND B.SALS_CLASS IN (${saleClass}) 
+				       AND A.SYS_CLASS= :sysClass  
+				       AND C.PAY_CD NOT IN ('P1','P2','P3','2') -- 선수금매출 (일반,식권), 카드 제외     
+		]]>
+	</statement>
+	
+	<!-- 영수증 번호을 생성한다. -->
+	<statement name="createReceiptNum" type="select">
+		/*+ com.hwfs.fs.fsl.dao.UpjangSaleRegMgntDAO.createReceiptNum */
+		<![CDATA[
+			SELECT TRIM(TO_CHAR(FSL_SLA_IF_UPJANG_S.NEXTVAL,'0000000000000000000000000')) RECEIPT_NUM FROM DUAL
+		]]>
+	</statement>
+	
+	
+	<!-- 전일 매출 복사 마스터를 복사한다. -->
+	<statement name="copyMst" type="insert">
+		/*+ com.hwfs.fs.fsl.dao.UpjangSaleRegMgntCopyDAO.copyMst */
+		<![CDATA[
+			INSERT INTO SLA_IF_UPJANG_SALS_MST
+					(
+					 OCCUR_DATE,
+					 SYS_CLASS,
+					 UPJANG_CD,
+					 RECEIPT_NUM,
+					 MU_CD,
+					 CC_CD,
+					 POS_NUM,
+					 CUST_CD,
+					 TOT_PSN,
+					 AGES_BY_PSN,
+					 GENDER_PSN,
+					 GUEST_TYPE_BY_PSN,
+					 BLD_TYPE,
+					 INTERNAL_USE_CLASS,
+					 SALE_GUBUN,
+					 REMARK,
+					 SALS_UUSER,
+					 LINK_OCCUR_DATE,
+				     LINK_RECEIPT_NUM,
+					 WON_OCCUR_DATE,
+					 WON_RECEIPT_NUM,
+					 DDDD_CLOSE_YN,
+					 DDDD_CLOSE_DATE,
+					 MODIFY_SALS_YN,
+					 RECD_STATUS,
+					 CDATE,
+					 CUSER,
+					 UDATE,
+					 UUSER
+					) 
+			  SELECT :occurDate,
+					 SYS_CLASS,
+					 UPJANG_CD,
+					 :newReceiptNum,
+					 MU_CD,
+					 CC_CD,
+					 POS_NUM,
+					 CUST_CD,
+					 TOT_PSN,
+					 AGES_BY_PSN,
+					 GENDER_PSN,
+					 GUEST_TYPE_BY_PSN,
+					 BLD_TYPE,
+					 INTERNAL_USE_CLASS,
+					 SALE_GUBUN,
+					 REMARK,
+					 SALS_UUSER,
+					 LINK_OCCUR_DATE,
+				     LINK_RECEIPT_NUM,					 
+					 WON_OCCUR_DATE,
+					 WON_RECEIPT_NUM,
+					 'N',
+					 NULL,
+					 'N',
+					 'L',
+					 SYSDATE,
+					 :loginSabun,
+					 SYSDATE,
+					 :loginSabun
+                  FROM SLA_IF_UPJANG_SALS_MST
+				 WHERE OCCUR_DATE = :occurCopyDate
+                   AND UPJANG_CD = :upjangCd
+                   AND MU_CD = :muCd
+                   AND RECEIPT_NUM=:receiptNum
+                   AND SYS_CLASS = :sysClass
+		]]>
+	</statement>
+	
+	<!-- 전일 매출 복사 Detail를 복사한다. -->
+	<statement name="copyDetail" type="insert">
+		/*+ com.hwfs.fs.fsl.dao.UpjangSaleRegMgntCopyDAO.copyDetail */
+		<![CDATA[
+			INSERT INTO SLA_IF_UPJANG_SALS_DETAIL 
+			       ( 
+			           OCCUR_DATE 
+			         , SYS_CLASS 
+			         , UPJANG_CD 
+			         , RECEIPT_NUM 
+			         , SEQ 
+			         , MU_CD 
+			         , CC_CD 
+			         , SALS_CLASS 
+			         , MENU_MGRP 
+			         , MENU_MCALSS 
+			         , MENU_SCLASS 
+			         , MENU_CD 
+			         , MENU_NM 
+			         , MATERIAL_CLASS 
+			         , MATERIAL_CD 
+			         , SAL_QUANTITY 
+			         , UPRICE 
+			         , NET_AMT 
+			         , SVC_AMT 
+			         , VAT_AMT 
+			         , SAL_AMT 
+			         , VAT_CLASS 
+			         , SALS_UUSER 
+			         , DDDD_CLOSE_YN 
+			         , DDDD_CLOSE_DATE
+			         , MODIFY_SALS_YN 
+			         , RECD_STATUS 
+			         , CUSER 
+			         , CDATE 
+			         , UUSER 
+			         , UDATE 
+			       ) 
+			SELECT :occurDate 
+			     , SYS_CLASS 
+			     , UPJANG_CD 
+			     , :newReceiptNum 
+			     , SEQ 
+			     , MU_CD 
+			     , CC_CD 
+			     , SALS_CLASS
+			     , MENU_MGRP 
+			     , MENU_MCALSS 
+			     , MENU_SCLASS 
+			     , MENU_CD 
+			     , MENU_NM 
+			     , MATERIAL_CLASS 
+			     , MATERIAL_CD 
+			     , SAL_QUANTITY 
+			     , UPRICE 
+			     , NET_AMT 
+			     , SVC_AMT 
+			     , VAT_AMT 
+			     , SAL_AMT 
+			     , VAT_CLASS 
+			     , SALS_UUSER 
+			     , 'N' 
+			     , NULL 
+			     , 'N'
+			     , 'L' 
+			     , :loginSabun 
+			     , SYSDATE 
+			     , :loginSabun 
+			     , SYSDATE 
+			  FROM SLA_IF_UPJANG_SALS_DETAIL 
+			 WHERE OCCUR_DATE=:occurCopyDate 
+			       AND UPJANG_CD=:upjangCd 
+			       AND RECEIPT_NUM=:receiptNum 
+			       AND MU_CD=:muCd 
+			       AND SYS_CLASS=:sysClass
+			       ORDER BY SEQ
+		]]>
+	</statement>
+	
+	<!-- 전일 매출 복사 Payment를 복사한다. -->
+	<statement name="copyPayment" type="insert">
+		/*+ com.hwfs.fs.fsl.dao.UpjangSaleRegMgntCopyDAO.copyPayment */
+		<![CDATA[
+			INSERT INTO SLA_IF_UPJANG_PAYMENT 
+				       ( 
+				           OCCUR_DATE
+				         , SYS_CLASS
+				         , UPJANG_CD
+				         , RECEIPT_NUM
+				         , SEQ
+				         , MU_CD
+				         , CC_CD
+				         , PAY_CD
+				         , PAY_CD_NM
+				         , EVIDENCE_1
+				         , EVIDENCE_2
+				         , EVIDENCE_3
+				         , EVIDENCE_4
+				         , EVIDENCE_5
+				         , EVIDENCE_6
+				         , ENC_EVIDENCE_NUM
+				         , AMT
+				         , EXCH_AMT
+				         , NET_AMT
+				         , VAT_AMT
+				         , SALS_UUSER
+				         , REMARK
+				         , DDDD_CLOSE_YN
+				         , DDDD_CLOSE_DATE
+				         , MODIFY_SALS_YN
+				         , RECD_STATUS
+				         , CUSER
+				         , CDATE
+				         , UUSER
+				         , UDATE 
+				       ) 
+				SELECT :occurDate
+				     , SYS_CLASS
+				     , UPJANG_CD
+				     , :newReceiptNum
+				     , SEQ
+				     , MU_CD
+				     , CC_CD
+				     , PAY_CD
+				     , PAY_CD_NM
+				     , EVIDENCE_1
+				     , EVIDENCE_2
+				     , EVIDENCE_3
+				     , EVIDENCE_4
+				     , EVIDENCE_5
+				     , EVIDENCE_6
+				     , ENC_EVIDENCE_NUM
+				     , AMT
+				     , EXCH_AMT
+				     , NET_AMT
+				     , VAT_AMT
+				     , SALS_UUSER
+				     , REMARK
+				     , 'N'
+				     , NULL
+				     , 'N'
+				     , 'L'
+				     , :loginSabun
+				     , SYSDATE
+				     , :loginSabun
+				     , SYSDATE 
+				  FROM SLA_IF_UPJANG_PAYMENT 
+				 WHERE OCCUR_DATE = :occurCopyDate
+				 AND UPJANG_CD = :upjangCd
+				 AND MU_CD = :muCd
+				 AND RECEIPT_NUM=:receiptNum 
+				 AND SYS_CLASS  = :sysClass
+				 ORDER BY SEQ
+		]]>
+	</statement>
+	
+	<!-- 카드 승인 정보를 복사한다. -->
+	<statement name="copyCard" type="insert">
+		/*+ com.hwfs.fs.fsl.dao.UpjangSaleRegMgntCopyDAO.copyCard */
+		<![CDATA[	
+			INSERT 
+				  INTO SLA_IF_CARD_APPRV_INFO 
+			       ( 
+			           OCCUR_DATE
+			         ,SYS_CLASS
+			         ,SEQ
+			         ,POS_NUM
+			         ,RECEIPT_NUM
+			         ,CARD_CLASS
+			         ,CARD_NUM_VIEW
+			         ,ENC_CARD_NUM
+			         ,BUYCPNY_CD
+			         ,CARD_COM_CD
+			         ,APPRV_NUM
+			         ,APPRV_DATE
+			         ,APPRV_TIME
+			         ,USE_AMT
+			         ,ALLT_TERM
+			         ,VALID_YYMM
+			         ,MU_CD
+			         ,CC_CD
+			         ,UPJANG_CD
+			         ,FRNC_STOR_NUM
+			         ,VOID_YN
+			         ,RESERV_NUM
+			         ,REMARK
+			         ,DEAL_TYPE
+			         ,SALS_UUSER
+			         ,DDDD_CLOSE_YN
+			         ,DDDD_CLOSE_DATE
+			         ,MODIFY_SALS_YN
+			         ,DATA_CLASS
+			         ,RECD_STATUS
+			         ,CUSER
+			         ,CDATE
+			         ,UUSER
+			         ,UDATE 
+			       ) 
+			  SELECT :occurDate 
+			       ,SYS_CLASS 
+			       ,SEQ 
+			       ,POS_NUM 
+			       ,:newReceiptNum 
+			       ,CARD_CLASS 
+			       ,CARD_NUM_VIEW 
+			       ,ENC_CARD_NUM 
+			       ,BUYCPNY_CD 
+			       ,CARD_COM_CD 
+			       ,APPRV_NUM 
+			       ,APPRV_DATE 
+			       ,APPRV_TIME 
+			       ,USE_AMT 
+			       ,ALLT_TERM 
+			       ,VALID_YYMM 
+			       ,MU_CD 
+			       ,CC_CD 
+			       ,UPJANG_CD 
+			       ,FRNC_STOR_NUM 
+			       ,VOID_YN 
+			       ,RESERV_NUM 
+			       ,REMARK 
+			       ,DEAL_TYPE 
+			       ,SALS_UUSER 
+			       ,'N' 
+			       ,NULL 
+			       ,'N' 
+			       ,'1' 
+			       ,'L' 
+			       ,:loginSabun 
+			       ,SYSDATE 
+			       ,:loginSabun 
+			       ,SYSDATE 
+			    FROM SLA_IF_CARD_APPRV_INFO 
+			   WHERE OCCUR_DATE=:occurCopyDate 
+			         AND SYS_CLASS=:sysClass 
+			         AND MU_CD=:muCd 
+			         AND UPJANG=:upjangCd 
+			         AND RECEIPT_NUM=:receiptNum  
+				]]>
+		</statement>
+		
+		
+	<!-- 식권 정보를 복사한다. -->
+	<statement name="copyTicket" type="insert">
+		/*+ com.hwfs.fs.fsl.dao.UpjangSaleRegMgntCopyDAO.copyTicket */
+		<![CDATA[
+			INSERT 
+				  INTO MAS_TICKET_MST 
+				       ( 
+				           TICKET_SEQ
+				         ,TICKET_GROUP_SEQ
+				         ,UPJANG
+				         ,ITEM_TYPE
+				         ,ITEM_CODE
+				         ,TRANS_DD
+				         ,TRANS_TYPE
+				         ,TRANS_GUBUN
+				         ,UPRICE
+				         ,QTY
+				         ,TICKET_STARTNUM
+				         ,TICKET_ENDNUM
+				         ,REMARK_DESC
+				         ,AUTO_GUBUN
+				         ,AUTO_KIND
+				         ,SOURCE_ID
+				         ,REQUEST_SABUN
+				         ,REQUEST_DATE
+				         ,DISUSE_IMG
+				         ,TEAM_MST_SABUN
+				         ,TEAM_MST_CONGUBN
+				         ,TEAM_MST_DATE
+				         ,APPROV_SABUN
+				         ,APPROV_CONGUBN
+				         ,APPRV_DATE
+				         ,RECEIPT_NUM
+				         ,ATTR01
+				         ,ATTR02
+				         ,ATTR03
+				         ,ATTR04
+				         ,ATTR05
+				         ,CUSER
+				         ,CDATE
+				         ,UUSER
+				         ,UDATE
+				         ,SUBST_ID
+				         ,SUBUL_YN
+				         ,CONGUBN
+				         ,CONGUBN_DESC
+				         ,TEAM_MST_CONGUBN_DESC 
+				       ) 
+				SELECT MAS_TICKET_MST_S.NEXTVAL
+				     , MAS_TICKET_MST_GROUP_S.NEXTVAL
+				     , A.UPJANG
+				     , A.ITEM_TYPE
+				     , A.ITEM_CODE
+				     , A.TRANS_DD
+				     , A.TRANS_TYPE
+				     , A.TRANS_GUBUN
+				     , A.UPRICE
+				     , A.QTY
+				     , A.TICKET_STARTNUM
+				     , A.TICKET_ENDNUM
+				     , A.REMARK_DESC
+				     , A.AUTO_GUBUN
+				     , A.AUTO_KIND
+				     , A.SOURCE_ID
+				     , A.REQUEST_SABUN
+				     , A.REQUEST_DATE
+				     , A.DISUSE_IMG
+				     , A.TEAM_MST_SABUN
+				     , A.TEAM_MST_CONGUBN
+				     , A.TEAM_MST_DATE
+				     , A.APPROV_SABUN
+				     , A.APPROV_CONGUBN
+				     , A.APPRV_DATE
+				     , :newReceiptNum
+				     , A.ATTR01
+				     , A.ATTR02
+				     , A.ATTR03
+				     , A.ATTR04
+				     , A.ATTR05
+				     ,:loginSabun 
+				     ,SYSDATE 
+				     ,:loginSabun 
+				     ,SYSDATE 
+				     , A.SUBST_ID
+				     , A.SUBUL_YN
+				     , A.CONGUBN
+				     , A.CONGUBN_DESC
+				     , A.TEAM_MST_CONGUBN_DESC 
+				  FROM MAS_TICKET_MST A 
+				  WHERE TRANS_TYPE = 'W'
+				  AND TRANS_GUBUN = 'WW'
+				  AND RECEIPT_NUM = :receiptNum
+				]]>
+		</statement>
+</hqml>

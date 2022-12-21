@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="sc.app.inventoryDAO">
+	<desc>FC POS 마스터 외부 인터페이스 HQML</desc>
+
+
+
+
+
+
+
+
+
+	<statement name="selectTest"><![CDATA[SELECT '1' AS CHECK_NUM
+  FROM DUAL]]></statement>
+	<statement name="logInsert"><![CDATA[INSERT INTO APP_INTERFACE_LOG(
+INSDT,
+TXID,
+TXDIV,
+TXHEADER,
+TXDATA,
+TXRESULT)
+VALUES(
+TO_CHAR(SYSDATE,'YYYY-MM-DD HH24:MI:SS'),
+<#if txId?has_content >:txId,<#else>null,</#if> 
+<#if txDiv?has_content >:txDiv,<#else>null,</#if> 
+<#if tHeader?has_content >:tHeader,<#else>null,</#if> 
+<#if tData?has_content >:tData,<#else>null,</#if> 
+<#if tResult?has_content >:tResult<#else>null</#if> 
+)]]></statement>
+
+
+
+	<statement name="selectCenterInfo"><![CDATA[SELECT WAREKY AS CENTER_CODE, NAME01 AS CENTER_NAME
+  FROM WAHMA@EXEINTF_P
+ WHERE DELMAK = 'Y'
+   AND WHTT07 = 'Y'
+ORDER BY 1]]></statement>
+	<statement name="selectInventoryInfo"><![CDATA[SELECT ITEM_CODE, ITEM_NAME, QTY, LISTNUM, ROWCNT
+  FROM (
+SELECT CENTER_CODE, ITEM_CODE, ITEM_NAME, QTY,
+/* 상품코드 */
+<#if sortCondition == '1'>
+	<#if sortStandard == 'ASC'>
+       ROW_NUMBER() OVER(ORDER BY ITEM_CODE) AS LISTNUM
+	<#elseif sortStandard == 'DSC'>
+       ROW_NUMBER() OVER(ORDER BY ITEM_CODE DESC) AS LISTNUM
+	</#if>
+/* 상품명 */
+<#elseif sortCondition == '2'>
+	<#if sortStandard == 'ASC'>
+       ROW_NUMBER() OVER(ORDER BY ITEM_NAME) AS LISTNUM
+	<#elseif sortStandard == 'DSC'>
+       ROW_NUMBER() OVER(ORDER BY ITEM_NAME DESC) AS LISTNUM
+	</#if>
+/* 수량 */
+<#elseif sortCondition == '3'>
+	<#if sortStandard == 'ASC'>
+       ROW_NUMBER() OVER(ORDER BY QTY) AS LISTNUM
+	<#elseif sortStandard == 'DSC'>
+       ROW_NUMBER() OVER(ORDER BY QTY DESC) AS LISTNUM
+	</#if>
+</#if>
+      , COUNT(1) OVER() AS ROWCNT
+  FROM (
+SELECT T1.WAREKY AS CENTER_CODE,
+       T2.SKUKEY AS ITEM_CODE,
+       T2.DESC01 || ',' || T2.DESC02 || ',' || T2.DUOMKY AS ITEM_NAME,
+       (SELECT NVL(SUM(QTSIWH),0)
+          FROM STKKY@EXEINTF_P
+         WHERE WAREKY = T1.WAREKY -- 물류센터 코드
+           AND SKUKEY = T2.SKUKEY -- 자재코드
+           AND LOCAKY != 'DISLOC' AND LOCAKY != 'RTNLOC' AND LOCAKY != 'SHPLOC'
+           AND LOCAKY != 'HN' AND LOCAKY != 'JJ' AND LOCAKY != 'KB'
+           AND LOCAKY != 'KI' AND LOCAKY != 'YN' AND LOCAKY != 'IC'
+           AND LOCAKY != 'ZA' AND LOCAKY != 'ZB' AND LOCAKY != 'ZC' AND LOCAKY != 'ZD'
+           AND LOCAKY != 'GLOSS' AND LOCAKY != 'KLOSS' AND LOCAKY != 'SLOSS' AND LOCAKY != 'ULOSS'
+           AND LOCAKY != 'JINSUK' AND LOCAKY != 'CANCEL' 
+           AND AREAKY != 'ZA'
+           AND QTSIWH > 0) AS QTY
+  FROM SKUWC@EXEINTF_P T1, SKUMA@EXEINTF_P T2
+ WHERE T1.WAREKY = :centerCode
+   AND T1.OWNRKY = T2.OWNRKY
+   AND T1.SKUKEY = T2.SKUKEY
+   AND (
+       T2.SKUKEY LIKE '%'||:searchText||'%'
+    OR
+       T2.DESC01 LIKE '%'||:searchText||'%'
+       )
+) WHERE QTY > 0
+) WHERE 1=1
+    AND LISTNUM BETWEEN :listCnt * ( :pageNum - 1 ) + 1 AND :listCnt * :pageNum]]></statement>
+</hqml>

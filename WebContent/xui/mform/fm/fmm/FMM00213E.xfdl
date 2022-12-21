@@ -1,0 +1,152 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FSR00063E" onactivate="FSR00063E_OnActivate" onload="form_onload" titletext="PHF관리" position="absolute 0 0 1188 309" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Grid autoenter="select" binddataset="ds_phf" readonly="false" enable="true" id="grd_PHF" useinputpanel="false" taborder="1" tabstop="true" usecontextmenu="true" useselcolor="true" visible="true" wheelscrollrow="1" position="absolute 10 42 572 190" selecttype="row" autofittype="col">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="20"/>
+                <Column size="469"/>
+                <Column size="54"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="text"/>
+                <Cell col="1" displaytype="text" text="항목"/>
+                <Cell col="2" displaytype="text" text="선택"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" style="align:left;" expr="expr:currow+1"/>
+                <Cell col="1" displaytype="text" style="align:left;" text="bind:CODE_NAME"/>
+                <Cell col="2" displaytype="combo" edittype="expr:setEditExpr(iif(cbo_Phfyn.value=='Y','combo','none'))" editfilter="expr:setfilterExpr(iif(cbo_Phfyn.value=='Y','combo','none'))" style="align:center middle;" text="bind:PHF" combodataset="ds_yncd" combocodecol="CD" combodatacol="NM"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="Static49" class="sta_WFDA_Labelbg" position="absolute 10 10 572 37"/>
+        <Static id="Static41" text="레시피코드/명" class="sta_WFDA_Label01" position="absolute 10 10 111 37"/>
+        <Static id="Static07" text="w10" class="Guide01_AreaRed" visible="false" position="absolute 0 10 10 244"/>
+        <Static id="Static60" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 0 0 963 10" anchor="left top"/>
+        <Static id="Static35" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 10 299 962 309" anchor="left top"/>
+        <Static id="Static01" text="w10" class="Guide01_AreaRed" visible="false" position="absolute 1178 10 1188 247"/>
+        <Static id="Static03" text="CCP1관리여부" class="sta_WFDA_Label01" position="absolute 380 10 481 37"/>
+        <Combo codecolumn="CD" datacolumn="NM" id="cbo_Phfyn" innerdataset="ds_yncd" onitemchanged="cbo_Phfyn_OnChanged" taborder="2" position="absolute 483 13 569 34"/>
+        <Edit enable="false" id="ed_RecipecdPHF" readonly="true" taborder="3" position="absolute 113 13 204 34" style="align:center;"/>
+        <Edit enable="false" id="ed_RecipenmPHF" readonly="true" taborder="5" position="absolute 206 13 378 34"/>
+        <Static id="Static02" class="sta_WFDA_Labelbg" position="absolute 378 195 572 222"/>
+        <Static id="Static00" text="PHF(CCP2관리대상)" class="sta_WFDA_Label01" position="absolute 378 195 507 222"/>
+        <Edit enable="false" id="Edit0" readonly="true" taborder="7" position="absolute 509 198 569 219" style="align:center;"/>
+        <Static id="Static19" text="h05" class="Guide01_AreaRed" visible="false" position="absolute 183 37 567 42" anchor="top right"/>
+        <Static id="Static04" text="h05" class="Guide01_AreaRed" visible="false" position="absolute 189 190 573 195" anchor="top right"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_yncd">
+        <ColumnInfo>
+          <Column id="CD" size="256" type="STRING"/>
+          <Column id="NM" size="256" type="STRING"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="CD">Y</Col>
+            <Col id="NM">Y</Col>
+          </Row>
+          <Row>
+            <Col id="CD">N</Col>
+            <Col id="NM">N</Col>
+          </Row>
+        </Rows>
+      </Dataset>
+    </Objects>
+    <Bind>
+      <BindItem id="cbo_Phfyn_value" compid="cbo_Phfyn" propid="value" datasetid="ds_RecipePhf" columnid="PHF_MGMT_YN"/>
+      <BindItem id="Edit0_value" compid="Edit0" propid="value" datasetid="ds_RecipePhf" columnid="PHF"/>
+    </Bind>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+
+//@@컨버터에서 주석처리 #include "lib::sc_comon.js"
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js"		//JAVA 코딩시
+//@@컨버터에서 주석처리 #include "lib::tit_comm_0001.js"
+
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	fsp_init(this); 
+}
+
+function fn_T2_Search()
+{
+	ds_cond.clear();
+	ds_cond.addColumn("UPJANG","STRING");
+	ds_cond.addColumn("MENU_CD","STRING");
+	ds_cond.addColumn("RECIPE_CD","STRING");
+	ds_cond.addRow();
+	ds_cond.setColumn(0,"UPJANG",ds_Item.getColumn(ds_Item.rowposition,"UPJANG"));
+	ds_cond.setColumn(0,"MENU_CD",ds_Item.getColumn(ds_Item.rowposition,"MENU_CD"));
+	ds_cond.setColumn(0,"RECIPE_CD",ds_Item.getColumn(ds_Item.rowposition,"RECIPE_CD"));
+	
+	fsp_clear(this);
+	ds_phf.clearData();
+	fsp_addSearch(this,"fm/fmm:FMM00213E_S001"); 
+	fsp_callService(this,"","","ds_cond=ds_cond","ds_phf=ds_phf","","fn_call_back_T2_Search","",true);	
+	
+	fsp_clear(this);
+	ds_RecipePhf.clearData();
+	fsp_addSearch(this,"fm/fmm:FMM00213E_S002");  
+	fsp_callService(this,"","","ds_cond=ds_cond","ds_RecipePhf=ds_RecipePhf","","fn_call_back_T2_Grd","",true);		
+}
+function fn_call_back_T2_Search(cd,errmsg)
+{
+	if(cd!=0)
+	{
+		return;
+	}
+	else
+	{
+	}
+}
+function fn_call_back_T2_Grd(cd,errmsg) 
+{
+	if(cd!=0)
+	{
+		return;
+	}
+	else
+	{
+		if(ds_RecipePhf.getColumn(0,"PHF_MGMT_YN")=="N")
+		{
+			grd_PHF.readonly=true;
+		}
+		else
+		{
+			grd_PHF.readonly=false;
+		}
+	}
+}
+function FSR00063E_OnActivate(obj:Form, e:ActivateEventInfo)
+{
+	ed_RecipenmPHF.value= v_CurRecipenm;
+	ed_RecipecdPHF.value= v_CurRecipecd;
+	fn_T2_Search();
+}
+
+function cbo_Phfyn_OnChanged(obj:Combo, e:ItemChangeEventInfo)
+{
+	if(e.postvalue=="N")
+	{
+		grd_PHF.readonly=true;
+	}
+	else
+	{
+		grd_PHF.readonly=false;
+	}
+}]]></Script>
+  </Form>
+</FDL>

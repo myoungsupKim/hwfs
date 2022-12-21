@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[주기식단
+기본템플릿]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT NVL(B.CYCLE_CD, SUBSTR(A.MENU_DATE,1,6) || '001') AS CYCLE_CD
+           ,NVL(B.MENU_CD,  A.MENU_DATE||'-'||A.HALL_CD||A.MEAL||A.CORNER) AS MENU_CD
+           ,A.MENU_DATE
+           ,A.UPJANG
+           ,A.HALL_CD
+           ,A.MEAL
+           ,A.CORNER
+           ,A.MAJOR_DISH_INFO
+           ,A.MAJOR_DISH_INFO_NAME
+           ,B.RECIPE_CD
+           ,B.RECIPE_NAME
+     FROM
+         ( SELECT    C.YMD       AS MENU_DATE,
+                     A.UPJANG    AS UPJANG,
+                     A.HALL_CD   AS HALL_CD,
+                     A.MEAL      AS MEAL,
+                     A.CORNER    AS CORNER,
+                     B.CODE      AS MAJOR_DISH_INFO,
+                     B.CODE_NAME AS MAJOR_DISH_INFO_NAME
+             FROM    FSA_HALL_DTL A,
+                     SCC_COMMON_CODE B,
+                     SCC_COPY_YMD C
+            WHERE    A.UPJANG  = #UPJANG#
+              AND    A.HALL_CD = #HALL_CD#
+              AND    A.CORNER  = #CORNER#
+              AND    B.GROUP_CODE = 'FS0032'
+              AND    C.YMD BETWEEN #START_DATE# AND #END_DATE#) A,
+         (  SELECT   M_MST.CYCLE_CD
+					,M_MST.UPJANG
+					,M_MST.HALL_CD
+					,M_MST.MEAL
+                    ,M_MST.CORNER
+					,M_MST.MENU_CD
+					,M_MST.MENU_DATE
+					,R_MST.RECIPE_CD
+					,R_MST.RECIPE_NAME
+					,R_MST.MAJOR_DISH_INFO
+             FROM    FSH_CYCLE_MENU_MST   M_MST,
+                     FSH_CYCLE_RECIPE_MST R_MST
+            WHERE    M_MST.CYCLE_CD = R_MST.CYCLE_CD
+              AND    M_MST.UPJANG   = R_MST.UPJANG
+              AND    M_MST.MENU_CD  = R_MST.MENU_CD ) B
+            WHERE    A.UPJANG          = B.UPJANG(+)
+            AND      A.HALL_CD         = B.HALL_CD(+)
+            AND      A.MEAL            = B.MEAL(+)
+            AND      A.CORNER          = B.CORNER(+)
+            AND      A.MAJOR_DISH_INFO = B.MAJOR_DISH_INFO(+)
+            AND      A.MENU_DATE       = B.MENU_DATE(+)
+            ORDER BY A.MENU_DATE, A.CORNER, A.MEAL, A.MAJOR_DISH_INFO	]]></statement>
+	<input default-name="ds_in_S005">
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="HALL_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="CORNER" size="20" type="VARCHAR" description="" /> 
+		<col name="START_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="END_DATE" size="8" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_FSH_CYCLE">
+		<col name="CYCLE_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="MENU_CD" size="71" type="VARCHAR" description="" /> 
+		<col name="MENU_DATE" size="10" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="HALL_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="MEAL" size="20" type="VARCHAR" description="" /> 
+		<col name="CORNER" size="20" type="VARCHAR" description="" /> 
+		<col name="MAJOR_DISH_INFO" size="50" type="VARCHAR" description="" /> 
+		<col name="MAJOR_DISH_INFO_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="RECIPE_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="RECIPE_NAME" size="50" type="VARCHAR" description="" /> 
+	</output>
+</query>

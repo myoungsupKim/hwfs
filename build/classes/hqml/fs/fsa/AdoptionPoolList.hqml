@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="fs.fsa.adoptionPoolListDAO">
+	<desc>채용인력Pool관리 HQML Query</desc>
+
+	<!-- 채용인력Pool관리 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		<![CDATA[ 			
+			SELECT
+			        ADOPTION_NUM                                                      /* 채용번호             */
+			      , NAME                                                              /* 성명                 */      
+			      , AGE                                                               /* 나이                 */
+			      , ADOPTION_STATUS                                                   /* 채용상태(공통코드)   */
+			      , ADOPTION_STATUS_NM                                                
+			      , BRTH_DATE                                                         /* 생년                 */  
+			      , GENDER                                                            /* 그룹공통코드(성별)   */  
+			      , TELNO                                                             /* 전화번호_지역_암호화 */  		
+			 	  , SCC_TELNO_SPLIT_FUN(TELNO, 1) AS TELNO1
+			 	  , SCC_TELNO_SPLIT_FUN(TELNO, 2) AS TELNO2
+			 	  , SCC_TELNO_SPLIT_FUN(TELNO, 3) AS TELNO3
+			      , HANDPHONE_NUM                                                     /*                      */  			  
+				  , SCC_TELNO_SPLIT_FUN(HANDPHONE_NUM, 1) AS HANDPHONE_NUM1
+				  , SCC_TELNO_SPLIT_FUN(HANDPHONE_NUM, 2) AS HANDPHONE_NUM2
+				  , SCC_TELNO_SPLIT_FUN(HANDPHONE_NUM, 3) AS HANDPHONE_NUM3
+				  , (SCC_TELNO_SPLIT_FUN(HANDPHONE_NUM, 1)||'-'||SCC_TELNO_SPLIT_FUN(HANDPHONE_NUM, 2)||'-'||SCC_TELNO_SPLIT_FUN(HANDPHONE_NUM, 3)) AS HANDPHONE_NUM_HYPHEN
+			      , EMAIL                                                             /* 이메일주소           */  
+			      , ZIP_CODE                                                          /* 우편번호             */ 
+			      , ADDR                                                              /* 주소 암호화          */  
+			      , ADDR_KEY															/* 주소 키		/*
+			      , ADDR_ENC                                                          /* 상세주소 암호화      */  
+			      , ADOPTION_PRTC                                                     /* 채용_경위            */  
+			      , PERS_INFO_AGREE_DATE                                              /* 개인정보 동의일자    */  
+			      , PERS_INFO_EDATE                                                   /* 개인정보_만료일자    */  
+			      , PERS_INFO_DSTRY_SABUN                                             /* 개인정보_파기자_사번 */  
+			      , PERS_INFO_DSTRY_DATE                                              /* 년/월/일 시분초      */  
+			      , SUP_DUTY                                                          /* 지원직무             */  
+			      , SUP_DUTY_ETC
+			      , SUP_DUTY_NM
+			      , SUP_DUTY_GROUP
+			      , POSS_DUTY                                                         /* 가능직무             */  
+			      , POSS_DUTY_ETC                                                     /* 가능직무             */  
+			      , REMARK                                                            /* 비고                 */  
+			      , CDATE
+			      , FILE_ID
+			      , ADDR_INFO                                                            /* 주소정보 */
+			      , FS_CAREER_YN
+			      , LOC
+			FROM (
+			      SELECT  ADOPTION_NUM                                                /* 채용번호             */
+			            , NAME                                                        /* 성명                 */      
+			            , TO_NUMBER( TO_CHAR( SYSDATE ,'YYYY') ) - TO_NUMBER( SUBSTR( BRTH_DATE,0,4))   AS AGE   /* 나이                 */
+			            , ADOPTION_STATUS                                             /* 채용상태(공통코드)   */
+			            , (SELECT CODE_NAME 
+			                 FROM SCC_COMMON_CODE
+			                WHERE GROUP_CODE = 'ALLC_TYPE'
+			                  AND CODE = M.ADOPTION_STATUS
+			                  AND ROWNUM = 1
+			              ) AS ADOPTION_STATUS_NM
+			            , BRTH_DATE                                                  /* 생년                 */
+			            , GENDER                                                     /* 그룹공통코드(성별)   */
+			            , SCC_CRYPTO.MASKAUTH_FUN(TELNO_ENC, 9, :loginPersMask, :maskAuth)          AS TELNO            /* 전화번호_지역_암호화 */
+			            , SCC_CRYPTO.MASKAUTH_FUN(HANDPHONE_NUM_ENC, 8, :loginPersMask, :maskAuth)  AS HANDPHONE_NUM    /*                      */
+			            , SCC_CRYPTO.MASKAUTH_FUN(EMAIL_ENC, 7, :loginPersMask, :maskAuth)          AS EMAIL            /* 이메일주소           */
+			            , SCC_ADDR_FUN(M.ADDR_KEY, :loginPersMask, :maskAuth) AS ADDR_INFO          /* 주소정보 */
+			            , SUBSTR(SCC_GET_ADDR_FUN('ZIP'   , M.ADDR_KEY, :loginPersMask, :maskAuth), 0,3)       AS ZIP  /* 우편번호 앞3자리      */
+			            , SCC_GET_ADDR_FUN('ZIP'   , M.ADDR_KEY, :loginPersMask, :maskAuth) AS ZIP_CODE                                                   /* 우편번호             */
+			            , SCC_GET_ADDR_FUN('BASE'  , M.ADDR_KEY, :loginPersMask, :maskAuth) AS ADDR
+			            , ADDR_KEY																																					/* 주소 키		*/
+                        , SCC_GET_ADDR_FUN('DETAIL', M.ADDR_KEY, :loginPersMask, :maskAuth) AS ADDR_ENC
+			            , ADOPTION_PRTC                                              /* 채용_경위            */
+			            , PERS_INFO_AGREE_DATE                                       /* 개인정보 동의일자    */
+			            , TO_CHAR(TO_DATE( PERS_INFO_EDATE ,'YYYYMMDD'),'YYYY-MM-DD')   AS PERS_INFO_EDATE                                               /* 개인정보_만료일자    */
+			            , PERS_INFO_DSTRY_SABUN                                      /* 개인정보_파기자_사번 */
+			            , PERS_INFO_DSTRY_DATE                                       /* 년/월/일 시분초      */
+			            , SUP_DUTY                                                   /* 지원직무             */
+			            , SUP_DUTY_ETC                                                   /* 지원직무             */
+			            , FS_CAREER_YN
+			            , LOC
+			            , (SELECT CODE_NAME 
+			                 FROM SCC_COMMON_CODE
+			                WHERE GROUP_CODE = 'DUTY_TYPE'
+			                  AND CODE = M.SUP_DUTY
+			                  AND ROWNUM = 1            
+			              ) AS SUP_DUTY_NM
+			            , (SELECT CASE WHEN SET1 = '1' THEN 
+			            			'조리사'
+			                      ELSE
+			                      	'조리원'
+			                      END
+			                 FROM SCC_COMMON_CODE
+			                WHERE GROUP_CODE = 'DUTY_TYPE'
+			                  AND CODE = M.SUP_DUTY
+			                  AND ROWNUM = 1            
+			              ) AS SUP_DUTY_GROUP
+			            , POSS_DUTY                                                  /* 가능직무             */
+			            , POSS_DUTY_ETC                                                  /* 가능직무             */
+			            , REMARK                                                     /* 비고                 */
+			            , TO_CHAR( CDATE,'YYYY-MM-DD') AS CDATE
+			            , FILE_ID
+			        FROM  FSA_POOL_MASTER M
+			       WHERE  1 = 1
+			        <#if name?has_content>
+				   AND    NAME LIKE '%' || :name || '%'
+			       </#if>
+			       <#if duty?has_content>
+				   AND    SUP_DUTY = :duty 
+			       </#if>
+			       <#if possDuty?has_content>
+				   AND    POSS_DUTY  LIKE '%'||:possDuty||'%' 
+			       </#if>
+			       <#if sex?has_content>
+				   AND    GENDER = :sex 
+			       </#if>
+			     ) K 
+			WHERE 1 = 1
+			  <#if zip?has_content>
+			  AND LOC = :zip
+			  </#if>		
+			  <#if ageStart?has_content>
+			  AND    AGE >= :ageStart 
+			  </#if>
+			  <#if ageEnd?has_content>
+			  AND    AGE <= :ageEnd 
+			  </#if>
+			  <#if status?has_content>
+			  AND    ADOPTION_STATUS = :status 
+			  </#if>
+			  AND PERS_INFO_DSTRY_SABUN IS NULL
+			  AND PERS_INFO_DSTRY_DATE IS NULL
+	     ORDER BY ADOPTION_NUM DESC   
+     
+ ]]></statement>
+
+	<!-- 채용인력Pool관리(을)를 등록한다. -->
+	<statement name="insert" type="insert"><![CDATA[
+INSERT INTO FSA_POOL_MASTER (
+       ADOPTION_NUM                           /* 채용번호                           */
+     , NAME                                   /* 성명                               */
+     , ADOPTION_STATUS                        /* 채용상태(공통코드)                 */
+     , BRTH_DATE                              /* 생년                               */
+     , GENDER                                 /* 그룹공통코드(성별)                 */
+   /*, TELNO                                   전화번호_지역                        */
+     , TELNO_ENC                              /* 전화번호_지역_암호화               */
+   /*, HANDPHONE_NUM                                                                */
+     , HANDPHONE_NUM_ENC                      /*                                    */
+     , EMAIL_ENC                                  /* 이메일주소                     */
+   --  , ZIP_CODE                               /* 우편번호                           */
+   --	 , ADDR                                   /* 주소 암호화                        */
+   --  , ADDR_ENC                               /* 상세주소 암호화                    */
+     , ADDR_KEY                                    /* 주소 */
+     , ADOPTION_PRTC                          /* 채용_경위                          */
+     , FS_CAREER_YN							/* 단체급식경력 유무				*/
+     , LOC									/* 지역			*/
+     , PERS_INFO_AGREE_DATE                   /* 개인정보 동의일자                  */
+     , PERS_INFO_EDATE                        /* 개인정보_만료일자                  */
+   /*, PERS_INFO_DSTRY_SABUN                   개인정보_파기자_사번                 */
+   /* , PERS_INFO_DSTRY_DATE                    년/월/일 시분초로 등록되어야 한다. */
+     , SUP_DUTY                               /* 지원직무                           */
+     , SUP_DUTY_ETC                               /* 지원직무                           */
+     , POSS_DUTY                              /* 가능직무                           */
+     , POSS_DUTY_ETC                              /* 가능직무                           */
+     , REMARK                                 /* 비고                               */
+     , FILE_ID
+     , CUSER                                  /* 생성자 사번                        */
+     , CDATE                                  /* 생성일시                           */
+     , UUSER                                  /* 수정자 사번                        */
+     , UDATE                                  /* 수정일시                           */
+) VALUES (
+       (
+        SELECT TO_CHAR( SYSDATE , 'YYYYMM') || LPAD( NVL(  MAX( TO_NUMBER( SUBSTR(ADOPTION_NUM, 7)) ) , 0) + 1 , 5,'0')
+          FROM FSA_POOL_MASTER                
+         WHERE ADOPTION_NUM LIKE TO_CHAR( SYSDATE , 'YYYYMM') ||'%'
+       )                          															/* 채용번호                           */
+     , :name                                   												/* 성명                               */
+     , :adoptionStatus                         												/* 채용상태(공통코드)                 */
+     , :brthDate                               												/* 생년                               */
+     , :gender                                 												/* 그룹공통코드(성별)                 */
+   /*, :telno                                   											   전화번호_지역                      */
+     , SCC_CRYPTO.ENC_FUN(:telno1 || :telno2 || :telno3 )                     /* 전화번호_지역_암호화               */
+   /*, :handphoneNum                                                               											  	  */
+     , SCC_CRYPTO.ENC_FUN(:handphoneNum1 || :handphoneNum2 || :handphoneNum3) /*                                    */
+     , <#if email?has_content> SCC_CRYPTO.ENC_FUN(:email) <#else> null </#if>                                   							/* 이메일주소                         */
+   --  , :zipCode                               												/* 우편번호                           */
+   --  , :addr                                								/* 주소                               */
+   --  , <#if addrEnc?has_content> SCC_CRYPTO.ENC_FUN(:addrEnc) <#else> null </#if>           												/* 상세주소 암호화                    */
+       , <#if addrKey?has_content> :addrKey <#else> null </#if>                       															/* 주소 */
+     , :adoptionPrtc                           												/* 채용_경위                          */
+     , <#if fsCareerYn?has_content> :fsCareerYn <#else> null </#if>
+     , <#if loc?has_content> :loc </#if>										
+     , REPLACE(:persInfoAgreeDate,'-','')                      								/* 개인정보 동의일자                  */
+     --만료 일자 계산시 sysdate로 되어있어서 변경 20160212  요청자: 박승희
+     -- , (SELECT TO_CHAR(ADD_MONTHS(SYSDATE, (SELECT ENV_INFO_VALUE 
+    , (SELECT TO_CHAR(ADD_MONTHS(TO_DATE(REPLACE(:persInfoAgreeDate,'-','')   ,'YYYYMMDD') -1, (SELECT ENV_INFO_VALUE 
+							FROM SCC_PERS_INFO_MGMT_ENV 
+                            WHERE ENV_INFO_ID = 'BIZ_ADOPTION_POOL') * 12),'YYYYMMDD')	FROM DUAL)                								/* 개인정보_만료일자                  */
+   /*, :persInfoDstrySabun                     												 개인정보_파기자_사번               */
+   /*, :persInfoDstryDate                      											 년/월/일 시분초로 등록되어야 한다. */
+     , :supDuty                                												/* 지원직무                           */
+     , <#if supDutyEtc?has_content> :supDutyEtc <#else> null </#if>                                  												/* 지원직무                           */
+     , :possDuty                               												/* 가능직무                           */
+     , <#if possDutyEtc?has_content> :possDutyEtc <#else> null </#if>                                												/* 가능직무                           */
+     , :remark                                 												/* 비고                               */
+     , <#if fileId?has_content> :fileId <#else> null </#if> 
+     , :loginSabun                             												/* 생성자 사번                        */
+     , SYSDATE                                 												/* 생성일시                           */
+     , :loginSabun                             												/* 수정자 사번                        */
+     , SYSDATE                                 												/* 수정일시                           */
+)
+]]></statement>
+
+	<!-- 채용인력Pool관리(을)를 수정한다. -->
+	<statement name="update" type="update"><![CDATA[
+UPDATE FSA_POOL_MASTER SET
+       NAME                     =  :name                           														/* 성명                               */
+     , ADOPTION_STATUS          =  :adoptionStatus                 														/* 채용상태(공통코드)                 */
+     , BRTH_DATE                =  :brthDate                       														/* 생년                               */
+     , GENDER                   =  :gender                         														/* 그룹공통코드(성별)                 */
+   /*, TELNO                    =  :telno                 			  								   					   전화번호_지역                      */
+     , TELNO_ENC                =  SCC_CRYPTO.ENC_FUN(:telno1 || :telno2 || :telno3 ) 					/* 전화번호_지역_암호화               */
+   /*, HANDPHONE_NUM            =  :handphoneNum                                                   															  */
+     , HANDPHONE_NUM_ENC        =  SCC_CRYPTO.ENC_FUN(:handphoneNum1 || :handphoneNum2 || :handphoneNum3) /*                                    */
+     , EMAIL_ENC                =  <#if email?has_content> SCC_CRYPTO.ENC_FUN(:email) <#else> null </#if>              																	/* 이메일주소                         */
+  --  , ZIP_CODE                 =  :zipCode             																/* 우편번호                           */
+   --  , ADDR                     =  :addr               												/* 주소                               */
+   --  , ADDR_ENC                 =  <#if addrEnc?has_content> SCC_CRYPTO.ENC_FUN(:addrEnc) <#else> null </#if>                  										/* 상세주소 암호화                    */
+     , ADDR_KEY                  = <#if addrKey?has_content> :addrKey <#else> null </#if>
+     , ADOPTION_PRTC            =  :adoptionPrtc                              											/* 채용_경위                          */
+     , FS_CAREER_YN              =  <#if fsCareerYn?has_content> :fsCareerYn <#else> null </#if>
+     , LOC                    = <#if loc?has_content> :loc </#if>
+     , PERS_INFO_AGREE_DATE     =  REPLACE(:persInfoAgreeDate,'-','')                         											/* 개인정보 동의일자                  */
+     , PERS_INFO_EDATE          =  REPLACE(:persInfoEdate,'-','')                             											/* 개인정보_만료일자                  */
+ /*  , PERS_INFO_DSTRY_SABUN    =  :persInfoDstrySabun                        											 개인정보_파기자_사번               */
+ /*  , PERS_INFO_DSTRY_DATE     =  :persInfoDstryDate                         											 년/월/일 시분초로 등록되어야 한다. */
+     , SUP_DUTY                 =  :supDuty                                   											/* 지원직무                           */
+     , SUP_DUTY_ETC             =  <#if supDutyEtc?has_content> :supDutyEtc <#else> null </#if>                                  											/* 지원직무                           */
+     , POSS_DUTY                =  :possDuty                                  											/* 가능직무                           */
+     , POSS_DUTY_ETC            =  <#if possDutyEtc?has_content> :possDutyEtc <#else> null </#if>                             											/* 가능직무                           */
+     , REMARK                   =  :remark                                   											/* 비고                               */
+     , FILE_ID    				=  <#if fileId?has_content> :fileId <#else> null </#if> 
+     , UUSER                    =  :loginSabun                                											/* 수정자 사번                        */
+     , UDATE                    =  SYSDATE                                   											/* 수정일시                           */
+WHERE  ADOPTION_NUM             =  :adoptionNum              															/* 채용번호                           */
+  ]]></statement>
+
+	<!-- 채용인력Pool관리(을)를 삭제한다. -->
+	<statement name="delete" type="delete"><![CDATA[
+DELETE 
+FROM   FSA_POOL_MASTER 		
+WHERE  ADOPTION_NUM             =  :adoptionNum              /* 채용번호                           */
+  ]]></statement>
+
+	<!-- 채용인력Pool관리(을)를 삭제한다. -->
+	<statement name="selectSido">
+		<![CDATA[  
+		SELECT CODE
+		    ,  CODE_NAME
+		    ,  ZIP
+		FROM ( 
+		    SELECT   ''      AS CODE
+		           , '전체'  AS CODE_NAME
+		           , ''      AS ZIP
+		     FROM  DUAL  
+		   UNION ALL
+		     SELECT  SIDO AS CODE
+		           , SIDO AS CODE_NAME
+		           , LISTAGG(ZIP1, ',') WITHIN GROUP (ORDER BY ZIP1) ZIP
+		      FROM (
+		            SELECT SIDO, SUBSTR(ZIP, 1,3) ZIP1, COUNT(*)
+		              FROM SCC_ZIP_ROAD
+		             GROUP BY SIDO, SUBSTR(ZIP, 1, 3)
+		           )     
+		GROUP BY SIDO
+		 )
+		ORDER BY CODE  NULLS FIRST
+ 	]]>
+	</statement>
+
+</hqml>

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[개별표준식단  식단영양성분]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.RECIPE_CD, B.RECIPE_NAME,
+       C.ITEM_CODE, F.ITEM_NAME,
+       ROUND((C.NEED_QTY*(ITEM_RATE/100)),2) AS MATERIAL_QTY,         			--"자재량",
+       DISUSE_RATE,															--"폐기율",
+       ROUND(NVL(CAL,0) * (C.NEED_QTY*((100-NVL(DISUSE_RATE,0))/100)*(ITEM_RATE/100)) / 100,2) AS CAL,			--"열량",
+       ROUND(NVL(WATER,0) * (C.NEED_QTY*((100-NVL(DISUSE_RATE,0))/100)*(ITEM_RATE/100)) / 100,2) AS WATER,		--"수분",
+       ROUND(NVL(PROT,0) * (C.NEED_QTY*((100-NVL(DISUSE_RATE,0))/100)*(ITEM_RATE/100)) / 100,2) AS PROT,			--"단백질",
+       ROUND(NVL(FAT,0) * (C.NEED_QTY*((100-NVL(DISUSE_RATE,0))/100)*(ITEM_RATE/100)) / 100,2) AS FAT,			--"지질",
+       ROUND(NVL(CARBO,0) * (C.NEED_QTY*((100-NVL(DISUSE_RATE,0))/100)*(ITEM_RATE/100)) / 100,2) AS CARBO,		--"당질",
+       ROUND(NVL(FIBER,0) * (C.NEED_QTY*((100-NVL(DISUSE_RATE,0))/100)*(ITEM_RATE/100)) / 100,2) AS FIBER,		--"섬유소",
+       ROUND(NVL(ASH,0) * (C.NEED_QTY*((100-NVL(DISUSE_RATE,0))/100)*(ITEM_RATE/100)) / 100,2) AS ASH,			--"회분",
+       ROUND(NVL(CA,0) * (C.NEED_QTY*((100-NVL(DISUSE_RATE,0))/100)*(ITEM_RATE/100)) / 100,2) AS CA,				--"칼슘",
+       ROUND(NVL(P,0) * (C.NEED_QTY*((100-NVL(DISUSE_RATE,0))/100)*(ITEM_RATE/100)) / 100,2) AS P,				--"인분",
+       ROUND(NVL(FE,0) * (C.NEED_QTY*((100-NVL(DISUSE_RATE,0))/100)*(ITEM_RATE/100)) / 100,2) AS FE,				--"철분",
+       ROUND(NVL(NA,0) * (C.NEED_QTY*((100-NVL(DISUSE_RATE,0))/100)*(ITEM_RATE/100)) / 100,2) AS NA,				--"나트륨",
+       ROUND(NVL(K,0) * (C.NEED_QTY*((100-NVL(DISUSE_RATE,0))/100)*(ITEM_RATE/100)) / 100,2) AS K,				--"칼륨",
+       ROUND(NVL(VITA_A,0) * (C.NEED_QTY*((100-NVL(DISUSE_RATE,0))/100)*(ITEM_RATE/100)) / 100,2) AS VITA_A,		--"비타민A",
+       ROUND(NVL(RETIN,0) * (C.NEED_QTY*((100-NVL(DISUSE_RATE,0))/100)*(ITEM_RATE/100)) / 100,2) AS RETIN,		--"레티놀",
+       ROUND(NVL(B_CAROT,0) * (C.NEED_QTY*((100-NVL(DISUSE_RATE,0))/100)*(ITEM_RATE/100)) / 100,2) AS B_CAROT,	--"베타카르틴",
+       ROUND(NVL(THIA,0) * (C.NEED_QTY*((100-NVL(DISUSE_RATE,0))/100)*(ITEM_RATE/100)) / 100,2) AS THIA,			--"비타민B1",
+       ROUND(NVL(RIBO,0) * (C.NEED_QTY*((100-NVL(DISUSE_RATE,0))/100)*(ITEM_RATE/100)) / 100,2) AS RIBO,			--"비타민B2",
+       ROUND(NVL(NIACIN,0) * (C.NEED_QTY*((100-NVL(DISUSE_RATE,0))/100)*(ITEM_RATE/100)) / 100,2) AS NIACIN,		--"나이아신",
+       ROUND(NVL(VITA_C,0) * (C.NEED_QTY*((100-NVL(DISUSE_RATE,0))/100)*(ITEM_RATE/100)) / 100,2) AS VITA_C,		--"비타민C",
+       ROUND(NVL(CHOLE,0) * (C.NEED_QTY*((100-NVL(DISUSE_RATE,0))/100)*(ITEM_RATE/100)) / 100,2) AS CHOLE		--"콜레스테롤"
+  FROM FSM_SINGLE_MENU_RECIPE A,
+       FSR_STD_RECIPE_MST B ,
+       FSR_STD_RECIPE_ITEM C ,
+       FSI_ITEM_NUT E,
+       HLDC_PO_ITEM_MST F
+ WHERE A.RECIPE_CD = B.RECIPE_CD
+   AND B.RECIPE_CD = C.RECIPE_CD
+   AND C.ITEM_CODE = E.ITEM_CODE(+)
+   AND C.ITEM_CODE = F.ITEM_CODE
+   AND ((F.ITEM_CLASS2 BETWEEN 'F10' AND 'F26') OR F.ITEM_CLASS2 = 'F29')
+   AND A.SINGLE_MENU_CD = #SINGLE_MENU_CD#	]]></statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_list">
+		<col name="RECIPE_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="RECIPE_NAME" size="50" type="VARCHAR" description="" /> 
+		<col name="ITEM_CODE" size="12" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAME" size="200" type="VARCHAR" description="" /> 
+		<col name="MATERIAL_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="DISUSE_RATE" size="22" type="NUMERIC" description="" /> 
+		<col name="CAL" size="22" type="NUMERIC" description="" /> 
+		<col name="WATER" size="22" type="NUMERIC" description="" /> 
+		<col name="PROT" size="22" type="NUMERIC" description="" /> 
+		<col name="FAT" size="22" type="NUMERIC" description="" /> 
+		<col name="CARBO" size="22" type="NUMERIC" description="" /> 
+		<col name="FIBER" size="22" type="NUMERIC" description="" /> 
+		<col name="ASH" size="22" type="NUMERIC" description="" /> 
+		<col name="CA" size="22" type="NUMERIC" description="" /> 
+		<col name="P" size="22" type="NUMERIC" description="" /> 
+		<col name="FE" size="22" type="NUMERIC" description="" /> 
+		<col name="NA" size="22" type="NUMERIC" description="" /> 
+		<col name="K" size="22" type="NUMERIC" description="" /> 
+		<col name="VITA_A" size="22" type="NUMERIC" description="" /> 
+		<col name="RETIN" size="22" type="NUMERIC" description="" /> 
+		<col name="B_CAROT" size="22" type="NUMERIC" description="" /> 
+		<col name="THIA" size="22" type="NUMERIC" description="" /> 
+		<col name="RIBO" size="22" type="NUMERIC" description="" /> 
+		<col name="NIACIN" size="22" type="NUMERIC" description="" /> 
+		<col name="VITA_C" size="22" type="NUMERIC" description="" /> 
+		<col name="CHOLE" size="22" type="NUMERIC" description="" /> 
+	</output>
+</query>

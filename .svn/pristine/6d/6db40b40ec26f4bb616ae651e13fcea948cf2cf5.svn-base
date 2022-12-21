@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="ls.lcm.formMgmtDAO">
+    <desc>양식서를 관리한다.</desc>
+
+    <!-- 양식서 리스트 DATA를 조회한다. -->
+    <statement name="selectFormList" type="select">
+        /*+ com.hwfs.ls.lcm.dao.FormMgmtDAO.selectFormList */
+        <![CDATA[
+/* 양식서 조회 */
+SELECT A.FORM_CLASS_CD
+      ,A.FORM_ID
+      ,A.FORM_NM
+      ,A.ENFORCE_DDTT
+      ,A.APPEND_FILENM
+      ,A.SVR_FILENM
+      ,A.CUSER
+      ,A.CDATE
+      ,A.UUSER
+      ,(SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.UUSER) AS UUSER_NM
+      ,A.UDATE
+      ,A.REF_SEQ
+      ,'' AS APPEND_SEQ
+      ,'' AS SAVE_FILE_NM
+      ,'' AS ORGNL_FILE_NM
+  FROM LCM_FORM_DOC A
+ WHERE 1 = 1
+   AND A.FORM_CLASS_CD = :formClassCd
+<#if fromDay?has_content> AND A.ENFORCE_DDTT BETWEEN :fromDay AND :toDay || '2359'</#if>
+<#if formNm?has_content> AND A.FORM_NM LIKE '%' || :formNm || '%' </#if>
+ ORDER BY A.FORM_ID
+        ]]>
+    </statement>
+
+    <!-- 양식서 DATA를 조회한다. -->
+    <statement name="selectForm" type="select">
+        /*+ com.hwfs.ls.lcm.dao.FormMgmtDAO.selectForm */
+        <![CDATA[
+/* 양식서 조회 */
+SELECT A.FORM_CLASS_CD
+      ,A.FORM_ID
+      ,A.FORM_NM
+      ,A.ENFORCE_DDTT
+      ,A.CONTENTS
+      ,A.APPEND_FILENM
+      ,A.SVR_FILENM
+      ,A.CUSER
+      ,A.CDATE
+      ,A.UUSER
+      ,(SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.UUSER) AS UUSER_NM
+      ,A.UDATE
+      ,A.REF_SEQ
+  FROM LCM_FORM_DOC A
+ WHERE 1 = 1
+   AND A.FORM_CLASS_CD = :formClassCd
+   AND A.FORM_ID = :formId
+        ]]>
+    </statement>
+
+    <!-- 양식서번호를 채번 한다. -->
+    <statement name="selectFormId" type="select">
+        /*+ com.hwfs.ls.lcm.dao.FormMgmtDAO.selectFormId */
+        <![CDATA[
+/* 양식서번호 채번 */
+SELECT TO_CHAR(NVL(MAX(FORM_ID),0) + 1) AS FORM_ID
+  FROM LCM_FORM_DOC
+        ]]>
+    </statement>
+
+    <!-- 양식서을 생성한다. -->
+    <statement name="insertFormList" type="insert">
+        /*+ com.hwfs.ls.lcm.dao.FormMgmtDAO.insertFormList */
+        <![CDATA[
+/* 양식서 생성 */
+INSERT INTO LCM_FORM_DOC
+(
+    FORM_CLASS_CD,
+    FORM_ID,
+    FORM_NM,
+    ENFORCE_DDTT,
+    CONTENTS,
+    APPEND_FILENM,
+    SVR_FILENM,
+    REF_SEQ,
+    CUSER,
+    CDATE,
+    UUSER,
+    UDATE
+) VALUES (
+    :formClassCd,
+    :formId,
+   <#if formNm?exists> :formNm, <#else> null, </#if>
+   <#if enforceDdtt?exists> :enforceDdtt, <#else> null, </#if>
+   <#if contents?exists> :contents, <#else> null, </#if>
+   <#if appendFilenm?exists> :appendFilenm, <#else> null, </#if>
+   <#if svrFilenm?exists> :svrFilenm, <#else> null, </#if>
+   <#if refSeq?exists> :refSeq, <#else> null, </#if>
+    :loginSabun,
+    SYSDATE,
+    :loginSabun,
+    SYSDATE
+)
+        ]]>
+    </statement>
+
+    <!-- 양식서을 수정한다. -->
+    <statement name="updateFormList" type="update">
+        /*+ com.hwfs.ls.lcm.dao.FormMgmtDAO.updateFormList */
+        <![CDATA[
+/* 양식서 수정 */
+UPDATE LCM_FORM_DOC SET
+<#if formNm?exists> FORM_NM = :formNm, </#if>
+<#if enforceDdtt?exists> ENFORCE_DDTT = :enforceDdtt, </#if>
+<#if contents?exists> CONTENTS = :contents, </#if>
+<#if appendFilenm?exists> APPEND_FILENM = :appendFilenm, </#if>
+<#if svrFilenm?exists> SVR_FILENM = :svrFilenm, </#if>
+<#if refSeq?exists> REF_SEQ = :refSeq, <#else> null, </#if>
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+WHERE  FORM_CLASS_CD = :formClassCd
+AND    FORM_ID = :formId
+        ]]>
+    </statement>
+
+    <!-- 양식서을 삭제한다. -->
+    <statement name="deleteFormList" type="delete">
+        /*+ com.hwfs.ls.lcm.dao.FormMgmtDAO.deleteFormList */
+        <![CDATA[
+/* 양식서 삭제 */
+DELETE FROM LCM_FORM_DOC
+WHERE  FORM_CLASS_CD = :formClassCd
+AND    FORM_ID = :formId
+        ]]>
+    </statement>
+
+    <!-- 양식서 첨부파일 삭제. -->
+    <statement name="saveFormAttachFileDelete" type="update">
+        /*+ com.hwfs.ls.lcm.dao.FormMgmtDAO.saveFormAttachFileDelete */
+        <![CDATA[
+/* 양식서 첨부파일 삭제 */
+UPDATE LCM_FORM_DOC SET
+<#if appendFilenm?exists> APPEND_FILENM = null, </#if>
+<#if svrFilenm?exists> SVR_FILENM = null, </#if>
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+WHERE  FORM_CLASS_CD = :formClassCd
+AND    FORM_ID = :formId
+        ]]>
+    </statement>
+
+</hqml>

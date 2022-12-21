@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="ls.lcm.specmTypeArticleMgmtDAO">
+    <desc>검체유형항목을 관리한다.</desc>
+
+    <!-- 검체유형항목 DATA를 조회한다. -->
+    <statement name="selectList" type="select">
+        /*+ com.hwfs.ls.lcm.dao.SpecmTypeArticleMgmtDAO.selectList */
+        <![CDATA[
+/* 검체유형항목 조회 */
+SELECT A.SPECM_TYPE
+     , A.MGRP_CD
+     , A.MGRP_NM
+     , B.MCALSS_CD
+     , B.MCALSS_NM
+     , C.SCLASS_CD
+     , C.SCLASS_NM
+  FROM LCM_SPECM_TYPE_MGRP A
+     , LCM_SPECM_TYPE_MCALSS B
+     , LCM_SPECM_TYPE_SCLASS C
+ WHERE A.SPECM_TYPE = :specmType
+<#if edtMclassSearch?has_content> AND B.MCALSS_NM LIKE '%' || :edtMclassSearch || '%' </#if>
+<#if edtSearch?has_content> AND C.SCLASS_NM LIKE '%' || :edtSearch || '%' </#if>
+<#if sclassCd?has_content> AND C.SCLASS_CD = :sclassCd </#if>
+<#if mgrpCd?has_content> AND A.MGRP_CD = :mgrpCd </#if>
+<#if mcalssNm?has_content>   AND B.MCALSS_NM LIKE '%' || :mcalssNm || '%' </#if>
+<#if mcalssCd?has_content> AND B.MCALSS_CD = :mcalssCd </#if>
+   AND A.SPECM_TYPE = B.SPECM_TYPE
+   AND A.SPECM_TYPE = C.SPECM_TYPE
+   AND A.MGRP_CD = B.MGRP_CD
+   AND A.MGRP_CD = C.MGRP_CD
+   AND B.MCALSS_CD = C.MCALSS_CD
+   AND A.USE_YN = 'Y'
+   AND B.USE_YN = 'Y'
+   AND C.USE_YN = 'Y'
+ ORDER BY A.SPECM_TYPE
+        , A.MGRP_CD
+        , B.MCALSS_CD
+        , C.SCLASS_CD
+        ]]>
+    </statement>
+
+    <!-- 검체유형항목 대분류 DATA를 조회한다. -->
+    <statement name="selectMgrpList" type="select">
+        /*+ com.hwfs.ls.lcm.dao.SpecmTypeArticleMgmtDAO.selectMgrpList */
+        <![CDATA[
+/* 검체유형항목 대분류 조회 */
+SELECT SPECM_TYPE,
+       MGRP_CD,
+       MGRP_NM,
+       CUSER,
+       CDATE,
+       UUSER,
+       UDATE
+FROM   LCM_SPECM_TYPE_MGRP
+WHERE  SPECM_TYPE = :specmType
+AND    USE_YN = 'Y'
+<#if edtSearch?has_content> AND MGRP_NM LIKE '%' || :edtSearch || '%' </#if>
+        ]]>
+    </statement>
+
+    <!-- 검체유형항목 중분류 DATA를 조회한다. -->
+    <statement name="selectMcalssList" type="select">
+        /*+ com.hwfs.ls.lcm.dao.SpecmTypeArticleMgmtDAO.selectMcalssList */
+        <![CDATA[
+/* 검체유형항목 중분류 조회 */
+SELECT SPECM_TYPE,
+       MGRP_CD,
+       MCALSS_CD,
+       MCALSS_NM,
+       CUSER,
+       CDATE,
+       UUSER,
+       UDATE
+FROM   LCM_SPECM_TYPE_MCALSS
+WHERE  SPECM_TYPE = :specmType
+AND    MGRP_CD = :mgrpCd
+AND    USE_YN = 'Y'
+        ]]>
+    </statement>
+
+    <!-- 검체유형항목 소분류 DATA를 조회한다. -->
+    <statement name="selectSclassList" type="select">
+        /*+ com.hwfs.ls.lcm.dao.SpecmTypeArticleMgmtDAO.selectSclassList */
+        <![CDATA[
+/* 검체유형항목 소분류 조회 */
+SELECT SPECM_TYPE,
+       MGRP_CD,
+       MCALSS_CD,
+       SCLASS_CD,
+       SCLASS_NM,
+       CUSER,
+       CDATE,
+       UUSER,
+       UDATE
+FROM   LCM_SPECM_TYPE_SCLASS
+WHERE  SPECM_TYPE = :specmType
+AND    MGRP_CD = :mgrpCd
+AND    MCALSS_CD = :mcalssCd
+AND    USE_YN = 'Y'
+        ]]>
+    </statement>
+
+    <!-- 검체유형항목 대분류코드를 채번 한다. -->
+    <statement name="selectMgrpCd" type="select">
+        /*+ com.hwfs.ls.lcm.dao.SpecmTypeArticleMgmtDAO.selectMgrpCd */
+        <![CDATA[
+/* 검체유형항목 대분류코드 채번 */
+SELECT 'B'||LPAD(TO_NUMBER(NVL(MAX(SUBSTR(MGRP_CD,2,9)),0)) + 1, 9, '0') AS MGRP_CD
+  FROM LCM_SPECM_TYPE_MGRP
+        ]]>
+    </statement>
+
+    <!-- 검체유형항목 중분류코드를 채번 한다. -->
+    <statement name="selectMcalssCd" type="select">
+        /*+ com.hwfs.ls.lcm.dao.SpecmTypeArticleMgmtDAO.selectMcalssCd */
+        <![CDATA[
+/* 검체유형항목 중분류코드 채번 */
+SELECT 'M'||LPAD(TO_NUMBER(NVL(MAX(SUBSTR(MCALSS_CD,2,9)),0)) + 1, 9, '0') AS MCALSS_CD
+  FROM LCM_SPECM_TYPE_MCALSS
+        ]]>
+    </statement>
+
+    <!-- 검체유형항목 소분류코드를 채번 한다. -->
+    <statement name="selectSclassCd" type="select">
+        /*+ com.hwfs.ls.lcm.dao.SpecmTypeArticleMgmtDAO.selectSclassCd */
+        <![CDATA[
+/* 검체유형항목 소분류코드 채번 */
+SELECT 'S'||LPAD(TO_NUMBER(NVL(MAX(SUBSTR(SCLASS_CD,2,9)),0)) + 1, 9, '0') AS SCLASS_CD
+  FROM LCM_SPECM_TYPE_SCLASS
+        ]]>
+    </statement>
+
+    <!-- 검체유형항목 대분류 생성한다. -->
+    <statement name="insertMgrpList" type="insert">
+        /*+ com.hwfs.ls.lcm.dao.SpecmTypeArticleMgmtDAO.insertMgrpList */
+        <![CDATA[
+/* 검체유형항목 대분류 생성 */
+INSERT INTO LCM_SPECM_TYPE_MGRP
+(
+ SPECM_TYPE,
+ MGRP_CD,
+ MGRP_NM,
+ USE_YN,
+ CUSER,
+ CDATE,
+ UUSER,
+ UDATE
+) VALUES (
+ :specmType,
+ :mgrpCd,
+<#if mgrpNm?exists> :mgrpNm, <#else> null, </#if>
+ 'Y',
+ :loginSabun,
+ SYSDATE,
+ :loginSabun,
+ SYSDATE
+)
+        ]]>
+    </statement>
+
+    <!-- 검체유형항목 중분류 생성한다. -->
+    <statement name="insertMcalssList" type="insert">
+        /*+ com.hwfs.ls.lcm.dao.SpecmTypeArticleMgmtDAO.insertMcalssList */
+        <![CDATA[
+/* 검체유형항목 중분류 생성 */
+INSERT INTO LCM_SPECM_TYPE_MCALSS
+(
+ SPECM_TYPE,
+ MGRP_CD,
+ MCALSS_CD,
+ MCALSS_NM,
+ USE_YN,
+ CUSER,
+ CDATE,
+ UUSER,
+ UDATE
+) VALUES (
+ :specmType,
+ :mgrpCd,
+ :mcalssCd,
+<#if mcalssNm?exists> :mcalssNm, <#else> null, </#if>
+ 'Y',
+ :loginSabun,
+ SYSDATE,
+ :loginSabun,
+ SYSDATE
+)
+        ]]>
+    </statement>
+
+    <!-- 검체유형항목 소분류 생성한다. -->
+    <statement name="insertSclassList" type="insert">
+        /*+ com.hwfs.ls.lcm.dao.SpecmTypeArticleMgmtDAO.insertSclassList */
+        <![CDATA[
+/* 검체유형항목 소분류 생성 */
+INSERT INTO LCM_SPECM_TYPE_SCLASS
+(
+ SPECM_TYPE,
+ MGRP_CD,
+ MCALSS_CD,
+ SCLASS_CD,
+ SCLASS_NM,
+ USE_YN,
+ CUSER,
+ CDATE,
+ UUSER,
+ UDATE
+) VALUES (
+ :specmType,
+ :mgrpCd,
+ :mcalssCd,
+ :sclassCd,
+<#if sclassNm?exists> :sclassNm, <#else> null, </#if>
+ 'Y',
+ :loginSabun,
+ SYSDATE,
+ :loginSabun,
+ SYSDATE
+)
+        ]]>
+    </statement>
+
+    <!-- 검체유형항목 대분류 수정한다. -->
+    <statement name="updateMgrpList" type="update">
+        /*+ com.hwfs.ls.lcm.dao.SpecmTypeArticleMgmtDAO.updateMgrpList */
+        <![CDATA[
+/* 검체유형항목 대분류 수정 */
+UPDATE LCM_SPECM_TYPE_MGRP SET
+<#if mgrpNm?exists> MGRP_NM = :mgrpNm, </#if>
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+WHERE  SPECM_TYPE = :specmType
+AND    MGRP_CD = :mgrpCd
+        ]]>
+    </statement>
+
+    <!-- 검체유형항목 중분류 수정한다. -->
+    <statement name="updateMcalssList" type="update">
+        /*+ com.hwfs.ls.lcm.dao.SpecmTypeArticleMgmtDAO.updateMcalssList */
+        <![CDATA[
+/* 검체유형항목 중분류 수정 */
+UPDATE LCM_SPECM_TYPE_MCALSS SET
+<#if mcalssNm?exists> MCALSS_NM = :mcalssNm, </#if>
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+WHERE  SPECM_TYPE = :specmType
+AND    MGRP_CD = :mgrpCd
+AND    MCALSS_CD = :mcalssCd
+        ]]>
+    </statement>
+
+    <!-- 검체유형항목 소분류 수정한다. -->
+    <statement name="updateSclassList" type="update">
+        /*+ com.hwfs.ls.lcm.dao.SpecmTypeArticleMgmtDAO.updateSclassList */
+        <![CDATA[
+/* 검체유형항목 소분류 수정 */
+UPDATE LCM_SPECM_TYPE_SCLASS SET
+<#if sclassNm?exists> SCLASS_NM = :sclassNm, </#if>
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+WHERE  SPECM_TYPE = :specmType
+AND    MGRP_CD = :mgrpCd
+AND    MCALSS_CD = :mcalssCd
+AND    SCLASS_CD = :sclassCd
+        ]]>
+    </statement>
+
+    <!-- 검체유형항목 대분류 삭제한다. -->
+    <statement name="deleteMgrpList" type="delete">
+        /*+ com.hwfs.ls.lcm.dao.SpecmTypeArticleMgmtDAO.deleteMgrpList */
+        <![CDATA[
+/* 검체유형항목 대분류 삭제 */
+UPDATE LCM_SPECM_TYPE_MGRP SET
+       USE_YN = 'N',
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+WHERE  SPECM_TYPE = :specmType
+AND    MGRP_CD = :mgrpCd
+        ]]>
+    </statement>
+
+    <!-- 검체유형항목 중분류 삭제한다. -->
+    <statement name="deleteMcalssList" type="delete">
+        /*+ com.hwfs.ls.lcm.dao.SpecmTypeArticleMgmtDAO.deleteMcalssList */
+        <![CDATA[
+/* 검체유형항목 중분류 삭제 */
+UPDATE LCM_SPECM_TYPE_MCALSS SET
+       USE_YN = 'N',
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+WHERE  SPECM_TYPE = :specmType
+AND    MGRP_CD = :mgrpCd
+<#if mcalssCd?has_content> AND    MCALSS_CD = :mcalssCd </#if>
+        ]]>
+    </statement>
+
+    <!-- 검체유형항목 소분류 삭제한다. -->
+    <statement name="deleteSclassList" type="delete">
+        /*+ com.hwfs.ls.lcm.dao.SpecmTypeArticleMgmtDAO.deleteSclassList */
+        <![CDATA[
+/* 검체유형항목 소분류 삭제 */
+UPDATE LCM_SPECM_TYPE_SCLASS SET
+       USE_YN = 'N',
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+WHERE  SPECM_TYPE = :specmType
+AND    MGRP_CD = :mgrpCd
+<#if mcalssCd?has_content>AND    MCALSS_CD = :mcalssCd </#if>
+<#if sclassCd?has_content>AND    SCLASS_CD = :sclassCd </#if>
+        ]]>
+    </statement>
+
+    <!-- 검체유형항목 대분류전체 삭제한다. -->
+    <statement name="deleteMgrpAllList" type="delete">
+        /*+ com.hwfs.ls.lcm.dao.SpecmTypeArticleMgmtDAO.deleteMgrpAllList */
+        <![CDATA[
+/* 검체유형항목 대분류전체 삭제 */
+DELETE FROM LCM_SPECM_TYPE_MGRP WHERE SPECM_TYPE = :specmType
+        ]]>
+    </statement>
+
+    <!-- 검체유형항목 중분류전체 삭제한다. -->
+    <statement name="deleteMcalssAllList" type="delete">
+        /*+ com.hwfs.ls.lcm.dao.SpecmTypeArticleMgmtDAO.deleteMcalssAllList */
+        <![CDATA[
+/* 검체유형항목 중분류전체 삭제 */
+DELETE FROM LCM_SPECM_TYPE_MCALSS WHERE SPECM_TYPE = :specmType
+        ]]>
+    </statement>
+
+    <!-- 검체유형항목 소분류전체 삭제한다. -->
+    <statement name="deleteSclassAllList" type="delete">
+        /*+ com.hwfs.ls.lcm.dao.SpecmTypeArticleMgmtDAO.deleteSclassAllList */
+        <![CDATA[
+/* 검체유형항목 소분류전체 삭제 */
+DELETE FROM LCM_SPECM_TYPE_SCLASS WHERE SPECM_TYPE = :specmType
+        ]]>
+    </statement>
+
+</hqml>

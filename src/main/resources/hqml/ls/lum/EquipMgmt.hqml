@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="ls.lum.equipMgmtDAO">
+    <desc>장비이력과 수리이력을 관리한다.</desc>
+
+    <!-- 장비이력 Master DATA를 조회한다. -->
+    <statement name="selectEquipLogList" type="select">
+        /*+ com.hwfs.ls.lum.dao.EquipMgmtDAO.selectEquipLogList */
+        <![CDATA[
+/* 장비이력관리 장비이력 조회 */
+SELECT A.EQUIP_NUM
+      ,A.EQUIP_NM
+      ,A.ASSET_NUM
+      ,A.MGMT_DEPT
+      ,A.MGMT_NUM
+      ,A.SPLR
+      ,A.INSTALLDD
+      ,A.DESC_FORM_STATUS
+      ,A.NATION_NM
+      ,A.BU_NM
+      ,A.MAKE_NUM
+      ,A.MODEL_NM
+      ,A.STAND
+      ,A.TEST_FLD
+      ,A.USE_CHFSML
+      ,A.APPEND_FILENM_1
+      ,A.SVR_FILENM_1
+      ,A.APPEND_FILENM_2
+      ,A.SVR_FILENM_2
+      ,A.DESC_FORM
+      ,A.CUSER
+      ,A.CDATE
+      ,A.UUSER
+      ,A.UDATE
+      ,'N' AS SVRFILE_1_EXISTS
+      ,'N' AS SVRFILE_2_EXISTS
+      ,'N' AS SVRFILE_3_EXISTS
+      --,'' AS EQUIP_FILE_1
+      --,'' AS EQUIP_FILE_2
+      ,A.REF_SEQ
+      ,'' AS IS_UPLOAD1
+      ,'' AS IS_UPLOAD2
+  FROM LUM_EQUIP_LOG A
+ WHERE 1 = 1
+<#if equipNum?has_content> AND A.EQUIP_NUM = :equipNum </#if>
+<#if equipNm?has_content> AND A.EQUIP_NM LIKE '%' || :equipNm || '%' </#if>
+<#if toDay?has_content> AND A.INSTALLDD BETWEEN :fromDay AND :toDay </#if>
+<#if buNm?has_content> AND A.BU_NM LIKE '%' || :buNm || '%' </#if>
+ ORDER BY CDATE
+        ]]>
+    </statement>
+
+    <!-- 특정 장비이력에 해당하는 수리이력 DATA를 조회한다. -->
+    <statement name="selectRparLogList" type="select">
+        /*+ com.hwfs.ls.lum.dao.EquipMgmtDAO.selectRparLogList */
+        <![CDATA[
+/* 장비이력관리 수리이력 조회 */
+SELECT EQUIP_NUM
+      ,SEQ
+      ,RPAR_CLASS
+      ,CONTENTS
+      ,RPAR_COST_STATUS
+      ,DAYS
+      ,REMARK
+      ,CUSER
+      ,CDATE
+      ,UUSER
+      ,UDATE
+      ,RPAR_COST
+  FROM LUM_RPAR_LOG
+ WHERE EQUIP_NUM = :equipNum
+ ORDER BY SEQ
+        ]]>
+    </statement>
+
+    <!-- 장비번호를 채번 한다. -->
+    <statement name="selectEquipNum" type="select">
+        /*+ com.hwfs.ls.lum.dao.EquipMgmtDAO.selectEquipNum */
+        <![CDATA[
+/* 장비이력관리 장비번호 채번 */
+SELECT 'E-'||SUBSTR(:installdd,3,6)||LPAD(TO_NUMBER(NVL(MAX(SUBSTR(EQUIP_NUM,9,3)),0)) + 1, 3, '0') AS EQUIP_NUM
+  FROM LUM_EQUIP_LOG
+ WHERE INSTALLDD = :installdd
+        ]]>
+    </statement>
+
+    <!-- 장비이력을 생성한다. -->
+    <statement name="insertEquipLogList" type="insert">
+        /*+ com.hwfs.ls.lum.dao.EquipMgmtDAO.insertEquipLogList */
+        <![CDATA[
+/* 장비이력관리 장비이력 생성 */
+INSERT INTO LUM_EQUIP_LOG
+(
+ EQUIP_NUM,
+ EQUIP_NM,
+ ASSET_NUM,
+ MGMT_DEPT,
+ MGMT_NUM,
+ SPLR,
+ INSTALLDD,
+ DESC_FORM_STATUS,
+ DESC_FORM,
+ NATION_NM,
+ BU_NM,
+ MAKE_NUM,
+ MODEL_NM,
+ STAND,
+ TEST_FLD,
+ USE_CHFSML,
+ APPEND_FILENM_1,
+ SVR_FILENM_1,
+ APPEND_FILENM_2,
+ SVR_FILENM_2,
+ EQUIP_FILE_1,
+ EQUIP_FILE_2,
+ REF_SEQ,
+ CUSER,
+ CDATE,
+ UUSER,
+ UDATE
+) VALUES (
+ :equipNum,
+<#if equipNm?exists> :equipNm, <#else> null, </#if>
+<#if assetNum?exists> :assetNum, <#else> null, </#if>
+<#if mgmtDept?exists> :mgmtDept, <#else> null, </#if>
+<#if mgmtNum?exists> :mgmtNum, <#else> null, </#if>
+<#if splr?exists> :splr, <#else> null, </#if>
+<#if installdd?exists> :installdd, <#else> null, </#if>
+<#if descFormStatus?exists> :descFormStatus, <#else> null, </#if>
+<#if descForm?exists> :descForm, <#else> null, </#if>
+<#if nationNm?exists> :nationNm, <#else> null, </#if>
+<#if buNm?exists> :buNm, <#else> null, </#if>
+<#if makeNum?exists> :makeNum, <#else> null, </#if>
+<#if modelNm?exists> :modelNm, <#else> null, </#if>
+<#if stand?exists> :stand, <#else> null, </#if>
+<#if testFld?exists> :testFld, <#else> null, </#if>
+<#if useChfsml?exists> :useChfsml, <#else> null, </#if>
+<#if appendFilenm1?exists> :appendFilenm1, <#else> null, </#if>
+<#if svrFilenm1?exists> :svrFilenm1, <#else> null, </#if>
+<#if appendFilenm2?exists> :appendFilenm2, <#else> null, </#if>
+<#if svrFilenm2?exists> :svrFilenm2, <#else> null, </#if>
+<#if equipFile1?exists> null, <#else> null, </#if>
+<#if equipFile2?exists> null, <#else> null, </#if>
+<#if refSeq?exists> :refSeq, <#else> null, </#if>
+ :loginSabun,
+ SYSDATE,
+ :loginSabun,
+ SYSDATE
+)
+        ]]>
+    </statement>
+
+    <!-- 장비이력을 수정한다. -->
+    <statement name="updateEquipLogList" type="update">
+        /*+ com.hwfs.ls.lum.dao.EquipMgmtDAO.updateEquipLogList */
+        <![CDATA[
+/* 장비이력관리 장비이력 저장 */
+UPDATE LUM_EQUIP_LOG SET
+<#if equipNm?exists> EQUIP_NM = :equipNm, </#if>
+<#if assetNum?exists> ASSET_NUM = :assetNum, </#if>
+<#if mgmtDept?exists> MGMT_DEPT = :mgmtDept, </#if>
+<#if mgmtNum?exists> MGMT_NUM = :mgmtNum, </#if>
+<#if splr?exists> SPLR = :splr, </#if>
+<#if installdd?exists> INSTALLDD = :installdd, </#if>
+<#if descFormStatus?exists> DESC_FORM_STATUS = :descFormStatus, </#if>
+<#if descForm?exists> DESC_FORM = :descForm, </#if>
+<#if nationNm?exists> NATION_NM = :nationNm, </#if>
+<#if buNm?exists> BU_NM = :buNm, </#if>
+<#if makeNum?exists> MAKE_NUM = :makeNum, </#if>
+<#if modelNm?exists> MODEL_NM = :modelNm, </#if>
+<#if stand?exists> STAND = :stand, </#if>
+<#if testFld?exists> TEST_FLD = :testFld, </#if>
+<#if useChfsml?exists> USE_CHFSML = :useChfsml, </#if>
+<#if appendFilenm1?exists> APPEND_FILENM_1 = :appendFilenm1, </#if>
+<#if svrFilenm1?exists> SVR_FILENM_1 = :svrFilenm1, </#if>
+<#if appendFilenm2?exists> APPEND_FILENM_2 = :appendFilenm2, </#if>
+<#if svrFilenm2?exists> SVR_FILENM_2 = :svrFilenm2, </#if>
+<#if equipFile1?exists> EQUIP_FILE_1 = null, </#if>
+<#if equipFile2?exists> EQUIP_FILE_2 = null, </#if>
+<#if refSeq?exists> REF_SEQ = :refSeq, </#if>
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+WHERE  EQUIP_NUM = :equipNum
+        ]]>
+    </statement>
+
+    <!-- 수리이력을 생성한다. -->
+    <statement name="insertRparLogList" type="insert">
+        /*+ com.hwfs.ls.lum.dao.EquipMgmtDAO.insertRparLogList */
+        <![CDATA[
+/* 장비이력관리 수리이력 생성 */
+INSERT INTO LUM_RPAR_LOG
+(
+ EQUIP_NUM,
+ SEQ,
+ RPAR_CLASS,
+ CONTENTS,
+ RPAR_COST_STATUS,
+ DAYS,
+ REMARK,
+ RPAR_COST,
+ CUSER,
+ CDATE,
+ UUSER,
+ UDATE
+)
+SELECT :equipNum,
+        NVL(MAX(SEQ),0) + 1,
+       <#if rparClass?exists> :rparClass, <#else> null, </#if>
+       <#if contents?exists> :contents, <#else> null, </#if>
+       <#if rparCostStatus?exists> :rparCostStatus, <#else> null, </#if>
+       <#if days?exists> :days, <#else> null, </#if>
+       <#if remark?exists> :remark, <#else> null, </#if>
+       <#if rparCost?exists> :rparCost, <#else> null, </#if>
+        :loginSabun,
+        SYSDATE,
+        :loginSabun,
+        SYSDATE
+  FROM LUM_RPAR_LOG
+ WHERE EQUIP_NUM = :equipNum
+        ]]>
+    </statement>
+
+    <!-- 수리이력을 수정한다. -->
+    <statement name="updateRparLogList" type="update">
+        /*+ com.hwfs.ls.lum.dao.EquipMgmtDAO.updateRparLogList */
+        <![CDATA[
+/* 장비이력관리 수리이력 수정 */
+UPDATE LUM_RPAR_LOG SET
+<#if rparClass?exists> RPAR_CLASS = :rparClass, </#if>
+<#if contents?exists> CONTENTS = :contents, </#if>
+<#if rparCostStatus?exists> RPAR_COST_STATUS = :rparCostStatus, </#if>
+<#if days?exists> DAYS = :days, </#if>
+<#if remark?exists> REMARK = :remark, </#if>
+<#if rparCost?exists> RPAR_COST = :rparCost, </#if>
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+WHERE  EQUIP_NUM = :equipNum
+AND    SEQ = :seq
+        ]]>
+    </statement>
+
+    <!-- 장비이력을 삭제한다. -->
+    <statement name="deleteEquipLogList" type="delete">
+        /*+ com.hwfs.ls.lum.dao.EquipMgmtDAO.deleteEquipLogList */
+        <![CDATA[
+/* 장비이력관리 장비이력 삭제 */
+DELETE FROM LUM_EQUIP_LOG
+WHERE  EQUIP_NUM = :equipNum
+        ]]>
+    </statement>
+
+    <!-- 수리이력을 삭제한다. -->
+    <statement name="deleteRparLogList" type="delete">
+        /*+ com.hwfs.ls.lum.dao.EquipMgmtDAO.deleteRparLogList */
+        <![CDATA[
+/* 장비이력관리 수리이력 삭제 */
+DELETE FROM LUM_RPAR_LOG
+WHERE  EQUIP_NUM = :equipNum
+AND    SEQ = :seq
+        ]]>
+    </statement>
+
+    <!-- 수리이력 전체를 삭제한다. -->
+    <statement name="deleteRparLogListAll" type="delete">
+        /*+ com.hwfs.ls.lum.dao.EquipMgmtDAO.deleteRparLogListAll */
+        <![CDATA[
+/* 장비이력관리 수리이력 전체 삭제 */
+DELETE FROM LUM_RPAR_LOG
+WHERE  EQUIP_NUM = :equipNum
+        ]]>
+    </statement>
+
+    <!-- 장비이력 첨부파일 존재여부 조회 한다. -->
+    <statement name="selectEquipLogFileAppend" type="select">
+        /*+ com.hwfs.ls.lum.dao.EquipMgmtDAO.selectEquipLogFileAppend */
+        <![CDATA[
+/* 장비이력관리 수리이력 전체 삭제 */
+SELECT COUNT(1) AS CNT
+  FROM LUM_EQUIP_LOG_APPEND_FILE
+ WHERE EQUIP_NUM = :equipNum
+   AND SEQ = 1
+        ]]>
+    </statement>
+
+    <!-- 장비이력 첨부파일을 생성 한다. -->
+    <statement name="insertEquipLogFileAppend" type="insert">
+        /*+ com.hwfs.ls.lum.dao.EquipMgmtDAO.insertEquipLogFileAppend */
+        <![CDATA[
+/* 장비이력관리 수리이력 전체 삭제 */
+INSERT INTO LUM_EQUIP_LOG_APPEND_FILE
+(
+ EQUIP_NUM,
+ SEQ,
+ APPEND_FILENM,
+ SVR_FILENM
+)
+SELECT :equipNum,
+        NVL(MAX(SEQ),0) + 1,
+       <#if appendFilenm3?exists> :appendFilenm3, <#else> null, </#if>
+       <#if svrFilenm3?exists> :svrFilenm3 <#else> null </#if>
+  FROM LUM_EQUIP_LOG_APPEND_FILE
+ WHERE EQUIP_NUM = :equipNum
+        ]]>
+    </statement>
+
+    <!-- 장비이력 첨부파일을 수정 한다. -->
+    <statement name="updateEquipLogFileAppend" type="update">
+        /*+ com.hwfs.ls.lum.dao.EquipMgmtDAO.updateEquipLogFileAppend */
+        <![CDATA[
+/* 장비이력 첨부파일을 수정 */
+UPDATE LUM_EQUIP_LOG_APPEND_FILE
+SET
+       APPEND_FILENM = <#if appendFilenm3?exists> :appendFilenm3, <#else> null, </#if>
+       SVR_FILENM = <#if svrFilenm3?exists> :svrFilenm3 <#else> null </#if>
+ WHERE EQUIP_NUM = :equipNum
+   AND SEQ = 1
+        ]]>
+    </statement>
+
+    <!-- 장비이력 첨부파일을 삭제 한다. -->
+    <statement name="deleteEquipLogFileAppend" type="delete">
+        /*+ com.hwfs.ls.lum.dao.EquipMgmtDAO.deleteEquipLogFileAppend */
+        <![CDATA[
+/* 장비이력 첨부파일을 삭제 */
+DELETE FROM LUM_EQUIP_LOG_APPEND_FILE
+ WHERE EQUIP_NUM = :equipNum
+   AND SEQ = 1
+        ]]>
+    </statement>
+
+    <!-- 첨부파일 참조 순번을 조회한다. -->
+    <statement name="selectEquipLogRefSeq" type="select">
+        /*+ com.hwfs.ls.lum.dao.EquipMgmtDAO.selectEquipLogRefSeq */
+        <![CDATA[
+/* 첨부파일 참조 순번을 조회한다. */
+SELECT A.REF_SEQ
+  FROM LUM_EQUIP_LOG A
+ WHERE 1 = 1
+   AND A.EQUIP_NUM = :equipNum
+        ]]>
+    </statement>
+
+</hqml>

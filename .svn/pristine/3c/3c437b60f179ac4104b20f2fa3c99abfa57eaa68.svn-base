@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT SLIPNO
+  FROM (
+        SELECT  B.GAMU || '-' || B.GADATE || '-' || B.GANO SLIPNO
+          FROM MAS_TRX_SUBST_LINE A,
+               MAS_TRX B
+          WHERE (A.TRX_ID = B.TRX_ID)
+          AND   (A.SUBST_ID = #SUBST_ID#)
+          AND   (B.GANO > 0)
+          AND   (ROWNUM = 1)
+        UNION ALL
+        SELECT  B.GAMU || '-' || B.GADATE || '-' || B.GANO SLIPNO
+          FROM MAS_TRX_SUBST_LINE A,
+               MAS_RCP B
+          WHERE (A.RCP_ID = B.RCP_ID)
+          AND   (A.SUBST_ID = #SUBST_ID#)
+          AND   (B.GANO > 0)
+          AND   (ROWNUM = 1)
+        UNION ALL
+        SELECT  '세금계산서발행' SLIPNO
+          FROM MAS_TRX_SUBST_LINE A,
+               MAS_BILL_LINE B
+          WHERE (A.TRX_ID = B.TRX_ID)
+          AND   (A.SUBST_ID = #SUBST_ID#)
+          AND   (ROWNUM = 1)          
+       )
+WHERE  (ROWNUM = 1)
+</statement>
+	<input default-name="ds_cond">
+   <col name="SUBST_ID" size="" type="NUMERIC" description="" />
+	</input>
+	<output default-name="ds_list">
+<col name="SLIPNO" size="255" type="VARCHAR" description="" />
+	</output>
+</query>

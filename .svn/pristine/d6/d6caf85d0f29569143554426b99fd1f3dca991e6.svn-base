@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.bms.proMonthlyListDAO">
+	<desc>월간판촉조회</desc>
+
+	<!-- DATA를 조회한다. -->
+	
+	<!-- 날자를 구한다. 달력에 표시할 첫번재 요일과 해당월의 처음일자 마지막일자 
+	     조건 : monthly = yyyymmdd 로 들어와야 함.
+	-->
+	<statement name="selectMonthStartEndDay" type="select">
+	/*+ com.hwfs.rc.bms.proMonthlyListDAO.selectMonthStartEndDay */
+	
+		<![CDATA[
+		   SELECT TO_CHAR(TO_DATE(TO_CHAR(TRUNC(TO_DATE(:monthly,'YYYY-MM-DD'),'MONTH'),'YYYYMMDD'), 'YYYYMMDD'), 'YYYYMMDD') MON_START_DT
+		        ,TO_CHAR(TO_DATE(TO_CHAR(TRUNC(ADD_MONTHS(TO_DATE(:monthly,'YYYY-MM-DD'),1),'MONTH'),'YYYYMMDD'), 'YYYYMMDD')-1, 'YYYYMMDD') MON_END_DT
+		        ,TO_CHAR(TO_DATE(TO_CHAR(TRUNC(TO_DATE(:monthly,'YYYY-MM-DD'),'MONTH'),'YYYYMMDD'), 'YYYYMMDD'), 'D') -1 MON_START_WEEK
+		  FROM  DUAL
+		
+		]]>
+	</statement>
+
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.rc.bms.proMonthlyListDAO.selectList */
+		<![CDATA[
+		  SELECT SC.AM_CD,
+		  		 SC.AM_NM,
+		  		 SC.SCHD_DATE,
+		  		 SC.DIARY_DATE,
+		  		 SC.SEQ,
+		  		 SC.STR_TIME,
+		  		 SC.END_TIME,
+			     SC.CUST_NM || '/' || SC.EXPECT_AMT || '/' || SC.AM_NM AS SCHEDULE_TITLE
+		  
+		  FROM (
+		  SELECT 	MGMT.AM_CD,	 		AM.AM_NM AS AM_NM,
+				   	MGMT.SCHD_DATE,   MGMT.DIARY_DATE,
+			       	MGMT.SEQ,
+			       	MGMT.STR_TIME,
+			       	MGMT.END_TIME,
+			       	MGMT.SCHEDULE_TITLE ,
+			       	TRIM(TO_CHAR(MGMT.EXPECT_AMT,'999,999,999,999,999')) AS EXPECT_AMT,
+				    (SELECT  CUST.CUST_NM FROM  BMS_CUST_MST CUST WHERE  CUST.CUST_CD  = MGMT.CUST_CD) AS CUST_NM
+			       
+			FROM   BMS_SCHEDULE_MGMT MGMT
+			--INNER JOIN BMS_CUST_MST  CUST ON CUST.CUST_CD  = MGMT.CUST_CD
+			INNER JOIN BMS_AM_MST     AM  ON  AM.AM_CD     = MGMT.AM_CD
+		
+			WHERE MGMT.USE_YN ='Y'
+				  AND  MGMT.SCHEDULE_KIND = '1002'
+		      AND MGMT.SCHD_DATE BETWEEN :dateFr AND :dateTo
+		    <#if amCd?has_content> AND MGMT.AM_CD = :amCd  </#if>
+		    ) SC
+		]]>
+	</statement>
+	
+
+
+</hqml>
+		

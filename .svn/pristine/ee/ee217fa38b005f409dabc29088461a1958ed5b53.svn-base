@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sm.spm.suspenseAlterPopDAO">
+	<desc>잡이익/이자수익을 대체처리 HQML Query</desc>
+
+	<!-- 잡이익/이자수익을 대체처리 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sm.spm.dao.SuspenseAlterPopDAO.selectList */
+		<![CDATA[
+            SELECT  BU_CD
+                    ,BU_NM
+                    ,SAP_SUSPENSE_NUM
+                    ,RECEIVE_DATE
+                    ,BANK_CD
+                    ,BANK_CD_NM
+                    ,BANK_ACCT_NO
+                    ,BANK_ACCT_NO_MSK
+                    ,CURRENCY
+                    ,RECEIVE_GUEST_NM
+                    ,CC_CD
+                    ,CC_NM
+                    ,MU_CD
+                    ,MU_NM
+                    ,SAP_SLIP_NUM
+                    ,CLASS_CD
+                    ,NOTES_PUBLISH_DATE
+                    ,NOTES_EXPIRE_DATE
+                    ,NOTES_NUM
+                    ,PUBLISHER_NM
+                    ,RECD_STATUS
+                    ,RECEIVE_AMT
+                    ,APPLY_AMT
+                    ,APPLY_AMT APPLY_AMT_ORG
+                    ,NVL(RECEIVE_AMT,0) - NVL(APPLY_AMT,0) BAL_AMT
+                    ,ALT_NUM
+                    ,ALT_SEQ
+                    ,ADVANCE_NUM
+                    ,CNT_ADVANCE
+                    ,ACCT_CD
+                    ,CUST_CD
+                    ,CUST_NM
+                    ,SUSPENSE_ALT_TYPE
+                    ,SUSPENSE_ALT_TYPE_NM
+                    ,ALT_DATE
+                    ,SAP_CUST_CD
+                    ,SAP_SEND_YN
+                    ,ALT_TYPE
+                    ,'0' CHK
+                    ,REMARK
+                    ,JOURNALZ_YN
+                    ,'UPDATE' ROW_STATUS
+                    ,'' SABUN
+            FROM    (
+                    SELECT  M.BU_CD
+                            ,(SELECT DISTINCT BU.BU_NM FROM HLDC_SC_DEPT_V BU WHERE BU.BU_CD = M.BU_CD) BU_NM
+                            ,M.SAP_SUSPENSE_NUM
+                            ,M.RECEIVE_DATE
+                            ,M.BANK_CD
+                            ,SCC_COMMON_CODE_NAME_FUN('FM0005',M.BANK_CD) BANK_CD_NM
+                            ,M.BANK_ACCT_NO
+                            ,SCC_CRYPTO.MASKAUTH_FUN(M.BANK_ACCT_NO,6,:loginPersMask,1) BANK_ACCT_NO_MSK
+                            ,M.CURRENCY
+                            ,M.RECEIVE_GUEST_NM
+                            ,M.CC_CD
+                            ,(SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE M.CC_CD = CC.CC_CD) CC_NM
+                            ,M.MU_CD
+                            ,(SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE M.MU_CD = MU.MU_CD) MU_NM
+                            ,M.SAP_SLIP_NUM
+                            ,M.CLASS CLASS_CD
+                            ,M.NOTES_PUBLISH_DATE
+                            ,M.NOTES_EXPIRE_DATE
+                            ,M.NOTES_NUM
+                            ,M.PUBLISHER_NM
+                            ,M.RECD_STATUS
+                            ,NVL(M.RECEIVE_AMT,0) - NVL((
+                                SELECT  NVL(SUM(DD.ALT_AMT),0)
+                                FROM    SLA_SAP_SUSPENSE_ALT_DETAIL DD
+                                WHERE   DD.RECD_STATUS = 'L'
+                                AND     DD.SAP_SUSPENSE_NUM = M.SAP_SUSPENSE_NUM
+                            ),0) + NVL((
+                                SELECT  NVL(DD.ALT_AMT,0)
+                                FROM    SLA_SAP_SUSPENSE_ALT_DETAIL DD
+                                WHERE   DD.RECD_STATUS = 'L'
+                                AND     DD.BU_CD = M.BU_CD
+                                AND     DD.SAP_SUSPENSE_NUM = M.SAP_SUSPENSE_NUM
+                                AND     DD.ALT_NUM = D.ALT_NUM
+                                AND     DD.ALT_SEQ = D.ALT_SEQ
+                            ),0) RECEIVE_AMT
+                            ,NVL((
+                                SELECT  NVL(DD.ALT_AMT,0)
+                                FROM    SLA_SAP_SUSPENSE_ALT_DETAIL DD
+                                WHERE   DD.RECD_STATUS = 'L'
+                                AND     DD.BU_CD = M.BU_CD
+                                AND     DD.SAP_SUSPENSE_NUM = M.SAP_SUSPENSE_NUM
+                                AND     DD.ALT_NUM = D.ALT_NUM
+                                AND     DD.ALT_SEQ = D.ALT_SEQ
+                            ),0) APPLY_AMT
+                            ,D.ALT_NUM
+                            ,D.ALT_SEQ
+                            ,D.ADVANCE_NUM
+                            ,(SELECT COUNT(ADVANCE_NUM) FROM SLA_ADVANCE_ALT_DETAIL WHERE ADVANCE_NUM = D.ADVANCE_NUM AND RECD_STATUS='L') AS CNT_ADVANCE
+                            ,D.ACCT_CD
+                            ,A.CUST_CD
+                            ,A.CUST_NM
+                            ,D.SUSPENSE_ALT_TYPE
+                            ,(SELECT TYPE.TYPE_NM FROM SLA_TYPE_CD_MST TYPE WHERE TYPE.TYPE_GRP_CD = '014' AND TYPE.TYPE_CD = D.SUSPENSE_ALT_TYPE) SUSPENSE_ALT_TYPE_NM
+                            ,D.ALT_DATE
+                            ,SCC_GET_SAP_CUST_CD(A.CUST_CD) SAP_CUST_CD
+                            ,D.SAP_SEND_YN
+                            ,D.ALT_TYPE
+                            ,D.REMARK
+                            ,NVL(D.JOURNALZ_YN,'N') JOURNALZ_YN
+                    FROM    SLA_SAP_SUSPENSE_INFO M
+                            ,SLA_SAP_SUSPENSE_ALT_DETAIL D
+                            ,SLA_ADVANCE_MST A
+                    WHERE   M.RECEIVE_AMT > 0
+                    AND     M.RECD_STATUS = 'L'
+                    AND     M.SAP_SUSPENSE_NUM = D.SAP_SUSPENSE_NUM
+                    AND     D.ADVANCE_NUM = A.ADVANCE_NUM(+)
+                    AND     M.BU_CD = D.BU_CD
+                    AND     D.RECD_STATUS = 'L'
+                    AND     D.ALT_NUM = :altNum
+                    AND     M.BU_CD = (SELECT ATTR07 CODE FROM SCC_COMMON_CODE WHERE USE_YN = 'Y' AND GROUP_CODE = 'DATA_SET' AND CODE = 'DEF_BU_CODE')
+                    )
+        --    WHERE   RECEIVE_AMT > 0
+            ORDER BY SAP_SUSPENSE_NUM, ALT_NUM, ALT_SEQ
+		]]>
+	</statement>
+
+	<!-- 잡이익/이자수익을 대체처리(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sm.spm.dao.SuspenseAlterPopDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 잡이익/이자수익을 대체처리(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sm.spm.dao.SuspenseAlterPopDAO.update */
+		<![CDATA[
+		UPDATE TABLE_NAME 
+		SET    COLUMN_NAME1 = :columnName1,
+		       COLUMN_NAME2 = :columnName2,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+	<!-- 잡이익/이자수익을 대체처리(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.sm.spm.dao.SuspenseAlterPopDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>

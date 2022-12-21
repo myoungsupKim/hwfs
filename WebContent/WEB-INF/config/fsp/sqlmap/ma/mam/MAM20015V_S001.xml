@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.MGMT_ACCT_CD  AS MGMT_ACCT_CD,
+	   A.MGMT_ACCT_NAME  AS MGMT_ACCT_NAME,
+	   <isEqual col="DATA_CLASS" value="P">
+       ROUND(SUM(CASE WHEN DATA_CLASS = 'P' THEN A.AMT ELSE NULL END)/1000,0) AS STD_AMT,
+       </isEqual>
+       <isEqual col="DATA_CLASS" value="R">
+       ROUND(SUM(CASE WHEN DATA_CLASS = 'R' THEN A.AMT ELSE NULL END)/1000,0) AS STD_AMT,
+       </isEqual>
+       <isEqual col="DATA_CLASS" value="F">
+       ROUND(SUM(CASE WHEN DATA_CLASS = 'F' THEN A.AMT ELSE NULL END)/1000,0) AS STD_AMT,
+       </isEqual>
+       <isEqual col="DATA_CLASS" value="E">
+       ROUND(SUM(CASE WHEN DATA_CLASS = 'E' THEN A.AMT ELSE NULL END)/1000,0) AS STD_AMT,
+       </isEqual>
+       ROUND(SUM(CASE WHEN DATA_CLASS = 'A' THEN A.AMT ELSE NULL END)/1000,0) AS ACT_AMT
+  FROM MAM_EXP_V A
+ WHERE (1=1) 
+    AND A.YYMM BETWEEN #YYMM1# AND #YYMM2#
+    AND A.CLOSE_TYPE = 'C05C'
+    <isNotNull col="TM_CD"> 
+    AND (A.TM_CD = #TM_CD#)
+    </isNotNull>
+    <isNotNull col="UPJANG"> 
+    AND (A.UPJANG = #UPJANG#)
+    </isNotNull>
+    <isNotNull col="ACCT_TYPE"> 
+    AND (A.ACCT_TYPE = #ACCT_TYPE#)
+    </isNotNull>
+    <isEqual col="ACCT_LVL" value="1">
+    AND (A.ACCT_CD1 BETWEEN #ACCT_CD1# AND #ACCT_CD2#)
+    </isEqual>
+    <isEqual col="ACCT_LVL" value="2">
+    AND (A.ACCT_CD2 BETWEEN #ACCT_CD1# AND #ACCT_CD2#)
+    </isEqual>  
+    <isNotNull col="MGMT_ACCT_CD"> 
+    AND (A.MGMT_ACCT_CD = #MGMT_ACCT_CD#)
+    </isNotNull>
+ GROUP BY <isEqual col="CHK_TM_CD" value="Y">
+	       A.TM_CD,
+	       A.TM_NAME,
+	       </isEqual>
+	       <isEqual col="CHK_UPJANG" value="Y">
+	       A.UPJANG,
+	       A.UPJANG_NAME,
+	       </isEqual>
+	       <isEqual col="CHK_ACCT_TYPE" value="Y">
+	       A.ACCT_TYPE,
+	       A.ACCT_TYPE_NAME,
+	       </isEqual>
+	       <isEqual col="CHK_ACCT_CD" value="Y1">
+	       A.ACCT_CD1,
+		   A.ACCT_NAME1,
+		   </isEqual>
+		   <isEqual col="CHK_ACCT_CD" value="Y2">
+		   A.ACCT_CD2,
+		   A.ACCT_NAME2,
+		   </isEqual>    
+	       A.CLOSE_TYPE 
+ ORDER BY <isEqual col="CHK_TM_CD" value="Y">
+	       A.TM_CD ,
+	      </isEqual>
+          <isEqual col="CHK_UPJANG" value="Y">
+           A.UPJANG,
+          </isEqual>
+	      <isEqual col="CHK_ACCT_TYPE" value="Y">
+	       A.ACCT_TYPE,
+	      </isEqual> 
+	      <isEqual col="CHK_ACCT_CD" value="Y1"> 
+           A.ACCT_CD1,
+          </isEqual>
+          <isEqual col="CHK_ACCT_CD" value="Y2">
+           A.ACCT_CD2,
+          </isEqual> 
+           A.CLOSE_TYPE      
+ </statement>
+	<input default-name="ds_in1">
+		<col name="YYMM1" size="6" type="VARCHAR" description="" /> 
+		<col name="YYMM2" size="6" type="VARCHAR" description="" />
+		<col name="DATA_CLASS" size="5" type="VARCHAR" description="" /> 
+		<col name="TM_CD" size="3" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="6" type="VARCHAR" description="" /> 
+		<col name="ACCT_TYPE" size="10" type="VARCHAR" description="" />
+		<col name="ACCT_LVL" size="1" type="VARCHAR" description="" /> 
+		<col name="ACCT_CD1" size="7" type="VARCHAR" description="" /> 
+		<col name="ACCT_CD2" size="7" type="VARCHAR" description="" />
+		<col name="MGMT_ACCT_CD" size="20" type="VARCHAR" description="" />
+	</input>
+	<output default-name="ds_out1">
+		<col name="TM_CD" size="3" type="VARCHAR" description="" /> 
+		<col name="TM_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="6" type="VARCHAR" description="" /> 
+		<col name="UPJANG_NAME" size="100" type="VARCHAR" description="" />
+		<col name="ACCT_TYPE" size="10" type="VARCHAR" description="" /> 
+		<col name="ACCT_TYPE_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="ACCT_CD" size="7" type="VARCHAR" description="" /> 
+		<col name="ACCT_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="STD_AMT" size="22" type="NUMERIC" description="" /> 
+		<col name="ACT_AMT" size="22" type="NUMERIC" description="" /> 
+	</output>
+</query>

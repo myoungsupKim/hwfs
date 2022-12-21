@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="euc-kr"?>
+
+<query dynamic="true">
+
+	<type>select</type>
+
+	<description><![CDATA[]]></description>
+
+	<reload>true</reload>
+
+	<monitoring>true</monitoring>
+
+	<result-count>1</result-count>
+
+	<statement>
+
+    SELECT A,
+
+           B,
+
+           C,
+
+           (A + B - C) D,
+
+           E,
+
+           F,
+
+           G
+
+    FROM (
+
+        SELECT (SELECT /*+ INDEX(V MAS_ADVANCE_IDX01 )*/ NVL(SUM(AMT), 0) FROM MAS_ADVANCE WHERE (UPJANG = #UPJANG#) AND (ADV_KIND = 'I') AND (ADJ_DATE &lt;  #ADJ_DATEFR#))  -
+
+               (SELECT /*+ INDEX(V MAS_ADVANCE_IDX01 )*/ NVL(SUM(ADJ_AMT), 0) + NVL(SUM(VAT), 0) - NVL(SUM(NOPAY_AMT), 0) FROM MAS_ADVANCE WHERE (UPJANG = #UPJANG#) AND (ADV_KIND = 'O') AND (ADJ_DATE &lt;  #ADJ_DATEFR#)) A,--전월이월액
+
+               (SELECT NVL(SUM(AMT), 0) FROM MAS_ADVANCE WHERE (UPJANG = #UPJANG#) AND (ADV_KIND = 'I') AND (ADJ_DATE &gt;= #ADJ_DATEFR# AND ADJ_DATE &lt;=  #ADJ_DATETO#)) B,--당월입금총액
+
+               (SELECT NVL(SUM(ADJ_AMT), 0) + NVL(SUM(VAT), 0) - NVL(SUM(NOPAY_AMT), 0) FROM MAS_ADVANCE WHERE (UPJANG = #UPJANG#) AND (ADV_KIND = 'O') AND (ADJ_DATE &gt;= #ADJ_DATEFR# AND ADJ_DATE &lt;= #ADJ_DATETO#)) C,--당월사용총액
+
+               (SELECT NVL(SUM(AMT), 0) FROM MAS_ADVANCE WHERE (UPJANG = #UPJANG#) AND (ADV_KIND = 'I') AND (ADJ_KIND = '008') AND (ADJ_DATE &gt;= #ADJ_DATEFR# AND ADJ_DATE &lt;= #ADJ_DATETO#)) E,--잡이익
+
+               (SELECT NVL(SUM(AMT), 0) FROM MAS_ADVANCE WHERE (UPJANG = #UPJANG#) AND (ADV_KIND = 'O') AND (ADJ_KIND = '004') AND (ADJ_DATE &gt;= #ADJ_DATEFR# AND ADJ_DATE &lt;= #ADJ_DATETO#)) F,--잡손실
+
+               (SELECT /*+ LEADING(V T1) USE_HASH(V T1) INDEX(V MAS_ADVANCE_IDX01) */ NVL(SUM(V.NOPAY_AMT), 0) - NVL(SUM((SELECT SUM(AMT) FROM MAS_ADV_PREPAY WHERE NOPAY_ID = V.ADV_ID)),0) FROM MAS_ADVANCE V WHERE (UPJANG = #UPJANG#)) G --미지급금잔액
+
+        FROM DUAL
+
+    )
+
+</statement>
+
+	<input default-name="ds_cond">
+
+		<col name="UPJANG" size="" type="NUMERIC" description="" /> 
+
+		<col name="ADJ_DATEFR" size="256" type="VARCHAR" description="" /> 		
+
+		<col name="ADJ_DATETO" size="256" type="VARCHAR" description="" /> 				
+
+	</input>
+
+	<output default-name="ds_list">
+
+		<col name="A" size="" type="NUMERIC" description="" /> 
+
+  	<col name="B" size="" type="NUMERIC" description="" /> 
+
+  	<col name="C" size="" type="NUMERIC" description="" /> 
+
+  	<col name="D" size="" type="NUMERIC" description="" /> 
+
+  	<col name="E" size="" type="NUMERIC" description="" /> 
+
+  	<col name="F" size="" type="NUMERIC" description="" /> 
+
+  	<col name="G" size="" type="NUMERIC" description="" />   	
+
+	</output>
+
+</query>

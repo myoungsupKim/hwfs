@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+--------------------------------------------------------------------------------------------------------
+-- 선수금 발생 탭 대체 팝업
+--------------------------------------------------------------------------------------------------------
+ 
+ SELECT XX.occur_date, '대체' AS ALT_TYPE_NM, 
+        SCC_COMMON_CODE_NAME_FUN('ADVANCE_ALT_OCCUR_CLASS',M.ADVANCE_ALT_OCCUR_CLASS) ADVANCE_ALT_OCCUR_CLASS_NM,
+        M.CUST_NM, XX.OCCUR_AMT, XX.APPLY_AMT, XX.JAN_AMT, M.REMARK , M.ALT_NUM,
+        (SELECT SUBINV_NAME FROM HLDC_PO_SUBINVENTORY WHERE SUBINV_CODE = XX.WH_NUM) AS POS_NM,  
+        (SELECT TP.TYPE_NM FROM SLA_TYPE_CD_MST TP WHERE TP.TYPE_CD = M.ALT_TYPE_CD) ADVANCE_TYPE_CD_NM 
+   FROM SLA_ADVANCE_ALT_MST    M ,          -- 선수금 대체 마스터
+        (
+                SELECT A.OCCUR_DATE, A.OCCUR_ADVANCE_NUM, A.ADVANCE_NUM, B.ALT_NUM, A.OCCUR_AMT,A.WH_NUM, 
+                       B.APPLY_AMT, SUM(A.OCCUR_AMT-B.T) OVER (PARTITION BY B.ALT_NUM ORDER BY A.ADVANCE_NUM) AS JAN_AMT     
+                  FROM SLA_ADVANCE_MST A,
+                       (
+                            SELECT RANK, ADVANCE_NUM, OCCUR_DATE, ALT_NUM, APPLY_AMT, SUM(APPLY_AMT) OVER ( PARTITION BY ADVANCE_NUM ORDER BY ALT_NUM ) AS T  FROM (
+                                      SELECT ADVANCE_NUM, OCCUR_DATE, ALT_NUM, APPLY_AMT,  RANK() OVER (ORDER BY ALT_NUM ASC) RANK
+                                        FROM SLA_ADVANCE_ALT_DETAIL 
+                                       WHERE MU_CD = '2002'
+                                         AND RECD_STATUS = 'L'
+                                         AND ADVANCE_NUM = #ADVANCE_NUM#
+                                          )
+                       ) B
+                 WHERE A.ADVANCE_NUM = B.ADVANCE_NUM
+                 ORDER BY B.RANK
+         ) XX    
+  WHERE M.RECD_STATUS           = 'L'
+    AND M.ALT_NUM     = XX.ALT_NUM
+</statement>
+	<input default-name="ds_search">
+		<col name="UPJANG" size="6" type="NUMERIC" description="업장코드" /> 
+		<col name="DATEFR" size="255" type="VARCHAR" description="" /> 
+		<col name="TM_CD" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

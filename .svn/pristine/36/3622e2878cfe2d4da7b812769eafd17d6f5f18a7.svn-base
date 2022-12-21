@@ -1,0 +1,392 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fm.fmo.orderRequestConfirmDAO">
+	<desc>주문확정 HQML Query</desc>
+
+	<!-- 주문확정 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.fm.fmo.dao.OrderRequestConfirmDAO.selectList */
+		<![CDATA[
+		SELECT 0 CHK
+				, A.PO_NUM
+				, A.PO_DATE
+				, A.PR_SABUN PR_SABUN
+		        , A.PR_UPJANG PR_UPJANG
+		        , A.RC_UPJANG
+		        , A.PR_NUM
+				, A.PO_SABUN
+                , (SELECT F.NM_KOR FROM SCO_FS_HR_PERSONAL_V F WHERE F.SABUN =  A.PO_SABUN) PO_SABUN_NM
+				, A.ITEM_NAME || DECODE(SIGN(B.CNT - 1),1,' 외 ' || TO_CHAR(B.CNT - 1) || '건') AS ITEM_NAME
+				, B.PO_AMT
+                , B.PO_VAT
+				, A.SO_STATUS
+                , F.UPJANGNM_DISP
+                , A.CUSTCD
+                , E.VD_NM AS CUST_NM --업체
+                , A.CENTER_CODE
+                , G.CENTER_NAME				
+                , (SELECT CODE_NAME FROM SCC_COMMON_CODE C WHERE C.GROUP_CODE = 'FM0037' AND C.CODE = A.SO_STATUS AND USE_YN = 'Y') SO_STATUS_NM
+			FROM SO_PR A INNER JOIN (SELECT    MIN(PR_ID) AS PR_ID
+                                    , COUNT(*) AS CNT
+                                    , SUM(SALE_PRICE * PR_QTY) AS AMT
+                                    , SUM(SALE_PRICE * PO_QTY) AS PO_AMT
+                                    , SUM(SALE_PRICE * PR_QTY * DECODE(TAX_CODE,100,0.1,0)) AS VAT
+                                    , SUM(SALE_PRICE * PO_QTY * DECODE(TAX_CODE,100,0.1,0)) AS PO_VAT	
+                                    , MIN(NEED_DATE) NEED_DATE
+                                    , MAX(SO_STATUS) AS SO_STATUS
+                                    , MAX(FROM_TYPE) AS FROM_TYPE
+                        FROM SO_PR A	INNER JOIN VO_FC_VENDOR E ON TO_CHAR(A.CUSTCD) = E.VD_CD
+		                				INNER JOIN FMS_UPJANG F ON A.RC_UPJANG = F.UPJANG	  
+                        WHERE (1=1)
+                        <#if schGubun == '1'>
+						AND A.PO_DATE BETWEEN :schFdate AND :schTdate
+						</#if>
+						<#if schGubun == '2'>
+						AND A.NEED_DATE BETWEEN :schFdate AND :schTdate
+						</#if>
+                        AND A.PO_TYPE IN ('07','29', '97')
+                        --<#if schCenter?has_content>AND A.CENTER_CODE = :schCenter</#if> 
+        			    <#if schCode?has_content>AND A.CENTER_CODE IN (${schCode})</#if>
+						AND A.SO_STATUS <#if schStatus?has_content>= :schStatus<#else>IN ('007','003','005')</#if>
+						<#if schUpjang?has_content>AND A.RC_UPJANG = :schUpjang</#if>
+						<#if schCust?has_content>AND A.CUSTCD = :schCust</#if>
+                        <#if schSearchGubun == '0'>GROUP BY A.CENTER_CODE, A.CUSTCD</#if>  
+                        <#if schSearchGubun == '1'>GROUP BY A.CENTER_CODE, A.RC_UPJANG</#if>
+                        <#if schSearchGubun == '2'>GROUP BY A.CENTER_CODE, A.PO_NUM</#if>
+                         ) B ON A.PR_ID = B.PR_ID
+		                INNER JOIN VO_FC_VENDOR E ON TO_CHAR(A.CUSTCD) = E.VD_CD
+		                INNER JOIN FMS_UPJANG F ON A.RC_UPJANG = F.UPJANG
+		                INNER JOIN VO_CENTER G ON A.CENTER_CODE = G.CENTER_CODE	   
+		                INNER JOIN HLDC_PO_PO PO ON A.PR_ID = PO.PO_ID AND A.PR_NUM = PO.PO_NUM                     
+			WHERE 1=1
+			
+		]]>
+	</statement>
+	
+	
+	<!-- 주문확정 목록을 조회한다. -->
+	<statement name="selectSub" type="select">
+		/*+ com.hwfs.fm.fmo.dao.OrderRequestConfirmDAO.selectSub */
+		<![CDATA[
+		SELECT  A.PR_ID							--주문ID
+	          , A.PR_NUM						--주문번호
+	          , A.PO_NUM						--결의번호
+	          , A.RC_UPJANG						--업장코드
+	          , C.UPJANGNM_DISP					--업장명
+	          , A.ITEM_CODE						--자재코드 
+	          , A.ITEM_NAME 					--자재명
+	          , A.ITEM_SIZE 					--규격
+	          , A.PO_UOM AS ITEM_UNIT			--단위
+	          , A.TAX_CODE						--과/면
+	          , A.PR_REMARK						--비고
+	          , A.NEED_DATE
+	          , A.SALE_PRICE					--판매단가
+	          , A.PR_QTY						--신청수량
+	          , A.PO_QTY						--결의량
+	          , (A.SALE_PRICE * A.PR_QTY) AS AMT
+	          , (A.SALE_PRICE * A.PO_QTY) AS PO_AMT	--결의금액		
+	          , D.MU_NM || ' ' || D.CC_NM AS INS_DEPT_NM
+	          , A.LINE_STATUS
+	          , (SELECT CODE_NAME FROM SCC_COMMON_CODE C WHERE C.GROUP_CODE = 'FM0037' AND C.CODE = A.SO_STATUS AND USE_YN = 'Y') LINE_STATUS_NM	--진행상황
+	          , A.DOCU_SOURCE 
+	          , A.PR_DATE
+	          , A.PO_TYPE
+	          , (SELECT SUBINV_NAME FROM HLDC_PO_SUBINVENTORY WHERE SUBINV_CODE = A.SUBINV_CODE) AS SUBINV_NAME
+	          , A.CUSTCD								--거래처
+	          , E.VD_NM AS CUST_NM					--거래처명
+	          , NVL(B.MIN_ORD_QTY, 0) AS MIN_ORD_QTY
+	          , NVL(B.MAX_ORD_QTY, 0) AS MAX_ORD_QTY
+	          , B.MULTIPLIER_QTY
+	          , B.POINT_FLAG
+	          , P3.D_DAYS
+	          , P3.D_TIMES
+	          , A.PR_UPJANG
+	  FROM SO_PR A INNER JOIN HLDC_SC_DEPT_V D ON A.PR_DEPT_ID = D.DEPT_ID
+	                        INNER JOIN HLDC_PO_ITEM_MST B ON A.ITEM_CODE = B.ITEM_CODE
+	                        INNER JOIN FMS_UPJANG C ON A.RC_UPJANG = C.UPJANG
+	                        INNER JOIN VO_FC_VENDOR E ON TO_CHAR(A.CUSTCD) = E.VD_CD
+	                        INNER JOIN HLDC_PO_PO PO ON A.PR_ID = PO.PO_ID AND A.PR_NUM = PO.PO_NUM            
+	                        LEFT JOIN PO_PREORDER_LIST P3 ON A.CENTER_CODE = P3.CENTER_CODE
+	                                                     AND A.ITEM_CODE = P3.ITEM_CODE
+	  WHERE 1=1 
+	  <#if schSearchGubun == '0'>AND A.CUSTCD = :schSubCust</#if>  
+      <#if schSearchGubun == '1'>AND A.RC_UPJANG = :schSubUpjang</#if>
+	  --<#if schCenter?has_content>AND A.CENTER_CODE = :schCenter</#if> 
+	  <#if schCodeRow?has_content>AND A.CENTER_CODE = :schCodeRow</#if> 
+	  <#if schStatus?has_content>AND A.SO_STATUS = :schStatus</#if>
+      <#if schUpjang?has_content>AND A.RC_UPJANG = :schUpjang</#if>
+	  <#if schCust?has_content>AND A.CUSTCD = :schCust</#if>	  
+	  <#if schGubun == '1'>
+		AND A.PO_DATE BETWEEN :schFdate AND :schTdate
+	  </#if>
+	  <#if schGubun == '2'>
+		AND A.NEED_DATE BETWEEN :schFdate AND :schTdate
+	  </#if>
+	  AND A.PO_TYPE IN ('07','29', '97')
+	  ORDER BY A.PR_ID ASC		
+		]]>
+	</statement>
+	
+	<!-- 주문확정 목록을 조회한다. -->
+	<statement name="poNumList" type="select">
+		/*+ com.hwfs.fm.fmo.dao.OrderRequestConfirmDAO.poNumList */
+		<![CDATA[
+	 SELECT A.PO_NUM						--결의번호
+	  FROM SO_PR A 
+	  WHERE A.SO_STATUS = '007'
+	  AND A.PO_TYPE IN ('07','29', '97')
+	  <#if schSearchGubun == '0'>AND A.CUSTCD IN (${schSubCusts})</#if>  
+      <#if schSearchGubun == '1'>AND A.RC_UPJANG IN (${schSubUpjangs})</#if>
+	  --<#if schCenter?has_content>AND A.CENTER_CODE = :schCenter</#if> 
+      <#if schCode?has_content>AND A.CENTER_CODE IN (${schCode})</#if>
+      <#if schUpjang?has_content>AND A.RC_UPJANG = :schUpjang</#if>
+	  <#if schCust?has_content>AND A.CUSTCD = :schCust</#if>	  
+	  <#if schGubun == '1'>
+		AND A.PO_DATE BETWEEN :schFdate AND :schTdate
+	  </#if>
+	  <#if schGubun == '2'>
+		AND A.NEED_DATE BETWEEN :schFdate AND :schTdate
+	  </#if>
+	  GROUP BY A.PO_NUM
+		]]>
+	</statement>
+
+	<!-- 주문확정 전 통제여부를 체크한다. -->
+	<statement name="selectSubFlag" type="select">
+		/*+ com.hwfs.fm.fmo.dao.OrderRequestConfirmDAO.selectSubFlag */		
+		<![CDATA[
+		
+				SELECT  X.CHK
+		        , X.PR_ID
+		        , X.PR_NUM
+		        , X.PO_ID
+		        , X.PO_NUM
+		 		, X.ITEM_CODE 
+	    	 	, X.ITEM_NAME 
+	     		, X.ITEM_SIZE 
+	     		, X.ITEM_UNIT
+	     		, X.TAX_CODE
+	     		, X.PR_REMARK
+	     		, X.NEED_DATE
+	     		, X.SALE_PRICE
+	     		, X.PR_QTY
+	     		, X.PO_QTY
+	     		, X.AMT
+	     		, X.INS_DEPT_NM
+	     		, X.LINE_STATUS
+	     		, X.DOCU_SOURCE 
+	     		, X.PR_DATE
+	     		, X.PO_TYPE
+	     		, X.CENTER_CODE
+	     		, X.SUBINV_NAME--창고/영업장
+	     		, X.CUST_NM
+	     		, X.MIN_ORD_QTY
+		        , X.MAX_ORD_QTY
+		        , X.MULTIPLIER_QTY
+        	    , X.POINT_FLAG
+		        , X.D_DAYS
+			    , X.D_TIMES
+			    , X.RC_UPJANG
+			    , X.CENTER_FLAG
+			    , X.REMARK
+                , X.SCH_DATE1
+                , X.SCH_DATE2
+                , DECODE(X.VAL_SHP_CNT, 'CE', 'CE', 'NN', 'CE', 
+        			DECODE(X.VAL_UNS_CNT, 'UK', 'UK', 'NN', 'UK', 
+            				DECODE(X.VAL_STP_CNT, 'TK', 'TK', 'NN', 'TK',
+                				DECODE(X.VAL_EVT_CNT, 'VE', 'VE',  'NN', 'VE',
+                    					DECODE(X.VAL_CTR_CNT, 'SE', 'SE',   'NN', 'SE',  
+                        					DECODE(X.VAL_REQ_CNT, 'XE', 'XE', 'NN', 'XE',
+                            					DECODE(X.VAL_SCH_CNT, 'HE', 'HE', 'NN', 'HE', DECODE(X.IVT_YN, 'Y','HK', 'HE'))
+                        								)
+                    								)
+                							)
+            							)
+        							)
+    						) AS PO_STATUS            /* 구매_수발주제한 */
+				, FMS_GETPO_STATUS_MSG_FUN(X.VAL_SHP_CNT, X.VAL_UNS_CNT, X.VAL_STP_CNT, X.VAL_EVT_CNT, X.VAL_CTR_CNT, X.VAL_REQ_CNT, X.VAL_SCH_CNT, X.IVT_YN) AS PO_MSG		/* 구매_수발주제한 메시지 */
+				, X.IVT_YN
+				, X.CUS_FLAG	/* 남품업체정보 여부 : 오류 E */
+				, X.PO_CNT		/* 판매단가 정보 여부 */   
+				, X.FMP_STATUS		/* 식재_수발주제한 */      
+				, X.GETCONTRACT_SALE_PRICE 	/* 판매단가 : 여신CHECK 용도 */   
+				, X.PO_NO_STATUS 	/* 구매 0단가 여부 */
+                FROM (
+		SELECT  0 CHK
+		        , A.PR_ID
+		        , A.PR_NUM
+		        , A.PO_ID
+		        , A.PO_NUM
+		 		, A.ITEM_CODE 
+	    	 	, A.ITEM_NAME 
+	     		, A.ITEM_SIZE 
+	     		, A.PO_UOM AS ITEM_UNIT
+	     		, A.TAX_CODE
+	     		, A.PR_REMARK
+	     		, A.NEED_DATE
+	     		, A.SALE_PRICE
+	     		, A.PR_QTY
+	     		, A.PO_QTY
+	     		, (A.SALE_PRICE * A.PR_QTY) AS AMT
+	     		, D.MU_NM || ' ' || D.CC_NM AS INS_DEPT_NM
+	     		, A.LINE_STATUS
+	     		, A.DOCU_SOURCE 
+	     		, A.PR_DATE
+	     		, A.PO_TYPE
+	     		, A.CENTER_CODE
+	     		, A.SUBINV_CODE || ' ' || (SELECT SUBINV_NAME FROM HLDC_PO_SUBINVENTORY WHERE SUBINV_CODE = A.SUBINV_CODE) AS SUBINV_NAME--창고/영업장
+	     		, E.VD_NM AS CUST_NM
+	     		, NVL(B.MIN_ORD_QTY, 0) AS MIN_ORD_QTY
+		        , NVL(B.MAX_ORD_QTY, 0) AS MAX_ORD_QTY
+		        , B.MULTIPLIER_QTY
+        	    , B.POINT_FLAG
+		        , P3.D_DAYS
+			    , P3.D_TIMES
+			    , A.RC_UPJANG
+			    , A.CENTER_FLAG
+			    , A.REMARK
+                , :schFdate SCH_DATE1
+                , :schTdate SCH_DATE2			    
+				,(SELECT COUNT(*) 
+		   							FROM PO_CONTRACT_FSALE 
+		   							WHERE  CENTER_CODE = A.CENTER_CODE
+									AND    UPJANG = (SELECT AP_UNITPRICE_UPJANG FROM ST_UPJANG WHERE UPJANG = A.RC_UPJANG)	/* 단가계약업장 기준 */	   			
+		   							AND    ITEM_CODE = A.ITEM_CODE
+		   							AND    A.NEED_DATE BETWEEN CONTRACT_START AND CONTRACT_END 		
+		   							AND    USE_YN = 'Y'
+		  							AND    CONTRACT_PRICE > 0
+		   							AND    SALE_PRICE > 0
+		  							) AS PO_CNT		/* 판매단가 정보 여부 */    		  		  	   
+				, (CASE WHEN FMS_GETCONTRACT_PRICE_FUN(A.CENTER_CODE, A.RC_UPJANG, A.CUSTCD, A.ITEM_CODE, A.NEED_DATE) = 0 THEN 'Y' ELSE 'N' END) AS PO_NO_STATUS 	/* 구매 0단가 여부 */
+				, FMP_ORDER_SCHL_FUN(A.RC_UPJANG, A.CUSTCD, A.ITEM_CODE, A.NEED_DATE) AS FMP_STATUS		/* 식재_수발주제한 */
+				--, EPROCUSR.FN_ITEM_PROCURE_SCH('100', 'HFC', P1.OPER_ORG_SN_PURC, A.ITEM_CODE, A.VD_SN, '02', P3.D_DAYS, P3.D_TIMES, A.PR_DATE, A.NEED_DATE) AS PO_STATUS	/* 구매_수발주제한 */
+				, NVL(TO_CHAR(A.CUSTCD),'E') AS CUS_FLAG                         /* 남품업체정보 여부 : 오류 E */
+				, FMS_GETSALEPRICE_FUN(A.CENTER_CODE, A.RC_UPJANG, A.ITEM_CODE, A.NEED_DATE) AS GETCONTRACT_SALE_PRICE 	/* 판매단가 : 여신CHECK 용도 */
+				-- ORIGINAL FUNCTION(구)
+				-- **************************************************************************************************************************************************************************************			
+ 				-- 1) 자재업장군 매핑
+ 				, EPROCUSR.FN_ITEM_PROCURE_SHP_MAP('100' , 'HFC' , P1.OPER_ORG_SN_PURC , A.UPJANG_GRP , A.ITEM_CODE, A.NEED_DATE) AS VAL_SHP_CNT
+ 				-- 2) 자재 불용체크
+ 				, EPROCUSR.FN_ITEM_PROCURE_MTG_UNS('100', A.ITEM_CODE) AS VAL_UNS_CNT
+ 				-- 3) 자재 중지체크
+ 				, EPROCUSR.FN_ITEM_PROCURE_MTG_STP('100', A.ITEM_CODE, '02') AS VAL_STP_CNT
+ 				-- 4) 기획자재 한정수량체크 
+ 				, EPROCUSR.FN_ITEM_PROCURE_INF_EVT('100', 'HFC', P1.OPER_ORG_SN_PURC, A.ITEM_CODE, A.VD_SN, A.APPLY_SD, A.PO_QTY) AS VAL_EVT_CNT
+ 				-- 5) SPOT계약 발주횟수체크
+				, EPROCUSR.FN_ITEM_PROCURE_INF_SPT('100', 'HFC', P1.OPER_ORG_SN_PURC, A.ITEM_CODE, A.VD_SN, A.APPLY_SD, A.PO_QTY) AS VAL_CTR_CNT
+    			-- 6) 요일별 신청불가 체크 : 2015-10-08 인자 추가
+       			, EPROCUSR.FN_ITEM_PROCURE_REQ_WKD('100', 'HFC', P1.OPER_ORG_SN_PURC, A.ITEM_CODE, A.VD_SN, '02', A.NEED_DATE) AS VAL_REQ_CNT
+ 				-- 7) 수발주 스케쥴에 따른 유효성 체크
+ 				, DECODE(A.PO_TYPE,'29','HK','97','HK',EPROCUSR.FN_ITEM_PROCURE_SCH('100', 'HFC', P1.OPER_ORG_SN_PURC, A.ITEM_CODE, A.VD_SN, '02', P3.D_DAYS, P3.D_TIMES, A.PR_DATE, A.NEED_DATE)) AS VAL_SCH_CNT
+				--	8)  DC자재 수량체크 (Y/N) 
+				, CASE WHEN CON.CENTER_FLAG = 'DC' THEN EPROCUSR.FC_GET_CENTER_IVT_YN('100', 'HFC', A.CENTER_CODE, A.ITEM_CODE, A.PO_QTY) 
+			      		  ELSE 'Y' END AS IVT_YN                
+				FROM SO_PR A LEFT JOIN HLDC_SC_DEPT_V D ON A.PR_DEPT_ID = D.DEPT_ID
+		      				  INNER JOIN HLDC_PO_ITEM_MST B ON A.ITEM_CODE = B.ITEM_CODE
+		      				  LEFT JOIN VO_FC_VENDOR E ON A.CUSTCD = E.VD_CD
+		      				  LEFT JOIN PO_PREORDER_LIST P3 ON A.CENTER_CODE = P3.CENTER_CODE
+                                                           AND A.ITEM_CODE = P3.ITEM_CODE
+		             		  INNER JOIN ST_UPJANG C ON A.RC_UPJANG = C.UPJANG
+		             		  INNER JOIN FMS_UPJANG F ON A.RC_UPJANG = F.UPJANG
+							  /* 주문통제 제한(FMP_ORD_CTRL) */
+							  LEFT JOIN FMS_SUBINVENTORY O1 ON A.SUBINV_CODE = O1.SUBINV_CODE		             		  
+					 		  INNER JOIN HLDC_PO_CENTER P1 ON A.CENTER_CODE = P1.CENTER_CODE	  
+					 		  LEFT JOIN PO_CONTRACT_FSALE CON ON CON.CENTER_CODE = A.CENTER_CODE
+				 												   			    AND CON.UPJANG = C.AP_UNITPRICE_UPJANG		/* 단가계약업장 기준 */
+				 												    			AND CON.CUSTCD = A.CUSTCD
+		   																		AND CON.ITEM_CODE = A.ITEM_CODE
+		   																		AND A.NEED_DATE BETWEEN CON.CONTRACT_START AND NVL(CON.CONTRACT_END, '99999999') 		
+		   																		AND CON.USE_YN = 'Y'
+		  																		AND CON.CONTRACT_PRICE > 0
+		   																		AND CON.SALE_PRICE > 0
+		   																		AND ROWNUM <= 1                                                                                                                  
+		WHERE A.PO_NUM IN (${schPoNums})
+		AND A.SO_STATUS = '007'
+		AND A.PO_TYPE IN ('07','29', '97')
+		) X
+		ORDER BY X.PR_ID ASC	
+		]]>
+	</statement>
+	
+	<!-- 주문확정(을)를 확정상태로 업데이트 한다. -->
+	<statement name="update002" type="update">
+		/*+ com.hwfs.fm.fmo.dao.OrderRequestConfirmDAO.update002 */
+		<![CDATA[
+		UPDATE SO_PR SET
+		SO_STATUS = '008'   /* 주문 확정 */				
+		,DCSN_BY = :loginSabun	   /* 주문 확정자 */
+		,DCSN_DATE = SYSDATE       /* 주문 확정일 */  
+		WHERE SO_STATUS = '007'	-- 결의 대상
+		--<#if schCenter?has_content>AND CENTER_CODE = :schCenter</#if> 
+		<#if centerCode?has_content>AND CENTER_CODE = :centerCode</#if>
+	    <#if poType?has_content>AND PO_TYPE = :poType</#if> 
+	    <#if tabGubun == '0'>AND CUSTCD = :custcd</#if>
+	    <#if tabGubun == '1'>AND RC_UPJANG = :rcUpjang</#if>
+        <#if schUpjang?has_content>AND RC_UPJANG = :schUpjang</#if>
+	    <#if schCust?has_content>AND CUSTCD = :schCust</#if>
+	    <#if schGubun == '1'>
+		AND PO_DATE BETWEEN :schFdate AND :schTdate
+	    </#if>
+	    <#if schGubun == '2'>
+		AND NEED_DATE BETWEEN :schFdate AND :schTdate
+	    </#if>
+	    AND PO_TYPE IN ('07','29', '97')
+		]]>
+	</statement>
+	
+	<!-- 주문확정(을)를 확정된 IF 리스트 조회 -->
+	<statement name="selectIFList" type="select">
+		/*+ com.hwfs.fm.fmo.dao.OrderRequestConfirmDAO.selectIFList */
+		<![CDATA[
+		SELECT PR_NUM ,RC_UPJANG,CUSTCD,NEED_DATE,PR_SABUN,PO_TYPE FROM SO_PR
+		WHERE SO_STATUS = '008'
+		--<#if schCenter?has_content>AND CENTER_CODE = :schCenter</#if> 
+      	<#if schCode?has_content>AND A.CENTER_CODE IN (${schCode})</#if>
+	    <#if poType?has_content>AND PO_TYPE = :poType<#else>AND PO_TYPE IN ('07','29', '97')</#if> 
+	    <#if tabGubun == '0'>AND CUSTCD = :custcd</#if>
+	    <#if tabGubun == '1'>AND RC_UPJANG = :rcUpjang</#if>
+        <#if schUpjang?has_content>AND RC_UPJANG = :schUpjang</#if>
+	    <#if schCust?has_content>AND CUSTCD = :schCust</#if>
+	    <#if schGubun == '1'>
+		AND PO_DATE BETWEEN :schFdate AND :schTdate
+	    </#if>
+	    <#if schGubun == '2'>
+		AND NEED_DATE BETWEEN :schFdate AND :schTdate
+	    </#if>
+	    GROUP BY PR_NUM ,RC_UPJANG,CUSTCD,NEED_DATE,PR_SABUN,PO_TYPE
+		]]>
+	</statement>
+	
+	
+	
+	<!-- 주문확정(을)를 프로시저 롤백 후 상태값 업데이트한다. -->
+	<statement name="update007" type="update">
+		/*+ com.hwfs.fm.fmo.dao.OrderRequestConfirmDAO.update007 */
+		<![CDATA[
+		UPDATE SO_PR SET
+		 SO_STATUS = '007'
+		,UPDATE_BY = :loginSabun
+		,UPDATE_DATE = SYSDATE
+		WHERE PO_NUM = :poNum
+		AND SO_STATUS NOT IN ('003' , '005', '999')
+		AND PO_TYPE IN ('07','29', '97')
+		]]>
+	</statement>
+	
+	<!-- 주문확정(을)를 결의반려 상태로 업데이트 한다. -->
+	<statement name="update005" type="update">
+		/*+ com.hwfs.fm.fmo.dao.OrderRequestConfirmDAO.update005 */
+		<![CDATA[
+		UPDATE SO_PR SET
+		 SO_STATUS = '005'
+		,LINE_STATUS = '005'
+		,RETURN_BY = :loginSabun
+		,RETURN_DATE = SYSDATE		 
+		,UPDATE_BY = :loginSabun
+		,UPDATE_DATE = SYSDATE
+		WHERE PO_NUM = :poNum
+		AND SO_STATUS NOT IN ('003' , '005', '999')
+		AND PO_TYPE IN ('07','29', '97')
+		]]>
+	</statement>
+
+</hqml>

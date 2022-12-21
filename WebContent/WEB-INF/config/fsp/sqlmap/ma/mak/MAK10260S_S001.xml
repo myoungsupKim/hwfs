@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 3 AS SEQ
+     , B.MAIN_UPJANG
+     , C.UPJANGNM_DISP MAIN_UPJANGNM
+     , A.UPJANG
+     , B.UPJANGNM_DISP UPJANGNM
+     , SUBSTR(A.MONTHS,1,4)||'-'||SUBSTR(A.MONTHS,5,2) MONTHS
+     , D.TM_NM
+     , E.NM_KOR PART_SALES_SABUNNM
+     , MAK_BALANCE_AMT_FUN(A.UPJANG, A.MONTHS) BAMT
+     , SUM(BILL_AMOUNT) MAMT
+     , SUM(REP_AMOUNT)  RAMT
+     , MAK_BALANCE_AMT_FUN(A.UPJANG, A.MONTHS) + SUM(BILL_AMOUNT) - SUM(REP_AMOUNT) GAMT
+     , NVL(MAX(B.CREDIT_TURN_DAYS), 0) + NVL(SUM((SELECT SUM(V.CREDIT_EXT_DAYS)
+                                                    FROM FMS_CREDIT_EXT V
+                                                   WHERE V.UPJANG = B.UPJANG
+                                                     AND A.MONTHS BETWEEN SUBSTR(V.SUPPLY_START,1,6) AND SUBSTR(V.SUPPLY_END,1,6)
+                                                     AND V.APPR_YN = 'Y'
+                                                   GROUP BY V.UPJANG)), 0) DDAYS
+  FROM (
+        SELECT C.UPJANG, SUBSTR(C.BILL_DATE,1,6) AS MONTHS, BILL_AMOUNT, 0 AS REP_AMOUNT
+          FROM HLDC_FM_BILL C
+         WHERE C.BILL_DATE   BETWEEN #TRX_DATEFR# AND #TRX_DATETO#
+           AND C.CANCEL_FLAG = 'N'
+           AND C.DCGUBUN     = '1'
+           AND C.ACCTCD      = '1110411'
+         UNION ALL
+        SELECT C.UPJANG, SUBSTR(C.RECEIPT_DATE,1,6), 0, C.AMOUNT AS AMOUNT
+          FROM HLDC_FM_RECEIPT C
+         WHERE C.RECEIPT_DATE  BETWEEN #TRX_DATEFR# AND #TRX_DATETO#
+           AND C.DCGUBUN       = '2'
+           AND C.ACCTCD        IN ('1110411', '2110441') --외상,선수만.. 잡이익은 제외
+       ) A
+     , FMS_UPJANG B
+     , FMS_UPJANG C
+     , HLDC_SC_DEPT_V D
+     , HLDC_HR_PERSONAL E
+ WHERE A.UPJANG = B.UPJANG
+   AND B.MAIN_UPJANG = C.UPJANG
+   AND B.DEPT_ID = D.DEPT_ID
+   AND B.PART_SALES_SABUN = E.SABUN(+)
+<isNotNull col="DEPT_ID">
+   AND B.DEPT_ID = #DEPT_ID#
+</isNotNull>     
+<isNotNull col="PART_SALES_SABUN">
+   AND B.PART_SALES_SABUN = #PART_SALES_SABUN#
+</isNotNull>
+<isNotNull col="MAIN_UPJANG">
+   AND B.MAIN_UPJANG = #MAIN_UPJANG#
+</isNotNull>
+<isNotNull col="JOB">    
+   AND B.BIZ_GROUP = #JOB#
+</isNotNull>   
+<isNotNull col="SUB_JOB">    
+   AND B.BIZ_DETAIL = #SUB_JOB#
+</isNotNull>
+  GROUP BY B.MAIN_UPJANG
+     , C.UPJANGNM_DISP
+     , A.UPJANG
+     , B.UPJANGNM_DISP
+     , A.MONTHS
+     , D.TM_NM
+     , E.NM_KOR
+ UNION ALL
+SELECT 2 AS SEQ
+     , B.MAIN_UPJANG
+     , C.UPJANGNM_DISP MAIN_UPJANGNM
+     , A.UPJANG
+     , B.UPJANGNM_DISP UPJANGNM
+     , '[사업장소계]' AS MONTHS
+     , D.TM_NM
+     , '' AS PART_SALES_SABUNNM
+     , MAK_BALANCE_AMT_FUN(A.UPJANG, MIN(A.MONTHS)) BAMT
+     , SUM(BILL_AMOUNT) MAMT
+     , SUM(REP_AMOUNT)  RAMT
+     , MAK_BALANCE_AMT_FUN(A.UPJANG, MIN(A.MONTHS)) + SUM(BILL_AMOUNT) - SUM(REP_AMOUNT) AS GAMT
+     , 0 AS DDAYS
+  FROM (
+        SELECT C.UPJANG, SUBSTR(C.BILL_DATE,1,6) AS MONTHS, BILL_AMOUNT, 0 AS REP_AMOUNT
+          FROM HLDC_FM_BILL C
+         WHERE C.BILL_DATE   BETWEEN #TRX_DATEFR# AND #TRX_DATETO#
+           AND C.CANCEL_FLAG = 'N'
+           AND C.DCGUBUN     = '1'
+           AND C.ACCTCD      = '1110411'
+         UNION ALL
+        SELECT C.UPJANG, SUBSTR(C.RECEIPT_DATE,1,6), 0, C.AMOUNT AS AMOUNT
+          FROM HLDC_FM_RECEIPT C
+         WHERE C.RECEIPT_DATE  BETWEEN #TRX_DATEFR# AND #TRX_DATETO#
+           AND C.DCGUBUN       = '2'
+           AND C.ACCTCD        IN ('1110411', '2110441') --외상,선수만.. 잡이익은 제외
+       ) A
+     , FMS_UPJANG B
+     , FMS_UPJANG C
+     , HLDC_SC_DEPT_V D
+ WHERE A.UPJANG = B.UPJANG
+   AND B.MAIN_UPJANG = C.UPJANG
+   AND B.DEPT_ID = D.DEPT_ID
+<isNotNull col="DEPT_ID">
+   AND B.DEPT_ID = #DEPT_ID#
+</isNotNull>     
+<isNotNull col="PART_SALES_SABUN">
+   AND B.PART_SALES_SABUN = #PART_SALES_SABUN#
+</isNotNull>
+<isNotNull col="MAIN_UPJANG">
+   AND B.MAIN_UPJANG = #MAIN_UPJANG#
+</isNotNull>
+<isNotNull col="JOB">    
+   AND B.BIZ_GROUP = #JOB#
+</isNotNull>   
+<isNotNull col="SUB_JOB">    
+   AND B.BIZ_DETAIL = #SUB_JOB#
+</isNotNull>
+  GROUP BY B.MAIN_UPJANG
+     , C.UPJANGNM_DISP
+     , A.UPJANG
+     , B.UPJANGNM_DISP
+     , D.TM_NM
+ UNION ALL
+SELECT 1 AS SEQ
+     , A.MAIN_UPJANG
+     , A.MAIN_UPJANGNM
+     , 0  AS UPJANG
+     , '[본사소계]' AS UPJANGNM
+     , '' AS MONTHS
+     , A.TM_NM
+     , '' AS PART_SALES_SABUNNM
+     , SUM(BAMT) AS BAMT
+     , SUM(MAMT) AS MAMT
+     , SUM(RAMT) AS RAMT
+     , SUM(GAMT) AS GAMT
+     , 0 AS DDAYS
+  FROM (
+        SELECT B.MAIN_UPJANG
+             , C.UPJANGNM_DISP MAIN_UPJANGNM
+             , A.UPJANG
+             , B.UPJANGNM_DISP UPJANGNM
+             , '' AS MONTHS
+             , D.TM_NM
+             , '' AS PART_SALES_SABUNNM
+             , MAK_BALANCE_AMT_FUN(A.UPJANG, MIN(A.MONTHS)) BAMT
+             , SUM(BILL_AMOUNT) MAMT
+             , SUM(REP_AMOUNT)  RAMT
+             , MAK_BALANCE_AMT_FUN(A.UPJANG, MIN(A.MONTHS)) + SUM(BILL_AMOUNT) - SUM(REP_AMOUNT) AS GAMT
+             , 0 AS DDAYS
+          FROM (
+                SELECT C.UPJANG, SUBSTR(C.BILL_DATE,1,6) AS MONTHS, BILL_AMOUNT, 0 AS REP_AMOUNT
+                  FROM HLDC_FM_BILL C
+                 WHERE C.BILL_DATE   BETWEEN #TRX_DATEFR# AND #TRX_DATETO#
+                   AND C.CANCEL_FLAG = 'N'
+                   AND C.DCGUBUN     = '1'
+                   AND C.ACCTCD      = '1110411'
+                 UNION ALL
+                SELECT C.UPJANG, SUBSTR(C.RECEIPT_DATE,1,6), 0, C.AMOUNT AS AMOUNT
+                  FROM HLDC_FM_RECEIPT C
+                 WHERE C.RECEIPT_DATE  BETWEEN #TRX_DATEFR# AND #TRX_DATETO#
+                   AND C.DCGUBUN       = '2'
+                   AND C.ACCTCD        IN ('1110411', '2110441') --외상,선수만.. 잡이익은 제외
+               ) A
+             , FMS_UPJANG B
+             , FMS_UPJANG C
+             , HLDC_SC_DEPT_V D
+         WHERE A.UPJANG = B.UPJANG
+           AND B.MAIN_UPJANG = C.UPJANG
+           AND B.DEPT_ID = D.DEPT_ID
+<isNotNull col="DEPT_ID">
+   AND B.DEPT_ID = #DEPT_ID#
+</isNotNull>     
+<isNotNull col="PART_SALES_SABUN">
+   AND B.PART_SALES_SABUN = #PART_SALES_SABUN#
+</isNotNull>
+<isNotNull col="MAIN_UPJANG">
+   AND B.MAIN_UPJANG = #MAIN_UPJANG#
+</isNotNull>
+<isNotNull col="JOB">    
+   AND B.BIZ_GROUP = #JOB#
+</isNotNull>   
+<isNotNull col="SUB_JOB">    
+   AND B.BIZ_DETAIL = #SUB_JOB#
+</isNotNull>           
+          GROUP BY B.MAIN_UPJANG
+             , C.UPJANGNM_DISP
+             , A.UPJANG
+             , B.UPJANGNM_DISP
+             , D.TM_NM
+       ) A
+ GROUP BY A.MAIN_UPJANG
+     , A.MAIN_UPJANGNM
+     , A.TM_NM
+ ORDER BY MAIN_UPJANG, UPJANG, SEQ, MONTHS
+</statement>
+	<input default-name="ds_cond">
+		<col name="DEPT_ID" size="255" type="NUMERIC" description="" /> 
+		<col name="PART_SALES_SABUN" size="256" type="VARCHAR" description="" /> 
+		<col name="MAIN_UPJANG" size="256" type="VARCHAR" description="" /> 
+		<col name="TRX_DATEFR" size="255" type="VARCHAR" description="" /> 
+		<col name="TRX_DATETO" size="255" type="VARCHAR" description="" /> 
+		<col name="JOB" size="255" type="VARCHAR" description="" /> 
+		<col name="SUB_JOB" size="255" type="VARCHAR" description="" /> 		
+	</input>
+	<output default-name="ds_list">      
+	</output>
+</query>

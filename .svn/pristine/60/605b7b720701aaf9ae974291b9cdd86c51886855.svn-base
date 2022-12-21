@@ -1,0 +1,349 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="WorkForm" onload="form_onload" titletext="고객사 설정" position="absolute 0 0 352 298" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Grid autofittype="col" binddataset="DS_CUST" cellmovingtype="col" cellsizingtype="both" readonly="false" enable="true" fillareatype="allrow" id="Grid00" useinputpanel="false" autofitminwidth="100" oncelldblclick="Grid00_OnCellDblClick" onheadclick="Grid00_OnHeadClick" taborder="5" tabstop="true" usecontextmenu="true" useselcolor="true" visible="true" wheelscrollrow="1" position="absolute 15 28 337 248" selecttype="row">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="59"/>
+                <Column size="103"/>
+                <Column size="170"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="text" text="선택"/>
+                <Cell col="1" displaytype="text" text="고객사 코드"/>
+                <Cell col="2" displaytype="text" text="고객사 명"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="checkbox" edittype="checkbox" style="align:center;" text="bind:USE_YN"/>
+                <Cell col="1" displaytype="combo" edittype="combo" style="align:left;" text="bind:CUST_ID"/>
+                <Cell col="2" displaytype="text" style="align:left;" text="bind:CUSTNM"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="Static8" text="매출등록 고객사 선택" position="absolute 15 10 163 28" class="sta_WF_Title01"/>
+        <Button id="Button0" onclick="Common_Btn_common_OnClick" taborder="9" text="저장" position="absolute 235 258 285 283" class="btn_POP_Default" image=""/>
+        <Button id="btn_Close" onclick="Common_Btn_common_OnClick" taborder="10" text="취소" position="absolute 287 258 337 283" class="btn_POP_Default" image=""/>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 345 10"/>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 296"/>
+        <Static id="Static00" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 337 0 352 296"/>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 15 283 350 298"/>
+        <Static id="Static04" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 118 248 350 258"/>
+        <Static id="Static10" text="h05" class="Guide01_AreaRed" visible="false" position="absolute 15 23 215 28"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="DS_CUST">
+        <ColumnInfo>
+          <Column id="CUST_ID" size="22" type="BIGDECIMAL"/>
+          <Column id="CUSTNM" size="100" type="STRING"/>
+          <Column id="USE_YN" size="1" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="DS_COND">
+        <ColumnInfo>
+          <Column id="UPJANG" size="256" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : FS시스템/운영관리>매출관리>일매출 등록
+ * 프로그램명   : FMU00010E.XML
+ * 기      능   : 표준 UI Form
+ * 작  성  자   : 노규완
+ * 작성  일자   : 2007-11-22
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "lib::tit_comm_0001.js"
+//@@컨버터에서 주석처리 #include "lib::sc_comon.js"
+
+var sort_flag="desc";
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	fsp_init(this);
+	//init_btn_setup();	// Button 초기화
+	//alert(obj.id);
+	fsp_clear(this);
+	
+// 서버에서 조회할 정보 추가 
+	fsp_addSearch(this, "fm/fmo:FMO00010E_S005");
+	
+// 서버 호출 
+	fsp_callService(this, "", "", "", "ds_cust=ds_sout");
+}
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+function fn_search()
+{
+
+
+}
+function fn_insert()
+{	
+	cbo_SaleType.enable = true;
+	cbo_Subinv.enable = true;
+	cbo_Meal.enable = true;
+	cbo_Cust.enable = true;
+	edt_Tex.enable = true;
+	edt_OccurPrice.enable = true;
+	edt_OccurQty.enable = true;
+	edt_OccurAmt.enable = true;
+	edt_Remark.enable = true;                                                                                                                                                                                       
+
+	ds_list.addRow();
+}
+function fn_delete()
+{
+}
+function fn_save()
+{
+//본사 사업장 Insert/Update 로직
+    fsp_clear(this);
+    
+    ds_out.filter("USE_YN == 1");
+    
+    http.Sync = true;
+    
+	ds_out.updatecontrol = false;
+	DS_COND.updatecontrol = false;
+	
+	DS_COND.clearData();
+	DS_COND.addRow();
+	SetRowType(DS_COND,GetLastRow(DS_COND)     , "delete");
+	DS_COND.setColumn(GetLastRow(DS_COND)     , "UPJANG", "106246");
+	
+	fsp_addSave(this
+        , ""
+        , ""
+        , "fm/fmo:FMO00010P_D001"
+        , ""
+        , ""
+        , ""
+        , ""
+        );
+        
+	// 서버 호출 
+	fsp_callService(this, "", "", "DS_COND=DS_COND:U", "DS_LIST=ds_out", "", "");
+	
+    for (i=0;i<ds_out.rowcount;i++){
+	   SetRowType(ds_out,i, "insert");
+	}  	
+	
+	//G_degug(DS_OUT);
+	    
+    fsp_addSave(this, "fm/fmo:FMO00010P_I001","", "", "", "", "", "");
+
+// 서버 호출 
+	fsp_callService(this, "", "", "DS_COND=DS_OUT:U");//,"", "", "callbac_resel");
+	
+	http.Sync = false;
+	
+	ds_out.filter("");
+	this.close();
+}
+
+function callbac_resel()
+{  
+//	Common_Btn_common_OnClick(this);
+}
+
+function fn_print()
+{
+}
+function fn_Close()
+{
+	this.close();
+}
+function fn_help()
+{
+}
+
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : Common_Btn_common_OnClick
+ * 입      력   : obj  = Form Component
+ * 반      환   : 없음
+ * 기      능   : 
+ * 작  성  자   : 구종화
+ * 작성  일자   : 2007-11-16
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+
+function Common_Btn_common_OnClick(obj:Button, e:ClickEventInfo)
+{
+//alert(obj.id);
+	switch(obj.name)
+	{
+		case "btn_Search":
+			fn_search();
+			break;
+		case "btn_Insert":
+			fn_insert();
+			break;
+		case "btn_Delete":
+			fn_delete();
+			break;
+		case "btn_Save":
+			fn_save();
+			break;
+		case "btn_Print":
+			fn_print();
+			break;
+		case "btn_Close":
+			fn_Close();
+			break;
+		case "btn_Help":
+			fn_help();
+			break;
+		default:
+			fn_AlertMsg("001");
+			break;
+	}	
+}
+
+//=========================================================================================
+// [ PART 7 ]
+// 본사 사업장을 클릭 시 하위 업장을 불러 오기 위한 Event.
+// --> 데이터 셋 변경.
+//=========================================================================================
+
+
+
+
+
+function Grid00_OnCellDblClick(obj:Grid, e:GridClickEventInfo)
+{
+	trace("RDATE="+DS_LIST.getColumn(e.row,"RDATE")+" :: CLS_ITEM5="+DS_LIST.getColumn(e.row,"CLS_ITEM5"));
+}
+
+function Grid00_OnHeadClick(obj:Grid, e:GridClickEventInfo)
+{
+	GRIDHEADRESET();
+	if(sort_flag=="desc")
+	{
+			Grid00.setCellProperty("HEAD",e.cell,"text",Grid00.getCellProperty("HEAD",e.cell,"text")+"▼");
+			Sort(DS_CUST, Grid00.getCellProperty("BODY",e.cell,"text"),false );
+			//ds_USER_T.Sort("org_name:A");
+			sort_flag="asc";	
+	}
+	else
+	{
+			Grid00.setCellProperty("HEAD",e.cell,"text",Grid00.getCellProperty("HEAD",e.cell,"text")+"▲");
+			Sort(DS_CUST, Grid00.getCellProperty("BODY",e.cell,"text"),true );			
+			sort_flag="desc";	
+	}	
+}
+
+function GRIDHEADRESET()
+{
+	for(i=0; i<Grid00.getCellCount("HEAD") ; i++)
+	{
+		var v_text="";	
+			v_text=gfn_replace(Grid00.getCellProperty("HEAD",i,"text"),"▼","");
+			Grid00.setCellProperty("HEAD",i,"text",v_text);
+			v_text=gfn_replace(Grid00.getCellProperty("HEAD",i,"text"),"▲","");
+			Grid00.setCellProperty("HEAD",i,"text",v_text);
+	}	
+}
+
+function btn_Save_OnClick(obj)
+{
+	
+//	trace("1=>"+DS_COND.SaveXML());
+    fsp_clear(this);
+    
+    ds_out.filter("USE_YN == 1");
+    
+    http.Sync = true;    
+	
+	DS_CUST.updatecontrol = false;
+	DS_COND.updatecontrol = false;	
+	DS_CUSTID.updatecontrol = false;
+	
+	DS_COND.clearData();	
+	DS_COND.addRow();
+	SetRowType(DS_COND,GetLastRow(DS_COND)     , "delete");
+	DS_COND.setColumn(GetLastRow(DS_COND)     , "UPJANG", "106472");
+	
+	fsp_addSave(this
+        , ""
+        , ""
+        , "fm/fmo:FMO00010P_D002"
+        , ""
+        , ""
+        , ""
+        , ""
+        );
+        
+	// 서버 호출 
+	fsp_callService(this, "", "", "DS_COND=DS_COND:U", "DS_LIST=DS_CUST", "", "");
+	
+//	trace("1=>"+DS_COND.SaveXML());
+//	ALERT("DELETE");
+    for (i=0;i<DS_CUST.rowcount;i++){
+	   SetRowType(DS_CUST,i, "insert");
+	}  	
+	
+	//G_degug(DS_OUT);
+	    
+    fsp_addSave(this, "fm/fmo:FMO00010P_I002","", "", "", "", "", "");
+
+// 서버 호출 
+	fsp_callService(this, "", "", "ds_sin=DS_CUST:U");//,"", "", "callbac_resel");
+//	trace("1=>"+DS_COND.SaveXML());	
+//	ALERT("INSERT");	
+	http.Sync = false;
+	
+	DS_CUST.filter("");
+	this.close();
+}
+]]></Script>
+  </Form>
+</FDL>

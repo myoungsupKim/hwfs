@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="ms.mcm.claimProcessReportDAO">
+	<desc>클레임처리현황 조회 HQML Query</desc>
+
+	<!-- 클레임처리현황 조회 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.ms.mcm.claimProcessReportDAO.selectList */
+	<![CDATA[ 
+	SELECT A.NEED_DATE         /*입고일자*/
+	      , A.UPJANG           /*업장*/
+	      , C.UPJANGNM         /*업장명*/
+	      , A.CUSTCD           /*업체코드*/
+	      , B.VD_NM            /*업체명*/
+	      , A.ITEM_CODE        /*자재코드*/
+	      , A.ITEM_NAME        /*자재명*/
+	      , A.ITEM_SIZE        /*자재규격*/
+	      , A.PO_UOM           /*단위*/
+	      , A.PO_QTY           /*발주량*/
+	      , NVL(A.REQ_QTY,0) AS REQ_QTY /*요청수량*/
+	      , NVL(A.PROC_QTY,0) AS PROC_QTY /*클레임수량*/
+	      , A.CT_CLAIM_KIND    /*클레임유형*/
+	      , A.REQ_KIND         /*요청사항*/
+	      , A.CT_KIND          /*처리유형*/
+	      , A.PART_TM_CD       /*처리부서*/
+	      , (SELECT TM_NM
+	        FROM    HLDC_SC_TM
+	        WHERE   TM_CD = A.PART_TM_CD
+	        )
+	        AS PART_TM_NM      /*처리부서명*/
+	      , A.MNG_SABUN        /*처리담당자*/
+	      , (SELECT NM_KOR
+	        FROM    HR_PERSONAL
+	        WHERE   SABUN = A.MNG_SABUN
+	        )
+	        AS MNG_NAME        /*처리담당자명*/
+	      , A.PRCS_STATUS      /*처리상태*/
+	 FROM   PO_CLAIM_LIST A
+	      , VO_FC_VENDOR B
+	      , SCO_UPJANG_V C
+	 WHERE  A.CUSTCD = B.VD_CD
+	 AND    A.UPJANG = C.UPJANG(+)
+	 AND    A.UPJANG = :upjang
+	 AND    A.SUBINV_CODE = :subinvCd
+	 AND    A.NEED_DATE BETWEEN :calDtFrom AND   :calDtTo
+	 UNION ALL
+	 SELECT A.NEED_DATE         /*입고일자*/
+	      , A.UPJANG           /*업장*/
+	      , C.UPJANGNM         /*업장명*/
+	      , A.CUSTCD           /*업체코드*/
+	      , B.VD_NM            /*업체명*/
+	      , A.ITEM_CODE        /*자재코드*/
+	      , A.ITEM_NAME        /*자재명*/
+	      , A.ITEM_SIZE        /*자재규격*/
+	      , A.PO_UOM           /*단위*/
+	      , A.PO_QTY           /*발주량*/
+	      , NVL(A.REQ_QTY,0) AS REQ_QTY /*요청수량*/
+	      , NVL(A.PROC_QTY,0) AS PROC_QTY /*클레임수량*/
+	      , A.CT_CLAIM_KIND    /*클레임유형*/
+	      , A.REQ_KIND         /*요청사항*/
+	      , A.CT_KIND          /*처리유형*/
+	      , A.PART_TM_CD       /*처리부서*/
+	      , (SELECT TM_NM
+	        FROM    HLDC_SC_TM
+	        WHERE   TM_CD = A.PART_TM_CD
+	        )
+	        AS PART_TM_NM      /*처리부서명*/
+	      , A.MNG_SABUN        /*처리담당자*/
+	      , (SELECT NM_KOR
+	        FROM    HR_PERSONAL
+	        WHERE   SABUN = A.MNG_SABUN
+	        )
+	        AS MNG_NAME        /*처리담당자명*/
+	      , A.PRCS_STATUS      /*처리상태*/
+	 FROM   PO_CLAIM_LIST_HIST A
+	      , VO_FC_VENDOR B
+	      , SCO_UPJANG_V C
+	 WHERE  A.CUSTCD = B.VD_CD
+	 AND    A.UPJANG = C.UPJANG(+)
+	 AND    A.UPJANG = :upjang
+	 AND    A.SUBINV_CODE = :subinvCd
+	 AND    A.NEED_DATE BETWEEN :calDtFrom AND   :calDtTo
+	]]></statement>
+</hqml>

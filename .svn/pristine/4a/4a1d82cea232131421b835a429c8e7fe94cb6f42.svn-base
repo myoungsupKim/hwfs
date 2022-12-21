@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="rc.rrm.standardRecipeBatchHistoryDAO">
+	<desc>표준레시피 품목 변경 이력 HQML Query</desc>
+
+	<!-- 표준 레시피 자재 일괄 변경 이력을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.rc.rrm.dao.standardRecipeBatchHistoryDAO.selectList	*/
+		<![CDATA[
+		SELECT A.CHG_DATE
+		     , A.MU_CD
+		     , A.MU_NM
+		     , A.UPJANG_TYPE
+		     , A.UPJANG_TYPE_NM
+		     , DECODE((A.CNT - 1), 0, B.ITEM_NAME,  B.ITEM_NAME || ' 외 ' || (A.CNT - 1) || '건') AS ITEM_NAME
+		  FROM (
+		        SELECT A.CHG_DATE
+		             , A.MU_CD
+		             , (SELECT Z.MU_NM FROM SCC_MU Z WHERE Z.MU_CD = A.MU_CD) AS MU_NM
+		             , A.UPJANG_TYPE
+		             , SCC_CODE_NM('UPJANG_TYPE', A.UPJANG_TYPE) AS UPJANG_TYPE_NM
+		             , MIN(A.PRVS_MATERIAL_CD) KEEP(DENSE_RANK FIRST ORDER BY A.CHG_SEQ) AS PRVS_MATERIAL_CD
+		             , COUNT(DISTINCT(A.PRVS_MATERIAL_CD)) AS CNT
+		          FROM RSS_STD_RECIPE_CD_LOG A
+		         WHERE 1 = 1
+		           AND A.MU_CD = :muCd
+		           AND A.CHG_DATE BETWEEN :sdate AND :edate
+		         GROUP BY A.CHG_DATE, A.MU_CD, A.UPJANG_TYPE
+		       ) A
+		     , HLDC_PO_ITEM_MST B
+		 WHERE A.PRVS_MATERIAL_CD = B.ITEM_CODE
+		 ORDER BY A.CHG_DATE, A.UPJANG_TYPE
+		]]>
+	</statement>
+
+	<!-- 표준 레시피 자재 일괄 변경 상세이력을 조회한다. -->
+	<statement name="selectDetailList" type="select">
+		/*+ com.hwfs.rc.rrm.dao.standardRecipeBatchHistoryDAO.selectDetailList	*/
+		<![CDATA[
+		SELECT DENSE_RANK() OVER(ORDER BY A.PRVS_MATERIAL_CD) AS ROW_NUM
+		     , A.CHG_DATE
+		     , A.MU_CD
+		     , A.UPJANG_TYPE
+		     , A.STD_RECIPE_CD
+		     , B.RECIPE_NM
+		     , A.PRVS_MATERIAL_CD
+		     , D.ITEM_NAME AS PRVS_MATERIAL_NM
+		     , A.CHG_MATERIAL_CD
+		     , E.ITEM_NAME AS CHG_MATERIAL_NM
+		     , SCC_CODE_NM('RRM_REASON_CD', A.CHG_REASON_CD) || ' - ' || A.CHG_REASON AS CHG_REASON
+		     , C.SDATE AS START_DATE
+		     , C.EDATE AS END_DATE
+		  FROM RSS_STD_RECIPE_CD_LOG A
+		     , RSS_STD_RECIPE_CD_MST B
+		     , RSS_STD_RECIPE_CD_DETAIL C
+		     , HLDC_PO_ITEM_MST D
+		     , HLDC_PO_ITEM_MST E
+		 WHERE A.STD_RECIPE_CD = B.STD_RECIPE_CD
+		   AND A.UPJANG_TYPE = B.UPJANG_TYPE
+		   AND A.STD_RECIPE_CD = C.STD_RECIPE_CD
+		   --AND A.PRVS_MATERIAL_CD = C.MATERIAL_CD 
+		   --2017.02.23 프로세스 변경되면서 변경 후 자재로 조건을 줘야함(기존 자제코드는 업데이트되어 없음) 
+       	   AND A.CHG_MATERIAL_CD = C.MATERIAL_CD
+		   AND A.UPJANG_TYPE = C.UPJANG_TYPE
+		   AND A.PRVS_MATERIAL_CD = D.ITEM_CODE
+		   AND A.CHG_MATERIAL_CD = E.ITEM_CODE
+		   AND A.CHG_DATE = :chgDate
+		   AND A.MU_CD = :muCd
+		   AND A.UPJANG_TYPE = :upjangType
+		]]>
+	</statement>
+</hqml>

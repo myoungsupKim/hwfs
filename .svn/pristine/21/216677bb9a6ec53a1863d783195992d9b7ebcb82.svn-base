@@ -1,0 +1,236 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="MPFile" classname="MPFile" inheritanceid="" position="absolute 0 0 24 24" FileName="" UserData="" visible="false" style="background:orange;">
+    <Layouts>
+      <Layout>
+        <Static id="Static00" text="F" position="absolute 3 3 21 21" style="border:1 solid #808080ff ;font:Gulim,9,bold;"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <VirtualFile id="VFile"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[
+function AliasToRealPath(strPath)
+{
+	return system.convertRealPath(strPath);
+}
+
+function Close()
+{
+	return VFile.close();
+}
+
+function Copy(strSrcName, strDestName)
+{
+	if(isNull(strDestName)) {
+		if(isNull(this.FileName)) return null;
+		strDestName = strSrcName;
+		strSrcName  = this.FileName;
+	}
+	
+	if(VFile.isExist(strDestName)) return false;
+	
+	var objExt = new ExtCommon();
+	var bRet = objExt.CopyFile(strSrcName, strDestName, false);
+	if(bRet == -1) {
+		return false;
+	}
+	return true;
+}
+
+function Delete(strFileName)
+{
+	if(isNull(strFileName)) {
+		if(isNull(this.FileName)) return null;
+		strFileName = this.FileName;
+	}
+	
+	if(VFile.isExist(strFileName)) return false;
+	
+	return VirtualFile.delete(strFileName);
+}
+
+function GetLength(strFileName)
+{
+	if(isNull(strFileName)) {
+		if(isNull(this.FileName)) return null;
+		strFileName = this.FileName;
+	}
+	
+	VFile.open(strFileName, VirtualFile.openRead);
+	
+	var nFileSize = VFile.getFileSize();
+	
+	VFile.close();
+	
+	return nFileSize;
+}
+
+function IsExistFile(strFileName)
+{
+	if(isNull(strFileName)) {
+		if(isNull(this.FileName)) return null;
+		strFileName = this.FileName;
+	}
+	return VFile.isExist(strFileName);
+}
+
+function MakeDir(strPath)
+{
+	return VirtualFile.createDirectory(strPath, true);
+}
+
+function Move(strSrcName, strDestName)
+{
+	if(isNull(strDestName)) {
+		if(isNull(this.FileName)) return null;
+		strDestName = strSrcName;
+		strSrcName  = this.FileName;
+	}
+	var objExt = new ExtCommon();
+	var ret = objExt.MoveFile(strSrcName, strDestName);
+	return ret[0];
+}
+
+function Open(strOpenFlag) 
+{
+	var openMode = 0;
+	
+	if(isNull(this.FileName)) return null;
+	
+	if(isNull(strOpenFlag)) {
+		openMode = VirtualFile.openRead|VirtualFile.openText;
+	}
+	else {
+		strOpenFlag = strOpenFlag.toLowerCase();
+		for(var i = 0; i < strOpenFlag.length; i++) {
+			switch(strOpenFlag.charAt(i)) {
+				case "r":
+					openMode = openMode|VirtualFile.openRead;
+					break;
+				case "w":
+					openMode = openMode|VirtualFile.openWrite;
+					break;
+				case "a":
+					openMode = openMode|VirtualFile.openAppend;
+					break;
+				case "b":
+					openMode = openMode|VirtualFile.openBinary;
+					break;
+				case "+":
+					openMode = openMode|VirtualFile.openRead|VirtualFile.openWrite;
+					break;
+			}
+		}
+	}
+	return VFile.open(openMode);
+}
+
+function Read(nReadSize, nCodePage)
+{
+	if(isNull(this.FileName)) return null;
+	
+	return VFile.read(nReadSize, nCodePage);
+}
+
+function ReadBinary(nReadSize)
+{
+	if(isNull(this.FileName)) return null;
+	
+	return VFile.read(nReadSize);
+}
+
+function RemoveDir(strPath, bWithFile)
+{
+	var nWithFile = (bWithFile == true)?1:0;
+	var objExt = new ExtCommon();
+	var ret = objExt.delDirectoryAll(strPath, nWithFile);
+	if(ret == 1) return true;
+	return false;
+}
+
+function ReName(strOldFileName, strNewFileName)
+{
+	if(isNull(strNewFileName)) {
+		if(isNull(this.FileName)) return null;
+		strNewFileName = strOldFileName;
+		strOldFileName = this.FileName;
+	}
+	
+	var objExt = new ExtCommon();
+	var ret = objExt.fileReName(strOldFileName, strNewFileName);
+	if(ret == 1) return true;
+	return false;
+}
+
+function Seek(nOffset, strOrigin)
+{
+	var nOption;
+	
+	if(isNull(strOrigin)) {
+		nOption = VirtualFile.current;
+	}
+	else {
+		strOrigin = strOrigin.toLowerCase();
+		switch(strOrigin) {
+			case "begin":
+				nOption = VirtualFile.seekBegin;
+				break;
+			case "end":
+				nOption = VirtualFile.seekEnd;
+				break;
+			case "current":
+				nOption = VirtualFile.seekCurrent;
+				break;
+		}
+	}
+	return VFile.seek(nOffset, nOption);
+}
+
+function Write(strWriteBuf, nWriteSize, nCodePage)
+{
+	var buffObj = new Buffer();
+	
+	if(isNull(nWriteSize) && nWriteSize == -1) {
+		buffObj.data = strWriteBuf;
+	}
+	else {
+		buffObj.data = strWriteBuf.substr(0, nWriteSize);
+	}
+
+	var objExt = new ExtCommon();
+	var sFileContent  = objExt.writeFile(this.FileName, buffObj, nCodePage);
+	return sFileContent.length;
+}
+
+function WriteBinary(varWriteBuf, nWriteSize)
+{
+	var writeBuff = new Buffer();
+	var buffObj = new Buffer();
+	
+	if(isNull(nWriteSize) && nWriteSize == -1) {
+		writeBuff.data = varWriteBuf;
+	}
+	else {
+		buffObj.data = varWriteBuf;
+		writeBuff.data = buffObj.getSubBuffer(0, nWriteSize);
+	}
+
+	var objExt = new ExtCommon();
+	var sFileContent  = objExt.writeFile(this.FileName, writeBuff);
+	return sFileContent.length;
+}
+
+function setProp()
+{
+	VFile.filename = this.FilName;
+}
+
+function toString()
+{
+	return "[object File]";
+}
+]]></Script>
+  </Form>
+</FDL>

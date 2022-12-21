@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="refresh" content="29">
+  <title>FC Health Checker</title>
+  <script type='text/javascript' src='../js/knockout-min.js'></script>
+  <script type='text/javascript' src='../js/svg/status.js'></script>
+  <link rel="stylesheet" href="../css/cmn/style.css">
+  <style type='text/css'>
+  
+    .responded {
+    color:#228B22;
+}
+.checking, .unchecked {
+    color:	#00BFFF;
+}
+.timeout, error {
+	font-style:bold;
+    color:#FF0000;
+}
+.unstable {
+	font-style:bold;
+	color:#FF4500
+}
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+th, td {
+    padding: 8px;
+    text-align: left;
+    //border-bottom: 1px solid #ddd;
+}
+
+//tr:hover{background-color:#f5f5f5}
+	</style>
+
+<script type='text/javascript'>
+window.onload=function(){
+
+function ping(ip, title, callback) {
+
+    if (!this.inUse) {
+        this.status = 'unchecked';
+        this.inUse = true;
+        this.callback = callback;
+        this.ip = ip;
+        var _that = this;
+        this.img = new Image();
+        this.img.onload = function () {
+            _that.inUse = false;
+            //_that.callback('responded');
+            _that.callback(_status_sun);
+        };
+        this.img.onerror = function (e) {
+            if (_that.inUse) {
+                _that.inUse = false;
+                
+				/*if ( e.timeStamp > 500 ) {
+					_that.callback('unstable');
+				} else {*/
+					//_that.callback('error', e);
+					_that.callback(_status_cloudDrizzle, e);
+				//}
+            }
+
+        };
+        //this.start = new Date().getTime();
+		this.start = Math.random();
+		if ( title.indexOf("HWFS_") > -1 || title.indexOf("HWFSPOS_") > -1 ) {
+			this.ip = ip.replace("health.jsp", "images/cmn/processing.gif");	
+		} else if ( title.indexOf("HWPO_") > -1 ) {
+			this.ip = ip.replace("health.jsp", "img/bullet.png");
+		} else if ( title.indexOf("OZ_") > -1 ) {
+			this.ip = ip.replace("health.jsp", "ozrviewer/OZViewerPlugIn.jpg");
+		} else if ( title.indexOf("MOBILE_") > -1 ) {
+			this.ip = ip.replace("health.jsp", "processing.gif");
+		}
+        this.img.src = "http://" + this.ip + "?now=" + this.start; 
+        this.timer = setTimeout(function () {
+            if (_that.inUse) {
+                _that.inUse = false;
+                //_that.callback('timeout');
+                _that.callback(_status_cloud);
+            }
+        }, 1500);
+    }
+}
+var PingModel = function (servers) {
+    var self = this;
+    var myServers = [];
+    ko.utils.arrayForEach(servers, function (location) {
+        myServers.push({
+			title: location.title,
+            name: location.url,
+            status: ko.observable('unchecked')
+        });
+    });
+    self.servers = ko.observableArray(myServers);
+    ko.utils.arrayForEach(self.servers(), function (s) {
+        //s.status('checking');
+        s.status(_status_wind);
+        new ping(s.name,  s.title, function (status, e) {
+            s.status(status);
+        });
+    });
+};
+var komodel = new PingModel([
+	{ title : '[HWFS_OUT_URL]', 	url : 'nfics.hanwhafoodist.co.kr/health.jsp' },
+    { title : '[HWFS_OUT_L4]', 		url : '203.233.82.143:8091/health.jsp' },
+    { title : '[HWFS_OUT_WAS1]', 	url : '203.233.82.141:8091/health.jsp' },
+    { title : '[HWFS_OUT_WAS2]', 	url : '203.233.82.142:8091/health.jsp' },
+	
+	{ title : '[HWPO_OUT_URL]',		url : 'part.hanwhafoodist.co.kr/health.jsp' },
+	{ title : '[HWPO_OUT_L4]',		url : '203.233.82.143:8092/health.jsp' },
+	{ title : '[HWPO_OUT_WAS1]',	url : '203.233.82.141:8092/health.jsp' },
+	{ title : '[HWPO_OUT_WAS2]',	url : '203.233.82.142:8092/health.jsp' },
+	
+	{ title : '[OZ_OUT_URL]',		url : 'report.hwhnr.co.kr:8093/health.jsp' },
+	{ title : '[OZ_OUT_L4]',		url : '203.233.82.143:8093/health.jsp' },
+	{ title : '[OZ_OUT_WAS1]',		url : '203.233.82.141:8093/health.jsp' },
+	{ title : '[OZ_OUT_WAS2]',		url : '203.233.82.142:8093/health.jsp' },
+	
+	{ title : '[MOBILE_OUT_URL]',	url : 'mdm.hanwhafoodist.co.kr/health.jsp' },
+	{ title : '[MOBILE_OUT_L4]',	url : '203.233.82.143:8094/health.jsp' },
+	{ title : '[MOBILE_OUT_WAS1]',	url : '203.233.82.141:8094/health.jsp' },
+	{ title : '[MOBILE_OUT_WAS2]',	url : '203.233.82.142:8094/health.jsp' },
+	
+    { title : '[HWFS_IN_URL]',	url : 'hwfc.hanwhafoodist.co.kr/health.jsp' },
+	{ title : '[HWFS_IN_L4]',	url : '172.16.1.75:8091/health.jsp' },
+	{ title : '[HWFS_IN_WAS1]',	url : '172.16.1.68:8091/health.jsp' },
+	{ title : '[HWFS_IN_WAS2]',	url : '172.16.1.69:8091/health.jsp' },
+	
+	{ title : '[HWPO_IN_URL]',	url : 'epro.hanwhafoodist.co.kr/health.jsp' },
+	{ title : '[HWPO_IN_L4]',	url : '172.16.1.75:8092/health.jsp' },
+	{ title : '[HWPO_IN_WAS1]',	url : '172.16.1.68:8092/health.jsp' },
+	{ title : '[HWPO_IN_WAS2]',	url : '172.16.1.69:8092/health.jsp' },
+	
+	{ title : '[HWFSPOS_IN_URL]',	url : 'pos.hanwhafoodist.co.kr/health.jsp' },
+	{ title : '[HWFSPOS_IN_L4]',	url : '172.16.1.75:8095/health.jsp' },
+	{ title : '[HWFSPOS_IN_WAS1]',	url : '172.16.1.68:8095/health.jsp' },
+	{ title : '[HWFSPOS_IN_WAS2]',	url : '172.16.1.69:8095/health.jsp' },
+	{ title : '[TEST]',				url : 'test' }
+	
+]);
+ko.applyBindings(komodel);
+
+}
+
+function ff_setStatus(code) {
+	document.write(code);
+}
+// jennifer report
+function ff_load() {
+	document.getElementById("monitor").innerHTML = '<object type="text/html" data="http://172.16.1.212:7900/report/reportTemplateView.jsp?src=2016357112455759.html&isPopup=true" style="width:100%; height: 900px;"></object>';
+}
+</script>
+
+</head>
+<body>    
+<div width="100%">
+<table data-bind="foreach:servers">
+	<tr>
+		<td><a href="#" data-bind="text:title,attr:{href: 'http://'+name}"  target="_blank">load error</a></td>
+		<td><div align="right" style="padding-right:20px" data-bind="html:status"></div></td>
+	</tr>
+</table>
+</div>
+<br>
+<a href='javascript:void(0)' onclick="this.innerHTML=(this.nextSibling.style.display=='none')?'close':'JENNIFER';this.nextSibling.style.display=(this.nextSibling.style.display=='none')?'block':'none';ff_load()";>JENNIFER</a><DIV id="monitor" style='display:none'>
+</body>
+</html>

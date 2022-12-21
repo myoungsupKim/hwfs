@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fm.fms.transactionSpecificationDAO">
+	<desc>거래명세서(브랜드) HQML Query</desc>
+
+	<!-- 거래명세서 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.fm.fms.dao.transactionSpecificationDAO.selectList */
+		<![CDATA[
+		SELECT * FROM (
+		SELECT '0' AS CHK
+			 , X.PR_NUM
+		     , X.NEED_DATE
+		     , X.RC_UPJANG
+		     , (SELECT Z.UPJANGNM_DISP FROM FMS_UPJANG Z WHERE Z.UPJANG = X.RC_UPJANG) AS UPJANG_NM
+		     --, X.PO_TYPE
+		     , CASE
+		           WHEN MIN(X.PO_TYPE) IN ('07', '29', '97') THEN '주문'
+		           WHEN MIN(X.PO_TYPE) IN ('51', '52', '59') THEN '반환'
+		           WHEN MIN(X.PO_TYPE) IN ('61', '62') THEN '교환'
+		           WHEN MIN(X.PO_TYPE) IN ('71', '72') THEN '증정'
+		           ELSE 'ETC'
+		       END AS TYPE 
+		     , X.TRANS_CD
+		     , X.CAR_NUM
+		     , X.CHR_NM
+		     /* 직송일경우 확정, 센터출고수량이 있을 경우 확정, 반환의 경우 무조건 확정으로 봄 */
+		     , CASE
+		           WHEN MIN(X.PO_TYPE) IN ('07', '29', '97') THEN (SELECT DECODE(MAX(CENTER_FLAG), 'VC', 'Y', DECODE(MAX(WMS_GI_QTY), NULL, 'N', 'Y')) FROM EPROCUSR.VO_PO WHERE PO_NUM = X.PR_NUM)
+		           WHEN MIN(X.PO_TYPE) IN ('51', '52', '59') THEN 'Y'
+		           WHEN MIN(X.PO_TYPE) IN ('61', '62', '71', '72') THEN (SELECT DECODE(MAX(WMS_GI_QTY), NULL, 'N', 'Y') FROM EPROCUSR.VO_PO_RTN WHERE PO_NUM = X.PR_NUM)
+		           ELSE 'N'
+		       END AS RELEASE_YN
+		FROM (
+		         SELECT PR_NUM, NEED_DATE, RC_UPJANG, PO_TYPE, REMAKR, TRANS_CD, CAR_NUM, CHR_NM
+		         FROM(SELECT A.PR_NUM
+		              , A.NEED_DATE
+		              , A.RC_UPJANG
+		              , A.PO_TYPE
+		              , 'ORDER' AS REMAKR
+		              , POV.TRANS_CD
+		              , POV.CAR_NUM
+		              , POV.CHR_NM
+		              , (SELECT LINE_STATUS FROM HLDC_PO_PO WHERE PO_ID = A.PR_ID AND PO_NUM = A.PR_NUM) AS LINE_STATUS
+		         FROM SO_PR A
+		          --  , HLDC_PO_PO B -- 정상주문
+		            , EPROCUSR.VO_PO_TRANS POV
+		         WHERE --A.PR_ID = B.PO_ID AND 
+		           --A.PR_NUM = B.PO_NUM AND 
+		           A.PR_NUM = POV.PR_NUM
+		           AND A.PR_ID = POV.PR_ID 
+		           
+		           <#if schCalInDate2?has_content>
+		           AND A.NEED_DATE BETWEEN :schCalInDate AND :schCalInDate2
+		           <#else>
+		           AND A.NEED_DATE = :schCalInDate
+		           </#if>
+		           
+		           
+		           <#if schCenter != "*" >
+		           AND A.CENTER_CODE = :schCenter
+		           </#if>
+		           <#if schUpjang?has_content>
+		           AND A.RC_UPJANG = :schUpjang
+		           </#if>
+		           AND A.PO_TYPE IN ('07', '29', '97') -- 주문
+		           AND A.SO_STATUS IN ('001','008','009','007')
+		           --AND B.LINE_STATUS IN ('PC', 'DL', 'GC', 'IV')
+		           )
+		           WHERE LINE_STATUS IN ('PC', 'DL', 'GC', 'IV')
+		         UNION ALL
+		         SELECT A.PR_NUM
+		              , A.NEED_DATE
+		              , A.RC_UPJANG
+		              , A.PO_TYPE
+		              , 'RTN' AS REMARK
+		              , ROV.TRANS_CD
+		              , ROV.CAR_NUM
+		              , ROV.CHR_NM
+		         FROM SO_PR_RTN A
+		            , EPROCUSR.VO_PO_RTN B
+		            , EPROCUSR.VO_RO_TRANS ROV
+		         WHERE A.PR_ID = B.PO_ID
+		           AND A.PR_NUM = B.PO_NUM
+		           AND A.PR_NUM = ROV.RR_NUM
+		           AND A.PR_ID = ROV.RR_ID
+		           
+		           <#if schCalInDate2?has_content>
+		           AND A.NEED_DATE BETWEEN :schCalInDate AND :schCalInDate2
+		           <#else>
+		           AND A.NEED_DATE = :schCalInDate
+		           </#if>
+		           
+		           <#if schCenter != "*" >
+		           AND A.CENTER_CODE = :schCenter
+		           </#if>
+		           <#if schUpjang?has_content>
+		           AND A.RC_UPJANG = :schUpjang
+		           </#if>
+		           AND A.PO_TYPE IN ('51', '52', '61', '62', '71', '72') -- 반환/교환/증정
+		           AND A.LINE_STATUS NOT IN ('001', '008', '003', '004', '005')
+		         UNION ALL
+		         SELECT A.PO_NUM   AS PR_NUM
+		              , A.REQ_DATE AS NEED_DATE
+		              , A.UPJANG   AS RC_UPJANG
+		              , '59'       AS PO_TYPE -- 반환으로 표식
+		              , 'CLAIM'    AS REMARK
+		              , POV.TRANS_CD
+		              , POV.CAR_NUM
+		              , POV.CHR_NM
+		         FROM PO_CLAIM_LIST A 
+		            , EPROCUSR.VO_PO_TRANS POV
+		         WHERE 1=1
+		           AND A.PO_NUM = POV.PR_NUM
+		           AND A.PO_ID = POV.PR_ID
+		           
+		           <#if schCalInDate2?has_content>
+		           AND A.REQ_DATE BETWEEN :schCalInDate AND :schCalInDate2
+		           <#else>
+		           AND A.REQ_DATE = :schCalInDate
+		           </#if>
+		           
+		           <#if schCenter != "*" >
+		           AND A.CENTER_CODE = :schCenter
+		           </#if>
+		           <#if schUpjang?has_content>
+		           AND A.UPJANG = :schUpjang
+		           </#if>
+		           AND A.CT_KIND IN ('C0303') -- 반품
+		           AND A.PRCS_STATUS = '11' -- 처리중;
+		     ) X, FMS_UPJANG Y
+		WHERE X.RC_UPJANG = Y.UPJANG
+		  AND Y.DEPT_ID IN (SELECT CC_CD  FROM HLDC_SC_DEPT_V
+		    				  WHERE BU_CD = '2000'
+		        				AND MU_CD ='2004'
+		        				AND (TM_CD LIKE 'CI%' OR DEPT_ID IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'BRAND_UPJANG_POP_ETC')) )
+        <#if schChrNm?has_content>
+          AND X.CHR_NM LIKE '%' || :schChrNm || '%'
+        </#if>
+        <#if schOrderType?has_content>
+			<#if schOrderType == '1'>
+				AND X.PO_TYPE IN ('07', '29', '97')
+			<#elseif schOrderType == '5' || schOrderType == '6' || schOrderType == '7'>
+				AND X.PO_TYPE LIKE :schOrderType || '%'  
+			</#if>
+        </#if>
+		GROUP BY X.PR_NUM, X.NEED_DATE, X.RC_UPJANG, X.TRANS_CD, X.CAR_NUM, X.CHR_NM --X.PO_TYPE
+		ORDER BY X.NEED_DATE, X.RC_UPJANG, X.PR_NUM -- X.PO_TYPE
+		)
+		<#if schReleaseYn?has_content>	
+			<#if schReleaseYn == 'Y'>
+				WHERE RELEASE_YN = 'Y'
+			<#elseif schReleaseYn == 'N'>
+				WHERE RELEASE_YN = 'N'
+			</#if>
+		</#if>
+		
+		]]>
+	</statement>
+	
+	<!-- 거래명세서 임시 파라미터를 추가한다  -->
+	<statement name="insertParamList" type="insert">
+		/* fm.fms.transactionSpecificationDAO.insertParamList */
+		<![CDATA[
+		INSERT INTO TMP_REPORT_PARAMS 
+		     ( ATTR01    /*  */
+		     , CUSER     /* 생성자 */
+		     , CDATE     /* 생성시각 */
+		     )
+		VALUES 
+		     ( :prNum                       /* 주문번호 */
+		     , :loginSabun                  /* 생성자 */
+		     , SYSDATE                      /* 생성시각 */
+		     )
+		]]>
+	</statement>
+
+	<!-- 거래명세서 임시 파라미터를 삭제한다  -->
+	<statement name="deleteParamList" type="delete">
+		/* fm.fms.returnItemMgntDAO.deleteReturnItem */
+		<![CDATA[
+		DELETE FROM TMP_REPORT_PARAMS WHERE CUSER = :loginSabun
+		]]>
+	</statement>
+
+</hqml>
+

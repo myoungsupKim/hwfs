@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 1 as TEMP_GROUP_KEY
+     , TO_CHAR(TO_DATE(A.MENU_DATE,'YYYYMMDD'),'YYYY_MM_DD')||TO_CHAR(TO_DATE(A.MENU_DATE, 'YYYYMMDD'), 'dy','NLS_DATE_LANGUAGE=KOREAN') 
+                                                      AS MENU_DATE
+     , A.MENU_CD
+     , A.MEAL
+     , A.CORNER
+     , #MAIN_USER# AS MAIN_USER
+     , C.CODE_NAME || D.CODE_NAME  AS GUBUN
+     , TO_CHAR(TO_DATE(A.MENU_DATE,'YYYYMMDD'),'YYYY-MM-DD') || ' ' || SUBSTR(B.FIRST_START_TIME,1,2) || ':' || SUBSTR(B.FIRST_START_TIME,3,2) 
+                                                       AS START_TIME
+     , FSM_REAL_RECIPE_NAME_FUN(A.UPJANG, A.MENU_CD)   AS RECIPE_INFO
+     , TO_CHAR(TO_DATE(A.MENU_DATE,'YYYYMMDD')+#ADD_DISUSE_DATE#,'YYYY-MM-DD')|| ' ' || TO_CHAR(TO_DATE(A.MENU_DATE, 'YYYYMMDD')+#ADD_DISUSE_DATE#, 'dy','NLS_DATE_LANGUAGE=KOREAN') || ' ' || SUBSTR(B.FIRST_START_TIME,1,2) || ':' || SUBSTR(B.FIRST_START_TIME,3,2)||' 이후'  
+                                                       AS DISUSE_TIME
+FROM   FSM_REAL_MENU_MST A,
+       FSA_HALL_DTL      B,
+       SCC_COMMON_CODE   C,
+       SCC_COMMON_CODE   D
+WHERE  A.UPJANG = B.UPJANG
+  AND  A.HALL_CD = B.HALL_CD
+  AND  A.MEAL = B.MEAL
+  AND  A.CORNER = B.CORNER
+  AND  A.MEAL   = C.CODE
+  AND  A.CORNER = D.CODE
+  AND  B.USE_YN  = 'Y'
+  AND  C.GROUP_CODE = 'FS0023'
+  AND  D.GROUP_CODE = 'FS0022'
+  AND  A.UPJANG     = #UPJANG#
+  AND  A.HALL_CD    =#HALL_CD#
+<isNotNull col="MEAL">
+          AND A.MEAL = #MEAL#
+</isNotNull>
+<isNotNull col="CORNER">
+          AND A.CORNER = #CORNER#
+</isNotNull>
+AND    A.MENU_DATE  BETWEEN #START_DATE# AND #END_DATE#	
+ORDER BY A.MENU_DATE  --정렬이 없으면 일자수 계산시 오류 발생, 결과 그리드 생성 시 문제 발생 수정 20181112 김호석 수정 
+
+</statement>
+	<input default-name="ds_input">R
+		<col name="MAIN_USER" size="20" type="VARCHAR" description="" /> 
+		<col name="HALL_NAME" size="50" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="255" type="NUMERIC" description="" /> 
+		<col name="HALL_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="START_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="END_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="MEAL" size="20" type="VARCHAR" description="" /> 
+		<col name="CORNER" size="20" type="VARCHAR" description="" /> 
+		<col name="ADD_DISUSE_DATE" size="20" type="NUMERIC" description="" />
+	</input>
+	<output default-name="ds_list">
+		<col name="MENU_DATE" size="8" type="VARCHAR" description="" />
+		<col name="PDATE" size="8" type="VARCHAR" description="" />
+		<col name="MENU_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="MEAL" size="20" type="VARCHAR" description="" /> 
+		<col name="CORNER" size="20" type="VARCHAR" description="" /> 
+		<col name="MAIN_USER" size="13" type="CHAR" description="" /> 
+		<col name="GUBUN" size="217" type="VARCHAR" description="" /> 
+		<col name="START_TIME" size="27" type="VARCHAR" description="" />
+		<col name="RECIPE_INFO" size="4000" type="VARCHAR" description="" /> 
+		<col name="DISUSE_TIME" size="27" type="VARCHAR" description="" />  
+	</output>
+</query>

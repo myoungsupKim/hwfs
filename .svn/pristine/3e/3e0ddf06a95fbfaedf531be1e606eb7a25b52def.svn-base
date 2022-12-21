@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.UPJANG
+      ,A.MENU_CD
+      ,ROUND(SUM(PAST_PRICE)) AS PAST_PRICE --과거원가
+      ,NVL(ROUND(SUM( (A.NEED_QTY * NVL(G_ITEM_PRICE,0)))),0) CUR_PRICE --현재원가
+      ,FSM_REAL_RECIPE_NAME_FUN(A.UPJANG, A.MENU_CD) AS RECIPE_INFO --구성
+      ,A.MENU_DATE       --제공일
+      ,A.WDESC           --날씨
+      ,A.HALL_CD         --식당코드
+      ,A.HALL_NAME       --식당
+      ,A.MEAL            --끼니코드
+      ,DECODE(A.MEAL,NULL,A.MENU_FEATURE,
+       (SELECT CODE_NAME FROM SCC_COMMON_CODE X WHERE X.GROUP_CODE = 'FS0023' AND X.CODE = A.MEAL) ||
+       (SELECT CODE_NAME FROM SCC_COMMON_CODE X WHERE X.GROUP_CODE = 'FS0022' AND X.CODE = A.CORNER) ||
+       (SELECT DECODE(X.CORNER_DESC,NULL,'','('||X.CORNER_DESC||')') FROM FSA_HALL_DTL X WHERE X.UPJANG = A.UPJANG AND X.HALL_CD = A.HALL_CD AND X.MEAL = A.MEAL AND X.CORNER = A.CORNER)) MEAL_NAME --끼니명
+      ,A.CORNER          --코너코드
+      ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0022' AND CODE = A.CORNER) CORNER_NAME --코너명
+      ,A.UPJANG ||  A.MENU_CD AS MENU_ID --ID
+  FROM
+       (
+        SELECT A.UPJANG, A.MENU_CD, A.MENU_DATE, A.HALL_CD, D.HALL_NAME, A.MEAL, A.CORNER, E.WDESC, C.ITEM_CODE, C.NEED_QTY, A.MENU_FEATURE,
+               NVL((C.NEED_QTY * NVL(ROUND((C.MARGIN_PRICE / F.KG_CONVERT_RATE / 1000),2),0)),0) AS PAST_PRICE
+          FROM
+               FSM_REAL_MENU_MST A
+              ,FSM_REAL_RECIPE_MST B
+              ,FSM_REAL_RECIPE_ITEM C
+              ,FSA_HALL_MST D
+              ,(
+                SELECT B.UPJANG, A.CUR_DATE, A.WDESC
+                  FROM UPOS_SC_WEATHER_INFO_V A,
+                       SCO_UPJANG_MST B
+                 WHERE A.AREA_CODE = B.LOC_CD
+               ) E
+              ,HLDC_PO_ITEM_MST F
+         WHERE A.UPJANG = B.UPJANG
+           AND A.MENU_CD = B.MENU_CD
+           AND B.UPJANG = C.UPJANG
+           AND B.MENU_CD = C.MENU_CD
+           AND B.RECIPE_CD = C.RECIPE_CD
+           AND A.UPJANG = D.UPJANG
+           AND A.HALL_CD = D.HALL_CD
+           AND A.UPJANG = E.UPJANG(+)
+           AND A.MENU_DATE = E.CUR_DATE(+)
+           AND C.ITEM_CODE = F.ITEM_CODE
+           AND A.UPJANG = #UPJANG#        --사업장
+           AND B.RECIPE_CD = #RECIPE_CD#   --레시피코드
+           AND A.MENU_DATE BETWEEN #MENU_F_DATE# AND #MENU_T_DATE# --기간
+<isNotNull col="HALL_CD">
+           AND A.HALL_CD = #HALL_CD#      --식당코드
+</isNotNull>
+<isNotNull col="MEAL">
+           AND A.MEAL = #MEAL#     --끼니
+</isNotNull>
+<isNotNull col="CORNER">
+           AND A.CORNER = #CORNER#    --코너
+</isNotNull>
+       ) A
+      ,(
+	    SELECT /*+ USE_HASH(A D E) */ 
+	           A.ITEM_CODE
+	         , D.ITEM_NAME
+	         , D.ITEM_SIZE
+	         , D.PO_UOM
+	         , A.CUSTCD
+	         , DECODE(A.MARGIN_RATE, 0, A.CONTRACT_PRICE, DECODE(E.OUTVAT_FLAG, 'Y' , ( ROUND( (A.CONTRACT_PRICE * DECODE(D.TAX_CODE, '100' , 1.1, 1) * (A.MARGIN_RATE+100) / 100 ) / 10) * 10 ) , ( ROUND( (A.CONTRACT_PRICE * (A.MARGIN_RATE+100) / 100 ) / 10) * 10 ) ) ) AS ITEM_PRICE
+	         , KG_CONVERT_RATE
+	         , ROUND((DECODE(A.MARGIN_RATE, 0, A.CONTRACT_PRICE, DECODE(E.OUTVAT_FLAG, 'Y' , ( ROUND( (A.CONTRACT_PRICE * DECODE(D.TAX_CODE, '100' , 1.1, 1) * (A.MARGIN_RATE+100) / 100 ) / 10) * 10 ) , ( ROUND( (A.CONTRACT_PRICE * (A.MARGIN_RATE+100) / 100 ) / 10) * 10 ) ) ) )/KG_CONVERT_RATE/1000,2) AS G_ITEM_PRICE
+	         , A.UPJANG
+  	      FROM HLDC_PO_CONTRACT_F A
+  	         , HLDC_PO_ITEM_MST D
+  	         , HLDC_PO_SUBINVENTORY E		      
+		 WHERE 1=1
+           AND A.UPJANG = (SELECT AP_UNITPRICE_UPJANG FROM HLDC_ST_UPJANG Z WHERE Z.UPJANG = #UPJANG#)
+		   AND #MENU_DATE# BETWEEN A.CONTRACT_START AND A.CONTRACT_END
+		   AND A.USE_YN = 'Y'
+		   AND A.CONTRACT_PRICE > 0
+           AND E.UPJANG = #UPJANG#
+           AND E.SUBINV_CODE = #SUBINV_CODE#
+           AND A.ITEM_CODE = D.ITEM_CODE
+       ) B
+ WHERE A.ITEM_CODE = B.ITEM_CODE(+)
+   AND A.UPJANG = B.UPJANG(+)
+ GROUP BY A.UPJANG
+         ,A.MENU_CD
+         ,A.MENU_DATE
+         ,A.HALL_CD
+         ,A.HALL_NAME
+         ,A.MEAL
+         ,A.CORNER
+         ,A.MENU_FEATURE
+         ,A.WDESC	</statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

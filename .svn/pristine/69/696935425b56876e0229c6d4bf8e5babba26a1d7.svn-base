@@ -1,0 +1,831 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.cmn.cardItfcDAO">
+	<desc>신용카드 인터페이스 HQML Query</desc>
+	
+	<!-- 임시 테이블 생성 여부를 확인한다. -->
+	<statement name="isTempTableExist">
+		/*+ com.hwfs.sc.cmn.dao.CardDAO.isTempTableExist */
+		<![CDATA[
+		SELECT COUNT(*)
+		  FROM USER_TABLES 
+		 WHERE TEMPORARY = 'Y'
+		   AND TABLE_NAME = :tableName
+		]]>
+	</statement>
+	
+	<!-- 거래내역 임시 테이블을 생성한다. -->
+	<statement name="apTempTableCreate">
+		/*+ com.hwfs.sc.cmn.dao.CardDAO.apTempTableCreate */
+		<![CDATA[
+		CREATE GLOBAL TEMPORARY TABLE SLA_ISA_CARD_AP_DATA_TEMP
+		ON COMMIT DELETE ROWS
+		AS (
+		   SELECT * FROM SLA_ISA_CARD_AP_DATA WHERE 1 = 2
+		)
+		]]>
+	</statement>
+	
+	<!-- 거래내역 임시 테이블을 삭제한다. -->
+	<statement name="apTempTableDrop">
+		/*+ com.hwfs.sc.cmn.dao.CardDAO.apTempTableDrop */
+		<![CDATA[
+		DROP TABLE SLA_ISA_CARD_AP_DATA_TEMP
+		]]>
+	</statement>
+	
+	<!-- 거래내역 임시 테이블에 거래내역 내역을 등록한다. -->
+	<statement name="insertApTempData" type="insert">
+		/*+ com.hwfs.sc.cmn.dao.CardDAO.insertApTempData */
+		<![CDATA[
+		INSERT INTO SLA_ISA_CARD_AP_DATA_TEMP
+		(
+			  TRML_NO
+			, AUTH_GUBUN
+			, CARD_NUM
+			, ISSUE_CODE
+			, ENTRY_CODE
+			, EXP_DATE
+			, RUN_DATE
+			, RUN_TIME
+			, RUN_HAL
+			, AUTH_AMT
+			, AUTH_NO
+			, BUSI_NO
+			, MERCH_NUM
+			, MERCH_NAME
+			, BANK_CODE
+			, BANK_SAUP
+			, AGENCY_CODE
+			, RECD_STAT
+			, CREATE_BY
+			, CREATE_DATE
+			, UPDATE_BY
+			, UPDATE_DATE
+			, COMP_CD
+			, SYS_TYPE_CD
+			, BRCH_CD
+		) VALUES (
+			  :trmlNo
+			, :authGubun
+			, SC_CRYPTO_FUN('ENC', :cardNum)
+			, :issueCode
+			, :entryCode
+			, SC_CRYPTO_FUN('ENC', :expDate)
+			, :runDate
+			, :runTime
+			, :runHal
+			, :authAmt
+			, :authNo
+			, :busiNo
+			, :merchNum
+			, :merchName
+			, :bankCode
+			, :bankSaup
+			, :agencyCode
+			, 'I'
+			, 'SYSTEM'
+			, SYSDATE
+			, 'SYSTEM'
+			, SYSDATE
+			, :compCd
+			, :sysTypeCd
+			, :brchCd
+		)
+		]]>
+	</statement>
+	
+	<!-- 거래내역 임시 테이블의 데이터를 기준으로 거래내역 내역을 머지한다.  -->
+	<statement name="mergeApDataTemp">
+		/*+ com.hwfs.sc.cmn.dao.CardDAO.mergeApDataTemp */
+		<![CDATA[
+		 MERGE INTO SLA_ISA_CARD_AP_DATA R
+		 	  USING SLA_ISA_CARD_AP_DATA_TEMP T
+		 	     ON (
+		 	    	        R.COMP_CD = T.COMP_CD 
+			            AND R.SYS_TYPE_CD = T.SYS_TYPE_CD 
+						AND R.BRCH_CD = T.BRCH_CD
+						AND R.CARD_NUM = T.CARD_NUM
+						AND R.RUN_DATE = T.RUN_DATE
+						AND R.RUN_TIME = T.RUN_TIME
+						AND R.AUTH_NO = T.AUTH_NO
+						AND R.AUTH_AMT = T.AUTH_AMT
+						AND R.TRML_NO = T.TRML_NO
+           		    )
+       WHEN MATCHED THEN
+       		 UPDATE 
+       		    SET AUTH_GUBUN	= T.AUTH_GUBUN
+				  , ISSUE_CODE	= T.ISSUE_CODE
+				  , ENTRY_CODE	= T.ENTRY_CODE
+				  , EXP_DATE	= T.EXP_DATE
+				  , RUN_HAL		= T.RUN_HAL
+				  , BUSI_NO		= T.BUSI_NO
+				  , MERCH_NUM	= T.MERCH_NUM
+				  , MERCH_NAME	= T.MERCH_NAME
+				  , BANK_CODE	= T.BANK_CODE
+				  , BANK_SAUP	= T.BANK_SAUP
+				  , AGENCY_CODE	= T.AGENCY_CODE
+				  , RECD_STAT	= T.RECD_STAT
+				  , UPDATE_BY	= T.UPDATE_BY
+				  , UPDATE_DATE	= T.UPDATE_DATE
+   WHEN NOT MATCHED THEN
+             INSERT 
+             (
+             	  TRML_NO
+				, AUTH_GUBUN
+				, CARD_NUM
+				, ISSUE_CODE
+				, ENTRY_CODE
+				, EXP_DATE
+				, RUN_DATE
+				, RUN_TIME
+				, RUN_HAL
+				, AUTH_AMT
+				, AUTH_NO
+				, BUSI_NO
+				, MERCH_NUM
+				, MERCH_NAME
+				, BANK_CODE
+				, BANK_SAUP
+				, AGENCY_CODE
+				, RECD_STAT
+				, CREATE_BY
+				, CREATE_DATE
+				, UPDATE_BY
+				, UPDATE_DATE
+				, COMP_CD
+				, SYS_TYPE_CD
+				, BRCH_CD
+			) VALUES (
+				  T.TRML_NO
+				, T.AUTH_GUBUN
+				, T.CARD_NUM
+				, T.ISSUE_CODE
+				, T.ENTRY_CODE
+				, T.EXP_DATE
+				, T.RUN_DATE
+				, T.RUN_TIME
+				, T.RUN_HAL
+				, T.AUTH_AMT
+				, T.AUTH_NO
+				, T.BUSI_NO
+				, T.MERCH_NUM
+				, T.MERCH_NAME
+				, T.BANK_CODE
+				, T.BANK_SAUP
+				, T.AGENCY_CODE
+				, T.RECD_STAT
+				, T.CREATE_BY
+				, T.CREATE_DATE
+				, T.UPDATE_BY
+				, T.UPDATE_DATE
+				, T.COMP_CD
+				, T.SYS_TYPE_CD
+				, T.BRCH_CD
+		    )
+		]]>
+	</statement>
+	
+	<!-- 거래내역 임시 테이블의 입반송 내역을 삭제한다. -->
+	<statement name="deleteApTempData" type="delete">
+		/*+ com.hwfs.sc.cmn.dao.CardDAO.deleteApTempData */
+		<![CDATA[
+		TRUNCATE TABLE SLA_ISA_CARD_AP_DATA_TEMP
+		]]>
+	</statement>
+	
+	<!-- 신용카드 거래내역 내역을 등록한다. -->
+	<statement name="insertCardApData" type="insert">
+		/*+ com.hwfs.sc.cmn.dao.CardDAO.insertCardApData */
+		<![CDATA[
+		INSERT INTO SLA_ISA_CARD_AP_DATA
+		(
+			  TRML_NO
+			, AUTH_GUBUN
+			, CARD_NUM
+			, ISSUE_CODE
+			, ENTRY_CODE
+			, EXP_DATE
+			, RUN_DATE
+			, RUN_TIME
+			, RUN_HAL
+			, AUTH_AMT
+			, AUTH_NO
+			, BUSI_NO
+			, MERCH_NUM
+			, MERCH_NAME
+			, BANK_CODE
+			, BANK_SAUP
+			, AGENCY_CODE
+			, RECD_STAT
+			, CREATE_BY
+			, CREATE_DATE
+			, UPDATE_BY
+			, UPDATE_DATE
+			, COMP_CD
+			, SYS_TYPE_CD
+			, BRCH_CD
+		) VALUES (
+			  :trmlNo
+			, :authGubun
+			, SC_CRYPTO_FUN('ENC', :cardNum)
+			, :issueCode
+			, :entryCode
+			, SC_CRYPTO_FUN('ENC', :expDate)
+			, :runDate
+			, :runTime
+			, :runHal
+			, :authAmt
+			, :authNo
+			, :busiNo
+			, :merchNum
+			, :merchName
+			, :bankCode
+			, :bankSaup
+			, :agencyCode
+			, 'I'
+			, 'SYSTEM'
+			, SYSDATE
+			, 'SYSTEM'
+			, SYSDATE
+			, :compCd
+			, :sysTypeCd
+			, :brchCd
+		)
+		]]>
+	</statement>
+	
+	<!-- 신용카드 거래내역 내역을 수정한다. -->
+	<statement name="updateCardApData" type="update">
+		/*+ com.hwfs.sc.cmn.dao.CardDAO.updateCardApData */
+		<![CDATA[
+		UPDATE SLA_ISA_CARD_AP_DATA
+		   SET UPDATE_BY = :loginSabun
+			 , UPDATE_DATE = SYSDATE
+			 <#if authGubun?exists> , AUTH_GUBUN = :authGubun </#if>
+			 <#if issueCode?exists> , ISSUE_CODE = :issueCode </#if>
+			 <#if entryCode?exists> , ENTRY_CODE = :entryCode </#if>
+			 <#if expDate?exists> , EXP_DATE = SC_CRYPTO_FUN('ENC', :expDate) </#if>
+			 <#if runTime?exists> , RUN_TIME = :runTime </#if>
+			 <#if runHal?exists> , RUN_HAL = :runHal </#if>
+			 <#if busiNo?exists> , BUSI_NO = :busiNo </#if>
+			 <#if merchNum?exists> , MERCH_NUM = :merchNum </#if>
+			 <#if merchName?exists> , MERCH_NAME = :merchName </#if>
+			 <#if bankCode?exists> , BANK_CODE = :bankCode </#if>
+			 <#if bankSaup?exists> , BANK_SAUP = :bankSaup </#if>
+			 <#if agencyCode?exists> , AGENCY_CODE = :agencyCode </#if>
+			 <#if procYn?exists> , PROC_YN = DECODE(:procYn, '1', 'Y', 'N'), </#if>
+			 <#if cnfmYn?exists> , CNFM_YN = DECODE(:cnfmYn, '1', 'Y', 'N'), </#if>
+			 <#if rmrk?exists> , RMRK = :apRmrk </#if>
+		 WHERE TRML_NO = :trmlNo
+		   AND CARD_NUM = :cardNum
+		   AND RUN_DATE = :runDate
+		   AND AUTH_AMT = :authAmt
+		   AND AUTH_NO = :authNo
+		   AND COMP_CD = :compCd
+		   AND SYS_TYPE_CD = :sysTypeCd
+		   AND BRCH_CD = :brchCd
+		]]>
+	</statement>
+	
+	<!-- 입반송 임시 테이블을 생성한다. -->
+	<statement name="replyTempTableCreate">
+		/*+ com.hwfs.sc.cmn.dao.CardDAO.replyTempTableCreate */
+		<![CDATA[
+		CREATE GLOBAL TEMPORARY TABLE SLA_ISA_CARD_REPLY_TEMP
+		ON COMMIT DELETE ROWS
+		AS (
+		   SELECT * FROM SLA_ISA_CARD_REPLY WHERE 1 = 2
+		)
+		]]>
+	</statement>	
+	
+	<!-- 입반송 임시 테이블을 삭제한다. -->
+	<statement name="replyTempTableDrop">
+		/*+ com.hwfs.sc.cmn.dao.CardDAO.replyTempTableDrop */
+		<![CDATA[
+		DROP TABLE SLA_ISA_CARD_REPLY_TEMP
+		]]>
+	</statement>
+	
+	<!-- 입반송 임시 테이블에 입반송 내역을 등록한다. -->
+	<statement name="insertCardReplyTempData" type="insert">
+		/*+ com.hwfs.sc.cmn.dao.CardDAO.insertCardReplyTempData */
+		<![CDATA[
+		INSERT INTO SLA_ISA_CARD_REPLY_TEMP
+		(
+			  RECORD_CL_CD
+			, FILE_WRT_DT
+			, PURCH_FM_BIZR_NO
+			, JO_SHOP_BIZR_NO
+			, RCPT_STA_DT
+			, RCPT_END_DT
+			, PAY_PLAN_DT
+			, JO_SHOP_NO
+			, CRNCY_CD
+			, SVC_CL_CD
+			, SAL_STA_DT
+			, SAL_END_DT
+			, INV_DT
+			, PURCH_FM_CD
+			, FIN_ORG_ECD
+			, DT_RECORD_CL_CD
+			, DT_CRNCY_CD
+			, DT_CRNCY_IDX
+			, DT_SAL_DT
+			, DT_RCPT_DT
+			, DT_CARDNO
+			, DT_ALOT_MONTHS_CNT
+			, DT_TOT_TRX_AMT
+			, DT_CARDFM_RET_RSN_CD
+			, DT_KICC_RET_RSN_CD
+			, DT_USER_DEF_CONT_1
+			, DT_USER_DEF_CONT_2
+			, DT_APRV_NO
+			, DT_SHOP_POS_NO
+			, DT_CMMS_AMT
+			, DT_TID
+			, DT_CHNL_USED_FIELD
+			, DT_CARD_TYP_CD
+			, TT_RECORD_CL_CD
+			, TT_RCPT_CNT
+			, TT_RCPT_AMT
+			, TT_RET_CNT
+			, TT_RET_AMT
+			, TT_DFR_CNT
+			, TT_DFR_AMT
+			, TT_DFR_RELSE_CNT
+			, TT_DFR_RELSE_AMT
+			, TT_TOT_CNT
+			, TT_TOT_AMT
+			, TT_CMMS_SAMT
+			, TT_PAY_AMT
+			, RECD_STAT
+			, CREATE_BY
+			, CREATE_DATE
+			, UPDATE_BY
+			, UPDATE_DATE
+			, COMP_CD
+			, SYS_TYPE_CD
+			, BRCH_CD
+			, DT_CARDFM_RET_RSN_NM
+			, RLTN_SEQ
+			, AR_NO
+		) VALUES (
+			  :recordClCd
+			, :fileWrtDt
+			, :purchFmBizrNo
+			, :joShopBizrNo
+			, :rcptStaDt
+			, :rcptEndDt
+			, :payPlanDt
+			, :joShopNo
+			, :crncyCd
+			, :svcClCd
+			, :salStaDt
+			, :salEndDt
+			, :invDt
+			, :purchFmCd
+			, :finOrgEcd
+			, :dtRecordClCd
+			, :dtCrncyCd
+			, :dtCrncyIdx
+			, :dtSalDt
+			, :dtRcptDt
+			, SC_CRYPTO_FUN('ENC', :dtCardno)
+			, :dtAlotMonthsCnt
+			, :dtTotTrxAmt
+			, :dtCardfmRetRsnCd
+			, :dtKiccRetRsnCd
+			, :dtUserDefCont1
+			, :dtUserDefCont2
+			, :dtAprvNo
+			, :dtShopPosNo
+			, :dtCmmsAmt
+			, :dtTid
+			, :dtChnlUsedField
+			, :dtCardTypCd
+			, :ttRecordClCd
+			, :ttRcptCnt
+			, :ttRcptAmt
+			, :ttRetCnt
+			, :ttRetAmt
+			, :ttDfrCnt
+			, :ttDfrAmt
+			, :ttDfrRelseCnt
+			, :ttDfrRelseAmt
+			, :ttTotCnt
+			, :ttTotAmt
+			, :ttCmmsSamt
+			, :ttPayAmt
+			, :recdStat
+			, :createBy
+			, SYSDATE
+			, :updateBy
+			, SYSDATE
+			, :compCd
+			, :sysTypeCd
+			, :brchCd
+			, (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'CARDFM_RET_' || :purchFmCd AND CODE = TRIM(:dtCardfmRetRsnCd) )
+			, :rltnSeq
+			, :arNo  
+		)
+		]]>
+	</statement>
+	
+	<!-- 입반송 임시 테이블의 Key 값을 수정 한다. DDC(CAMIS) 전용 -->
+	<!-- MOD 2015.12.17 천수관 동일한 승인건인데 할부기간이 입반송과  fo 거래내역간 차이가 있는 부분이 있어서 삭제 -->
+	<statement name="updateCardReplyTemp" type="update">
+		/*+ com.hwfs.sc.cmn.dao.CardDAO.updateCardReplyTemp */
+		<![CDATA[
+		MERGE INTO SLA_ISA_CARD_REPLY_TEMP R
+			 USING (
+			 		SELECT R.ROWID RID
+		     		 	 , A.RLTN_SEQ
+		  		  	  FROM SLA_ISA_CARD_REPLY_TEMP R
+				INNER JOIN TB_ISA_CARD_APPR_INFO A
+		        		ON A.BRCH_CD = A.BRCH_CD
+					   AND A.USE_DT = R.DT_SAL_DT			-- 승인일자
+					   AND A.CARDCPNY_CD = R.PURCH_FM_CD	-- 매입사
+					   AND A.CARD_NO = R.DT_CARDNO			-- 카드번호
+					   AND A.APPR_NO = R.DT_APRV_NO			-- 승인번호
+					   AND A.TOT_USE_AMT = R.DT_TOT_TRX_AMT	-- 승인금액
+					   --AND LPAD(A.ALLT_DRAT, 2, '0') = R.DT_ALOT_MONTHS_CNT	-- 할부기간
+					   AND R.RECD_STAT <> 'D'
+					   AND A.RECD_STAT <> 'D'
+					) T
+				ON ( R.ROWID = T.RID )
+	  WHEN MATCHED THEN
+			UPDATE
+		   	   SET RLTN_SEQ = T.RLTN_SEQ
+		]]>
+	</statement>
+	
+	<!-- 입반송 임시 테이블의 데이터를 기준으로 입반송 내역을 머지한다.  -->
+	<statement name="mergeCardReplyTemp">
+		/*+ com.hwfs.sc.cmn.dao.CardDAO.mergeCardReplyTemp */
+		<![CDATA[
+		 MERGE INTO SLA_ISA_CARD_REPLY R
+		 	  USING SLA_ISA_CARD_REPLY_TEMP T
+		 	     ON (
+		 	    	        --R.FILE_WRT_DT = T.FILE_WRT_DT			/* 재청구로 인해 파일생성일만 다른 동일한 데이터 입력으로 주석처리 */ 
+			             	R.DT_RECORD_CL_CD = T.DT_RECORD_CL_CD 
+						AND R.DT_SAL_DT = T.DT_SAL_DT
+						AND R.DT_CARDNO = T.DT_CARDNO
+						AND R.DT_TOT_TRX_AMT = T.DT_TOT_TRX_AMT
+						AND R.DT_APRV_NO = T.DT_APRV_NO
+						AND R.COMP_CD = T.COMP_CD
+						AND R.SYS_TYPE_CD = T.SYS_TYPE_CD
+						AND R.BRCH_CD = T.BRCH_CD
+						--AND R.INV_DT = T.INV_DT
+						AND R.PURCH_FM_CD = T.PURCH_FM_CD
+						AND R.DT_TID = T.DT_TID
+						--AND R.DT_RCPT_DT = T.DT_RCPT_DT
+						AND R.PURCH_FM_BIZR_NO = T.PURCH_FM_BIZR_NO
+						AND R.JO_SHOP_BIZR_NO = T.JO_SHOP_BIZR_NO
+						<#if sysTypeCd != 'CAMIS'>  
+							AND R.RLTN_SEQ = T.RLTN_SEQ		-- DDC(CAMIS) 는 KEY 값을 비교대상에서 제외
+						</#if>
+           		    )
+       WHEN MATCHED THEN
+       		 UPDATE 
+       		    SET RCPT_STA_DT           = T.RCPT_STA_DT                                                                                
+				  , RCPT_END_DT           = T.RCPT_END_DT                                                                                
+				  , PAY_PLAN_DT           = T.PAY_PLAN_DT                                                                                
+				  , JO_SHOP_NO            = T.JO_SHOP_NO          
+				  , CRNCY_CD              = T.CRNCY_CD            
+				  , SVC_CL_CD             = T.SVC_CL_CD           
+				  , SAL_STA_DT            = T.SAL_STA_DT                                                                                 
+				  , SAL_END_DT            = T.SAL_END_DT                                                                                                                                                                                         
+				  , FIN_ORG_ECD           = T.FIN_ORG_ECD                                                                                                                                                           
+				  , DT_CRNCY_CD           = T.DT_CRNCY_CD                                                                                
+				  , DT_CRNCY_IDX          = T.DT_CRNCY_IDX                                                                                                                                                               
+				  , DT_ALOT_MONTHS_CNT    = T.DT_ALOT_MONTHS_CNT                                                                         
+				  , DT_CARDFM_RET_RSN_CD  = T.DT_CARDFM_RET_RSN_CD                                                                       
+				  , DT_KICC_RET_RSN_CD	  = T.DT_KICC_RET_RSN_CD 	                                                                      
+				  , DT_USER_DEF_CONT_1    = T.DT_USER_DEF_CONT_1                                                                         
+				  , DT_USER_DEF_CONT_2    = T.DT_USER_DEF_CONT_2                                                                         
+				  , DT_SHOP_POS_NO        = T.DT_SHOP_POS_NO                                                                             
+				  , DT_CMMS_AMT           = T.DT_CMMS_AMT                                                                                
+				  , DT_CHNL_USED_FIELD    = T.DT_CHNL_USED_FIELD                                                                         
+				  , DT_CARD_TYP_CD        = T.DT_CARD_TYP_CD                                                                             
+				  , TT_RECORD_CL_CD       = T.TT_RECORD_CL_CD                                                                            
+				  , TT_RCPT_CNT           = T.TT_RCPT_CNT                                                                                
+				  , TT_RCPT_AMT           = T.TT_RCPT_AMT                                                                                
+				  , TT_RET_CNT            = T.TT_RET_CNT                                                                                 
+				  , TT_RET_AMT            = T.TT_RET_AMT                                                                                 
+				  , TT_DFR_CNT            = T.TT_DFR_CNT                                                                                 
+				  , TT_DFR_AMT            = T.TT_DFR_AMT                                                                                 
+				  , TT_DFR_RELSE_CNT      = T.TT_DFR_RELSE_CNT                                                                           
+				  , TT_DFR_RELSE_AMT      = T.TT_DFR_RELSE_AMT                                                                           
+				  , TT_TOT_CNT            = T.TT_TOT_CNT                                                                                 
+				  , TT_TOT_AMT            = T.TT_TOT_AMT                                                                                 
+				  , TT_CMMS_SAMT          = T.TT_CMMS_SAMT                                                                               
+				  , TT_PAY_AMT            = T.TT_PAY_AMT                                                                                 
+				  , RECD_STAT             = T.RECD_STAT                                                                                                                                                                 
+				  , UPDATE_BY             = T.UPDATE_BY                                                                                  
+				  , UPDATE_DATE           = T.UPDATE_DATE                                                                                
+				  , DT_CARDFM_RET_RSN_NM  = T.DT_CARDFM_RET_RSN_NM
+				  <#if sysTypeCd == 'CAMIS'>	
+				  	, RLTN_SEQ = T.RLTN_SEQ		-- DDC(CAMIS) 는 KEY 값을 업데이트
+				  </#if>
+   WHEN NOT MATCHED THEN
+             INSERT 
+             (
+             	  RECORD_CL_CD
+			    , FILE_WRT_DT
+			    , PURCH_FM_BIZR_NO
+			    , JO_SHOP_BIZR_NO
+			    , RCPT_STA_DT
+			    , RCPT_END_DT
+			    , PAY_PLAN_DT
+			    , JO_SHOP_NO
+			    , CRNCY_CD
+			    , SVC_CL_CD
+			    , SAL_STA_DT
+			    , SAL_END_DT
+			    , INV_DT
+			    , PURCH_FM_CD
+			    , FIN_ORG_ECD
+			    , DT_RECORD_CL_CD
+			    , DT_CRNCY_CD
+			    , DT_CRNCY_IDX
+			    , DT_SAL_DT
+			    , DT_RCPT_DT
+			    , DT_CARDNO
+			    , DT_ALOT_MONTHS_CNT
+			    , DT_TOT_TRX_AMT
+			    , DT_CARDFM_RET_RSN_CD
+			    , DT_KICC_RET_RSN_CD
+			    , DT_USER_DEF_CONT_1
+			    , DT_USER_DEF_CONT_2
+			    , DT_APRV_NO
+			    , DT_SHOP_POS_NO
+			    , DT_CMMS_AMT
+			    , DT_TID
+			    , DT_CHNL_USED_FIELD
+			    , DT_CARD_TYP_CD
+			    , TT_RECORD_CL_CD
+			    , TT_RCPT_CNT
+			    , TT_RCPT_AMT
+			    , TT_RET_CNT
+			    , TT_RET_AMT
+			    , TT_DFR_CNT
+			    , TT_DFR_AMT
+			    , TT_DFR_RELSE_CNT
+			    , TT_DFR_RELSE_AMT
+			    , TT_TOT_CNT
+			    , TT_TOT_AMT
+			    , TT_CMMS_SAMT
+			    , TT_PAY_AMT
+			    , RECD_STAT
+			    , CREATE_BY
+			    , CREATE_DATE
+			    , UPDATE_BY
+			    , UPDATE_DATE
+			    , COMP_CD
+			    , SYS_TYPE_CD
+			    , BRCH_CD
+			    , DT_CARDFM_RET_RSN_NM
+			    , RLTN_SEQ
+			    , AR_NO
+			) VALUES (
+			      T.RECORD_CL_CD         
+			    , T.FILE_WRT_DT          
+			    , T.PURCH_FM_BIZR_NO     
+			    , T.JO_SHOP_BIZR_NO      
+			    , T.RCPT_STA_DT          
+			    , T.RCPT_END_DT          
+			    , T.PAY_PLAN_DT          
+			    , T.JO_SHOP_NO           
+			    , T.CRNCY_CD             
+			    , T.SVC_CL_CD            
+			    , T.SAL_STA_DT           
+			    , T.SAL_END_DT           
+			    , T.INV_DT               
+			    , T.PURCH_FM_CD          
+			    , T.FIN_ORG_ECD          
+			    , T.DT_RECORD_CL_CD      
+			    , T.DT_CRNCY_CD          
+			    , T.DT_CRNCY_IDX         
+			    , T.DT_SAL_DT            
+			    , T.DT_RCPT_DT           
+			    , T.DT_CARDNO            
+			    , T.DT_ALOT_MONTHS_CNT   
+			    , T.DT_TOT_TRX_AMT       
+			    , T.DT_CARDFM_RET_RSN_CD 
+			    , T.DT_KICC_RET_RSN_CD   
+			    , T.DT_USER_DEF_CONT_1   
+			    , T.DT_USER_DEF_CONT_2   
+			    , T.DT_APRV_NO           
+			    , T.DT_SHOP_POS_NO       
+			    , T.DT_CMMS_AMT          
+			    , T.DT_TID               
+			    , T.DT_CHNL_USED_FIELD   
+			    , T.DT_CARD_TYP_CD       
+			    , T.TT_RECORD_CL_CD      
+			    , T.TT_RCPT_CNT          
+			    , T.TT_RCPT_AMT          
+			    , T.TT_RET_CNT           
+			    , T.TT_RET_AMT           
+			    , T.TT_DFR_CNT           
+			    , T.TT_DFR_AMT           
+			    , T.TT_DFR_RELSE_CNT     
+			    , T.TT_DFR_RELSE_AMT     
+			    , T.TT_TOT_CNT           
+			    , T.TT_TOT_AMT           
+			    , T.TT_CMMS_SAMT         
+			    , T.TT_PAY_AMT           
+			    , T.RECD_STAT            
+			    , T.CREATE_BY            
+			    , T.CREATE_DATE          
+			    , T.UPDATE_BY            
+			    , T.UPDATE_DATE          
+			    , T.COMP_CD              
+			    , T.SYS_TYPE_CD          
+			    , T.BRCH_CD              
+			    , T.DT_CARDFM_RET_RSN_NM
+			    --, T.RLTN_SEQ
+			    , SLA_ISA_CARD_REPLY_S.NEXTVAL
+			    , T.AR_NO
+		    )
+		]]>
+	</statement>
+	
+	<!-- 입반송 임시 테이블의 입반송 내역을 삭제한다. -->
+	<statement name="deleteCardReplyTempData" type="delete">
+		/*+ com.hwfs.sc.cmn.dao.CardDAO.deleteCardReplyTempData */
+		<![CDATA[
+		TRUNCATE TABLE SLA_ISA_CARD_REPLY_TEMP
+		]]>
+	</statement>
+	
+	<!-- 신용카드 입반송 내역을 등록한다. -->
+	<statement name="insertCardReply" type="insert">
+		/*+ com.hwfs.sc.cmn.dao.CardDAO.insertCardReply */
+		<![CDATA[
+		INSERT INTO SLA_ISA_CARD_REPLY
+		(
+			  RECORD_CL_CD
+			, FILE_WRT_DT
+			, PURCH_FM_BIZR_NO
+			, JO_SHOP_BIZR_NO
+			, RCPT_STA_DT
+			, RCPT_END_DT
+			, PAY_PLAN_DT
+			, JO_SHOP_NO
+			, CRNCY_CD
+			, SVC_CL_CD
+			, SAL_STA_DT
+			, SAL_END_DT
+			, INV_DT
+			, PURCH_FM_CD
+			, FIN_ORG_ECD
+			, DT_RECORD_CL_CD
+			, DT_CRNCY_CD
+			, DT_CRNCY_IDX
+			, DT_SAL_DT
+			, DT_RCPT_DT
+			, DT_CARDNO
+			, DT_ALOT_MONTHS_CNT
+			, DT_TOT_TRX_AMT
+			, DT_CARDFM_RET_RSN_CD
+			, DT_KICC_RET_RSN_CD
+			, DT_USER_DEF_CONT_1
+			, DT_USER_DEF_CONT_2
+			, DT_APRV_NO
+			, DT_SHOP_POS_NO
+			, DT_CMMS_AMT
+			, DT_TID
+			, DT_CHNL_USED_FIELD
+			, DT_CARD_TYP_CD
+			, TT_RECORD_CL_CD
+			, TT_RCPT_CNT
+			, TT_RCPT_AMT
+			, TT_RET_CNT
+			, TT_RET_AMT
+			, TT_DFR_CNT
+			, TT_DFR_AMT
+			, TT_DFR_RELSE_CNT
+			, TT_DFR_RELSE_AMT
+			, TT_TOT_CNT
+			, TT_TOT_AMT
+			, TT_CMMS_SAMT
+			, TT_PAY_AMT
+			, RECD_STAT
+			, CREATE_BY
+			, CREATE_DATE
+			, UPDATE_BY
+			, UPDATE_DATE
+			, COMP_CD
+			, SYS_TYPE_CD
+			, BRCH_CD
+			, DT_CARDFM_RET_RSN_NM
+			, RLTN_SEQ
+			, AR_NO
+		) VALUES (
+			  :recordClCd
+			, :fileWrtDt
+			, :purchFmBizrNo
+			, :joShopBizrNo
+			, :rcptStaDt
+			, :rcptEndDt
+			, :payPlanDt
+			, :joShopNo
+			, :crncyCd
+			, :svcClCd
+			, :salStaDt
+			, :salEndDt
+			, :invDt
+			, :purchFmCd
+			, :finOrgEcd
+			, :dtRecordClCd
+			, :dtCrncyCd
+			, :dtCrncyIdx
+			, :dtSalDt
+			, :dtRcptDt
+			, SC_CRYPTO_FUN('ENC', :dtCardno)
+			, :dtAlotMonthsCnt
+			, :dtTotTrxAmt
+			, :dtCardfmRetRsnCd
+			, :dtKiccRetRsnCd
+			, :dtUserDefCont1
+			, :dtUserDefCont2
+			, :dtAprvNo
+			, :dtShopPosNo
+			, :dtCmmsAmt
+			, :dtTid
+			, :dtChnlUsedField
+			, :dtCardTypCd
+			, :ttRecordClCd
+			, :ttRcptCnt
+			, :ttRcptAmt
+			, :ttRetCnt
+			, :ttRetAmt
+			, :ttDfrCnt
+			, :ttDfrAmt
+			, :ttDfrRelseCnt
+			, :ttDfrRelseAmt
+			, :ttTotCnt
+			, :ttTotAmt
+			, :ttCmmsSamt
+			, :ttPayAmt
+			, :recdStat
+			, :createBy
+			, SYSDATE
+			, :updateBy
+			, SYSDATE
+			, :compCd
+			, :sysTypeCd
+			, :brchCd
+			, (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'CARDFM_RET_' || :purchFmCd AND CODE = TRIM(:dtCardfmRetRsnCd) )
+			--, :rltnSeq
+			, SLA_ISA_CARD_REPLY_S.NEXTVAL
+			, :arNo  
+		)
+		]]>
+	</statement>
+
+	<!-- 신용카드 VAN 사와 인터페이스 이력(청구, 거래내역, 입반송) 이력을 등록한다. -->
+	<statement name="insertCardHist" type="insert">
+		/*+ com.hwfs.sc.cmn.dao.CardDAO.insertCardHist */
+		<![CDATA[
+		INSERT INTO TB_ISA_CARD_HIST
+		(
+			  COMP_CD
+			, SYS_TYPE_CD
+			, BRCH_CD
+			, RECD_TYPE
+			, RECPT_DT
+			, SEND_REC_TYPE
+			, CNT
+			, FILE_NM
+			, ERR_YN
+			, PRC_DT
+			, DESCRIPTION
+			, RECD_STAT
+			, CRAT_ID
+			, CRAT_DDTT
+			, UPDT_ID
+			, UPDT_DDTT
+		) VALUES (
+			  :compCd
+			, :sysTypeCd
+			, :brchCd
+			, :recdType
+			, :recptDt
+			, :sendRecType
+			, :cnt
+			, :fileNm
+			, :errYn
+			, SYSDATE
+			, :description
+			, 'I'
+			, :cratId
+			, SYSDATE
+			, :updtId
+			, SYSDATE
+		)
+		]]>
+	</statement>
+
+</hqml>

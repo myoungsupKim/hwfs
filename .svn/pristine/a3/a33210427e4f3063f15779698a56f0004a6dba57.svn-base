@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="sc.cmn.externalPosMasterIFDAO">
+	<desc>FC POS 마스터 외부 인터페이스 HQML</desc>
+
+	<statement name="selectOutletMst"><![CDATA[/* 업장마스터 */
+		SELECT * 
+		  FROM ( 
+			SELECT TRUNC(ROWNUM / :rowsPerPage) + (CASE MOD(ROWNUM, :rowsPerPage) WHEN 0 THEN 0 ELSE 1 END) AS PAGE_NO,
+					o.OUTLET_CD,
+					NVL(o.OUTLET_NM, '') AS OUTLET_NM,
+					NVL(o.ADDR, '') AS ADDR,
+					SCC_CRYPTO.DEC_FUN(NVL(o.TEL_NUM, '')) AS TEL_NUM,
+					TO_CHAR(o.CDATE, 'YYYYMMDDHH24MISS') AS CDATE,
+					TO_CHAR(o.UDATE, 'YYYYMMDDHH24MISS') AS UDATE
+  		      FROM SLE_OUTLET_MST o
+  		      
+  		      LEFT OUTER JOIN SCC_COMMON_CODE c
+  		        ON c.GROUP_CODE = 'SLE_0026'
+  		       AND o.BC_CD = c.CODE
+  		       
+  		      LEFT OUTER JOIN SCO_UPJANG_V v
+  		        ON v.UPJANG = TO_NUMBER(o.OUTLET_CD)
+  		        
+  		      LEFT OUTER JOIN SCC_COMMON_CODE c1
+  		        ON c1.GROUP_CODE = 'SYS_CLASS'
+  		       AND v.MU_CD = c1.SET3
+  		      
+  		     WHERE 1=1
+			 AND o.OUTLET_CD = :outletCd
+             <#if lastUpdt?has_content >AND TO_CHAR(o.UDATE, 'YYYYMMDD') >= :lastUpdt </#if> 
+			 ORDER BY OUTLET_CD
+	      )
+	      WHERE PAGE_NO = :pageNo
+/*
+		SELECT * 
+		  FROM ( 
+			SELECT TRUNC(ROWNUM / :rowsPerPage) + (CASE MOD(ROWNUM, :rowsPerPage) WHEN 0 THEN 0 ELSE 1 END) AS PAGE_NO,
+					o.OUTLET_CD,
+					NVL(o.OUTLET_NM, '') AS OUTLET_NM,
+					NVL(o.BC_CD , '') AS BC_CD,
+					NVL(c.CODE_NAME, '') AS BC_NM,
+					NVL(o.CEO_NM, '') AS CEO_NM,
+					o.ADDR AS ADDR,
+					SCC_CRYPTO.DEC_FUN(NVL(o.TEL_NUM, '')) AS TEL_NUM,
+					NVL(o.BSN_NO, '') AS BSN_NO,
+					NVL(o.START_DATE, '') AS START_DATE,
+					NVL(o.END_DATE, '') AS END_DATE,
+					NVL(o.PIC_PLACE, '') AS PIC_PLACE,
+					NVL(o.START_TIME, '') AS START_TIME,
+					NVL(o.END_TIME, '') AS END_TIME,
+					NVL(o.MAX_PSN, 0) AS MAX_PSN,
+					NVL(o.OUTLET_TYPE, '') AS OUTLET_TYPE,
+					NVL(o.SVC, 0) AS SVC,
+					NVL(o.SPEC_TAX, 0) AS SPEC_TAX,
+					NVL(o.EDU_TAX, 0) AS EDU_TAX,
+					NVL(o.FF_TAX, 0) AS FF_TAX,
+					NVL(o.VAT, 0) AS VAT,
+					NVL(o.FUND, 0) AS FUND,
+					NVL(o.CAL_METHOD, '') AS CAL_METHOD,
+					NVL(o.SESN_TYPE, '') AS SESN_TYPE,
+					NVL(o.VAT_PRINT, '') AS VAT_PRINT,
+					NVL(o.SVC_PRINT, '') AS SVC_PRINT,
+					NVL(o.USE_YN, '') AS USE_YN,
+					TO_CHAR(o.CDATE, 'YYYYMMDDHH24MISS') AS CDATE,
+					o.CUSER,
+					TO_CHAR(o.UDATE, 'YYYYMMDDHH24MISS') AS UDATE,
+					o.UUSER,
+					NVL(o.REF1, '') AS REF1,
+					NVL(o.REF2, '') AS REF2,
+					NVL(o.REF3, '') AS REF3,
+					NVL(c1.CODE, '') AS SYS_CLASS
+  		      FROM SLE_OUTLET_MST o
+  		      
+  		      LEFT OUTER JOIN SCC_COMMON_CODE c
+  		        ON c.GROUP_CODE = 'SLE_0026'
+  		       AND o.BC_CD = c.CODE
+  		       
+  		      LEFT OUTER JOIN SCO_UPJANG_V v
+  		        ON v.UPJANG = TO_NUMBER(o.OUTLET_CD)
+  		        
+  		      LEFT OUTER JOIN SCC_COMMON_CODE c1
+  		        ON c1.GROUP_CODE = 'SYS_CLASS'
+  		       AND v.MU_CD = c1.SET3
+  		      
+  		     WHERE 1=1
+			 <#if bcCd?has_content >  AND o.BC_CD = :bcCd </#if> 
+             <#if lastUpdt?has_content >AND TO_CHAR(o.UDATE, 'YYYYMMDD') >= :lastUpdt </#if> 
+			 ORDER BY OUTLET_CD
+	      )
+	      WHERE PAGE_NO = :pageNo
+ */]]></statement>
+
+	<statement name="selectFnbTableCd"><![CDATA[/* 테이블마스터 */
+		SELECT * 
+		  FROM ( 
+			SELECT TRUNC(ROWNUM / :rowsPerPage) + (CASE MOD(ROWNUM, :rowsPerPage) WHEN 0 THEN 0 ELSE 1 END) AS PAGE_NO
+					,TABLE_CD
+					,NVL(TABLE_GRP, '') AS TABLE_GRP
+					,NVL(TABLE_NM, '') AS TABLE_NM
+					,TO_CHAR(CDATE, 'YYYYMMDDHH24MISS') AS CDATE
+					,TO_CHAR(UDATE, 'YYYYMMDDHH24MISS') AS UDATE
+  		      FROM SLE_FNB_TABLE_CD
+  		     WHERE 1=1
+  		     
+			 AND OUTLET_CD = :outletCd	
+			  
+             <#if lastUpdt?has_content >AND TO_CHAR(UDATE, 'YYYYMMDD') >= :lastUpdt </#if> 
+			 ORDER BY OUTLET_CD, TABLE_CD
+	      )
+	      WHERE PAGE_NO = :pageNo
+/*
+		SELECT * 
+		  FROM ( 
+			SELECT TRUNC(ROWNUM / :rowsPerPage) + (CASE MOD(ROWNUM, :rowsPerPage) WHEN 0 THEN 0 ELSE 1 END) AS PAGE_NO,
+					OUTLET_CD
+					,TABLE_CD
+					,NVL(TABLE_GRP, '') AS TABLE_GRP
+					,NVL(TABLE_NM, '') AS TABLE_NM
+					,NVL(TABLE_CLASS, '') AS TABLE_CLASS
+					,NVL(TABLE_PLACE, '') AS TABLE_PLACE
+					,NVL(USE_YN, '') AS USE_YN
+					,TO_CHAR(CDATE, 'YYYYMMDDHH24MISS') AS CDATE
+					,CUSER
+					,TO_CHAR(UDATE, 'YYYYMMDDHH24MISS') AS UDATE
+					,UUSER
+  		      FROM SLE_FNB_TABLE_CD
+  		     WHERE 1=1
+  		     
+			 <#if outletCd?has_content > AND OUTLET_CD = :outletCd </#if>	
+			  
+             <#if lastUpdt?has_content >AND TO_CHAR(UDATE, 'YYYYMMDD') >= :lastUpdt </#if> 
+			 ORDER BY OUTLET_CD, TABLE_CD
+	      )
+	      WHERE PAGE_NO = :pageNo
+*/]]></statement>
+
+	<statement name="selectOutletMenu"><![CDATA[/* 메뉴마스터 */
+		SELECT * 
+		  FROM ( 
+			SELECT TRUNC(ROWNUM / :rowsPerPage) + (CASE MOD(ROWNUM, :rowsPerPage) WHEN 0 THEN 0 ELSE 1 END) AS PAGE_NO
+					,m.MENU_CD
+					,NVL(m.MENU_CLASS, '') AS MENU_CLASS
+					,NVL(m.MENU_CLSFI, '') AS MENU_CLSFI
+					,NVL(m.MENU_SCLASS, '') AS MENU_SCLASS
+					,NVL(m.MENU_NM, '') AS MENU_NM
+					,NVL(m.MENU_ABBR, '') AS MENU_ABBR
+					,NVL(m.APPLY_PRICE, 0) AS APPLY_PRICE
+					,NVL(m.END_DD, '') AS END_DD
+					,NVL(m.USE_CLASS, '') AS USE_CLASS
+					,TO_CHAR(CDATE, 'YYYYMMDDHH24MISS') AS CDATE
+					,TO_CHAR(UDATE, 'YYYYMMDDHH24MISS') AS UDATE
+  		      FROM SLE_OUTLET_MENU m
+  		    
+  		     WHERE 1=1
+  		     
+			 AND m.OUTLET_CD = :outletCd 	
+			 
+			  
+             <#if lastUpdt?has_content >AND TO_CHAR(m.UDATE, 'YYYYMMDD') >= :lastUpdt </#if> 
+			 ORDER BY m.OUTLET_CD, m.MENU_CD
+	      )
+	      WHERE PAGE_NO = :pageNo
+/*
+		SELECT * 
+		  FROM ( 
+			SELECT TRUNC(ROWNUM / :rowsPerPage) + (CASE MOD(ROWNUM, :rowsPerPage) WHEN 0 THEN 0 ELSE 1 END) AS PAGE_NO,
+					m.OUTLET_CD
+					,m.MENU_CD
+					,m.OUTLET_CD AS ATTACH_OUTLET_CD
+					,NVL(m.MENU_CLASS, '') AS MENU_CLASS
+					,NVL(m.MENU_CLSFI, '') AS MENU_CLSFI
+					,NVL(m.MENU_SCLASS, '') AS MENU_SCLASS
+					,NVL(m.MENU_NM, '') AS MENU_NM
+					,NVL(m.MENU_ABBR, '') AS MENU_ABBR
+					,NVL(m.LANGAE1, '') AS LANGAE1
+					,NVL(m.LANGAE2, '') AS LANGAE2
+					,NVL(m.LANGAE3, '') AS LANGAE3
+					,NVL(m.BASIS_PRICE, 0) AS BASIS_PRICE
+					,NVL(m.CST, 0) AS CST
+					,NVL(m.APPLY_DD, '') AS APPLY_DD
+					,NVL(m.APPLY_PRICE, 0) AS APPLY_PRICE
+					,NVL(m.END_DD, '') AS END_DD
+					,NVL(m.USE_CLASS, '') AS USE_CLASS
+					,NVL(m.CONVERT_QUANTITY, 0) AS CONVERT_QUANTITY
+					,NVL(m.EXPL, '') AS EXPL
+					,NVL(m.UNIT, '') AS UNIT
+					,NVL(m.DPST_CD, '') AS DPST_CD
+					,NVL(m.UPRICE_CHG_POSS_YN, '') AS UPRICE_CHG_POSS_YN
+					,NVL(m.SESN_APPLY_YN, '') AS SESN_APPLY_YN
+					,NVL(m.MENU_TYPE, '') AS MENU_TYPE
+					,NVL(m.BAR_CD, '') AS BAR_CD
+					,NVL(m.MATERIAL_CD, '') AS MATERIAL_CD
+					,NVL(m.RECP_CD, '') AS RECP_CD
+					,NVL(m.RELEASE_TYPE, '') AS RELEASE_TYPE
+					,NVL(m.PIC_PLACE, '0') AS PIC_PLACE
+					,NVL(m.TAX_YN, '') AS TAX_YN
+					,NVL(m.CAL_METHOD, '') AS CAL_METHOD
+					,NVL(m.SVC, 0) AS SVC
+					,NVL(m.SPEC_TAX, 0) AS  SPEC_TAX
+					,NVL(m.EDU_TAX, 0) AS EDU_TAX
+					,NVL(m.FF_TAX, 0) AS FF_TAX
+					,NVL(m.VAT, 0) AS VAT
+					,NVL(m.FUND, 0) AS FUND
+					,NVL(m.DISCNT_POSS_YN, '') AS DISCNT_POSS_YN
+					,NVL(m.KTCN_PRINT_NM, '') AS KTCN_PRINT_NM
+					,NVL(m.KTCN_PRTR_CD1, '') AS KTCN_PRTR_CD1
+					,NVL(m.KTCN_PRINT_YN1, '') AS KTCN_PRINT_YN1
+					,NVL(m.TICKET_PRINT_YN, '') AS TICKET_PRINT_YN
+					,NVL(m.KTCN_PRINT_YN2, '') AS KTCN_PRINT_YN2
+					,NVL(m.KTCN_PRINT_YN3, '') AS KTCN_PRINT_YN3
+					,NVL(m.KTCN_PRINT_YN4, '') AS KTCN_PRINT_YN4
+					,NVL(m.KTCN_PRTR_CD2, '') AS KTCN_PRTR_CD2
+					,NVL(m.KTCN_PRTR_CD3, '') AS KTCN_PRTR_CD3
+					,NVL(m.KTCN_PRTR_CD4, '') AS KTCN_PRTR_CD4
+					,NVL(m.CUST_CD, '') AS CUST_CD
+					,NVL(m.COMM_RAT, 0) AS COMM_RAT
+					,NVL(m.USE_YN, '') AS USE_YN
+					
+					,TO_CHAR(m.CDATE, 'YYYYMMDDHH24MISS') AS CDATE
+					,m.CUSER
+					,TO_CHAR(m.UDATE, 'YYYYMMDDHH24MISS') AS UDATE
+					,m.UUSER
+  		      FROM SLE_OUTLET_MENU m
+  		    
+  		     WHERE 1=1
+  		     
+			 AND m.OUTLET_CD = :outletCd 	
+			 
+			  
+             <#if lastUpdt?has_content >AND TO_CHAR(m.UDATE, 'YYYYMMDD') >= :lastUpdt </#if> 
+			 ORDER BY m.OUTLET_CD, m.MENU_CD
+	      )
+	      WHERE PAGE_NO = :pageNo
+*/]]></statement>
+
+	<statement name="logInsert" type="insert"><![CDATA[INSERT INTO SCC_EXTERNAL_IF_LOG(
+INSDT,
+TXID,
+TXDIV,
+LOCALIP,
+ENCODING,
+ENCYN,
+INPUT1,
+INPUT2,
+INPUT3,
+INPUT4)
+VALUES(
+TO_CHAR(SYSDATE,'YYYY-MM-DD HH24:MI:SS'),
+<#if txId?has_content >:txId,<#else>null,</#if> 
+<#if txDiv?has_content >:txDiv,<#else>null,</#if> 
+<#if localIp?has_content >:localIp,<#else>null,</#if> 
+<#if encoding?has_content >:encoding,<#else>null,</#if> 
+<#if encYn?has_content >:encYn,<#else>null,</#if> 
+<#if outletCd?has_content >:outletCd,<#else>null,</#if> 
+<#if lastUpdt?has_content >:lastUpdt,<#else>null,</#if> 
+<#if pageNo?has_content >:pageNo,<#else>null,</#if> 
+<#if rowsPerPage?has_content >:rowsPerPage<#else>null</#if> 
+)]]></statement>
+	<statement name="selectSmsResult"><![CDATA[SELECT MESSAGE_SEQNO,
+       SERVICE_SEQNO,
+       SUBJECT,
+       SEND_MESSAGE,
+       CALLBACK_NO,
+       RECEIVE_MOBILE_NO AS RECEIVE_NO,
+       TO_CHAR(SEND_RESERVE_DATE,'YYYY-MM-DD HH24:MI:SS') AS RESERVE_DATE,
+       TO_CHAR(REGISTER_DATE,'YYYY-MM-DD HH24:MI:SS') AS REGISTER_DATE,
+       REGISTER_BY,
+       TO_CHAR(TO_NUMBER(ETC2)) AS CC_CD
+  FROM TSMS_AGENT_MESSAGE
+ WHERE SEND_RESERVE_DATE > SYSDATE -1
+ORDER BY MESSAGE_SEQNO DESC]]></statement>
+</hqml>

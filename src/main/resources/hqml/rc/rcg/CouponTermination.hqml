@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.rcg.couponTerminationDAO">
+	<desc>쿠폰소멸 처리 HQML Query</desc>
+
+	<!-- 쿠폰소멸 처리 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.rc.rcg.dao.CouponTerminationDAO.selectList */
+		<![CDATA[
+		SELECT A.COUPON_PROC_NUM,
+		       A.COUPON_PROC_OCCUR_CLASS,
+		       A.MU_CD,
+		       A.CC_CD,
+		       A.REMARK,
+		       (SELECT MAX(ACCT_CD) FROM SLA_ADVANCE_ALT_DETAIL WHERE COUPON_PROC_NUM = A.COUPON_PROC_NUM) AS ACCT_CD,
+		       (SELECT ACCTNM
+		        FROM   HLDC_ST_ACCOUNT_V
+		        WHERE  ACCTCD = (SELECT MAX(ACCT_CD)
+		                         FROM   SLA_ADVANCE_ALT_DETAIL
+		                         WHERE  COUPON_PROC_NUM = A.COUPON_PROC_NUM)) AS ACCT_NM,
+		       COUNT(B.COUPON_PROC_NUM) AS CNT_COUPON_PROC,
+		       A.COUPON_AMT,
+		       A.PROC_DATE,
+		       A.AR_TYPE_CD,
+			   A.AR_NUM
+		FROM   SLA_COUPON_PROC_MST A,
+		       SLA_COUPON_PROC_DETAIL B
+		WHERE  1=1
+		AND    A.COUPON_PROC_NUM = B.COUPON_PROC_NUM
+		AND    A.COUPON_PROC_OCCUR_CLASS='3'
+		AND    A.RECD_STATUS = 'L'
+		/*<#if fiscalDateFr?has_content>AND B.FISCAL_DATE >= :fiscalDateFr</#if>*/
+		/*<#if fiscalDateTo?has_content>AND B.FISCAL_DATE <= :fiscalDateTo</#if>*/
+		<#if procDateFr?has_content>AND A.PROC_DATE >= :procDateFr</#if>
+		<#if procDateTo?has_content>AND A.PROC_DATE <= :procDateTo</#if>
+		<#if muCd?has_content>AND       A.MU_CD = :muCd</#if>
+		<#if ccCd?has_content>AND       A.CC_CD = :ccCd</#if>
+		<#if tmCd?has_content>
+			AND     A.CC_CD IN (
+			                SELECT  A.CC_CD
+			                FROM    SCC_CC A
+			                        ,HLDC_SC_DEPT_V B
+			                WHERE   B.CC_CD = A.CC_CD
+			                AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+			                AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+			                AND     B.TM_CD = :tmCd
+			                )
+        </#if>
+        GROUP BY A.COUPON_PROC_NUM, A.COUPON_PROC_OCCUR_CLASS, A.MU_CD, A.CC_CD, A.REMARK, A.COUPON_AMT, A.PROC_DATE, A.AR_TYPE_CD, A.AR_NUM
+		ORDER BY A.PROC_DATE ASC
+		]]>
+	</statement>
+
+	<!-- 쿠폰소멸 처리(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.rc.rcg.dao.CouponTerminationDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 쿠폰소멸 처리(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.rc.rcg.dao.CouponTerminationDAO.update */
+		<![CDATA[
+		UPDATE TABLE_NAME 
+		SET    COLUMN_NAME1 = :columnName1,
+		       COLUMN_NAME2 = :columnName2,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+	<!-- 쿠폰소멸 처리(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.rc.rcg.dao.CouponTerminationDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>

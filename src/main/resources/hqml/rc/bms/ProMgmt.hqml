@@ -1,0 +1,506 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.bms.proMgmtDAO">
+	<desc>판촉등록</desc>
+
+ 
+	
+<!--  DATA를 조회한다. -->
+	<statement name="selectMask" type="select">
+		<![CDATA[
+		
+SELECT
+		AM_CD,	 	  
+		AM_NM,
+		SCHD_DATE,
+	    SEQ,
+	    BC_CD,     
+	   
+	    CUST_CD,   
+	    CUST_NM,
+	       
+	    STR_TIME,
+	    END_TIME,
+	    STR_TIME_NM,	--시작시간
+		END_TIME_NM,	--종료시간
+        STR_TIME_NM || '~' || END_TIME_NM AS TIME_FRTO,
+		
+		
+	    
+	    SCHEDULE_KIND,
+	    STATUS_CLASS,
+	       
+	    SCHEDULE_TITLE,
+	    SCHEDULE_CONTENTS,
+	    RMRK_FACT,
+	       
+	       
+	    EXPECT_AMT,
+	       
+	    DIARY_DATE,
+	    DIARY_CONTENTS,
+		DIARY_FACT,
+	    
+	    PRCG_NM,
+		SCC_TELNO_SPLIT_FUN(HAND_PHONE,1) 
+						 || DECODE(NVL(SCC_TELNO_SPLIT_FUN(HAND_PHONE,2),''),'','','-') 
+						 || SCC_TELNO_SPLIT_FUN(HAND_PHONE,2)
+						 || DECODE(NVL(SCC_TELNO_SPLIT_FUN(HAND_PHONE,3),''),'','','-') 
+						 || SCC_TELNO_SPLIT_FUN(HAND_PHONE,3)     AS HAND_PHONE,
+						 
+		SCC_TELNO_SPLIT_FUN(HAND_PHONE,1)     AS HAND_PHONE1,
+		SCC_TELNO_SPLIT_FUN(HAND_PHONE,2)     AS HAND_PHONE2,
+		SCC_TELNO_SPLIT_FUN(HAND_PHONE,3)     AS HAND_PHONE3,
+				
+		USE_YN,
+       	CDATE,
+       	CUSER,
+       	UDATE,
+       	UUSER,
+       	MENU_NM,
+       	MENU_PRICE,
+       	MENU_QTY
+FROM (		
+	SELECT  MGMT.AM_CD,	 	
+			SCC_CRYPTO.MASK_FUN(AM.AM_NM,12,:loginPersMask) AS AM_NM,
+		   	MGMT.SCHD_DATE,
+	       	MGMT.SEQ,
+	       	MGMT.BC_CD,     	
+	       
+	       	MGMT.CUST_CD,    CUST.CUST_NM,
+	       
+	       	MGMT.STR_TIME,
+	       	MGMT.END_TIME,
+	       	
+			STR.CODE_NAME AS STR_TIME_NM,	--시작시간
+			EET.CODE_NAME AS END_TIME_NM,	--종료시간
+	       	
+	       
+	       	MGMT.SCHEDULE_KIND,
+	       	MGMT.STATUS_CLASS,
+	       
+	       	MGMT.SCHEDULE_TITLE,
+	       	MGMT.SCHEDULE_CONTENTS,
+	       	MGMT.RMRK_FACT,
+	       
+	       	MGMT.EXPECT_AMT,
+	       
+	       	MGMT.DIARY_DATE,
+	       	MGMT.DIARY_CONTENTS,
+	       	MGMT.DIARY_FACT,
+	       
+	        
+	       	SCC_CRYPTO.MASK_FUN(CUST.HAND_PHONE,8,:loginPersMask) AS HAND_PHONE,
+		   	SCC_CRYPTO.MASK_FUN(CUST.PRCG_NM,12,:loginPersMask) AS PRCG_NM,
+	       
+	       	DECODE(MGMT.USE_YN, 'Y', 1, 0) AS USE_YN,
+	       	MGMT.CDATE,
+	       	MGMT.CUSER,
+	       	MGMT.UDATE,
+	       	MGMT.UUSER,
+      	 	MGMT.MENU_NM,
+      	 	MGMT.MENU_PRICE,
+      	 	MGMT.MENU_QTY
+	FROM   	BMS_SCHEDULE_MGMT MGMT
+	INNER JOIN       BMS_CUST_MST  CUST ON CUST.CUST_CD  = MGMT.CUST_CD
+	INNER JOIN       BMS_AM_MST    AM   ON   AM.AM_CD    = MGMT.AM_CD
+	INNER JOIN SCC_COMMON_CODE STR ON STR.GROUP_CODE ='BMS_0015' AND STR.CODE =  MGMT.STR_TIME 		--행사시작시간
+	INNER JOIN SCC_COMMON_CODE EET ON EET.GROUP_CODE ='BMS_0015' AND EET.CODE =  MGMT.END_TIME		--행사종료시간
+	
+	WHERE  MGMT.SCHD_DATE BETWEEN :dateFr AND :dateTo
+	  AND  MGMT.USE_YN = 'Y'
+	<#if amCd?has_content> AND MGMT.AM_CD = :amCd  </#if>
+)
+ORDER BY SCHD_DATE, AM_CD
+		]]>
+	</statement>	
+
+	
+	
+	<!--  DATA를 조회한다. -->
+	<statement name="selectList" type="select">
+		<![CDATA[
+		
+SELECT
+		AM_CD,	 	  AM_NM,
+		SCHD_DATE,
+	    SEQ,
+	    BC_CD,     
+	       
+	    CUST_CD,   CUST_NM,
+	       
+	    STR_TIME,
+	    END_TIME,
+	    STR_TIME_NM,	--시작시간
+        END_TIME_NM,	--종료시간
+        STR_TIME_NM || '~' || END_TIME_NM AS TIME_FRTO,
+	    
+	    SCHEDULE_KIND,
+	    STATUS_CLASS,
+	       
+	    SCHEDULE_TITLE,
+	    SCHEDULE_CONTENTS,
+	    RMRK_FACT,
+	       
+	       
+	    EXPECT_AMT,
+	       
+	    DIARY_DATE,
+	    DIARY_CONTENTS,
+		DIARY_FACT,
+	    
+	    PRCG_NM,
+		SCC_TELNO_SPLIT_FUN(HAND_PHONE,1) 
+						 || DECODE(NVL(SCC_TELNO_SPLIT_FUN(HAND_PHONE,2),''),'','','-') 
+						 || SCC_TELNO_SPLIT_FUN(HAND_PHONE,2)
+						 || DECODE(NVL(SCC_TELNO_SPLIT_FUN(HAND_PHONE,3),''),'','','-') 
+						 || SCC_TELNO_SPLIT_FUN(HAND_PHONE,3)     AS HAND_PHONE,
+						 
+		SCC_TELNO_SPLIT_FUN(HAND_PHONE,1)     AS HAND_PHONE1,
+		SCC_TELNO_SPLIT_FUN(HAND_PHONE,2)     AS HAND_PHONE2,
+		SCC_TELNO_SPLIT_FUN(HAND_PHONE,3)     AS HAND_PHONE3,
+				
+		USE_YN,
+       	CDATE,
+       	CUSER,
+       	UDATE,
+       	UUSER,
+       	MENU_NM,
+       	MENU_PRICE,
+       	MENU_QTY
+FROM (		
+	SELECT MGMT.AM_CD,	 	AM.AM_NM AS AM_NM,
+		   MGMT.SCHD_DATE,
+	       MGMT.SEQ,
+	       MGMT.BC_CD,    
+	       
+	       MGMT.CUST_CD,    CUST.CUST_NM,
+	       
+	       MGMT.STR_TIME,
+	       MGMT.END_TIME,
+	       STR.CODE_NAME AS STR_TIME_NM,	--시작시간
+		   EET.CODE_NAME AS END_TIME_NM,	--종료시간
+	       
+	       MGMT.SCHEDULE_KIND,
+	       MGMT.STATUS_CLASS,
+	       
+	       MGMT.SCHEDULE_TITLE,
+	       MGMT.SCHEDULE_CONTENTS,
+	       MGMT.RMRK_FACT,
+	       
+	       
+	       MGMT.EXPECT_AMT,
+	       
+	       MGMT.DIARY_DATE,
+	       MGMT.DIARY_CONTENTS,
+	       MGMT.DIARY_FACT,
+	       
+	       CUST.PRCG_NM,
+	       SCC_CRYPTO.DEC_FUN(CUST.HAND_PHONE) AS HAND_PHONE,
+	       
+	       
+	       DECODE(MGMT.USE_YN, 'Y', 1, 0) AS USE_YN,
+	       MGMT.CDATE,
+	       MGMT.CUSER,
+	       MGMT.UDATE,
+	       MGMT.UUSER,
+       	   MGMT.MENU_NM,
+       	   MGMT.MENU_PRICE,
+       	   MGMT.MENU_QTY
+	FROM   BMS_SCHEDULE_MGMT MGMT
+	INNER JOIN       BMS_CUST_MST  CUST ON CUST.CUST_CD   = MGMT.CUST_CD
+	INNER JOIN       BMS_AM_MST    AM   ON    AM.AM_CD    = MGMT.AM_CD
+	INNER JOIN SCC_COMMON_CODE STR ON STR.GROUP_CODE ='BMS_0015' AND STR.CODE =  MGMT.STR_TIME 		--행사시작시간
+	INNER JOIN SCC_COMMON_CODE EET ON EET.GROUP_CODE ='BMS_0015' AND EET.CODE =  MGMT.END_TIME		--행사종료시간
+	
+	WHERE  MGMT.SCHD_DATE BETWEEN :dateFr AND :dateTo
+	 AND  MGMT.USE_YN = 'Y'
+	<#if amCd?has_content> AND MGMT.AM_CD = :amCd  </#if>
+)
+ORDER BY SCHD_DATE, AM_CD
+		]]>
+	</statement>
+	
+
+	
+	<!--  DATA를 조회한다. -->
+	<statement name="searchData" type="select">
+		<![CDATA[
+		
+SELECT
+		AM_CD,	 	  AM_NM,
+		SCHD_DATE,
+	    SEQ,
+	    BC_CD,    
+	       
+	    CUST_CD, 
+	       
+	    STR_TIME,
+	    END_TIME,
+	    STR_TIME_NM,	--시작시간
+		END_TIME_NM,	--종료시간
+        STR_TIME_NM || '~' || END_TIME_NM AS TIME_FRTO,
+	    
+	    SCHEDULE_KIND,
+	    STATUS_CLASS,
+	       
+	    SCHEDULE_TITLE,
+	    SCHEDULE_CONTENTS,
+	    RMRK_FACT,
+  
+	    EXPECT_AMT,
+	       
+	    DIARY_DATE,
+	    DIARY_CONTENTS,
+		DIARY_FACT,
+				
+		USE_YN,
+       	CDATE,
+       	CUSER,
+       	UDATE,
+       	UUSER,
+		MENU_NM,
+		MENU_PRICE,
+		MENU_QTY
+FROM (		
+	SELECT 	MGMT.AM_CD,	 	AM.AM_NM AS AM_NM,
+		   	MGMT.SCHD_DATE,
+	       	MGMT.SEQ,
+	       	MGMT.BC_CD,    
+	        MGMT.CUST_CD,    
+
+	       	MGMT.STR_TIME,
+	       	MGMT.END_TIME,
+	       	
+	       	STR.CODE_NAME AS STR_TIME_NM,	--시작시간
+			EET.CODE_NAME AS END_TIME_NM,	--종료시간
+	       
+	       	MGMT.SCHEDULE_KIND,
+	       	MGMT.STATUS_CLASS,
+	       
+	       	MGMT.SCHEDULE_TITLE,
+	       	MGMT.SCHEDULE_CONTENTS,
+	       	MGMT.RMRK_FACT,
+
+	       	MGMT.EXPECT_AMT,
+	       
+	       	MGMT.DIARY_DATE,
+	       	MGMT.DIARY_CONTENTS,
+	       	MGMT.DIARY_FACT,
+	       	
+	       	DECODE(MGMT.USE_YN, 'Y', 1, 0) AS USE_YN,
+	       	MGMT.CDATE,
+	       	MGMT.CUSER,
+	       	MGMT.UDATE,
+	       	MGMT.UUSER,
+       	    MGMT.MENU_NM,
+       	    MGMT.MENU_PRICE,
+       	    MGMT.MENU_QTY
+	FROM   BMS_SCHEDULE_MGMT MGMT
+	INNER JOIN       BMS_AM_MST    AM   ON  AM.AM_CD    = MGMT.AM_CD
+	INNER JOIN SCC_COMMON_CODE STR ON STR.GROUP_CODE ='BMS_0015' AND STR.CODE =  MGMT.STR_TIME 		--행사시작시간
+	INNER JOIN SCC_COMMON_CODE EET ON EET.GROUP_CODE ='BMS_0015' AND EET.CODE =  MGMT.END_TIME		--행사종료시간
+		
+	WHERE  MGMT.AM_CD     = :amCd
+	AND    MGMT.SCHD_DATE = :schdDate
+	AND    MGMT.SEQ    = :seq
+)
+ORDER BY SCHD_DATE, AM_CD
+		]]>
+	</statement>
+	
+<!--  DATA를 조회한다. -->
+	<statement name="searchMask" type="select">
+		<![CDATA[
+		
+SELECT
+		AM_CD,	 	  
+		AM_NM,
+		SCHD_DATE,
+	    SEQ,
+	    BC_CD,     
+	   
+	    CUST_CD,   
+	    STR_TIME,
+	    END_TIME,
+	    
+	    STR_TIME_NM,	--시작시간
+		END_TIME_NM,	--종료시간
+        STR_TIME_NM || '~' || END_TIME_NM AS TIME_FRTO,
+		
+	    SCHEDULE_KIND,
+	    STATUS_CLASS,
+	    SCHEDULE_TITLE,
+	    SCHEDULE_CONTENTS,
+	    RMRK_FACT,
+	    EXPECT_AMT,
+	    DIARY_DATE,
+	    DIARY_CONTENTS,
+		DIARY_FACT,
+	   		
+		USE_YN,
+       	CDATE,
+       	CUSER,
+       	UDATE,
+       	UUSER,
+		MENU_NM,
+		MENU_PRICE,
+		MENU_QTY
+FROM (		
+	SELECT 	MGMT.AM_CD,	 
+			SCC_CRYPTO.MASK_FUN(AM.AM_NM,12,:loginPersMask) AS AM_NM,
+		   	MGMT.SCHD_DATE,
+	       	MGMT.SEQ,
+	       	MGMT.BC_CD,     	
+	       	
+	        MGMT.CUST_CD,    
+	       	MGMT.STR_TIME,
+	       	MGMT.END_TIME,
+	       	STR.CODE_NAME AS STR_TIME_NM,	--시작시간
+			EET.CODE_NAME AS END_TIME_NM,	--종료시간
+	       	
+	       	MGMT.SCHEDULE_KIND,
+	       	MGMT.STATUS_CLASS,
+	       	MGMT.SCHEDULE_TITLE,
+	       	MGMT.SCHEDULE_CONTENTS,
+	       	MGMT.RMRK_FACT,
+	       	MGMT.EXPECT_AMT,
+	       	MGMT.DIARY_DATE,
+	       	MGMT.DIARY_CONTENTS,
+	       	MGMT.DIARY_FACT,
+
+	       	DECODE(MGMT.USE_YN, 'Y', 1, 0) AS USE_YN,
+	       	MGMT.CDATE,
+	       	MGMT.CUSER,
+	       	MGMT.UDATE,
+	       	MGMT.UUSER,
+       	    MGMT.MENU_NM,
+       	    MGMT.MENU_PRICE,
+       	    MGMT.MENU_QTY
+	FROM   BMS_SCHEDULE_MGMT MGMT
+	INNER JOIN       BMS_AM_MST    AM   ON  AM.AM_CD    = MGMT.AM_CD
+	INNER JOIN SCC_COMMON_CODE STR ON STR.GROUP_CODE ='BMS_0015' AND STR.CODE =  MGMT.STR_TIME 		--행사시작시간
+	INNER JOIN SCC_COMMON_CODE EET ON EET.GROUP_CODE ='BMS_0015' AND EET.CODE =  MGMT.END_TIME		--행사종료시간
+		
+	WHERE  MGMT.AM_CD     = :amCd
+	AND    MGMT.SCHD_DATE = :schdDate
+	AND    MGMT.SEQ    = :seq
+)
+ORDER BY SCHD_DATE, AM_CD
+		]]>
+	</statement>
+	
+
+	
+		
+	<!--  DATA를 저장한다. -->
+	<statement name="insertData" type="insert">
+		<![CDATA[
+	 INSERT INTO BMS_SCHEDULE_MGMT
+		(
+		 AM_CD,
+		 SCHD_DATE,
+		 SEQ,
+		 CUST_CD,
+		 
+		 SCHEDULE_TITLE,
+		 STR_TIME,
+		 END_TIME,
+		 SCHEDULE_KIND,
+		 STATUS_CLASS,
+		 EXPECT_AMT,
+		 DIARY_DATE,
+		 DIARY_CONTENTS,
+		 DIARY_FACT,
+		 
+		 BC_CD,
+		 SCHEDULE_CONTENTS, 
+		 RMRK_FACT,
+		 
+		 USE_YN,
+		 MENU_NM,
+		 MENU_PRICE,
+		 MENU_QTY,
+		 CDATE,
+		 CUSER,
+		 UDATE,
+		 UUSER
+		) VALUES (
+		 :amCd,
+		 :schdDate,
+		 :seq,
+		 :custCd, 
+		
+		<#if scheduleTitle?exists> :scheduleTitle, <#else> null, </#if>
+		<#if strTime?exists> :strTime, <#else> null, </#if>
+		<#if endTime?exists> :endTime, <#else> null, </#if>
+		<#if scheduleKind?exists> :scheduleKind, <#else> null, </#if>
+		<#if statusClass?exists> :statusClass, <#else> null, </#if>		
+		<#if expectAmt?exists> :expectAmt, <#else> null, </#if>
+		<#if diaryDate?exists> :diaryDate, <#else> null, </#if>
+		<#if diaryContents?exists> :diaryContents, <#else> null, </#if>
+		<#if diaryFact?exists> :diaryFact, <#else> null, </#if>
+		
+		<#if bcCd?exists> :bcCd, <#else> null, </#if>
+		<#if scheduleContents?exists> :scheduleContents, <#else> null, </#if>
+		<#if rmrkFact?exists> :rmrkFact, <#else> null, </#if>
+		
+		<#if useYn?exists> DECODE(:useYn, '1', 'Y', 'N'), <#else> null, </#if>
+		<#if menuNm?exists> :menuNm, <#else> null, </#if>
+		<#if menuPrice?exists> :menuPrice, <#else> null, </#if>
+		<#if menuQty?exists> :menuQty, <#else> null, </#if>
+		 SYSDATE,
+		 :loginSabun,
+		 SYSDATE,
+		 :loginSabun
+		
+		)
+		]]>
+	</statement>
+	
+	<!--  DATA를 수정한다. -->
+	<statement name="updateData" type="update">
+		<![CDATA[
+ 		UPDATE BMS_SCHEDULE_MGMT SET
+	 		CUST_CD = :custCd,
+			<#if scheduleTitle?exists> SCHEDULE_TITLE = :scheduleTitle, </#if>
+			       
+			<#if strTime?exists> STR_TIME = :strTime, </#if>
+			<#if endTime?exists> END_TIME = :endTime, </#if>
+			<#if scheduleKind?exists> SCHEDULE_KIND = :scheduleKind, </#if>
+			<#if statusClass?exists> STATUS_CLASS = :statusClass, </#if>
+			<#if expectAmt?exists> EXPECT_AMT = :expectAmt, </#if>
+			<#if diaryDate?exists> DIARY_DATE = :diaryDate, </#if>
+			<#if diaryContents?exists> DIARY_CONTENTS = :diaryContents, </#if>
+			<#if diaryFact?exists> DIARY_FACT = :diaryFact, </#if>
+			
+			<#if bcCd?exists> BC_CD = :bcCd, </#if>
+			<#if scheduleContents?exists> SCHEDULE_CONTENTS = :scheduleContents, </#if>
+			<#if rmrkFact?exists> RMRK_FACT = :rmrkFact, </#if>
+			
+			<#if useYn?exists> USE_YN = DECODE(:useYn, '1', 'Y', 'N'), </#if>
+			<#if menuNm?exists> MENU_NM = :menuNm, </#if>
+			<#if menuPrice?exists> MENU_PRICE = :menuPrice, </#if>
+			<#if menuQty?exists> MENU_QTY = :menuQty, </#if>
+			UDATE = SYSDATE,
+			UUSER = :loginSabun
+		WHERE  AM_CD = :amCd
+		AND    SCHD_DATE = :schdDate
+		AND    SEQ= :seq
+
+		]]>
+	</statement>
+	
+	<!--  코드를 생성한다. -->
+	<statement name="maxCodeCreate" type="select">
+		<![CDATA[
+ 		SELECT NVL(MAX(seq),'0') + 1 AS MAX_SEQ
+ 		FROM BMS_SCHEDULE_MGMT
+ 		WHERE 1 = 1
+ 		<#if amCd?has_content>     AND AM_CD     = :amCd  </#if>
+		<#if schdDate?has_content> AND SCHD_DATE = :schdDate  </#if>
+ 		
+		]]>
+	</statement>
+	
+	
+</hqml>	

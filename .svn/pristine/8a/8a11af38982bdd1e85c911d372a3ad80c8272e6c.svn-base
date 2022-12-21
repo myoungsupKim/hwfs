@@ -1,0 +1,275 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="form" onkeydown="form_OnKeyDown" onload="form_onload" titletext="식재료율실적조회(그래프)" position="absolute 0 0 767 427" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <ActiveX progid="ShockwaveFlash.ShockwaveFlash.10" id="fu_ct01" position="absolute 10 10 758 418" anchor="all" windowed="false" AllowFullScreen="true" AllowFullScreenInteractive="true"/>
+        <Static id="Static01" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 0 0 856 10"/>
+        <Static id="Static05" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 10 525"/>
+        <Static id="Static03" text="w15" onclick="Static02_onclick" class="Guide01_AreaRed" visible="false" position="absolute 757 0 767 525"/>
+        <Static id="Static07" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 0 417 856 427"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_input">
+        <ColumnInfo>
+          <Column id="UPJANG" size="256" type="STRING"/>
+          <Column id="UPJANG_NM" size="256" type="STRING"/>
+          <Column id="START_DATE" size="256" type="STRING"/>
+          <Column id="END_DATE" size="256" type="STRING"/>
+          <Column id="PRICE_TYPE" size="256" type="STRING"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="END_DATE"/>
+            <Col id="PRICE_TYPE">관리</Col>
+            <Col id="START_DATE"/>
+            <Col id="UPJANG"/>
+            <Col id="UPJANG_NM"/>
+          </Row>
+        </Rows>
+      </Dataset>
+      <Dataset id="ds_list_tvm">
+        <ColumnInfo>
+          <Column id="AMT_PLAN_COMP_RATE" size="22" type="BIGDECIMAL"/>
+          <Column id="DD" size="4" type="STRING"/>
+          <Column id="EMP_COST_AMT" size="22" type="BIGDECIMAL"/>
+          <Column id="EXPECT_RATE" size="22" type="BIGDECIMAL"/>
+          <Column id="LOCAL_COST_AMT" size="22" type="BIGDECIMAL"/>
+          <Column id="PROSPECT_RATE" size="22" type="BIGDECIMAL"/>
+          <Column id="PROSPECT_TRX_AMT" size="22" type="BIGDECIMAL"/>
+          <Column id="RESULT_RATE" size="22" type="BIGDECIMAL"/>
+          <Column id="RESULT_TRX_AMT" size="22" type="BIGDECIMAL"/>
+          <Column id="STOCK_AMT" size="22" type="BIGDECIMAL"/>
+          <Column id="TOTAL_COST" size="22" type="BIGDECIMAL"/>
+          <Column id="TRANS_COST_AMT" size="22" type="BIGDECIMAL"/>
+          <Column id="TRX_GAP" size="22" type="BIGDECIMAL"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : IFIS/메뉴관리/ 공통/기본템플릿  
+ * 프로그램명   : 공통 기본 템플릿
+ * 기      능   : 공통 기본 템플릿 제공
+ * 작  성  자   : 한화 S&C SI 사업부 프로젝트 팀 박종세
+ * 작성  일자   : 2007-12-04
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//========================================================================================= 
+//@@컨버터에서 주석처리 #include "lib::sc_comon.js"
+//@@컨버터에서 주석처리 #include "lib::tit_comm_0001.js"
+//@@컨버터에서 주석처리 #include "lib::lib_comm_0001.js"
+//@@컨버터에서 주석처리 #include "lib::sc_sql_common.js"
+//@@컨버터에서 주석처리 #include "lib::fs_common.js"
+//@@컨버터에서 주석처리 #include "lib::po_common.js"
+
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+var P_UPJANG; //팝업을 위한 전역변수
+
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	//폼 초기화
+	fn_InitForm(obj);
+}	
+
+//폼 초기화
+function fn_InitForm(obj)
+{
+	// action 정보 생성 초기화 
+	fsp_init(this);		
+	
+	// 폼 데이터 초기화
+	fn_InitData(false);
+}
+
+// 폼데이터 초기화 
+function fn_InitData(blnAllClear)
+{
+
+	// chart셋팅
+	//fu_ct01.Clear();
+	
+	// chart기본값 셋팅
+	//fu_ct01.AddPropValue("yAxisName", "Sales (Unit : Thousand Won)");
+
+	chartXmlData  = "";
+	chartXmlData += "<graph palette=\"4\" caption=\"\" showValues=\"0\" rotateLabels=\"1\" slantLabels=\"1\" plotSpacePercent=\"40\" sNumberSuffix=\"%\">   \n ";
+	
+	//1.날짜 루프
+	chartXmlData += "   <categories>                                                                                                                                                                      \n ";
+	var sDD = "";
+    for(i=0;i<opener.ds_dailyList.rowcount;i++)
+    {
+		sDD = opener.ds_dailyList.getColumn(i,"BASE_DD");
+		sDD = sDD.substr(0, 4) + "-" + sDD.substr(4, 2) + "-" + sDD.substr(6, 2);
+		chartXmlData += "        <category label=\""+   sDD   +"\" />    \n ";
+    }
+	chartXmlData += "    </categories>                                                                                                                                                                    \n ";
+	
+	//2.식음매출 실적 루프 
+	chartXmlData += "     <dataset seriesName=\"식음매출실적\">                                                                                                                                               \n ";
+    for(i=0;i<opener.ds_dailyList.rowcount;i++)
+    {
+		chartXmlData += "        <set value=\""+   opener.ds_dailyList.getColumn(i,"SP_AMT")       +"\" />                                                                                                                                                        \n ";
+	}
+	chartXmlData += "    </dataset>                                                                                                                                                                       \n ";
+	
+	//3.식재료료비 실적 루프
+	chartXmlData += "     <dataset seriesName=\"식재료비실적\">                                                                                                                                               \n ";
+	for(i=0;i<opener.ds_dailyList.rowcount;i++)
+    {
+		chartXmlData += "        <set value=\""+    opener.ds_dailyList.getColumn(i,"MS_AMT")      +"\" />                                                                                                                                                        \n ";
+	}
+	chartXmlData += "    </dataset>                                                                                                                                                                       \n ";
+	
+	//4.식재료율 실적 루프
+	chartXmlData += "     <dataset seriesname=\"식재료율실적\" parentYAxis=\"S\" color=\"CC3300\">                                                                                                          \n ";
+	for(i=0;i<opener.ds_dailyList.rowcount;i++)
+    {	
+		chartXmlData += "        <set value=\""+    opener.ds_dailyList.getColumn(i,"S_RATE")      +"\" />                                                                                                                                                           \n ";
+	}
+	chartXmlData += "    </dataset>                                                                                                                                                                       \n ";
+	
+	//5.식재료율 전망 루프
+	chartXmlData += "    <dataset seriesname=\"식재료율추정\" parentYAxis=\"S\" color=\"82CF27\">                                                                                                           \n ";
+	for(i=0;i<opener.ds_dailyList.rowcount;i++)
+    {	
+		chartXmlData += "      <set value=\""+      opener.ds_dailyList.getColumn(i,"R_RATE")         +"\" />                                                                                                                                                              \n ";
+	}
+	chartXmlData += "    </dataset>                                                                                                                                                                       \n ";
+	
+	//6.식재료율 계획 루프
+	chartXmlData += "    <dataset seriesname=\"식재료율계획\" parentYAxis=\"S\" color=\"AE19FF\">                                                                                                           \n ";
+	for(i=0;i<opener.ds_dailyList.rowcount;i++)
+    {	
+		chartXmlData += "      <set value=\""+     opener.ds_mst.getColumn(0,"SP_AMT")       +"\" />                                                                                                                                                              \n ";
+	}
+	chartXmlData += "    </dataset>                                                                                                                                                                       \n ";
+	
+	
+	
+	
+	chartXmlData += " </graph>                                                                                                                                                                            \n ";
+	 
+	//trace(chartXmlData);
+	
+	var strDir = AliasToRealPath("%COMPONENT%");
+
+
+	fu_ct01.Movie = gv_chartPath + "MSColumn3DLineDY.swf";
+
+	fu_ct01.SetVariable('dataXML', chartXmlData);
+	
+    fu_ct01.SetVariable('chartWidth', fu_ct01.position.width);	// chart size 지정
+	fu_ct01.SetVariable('chartHeight',fu_ct01.position.height);	// chart size 지정
+
+	//fu_ct01.SetVariable('debugMode', "1");			// 디버그모드
+
+	fu_ct01.Rewind();
+	fu_ct01.Play();
+}
+
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+/*------------------------------------------------------------
+	1. Function ID : fn_Search()
+	2. 개       요 : 업무프로세스에 따른 조회작업
+	3. 기       능 : 검색버튼 입력 시 처리되는 작업
+	4. 인 수 설 명:
+*------------------------------------------------------------*/
+function fn_search()
+{
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Insert()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명:
+*------------------------------------------------------------*/
+function fn_insert()
+{
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Delete()
+	2. 개       요 : 업무프로세스에 따른 정보 삭제작업
+	3. 기       능 : 삭제버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*------------------------------------------------------------*/
+function fn_delete()
+{
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Save()
+	2. 개       요 : 업무프로세스에 따른 정보 저장작업
+	3. 기       능 : 저장버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*------------------------------------------------------------*/
+function fn_save()
+{
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Print()
+	2. 개       요 : 업무프로세스에 따른 인쇄 처리
+	3. 기       능 : 인쇄버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*------------------------------------------------------------*/
+function fn_print()
+{
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Close()
+	2. 개       요 : 업무프로세스에 따른 폼 종료 
+	3. 기       능 : 닫기버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*------------------------------------------------------------*/
+function fn_Close()
+{
+	this.close();
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Help()
+	2. 개       요 : 업무프로세스에 따른 도움말 
+	3. 기       능 : 도움말버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*------------------------------------------------------------*/
+function fn_help()
+{
+}
+
+function form_OnKeyDown(obj:Form, e:KeyEventInfo)
+{
+	//ESC키는 닫기
+	if ( e.keycode == 27 ) close();
+}
+]]></Script>
+  </Form>
+</FDL>

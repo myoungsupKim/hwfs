@@ -1,0 +1,193 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="CmmnFrameTop" classname="frameTop" left="0" top="0" width="540" height="73" titletext="Top Frame" onload="CmmnFrameTop_onload" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Static id="staTitle" taborder="2" left="0" top="0" right="0" style="align:center middle;font:antialias bold 26 Droid Sans;" cssclass="sta_TOP_Bg" height="73"/>
+        <Button id="btnPrev" taborder="7" onclick="btnPrev_onclick" left="0" top="0" width="73" height="73" cssclass="btn_TOP_Pre"/>
+        <Button id="Button00" taborder="13" top="0" width="73" height="73" cssclass="btn_TOP_SubMenu" right="0" onclick="staBtnSubMenu_onclick"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_cond" preload="true" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true">
+        <ColumnInfo>
+          <Column id="SINGLE_ID" size="255" type="STRING"/>
+          <Column id="ROLE_ID" size="255" type="STRING"/>
+          <Column id="MENU_CD" size="255" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_menuCond" preload="true" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true">
+        <ColumnInfo>
+          <Column id="SINGLE_ID" size="20" type="STRING"/>
+          <Column id="USER_ID" size="20" type="STRING"/>
+          <Column id="ROLE_ID" size="10" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript5.0"><![CDATA[//########################################################
+// [프로젝트]		FC종합전산 모바일시스템 구축
+// [시스템명]		공통 
+// [부시스템명]	공통 - TOP 화면
+// [프로그램]		CmmnFrameTop.xfdl
+// [설명]
+// 		공통 - TOP 화면
+// [작성자명] 		투비소프트
+// [작성일자]		2015.01.12
+// -----------------[수정이력]--------------------------
+// 수정일자 : 수정자 : 수정내용
+// 2015.01.12 : 김광호 : 신규생성.
+//########################################################
+include "lib::lib_Com.xjs"
+
+/*================================================================================
+ * 2. Form관련 Script
+ *===============================================================================*/
+/** 
+ * Form의 모든 컴포넌트가 생성되고, 모든 Object가 Load 되었을 때에 발생하는 Event
+ * @param
+	obj : Event가 발생한 Object
+	e : Event Object
+ * @return : 없음
+ */
+this.CmmnFrameTop_onload = function(obj:Form, e:nexacro.LoadEventInfo)
+{
+	this.fsp_init(); // FSP Init.
+	
+	application.goTopSub = this;
+	application.goTopMain = this;	
+	
+	if (this.name == "divMenuTop")
+	{
+		this.fn_showPrev(false);
+		// 타이틀
+		application.gfn_setTitleMain("메인메뉴");
+	}
+	else if (this.name == "divTop")
+	{
+		application.gfn_setTitleMain(application.gv_menuName);
+	}
+
+}
+
+this.fn_showPrev = function (parmFlag)
+{
+	this.btnPrev.set_visible(parmFlag);
+}
+
+//뒤로가기 클릭 시
+this.btnPrev_onclick = function(obj:Button,  e:nexacro.ClickEventInfo)
+{	
+	if(!this.gfn_isNull(application.goMenu.ds_grd))
+	{
+		if(this.gfn_dsIsUpdated(application.goMenu.ds_grd)==true)
+		{	
+			application.goMain.gfn_Msg("confirm", "확인", "변경된 데이터가 있습니다.\n 화면 이동하겠습니까?!", "YN", true, this);	
+		}
+		else
+		{
+			application.goMain.fn_back();	
+		}	
+	}
+	else if(!this.gfn_isNull(application.goMenu.ds_grd1))
+	{
+		if(this.gfn_dsIsUpdated(application.goMenu.ds_grd1)==true)
+		{	
+			application.goMain.gfn_Msg("confirm", "확인", "변경된 데이터가 있습니다.\n 화면 이동하겠습니까?!", "YN", true, this);	
+		}
+		else
+		{
+			application.goMain.fn_back();	
+		}	
+	}
+	else
+	{
+		application.goMain.fn_back();	
+	}		
+	
+}
+
+
+/** Message callback 함수
+ * @param
+	id : id
+	rtn : type이 "OK" 일 때는 none
+	type이 "YN" 일 때는 "Y" or "N"
+ * @return : 없음
+ * @note : Alert 이나 Confirm 메시지의 콜백 함수
+ *         gfn_Msg(...) 함수를 사용하여 띄운 창을 닫을 때 호출된다.
+ */
+this.msg_callback = function (id, rtn)
+{
+	if (id == "ALERT_0") // 조회 시 오류
+	{
+		// 아무 일도 안함.
+	}	
+	
+	if (id == "confirm") // 백버튼시 확인창 콜백
+	{
+		if(rtn == "Y"){
+			application.goMainSub.fn_back();	
+		}else if(rtn == "N"){
+			
+		}
+	}
+		
+	if (id == "confirm01") // 사이드(퀵)매뉴시 확인창 콜백
+	{
+		if(rtn == "Y"){
+			application.goMain.fn_action("RIGHTMENU");	
+		}else if(rtn == "N"){
+			
+		}
+	}		
+}
+
+// 오른쪽 메뉴 생성버튼
+this.staBtnSubMenu_onclick = function(obj:Static,  e:nexacro.ClickEventInfo)
+{
+	if(!this.gfn_isNull(application.goMenu.ds_grd))
+	{
+		if(this.gfn_dsIsUpdated(application.goMenu.ds_grd)==true)
+		{	
+			application.goMain.gfn_Msg("confirm01", "확인", "변경된 데이터가 있습니다.\n 화면 이동하겠습니까?!", "YN", true, this);	
+		}
+		else
+		{
+			application.goMain.fn_action("RIGHTMENU");	
+		}	
+	}
+	else if(!this.gfn_isNull(application.goMenu.ds_grd1))
+	{
+		if(this.gfn_dsIsUpdated(application.goMenu.ds_grd1)==true)
+		{	
+			application.goMain.gfn_Msg("confirm01", "확인", "변경된 데이터가 있습니다.\n 화면 이동하겠습니까?!", "YN", true, this);	
+		}
+		else
+		{
+			application.goMain.fn_action("RIGHTMENU");	
+		}	
+	}
+	else
+	{
+		application.goMain.fn_action("RIGHTMENU");		
+	}		
+}
+
+/** 
+ * 팝업 callBack
+ * @param  : popname - 팝업을 구분짓는 id
+ rtn : 팝업이 닫히면서 전달된 값
+ * @return : 없음
+ */
+this.fn_callbackPOP = function (popname, rtn)
+{
+	switch (popname)
+	{
+		case "SubMenu":		// 년도
+			
+			break;
+	}
+}]]></Script>
+  </Form>
+</FDL>

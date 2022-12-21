@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[모니터링 결과 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 	C.OP_DATE, A.UPJANG, A.UPJANGNM_DISP AS UPJANGNM, 
+		D.CODE AS MEAL_CODE, D.CODE_NAME AS MEAL_NAME, 
+		E.CODE AS GUBUN_CODE, E.CODE_NAME AS GUBUN_NAME, 
+		F.CODE AS CLASS_CODE, F.CODE_NAME AS CLASS_NAME,
+        C.CONTENTS, C.MGMT_DISC
+  FROM FMS_UPJANG A, FMO_OP_DIARY B, FMO_OP_MONITORING C,
+       (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0023') D, -- 공통코드(끼니)
+       (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FM0012') E, -- 공통코드(모니터링구분)
+       (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FM0013') F  -- 공통코드(모니터링분류)
+ WHERE A.UPJANG = #UPJANG# -- 업장코드(필수 검색조건)
+   AND SUBSTR(B.OP_DATE, 0, 6) = #SEARCH_DATE# -- 조회월(필수 검색조건)
+   AND B.USE_YN = 'Y'
+   AND C.USE_YN = 'Y'
+  <isNotNull col="MEAL">
+   AND C.MEAL = #MEAL# -- 끼니(선택 검색조건)
+  </isNotNull>
+  <isNotNull col="GUBUN">
+   AND C.GUBUN = #GUBUN# -- 모니터링구분(선택 검색조건)
+  </isNotNull>
+  <isNotNull col="CLASS">
+   AND C.CLASS = #CLASS# -- 모니터링분류(선택 검색조건)
+  </isNotNull>
+   AND A.UPJANG = B.UPJANG
+   AND B.UPJANG = C.UPJANG
+   AND B.OP_DATE = C.OP_DATE
+   AND C.MEAL = D.CODE(+)
+   AND C.GUBUN = E.CODE(+)
+   AND C.CLASS = F.CODE(+)
+ ORDER BY C.OP_DATE, A.UPJANG, C.MEAL	</statement>
+	<input default-name="ds_Input">
+	</input>
+	<output default-name="ds_List">
+	</output>
+</query>

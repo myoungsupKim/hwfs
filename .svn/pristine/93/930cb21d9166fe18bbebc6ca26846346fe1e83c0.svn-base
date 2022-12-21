@@ -1,0 +1,403 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="SCC00030E" onkeydown="fn_form_OnKeyDown" onload="form_onload" titletext="권한설정" position="absolute 0 0 1252 725" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Grid autoenter="select" binddataset="ds_role" readonly="false" enable="true" id="grd_list" useinputpanel="false" taborder="1" tabstop="true" usecontextmenu="true" useselcolor="true" visible="true" wheelscrollrow="1" position="absolute 0 61 1237 710" selecttype="row" anchor="all" autofittype="col">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="91"/>
+                <Column size="191"/>
+                <Column size="586"/>
+                <Column size="75"/>
+                <Column size="75"/>
+                <Column size="50"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="text" text="권한코드"/>
+                <Cell col="1" displaytype="text" text="권한코드명"/>
+                <Cell col="2" displaytype="text" text="내용"/>
+                <Cell col="3" text="내부사용자&#13;&#10;기본권한"/>
+                <Cell col="4" text="외부사용자&#13;&#10;기본권한"/>
+                <Cell col="5" displaytype="text" text="사용여부"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" edittype="expr:setEditExpr(iif(getRowType(currow)==2,'normal','none'))" editfilter="expr:setfilterExpr(iif(getRowType(currow)==2,'normal','none'))" style="align:left;" text="bind:BBSROLE" editautoselect="true" combodataset="ds_Gbn" combocodecol="CD" combodatacol="NM"/>
+                <Cell col="1" displaytype="text" edittype="normal" style="align:left;" text="bind:ROLE_NAME" editautoselect="true"/>
+                <Cell col="2" displaytype="text" edittype="normal" style="align:left;" text="bind:CONTENTS" editautoselect="true"/>
+                <Cell col="3" displaytype="checkbox" edittype="checkbox" text="bind:INSIDE_BASEAUTH_YN"/>
+                <Cell col="4" displaytype="checkbox" edittype="checkbox" text="bind:EXTR_BASEAUTH_YN"/>
+                <Cell col="5" displaytype="checkbox" edittype="checkbox" style="align: ;" text="bind:USE_FLAG"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Div id="div_cmnBtn" taborder="2" text="Div0" url="cmn::CmnBtn.xfdl" position="absolute 0 0 1237 30" anchor="left top right" scrollbars="none"/>
+        <Static id="Static15" text="h13" class="Guide01_AreaRed" visible="false" position="absolute 0 30 450 43" anchor="left top"/>
+        <Static id="Static22" text="게시판 권한 등록" class="sta_WF_Title01" position="absolute 0 43 450 61" anchor="left top"/>
+        <Static id="Static16" text="글자기준간격 h05" class="Guide01_AreaRed" visible="false" position="absolute 0 56 450 61" anchor="left top"/>
+        <Static id="Static06" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 1237 0 1252 710" anchor="top right"/>
+        <Static id="Static71" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 0 710 1252 725" anchor="left bottom"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_role">
+        <ColumnInfo>
+          <Column id="ATTR01" size="300" type="STRING"/>
+          <Column id="ATTR02" size="300" type="STRING"/>
+          <Column id="ATTR03" size="300" type="STRING"/>
+          <Column id="ATTR04" size="300" type="STRING"/>
+          <Column id="ATTR05" size="300" type="STRING"/>
+          <Column id="ATTR06" size="300" type="STRING"/>
+          <Column id="ATTR07" size="300" type="STRING"/>
+          <Column id="ATTR08" size="300" type="STRING"/>
+          <Column id="ATTR09" size="300" type="STRING"/>
+          <Column id="ATTR10" size="300" type="STRING"/>
+          <Column id="CDATE" size="19" type="STRING"/>
+          <Column id="CONTENTS" size="300" type="STRING"/>
+          <Column id="CUSER" size="9" type="STRING"/>
+          <Column id="REMARK" size="300" type="STRING"/>
+          <Column id="BBSROLE" size="50" type="STRING"/>
+          <Column id="ROLE_NAME" size="100" type="STRING"/>
+          <Column id="UDATE" size="19" type="STRING"/>
+          <Column id="USE_FLAG" size="1" type="STRING"/>
+          <Column id="USE_YN" size="1" type="STRING"/>
+          <Column id="UUSER" size="9" type="STRING"/>
+          <Column id="INSIDE_BASEAUTH_YN" type="STRING" size="1"/>
+          <Column id="EXTR_BASEAUTH_YN" type="STRING" size="1"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 시스템공통/공통코드/권한설정
+ * 프로그램명   : SCC00030E.XML
+ * 기      능   : 권한설정
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2007-11-19
+ * 비      고   : 
+ *		- ds_input	: [input DS] 조회조건 파라미터 DS
+ *		- ds_SysGbn	: [코드 DS] 시스템구분 DS (공통코드 : '시스템구분')
+ *		- ds_role	: [Main DS] 권한DS
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+ 
+ /*******************************************************************************************
+  * 1. 공통 Script Include 
+ *******************************************************************************************/
+//@@컨버터에서 주석처리 #include "lib::sc_comon.js"
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js"
+//@@컨버터에서 주석처리 #include "lib::tit_comm_0001.js"		// X-Framework Lib
+/**************************************************************************************************
+  * 2. 화면 변수 선언부
+***************************************************************************************************/
+/**************************************************************************************************
+  * 3. 공통 Event 처리 부분
+***************************************************************************************************/
+/*
+ ******************************************************************************************
+ * 함  수  명   : frm_OnLoadCompleted
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : 화면 Load 완료시 실행 스크립트
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2007-11-19  
+ ******************************************************************************************
+ */
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	// 시스템구분(ds_SysGbn, GROUP_CODE : '시스템구분')
+	//var v_ds = fn_common_code("'시스템구분'","","","all","Y");
+	//ds_SysGbn.Copy(v_ds);
+	//cbo_SysGbn.Index = 0;
+	
+	// X-Framework : Action 정보 생성 
+	fsp_init(this);
+
+	v_ds_check = "ds_role";
+}
+/**************************************************************************************************
+  * 4. 공통 Function 처리 부분(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+***************************************************************************************************/
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Search()
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : [조회버튼] 검색조건에 해당하는 정보를 조회
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2007-11-19  
+ ******************************************************************************************
+ */
+function fn_search()
+{
+	// 조회조건체크
+	//if(ds_SysGbn.RowCount()==0)
+	//{
+	//	g_Message("EE",fn_AlertMsg("003"));
+	//	return;
+	//}
+	
+	// 초기화
+	ds_role.clearData();
+	//ds_input.ClearData();
+	//ds_input.AddRow();
+	
+	// 조회
+	var actionName, cmdName, inData, outData, otherArg, callBackFnc;
+	
+	inData			= "";
+	outData			= "ds_role=ds_role";
+	callBackFnc		= "fn_afterSearch";
+	
+	// 파라미터셋팅
+	//ds_input.SetColumn(0,"SYS_TYPE",cbo_SysGbn.Value);			// 시스템구분
+	
+	fsp_clear(this); 
+    fsp_addSearch(this, "sc/scc:SCC80020E_S001");									// 조회 
+    fsp_callService(this, actionName, cmdName, inData, outData, otherArg, callBackFnc);		// 서비스 호출 
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Insert()
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : [입력버튼] 입력 시 처리되는 작업
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2007-11-19  
+ ******************************************************************************************
+ */
+function fn_insert()
+{
+	// 입력조건체크
+	//if(ds_SysGbn.RowCount()==0 || length(cbo_SysGbn.Value)==0)
+	//{
+	//	cbo_SysGbn.SetFocus();
+	//	g_Message("EE",fn_AlertMsg("003"));
+	//	return;
+	//}
+	
+	var nRow = ds_role.addRow();
+	
+	// 초기값 셋팅
+	//ds_role.setColumn(nRow, "SYS_TYPE", cbo_SysGbn.Value);
+    ds_role.setColumn(nRow, "USE_FLAG", "1");
+    ds_role.setColumn(nRow, "CUSER", g_EmpNo);
+    ds_role.setColumn(nRow, "UUSER", g_EmpNo);
+    
+    grd_list.setFocus();
+    grd_list.showEditor(true);
+    grd_list.setCellPos(0);
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Save()
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : [저장버튼] 저장 시 처리되는 작업
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2007-11-19  
+ ******************************************************************************************
+ */
+function fn_save()
+{
+	var nFRow;
+	
+	// 변경여부 확인
+	if(gfn_dsIsUpdated(ds_role)==false)
+	{
+		g_Message("EE",fn_AlertMsg("007"));
+		return;
+	}
+	
+	// 필수 입력 사항 확인 
+	//nFRow = ds_role.SearchRow("length(trim(SYS_TYPE))==0");
+	
+	//if( nFRow !=-1 )
+	//{
+	//	ds_role.row = nFRow;
+	//	g_Message("EE","시스템구분" + fn_AlertMsg("010"));
+	//	return;
+	//}
+	
+    var dsArr = ["BBSROLE"];
+    if ( gfn_isGridNull(grd_list, dsArr, null) ) 	// 그리드필수체크
+    {
+        return;
+    }
+    
+    // 파라미터 DS에 유저정보셋팅
+	//ds_input.SetColumn(0,"g_EmpNo",g_EmpNo);
+	
+    // 서비스셋팅
+    var actionName, cmdName, inData, outData, otherArg, callBackFnc;
+    var insertSql, updateSql, deleteSql,saveFlagColumn, keySqlName, keyIncrement, callbackSql;
+    
+    //inData		= "ds_role=ds_role:U ds_input=ds_input";
+    inData		= "ds_role=ds_role:U";
+    outData		= "ds_role=ds_role";
+    callBackFnc	= "fn_afterSearch";
+    insertSql 	= "sc/scc:SCC80020E_I001";
+    updateSql	= "sc/scc:SCC80020E_U001";
+    deleteSql	= "sc/scc:SCC80020E_D001";
+    keyIncrement= -1;
+    callbackSql	= "sc/scc:SCC80020E_S001";
+    
+    fsp_clear(this);
+    fsp_addSave(this, insertSql, updateSql, deleteSql,saveFlagColumn, keySqlName, keyIncrement, callbackSql);
+    fsp_callService(this, actionName, cmdName, inData, outData, otherArg, callBackFnc);		// 서비스 호출 
+   
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Delete()
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : [삭제버튼] 삭제 시 처리되는 작업
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2007-11-19  
+ ******************************************************************************************
+ */
+function fn_delete()
+{
+	if(ds_role.getRowCount()==0)
+	{
+		g_Message("EE",fn_AlertMsg("006"));
+		return;
+	}
+	
+	ds_role.deleteRow(ds_role.rowposition);
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Print()
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : [출력버튼] 출력 시 처리되는 작업
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2007-11-19  
+ ******************************************************************************************
+ */
+function fn_print()
+{
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Close()
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : [닫기버튼] 화면을 닫을때 처리되는 작업
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2007-11-19  
+ ******************************************************************************************
+ */
+function fn_Close()
+{
+	this.close();
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Help()
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : [도움말버튼] 도움말
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2007-11-19  
+ ******************************************************************************************
+ */
+function fn_help()
+{
+	// tit_addSearchActionInfo(this, "sc/scc:SCC_MENU_SELECT");
+	// tit_callService(this, "", "", "ds_cond=ds_cond", "ds_Menu=ds_list", "", "");	
+}
+/**************************************************************************************************
+  * 5. 사용자 정의  Function 처리 부분
+***************************************************************************************************/
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_AlertMsg(cd)
+ * 입      력   : cd(메시지코드)
+ * 반      환   : v_Msg(메시지)
+ * 기      능   : 화면에 나타나는 메시지 코드및 텍스트 리턴
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2007-11-19  
+ ******************************************************************************************
+ */
+function fn_AlertMsg(cd)
+{
+	var v_Msg="";
+	switch(cd)
+	{
+		case "001":
+			v_Msg= "버튼이 정의 되어 있지않습니다.";
+			break;
+	
+		case "002":
+			v_Msg="서비스 오류:시스템 관리자에게 문의하십시오";
+			break;
+
+		case "003":
+			v_Msg="시스템구분이 없습니다.\n\n시스템 관리자에게 문의하십시오.";
+			break;	
+		case "004":
+			v_Msg="시스템ID가 선택되지 않았습니다.\n\n선택할 항목이 없으면 시스템 관리자에게 문의하십시오.";
+			break;
+		case "005":
+			v_Msg="을(를) 입력하세요";
+			break;
+		case "006":
+			v_Msg="삭제할 데이터가 없습니다.";
+			break;
+		case "007":
+			v_Msg="변경된 데이터가 없습니다.";
+			break;
+		case "008":
+			v_Msg="시스템ID가 없습니다.";
+			break;			
+		case "010":
+			v_Msg="을(를) 입력해주십시오.";
+			break;
+			
+		default:
+			break;			
+	}
+	return v_Msg;
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_afterSearch()
+ * 입      력   : errCode(에러코드), errMsg(에러메세지)
+ * 반      환   : 없음
+ * 기      능   : 조회 후 실행 함수
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2007-11-19  
+ ******************************************************************************************
+ */
+function fn_afterSearch(errCode, errMsg)
+{
+	if(errCode!=0)
+	{
+		g_Message("EE",fn_AlertMsg("002"));
+		return;
+	}
+}
+/**************************************************************************************************
+  * 6. 사용자 정의  Event 처리 부분
+***************************************************************************************************/
+]]></Script>
+  </Form>
+</FDL>

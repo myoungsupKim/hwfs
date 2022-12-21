@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.sle.arPayCustMgmtDAO">
+	<desc>후불 상세 거래처  등록 관리</desc>
+ 
+	
+	
+	<!--  DATA를 조회한다. -->
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.rc.sle.dao.arPayCustMgmtDAO.selectList */
+	<![CDATA[
+		 SELECT A.OUTLET_CD, OUTLET.OUTLET_NM AS OUTLET_NM,
+		       A.CUST_CD,
+		       A.SEQ,
+		       A.CUST_NM,
+		       A.REMARK,
+		       DECODE(A.USE_YN, 'Y', 1, 0) AS USE_YN,
+		       A.CDATE,
+		       A.CUSER,
+		       A.UDATE,
+		       A.UUSER
+		FROM   SLE_AR_PAY_CUST A
+		INNER JOIN (SELECT MST.OUTLET_CD, MST.OUTLET_NM 
+                         FROM   SLE_OUTLET_MST MST
+                    INNER JOIN  SCO_UPJANG_V   UPJANG ON  UPJANG.UPJANG = TO_NUMBER(MST.OUTLET_CD) 
+                    		   <#if muCd?has_content> AND  UPJANG.MU_CD = :muCd </#if>
+							   <#if tmCd?has_content> AND  UPJANG.TM_CD = :tmCd </#if>
+                    ) OUTLET ON OUTLET.OUTLET_CD = A.OUTLET_CD
+		WHERE  1 = 1
+		<#if custNm?has_content>   AND  (A.CUST_CD  LIKE '%' || :custNm || '%' OR A.CUST_NM LIKE '%' || :custNm || '%' )	  </#if>  
+		<#if useYn?has_content>    AND   A.USE_YN  	= DECODE(:useYn, '1', 'Y', USE_YN)  </#if>
+		<#if outletCd?has_content> AND   A.OUTLET_CD  = :outletCd </#if>
+		<#if custCd?has_content>   AND   A.CUST_CD    = :custCd   </#if>
+		<#if seq?has_content>      AND   A.SEQ        = :seq      </#if>
+		
+	]]>
+	</statement>
+	 
+	
+		
+	<!--  DATA를 저장한다. -->
+	<statement name="insertData" type="insert">
+	/*+ com.hwfs.rc.sle.dao.arPayCustMgmtDAO.insertData */
+		<![CDATA[
+		
+		INSERT INTO SLE_AR_PAY_CUST
+			(
+			 OUTLET_CD,
+			 CUST_CD,
+			 SEQ,
+			 CUST_NM,
+			 REMARK,
+			 USE_YN,
+			 CDATE,
+			 CUSER,
+			 UDATE,
+			 UUSER
+			) VALUES (
+			 :outletCd,
+			 :custCd,
+			 :seq,
+			<#if custNm?exists> :custNm, <#else> null, </#if>
+			<#if remark?exists> :remark, <#else> null, </#if>
+			<#if useYn?exists> DECODE(:useYn, '1', 'Y', 'N'), <#else> null, </#if>
+			 SYSDATE,
+			 :loginSabun,
+			 SYSDATE,
+			 :loginSabun
+			)
+
+					
+	  
+		]]>
+	</statement>
+	
+	<!--  DATA를 수정한다. -->
+	<statement name="updateData" type="update">
+	/*+ com.hwfs.rc.sle.dao.arPayCustMgmtDAO.updateData */
+		<![CDATA[
+  			UPDATE SLE_AR_PAY_CUST SET
+				<#if custNm?exists> CUST_NM = :custNm, </#if>
+				<#if remark?exists> REMARK = :remark, </#if>
+				<#if useYn?exists> USE_YN = DECODE(:useYn, '1', 'Y', 'N'), </#if>
+				       UDATE = SYSDATE,
+				       UUSER = :loginSabun
+				WHERE  OUTLET_CD = :outletCd
+				AND    CUST_CD = :custCd
+				AND    SEQ = :seq
+
+				  			
+ 
+		]]>
+	</statement>
+	 
+</hqml>	

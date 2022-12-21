@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[여신연장 승인 리스트 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.EXT_ID, A.REQ_DATE,
+       (SELECT CC_NM FROM HLDC_SC_DEPT_V WHERE DEPT_ID = C.DEPT_ID) AS DEPT_NM,
+       C.NM_KOR AS REQ_NAME,
+       (SELECT UPJANGNM_DISP FROM FMS_UPJANG WHERE UPJANG = B.MAIN_UPJANG) AS MAIN_UPJANGNM,
+       B.UPJANGNM_DISP AS UPJANGNM, A.CREDIT_EXT_DAYS, A.CREDIT_EXT_AMOUNT,
+       B.CREDIT_TURN_DAYS, B.CREDIT_AMOUNT,
+       A.SUPPLY_START, A.SUPPLY_END,
+       SUBSTR(A.SUPPLY_START, 0, 4) || '-' || SUBSTR(A.SUPPLY_START, 5, 2) || '-' || SUBSTR(A.SUPPLY_START, 7, 2) || ' ~ ' || SUBSTR(A.SUPPLY_END, 0, 4) || '-' || SUBSTR(A.SUPPLY_END, 5, 2) || '-' || SUBSTR(A.SUPPLY_END, 7, 2) AS SUPPLY_DATE,
+       D.NM_KOR AS APPR_NAME, A.APPR_YN, A.REMARK,
+       CASE WHEN B.CREDIT_TURN_CONTROL_YN = 'Y' THEN
+         DECODE(B.CREDIT_AMOUNT_CONTROL_YN, 'Y', '4', 'N', '2')
+       ELSE
+         DECODE(B.CREDIT_AMOUNT_CONTROL_YN, 'Y', '3', 'N', '1')
+       END AS CREDIT_STAN
+  FROM FMS_CREDIT_EXT A, FMS_UPJANG B, HLDC_HR_PERSONAL C,
+       (SELECT * FROM HLDC_HR_PERSONAL WHERE SABUN = '200800008') D
+ WHERE 1 = 1
+   AND A.APPR_SABUN = #SABUN#
+   AND A.USE_YN = 'Y'
+   AND A.APPR_YN = 'N'
+   AND A.UPJANG = B.UPJANG
+   AND A.REQ_SABUN = C.SABUN
+   AND A.APPR_SABUN = D.SABUN
+ ORDER BY A.REQ_DATE DESC	]]></statement>
+	<input default-name="ds_List">
+	</input>
+	<output default-name="ds_List">
+	</output>
+</query>

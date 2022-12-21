@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT   R_GB, ORDER_BY, SCENARIO_CODE, YY, TM_CD, UPJANG
+        ,DATA_CLASS, ACCT_CD, DTL_CD_NAME       
+        ,ACT_AMT       
+        ,EXPECT_AMT    
+        ,ACT_YEAR_AMT  
+        ,STD_AMT       
+        ,CONFIRM_AMT   
+        ,CHA
+        ,AMT01         
+        ,AMT02         
+        ,AMT03         
+        ,AMT04         
+        ,AMT05         
+        ,AMT06         
+        ,AMT07         
+        ,AMT08         
+        ,AMT09         
+        ,AMT10         
+        ,AMT11         
+        ,AMT12         
+        ,TOT_AMT
+        ,#USER_ID# USER_ID
+       
+FROM	
+(
+            SELECT    NVL(PLAN_SL.SCENARIO_CODE, #SCENARIO_CODE#) SCENARIO_CODE
+                    , A.ORDER_BY || 0                             ORDER_BY
+                    , NVL(PLAN_SL.YY, #YY#)                       YY
+                    , NVL(PLAN_SL.TM_CD, #TM_CD#)                 TM_CD
+                    , NVL(PLAN_SL.UPJANG, #UPJANG#)               UPJANG
+                    , NVL(PLAN_SL.DATA_CLASS,A.MST_CD)            DATA_CLASS
+                    , NVL(PLAN_SL.ACCT_CD,A.DTL_CD)               ACCT_CD
+                    , ('  ' || A.DTL_CD_NAME)                     DTL_CD_NAME
+                    , NVL(PLAN_SL.ACT_AMT,0)                      ACT_AMT
+                    , NVL(PLAN_SL.EXPECT_AMT,0)                   EXPECT_AMT
+                    , NVL(PLAN_SL.ACT_YEAR_AMT,0)                 ACT_YEAR_AMT
+                    , NVL(PLAN_SL.STD_AMT,0)                      STD_AMT
+                    , NVL(PLAN_SL.CONFIRM_AMT,0)                  CONFIRM_AMT
+                    , 0 CHA
+                    , NVL(PLAN_SL.AMT01,0) AMT01
+                    , NVL(PLAN_SL.AMT02,0) AMT02
+                    , NVL(PLAN_SL.AMT03,0) AMT03
+                    , NVL(PLAN_SL.AMT04,0) AMT04
+                    , NVL(PLAN_SL.AMT05,0) AMT05
+                    , NVL(PLAN_SL.AMT06,0) AMT06
+                    , NVL(PLAN_SL.AMT07,0) AMT07
+                    , NVL(PLAN_SL.AMT08,0) AMT08
+                    , NVL(PLAN_SL.AMT09,0) AMT09
+                    , NVL(PLAN_SL.AMT10,0) AMT10
+                    , NVL(PLAN_SL.AMT11,0) AMT11
+                    , NVL(PLAN_SL.AMT12,0) AMT12
+                    , NVL(PLAN_SL.TOT_AMT,0) TOT_AMT
+                    , '1' AS R_GB 
+            FROM    MAC_CD_DTL A,
+                    (		
+                    SELECT  SCENARIO_CODE
+                          , YY
+                          , TM_CD
+                          , UPJANG
+                          , DATA_CLASS
+                          , ACCT_CD
+                          , NVL(ACT_AMT,0)                    ACT_AMT
+                          , NVL(EXPECT_AMT,0)                 EXPECT_AMT
+                          , NVL(ACT_AMT,0)+NVL(EXPECT_AMT,0)  ACT_YEAR_AMT
+                          , NVL(STD_AMT,0)                    STD_AMT
+                          , NVL(CONFIRM_AMT,0)                CONFIRM_AMT
+                          , NVL(AMT01,0) AMT01
+                          , NVL(AMT02,0) AMT02
+                          , NVL(AMT03,0) AMT03
+                          , NVL(AMT04,0) AMT04
+                          , NVL(AMT05,0) AMT05
+                          , NVL(AMT06,0) AMT06
+                          , NVL(AMT07,0) AMT07
+                          , NVL(AMT08,0) AMT08
+                          , NVL(AMT09,0) AMT09
+                          , NVL(AMT10,0) AMT10
+                          , NVL(AMT11,0) AMT11
+                          , NVL(AMT12,0) AMT12
+                          , (NVL(AMT01,0)+NVL(AMT02,0)+NVL(AMT03,0)+NVL(AMT04,0)+NVL(AMT05,0)+NVL(AMT06,0)
+                            +NVL(AMT07,0)+NVL(AMT08,0)+NVL(AMT09,0)+NVL(AMT10,0)+NVL(AMT11,0)+NVL(AMT12,0))
+                            TOT_AMT
+                    FROM  MAP_SALE_PLAN
+                    WHERE YY	          = #YY#
+                    AND	  TM_CD	        = #TM_CD#
+                    AND	  UPJANG	      = #UPJANG#
+                    AND   DATA_CLASS    IN (#DATA_CLASS#)
+                    AND   SCENARIO_CODE = #SCENARIO_CODE#
+                  ) PLAN_SL
+            WHERE   A.MST_CD IN (#DATA_CLASS#)
+            AND     A.DTL_CD = PLAN_SL.ACCT_CD (+)
+            AND     A.USE_YN = 'Y'
+            UNION ALL
+            SELECT    NVL(PLAN_SL.SCENARIO_CODE, #SCENARIO_CODE#) SCENARIO_CODE
+                    , A.ORDER_BY || 1                   ORDER_BY
+                    , NVL(PLAN_SL.YY, #YY#)             YY
+                    , NVL(PLAN_SL.TM_CD, #TM_CD#)       TM_CD
+                    , NVL(PLAN_SL.UPJANG, #UPJANG#)     UPJANG
+                    , NVL(PLAN_SL.DATA_CLASS,A.MST_CD)  DATA_CLASS
+                    , NVL(PLAN_SL.ACCT_CD,A.DTL_CD)     ACCT_CD
+                    , '  (재료비율 %)'                  DTL_CD_NAME
+                    , NVL(PLAN_SL.ACT_AMT,0)            ACT_AMT
+                    , NVL(PLAN_SL.EXPECT_AMT,0)         EXPECT_AMT
+                    , NVL(PLAN_SL.ACT_YEAR_AMT,0)       ACT_YEAR_AMT
+                    , NVL(PLAN_SL.STD_AMT,0)            STD_AMT
+                    , NVL(PLAN_SL.CONFIRM_AMT,0)        CONFIRM_AMT
+                    , 0                                 CHA
+                    , NVL(PLAN_SL.AMT01,0) AMT01
+                    , NVL(PLAN_SL.AMT02,0) AMT02
+                    , NVL(PLAN_SL.AMT03,0) AMT03
+                    , NVL(PLAN_SL.AMT04,0) AMT04
+                    , NVL(PLAN_SL.AMT05,0) AMT05
+                    , NVL(PLAN_SL.AMT06,0) AMT06
+                    , NVL(PLAN_SL.AMT07,0) AMT07
+                    , NVL(PLAN_SL.AMT08,0) AMT08
+                    , NVL(PLAN_SL.AMT09,0) AMT09
+                    , NVL(PLAN_SL.AMT10,0) AMT10
+                    , NVL(PLAN_SL.AMT11,0) AMT11
+                    , NVL(PLAN_SL.AMT12,0) AMT12
+                    , NVL(PLAN_SL.TOT_AMT,0) TOT_AMT
+                    , '2' AS R_GB 
+            FROM    MAC_CD_DTL A
+                    , (		SELECT	  A.SCENARIO_CODE
+                                        , A.YY
+                                        , A.TM_CD
+                                        , A.UPJANG
+                                        , A.DATA_CLASS
+                                        , A.ACCT_CD
+                                        , DECODE(B.ACT_AMT,0,0,ROUND(A.ACT_AMT*100/B.ACT_AMT,1)) AS ACT_AMT
+                                        , DECODE(B.EXPECT_AMT,0,0,ROUND(A.EXPECT_AMT*100/B.EXPECT_AMT,1)) AS EXPECT_AMT
+                                        , DECODE((B.ACT_AMT+B.EXPECT_AMT),0,0,ROUND((A.ACT_AMT+A.EXPECT_AMT)*100/(B.ACT_AMT+B.EXPECT_AMT),1)) AS ACT_YEAR_AMT
+                                        , DECODE(B.STD_AMT,0,0,ROUND(A.STD_AMT*100/B.STD_AMT,1)) AS STD_AMT
+                                        , DECODE(B.CONFIRM_AMT,0,0,ROUND(A.CONFIRM_AMT*100/B.CONFIRM_AMT,1)) AS CONFIRM_AMT
+                                        , DECODE(B.AMT01,0,0,ROUND(A.AMT01*100/B.AMT01,1)) AS AMT01
+                                        , DECODE(B.AMT02,0,0,ROUND(A.AMT02*100/B.AMT02,1)) AS AMT02
+                                        , DECODE(B.AMT03,0,0,ROUND(A.AMT03*100/B.AMT03,1)) AS AMT03
+                                        , DECODE(B.AMT04,0,0,ROUND(A.AMT04*100/B.AMT04,1)) AS AMT04
+                                        , DECODE(B.AMT05,0,0,ROUND(A.AMT05*100/B.AMT05,1)) AS AMT05
+                                        , DECODE(B.AMT06,0,0,ROUND(A.AMT06*100/B.AMT06,1)) AS AMT06
+                                        , DECODE(B.AMT07,0,0,ROUND(A.AMT07*100/B.AMT07,1)) AS AMT07
+                                        , DECODE(B.AMT08,0,0,ROUND(A.AMT08*100/B.AMT08,1)) AS AMT08
+                                        , DECODE(B.AMT09,0,0,ROUND(A.AMT09*100/B.AMT09,1)) AS AMT09
+                                        , DECODE(B.AMT10,0,0,ROUND(A.AMT10*100/B.AMT10,1)) AS AMT10
+                                        , DECODE(B.AMT11,0,0,ROUND(A.AMT11*100/B.AMT11,1)) AS AMT11
+                                        , DECODE(B.AMT12,0,0,ROUND(A.AMT12*100/B.AMT12,1)) AS AMT12
+/*
+                                        , DECODE(
+                                          (NVL(B.AMT01,0)+NVL(B.AMT02,0)+NVL(B.AMT03,0)+NVL(B.AMT04,0)+NVL(B.AMT05,0)+NVL(B.AMT06,0)
+                                          +NVL(B.AMT07,0)+NVL(B.AMT08,0)+NVL(B.AMT09,0)+NVL(B.AMT10,0)+NVL(B.AMT11,0)+NVL(B.AMT12,0))
+                                          ,0,0,ROUND(
+                                          (NVL(A.AMT01,0)+NVL(A.AMT02,0)+NVL(A.AMT03,0)+NVL(A.AMT04,0)+NVL(A.AMT05,0)+NVL(A.AMT06,0)
+                                          +NVL(A.AMT07,0)+NVL(A.AMT08,0)+NVL(A.AMT09,0)+NVL(A.AMT10,0)+NVL(A.AMT11,0)+NVL(A.AMT12,0))
+                                          * 100 /
+                                          (NVL(B.AMT01,0)+NVL(B.AMT02,0)+NVL(B.AMT03,0)+NVL(B.AMT04,0)+NVL(B.AMT05,0)+NVL(B.AMT06,0)
+                                          +NVL(B.AMT07,0)+NVL(B.AMT08,0)+NVL(B.AMT09,0)+NVL(B.AMT10,0)+NVL(B.AMT11,0)+NVL(B.AMT12,0))
+                                          ,1))
+*/
+                                          , 0 TOT_AMT
+                    		FROM	MAP_SALE_PLAN A
+                            , MAP_SALE_PLAN B
+                    		WHERE	A.DATA_CLASS      = 'P02'
+                    		AND	  B.DATA_CLASS      = 'P01'
+                    		AND	  A.YY		          = #YY#
+                        AND	  A.TM_CD		        = #TM_CD#
+                        AND	  A.UPJANG	        = #UPJANG#
+                        AND   A.SCENARIO_CODE   = #SCENARIO_CODE#
+                    		AND	  A.YY		          = B.YY
+                    		AND	  A.TM_CD 	        = B.TM_CD
+                    		AND	  A.UPJANG	        = B.UPJANG
+                    		AND	  SUBSTR(A.ACCT_CD,4,1) = SUBSTR(B.ACCT_CD,4,1)
+                        AND   A.SCENARIO_CODE   = B.SCENARIO_CODE
+                       ) PLAN_SL
+            WHERE   A.MST_CD = #DATA_CLASS#
+            AND     A.DTL_CD = PLAN_SL.ACCT_CD (+)
+            AND     A.USE_YN = 'Y'
+) A
+ORDER BY DATA_CLASS,ORDER_BY	]]></statement>
+	<input default-name="ds_input">
+		<col name="YY" size="255" type="VARCHAR" description="" /> 
+		<col name="TM_CD" size="255" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="255" type="VARCHAR" description="" /> 
+		<col name="DATA_CLASS" size="255" type="VARCHAR" description="" /> 
+		<col name="SCENARIO_CODE" size="255" type="VARCHAR" description="" /> 
+		<col name="USER_ID" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list_02">
+	</output>
+</query>

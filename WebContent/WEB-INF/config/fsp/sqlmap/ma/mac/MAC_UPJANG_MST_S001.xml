@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT DISTINCT UPJANG, 
+       UPJANGNM, 
+       JOB_CD, 
+       JOB_NAME, 
+       SUB_JOB_CD, 
+       SUB_JOB_NAME, 
+       LOC_CD, 
+       LOC_NAME, 
+       SUB_LOC_CD, 
+       SUB_LOC_NAME, 
+       TM_CD, 
+       TM_NAME, 
+       SAUP_TYPE, 
+       SAUP_NAME, 
+       OPEN_YY,
+       DECODE(NVL(CLOSE_DATE,'0'),'0','N','Y') CLOSE_YN,
+       
+       '0' AS "SELECT",
+<!-- 2013-11-11 FS지원팀 윤지혜 요청 -->
+<!-- 폐정된 곳은 폐점 일자별로 Sort(CLOSE_DATE 추가) -->       
+       CLOSE_DATE
+  FROM MAC_UPJANG_V T1
+WHERE (1 = 1)
+  <isNotNull col="UPJANG">
+   AND (UPJANG = #UPJANG#)
+  </isNotNull>
+  <isNotNull col="TM_CD">
+   AND (TM_CD = #TM_CD#)
+  </isNotNull>
+  <isNotNull col="SUB_JOB_CD">
+   AND (SUB_JOB_CD = #SUB_JOB_CD#)
+  </isNotNull>
+  <isNotNull col="LOC_CD">
+   AND (LOC_CD = #LOC_CD#)
+  </isNotNull>
+  <isNotNull col="SAUP_TYPE">
+   AND (SAUP_TYPE = #SAUP_TYPE#)
+  </isNotNull> 
+  <isEqual col="NEW_GB" value="O">
+    AND (OPEN_YY &lt; #YY#)
+  </isEqual> 
+  <isEqual col="NEW_GB" value="N">
+    AND (OPEN_YY &gt;= #YY#)
+  </isEqual>   
+<!-- 2013-11-11 FS지원팀 윤지혜 요청 -->
+<!-- 폐정된 곳은 폐점 일자별로 Sort(CLOSE_DATE 추가) -->
+<!-- 2020.06.08 김명섭 폐점업장제외 추가 -->
+  <isNotNull col="BEF_YY">
+    AND ( CLOSE_DATE IS NULL OR CLOSE_DATE > #BEF_YY#
+       OR EXISTS (SELECT 'x'
+                    FROM MAP_UPJANG_PL PL, MAS_ST_ACCOUNT ACCT
+                   WHERE PL.PL_CLASS = 'KS'
+                     AND PL.CC_CD = T1.CC_CD
+                     AND PL.FISCAL_YEAR = SUBSTRB(#BEF_YY#,1,4)
+                     AND PL.ACCT_CD = ACCT.ACCTCD) )
+  </isNotNull>
+ ORDER BY DECODE(NVL(CLOSE_DATE,'0'),'0','N','Y'), CLOSE_DATE, UPJANGNM	</statement>
+	<input default-name="ds_upjang_in">
+		<col name="UPJANG" size="10" type="VARCHAR" description="업장코드" /> 
+		<col name="TM_CD" size="10" type="VARCHAR" description="TM_CD" /> 
+		<col name="SUB_JOB_CD" size="10" type="VARCHAR" description="" /> 
+		<col name="LOC_CD" size="10" type="VARCHAR" description="" />
+		<col name="SAUP_TYPE" size="10" type="VARCHAR" description="" /> 
+		<col name="NEW_GB" size="10" type="VARCHAR" description="" />
+		<col name="YY" size="4" type="VARCHAR" description="" />		
+	</input>
+	<output default-name="ds_upjang_out">
+		<col name="UPJANG" size="6" type="NUMERIC" description="업장코드" /> 
+		<col name="UPJANGNM" size="255" type="VARCHAR" description="업장명" />
+		<col name="TM_CD" size="10" type="VARCHAR" description="팀" />
+		<col name="TM_NAME" size="255" type="VARCHAR" description="팀명" />
+	</output>
+</query>

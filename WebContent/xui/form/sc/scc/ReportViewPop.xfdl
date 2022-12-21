@@ -1,0 +1,114 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\..\..\default_typedef.xml"/>
+  <Form id="form" classname="COMP_GUIDE_13" inheritanceid="" position="absolute 0 0 800 900" titletext="레포트출력" scrollbars="autoboth" onload="form_onload">
+    <Layouts>
+      <Layout>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 915 10"/>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 570"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 785 0 800 584"/>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute -57 885 843 900"/>
+        <Static id="sta_title" text="레포트 출력" class="sta_WF_Title" position="absolute 15 16 215 40"/>
+        <Static id="Static00" text="h06" class="Guide01_AreaRed" visible="false" position="absolute 15 10 215 16"/>
+        <Static id="Static05" text="아이콘기준 h08" class="Guide01_AreaRed" visible="false" position="absolute 15 32 215 40"/>
+        <Button id="btn_close" taborder="17" text="닫기" onclick="fn_close" class="btn_WF_CRUD" position="absolute 740 10 785 35" anchor="top right"/>
+        <WebBrowser id="reportView" taborder="18" style="border:1 solid #808080ff ;" position2="absolute l:15 r:15 t:40 b:15" positiontype="position2" text="reportView" onloadcompleted="reportView_onloadcompleted" cookiesynctype="always"/>
+      </Layout>
+    </Layouts>
+    <Bind/>
+    <Objects/>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : ReportViewpop
+  파 일 명 : ReportViewPop.xfdl
+  설    명 : 레포트출력 팝업
+           
+  수정일       수정자   수정내용
+  ----------   -------  --------------------------------------------------
+  2015.01.13    kksoo    최초작성
+*/
+ 
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+************************************************************************************************/
+include "lib::lib_com.xjs";
+
+//레포트 생성 중 여부
+var isReportProcess = false;
+
+/************************************************************************************************
+ * FORM EVENT 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Form Load (필수)
+ *---------------------------------------------------------------------------------------------*/
+function form_onload(obj:Form, e:LoadEventInfo)
+{	
+	// Form Load 시 공통 기능 처리(obj:Form, bCreateEvent:이벤트 생성 여부)
+	gfn_formOnLoad(this);
+	
+	// 초기값 셋팅
+	fn_init();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 초기값 셋팅
+ *---------------------------------------------------------------------------------------------*/
+function fn_init()
+{
+	isReportProcess = false;
+	
+	//레포트 생성 중 이미지 표시
+	reportView.url = gv_ozReportProcessing;
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 화면 닫기
+ *---------------------------------------------------------------------------------------------*/
+function fn_close()
+{
+	this.close();
+}
+
+/**
+ * 레포트 생성이 완료되면
+ * WebBrowser에 표시된 Report Viewer에 클라이언트 바인딩 데이터와 파라미터를 설정한다.
+ * @param obj WebBrowser
+ * @param e WebLoadCompEventInfo
+ * @return none
+ */
+function reportView_onloadcompleted(obj:WebBrowser, e:WebLoadCompEventInfo)
+{
+	if (!isReportProcess) {
+		//레포트 생성 중 이미지 표시가 완료된 경우
+		isReportProcess = true;
+
+		//레포트 생성을 호출하여 화면에 보여준다.
+		callReportView ();
+	}
+	else {
+		//(중요)클라이언트에서 바인드하는 데이터가 있는 경우 처리
+		if (SCReport.hasClientBindData (params)) {
+			var doc = reportView.document ;			// Webbrowser dom document
+			var objData = doc.getElementById("bindData");  	// Client단에서 바인딩하는 데이터 Element를 얻는다.
+			
+			if (objData == null || typeof(objData) == "undefined") 
+				alert ("Report View Error!!");
+			else {
+				objData.value = params[SCReport.RPT_BINDDATA];	// 바인딩 데이터 설정
+			}
+		}
+	}
+}
+
+/**
+ * 레포트 생성을 호출하여 화면에 보여준다.
+ * @return none
+ */
+function callReportView ()
+{
+	//서버 레포트 뷰어를 호출한다. params는 레포트 출력 팝업에 전달된 파라미터
+	reportView.url = SCReport.getReportUrl (params);
+}
+]]></Script>
+  </Form>
+</FDL>

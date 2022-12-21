@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sm.sar.cardIsaApDataInquiryDAO">
+	<desc>카드 결제내역 조회 HQML Query</desc>
+
+	<!-- 신용카드 거래내역 정보(SFTP파일 다운로드 내용) 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sm.sar.dao.CardIsaApDataInquiryDAO.selectList */
+		<![CDATA[
+		SELECT DISTINCT D.CC_NM 
+		     , (SELECT CODE FROM SCC_COMMON_CODE WHERE SET1 = A.BRCH_CD) AS VAN_NM
+		     , A.TRML_NO
+		     , DECODE(A.AUTH_GUBUN, '', 'S', A.AUTH_GUBUN) AS AUTH_GUBUN
+		     , A.BANK_CODE
+		     , C.BUYCPNY_NM                                   --매입사 명
+		     , A.CARD_NUM
+		     --, SUBSTR((SELECT SCC_CRYPTO.MASKAUTH_FUN(A.CARD_NUM, 5, :loginPersMask, :maskAuth) FROM DUAL),0,4) || '-' || 
+	         --  SUBSTR((SELECT SCC_CRYPTO.MASKAUTH_FUN(A.CARD_NUM, 5, :loginPersMask, :maskAuth) FROM DUAL),5,4) || '-' || 
+	         --  SUBSTR((SELECT SCC_CRYPTO.MASKAUTH_FUN(A.CARD_NUM, 5, :loginPersMask, :maskAuth) FROM DUAL),9,4) || '-' || 
+	         --  SUBSTR((SELECT SCC_CRYPTO.MASKAUTH_FUN(A.CARD_NUM, 5, :loginPersMask, :maskAuth) FROM DUAL),13,4)
+	         --  AS CARD_NO   --카드번호
+             , SUBSTR((SELECT SCC_CRYPTO.MASKAUTH_FUN(A.CARD_NUM, 5, 'YYYYYYYYYYY', :maskAuth) FROM DUAL),0,4) || '-' || 
+	           SUBSTR((SELECT SCC_CRYPTO.MASKAUTH_FUN(A.CARD_NUM, 5, 'YYYYYYYYYYY', :maskAuth) FROM DUAL),5,4) || '-' || 
+	           SUBSTR((SELECT SCC_CRYPTO.MASKAUTH_FUN(A.CARD_NUM, 5, 'YYYYYYYYYYY', :maskAuth) FROM DUAL),9,4) || '-' || 
+	           SUBSTR((SELECT SCC_CRYPTO.MASKAUTH_FUN(A.CARD_NUM, 5, 'YYYYYYYYYYY', :maskAuth) FROM DUAL),13,4)
+	           AS CARD_NO   --카드번호	           
+		     , A.RUN_DATE
+		     , A.RUN_TIME
+		     , A.RUN_HAL
+		     --, (SELECT SCC_CRYPTO.MASKAUTH_FUN(A.EXP_DATE, 5, :loginPersMask, :maskAuth) FROM DUAL) AS EXP_DATE
+		     , (SELECT SCC_CRYPTO.MASKAUTH_FUN(A.EXP_DATE, 5, 'YYYYYYYYYYY', :maskAuth) FROM DUAL) AS EXP_DATE
+		     , A.AUTH_AMT
+		     , A.AUTH_NO
+		     , A.MERCH_NUM
+		     , A.MERCH_NAME
+		     , A.ENTRY_CODE
+		     , CASE WHEN A.ENTRY_CODE = 'S' OR A.ENTRY_CODE = 'K' THEN '원화'
+		       WHEN A.ENTRY_CODE = 'T' OR A.ENTRY_CODE = 'U' THEN '달러화'
+		       END AS ENTRY_CODE_NM
+		     , A.AGENCY_CODE
+		     , A.RMRK AS AP_RMRK                               --시간
+	    FROM   SLA_ISA_CARD_AP_DATA A
+	         , SLA_FRNC_STOR_MGMT B
+	         , SLA_BUY_CPNY_MGMT C
+	         , SCO_UPJANG_MST_V D
+	   WHERE 1 = 1
+	   --AND  A.MERCH_NUM = B.FRNC_STOR_NUM
+	   AND  TO_NUMBER(A.MERCH_NUM) =  TO_NUMBER(REPLACE(FRNC_STOR_NUM,'-','')) 
+	   AND  B.BUYCPNY_CD = C.BUYCPNY_CD
+	   AND  B.UPJANG_CD = D.UPJANG
+	   <#if occurDateFr?has_content>AND    A.RUN_DATE >= :occurDateFr</#if>
+	   <#if occurDateTo?has_content>AND    A.RUN_DATE <= :occurDateTo</#if>
+	   <#if muCd?has_content>AND    D.MU_CD = :muCd</#if>
+	   <#if ccCd?has_content>AND    D.CC_CD = :ccCd</#if>
+	   <#if tmCd?has_content>
+	   AND     D.CC_CD IN (
+	                        SELECT  A.CC_CD
+	                        FROM    SCC_CC A
+	                                ,HLDC_SC_DEPT_V B
+	                        WHERE   B.CC_CD = A.CC_CD
+	                        AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+	                        AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+	                        AND     B.TM_CD = :tmCd
+	                        )
+	   </#if>
+	ORDER BY D.CC_NM, A.RUN_DATE, A.RUN_TIME, A.CARD_NUM, A.BANK_CODE, A.AUTH_NO, A.AUTH_AMT
+	]]>
+	</statement>
+</hqml>

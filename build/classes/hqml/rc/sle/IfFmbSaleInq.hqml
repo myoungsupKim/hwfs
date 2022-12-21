@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="rc.sle.ifFmbSaleInqDAO">
+	<desc>. HQML Query</desc>
+
+	<!-- . 목록을 조회한다. -->
+	<statement name="selectList" type="select"><![CDATA[
+/*
+	외식사업부 일별 매출 집계
+    작성장 : 박대영
+    작성일 : 2015-08-24
+    비  고 : 사용시 아래와 같이 사용하시기 바랍니다.
+              AND SALES_DATE BETWEEN '20150101' AND '20150824'	--영업일자 기간
+	          AND OUTLET_CD = '110309'                    --업장
+			영업일자와 업장코를 넘겨 받아서 처리 하시기 바랍니다.
+*/
+
+
+-- 일별 매출 집계 
+		SELECT  A.SALES_DATE  AS SDATE      --'영업일자'
+              , A.OUTLET_CD   AS LOC        --'업장코드'
+              , D.OUTLET_NM   AS LOC_NAME   --'업장명'
+              , B.PSN_QTY     AS GUEST      --'고객수'
+              , FOOD_TOT_AMT  AS FOODAMT    --'식료금액'
+              , BEVG_TOT_AMT  AS BEVAMT		--'음료금액'
+              , ETC_TOT_AMT   AS OTHAMT     --'기타금액'
+              , GODS_TOT_AMT  AS SANAMT     --'상품금액'
+
+              , FOOD_DSCN_AMT AS FOODDC     --'식료할인'
+              , BEVG_DSCN_AMT AS BEVDC      --'음료할인'
+              , ETC_DSCN_AMT  AS OTHDC      --'기타할인'
+              , GODS_DSCN_AMT AS SANDC      --'상품할인'
+
+              , NET_SELL_AMT  AS NET        --'공급가액'
+              , SVC           AS SVC        --'봉사료'
+              , VAT           AS VAT        --'부가세'
+              , TOT_SUM_AMT	  AS GROSS      --'매출액'
+
+              , CASH          AS CASH       --'현금'
+              , CARD          AS CARD       --'카드'
+              , CRED          AS CL         --'후불'
+              , ETEC          AS ETC        --'기타'
+
+        FROM(
+			SELECT    SALES_DATE, OUTLET_CD
+			        , SUM(FOOD_AMT)  AS FOOD_TOT_AMT
+			        , SUM(BEVR_AMT)  AS BEVG_TOT_AMT
+			        , SUM(OTHER_AMT) AS ETC_TOT_AMT
+			        , SUM(GODS_AMT)  AS GODS_TOT_AMT
+
+			        , SUM(FOOD_DC)  AS FOOD_DSCN_AMT
+			        , SUM(BEVR_DC)  AS BEVG_DSCN_AMT
+			        , SUM(OTHER_DC) AS ETC_DSCN_AMT
+			        , SUM(GODS_DC)  AS GODS_DSCN_AMT
+
+			        , SUM(NET_AMT)  AS NET_SELL_AMT
+			        , SUM(SVC_AMT)  AS SVC
+			        , SUM(VAT_AMT)  AS VAT
+			        , SUM(TOT_AMT)  AS TOT_SUM_AMT
+			FROM(
+			    SELECT  SALES_DATE, INFO.OUTLET_CD
+			          , DECODE(MENU_CLASS,'F', SUM(OCCUR_AMT) , 0) AS FOOD_AMT
+			          , DECODE(MENU_CLASS,'B', SUM(OCCUR_AMT) , 0) AS BEVR_AMT
+			          , DECODE(MENU_CLASS,'O', SUM(OCCUR_AMT) , 0) AS OTHER_AMT
+			          , DECODE(MENU_CLASS,'S', SUM(OCCUR_AMT) , 0) AS GODS_AMT
+
+					  --할인
+			          , DECODE(MENU_CLASS,'F', SUM(DISCNT_AMT) , 0) AS FOOD_DC
+			          , DECODE(MENU_CLASS,'B', SUM(DISCNT_AMT) , 0) AS BEVR_DC
+			          , DECODE(MENU_CLASS,'O', SUM(DISCNT_AMT) , 0) AS OTHER_DC
+			          , DECODE(MENU_CLASS,'S', SUM(DISCNT_AMT) , 0) AS GODS_DC
+
+					  , SUM(NET_AMT) AS NET_AMT
+			          , SUM(SVC)     AS SVC_AMT
+			          , SUM(VAT)     AS VAT_AMT
+			          , SUM(TOT_AMT) AS TOT_AMT
+			    FROM SLE_SALS_GOODS INFO
+			    		              --업장SUB추가
+               INNER JOIN (
+								      SELECT OUTLET_CD, POS_NUM, CODE_NAME FROM SLE_POS_SET POS
+								      INNER JOIN SCC_COMMON_CODE GRP ON GRP.GROUP_CODE = 'SLE_0111' AND GRP.CODE = POS.OUTLET_SUB_CD
+								     <#if outletSub?has_content>
+								      WHERE GRP.CODE = :outletSub   --01:다채움 02:마루 03:나무 
+								      </#if>
+								      ORDER BY  OUTLET_CD, POS_NUM
+								) POS ON POS.OUTLET_CD = INFO.OUTLET_CD AND POS.POS_NUM = INFO.POS_NUM
+               --업장SUB추가	
+			    WHERE SALS_YN        = 'Y'	--판매여부
+			      AND SALS_CLASS     = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+			      AND MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+			      AND RECEIPT_STATUS IN('Q','R')  --영수증 상태 Q:정상 R:반품(-)
+            
+ 			  <#if occurDateFr?has_content>
+ 			      AND SALES_DATE BETWEEN :occurDateFr AND :occurDateTo	--영업일자 기간을 입력받은다.
+			  </#if>
+			  <#if ccCd?has_content>     
+                  AND INFO.OUTLET_CD = :ccCd                   --업장
+              </#if>
+        
+			 	GROUP BY SALES_DATE, INFO.OUTLET_CD,  MENU_CLASS
+			) DUAL
+			GROUP BY SALES_DATE, OUTLET_CD
+		)  A
+        --고객수 구하기
+        INNER JOIN (
+            SELECT SALES_DATE, INFO.OUTLET_CD, SUM(KOR_PSN) + SUM(FOR_PSN) AS PSN_QTY
+            FROM SLE_SALS_INFO INFO
+            		              --업장SUB추가
+               INNER JOIN (
+								      SELECT OUTLET_CD, POS_NUM, CODE_NAME FROM SLE_POS_SET POS
+								      INNER JOIN SCC_COMMON_CODE GRP ON GRP.GROUP_CODE = 'SLE_0111' AND GRP.CODE = POS.OUTLET_SUB_CD
+								     <#if outletSub?has_content>
+								      WHERE GRP.CODE = :outletSub   --01:다채움 02:마루 03:나무 
+								      </#if>
+								      ORDER BY  OUTLET_CD, POS_NUM
+								) POS ON POS.OUTLET_CD = INFO.OUTLET_CD AND POS.POS_NUM = INFO.POS_NUM
+               --업장SUB추가	
+            WHERE  SALS_CLASS        = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+			      AND MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+			      AND RECEIPT_STATUS IN('Q','R') --영수증 상태 Q:정상 R:반품(-)
+            
+ 			  <#if occurDateFr?has_content>
+ 			      AND SALES_DATE BETWEEN :occurDateFr AND :occurDateTo	--영업일자 기간을 입력받은다.
+			  </#if>
+			  <#if ccCd?has_content>     
+                  AND INFO.OUTLET_CD = :ccCd                   --업장
+              </#if>
+        
+            GROUP BY SALES_DATE, INFO.OUTLET_CD
+			) B ON B.SALES_DATE = A.SALES_DATE AND B.OUTLET_CD = A.OUTLET_CD
+		--지불조건 구하기 (현금, 카드,후불,기타)
+        INNER JOIN (
+         	SELECT SALES_DATE, OUTLET_CD,
+                   SUM(CASH) AS CASH, SUM(CARD) AS CARD, SUM(CRED) AS CRED ,  SUM(ETEC) AS ETEC
+              FROM
+              (
+                --현금
+                SELECT SALES_DATE, INFO.OUTLET_CD,
+                       SUM(PAY_AMT) AS CASH, 0 AS CARD, 0 AS CRED, 0 AS ETEC
+                  FROM SLE_SALS_OUTLET INFO
+                  		              --업장SUB추가
+               INNER JOIN (
+								      SELECT OUTLET_CD, POS_NUM, CODE_NAME FROM SLE_POS_SET POS
+								      INNER JOIN SCC_COMMON_CODE GRP ON GRP.GROUP_CODE = 'SLE_0111' AND GRP.CODE = POS.OUTLET_SUB_CD
+								     <#if outletSub?has_content>
+								      WHERE GRP.CODE = :outletSub   --01:다채움 02:마루 03:나무 
+								      </#if>
+								      ORDER BY  OUTLET_CD, POS_NUM
+								) POS ON POS.OUTLET_CD = INFO.OUTLET_CD AND POS.POS_NUM = INFO.POS_NUM
+               --업장SUB추가	
+
+                 WHERE RECEIPT_STATUS IN('Q','R')   --영수증 상태 Q:정상 R:반품(-)
+                   AND SALS_CLASS     = '0'		  --0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+                   AND MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+                   AND PAY_CD IN (SELECT CODE FROM SCC_COMMON_CODE  WHERE  GROUP_CODE ='SLE_0080' )  --현금지불수단목록
+ 			  <#if occurDateFr?has_content>
+ 			      AND SALES_DATE BETWEEN :occurDateFr AND :occurDateTo	--영업일자 기간을 입력받은다.
+			  </#if>
+			  <#if ccCd?has_content>     
+                   AND INFO.OUTLET_CD = :ccCd                   --업장
+              </#if>
+                 GROUP BY SALES_DATE, INFO.OUTLET_CD
+
+                UNION ALL
+
+                --카드
+                SELECT SALES_DATE, INFO.OUTLET_CD,
+                       0 AS CASH, SUM(PAY_AMT) AS CARD, 0 AS CRED, 0 AS ETEC
+                  FROM SLE_SALS_OUTLET INFO
+                  		              --업장SUB추가
+              INNER JOIN (
+								      SELECT OUTLET_CD, POS_NUM, CODE_NAME FROM SLE_POS_SET POS
+								      INNER JOIN SCC_COMMON_CODE GRP ON GRP.GROUP_CODE = 'SLE_0111' AND GRP.CODE = POS.OUTLET_SUB_CD
+								     <#if outletSub?has_content>
+								      WHERE GRP.CODE = :outletSub   --01:다채움 02:마루 03:나무 
+								      </#if>
+								      ORDER BY  OUTLET_CD, POS_NUM
+								) POS ON POS.OUTLET_CD = INFO.OUTLET_CD AND POS.POS_NUM = INFO.POS_NUM
+               --업장SUB추가	
+                 WHERE RECEIPT_STATUS IN('Q','R')   --영수증 상태 Q:정상 R:반품(-)
+                   AND SALS_CLASS     = '0'		    --0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+                   AND MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+                   AND PAY_CD IN (SELECT CODE FROM SCC_COMMON_CODE  WHERE  GROUP_CODE ='SLE_0081' )  --카드지불수단목록
+ 			  <#if occurDateFr?has_content>
+ 			      AND SALES_DATE BETWEEN :occurDateFr AND :occurDateTo	--영업일자 기간을 입력받은다.
+			  </#if>
+			  <#if ccCd?has_content>     
+                   AND INFO.OUTLET_CD = :ccCd                   --업장
+               </#if>
+                 GROUP BY SALES_DATE, INFO.OUTLET_CD
+
+                UNION ALL
+
+                --후불
+                SELECT SALES_DATE, INFO.OUTLET_CD,
+                       0 AS CASH, 0 AS CARD, SUM(PAY_AMT) AS CRED, 0 AS ETEC
+                  FROM SLE_SALS_OUTLET INFO
+                  		              --업장SUB추가
+               INNER JOIN (
+								      SELECT OUTLET_CD, POS_NUM, CODE_NAME FROM SLE_POS_SET POS
+								      INNER JOIN SCC_COMMON_CODE GRP ON GRP.GROUP_CODE = 'SLE_0111' AND GRP.CODE = POS.OUTLET_SUB_CD
+								     <#if outletSub?has_content>
+								      WHERE GRP.CODE = :outletSub   --01:다채움 02:마루 03:나무 
+								      </#if>
+								      ORDER BY  OUTLET_CD, POS_NUM
+								) POS ON POS.OUTLET_CD = INFO.OUTLET_CD AND POS.POS_NUM = INFO.POS_NUM
+               --업장SUB추가	
+                 WHERE RECEIPT_STATUS IN('Q','R')   --영수증 상태 Q:정상 R:반품(-)
+                   AND SALS_CLASS     = '0'		    --0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+                   AND MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+                   AND PAY_CD IN (SELECT CODE FROM SCC_COMMON_CODE  WHERE  GROUP_CODE ='SLE_0082' )  --후불지불수단목록
+ 			  <#if occurDateFr?has_content>
+ 			      AND SALES_DATE BETWEEN :occurDateFr AND :occurDateTo	--영업일자 기간을 입력받은다.
+			  </#if>
+			  <#if ccCd?has_content>     
+                   AND INFO.OUTLET_CD = :ccCd                   --업장
+              </#if>
+                 GROUP BY SALES_DATE, INFO.OUTLET_CD
+
+                UNION ALL
+
+                --기타
+                SELECT SALES_DATE, INFO.OUTLET_CD,
+                       0 AS CASH, 0 AS CARD, 0 AS CRED, SUM(PAY_AMT) AS ETEC
+                  FROM SLE_SALS_OUTLET INFO
+                  		              --업장SUB추가
+               INNER JOIN (
+								      SELECT OUTLET_CD, POS_NUM, CODE_NAME FROM SLE_POS_SET POS
+								      INNER JOIN SCC_COMMON_CODE GRP ON GRP.GROUP_CODE = 'SLE_0111' AND GRP.CODE = POS.OUTLET_SUB_CD
+								     <#if outletSub?has_content>
+								      WHERE GRP.CODE = :outletSub   --01:다채움 02:마루 03:나무 
+								      </#if>
+								      ORDER BY  OUTLET_CD, POS_NUM
+								) POS ON POS.OUTLET_CD = INFO.OUTLET_CD AND POS.POS_NUM = INFO.POS_NUM
+               --업장SUB추가	
+                 WHERE RECEIPT_STATUS IN('Q','R')   --영수증 상태 Q:정상 R:반품(-)
+                   AND SALS_CLASS     = '0'		  --0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+                   AND MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+                   AND PAY_CD NOT IN (SELECT CODE FROM SCC_COMMON_CODE  WHERE  GROUP_CODE ='SLE_0080'
+                                      UNION ALL
+                                      SELECT CODE FROM SCC_COMMON_CODE  WHERE  GROUP_CODE ='SLE_0081'
+                                      UNION ALL
+                                      SELECT CODE FROM SCC_COMMON_CODE  WHERE  GROUP_CODE ='SLE_0082'
+                                      )  --기타 지불은 모두 아닌것
+ 			  <#if occurDateFr?has_content>
+ 			      AND SALES_DATE BETWEEN :occurDateFr AND :occurDateTo	--영업일자 기간을 입력받은다.
+			  </#if>
+			  <#if ccCd?has_content>     
+                   AND INFO.OUTLET_CD = :ccCd                   --업장
+              </#if>
+                 GROUP BY SALES_DATE, INFO.OUTLET_CD
+              ) CASH_BB GROUP BY SALES_DATE, OUTLET_CD
+
+        ) C ON C.SALES_DATE = A.SALES_DATE AND C.OUTLET_CD = A.OUTLET_CD
+		INNER JOIN (SELECT OUTLET_CD, OUTLET_NM FROM  SLE_OUTLET_MST)  D ON D.OUTLET_CD = A.OUTLET_CD
+--2018.06.05 김명섭 외부POS 매출연동 적용
+UNION ALL
+SELECT T1.SALDATE,
+       T1.OUTLET_CD,
+       MAX(T2.OUTLET_NM),
+       COUNT(*),
+       NVL(SUM(DECODE(MENU_GB,'식료',T1.TOTAMT,0)),0),
+       NVL(SUM(DECODE(MENU_GB,'음료',T1.TOTAMT,0)),0),
+       NVL(SUM(CASE WHEN MENU_GB NOT IN ('식료','음료') THEN T1.TOTAMT ELSE 0 END),0),
+       0,
+       NVL(SUM(DECODE(MENU_GB,'식료',T1.DISCAMT,0)),0),
+       NVL(SUM(DECODE(MENU_GB,'음료',T1.DISCAMT,0)),0),
+       NVL(SUM(CASE WHEN MENU_GB NOT IN ('식료','음료') THEN T1.DISCAMT ELSE 0 END),0),
+       0,
+       SUM(T1.NETAMT),
+       0,
+       SUM(T1.VATAMT),
+       SUM(T1.TOTAMT - T1.DISCAMT),
+       SUM(CASHAMT),
+       SUM(CARDAMT),
+       0,
+       SUM(ETCAMT)
+  FROM IF_PNCWORLD_SALS_INFO T1,
+       SLE_OUTLET_MST T2
+ WHERE T1.OUTLET_CD = T2.OUTLET_CD(+)
+<#if occurDateFr?has_content>
+   AND T1.SALDATE BETWEEN :occurDateFr AND :occurDateTo
+</#if>
+<#if ccCd?has_content>
+   AND T1.OUTLET_CD = :ccCd                   --업장
+</#if>
+   AND EXISTS (SELECT 'x'
+                 FROM SCC_COMMON_CODE
+                WHERE GROUP_CODE = 'SLE_0111'
+			<#if outletSub?has_content>
+				  AND CODE = :outletSub 
+			</#if>
+                  AND CODE_NAME = T1.AREA_NM)
+GROUP BY T1.SALDATE, T1.OUTLET_CD]]></statement>
+
+	<!-- .(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.rc.sle.dao.IfFmbSaleInqDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+
+	<!-- .(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.rc.sle.dao.IfFmbSaleInqDAO.update */
+		<![CDATA[
+		UPDATE TABLE_NAME 
+		SET    COLUMN_NAME1 = :columnName1,
+		       COLUMN_NAME2 = :columnName2,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+	<!-- .(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.rc.sle.dao.IfFmbSaleInqDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>

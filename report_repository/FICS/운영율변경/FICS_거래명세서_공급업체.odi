@@ -1,0 +1,597 @@
+ODI    OZ Document File<?xml version="1.0" encoding="UTF-8"?>
+
+<OZDATAINFO>
+  <OZDATAMODULE NAME="" INCLUDE="" VERSION="1.0" PARAMETERFLAG="#" IGNORENULLDATA="true" SCRIPTBCE="false">
+    <OZPARAMETERSTORE NAME="paramstore">
+      <OZPARAMETERSET NAME="OZParam" INCLUDE="" MASTERSET="" HIDDEN="false" LOADSFIELDINFODYNAMICALLY="false" SDMTYPE="0" SIGN="false" HIDEDESIGNTIME="false">
+	<PARAMFIELD NAME="PARAM1" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="입고예정일F" VALUE="20070903" />
+	<PARAMFIELD NAME="PARAM2" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="입고예정일T" VALUE="20070910" />
+	<PARAMFIELD NAME="PARAM3" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="사업장(창고)코드" VALUE="S1000238" />
+	<PARAMFIELD NAME="PARAM4" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="주문번호" VALUE="" />
+	<PARAMFIELD NAME="PARAM5" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="업장" VALUE="106006" />
+	<PARAMFIELD NAME="PARAM6" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="사번" VALUE="199710608" />
+	<PARAMFIELD NAME="PARAM7" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="출력구분(일반/중고교/본사)" VALUE="공급일반" />
+	<PARAMFIELD NAME="PARAM8" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="입금계좌정보" VALUE="우리은행  000-00-000000  한화리조트(주)" />
+	<PARAMFIELD NAME="PARAM9" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="책정금액" VALUE="111111" />
+	<PARAMFIELD NAME="PARAM10" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="외상매출잔액" VALUE="222222" />
+	<PARAMFIELD NAME="PARAM11" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="매입금액" VALUE="333333" />
+	<PARAMFIELD NAME="PARAM12" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="가용여신" VALUE="777777" />
+	<PARAMFIELD NAME="PARAM13" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="출력구분(&apos;0&apos;:일반, &apos;1&apos;:고객용)" VALUE="0" />
+      </OZPARAMETERSET>
+    </OZPARAMETERSTORE>
+    <OZFILESTORE NAME="FILESTORE" INCLUDE="" />
+    <OZHTTPSTORE NAME="HTTPSTORE" INCLUDE="" />
+    <OZORACLE NAME="hldc" INCLUDE="" VENDOR="Oracle" SERVERNAME="" DBNAME="" DATASOURCENAME="" USERNAME="hldc" PASSWORD="" DBSERVERIP="" DBSERVERPORT="" ENCODECHARSET="KSC5601" DECODECHARSET="KSC5601" TIMEFORMAT="hh:mm:ss" DATEFORMAT="yyyy-MM-dd" TIMESTAMPFORMAT="yyyy-MM-dd hh:mm:ss:SSS" AUTOCOMMIT="true" POOLALIAS="oracle_hldc" ALIASFILENAME="C:\Program Files\FORCS\OZ Product\ReportDesigner\properties\db.properties" USEALIAS="true" USEIJAVA="false" SUBPROTOCOL="">
+      <OZQUERY NAME="HEADER" INCLUDE="" MASTERSET="" DBINFOID="hldc" SCRIPT="true" MAXROW="0" HIDDEN="false" LOADSFIELDINFODYNAMICALLY="false" SDMTYPE="0" SIGN="false" HIDEDESIGNTIME="false" INSERT_ROW_QUERY="" DELETE_ROW_QUERY="" UPDATE_ROW_QUERY="" PREPARED="false">!!string sql;
+
+if (#OZParam.PARAM7# == "일반P")
+{
+sql = "SELECT SUBSTR(A.NEED_DATE,1,4)||'년'||SUBSTR(A.NEED_DATE,5,2)||'월'||SUBSTR(A.NEED_DATE,7,2)||'일' AS TRANS_DATE"
+
+    + "     , TO_CHAR(A.RC_UPJANG)||' '||B.UPJANGNM AS UPJANGNM"
+    + "     , A.SUBINV_CODE||' '||D.SUBINV_NAME AS SUBINV_NAME"
+    + "     , F.CUSTNM"
+
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B2.UPJANGNM_DISP2, ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'8')) AS UPJANGNM_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', SUBSTR(B2.SAUPNO,1,3) || '-' || SUBSTR(B2.SAUPNO,4,2) || '-' || SUBSTR(B2.SAUPNO,6,5), ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'1')) AS SAUPNO_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B2.DRNAME, ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'5')) AS DRNAME_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B2.ADDR2,ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'7')) AS ADDR_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', 'http://203.233.82.50/hwfs/upload/fm/stamp/'||B2.STAMP_IMG, 'http://203.233.82.173/report/image/stamp_1.gif') AS STAMP_IMG"
+
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B1.UPJANGNM_DISP2||'/'||D2.SUBINV_NAME_DISP2, D.SUBINV_NAME) AS UPJANGNM_R"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', SUBSTR(B1.SAUPNO,1,3) || '-' || SUBSTR(B1.SAUPNO,4,2) || '-' || SUBSTR(B1.SAUPNO,6,5), SUBSTR(F.SAUPNO,1,3) || '-' || SUBSTR(F.SAUPNO,4,2) || '-' || SUBSTR(F.SAUPNO,6,5)) AS SAUPNO_R"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B1.DRNAME, F.DRNAME1) AS DRNAME_R"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B1.ADDR2, F.ADDR) AS ADDR_R"
+
+    + "     , A.ITEM_CODE, A.ITEM_NAME"
+    + "     , A.PO_UOM || '(' || A.ITEM_SIZE || ')' ITEM_SIZE"
+    + "     , E.KEEPING_TYPE"
+    + "     , A.TRANS_QTY"
+    + "     , A.SALE_PRICE"
+    + "     , DECODE(A.TAX_CODE,100, ROUND(A.SALE_PRICE * A.TRANS_QTY), 0) TAX_AMOUNT"
+    + "     , DECODE(A.TAX_CODE,100, 0, ROUND(A.SALE_PRICE * A.TRANS_QTY)) NOTAX_AMOUNT"
+    + "     , ROUND(A.SALE_PRICE * A.TRANS_QTY) AS SALE_AMOUNT"
+    + "     , ROUND(ROUND(A.SALE_PRICE * A.TRANS_QTY)*DECODE(A.TAX_CODE,100,0.1,0)) SALE_VAT"
+    + "     , ROUND(A.SALE_PRICE * A.TRANS_QTY)+ROUND(ROUND(A.SALE_PRICE * A.TRANS_QTY)*DECODE(A.TAX_CODE,100,0.1,0)) SALE_TOTAL"
+    + "     , A.NEED_DATE||' '||A.SUBINV_CODE AS KEY_FIELD"
+    + "     , NVL((SELECT Z.BLNUMBER FROM PO_ITEM_HIST Z"
+    + "             WHERE Z.CENTER_CODE = A.CENTER_CODE AND Z.CUSTCD = A.CUSTCD AND Z.ITEM_CODE = A.ITEM_CODE), ' ') AS BLNUMBER"
+    + "  FROM (SELECT A.NEED_DATE, A.RC_UPJANG, A.SUBINV_CODE, A.CUSTCD, A.CENTER_CODE"
+    + "             , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.PO_UOM, A.TAX_CODE"
+    + "             /*발주/배송중인 경우 배송량, 검수이상인 경우 최종 실입고량*/"
+    + "             , DECODE(SIGN(TO_NUMBER(A.LINE_STATUS) - 9), 1, (A.DELIVERED_QTY - A.RETURNED_QTY), (A.CENTER_DELI_QTY - A.DIRECT_DELI_QTY)) AS TRANS_QTY"
+    + "             , A.SALE_PRICE"
+    + "          FROM PO_PO A"
+    + "         WHERE A.NEED_DATE BETWEEN '" + #OZParam.PARAM1# + "' AND '" + #OZParam.PARAM2# + "'"
+    + "           AND A.SUBINV_CODE LIKE '" + #OZParam.PARAM3# + "%'"
+    + "           AND A.RC_UPJANG = '" + #OZParam.PARAM5# + "'"
+    + "           AND ((A.LINE_STATUS BETWEEN '008' AND '009') OR (A.LINE_STATUS &gt; '009' AND (A.DELIVERED_QTY - A.RETURNED_QTY) &gt; 0))"
+    + "         UNION ALL /*이상 실입고수량(반품제외), 이하 현지구매*/"
+    + "        SELECT A.TRANS_DATE AS NEED_DATE, A.TRANS_UPJANG AS RC_UPJANG, A.SUBINV_CODE, A.CUSTCD, A.CENTER_CODE"
+    + "             , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.TRANS_UOM AS PO_UOM, A.TAX_CODE"
+    + "             , A.TRANS_QTY"
+    + "             , A.SALE_PRICE"
+    + "          FROM PO_TRANSACTION A, PO_PO B"
+    + "             ,(SELECT CODE AS CUSTCD FROM PO_CODE WHERE GROUP_CODE = 'FMCUST') C"
+    + "         WHERE A.SOURCE_ID = B.PO_ID"
+    + "           AND A.CUSTCD = C.CUSTCD"
+    + "           /*혹시라도 발생할지 모를 현지구매용 매입업체로 실제 매입이 일어난 경우는 제외...*/"
+    + "           AND B.CUSTCD != C.CUSTCD"
+    + "           AND A.TRANS_DATE BETWEEN '" + #OZParam.PARAM1# + "' AND '" + #OZParam.PARAM2# + "'"
+    + "           AND A.SUBINV_CODE LIKE '" + #OZParam.PARAM3# + "%'"
+    + "           AND A.TRANS_UPJANG = '" + #OZParam.PARAM5# + "'"
+    + "           AND A.TRANS_TYPE = 'I001'"
+    + "           AND A.SOURCE_TYPE = 'PO'"
+    + "         UNION ALL /*이하 보정자재*/"
+    + "        SELECT A.TRANS_DATE AS NEED_DATE, A.TRANS_UPJANG AS RC_UPJANG, A.SUBINV_CODE, A.CUSTCD, A.CENTER_CODE"
+    + "             , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.TRANS_UOM AS PO_UOM, A.TAX_CODE"
+    + "             , A.TRANS_QTY"
+    + "             , A.SALE_PRICE"
+    + "          FROM PO_TRANSACTION A"
+    + "         WHERE A.TRANS_DATE BETWEEN '" + #OZParam.PARAM1# + "' AND '" + #OZParam.PARAM2# + "'"
+    + "           AND A.SUBINV_CODE LIKE '" + #OZParam.PARAM3# + "%'"
+    + "           AND A.TRANS_UPJANG = '" + #OZParam.PARAM5# + "'"
+    + "           AND A.TRANS_TYPE = 'I001'"
+    + "           AND A.SOURCE_TYPE = 'PO'"
+    + "           AND A.ITEM_CODE IN ('709999999996','709999999997')) A"
+    + "     , ST_UPJANG B, ST_UPJANG B0, HWFS_FMS_UPJANG B1, HWFS_FMS_UPJANG B2"
+    + "     , PO_SUBINVENTORY D, HWFS_FMS_SUBINVENTORY D2"
+    + "     , PO_ITEM_MST E"
+    + "     , ST_CUST F"
+    + " WHERE A.RC_UPJANG = B.UPJANG AND B.VAT_UPJANG = B0.UPJANG AND B.UPJANG = B1.UPJANG AND B1.MAIN_UPJANG = B2.UPJANG"
+    + "   AND A.SUBINV_CODE = D.SUBINV_CODE AND A.SUBINV_CODE = D2.SUBINV_CODE"
+    + "   AND A.ITEM_CODE = E.ITEM_CODE"
+    + "   AND B.CUSTCD = F.CUSTCD"
+    + " ORDER BY A.NEED_DATE, A.RC_UPJANG, A.SUBINV_CODE, A.ITEM_CODE, A.TRANS_QTY DESC";
+}
+else if (#OZParam.PARAM7# == "운영P")
+{
+sql = "SELECT SUBSTR(A.NEED_DATE,1,4)||'년'||SUBSTR(A.NEED_DATE,5,2)||'월'||SUBSTR(A.NEED_DATE,7,2)||'일' AS TRANS_DATE"
+
+    + "     , TO_CHAR(A.RC_UPJANG)||' '||B.UPJANGNM AS UPJANGNM"
+    + "     , A.SUBINV_CODE||' '||D.SUBINV_NAME AS SUBINV_NAME"
+    + "     , F.CUSTNM"
+
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B2.UPJANGNM_DISP2, ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'8')) AS UPJANGNM_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', SUBSTR(B2.SAUPNO,1,3) || '-' || SUBSTR(B2.SAUPNO,4,2) || '-' || SUBSTR(B2.SAUPNO,6,5), ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'1')) AS SAUPNO_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B2.DRNAME, ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'5')) AS DRNAME_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B2.ADDR2,ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'7')) AS ADDR_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', 'http://203.233.82.50/hwfs/upload/fm/stamp/'||B2.STAMP_IMG, 'http://203.233.82.173/report/image/stamp_1.gif') AS STAMP_IMG"
+
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B1.UPJANGNM_DISP2||'/'||D2.SUBINV_NAME_DISP2, D.SUBINV_NAME) AS UPJANGNM_R"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', SUBSTR(B1.SAUPNO,1,3) || '-' || SUBSTR(B1.SAUPNO,4,2) || '-' || SUBSTR(B1.SAUPNO,6,5), SUBSTR(F.SAUPNO,1,3) || '-' || SUBSTR(F.SAUPNO,4,2) || '-' || SUBSTR(F.SAUPNO,6,5)) AS SAUPNO_R"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B1.DRNAME, F.DRNAME1) AS DRNAME_R"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B1.ADDR2, F.ADDR) AS ADDR_R"
+
+    + "     , A.ITEM_CODE, A.ITEM_NAME"
+    + "     , A.PO_UOM || '(' || A.ITEM_SIZE || ')' ITEM_SIZE"
+    + "     , E.KEEPING_TYPE"
+    + "     , A.TRANS_QTY"
+    + "     , DECODE(NVL(H.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(H.OP_RATE,0) / 100),H.CEIL_VAL), H.OP_PRICE) AS SALE_PRICE"
+    + "	    , DECODE(A.TAX_CODE,100, ROUND(A.TRANS_QTY * DECODE(NVL(H.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(H.OP_RATE,0) / 100),H.CEIL_VAL), H.OP_PRICE) ) , 0) TAX_AMOUNT"
+    + "	    , DECODE(A.TAX_CODE,100, 0, ROUND(A.TRANS_QTY * DECODE(NVL(H.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(H.OP_RATE,0) / 100),H.CEIL_VAL), H.OP_PRICE) ) ) NOTAX_AMOUNT"
+    + "     , ROUND(A.TRANS_QTY * DECODE(NVL(H.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(H.OP_RATE,0) / 100),H.CEIL_VAL), H.OP_PRICE) ) AS SALE_AMOUNT"
+    + "     , ROUND(ROUND(A.TRANS_QTY * DECODE(NVL(H.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(H.OP_RATE,0) / 100),H.CEIL_VAL), H.OP_PRICE) ) * DECODE(A.TAX_CODE,100,0.1,0)) SALE_VAT"
+    + "     , ROUND(ROUND(A.TRANS_QTY * DECODE(NVL(H.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(H.OP_RATE,0) / 100),H.CEIL_VAL), H.OP_PRICE) ) * DECODE(A.TAX_CODE,100,1.1,1)) SALE_TOTAL"
+    + "     , A.NEED_DATE||' '||A.SUBINV_CODE AS KEY_FIELD"
+    + "     , NVL((SELECT Z.BLNUMBER FROM PO_ITEM_HIST Z"
+    + "        WHERE Z.CENTER_CODE = A.CENTER_CODE AND Z.CUSTCD = A.CUSTCD AND Z.ITEM_CODE = A.ITEM_CODE),' ') AS BLNUMBER"
+    + "  FROM (SELECT A.NEED_DATE, A.RC_UPJANG, A.SUBINV_CODE, A.CUSTCD, A.CENTER_CODE"
+    + "             , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.PO_UOM, A.TAX_CODE"
+    + "             /*발주/배송중인 경우 배송량, 검수이상인 경우 최종 실입고량*/"
+    + "             , DECODE(SIGN(TO_NUMBER(A.LINE_STATUS) - 9), 1, (A.DELIVERED_QTY - A.RETURNED_QTY), (A.CENTER_DELI_QTY - A.DIRECT_DELI_QTY)) AS TRANS_QTY"
+    + "             , A.SALE_PRICE"
+    + "             , SUBSTR(A.ITEM_CODE,1,8) AS ITEM_CLASS4"
+    + "          FROM PO_PO A"
+    + "         WHERE A.NEED_DATE BETWEEN '" + #OZParam.PARAM1# + "' AND '" + #OZParam.PARAM2# + "'"
+    + "           AND A.SUBINV_CODE LIKE '" + #OZParam.PARAM3# + "%'"
+    + "           AND A.RC_UPJANG = '" + #OZParam.PARAM5# + "'"
+    + "           AND ((A.LINE_STATUS BETWEEN '008' AND '009') OR (A.LINE_STATUS &gt; '009' AND (A.DELIVERED_QTY - A.RETURNED_QTY) &gt; 0))"
+    + "         UNION ALL /*이상 실입고수량(반품제외), 이하 현지구매*/"
+    + "        SELECT A.TRANS_DATE AS NEED_DATE, A.TRANS_UPJANG AS RC_UPJANG, A.SUBINV_CODE, A.CUSTCD, A.CENTER_CODE"
+    + "             , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.TRANS_UOM AS PO_UOM, A.TAX_CODE"
+    + "             , A.TRANS_QTY"
+    + "             , A.SALE_PRICE"
+    + "             , SUBSTR(A.ITEM_CODE,1,8) AS ITEM_CLASS4"
+    + "          FROM PO_TRANSACTION A, PO_PO B"
+    + "             ,(SELECT CODE AS CUSTCD FROM PO_CODE WHERE GROUP_CODE = 'FMCUST') C"
+    + "         WHERE A.SOURCE_ID = B.PO_ID"
+    + "           AND A.CUSTCD = C.CUSTCD"
+    + "           /*혹시라도 발생할지 모를 현지구매용 매입업체로 실제 매입이 일어난 경우는 제외...*/"
+    + "           AND B.CUSTCD != C.CUSTCD"
+    + "           AND A.TRANS_DATE BETWEEN '" + #OZParam.PARAM1# + "' AND '" + #OZParam.PARAM2# + "'"
+    + "           AND A.SUBINV_CODE LIKE '" + #OZParam.PARAM3# + "%'"
+    + "           AND A.TRANS_UPJANG = '" + #OZParam.PARAM5# + "'"
+    + "           AND A.TRANS_TYPE = 'I001'"
+    + "           AND A.SOURCE_TYPE = 'PO'"
+    + "         UNION ALL /*이하 보정자재*/"
+    + "        SELECT A.TRANS_DATE AS NEED_DATE, A.TRANS_UPJANG AS RC_UPJANG, A.SUBINV_CODE, A.CUSTCD, A.CENTER_CODE"
+    + "             , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.TRANS_UOM AS PO_UOM, A.TAX_CODE"
+    + "             , A.TRANS_QTY"
+    + "             , A.SALE_PRICE"
+    + "             , SUBSTR(A.ITEM_CODE,1,8) AS ITEM_CLASS4"
+    + "          FROM PO_TRANSACTION A"
+    + "         WHERE A.TRANS_DATE BETWEEN '" + #OZParam.PARAM1# + "' AND '" + #OZParam.PARAM2# + "'"
+    + "           AND A.SUBINV_CODE LIKE '" + #OZParam.PARAM3# + "%'"
+    + "           AND A.TRANS_UPJANG = '" + #OZParam.PARAM5# + "'"
+    + "           AND A.TRANS_TYPE = 'I001'"
+    + "           AND A.SOURCE_TYPE = 'PO'"
+    + "           AND A.ITEM_CODE IN ('709999999996','709999999997')) A"
+    + "     , ST_UPJANG B, ST_UPJANG B0, HWFS_FMS_UPJANG B1, HWFS_FMS_UPJANG B2"
+    + "     , PO_SUBINVENTORY D, HWFS_FMS_SUBINVENTORY D2"
+    + "     , PO_ITEM_MST E"
+    + "     , ST_CUST F"
+    + "     , HWFS_FMU_OP_RATE H"
+    + " WHERE A.RC_UPJANG = B.UPJANG AND B.VAT_UPJANG = B0.UPJANG AND B.UPJANG = B1.UPJANG AND B1.MAIN_UPJANG = B2.UPJANG"
+    + "   AND A.SUBINV_CODE = D.SUBINV_CODE AND A.SUBINV_CODE = D2.SUBINV_CODE"
+    + "   AND A.ITEM_CODE = E.ITEM_CODE"
+    + "   AND B.CUSTCD = F.CUSTCD"
+    + "   AND A.RC_UPJANG = H.UPJANG(+)"
+    + "   AND A.NEED_DATE BETWEEN H.SDATE(+) AND H.EDATE(+)"
+    + "   AND DECODE(FMS_OPRATEINFO_FUN(A.RC_UPJANG, A.NEED_DATE), 'C', A.ITEM_CLASS4, A.ITEM_CODE) = H.ITEM_CODE(+) "
+    + "   AND H.USE_YN(+) = 'Y'"
+    + " ORDER BY A.NEED_DATE, A.RC_UPJANG, A.SUBINV_CODE, A.ITEM_CODE, A.TRANS_QTY DESC";
+}
+else if (#OZParam.PARAM7# == "장려P")
+{
+sql = "SELECT SUBSTR(A.NEED_DATE,1,4)||'년'||SUBSTR(A.NEED_DATE,5,2)||'월'||SUBSTR(A.NEED_DATE,7,2)||'일' AS TRANS_DATE"
+
+    + "     , TO_CHAR(A.RC_UPJANG)||' '||B.UPJANGNM AS UPJANGNM"
+    + "     , A.SUBINV_CODE||' '||D.SUBINV_NAME AS SUBINV_NAME"
+    + "     , F.CUSTNM"
+
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B2.UPJANGNM_DISP2, ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'8')) AS UPJANGNM_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', SUBSTR(B2.SAUPNO,1,3) || '-' || SUBSTR(B2.SAUPNO,4,2) || '-' || SUBSTR(B2.SAUPNO,6,5), ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'1')) AS SAUPNO_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B2.DRNAME, ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'5')) AS DRNAME_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B2.ADDR2,ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'7')) AS ADDR_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', 'http://203.233.82.50/hwfs/upload/fm/stamp/'||B2.STAMP_IMG, 'http://203.233.82.173/report/image/stamp_1.gif') AS STAMP_IMG"
+
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B1.UPJANGNM_DISP2||'/'||D2.SUBINV_NAME_DISP2, D.SUBINV_NAME) AS UPJANGNM_R"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', SUBSTR(B1.SAUPNO,1,3) || '-' || SUBSTR(B1.SAUPNO,4,2) || '-' || SUBSTR(B1.SAUPNO,6,5), SUBSTR(F.SAUPNO,1,3) || '-' || SUBSTR(F.SAUPNO,4,2) || '-' || SUBSTR(F.SAUPNO,6,5)) AS SAUPNO_R"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B1.DRNAME, F.DRNAME1) AS DRNAME_R"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B1.ADDR2, F.ADDR) AS ADDR_R"
+
+    + "     , A.ITEM_CODE, A.ITEM_NAME"
+    + "     , A.PO_UOM || '(' || A.ITEM_SIZE || ')' ITEM_SIZE"
+    + "     , E.KEEPING_TYPE"
+    + "     , A.TRANS_QTY"
+    + "     , ROUND(A.SALE_PRICE / (1 + (DECODE(A.TAX_CODE, '100', NVL(D1.FM_SALE_RATE,0), NVL(D1.FM_NOSALE_RATE,0))/100))) AS SALE_PRICE"
+    + "     , ROUND(A.TRANS_QTY * ROUND(A.SALE_PRICE / (1 + (DECODE(A.TAX_CODE, '100', NVL(D1.FM_SALE_RATE,0), NVL(D1.FM_NOSALE_RATE,0))/100)))) * DECODE(A.TAX_CODE,100,1,0) TAX_AMOUNT"
+    + "     , ROUND(A.TRANS_QTY * ROUND(A.SALE_PRICE / (1 + (DECODE(A.TAX_CODE, '100', NVL(D1.FM_SALE_RATE,0), NVL(D1.FM_NOSALE_RATE,0))/100)))) * DECODE(A.TAX_CODE,100,0,1) NOTAX_AMOUNT"
+    + "     , ROUND(A.TRANS_QTY * ROUND(A.SALE_PRICE / (1 + (DECODE(A.TAX_CODE, '100', NVL(D1.FM_SALE_RATE,0), NVL(D1.FM_NOSALE_RATE,0))/100)))) SALE_AMOUNT"
+    + "     , ROUND(ROUND(A.TRANS_QTY * ROUND(A.SALE_PRICE / (1 + (DECODE(A.TAX_CODE, '100', NVL(D1.FM_SALE_RATE,0), NVL(D1.FM_NOSALE_RATE,0))/100)))) * DECODE(A.TAX_CODE,100,0.1,0)) SALE_VAT"
+    + "     , ROUND(ROUND(A.TRANS_QTY * ROUND(A.SALE_PRICE / (1 + (DECODE(A.TAX_CODE, '100', NVL(D1.FM_SALE_RATE,0), NVL(D1.FM_NOSALE_RATE,0))/100)))) * DECODE(A.TAX_CODE,100,1.1,1)) SALE_TOTAL"
+    + "     , A.NEED_DATE||' '||A.SUBINV_CODE AS KEY_FIELD"
+    + "     , NVL((SELECT Z.BLNUMBER FROM PO_ITEM_HIST Z"
+    + "        WHERE Z.CENTER_CODE = A.CENTER_CODE AND Z.CUSTCD = A.CUSTCD AND Z.ITEM_CODE = A.ITEM_CODE),' ') AS BLNUMBER"
+    + "  FROM (SELECT A.NEED_DATE, A.RC_UPJANG, A.SUBINV_CODE, A.CUSTCD, A.CENTER_CODE"
+    + "             , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.PO_UOM, A.TAX_CODE"
+    + "             /*발주/배송중인 경우 배송량, 검수이상인 경우 최종 실입고량*/"
+    + "             , DECODE(SIGN(TO_NUMBER(A.LINE_STATUS) - 9), 1, (A.DELIVERED_QTY - A.RETURNED_QTY), (A.CENTER_DELI_QTY - A.DIRECT_DELI_QTY)) AS TRANS_QTY"
+    + "             , A.SALE_PRICE"
+    + "          FROM PO_PO A"
+    + "         WHERE A.NEED_DATE BETWEEN '" + #OZParam.PARAM1# + "' AND '" + #OZParam.PARAM2# + "'"
+    + "           AND A.SUBINV_CODE LIKE '" + #OZParam.PARAM3# + "%'"
+    + "           AND A.RC_UPJANG = '" + #OZParam.PARAM5# + "'"
+    + "           AND ((A.LINE_STATUS BETWEEN '008' AND '009') OR (A.LINE_STATUS &gt; '009' AND (A.DELIVERED_QTY - A.RETURNED_QTY) &gt; 0))"
+    + "         UNION ALL /*이상 실입고수량(반품제외), 이하 현지구매*/"
+    + "        SELECT A.TRANS_DATE AS NEED_DATE, A.TRANS_UPJANG AS RC_UPJANG, A.SUBINV_CODE, A.CUSTCD, A.CENTER_CODE"
+    + "             , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.TRANS_UOM AS PO_UOM, A.TAX_CODE"
+    + "             , A.TRANS_QTY"
+    + "             , A.SALE_PRICE"
+    + "          FROM PO_TRANSACTION A, PO_PO B"
+    + "             ,(SELECT CODE AS CUSTCD FROM PO_CODE WHERE GROUP_CODE = 'FMCUST') C"
+    + "         WHERE A.SOURCE_ID = B.PO_ID"
+    + "           AND A.CUSTCD = C.CUSTCD"
+    + "           /*혹시라도 발생할지 모를 현지구매용 매입업체로 실제 매입이 일어난 경우는 제외...*/"
+    + "           AND B.CUSTCD != C.CUSTCD"
+    + "           AND A.TRANS_DATE BETWEEN '" + #OZParam.PARAM1# + "' AND '" + #OZParam.PARAM2# + "'"
+    + "           AND A.SUBINV_CODE LIKE '" + #OZParam.PARAM3# + "%'"
+    + "           AND A.TRANS_UPJANG = '" + #OZParam.PARAM5# + "'"
+    + "           AND A.TRANS_TYPE = 'I001'"
+    + "           AND A.SOURCE_TYPE = 'PO'"
+    + "         UNION ALL /*이하 보정자재*/"
+    + "        SELECT A.TRANS_DATE AS NEED_DATE, A.TRANS_UPJANG AS RC_UPJANG, A.SUBINV_CODE, A.CUSTCD, A.CENTER_CODE"
+    + "             , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.TRANS_UOM AS PO_UOM, A.TAX_CODE"
+    + "             , A.TRANS_QTY"
+    + "             , A.SALE_PRICE"
+    + "          FROM PO_TRANSACTION A"
+    + "         WHERE A.TRANS_DATE BETWEEN '" + #OZParam.PARAM1# + "' AND '" + #OZParam.PARAM2# + "'"
+    + "           AND A.SUBINV_CODE LIKE '" + #OZParam.PARAM3# + "%'"
+    + "           AND A.TRANS_UPJANG = '" + #OZParam.PARAM5# + "'"
+    + "           AND A.TRANS_TYPE = 'I001'"
+    + "           AND A.SOURCE_TYPE = 'PO'"
+    + "           AND A.ITEM_CODE IN ('709999999996','709999999997')) A"
+    + "     , ST_UPJANG B, ST_UPJANG B0, HWFS_FMS_UPJANG B1, HWFS_FMS_UPJANG B2"
+    + "     , PO_SUBINVENTORY D, FM_SALE_RATE D1, HWFS_FMS_SUBINVENTORY D2"
+    + "     , PO_ITEM_MST E"
+    + "     , ST_CUST F"
+    + " WHERE A.RC_UPJANG = B.UPJANG AND B.VAT_UPJANG = B0.UPJANG AND B.UPJANG = B1.UPJANG AND B1.MAIN_UPJANG = B2.UPJANG"
+    + "   AND A.SUBINV_CODE = D.SUBINV_CODE AND A.SUBINV_CODE = D2.SUBINV_CODE"
+    + "   AND A.SUBINV_CODE = D1.SUBINV_CODE(+)"
+    + "   AND SUBSTR(A.ITEM_CODE,1,6)||'00' = D1.ITEM_CLASS(+)"
+    + "   AND A.NEED_DATE BETWEEN D1.SDATE(+) AND D1.EDATE(+)"
+    + "   AND D1.USE_YN(+) = 'Y'"
+    + "   AND A.ITEM_CODE = E.ITEM_CODE"
+    + "   AND B.CUSTCD = F.CUSTCD"
+    + " ORDER BY A.NEED_DATE, A.RC_UPJANG, A.SUBINV_CODE, A.ITEM_CODE, A.TRANS_QTY DESC";
+}
+else if (#OZParam.PARAM7# == "일반M")
+{
+sql = "SELECT SUBSTR(A.NEED_DATE,1,4)||'년'||SUBSTR(A.NEED_DATE,5,2)||'월'||SUBSTR(A.NEED_DATE,7,2)||'일' AS TRANS_DATE"
+
+    + "     , TO_CHAR(A.RC_UPJANG)||' '||B.UPJANGNM AS UPJANGNM"
+    + "     , A.SUBINV_CODE||' '||D.SUBINV_NAME AS SUBINV_NAME"
+    + "     , F.CUSTNM"
+
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B2.UPJANGNM_DISP2, ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'8')) AS UPJANGNM_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', SUBSTR(B2.SAUPNO,1,3) || '-' || SUBSTR(B2.SAUPNO,4,2) || '-' || SUBSTR(B2.SAUPNO,6,5), ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'1')) AS SAUPNO_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B2.DRNAME, ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'5')) AS DRNAME_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B2.ADDR2,ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'7')) AS ADDR_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', 'http://203.233.82.50/hwfs/upload/fm/stamp/'||B2.STAMP_IMG, 'http://203.233.82.173/report/image/stamp_1.gif') AS STAMP_IMG"
+
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B1.UPJANGNM_DISP2||'/'||D2.SUBINV_NAME_DISP2, D.SUBINV_NAME) AS UPJANGNM_R"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', SUBSTR(B1.SAUPNO,1,3) || '-' || SUBSTR(B1.SAUPNO,4,2) || '-' || SUBSTR(B1.SAUPNO,6,5), SUBSTR(F.SAUPNO,1,3) || '-' || SUBSTR(F.SAUPNO,4,2) || '-' || SUBSTR(F.SAUPNO,6,5)) AS SAUPNO_R"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B1.DRNAME, F.DRNAME1) AS DRNAME_R"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B1.ADDR2, F.ADDR) AS ADDR_R"
+
+    + "     , A.ITEM_CODE, A.ITEM_NAME"
+    + "     , A.PO_UOM || '(' || A.ITEM_SIZE || ')' ITEM_SIZE"
+    + "     , E.KEEPING_TYPE"
+    + "     , A.TRANS_QTY"
+    + "     , A.SALE_PRICE"
+    + "     , DECODE(A.TAX_CODE,100, ROUND(A.SALE_PRICE * A.TRANS_QTY), 0) TAX_AMOUNT"
+    + "     , DECODE(A.TAX_CODE,100, 0, ROUND(A.SALE_PRICE * A.TRANS_QTY)) NOTAX_AMOUNT"
+    + "     , ROUND(A.SALE_PRICE * A.TRANS_QTY) AS SALE_AMOUNT"
+    + "     , ROUND(ROUND(A.SALE_PRICE * A.TRANS_QTY)*DECODE(A.TAX_CODE,100,0.1,0)) SALE_VAT"
+    + "     , ROUND(A.SALE_PRICE * A.TRANS_QTY)+ROUND(ROUND(A.SALE_PRICE * A.TRANS_QTY)*DECODE(A.TAX_CODE,100,0.1,0)) SALE_TOTAL"
+    + "     , A.NEED_DATE||' '||A.SUBINV_CODE AS KEY_FIELD"
+    + "     , NVL((SELECT Z.BLNUMBER FROM PO_ITEM_HIST Z"
+    + "        WHERE Z.CENTER_CODE = A.CENTER_CODE AND Z.CUSTCD = A.CUSTCD AND Z.ITEM_CODE = A.ITEM_CODE), ' ') AS BLNUMBER"
+    + "  FROM (SELECT A.*, (A.CENTER_DELI_QTY + A.DIRECT_DELI_QTY) AS TRANS_QTY"
+    + "          FROM PO_PO A"
+    + "         WHERE A.NEED_DATE BETWEEN '" + #OZParam.PARAM1# + "' AND '" + #OZParam.PARAM2# + "'"
+    + "           AND A.SUBINV_CODE LIKE '" + #OZParam.PARAM3# + "%'"
+    + "           AND A.RC_UPJANG = '" + #OZParam.PARAM5# + "'"
+    + "           AND A.LINE_STATUS &gt; '009'"
+    + "           AND A.DELIVERED_QTY + A.UNDELIVERED_QTY &gt; 0"
+    + "         UNION ALL /*이상 배송수량*/"
+    + "        SELECT A.*, -1 * A.UNDELIVERED_QTY AS TRANS_QTY"
+    + "          FROM PO_PO A"
+    + "         WHERE A.NEED_DATE BETWEEN '" + #OZParam.PARAM1# + "' AND '" + #OZParam.PARAM2# + "'"
+    + "           AND A.SUBINV_CODE LIKE '" + #OZParam.PARAM3# + "%'"
+    + "           AND A.RC_UPJANG = '" + #OZParam.PARAM5# + "'"
+    + "           AND A.LINE_STATUS &gt; '009'"
+    + "           AND A.UNDELIVERED_QTY &gt; 0"
+    + "         UNION ALL /*이상 감량수량, 이하 반품수량*/"
+    + "        SELECT A.*, -1 * A.RETURNED_QTY AS TRANS_QTY"
+    + "          FROM PO_PO A"
+    + "         WHERE A.NEED_DATE BETWEEN '" + #OZParam.PARAM1# + "' AND '" + #OZParam.PARAM2# + "'"
+    + "           AND A.SUBINV_CODE LIKE '" + #OZParam.PARAM3# + "%'"
+    + "           AND A.RC_UPJANG = '" + #OZParam.PARAM5# + "'"
+    + "           AND A.LINE_STATUS &gt; '009'"
+    + "           AND A.RETURNED_QTY &gt; 0) A"
+    + "     , ST_UPJANG B, ST_UPJANG B0, HWFS_FMS_UPJANG B1, HWFS_FMS_UPJANG B2"
+    + "     , PO_SUBINVENTORY D, HWFS_FMS_SUBINVENTORY D2"
+    + "     , PO_ITEM_MST E"
+    + "     , ST_CUST F"
+    + " WHERE A.RC_UPJANG = B.UPJANG AND B.VAT_UPJANG = B0.UPJANG AND B.UPJANG = B1.UPJANG AND B1.MAIN_UPJANG = B2.UPJANG"
+    + "   AND A.SUBINV_CODE = D.SUBINV_CODE AND A.SUBINV_CODE = D2.SUBINV_CODE"
+    + "   AND A.ITEM_CODE = E.ITEM_CODE"
+    + "   AND B.CUSTCD = F.CUSTCD"
+    + " ORDER BY A.NEED_DATE, A.RC_UPJANG, A.SUBINV_CODE, A.ITEM_CODE, A.TRANS_QTY DESC";
+}
+else if (#OZParam.PARAM7# == "운영M")
+{
+sql = "SELECT SUBSTR(A.NEED_DATE,1,4)||'년'||SUBSTR(A.NEED_DATE,5,2)||'월'||SUBSTR(A.NEED_DATE,7,2)||'일' AS TRANS_DATE"
+
+    + "     , TO_CHAR(A.RC_UPJANG)||' '||B.UPJANGNM AS UPJANGNM"
+    + "     , A.SUBINV_CODE||' '||D.SUBINV_NAME AS SUBINV_NAME"
+    + "     , F.CUSTNM"
+
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B2.UPJANGNM_DISP2, ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'8')) AS UPJANGNM_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', SUBSTR(B2.SAUPNO,1,3) || '-' || SUBSTR(B2.SAUPNO,4,2) || '-' || SUBSTR(B2.SAUPNO,6,5), ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'1')) AS SAUPNO_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B2.DRNAME, ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'5')) AS DRNAME_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B2.ADDR2,ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'7')) AS ADDR_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', 'http://203.233.82.50/hwfs/upload/fm/stamp/'||B2.STAMP_IMG, 'http://203.233.82.173/report/image/stamp_1.gif') AS STAMP_IMG"
+
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B1.UPJANGNM_DISP2||'/'||D2.SUBINV_NAME_DISP2, D.SUBINV_NAME) AS UPJANGNM_R"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', SUBSTR(B1.SAUPNO,1,3) || '-' || SUBSTR(B1.SAUPNO,4,2) || '-' || SUBSTR(B1.SAUPNO,6,5), SUBSTR(F.SAUPNO,1,3) || '-' || SUBSTR(F.SAUPNO,4,2) || '-' || SUBSTR(F.SAUPNO,6,5)) AS SAUPNO_R"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B1.DRNAME, F.DRNAME1) AS DRNAME_R"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B1.ADDR2, F.ADDR) AS ADDR_R"
+
+    + "     , A.ITEM_CODE, A.ITEM_NAME"
+    + "     , A.PO_UOM || '(' || A.ITEM_SIZE || ')' ITEM_SIZE"
+    + "     , E.KEEPING_TYPE"
+    + "     , A.TRANS_QTY"
+    + "     , DECODE(NVL(H.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(H.OP_RATE,0) / 100),H.CEIL_VAL), H.OP_PRICE) AS SALE_PRICE"
+    + "	    , DECODE(A.TAX_CODE,100, ROUND(A.TRANS_QTY * DECODE(NVL(H.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(H.OP_RATE,0) / 100),H.CEIL_VAL), H.OP_PRICE) ) , 0) TAX_AMOUNT"
+    + "	    , DECODE(A.TAX_CODE,100, 0, ROUND(A.TRANS_QTY * DECODE(NVL(H.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(H.OP_RATE,0) / 100),H.CEIL_VAL), H.OP_PRICE) ) ) NOTAX_AMOUNT"
+    + "     , ROUND(A.TRANS_QTY * DECODE(NVL(H.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(H.OP_RATE,0) / 100),H.CEIL_VAL), H.OP_PRICE) ) AS SALE_AMOUNT"
+    + "     , ROUND(ROUND(A.TRANS_QTY * DECODE(NVL(H.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(H.OP_RATE,0) / 100),H.CEIL_VAL), H.OP_PRICE) ) * DECODE(A.TAX_CODE,100,0.1,0)) SALE_VAT"
+    + "     , ROUND(ROUND(A.TRANS_QTY * DECODE(NVL(H.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(H.OP_RATE,0) / 100),H.CEIL_VAL), H.OP_PRICE) ) * DECODE(A.TAX_CODE,100,1.1,1)) SALE_TOTAL"
+    + "     , A.NEED_DATE||' '||A.SUBINV_CODE AS KEY_FIELD"
+    + "     , NVL((SELECT Z.BLNUMBER FROM PO_ITEM_HIST Z"
+    + "        WHERE Z.CENTER_CODE = A.CENTER_CODE AND Z.CUSTCD = A.CUSTCD AND Z.ITEM_CODE = A.ITEM_CODE),' ') AS BLNUMBER"
+    + "  FROM (SELECT A.*, (A.CENTER_DELI_QTY + A.DIRECT_DELI_QTY) AS TRANS_QTY"
+    + "             , SUBSTR(A.ITEM_CODE,1,8) AS ITEM_CLASS4"
+    + "          FROM PO_PO A"
+    + "         WHERE A.NEED_DATE BETWEEN '" + #OZParam.PARAM1# + "' AND '" + #OZParam.PARAM2# + "'"
+    + "           AND A.SUBINV_CODE LIKE '" + #OZParam.PARAM3# + "%'"
+    + "           AND A.RC_UPJANG = '" + #OZParam.PARAM5# + "'"
+    + "           AND A.LINE_STATUS &gt; '009'"
+    + "           AND A.DELIVERED_QTY + A.UNDELIVERED_QTY &gt; 0"
+    + "         UNION ALL /*이상 배송수량*/"
+    + "        SELECT A.*, -1 * A.UNDELIVERED_QTY AS TRANS_QTY"
+    + "             , SUBSTR(A.ITEM_CODE,1,8) AS ITEM_CLASS4"
+    + "          FROM PO_PO A"
+    + "         WHERE A.NEED_DATE BETWEEN '" + #OZParam.PARAM1# + "' AND '" + #OZParam.PARAM2# + "'"
+    + "           AND A.SUBINV_CODE LIKE '" + #OZParam.PARAM3# + "%'"
+    + "           AND A.RC_UPJANG = '" + #OZParam.PARAM5# + "'"
+    + "           AND A.LINE_STATUS &gt; '009'"
+    + "           AND A.UNDELIVERED_QTY &gt; 0"
+    + "         UNION ALL /*이상 감량수량, 이하 반품수량*/"
+    + "        SELECT A.*, -1 * A.RETURNED_QTY AS TRANS_QTY"
+    + "             , SUBSTR(A.ITEM_CODE,1,8) AS ITEM_CLASS4"
+    + "          FROM PO_PO A"
+    + "         WHERE A.NEED_DATE BETWEEN '" + #OZParam.PARAM1# + "' AND '" + #OZParam.PARAM2# + "'"
+    + "           AND A.SUBINV_CODE LIKE '" + #OZParam.PARAM3# + "%'"
+    + "           AND A.RC_UPJANG = '" + #OZParam.PARAM5# + "'"
+    + "           AND A.LINE_STATUS &gt; '009'"
+    + "           AND A.RETURNED_QTY &gt; 0) A"
+    + "     , ST_UPJANG B, ST_UPJANG B0, HWFS_FMS_UPJANG B1, HWFS_FMS_UPJANG B2"
+    + "     , PO_SUBINVENTORY D, HWFS_FMS_SUBINVENTORY D2"
+    + "     , PO_ITEM_MST E"
+    + "     , ST_CUST F"
+    + "     , HWFS_FMU_OP_RATE H"
+    + " WHERE A.RC_UPJANG = B.UPJANG AND B.VAT_UPJANG = B0.UPJANG AND B.UPJANG = B1.UPJANG AND B1.MAIN_UPJANG = B2.UPJANG"
+    + "   AND A.SUBINV_CODE = D.SUBINV_CODE AND A.SUBINV_CODE = D2.SUBINV_CODE"
+    + "   AND A.ITEM_CODE = E.ITEM_CODE"
+    + "   AND B.CUSTCD = F.CUSTCD"
+    + "   AND A.RC_UPJANG = H.UPJANG(+)"
+    + "   AND A.NEED_DATE BETWEEN H.SDATE(+) AND H.EDATE(+)"
+    + "   AND DECODE(FMS_OPRATEINFO_FUN(A.RC_UPJANG, A.NEED_DATE), 'C', A.ITEM_CLASS4, A.ITEM_CODE) = H.ITEM_CODE(+) "
+    + "   AND H.USE_YN(+) = 'Y'"
+    + " ORDER BY A.NEED_DATE, A.RC_UPJANG, A.SUBINV_CODE, A.ITEM_CODE, A.TRANS_QTY DESC";
+}
+else if (#OZParam.PARAM7# == "장려M")
+{
+sql = "SELECT SUBSTR(A.NEED_DATE,1,4)||'년'||SUBSTR(A.NEED_DATE,5,2)||'월'||SUBSTR(A.NEED_DATE,7,2)||'일' AS TRANS_DATE"
+
+    + "     , TO_CHAR(A.RC_UPJANG)||' '||B.UPJANGNM AS UPJANGNM"
+    + "     , A.SUBINV_CODE||' '||D.SUBINV_NAME AS SUBINV_NAME"
+    + "     , F.CUSTNM"
+
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B2.UPJANGNM_DISP2, ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'8')) AS UPJANGNM_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', SUBSTR(B2.SAUPNO,1,3) || '-' || SUBSTR(B2.SAUPNO,4,2) || '-' || SUBSTR(B2.SAUPNO,6,5), ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'1')) AS SAUPNO_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B2.DRNAME, ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'5')) AS DRNAME_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B2.ADDR2,ST_UPJANG_HIST_FUN(B0.UPJANG,A.NEED_DATE,'7')) AS ADDR_L"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', 'http://203.233.82.50/hwfs/upload/fm/stamp/'||B2.STAMP_IMG, 'http://203.233.82.173/report/image/stamp_1.gif') AS STAMP_IMG"
+
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B1.UPJANGNM_DISP2||'/'||D2.SUBINV_NAME_DISP2, D.SUBINV_NAME) AS UPJANGNM_R"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', SUBSTR(B1.SAUPNO,1,3) || '-' || SUBSTR(B1.SAUPNO,4,2) || '-' || SUBSTR(B1.SAUPNO,6,5), SUBSTR(F.SAUPNO,1,3) || '-' || SUBSTR(F.SAUPNO,4,2) || '-' || SUBSTR(F.SAUPNO,6,5)) AS SAUPNO_R"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B1.DRNAME, F.DRNAME1) AS DRNAME_R"
+    + "     , DECODE('" + #OZParam.PARAM13# + "', '1', B1.ADDR2, F.ADDR) AS ADDR_R"
+
+    + "     , A.ITEM_CODE, A.ITEM_NAME"
+    + "     , A.PO_UOM || '(' || A.ITEM_SIZE || ')' ITEM_SIZE"
+    + "     , E.KEEPING_TYPE"
+    + "     , A.TRANS_QTY"
+    + "     , ROUND(A.SALE_PRICE / (1 + (DECODE(A.TAX_CODE, '100', NVL(D1.FM_SALE_RATE,0), NVL(D1.FM_NOSALE_RATE,0))/100))) AS SALE_PRICE"
+    + "     , ROUND(A.TRANS_QTY * ROUND(A.SALE_PRICE / (1 + (DECODE(A.TAX_CODE, '100', NVL(D1.FM_SALE_RATE,0), NVL(D1.FM_NOSALE_RATE,0))/100)))) * DECODE(A.TAX_CODE,100,1,0) TAX_AMOUNT"
+    + "     , ROUND(A.TRANS_QTY * ROUND(A.SALE_PRICE / (1 + (DECODE(A.TAX_CODE, '100', NVL(D1.FM_SALE_RATE,0), NVL(D1.FM_NOSALE_RATE,0))/100)))) * DECODE(A.TAX_CODE,100,0,1) NOTAX_AMOUNT"
+    + "     , ROUND(A.TRANS_QTY * ROUND(A.SALE_PRICE / (1 + (DECODE(A.TAX_CODE, '100', NVL(D1.FM_SALE_RATE,0), NVL(D1.FM_NOSALE_RATE,0))/100)))) SALE_AMOUNT"
+    + "     , ROUND(ROUND(A.TRANS_QTY * ROUND(A.SALE_PRICE / (1 + (DECODE(A.TAX_CODE, '100', NVL(D1.FM_SALE_RATE,0), NVL(D1.FM_NOSALE_RATE,0))/100)))) * DECODE(A.TAX_CODE,100,0.1,0)) SALE_VAT"
+    + "     , ROUND(ROUND(A.TRANS_QTY * ROUND(A.SALE_PRICE / (1 + (DECODE(A.TAX_CODE, '100', NVL(D1.FM_SALE_RATE,0), NVL(D1.FM_NOSALE_RATE,0))/100)))) * DECODE(A.TAX_CODE,100,1.1,1)) SALE_TOTAL"
+    + "     , A.NEED_DATE||' '||A.SUBINV_CODE AS KEY_FIELD"
+    + "     , NVL((SELECT Z.BLNUMBER FROM PO_ITEM_HIST Z"
+    + "        WHERE Z.CENTER_CODE = A.CENTER_CODE AND Z.CUSTCD = A.CUSTCD AND Z.ITEM_CODE = A.ITEM_CODE),' ') AS BLNUMBER"
+    + "  FROM (SELECT A.*, (A.CENTER_DELI_QTY + A.DIRECT_DELI_QTY) AS TRANS_QTY"
+    + "         , ROUND((A.CENTER_DELI_QTY + A.DIRECT_DELI_QTY) * A.SALE_PRICE) AS SALE_AMOUNT"
+    + "          FROM PO_PO A"
+    + "         WHERE A.NEED_DATE BETWEEN '" + #OZParam.PARAM1# + "' AND '" + #OZParam.PARAM2# + "'"
+    + "           AND A.SUBINV_CODE LIKE '" + #OZParam.PARAM3# + "%'"
+    + "           AND A.RC_UPJANG = '" + #OZParam.PARAM5# + "'"
+    + "           AND A.LINE_STATUS &gt; '009'"
+    + "           AND A.DELIVERED_QTY + A.UNDELIVERED_QTY &gt; 0"
+    + "         UNION ALL /*이상 배송수량*/"
+    + "        SELECT A.*, -1 * A.UNDELIVERED_QTY AS TRANS_QTY"
+    + "         , ROUND(-1 * A.UNDELIVERED_QTY * A.SALE_PRICE) AS SALE_AMOUNT"
+    + "          FROM PO_PO A"
+    + "         WHERE A.NEED_DATE BETWEEN '" + #OZParam.PARAM1# + "' AND '" + #OZParam.PARAM2# + "'"
+    + "           AND A.SUBINV_CODE LIKE '" + #OZParam.PARAM3# + "%'"
+    + "           AND A.RC_UPJANG = '" + #OZParam.PARAM5# + "'"
+    + "           AND A.LINE_STATUS &gt; '009'"
+    + "           AND A.UNDELIVERED_QTY &gt; 0"
+    + "         UNION ALL /*이상 감량수량, 이하 반품수량*/"
+    + "        SELECT A.*, -1 * A.RETURNED_QTY AS TRANS_QTY"
+    + "         , ROUND(-1 * A.RETURNED_QTY * A.SALE_PRICE) AS SALE_AMOUNT"
+    + "          FROM PO_PO A"
+    + "         WHERE A.NEED_DATE BETWEEN '" + #OZParam.PARAM1# + "' AND '" + #OZParam.PARAM2# + "'"
+    + "           AND A.SUBINV_CODE LIKE '" + #OZParam.PARAM3# + "%'"
+    + "           AND A.RC_UPJANG = '" + #OZParam.PARAM5# + "'"
+    + "           AND A.LINE_STATUS &gt; '009'"
+    + "           AND A.RETURNED_QTY &gt; 0) A"
+    + "     , ST_UPJANG B, ST_UPJANG B0, HWFS_FMS_UPJANG B1, HWFS_FMS_UPJANG B2"
+    + "     , PO_SUBINVENTORY D, FM_SALE_RATE D1, HWFS_FMS_SUBINVENTORY D2"
+    + "     , PO_ITEM_MST E"
+    + "     , ST_CUST F"
+    + " WHERE A.RC_UPJANG = B.UPJANG AND B.VAT_UPJANG = B0.UPJANG AND B.UPJANG = B1.UPJANG AND B1.MAIN_UPJANG = B2.UPJANG"
+    + "   AND A.SUBINV_CODE = D.SUBINV_CODE AND A.SUBINV_CODE = D2.SUBINV_CODE"
+    + "   AND A.SUBINV_CODE = D1.SUBINV_CODE(+)"
+    + "   AND SUBSTR(A.ITEM_CODE,1,6)||'00' = D1.ITEM_CLASS(+)"
+    + "   AND A.NEED_DATE BETWEEN D1.SDATE(+) AND D1.EDATE(+)"
+    + "   AND D1.USE_YN(+) = 'Y'"
+    + "   AND A.ITEM_CODE = E.ITEM_CODE"
+    + "   AND B.CUSTCD = F.CUSTCD"
+    + " ORDER BY A.NEED_DATE, A.RC_UPJANG, A.SUBINV_CODE, A.ITEM_CODE, A.TRANS_QTY DESC";
+}
+else if (#OZParam.PARAM7# == "공급일반")
+{
+
+sql = "SELECT SUBSTR(A.NEED_DATE,1,4)||'년'||SUBSTR(A.NEED_DATE,5,2)||'월'||SUBSTR(A.NEED_DATE,7,2)||'일' AS TRANS_DATE"
+    + "     , B.OTCUSTNM
+    + "     , TO_CHAR(A.RC_UPJANG)||' '||B.UPJANGNM AS UPJANGNM"
+    + "     , A.SUBINV_CODE||' '||D.SUBINV_NAME AS SUBINV_NAME"
+    + "     , F.CUSTNM"
+    + "     , B.OTCUSTNM  AS UPJANGNM_L"
+    + "     , SUBSTR(B.SAUPNO,1,3) || '-' || SUBSTR(B.SAUPNO,4,2) || '-' || SUBSTR(B2.SAUPNO,6,5)  AS SAUPNO_L"
+    + "     , B.DRNAME AS DRNAME_L"
+    + "     , B.ADDR2 AS ADDR_L"
+    + "     , 'http://203.233.82.50/hwfs/upload/fm/stamp/'||B.STAMP_IMG AS STAMP_IMG"
+    + "     , D.SUBINV_NAME_DISP || '-' || C.UPJANGNM_DISP AS UPJANGNM_R"
+    + "     , SUBSTR(C.SAUPNO,1,3) || '-' || SUBSTR(C.SAUPNO,4,2) || '-' || SUBSTR(C.SAUPNO,6,5) AS SAUPNO_R"
+    + "     , C.DRNAME AS DRNAME_R"
+    + "     , C.ADDR2 AS ADDR_R"
+    + "     , A.ITEM_CODE, A.ITEM_NAME"
+    + "     , A.PO_UOM || '(' || A.ITEM_SIZE || ')' ITEM_SIZE"
+    + "     , A.PR_QTY AS TRANS_QTY"
+    + "     , NVL(A.OP_PRICE,0) AS SALE_PRICE"
+    + "     , ROUND(A.PR_QTY * A.OP_PRICE) * DECODE(A.TAX_CODE,100,1,0) TAX_AMOUNT"
+    + "     , ROUND(A.PR_QTY * A.OP_PRICE) * DECODE(A.TAX_CODE,100,0,1) NOTAX_AMOUNT"
+    + "     , ROUND(A.PR_QTY * ROUND(A.OP_PRICE)) SALE_AMOUNT"
+    + "     , ROUND(A.PR_QTY * ROUND(A.OP_PRICE) *  DECODE(A.TAX_CODE,100,0.1,0)) SALE_VAT"
+    + "     , ROUND(A.PR_QTY * ROUND(A.OP_PRICE) *  DECODE(A.TAX_CODE,100,1.1,1)) SALE_TOTAL"
+    + "     , A.NEED_DATE||' '||A.SUBINV_CODE AS KEY_FIELD"
+    + "     , '' AS BLNUMBER"
+    + "     FROM FMP_OTCUST_PR A, FMP_OTHER_CUST B, FMS_UPJANG C, FMS_SUBINVENTORY D "
+    + "   WHERE A.OTCUSTCD = B.OTCUSTCD " 
+    + "       AND A.UPJANG = C.UPJANG "
+    + "       AND A.SUBINV_CODE = D.SUBINV_CODE
+    + "       AND A.NEED_DATE BETWEEN '" + #OZParam.PARAM1# + "' AND '" + #OZParam.PARAM2# + "'"
+    + "       AND A.SUBINV_CODE LIKE '" + #OZParam.PARAM3# + "%'"
+    + "       AND A.UPJANG = '" + #OZParam.PARAM5# + "'"
+    + " ORDER BY A.NEED_DATE, A.UPJANG, A.SUBINV_CODE, A.ITEM_CODE, A.PR_QTY DESC";
+}
+setQueryString(sql);
+	<DATAFIELD NAME="TRANS_DATE" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="UPJANGNM" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="SUBINV_NAME" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="CUSTNM" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="UPJANGNM_L" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="SAUPNO_L" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="DRNAME_L" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="ADDR_L" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="STAMP_IMG" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="UPJANGNM_R" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="SAUPNO_R" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="DRNAME_R" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="ADDR_R" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="ITEM_CODE" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="ITEM_NAME" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="ITEM_SIZE" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="KEEPING_TYPE" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="TRANS_QTY" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="SALE_PRICE" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="TAX_AMOUNT" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="NOTAX_AMOUNT" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="SALE_AMOUNT" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="SALE_VAT" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="SALE_TOTAL" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="KEY_FIELD" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="BLNUMBER" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+      </OZQUERY>
+    </OZORACLE>
+    <OZSHADOWDATAGROUP NAME="GROUP_" INCLUDE="" SUBJECTSET="HEADER">
+      <OZSHADOWDATASET NAME="Shadow_M" INCLUDE="" DBINFOID="" CONSUMESUBJECTSETROW="false" MASTERSET="" MAXROW="0" HIDDEN="false" LOADSFIELDINFODYNAMICALLY="false" SDMTYPE="0" SIGN="false" HIDEDESIGNTIME="false">true
+	<DATAFIELD NAME="TRANS_DATE" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="UPJANGNM" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="SUBINV_NAME" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="CUSTNM" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="UPJANGNM_L" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="SAUPNO_L" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="DRNAME_L" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="ADDR_L" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="STAMP_IMG" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="UPJANGNM_R" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="SAUPNO_R" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="DRNAME_R" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="ADDR_R" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="KEY_FIELD" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+      </OZSHADOWDATASET>
+      <OZSHADOWDATASET NAME="Shadow_D" INCLUDE="" DBINFOID="" CONSUMESUBJECTSETROW="true" MASTERSET="Shadow_M" MAXROW="0" HIDDEN="false" LOADSFIELDINFODYNAMICALLY="false" SDMTYPE="0" SIGN="false" HIDEDESIGNTIME="false">#KEY_FIELD# == #Shadow_M.KEY_FIELD#
+	<DATAFIELD NAME="ITEM_CODE" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="ITEM_NAME" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="ITEM_SIZE" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="KEEPING_TYPE" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="TRANS_QTY" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="SALE_PRICE" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="TAX_AMOUNT" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="NOTAX_AMOUNT" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="SALE_AMOUNT" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="SALE_VAT" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="SALE_TOTAL" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="KEY_FIELD" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="BLNUMBER" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+      </OZSHADOWDATASET>
+    </OZSHADOWDATAGROUP>
+    <OZINCLUDESTORE NAME="includestore">
+      <OZINCLUDESET NAME="includeSet" INCLUDE="" />
+    </OZINCLUDESTORE>
+    <OZQUERYDESIGNERINFO>
+      <OZQUERYINFO STORENAME="hldc" SETNAME="HEADER">
+	<OZQUERYELEMENTINFO CLASSID="1006" MODE="FALSE" WHERESTRING="" HAVINGSTRING="" DELETEDTABLES="" />
+      </OZQUERYINFO>
+    </OZQUERYDESIGNERINFO>
+  </OZDATAMODULE>
+</OZDATAINFO>

@@ -1,0 +1,469 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="ei.isa.fsspOrderDAO">
+	<desc>특판상품 주문 HQML Query</desc>
+
+	<!-- 특판상품을 조회한다. -->
+	<statement name="selectGoodsList" type="select">
+		/*+ com.hwfs.ei.isa.dao.FsspOrderDAO.selectGoodsList */
+		<![CDATA[
+SELECT A.SID
+     , A.STITLE
+     , TO_CHAR(TO_DATE(A.START_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS START_DATE
+     , TO_CHAR(TO_DATE(A.END_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS END_DATE
+     , TO_CHAR(TO_DATE(A.SDATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS SDATE
+     , TO_CHAR(TO_DATE(A.STIME, 'HH24MI'), 'HH24:MI') AS STIME
+     , B.ITEM_CODE AS ITEM_CODE
+     , C.ITEM_NAME AS ITEM_NAME
+     , C.ITEM_SIZE AS ITEM_SIZE
+     , B.ITEM_NUM AS ITEM_NUM
+     , (SELECT CLASS_NAME FROM HLDC_PO_ITEM_CLASS WHERE CLASS_CODE = C.ITEM_CLASS3) AS ITEM_CLASS_NAME3
+     , (SELECT CLASS_NAME FROM HLDC_PO_ITEM_CLASS WHERE CLASS_CODE = C.ITEM_CLASS4) AS ITEM_CLASS_NAME4
+     , C.IMG_PATH AS IMG_PATH
+     , DECODE(C.TAX_CODE, '100', '과세', '210', '면세', '영세') AS TAX_CODE
+     , B.UNIT_PRICE
+     , B.SALE_PRICE
+     , C.MAX_ORD_QTY
+     , B.VD_SN
+     , D.VD_CD AS CUST_CD
+     , D.VD_NM AS CUST_NM
+     , CASE WHEN LENGTH(D.BIZ_REG_NO) = 10 THEN SUBSTR(D.BIZ_REG_NO, 1, 3) || '-' || SUBSTR(D.BIZ_REG_NO, 4, 2) || '-' || SUBSTR(D.BIZ_REG_NO, 6) ELSE '' END AS BIZ_REG_NO
+     , B.QTY_DC_STD AS QTY_DC_STD 
+     , B.QTY_DC_RATE AS QTY_DC_RATE 
+     , B.AMT_DC_STD AS AMT_DC_STD 
+     , B.AMT_DC_RATE AS AMT_DC_RATE 
+     , (B.STOCK_QTY - NVL((SELECT SUM(Z.PR_QTY) 
+                             FROM FSP_PO_SPECIAL_SALE Z
+                            WHERE Z.ITEM_CODE = B.ITEM_CODE
+                              AND Z.SEASON_NUM = A.SID
+                              AND Z.LINE_STATUS <> '취소'
+                              AND Z.SP_TYPE = 'ING'), 0)) AS STOCK_QTY 
+  FROM FSP_PO_SEASON_LIST A
+     , FSP_PO_SPECIAL_ITEM B
+     , HLDC_PO_ITEM_MST C
+     , VO_FC_VENDOR D
+ WHERE B.SEASON_NUM = A.SID
+   AND B.ITEM_CODE = C.ITEM_CODE
+   AND D.VD_SN = B.VD_SN
+   AND D.VD_CD NOT IN ('99001', '99002', '99003')
+   AND C.USE_YN = 'Y' 
+<#if sid?has_content>
+   AND A.SID = :sid
+</#if>
+<#if itemName?has_content>
+   AND (C.ITEM_CODE LIKE '%' || :itemName || '%' OR C.ITEM_NAME LIKE '%' || :itemName || '%')
+</#if>
+<#if itemClass3?has_content>
+   AND C.ITEM_CLASS3 = :itemClass3
+</#if>
+<#if itemClass4?has_content>
+   AND C.ITEM_CLASS4 = :itemClass4
+</#if>
+ORDER BY A.SID, B.ITEM_NUM, C.ITEM_CLASS3, C.ITEM_CLASS4, B.ITEM_CODE 
+		]]>
+	</statement>
+
+	<!-- 주문내역을 조회한다. -->
+	<statement name="selectGoodsOrderList" type="select">
+		/*+ com.hwfs.ei.isa.dao.FsspOrderDAO.selectGoodsOrderList */
+		<![CDATA[
+SELECT A.SP_ID AS SP_ID 
+     , A.SEASON_NUM AS SEASON_NUM 
+     , A.ITEM_CODE AS ITEM_CODE 
+     , C.ITEM_NAME AS ITEM_NAME 
+     , C.ITEM_SIZE AS ITEM_SIZE 
+     , DECODE(C.TAX_CODE, '100', '과세', '210', '면세', '영세') AS TAX_CODE 
+     , A.SALE_PRICE AS SALE_PRICE 
+     , A.PR_QTY AS PR_QTY 
+     , A.PR_QTY AS INIT_QTY
+     , A.PR_QTY AS BEFORE_PR_QTY 
+     , A.SALE_AMOUNT AS SALE_AMOUNT 
+     , A.DC_AMOUNT AS DC_AMOUNT 
+     , A.SALE_AMOUNT - A.DC_AMOUNT AS TOT_AMOUNT
+     , A.SALE_TYPE AS SALE_TYPE 
+     , C.IMG_PATH AS IMAGE_PATH 
+     , DECODE(A.CONTENT, 'Y', 'Y', 'N') AS CONTENT 
+     , A.LINE_STATUS AS LINE_STATUS 
+     , A.PR_SABUN AS PR_SABUN 
+     , A.RQ_SABUN AS RQ_SABUN
+     , E.RQ_NAME
+     , E.RQ_BU_CD
+     , E.RQ_MU_CD
+     , E.RQ_BRCH_CD
+     , E.RQ_CC_CD
+     , (SELECT CC_NM FROM SCC_CC WHERE CC_CD = E.RQ_CC_CD) AS RQ_CC_NM
+     , E.PR_BU_CD AS BU_CD
+     , SCC_CRYPTO.DEC_FUN(A.RQ_TEL_ENC) AS RQ_TEL
+     , A.SEND_NAME AS SEND_NAME 
+     , SCC_CRYPTO.DEC_FUN(A.SEND_TEL_ENC) AS SEND_TEL 
+     , SCC_CRYPTO.DEC_FUN(A.SEND_ADDR_ENC) AS SEND_ADDR 
+     , A.RECE_NAME AS RECE_NAME 
+     , SCC_CRYPTO.DEC_FUN(A.RECE_TEL_ENC) AS RECE_TEL 
+     , SCC_CRYPTO.DEC_FUN(A.RECE_HP_ENC) AS RECE_HP 
+     , SCC_CRYPTO.DEC_FUN(A.RECE_ADDR_ENC) AS RECE_ADDR 
+     , A.AR_SAUPNO AS AR_SAUPNO 
+     , SCC_CRYPTO.DEC_FUN(A.AR_ADDR_ENC) AS AR_ADDR 
+     , A.AR_NAME AS AR_NAME 
+     , SCC_CRYPTO.DEC_FUN(A.AR_TEL_ENC) AS AR_TEL 
+     , SCC_CRYPTO.DEC_FUN(A.AR_EMAIL_ENC) AS AR_EMAIL 
+     , A.PAY_METHOD AS PAY_METHOD 
+     , A.INST_PERIOD AS INST_PERIOD 
+     , A.CARD_CLASS AS CARD_CLASS 
+     , A.CARD_COMP AS CARD_COMP 
+     , REPLACE(SCC_CRYPTO.DEC_FUN(A.CARD_NUM_ENC), '-', '') AS CARD_NUM 
+     , A.VALID_THRU_MM AS VALID_THRU_MM 
+     , A.VALID_THRU_YY AS VALID_THRU_YY 
+     , D.DELI_TYPE AS DELI_TYPE 
+     , D.DELI_COMP AS DELI_COMP 
+     , D.INVOICE_NUM AS INVOICE_NUM 
+     , A.BILL_NO AS BILL_NO 
+     , C.MAX_ORD_QTY AS MAX_ORD_QTY 
+     , (B.STOCK_QTY - NVL( (SELECT SUM(Z.PR_QTY) 
+                              FROM FSP_PO_SPECIAL_SALE Z 
+                             WHERE Z.ITEM_CODE = B.ITEM_CODE 
+                               AND Z.SEASON_NUM = B.SEASON_NUM
+                               AND Z.LINE_STATUS <> '취소' 
+                               AND Z.SP_TYPE = 'ING'), 0) ) AS STOCK_QTY
+     , B.DELI_FREE_AMT AS DELI_FREE_AMT 
+     , B.QTY_DC_STD AS QTY_DC_STD 
+     , B.QTY_DC_RATE AS QTY_DC_RATE 
+     , B.AMT_DC_STD AS AMT_DC_STD 
+     , B.AMT_DC_RATE AS AMT_DC_RATE 
+     , B.OPER_ORG_SN AS OPER_ORG_SN 
+     , B.VD_SN AS VD_SN 
+     , B.CONTRACT_START AS CONTRACT_START
+     , B.ITEM_NUM
+     , E.CUST_YN
+     , E.APY_DC_STD
+     , E.APY_DC_RATE
+  FROM FSP_PO_SPECIAL_SALE A 
+     , FSP_PO_SPECIAL_ITEM B 
+     , HLDC_PO_ITEM_MST C 
+     , IF_FS_SP_SALE_DAILY D
+     , FSP_PO_SP_SALE_INFO E
+ WHERE A.ITEM_CODE = B.ITEM_CODE 
+   AND A.ITEM_CODE = C.ITEM_CODE 
+   AND A.SP_ID = D.SP_ID(+)
+   AND E.SP_ID = A.SP_ID
+   AND A.BU_CD IN ('1000', '3000')
+   AND A.SP_DATE = :spDate
+   AND A.PR_SABUN = :prSabun 
+   AND A.LINE_STATUS <> '취소' 
+   AND A.SEASON_NUM = :seasonNum
+   AND B.SEASON_NUM = :seasonNum
+ ORDER BY A.SP_ID
+		]]>
+	</statement>
+
+	<!-- 주문내역을 저장한다. -->
+	<statement name="insertOrder" type="insert">
+		/*+ [ISA0105] com.hwfs.ei.isa.dao.FsspOrderDAO.insertOrder */
+		<![CDATA[
+INSERT INTO FSP_PO_SPECIAL_SALE ( 
+   SP_ID 
+ , SEASON_NUM 
+ , SP_TYPE 
+ , SP_DATE 
+ , ITEM_CODE 
+ , SALE_PRICE 
+ , PR_QTY
+ , SALE_AMOUNT 
+ , DC_AMOUNT 
+ , SALE_TYPE 
+ , LINE_STATUS 
+ , PR_SABUN 
+ , RQ_SABUN 
+ , BU_CD
+ , RQ_TEL_ENC 
+ , UPJANG 
+ , SEND_NAME 
+ , SEND_TEL_ENC 
+ , SEND_ADDR_ENC 
+ , RECE_NAME 
+ , RECE_TEL_ENC 
+ , RECE_HP_ENC 
+ , RECE_ADDR_ENC 
+ , AR_SAUPNO 
+ , AR_ADDR_ENC 
+ , AR_NAME 
+ , AR_TEL_ENC 
+ , AR_EMAIL_ENC 
+ , PAY_METHOD 
+ , INST_PERIOD 
+ , CARD_CLASS 
+ , CARD_COMP 
+ , CARD_NUM_ENC 
+ , VALID_THRU_YY 
+ , VALID_THRU_MM 
+ , CONTENT 
+ , OPER_ORG_SN 
+ , VD_SN 
+ , CONTRACT_START 
+ , CREATE_DATE 
+ , CREATE_BY 
+ , UPDATE_DATE 
+ , UPDATE_BY 
+) (
+SELECT :spId AS SP_ID
+     , :seasonNum AS SEASON_NUM 
+<#if spType?has_content> , :spType AS SP_TYPE <#else> , NULL </#if>
+<#if spDate?has_content> , :spDate AS SP_DATE <#else> , NULL </#if>
+     , A.ITEM_CODE 
+<#if salePrice?has_content> , :salePrice AS SALE_PRICE <#else> , NULL </#if>
+<#if prQty?has_content> , :prQty AS PR_QTY <#else> , NULL </#if>
+<#if saleAmount?has_content> , :saleAmount AS SALE_AMOUNT <#else> , NULL </#if>
+<#if dcAmount?has_content> , :dcAmount AS DC_AMOUNT <#else> , NULL </#if>
+<#if saleType?has_content> , :saleType AS SALE_TYPE <#else> , NULL </#if>
+<#if lineStatus?has_content> , :lineStatus AS LINE_STATUS <#else> , NULL </#if>
+     , :prSabun AS PR_SABUN
+<#if rqSabun?has_content> , :rqSabun AS RQ_SABUN <#else> , NULL </#if>
+<#if buCd?has_content> , :buCd <#else> , NULL </#if>
+<#if rqTel?has_content> , SCC_CRYPTO.ENC_FUN(:rqTel) AS RQ_TEL_ENC <#else> , NULL </#if> 
+     , NULL AS UPJANG 
+<#if sendName?has_content> , :sendName AS SEND_NAME <#else> , NULL </#if> 
+<#if sendTel?has_content> , SCC_CRYPTO.ENC_FUN(:sendTel) AS SEND_TEL_ENC <#else> , NULL </#if>
+<#if sendAddr?has_content> , SCC_CRYPTO.ENC_FUN(:sendAddr) AS SEND_ADDR_ENC <#else> , NULL </#if>
+<#if receName?has_content> , :receName AS RECE_NAME <#else> , NULL </#if>
+<#if receTel?has_content> , SCC_CRYPTO.ENC_FUN(:receTel) AS RECE_TEL_ENC <#else> , NULL </#if>
+<#if receHp?has_content> , SCC_CRYPTO.ENC_FUN(:receHp) AS RECE_HP_ENC <#else> , NULL </#if>
+<#if receAddr?has_content> , SCC_CRYPTO.ENC_FUN(:receAddr) AS RECE_ADDR_ENC <#else> , NULL </#if>
+<#if arSaupno?has_content> , REPLACE(:arSaupno, '-', '') AS AR_SAUPNO <#else> , NULL </#if>
+<#if arAddr?has_content> , SCC_CRYPTO.ENC_FUN(:arAddr) AS AR_ADDR_ENC <#else> , NULL </#if>
+<#if arName?has_content> , :arName AS AR_NAME <#else> , NULL </#if>
+<#if arTel?has_content> , SCC_CRYPTO.ENC_FUN(:arTel) AS AR_TEL_ENC <#else> , NULL </#if>
+<#if arEmail?has_content> , SCC_CRYPTO.ENC_FUN(:arEmail) AS AR_EMAIL_ENC <#else> , NULL </#if>
+<#if payMethod?has_content> , :payMethod AS PAY_METHOD <#else> , NULL </#if>
+<#if payMethod?has_content>
+  <#if payMethod == "2">
+    <#if instPeriod?has_content> , TRIM(TO_CHAR(TO_NUMBER(:instPeriod), '00')) <#else> , '00' </#if>
+    <#if cardClass?has_content> , :cardClass AS CLASS_CLASS <#else> , NULL </#if>
+    <#if cardComp?has_content> , :cardComp AS CARD_COMP <#else> , NULL </#if>
+    <#if cardNum?has_content> , SCC_CRYPTO.ENC_FUN(REPLACE(:cardNum, '-', '')) AS CARD_NUM_ENC <#else> , NULL </#if>
+    <#if validThruYy?has_content> , TRIM(TO_CHAR(TO_NUMBER(:validThruYy), '00')) <#else> , NULL </#if>
+    <#if validThruMm?has_content> , TRIM(TO_CHAR(TO_NUMBER(:validThruMm), '00')) <#else> , NULL </#if>
+  <#else>
+     , NULL
+     , NULL
+     , NULL
+     , NULL
+     , NULL
+     , NULL
+  </#if>
+</#if>
+<#if content?has_content> , DECODE(:content,'Y','Y','N') AS CONTENT <#else> , 'N' </#if>
+<#if operOrgSn?has_content> , :operOrgSn AS OPER_ORG_SN <#else> , NULL </#if>
+<#if vdSn?has_content> , :vdSn AS VD_SN <#else> , NULL </#if>
+<#if contractStart?has_content> , :contractStart AS CONTRACT_START <#else> , NULL </#if>
+     , SYSDATE AS CREATE_DATE 
+     , :prSabun AS CREATE_BY 
+     , SYSDATE AS UPDATE_DATE 
+     , :prSabun AS UPDATE_BY 
+  FROM FSP_PO_SPECIAL_ITEM A 
+     , HLDC_PO_ITEM_MST B 
+ WHERE A.ITEM_CODE = B.ITEM_CODE 
+   AND A.ITEM_CODE = :itemCode 
+   AND B.USE_YN = 'Y' 
+   AND A.SEASON_NUM = :seasonNum
+)
+   		]]>
+	</statement>
+
+	<!-- 주문내역을 변경한다.. -->
+	<statement name="updateOrder" type="update">
+		/*+ [ISA0105] com.hwfs.ei.isa.dao.FsspOrderDAO.updateOrder */
+		<![CDATA[
+UPDATE FSP_PO_SPECIAL_SALE
+   SET UPDATE_BY = :prSabun
+     , UPDATE_DATE = SYSDATE
+<#if prQty?has_content>
+     , PR_QTY = :prQty
+</#if>
+<#if salePrice?has_content> 
+     , SALE_PRICE = :salePrice
+</#if>
+<#if saleAmount?has_content> 
+     , SALE_AMOUNT = :saleAmount
+</#if>
+<#if dcAmount?has_content> 
+     , DC_AMOUNT = :dcAmount
+</#if>
+<#if content?has_content> 
+     , CONTENT = DECODE(:content,'Y','Y','N')
+</#if>
+<#if saleType?has_content> 
+     , SALE_TYPE = :saleType
+</#if>
+<#if rqSabun?has_content> 
+     , RQ_SABUN = :rqSabun
+</#if>
+<#if buCd?has_content> 
+     , BU_CD = :buCd
+</#if>
+<#if rqTel?has_content> 
+     , RQ_TEL_ENC = SCC_CRYPTO.ENC_FUN(:rqTel)
+</#if>
+<#if sendName?has_content> 
+     , SEND_NAME = :sendName
+</#if>
+<#if sendTel?has_content> 
+     , SEND_TEL_ENC = SCC_CRYPTO.ENC_FUN(:sendTel)
+</#if>
+<#if sendAddr?has_content> 
+     , SEND_ADDR_ENC = SCC_CRYPTO.ENC_FUN(:sendAddr)
+</#if>
+<#if receName?has_content> 
+     , RECE_NAME = :receName
+</#if>
+<#if receTel?has_content> 
+     , RECE_TEL_ENC = SCC_CRYPTO.ENC_FUN(:receTel)
+</#if>
+<#if receHp?has_content> 
+     , RECE_HP_ENC = SCC_CRYPTO.ENC_FUN(:receHp) 
+</#if>
+<#if receAddr?has_content> 
+     , RECE_ADDR_ENC = SCC_CRYPTO.ENC_FUN(:receAddr)
+</#if>
+     , AR_SAUPNO = <#if arSaupno?has_content> REPLACE(:arSaupno, '-', '') <#else> NULL </#if>
+     , AR_ADDR_ENC = <#if arAddr?has_content> SCC_CRYPTO.ENC_FUN(:arAddr) <#else> NULL </#if>
+     , AR_NAME = <#if arName?has_content> :arName <#else> NULL </#if>
+     , AR_TEL_ENC = <#if arTel?has_content> SCC_CRYPTO.ENC_FUN(:arTel) <#else> NULL </#if>
+     , AR_EMAIL_ENC = <#if arEmail?has_content> SCC_CRYPTO.ENC_FUN(:arEmail) <#else> NULL </#if>
+<#if payMethod?has_content>
+     , PAY_METHOD = :payMethod
+  <#if payMethod == "2">
+     , INST_PERIOD = <#if instPeriod?has_content> TRIM(TO_CHAR(TO_NUMBER(:instPeriod), '00')) <#else> '00' </#if>
+     , CARD_CLASS = <#if cardClass?has_content> :cardClass <#else> NULL </#if>
+     , CARD_COMP = <#if cardComp?has_content> :cardComp <#else> NULL </#if>
+     , CARD_NUM_ENC = <#if cardNum?has_content> SCC_CRYPTO.ENC_FUN(REPLACE(:cardNum, '-', '')) <#else> NULL </#if>
+     , VALID_THRU_YY = <#if validThruYy?has_content> CASE WHEN TO_NUMBER(:validThruYy) < 10 THEN '0' || :validThruYy ELSE :validThruYy END <#else> NULL </#if>
+     , VALID_THRU_MM = <#if validThruMm?has_content> CASE WHEN TO_NUMBER(:validThruMm) < 10 THEN '0' || :validThruMm ELSE :validThruMm END <#else> NULL </#if>
+  <#else>
+     , INST_PERIOD = NULL
+     , CARD_CLASS = NULL
+     , CARD_COMP = NULL
+     , CARD_NUM_ENC = NULL
+     , VALID_THRU_YY = NULL
+     , VALID_THRU_MM = NULL
+  </#if>
+</#if>
+<#if lineStatus?has_content>
+     , LINE_STATUS = :lineStatus
+</#if>
+<#if operOrgSn?has_content> 
+     , OPER_ORG_SN = :operOrgSn
+</#if>
+<#if vdSn?has_content> 
+     , VD_SN = :vdSn 
+</#if>
+<#if contractStart?has_content> 
+     , CONTRACT_START = :contractStart
+</#if>
+ WHERE SP_ID = :spId
+   AND LINE_STATUS = '주문'
+		]]>
+	</statement>
+
+	<!-- 주문/신청자에 대한 정보를 생성한다. -->
+	<statement name="insertOrderInfo" type="insert">
+		/*+ com.hwfs.ei.isa.dao.FsspOrderDAO.insertOrderInfo */
+		<![CDATA[
+INSERT INTO FSP_PO_SP_SALE_INFO (
+    SP_ID
+  , PR_SABUN
+  , PR_NAME
+  , PR_BU_CD
+  , PR_MU_CD
+  , PR_BRCH_CD
+  , PR_CC_CD
+  , RQ_SABUN
+  , RQ_NAME
+  , RQ_BU_CD
+  , RQ_MU_CD
+  , RQ_BRCH_CD
+  , RQ_CC_CD
+  , CUST_YN
+  , APY_DC_STD
+  , APY_DC_RATE
+  , CREATE_DATE
+  , CREATE_BY
+  , UPDATE_DATE
+  , UPDATE_BY
+) VALUES (
+    :spId
+  , :prSabun
+  , :prName
+  , :prBuCd
+  , :prMuCd
+  , :prBrchCd
+  , :prCcCd
+  , :rqSabun
+  , :rqName
+  , :rqBuCd
+  , :rqMuCd
+  , :rqBrchCd
+  , :rqCcCd
+  , :custYn
+  , <#if apyDcStd?has_content> :apyDcStd <#else> NULL </#if>
+  , <#if apyDcRate?has_content> :apyDcRate <#else> NULL </#if>
+  , SYSDATE
+  , :prSabun
+  , SYSDATE
+  , :prSabun
+)
+		]]>
+	</statement>
+
+	<!-- 주문/신청자에 대한 정보를 수정한다. -->
+	<statement name="updateOrderInfo" type="update">
+		/*+ com.hwfs.ei.isa.dao.FsspOrderDAO.updateOrderInfo */
+		<![CDATA[
+UPDATE FSP_PO_SP_SALE_INFO
+   SET PR_SABUN = :prSabun
+     , PR_NAME = :prName
+     , PR_BU_CD = :prBuCd
+     , PR_MU_CD = :prMuCd
+     , PR_BRCH_CD = :prBrchCd
+     , PR_CC_CD = :prCcCd
+     , RQ_SABUN = :rqSabun
+     , RQ_NAME = :rqName
+     , RQ_BU_CD = :rqBuCd
+     , RQ_MU_CD = :rqMuCd
+     , RQ_BRCH_CD = :rqBrchCd
+     , RQ_CC_CD = :rqCcCd
+     , CUST_YN = :custYn
+<#if apyDcStd?has_content>
+     , APY_DC_STD = :apyDcStd
+</#if>
+<#if apyDcRate?has_content>
+     , APY_DC_RATE = :apyDcRate
+</#if>
+     , UPDATE_DATE = SYSDATE
+     , UPDATE_BY = :prSabun
+ WHERE SP_ID = :spId
+		]]>
+	</statement>
+
+	<!-- 마감일자 및 재고수량을 검증한다. -->
+	<statement name="selectValidation" type="select">
+		/*+ com.hwfs.ei.isa.dao.FsspOrderDAO.selectValidation */
+		<![CDATA[
+SELECT CASE WHEN TO_DATE(A.SDATE||A.STIME, 'YYYYMMDDHH24MI') < TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI'), 'YYYYMMDDHH24MI') THEN 'Y' ELSE 'N' END AS LAST_YN
+     , CASE WHEN TO_DATE(A.STIME, 'HH24MI') < TO_DATE(TO_CHAR(SYSDATE, 'HH24MI'), 'HH24MI') THEN 'Y' ELSE 'N' END AS LAST_TIME_YN
+<#if ordQty?has_content>     
+     , CASE WHEN (B.STOCK_QTY - NVL((SELECT SUM(Z.PR_QTY) 
+                                       FROM FSP_PO_SPECIAL_SALE Z
+                                      WHERE Z.ITEM_CODE = B.ITEM_CODE
+                                        AND Z.SEASON_NUM = A.SID
+                                        AND Z.LINE_STATUS <> '취소'
+                                        AND Z.SP_TYPE = 'ING'), 0)) < TO_NUMBER(:ordQty) THEN 'Y' ELSE 'N' END AS STOCK_YN
+<#else>
+     , 'Y' AS STOCK_QTY
+</#if>
+  FROM FSP_PO_SEASON_LIST A
+     , FSP_PO_SPECIAL_ITEM B
+ WHERE B.SEASON_NUM = A.SID
+   AND B.ITEM_CODE = :itemCode
+   AND A.SID = :seasonNum
+		]]>
+	</statement>
+
+</hqml>

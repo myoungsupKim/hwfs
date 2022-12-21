@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 'A' ORDERSEQ,  
+       #TRID# ORGID,
+       '수입금대체' GUBUN,
+       #TRID#   TRID,
+       A.RMT_DATE TRDATE,
+       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE (GROUP_CODE = 'MA0116') AND (CODE = A.RMT_GUBUN)) TYPE_NAME,
+       SC_CRYPTO_FUN('DEC', A.RMT_ACNTCD_ENC, '3') SUBINV_NAME,
+       '' CUSTNM,
+       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE (GROUP_CODE = 'MA0116') AND (CODE = A.RMT_GUBUN)) TRDESC,
+       (SELECT NVL(AMT, 0) FROM MAS_RCP WHERE RCP_ID = #TRID#) TOT_AMT,
+       NVL(B.AMT, 0) LINE_AMT,
+       (SELECT NVL(SUM(AMT), 0) FROM MAS_RMT_LINE WHERE RCP_ID = #TRID#) ALT_AMT,
+       ((SELECT NVL(AMT, 0) FROM MAS_RCP WHERE RCP_ID = #TRID#) - (SELECT NVL(SUM(AMT), 0) FROM MAS_RMT_LINE WHERE RCP_ID = #TRID#)) JANAMT
+  FROM MAS_RMT A,
+       MAS_RMT_LINE B
+WHERE (A.RMT_ID  = B.RMT_ID)
+AND   (B.RCP_ID  = #TRID#)
+ORDER BY A.RMT_DATE,
+         A.RMT_ID
+</statement>
+	<input default-name="ds_cond">
+		<col name="TRID" size="" type="NUMERIC" description="" /> 
+	</input>
+	<output default-name="ds_list">
+<col name="ORDERSEQ" size="255" type="VARCHAR" description="" />
+<col name="ORGID" size="" type="NUMERIC" description="" />
+<col name="GUBUN" size="255" type="VARCHAR" description="" />			
+<col name="TRID" size="" type="NUMERIC" description="" />
+<col name="TRDATE" size="255" type="VARCHAR" description="" />
+<col name="TYPE_NAME" size="255" type="VARCHAR" description="" />
+<col name="SUBINV_NAME" size="255" type="VARCHAR" description="" />
+<col name="CUSTNM" size="255" type="VARCHAR" description="" />
+<col name="TRDESC" size="255" type="VARCHAR" description="" />
+<col name="TOT_AMT" size="" type="NUMERIC" description="" />
+<col name="LINE_AMT" size="" type="NUMERIC" description="" />
+<col name="ALT_AMT" size="" type="NUMERIC" description="" />
+<col name="JANAMT" size="" type="NUMERIC" description="" />
+</output>
+</query>

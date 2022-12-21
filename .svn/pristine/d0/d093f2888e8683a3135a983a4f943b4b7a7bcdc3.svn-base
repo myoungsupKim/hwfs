@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[주재료군]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT MAIN_ITEM_CODE1 AS CD
+       , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0006' AND CODE = A.MAIN_ITEM_CODE1) NM
+       , COUNT(*) CNT
+<isNotEqual col="DT_GB" value="ALL">
+       , FMM_MENU_EVAL_NAME_FUN(#UPJANG#,#SUBINV_CODE#,#MENU_DATE#,#MENU_DATE#,'AND B.MAIN_ITEM_CODE1= ''' || MAIN_ITEM_CODE1 || '''') INFO
+</isNotEqual>
+<isEqual col="DT_GB" value="ALL">
+       , FMM_MENU_EVAL_NAME_FUN(#UPJANG#,#SUBINV_CODE#,#MENU_FDATE#,#MENU_TDATE#,'AND B.MAIN_ITEM_CODE1= ''' || MAIN_ITEM_CODE1 || '''') INFO
+</isEqual>
+  FROM FMM_RECIPE A
+ WHERE UPJANG = #UPJANG#
+   AND MENU_CD IN (
+                   SELECT MENU_CD
+                     FROM FMM_MENU
+                    WHERE UPJANG = #UPJANG#
+                      AND SUBINV_CODE = #SUBINV_CODE#
+<isNotEqual col="DT_GB" value="ALL">
+                      AND MENU_DATE = #MENU_DATE#
+</isNotEqual>
+<isEqual col="DT_GB" value="ALL">
+                      AND MENU_DATE BETWEEN #MENU_FDATE# AND #MENU_TDATE#
+</isEqual>
+                  )
+   AND MAIN_ITEM_CODE1 NOT IN (
+                            SELECT CODE_NAME
+                              FROM SCC_COMMON_CODE
+                             WHERE GROUP_CODE = 'FS0036'
+                          )
+GROUP BY MAIN_ITEM_CODE1
+HAVING COUNT(*)>1
+ORDER BY COUNT(*) DESC,MAIN_ITEM_CODE1	</statement>
+	<input default-name="ds_in">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

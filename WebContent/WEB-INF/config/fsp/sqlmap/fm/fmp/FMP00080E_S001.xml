@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[상품발주 상품검색]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.PO_UOM, A.UNIT_PRICE, A.UNIT_PRICE AS MARGIN_PRICE
+     , A.SALE_PRICE, B.DEF_QTY AS PR_QTY, ROUND(A.SALE_PRICE * B.DEF_QTY) AS SALE_AMOUNT
+     , '004' AS LINE_STATUS, '마감전' AS CLS_STATUS, NULL AS PR_REMARK
+     , #SUBINV_CODE# AS SUBINV_CODE, A.NEED_DATE
+     , A.TAX_CODE, A.CUSTCD, A.CENTER_FLAG
+     , A.CENTER_CODE, A.POINT_FLAG, #g_Upjang# AS PR_UPJANG
+     , A.UPJANG AS RC_UPJANG, 'N' AS INVAT_FLAG, 'N' AS OUTVAT_FLAG
+     , A.MIN_ORD_QTY, A.MULTIPLIER_QTY
+     , A.OTCUSTCD
+     , DECODE(SIGN(NVL(C.OP_PRICE,0)),0, SCC_CEIL(A.SALE_PRICE + ROUND(A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE) AS OP_PRICE
+     , ROUND(DECODE(SIGN(NVL(C.OP_PRICE,0)),0, SCC_CEIL(A.SALE_PRICE + ROUND(A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE) * B.DEF_QTY) AS OP_AMOUNT
+     , A.D_DAYS, A.D_TIMES
+     , 'D-'||TO_CHAR(A.D_DAYS) AS D_DAY_DISP
+     , D.OTCUSTNM, A.KG_CONVERT_RATE
+     , A.FEATURE_NAME
+     , A.IMAGE_PATH
+  FROM FMU_OP_RATE C, FMP_OTHER_CUST D
+<isEqual col="TAB_WHERE" value="0">
+     ,(SELECT 0 AS DEF_QTY FROM DUAL) B
+</isEqual>
+<isEqual col="TAB_WHERE" value="1">
+     ,(SELECT A.ITEM_CODE, A.DEF_QTY
+         FROM FMP_FAVORITE A
+        WHERE A.UPJANG = #UPJANG#
+          AND A.FAVOR_GROUP = #FAVOR_GROUP#
+          AND A.USE_YN = 'Y') B
+</isEqual>
+<isEqual col="TAB_WHERE" value="2">
+     ,(SELECT A.ITEM_CODE, A.DEF_QTY
+         FROM FMP_WEEKLY_ITEM A
+        WHERE A.UPJANG = #UPJANG#
+          AND NVL(DECODE(TO_CHAR(SYSDATE,'D'),1,SUN,2,MON,3,TUE,4,WED,5,THU,6,FRI,7,SAT),'Y') = 'Y'
+          AND A.USE_YN = 'Y') B
+</isEqual>
+<isEqual col="TAB_WHERE" value="3">
+     ,(SELECT A.ITEM_CODE, 0 AS DEF_QTY -- A.PR_QTY AS DEF_QTY
+         FROM HLDC_PO_PR A
+        WHERE A.NEED_DATE = #NEED_DATEP#
+          AND A.RC_UPJANG = #UPJANG#
+          AND A.SUBINV_CODE = #SUBINV_CODE#
+        UNION ALL
+       SELECT A.ITEM_CODE, 0 AS DEF_QTY -- A.PR_QTY AS DEF_QTY
+         FROM FMP_OTCUST_PR A
+        WHERE A.NEED_DATE = #NEED_DATEP#
+          AND A.UPJANG = #UPJANG#
+          AND A.SUBINV_CODE = #SUBINV_CODE#) B
+</isEqual>
+     ,(SELECT #UPJANG# AS UPJANG, #NEED_DATE# AS NEED_DATE
+            , C.CONSUM_YN, C.ITEM_CLASS2, C.ITEM_CLASS3, C.ITEM_CLASS4
+            , A.ITEM_CODE, C.ITEM_NAME, C.ITEM_SIZE, C.PO_UOM
+            , C.TAX_CODE, 0 AS CUSTCD, 'N' AS CENTER_FLAG
+            , 0 AS CENTER_CODE, C.POINT_FLAG
+            , A.UNIT_PRICE
+            , A.SALE_PRICE
+            , C.MIN_ORD_QTY, C.MULTIPLIER_QTY
+            , C.OTCUSTCD
+              --디데이날짜와 입고일이 같으면 디타임을 체크하여 넘었으면 디데이 하루 추가
+            , DECODE( SIGN(TO_DATE(#NEED_DATE#,'YYYYMMDD') - TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD'),'YYYYMMDD') - NVL(C.D_DAYS,0) - 1)
+                    , 0, DECODE(SIGN(DECODE(C.D_TIMES,'',2400,0,2400,TO_NUMBER(C.D_TIMES)) - TO_NUMBER(TO_CHAR(SYSDATE,'HH24MI'))),1,0,1)
+                    , 0 ) + NVL(C.D_DAYS,0) + 1 AS D_DAYS
+            , DECODE(C.D_TIMES,'',2400,0,2400,TO_NUMBER(C.D_TIMES)) AS D_TIMES
+            , C.KG_CONVERT_RATE
+            , NULL AS FEATURE_NAME
+            , C.SIMAGE_PATH AS IMAGE_PATH
+         FROM FMP_OTCUST_PRICE_AVA_V A
+            ,(SELECT UPJANG, ITEM_CODE, MAX(SDATE) AS SDATE
+                FROM FMP_OTCUST_PRICE_AVA_V
+               WHERE UPJANG = #OTCUST_PRICE_UPJANG#
+                 AND SDATE &lt;= #NEED_DATE#
+               GROUP BY UPJANG, ITEM_CODE) B
+            , FMP_OTCUST_ITEM C
+        WHERE A.UPJANG = B.UPJANG
+          AND A.SDATE = B.SDATE
+          AND A.ITEM_CODE = B.ITEM_CODE
+          AND A.ITEM_CODE = C.ITEM_CODE
+          AND A.SALE_PRICE > 0
+          AND A.USE_YN = 'Y' AND C.USE_YN = 'Y'
+          AND C.CONSUM_YN = #CONSUM_YN#
+      ) A
+ WHERE A.UPJANG = C.UPJANG(+)
+   AND A.NEED_DATE BETWEEN C.SDATE(+) AND C.EDATE(+)
+   AND A.ITEM_CODE = C.ITEM_CODE(+)
+   AND C.USE_YN(+) = 'Y'
+<isNotEqual col="TAB_WHERE" value="0">
+   AND A.ITEM_CODE = B.ITEM_CODE
+</isNotEqual>
+   AND A.OTCUSTCD = D.OTCUSTCD
+   AND (A.ITEM_CODE LIKE #ITEM_NAME#||'%' OR A.ITEM_NAME LIKE '%'||#ITEM_NAME#||'%')
+<isEqual col="ONLY_WHERE" value="TRUE">
+   AND A.D_DAYS &lt;= TO_DATE(#NEED_DATE#,'YYYYMMDD') - TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD'),'YYYYMMDD')
+</isEqual>
+ ORDER BY A.ITEM_CODE	</statement>
+	<input default-name="ds_Cond">
+		<col name="SUBINV_CODE" size="8" type="VARCHAR" description="" /> 
+		<col name="NEED_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="CONSUM_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="NEED_DATEP" size="8" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_List">
+		<col name="ITEM_CODE" size="50" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAME" size="200" type="VARCHAR" description="" /> 
+		<col name="ITEM_SIZE" size="100" type="VARCHAR" description="" /> 
+		<col name="PO_UOM" size="10" type="VARCHAR" description="" /> 
+		<col name="UNIT_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="MARGIN_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="SALE_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="PR_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="SALE_AMOUNT" size="22" type="NUMERIC" description="" /> 
+		<col name="LINE_STATUS" size="50" type="VARCHAR" description="" /> 
+		<col name="CLS_STATUS" size="50" type="VARCHAR" description="" /> 
+		<col name="PR_REMARK" size="300" type="VARCHAR" description="" /> 
+		<col name="SUBINV_CODE" size="8" type="VARCHAR" description="" /> 
+		<col name="NEED_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="TAX_CODE" size="3" type="VARCHAR" description="" /> 
+		<col name="CUSTCD" size="22" type="NUMERIC" description="" /> 
+		<col name="CENTER_FLAG" size="1" type="VARCHAR" description="" /> 
+		<col name="CENTER_CODE" size="22" type="NUMERIC" description="" /> 
+		<col name="POINT_FLAG" size="1" type="VARCHAR" description="" /> 
+		<col name="PR_UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="RC_UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="INVAT_FLAG" size="1" type="VARCHAR" description="" /> 
+		<col name="OUTVAT_FLAG" size="1" type="VARCHAR" description="" /> 
+		<col name="MIN_ORD_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="MULTIPLIER_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="OTCUSTCD" size="50" type="VARCHAR" description="" /> 
+		<col name="OP_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="OP_AMOUNT" size="22" type="NUMERIC" description="" /> 
+		<col name="D_DAYS" size="4" type="INTEGER" description="" /> 
+		<col name="D_TIMES" size="4" type="INTEGER" description="" /> 
+		<col name="D_DAY_DISP" size="50" type="VARCHAR" description="" /> 
+		<col name="OTCUSTNM" size="100" type="VARCHAR" description="" /> 
+		<col name="KG_CONVERT_RATE" size="22" type="NUMERIC" description="" /> 
+		<col name="FEATURE_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="IMAGE_PATH" size="200" type="VARCHAR" description="" /> 
+	</output>
+</query>

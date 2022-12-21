@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.sle.ifMenuSalesListDAO">
+	<desc>메뉴 단품 매출 현황</desc>
+
+	<!--  bill check list  -->
+
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.rc.sle.dao.menuSalesListDAO.selectList */
+		<![CDATA[
+
+			SELECT A.OUTLET_CD, LOC.OUTLET_NM AS OUTLET_NM				--업장명
+					,MENU_CD, MENU_NM, MENU_UCST
+                       , QTY, OCCR_AMT, DSCN_AMT, NET_AMT, A.SVC, A.VAT, TOT_AMT
+				 , NVL(ROUND((TOT_AMT / DECODE(NVL(B.GRAND_TOT, 0),0,NULL,NVL(B.GRAND_TOT, 0))) * 100,2),0) AS PCT
+				 , NVL(ROUND((QTY     / DECODE(NVL(B.GRAND_TOT, 0),0,NULL,NVL(B.GRAND_TOT, 0))) * 100,2),0) AS OCT_QTY
+
+			FROM (
+                       SELECT OUTLET_CD
+                            , MENU_CD       AS MENU_CD,    MAX(MENU_NM)   AS MENU_NM
+                            , MENU_UCST     AS MENU_UCST 
+                            , SUM(QTY)      AS QTY
+                            , SUM(OCCR_AMT) AS OCCR_AMT
+                            , SUM(DSCN_AMT) AS DSCN_AMT
+                            , SUM(NET_AMT)  AS NET_AMT
+                            , SUM(SVC)      AS SVC
+                            , SUM(VAT)      AS VAT
+                            , NVL(SUM(TOT_AMT),0) AS TOT_AMT
+                       FROM (
+                            SELECT MST.OUTLET_CD, MST.MENU_CD, MST.MENU_NM,  MST.MENU_UPRICE AS MENU_UCST, MST.QUANTITY AS QTY,
+                                   MST.OCCUR_AMT AS OCCR_AMT, MST.DISCNT_AMT  AS DSCN_AMT,
+                                   MST.NET_AMT, MST.SVC, MST.VAT, MST.TOT_AMT
+                                   FROM IF_SLE_SALS_GOODS  MST
+                                   INNER JOIN (SELECT MST.OUTLET_CD, MST.OUTLET_NM 
+					                           FROM   SLE_OUTLET_MST MST
+					                              INNER JOIN  SCO_UPJANG_V   UPJANG ON  UPJANG.UPJANG = TO_NUMBER(MST.OUTLET_CD) 
+					                                         <#if muCd?has_content> AND  UPJANG.MU_CD = :muCd </#if>
+					                                         <#if tmCd?has_content> AND  UPJANG.TM_CD = :tmCd </#if>
+					              		  ) OUTLET ON OUTLET.OUTLET_CD = MST.OUTLET_CD
+                                  WHERE MST.RECEIPT_STATUS IN ('Q', 'R')
+                                    AND MST.SALS_CLASS = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+                                    AND MST.SALES_DATE BETWEEN :frSalesDt AND :toSalesDt						     --매출일자
+                                    <#if outletCd?has_content > AND MST.OUTLET_CD = :outletCd  	 </#if>				 --업장
+                                    
+                                    --<#if sellYn?has_content > AND SELL_YN = 'Y'	 </#if>  --매출여부
+                                    --<#if salsYn?has_content > AND SALS_YN = 'Y'  </#if>    --판매여부  
+                       ) DUAL GROUP BY OUTLET_CD, MENU_CD, MENU_UCST    
+				) A
+			LEFT OUTER JOIN
+				    (
+                            SELECT MST.OUTLET_CD, SUM(MST.QUANTITY) AS GRAND_QTY
+                                             , SUM(MST.TOT_AMT)  AS GRAND_TOT
+                                   FROM IF_SLE_SALS_GOODS MST
+                                   INNER JOIN (SELECT MST.OUTLET_CD, MST.OUTLET_NM 
+					                           FROM   SLE_OUTLET_MST MST
+					                              INNER JOIN  SCO_UPJANG_V   UPJANG ON  UPJANG.UPJANG = TO_NUMBER(MST.OUTLET_CD) 
+					                                         <#if muCd?has_content> AND  UPJANG.MU_CD = :muCd </#if>
+					                                         <#if tmCd?has_content> AND  UPJANG.TM_CD = :tmCd </#if>
+					              		  ) OUTLET ON OUTLET.OUTLET_CD = MST.OUTLET_CD     
+                                  WHERE MST.RECEIPT_STATUS IN ('Q', 'R')
+                                    AND MST.SALS_CLASS = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+                                    AND MST.SALES_DATE BETWEEN :frSalesDt AND :toSalesDt						      --매출일자
+                                    <#if outletCd?has_content > AND MST.OUTLET_CD = :outletCd  	 </#if>				 --업장
+                                    
+                                    --<#if sellYn?has_content >     AND SELL_YN = 'Y'	 </#if>  --매출여부
+                                    --<#if salsYn?has_content >     AND SALS_YN = 'Y'  </#if>  --판매여부  
+                                    
+                                    GROUP BY MST.OUTLET_CD
+                                    
+					) B ON A.OUTLET_CD = B.OUTLET_CD
+			INNER JOIN SLE_OUTLET_MST  LOC  ON  A.OUTLET_CD  = LOC.OUTLET_CD
+			ORDER BY A.OUTLET_CD , A.MENU_CD, A.MENU_NM, A.MENU_UCST
+
+				   
+		
+		]]>
+	</statement>
+
+</hqml>

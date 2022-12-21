@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT V.TICKET_SEQ,
+       V.TRANS_DD,
+       V.ITEM_TYPE,
+       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0122' AND CODE = V.ITEM_TYPE) ITEM_TYPENM,
+       V.ITEM_CODE,
+       (SELECT ITEM_NAME FROM HLDC_PO_ITEM_MST WHERE ITEM_CODE = V.ITEM_CODE) ITEM_CODENM,
+       V.TRANS_TYPE,
+       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0121' AND CODE = V.TRANS_TYPE) TRANS_TYPENM,
+       V.TRANS_GUBUN,
+       (SELECT GUBUN_NAME FROM MAS_TICKET_CODE WHERE TRANS_TYPE = V.TRANS_TYPE AND TRANS_GUBUN = V.TRANS_GUBUN) TRANS_GUBUNNM,
+       V.REMARK_DESC,
+       V.UPRICE,
+       V.QTY,
+       V.TICKET_STARTNUM,
+       V.TICKET_ENDNUM,
+       V.SOURCE_ID,
+       NVL((SELECT MAX(A.TICKET_ENDNUM)
+                    FROM MAS_TICKET_MST A,
+                         MAS_TICKET_CODE B
+                WHERE A.TRANS_TYPE  = B.TRANS_TYPE
+                AND   A.TRANS_GUBUN = B.TRANS_GUBUN
+                AND   A.SOURCE_ID   = TO_CHAR(V.TICKET_SEQ)
+                AND   B.SET1        = 'O'
+                AND   A.SUBUL_YN    = 'Y'
+        --폐기오류 수정(폐기내역 없으면 1부터 폐기 -> 해당 식권 시작번호부터 폐기) 2022.01.21 
+        --), 0) TICKET_MAXNUM,    
+         ), TICKET_STARTNUM-1) TICKET_MAXNUM,      
+       ((V.QTY + V.LINE_QTY) - V.ALT_QTY) JAN_QTY,
+       0 OO_QTY,
+       '0' CHK
+  FROM (
+        SELECT V.TICKET_SEQ,
+               V.TRANS_DD,
+               V.ITEM_TYPE,
+               V.ITEM_CODE,
+               V.TRANS_TYPE,
+               V.TRANS_GUBUN,
+               V.REMARK_DESC,
+               V.UPRICE,
+               V.QTY,
+               V.TICKET_STARTNUM,
+               V.TICKET_ENDNUM,
+               V.TICKET_SEQ SOURCE_ID,
+               NVL((SELECT SUM(QTY)
+                    FROM MAS_TICKET_MST A,
+                         MAS_TICKET_CODE B
+                WHERE A.TRANS_TYPE  = B.TRANS_TYPE
+                AND   A.TRANS_GUBUN = B.TRANS_GUBUN
+                AND   A.SOURCE_ID   = TO_CHAR(V.TICKET_SEQ)
+                AND   B.SET1        = 'O'
+                AND   A.SUBUL_YN    = 'Y'), 0) ALT_QTY,
+  <isNotNull col="RCP_ID">               
+               NVL((SELECT SUM(QTY)
+                    FROM MAS_TICKET_MST
+                WHERE SOURCE_ID   = TO_CHAR(V.TICKET_SEQ)
+                AND RCP_ID = #RCP_ID#
+                AND   SUBUL_YN    = 'Y'), 0) LINE_QTY
+  </isNotNull>                     
+  <isNull col="RCP_ID">          
+              0 LINE_QTY  
+  </isNull>      
+          FROM MAS_TICKET_MST V
+        WHERE (V.UPJANG      = #UPJANG#)
+        AND   (V.ITEM_TYPE   = #ITEM_TYPE#)
+        AND   (V.TRANS_DD    BETWEEN '19000101' AND #RCP_DATE#)
+        AND   (V.TRANS_GUBUN = 'II')
+        
+  <isNotNull col="ITEM_CODE">          
+        AND   (V.ITEM_CODE   = #ITEM_CODE#)
+  </isNotNull>                
+        
+       ) V
+WHERE ((V.QTY + V.LINE_QTY) - V.ALT_QTY) > 0
+ORDER BY V.ITEM_TYPE, V.ITEM_CODE, V.TICKET_STARTNUM, V.TICKET_ENDNUM, V.TICKET_SEQ
+</statement>
+	<input default-name="ds_cond">
+		<col name="RCP_ID" size="" type="NUMERIC" description="" /> 
+		<col name="UPJANG" size="" type="NUMERIC" description="" /> 
+		<col name="ITEM_TYPE" size="255" type="VARCHAR" description="" /> 
+		<col name="RCP_DATE" size="255" type="VARCHAR" description="" /> 		
+		<col name="ITEM_CODE" size="255" type="VARCHAR" description="" /> 				
+	</input>
+	<output default-name="ds_list">
+		<col name="TICKET_SEQ" size="" type="NUMERIC" description="" /> 
+		<col name="TRANS_DD" size="255" type="VARCHAR" description="" /> 
+    <col name="ITEM_TYPE" size="255" type="VARCHAR" description="" />
+    <col name="ITEM_TYPENM" size="255" type="VARCHAR" description="" />
+    <col name="ITEM_CODE" size="255" type="VARCHAR" description="" />
+    <col name="ITEM_CODENM" size="255" type="VARCHAR" description="" />
+    <col name="TRANS_TYPE" size="255" type="VARCHAR" description="" />
+    <col name="TRANS_TYPENM" size="255" type="VARCHAR" description="" />
+    <col name="TRANS_GUBUN" size="255" type="VARCHAR" description="" />
+    <col name="TRANS_GUBUNNM" size="255" type="VARCHAR" description="" />
+    <col name="REMARK_DESC" size="255" type="VARCHAR" description="" />
+    <col name="UPRICE" size="" type="NUMERIC" description="" />
+    <col name="QTY" size="" type="NUMERIC" description="" />
+    <col name="TICKET_STARTNUM" size="" type="NUMERIC" description="" />
+    <col name="TICKET_ENDNUM" size="" type="NUMERIC" description="" />    
+    <col name="SOURCE_ID" size="" type="NUMERIC" description="" />    
+    <col name="TICKET_MAXNUM" size="" type="NUMERIC" description="" />    
+    <col name="JAN_QTY" size="" type="NUMERIC" description="" />
+    <col name="OO_QTY" size="" type="NUMERIC" description="" />
+		<col name="CHK" size="255" type="VARCHAR" description="" /> 							
+	</output>
+</query>

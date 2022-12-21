@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="ms.mmb.messageBoardDAO">
+	<desc>공지사항조회 HQML Query</desc>
+
+	<!-- 공지사항조회 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.ms.mmb.messageBoardDAO.selectList */
+	<![CDATA[/* 공지사항 */
+	SELECT  A.CON_ID
+	      , A.BBS_ID
+	      , A.TITLE
+	      , A.UPJANG
+	      , (SELECT Z.UPJANGNM_DISP
+	                 FROM   FMS_UPJANG Z
+	                 WHERE  Z.UPJANG = A.UPJANG) UPJANG_NM
+	      , A.TM_NM
+	      , A.WRITE_SABUN
+	      , A.WRITE_TIME
+	      , A.CONTENTS
+	      , A.ATTR10
+	      , A.NOTICE_YN
+	      , (SELECT DECODE(COUNT(*), 0, 'N', 'Y') FROM SCC_BBS_INQUERY_USER WHERE NOTICEWTRID = A.CON_ID AND SABUN = :userId) AS USER_READ_YN
+	      , TOT_CNT
+	    FROM (
+	      SELECT  ROWNUM RNUM, S.*
+	      FROM (
+	        SELECT  S.CON_ID      AS CON_ID
+	              , S.BBS_ID      AS BBS_ID
+	              , S.TITLE       AS TITLE
+	              , S.UPJANG      AS UPJANG
+	              , (SELECT Z.TM_NM
+	                 FROM   HLDC_SC_DEPT_V Z
+	                      , HLDC_HR_PERSONAL ZZ
+	                 WHERE  Z.DEPT_ID = ZZ.DEPT_ID
+	                 AND    ZZ.SABUN = WRITE_SABUN) AS TM_NM
+	              , (SELECT Z.NM_KOR
+	                 FROM   SCC_USERINFO Z
+	                 WHERE  Z.SABUN = WRITE_SABUN) AS WRITE_SABUN
+	              , TO_CHAR(S.WRITE_TIME,'YYYY-MM-DD')  AS WRITE_TIME
+	              , S.CONTENTS    AS CONTENTS
+	              , S.ATTR10      AS ATTR10  --HTML 경로
+	              , S.NOTICE_YN   AS NOTICE_YN
+	              , ROWNUM
+	              , COUNT(*) OVER() TOT_CNT
+	        FROM   SCC_BBS_CON S
+	        <#if boardMst != "관리자">
+	        	<#if bbsId == "22">
+	        		
+	        	<#else>
+		    		, SCC_BBS_PRIV_LIST P
+		    	</#if>
+		    </#if>
+	        WHERE  1=1
+	        <#if boardMst != "관리자">
+	        	<#if bbsId == "22">
+	        		AND   S.UPJANG IN ( SELECT CODE FROM SCC_UPJANGCUST_V WHERE MAIN_CODE = :upjangCd )
+	        	<#else>
+					AND   S.CON_ID = P.CON_ID
+				    AND   P.TARGET_CODE = :upjangCd
+			    </#if>
+	        </#if>
+	        
+	        AND   S.USE_YN = 'Y'
+	        AND   S.ATTR09 = 'Y'  --모바일 공지여부
+	        AND   TO_CHAR(SYSDATE,'YYYYMMDD') <= S.EDATE
+	        AND   S.BBS_ID = :bbsId
+	        AND   S.TITLE LIKE '%' || :searchId || '%'
+	        ORDER BY NOTICE_YN DESC,  CON_ID DESC
+	      ) S
+	    ) A
+	    WHERE 1=1
+	    AND   ROWNUM <= :pageRow and RNUM >= :curPageNum
+	    AND   A.TITLE LIKE '%' || :searchId || '%'
+	]]></statement>
+
+	<!-- 공지사항조회 목록을 조회한다. -->
+	<statement name="selectList2" type="select">
+	/*+ com.hwfs.ms.mmb.messageBoardDAO.selectList2 */
+	<![CDATA[
+		
+						WITH TB_A AS (
+							
+              SELECT 99999 AS BBS_ID
+			               , (SELECT CODE_NAME
+			                 FROM    SCC_COMMON_CODE
+			                 WHERE   GROUP_CODE = 'SC0100'
+			                 AND     CODE       = '200')
+			                       AS BBS_NAME
+			               , NULL  AS PARENT_BBS_ID
+			               , '200' AS BBS_TYPE
+			               , '200' AS BBS_GUBUN
+			               , 1  AS LEVELS
+			               , 1     AS SORT_SEQ
+			               , 'Y'   AS USE_YN
+			               , NULL  AS REP_YN
+			               , NULL  AS COPY_YN
+			               , NULL  AS VOC_YN
+			               , NULL  AS PRIV_YN
+			               , NULL  AS MAIN_YN
+			               , NULL  AS IS_MOBILE
+			         FROM    DUAL
+			         
+			         UNION ALL
+			        
+			         SELECT BBS_ID
+			              , BBS_NAME
+			              , NVL(PARENT_BBS_ID, 99999) AS PARENT_BBS_ID
+                    --, PARENT_BBS_ID
+			              , BBS_TYPE
+			              , BBS_GUBUN
+			              , DECODE(BBS_TYPE, 200, LEVELS+1, LEVELS) AS LEVELS
+			              , SORT_SEQ
+			              , USE_YN
+			              , REP_YN
+			              , COPY_YN
+			              , VOC_YN
+			              , PRIV_YN
+			              , MAIN_YN
+			              , (SELECT COUNT(CODE)
+			                FROM    SCC_COMMON_CODE
+			                WHERE   GROUP_CODE = 'IS_MOBILE'
+			                AND     CODE       = BBS_ID)
+			                AS IS_MOBILE
+			         FROM   SCC_BBS
+			         WHERE  USE_YN                  = 'Y'
+			)
+			SELECT H.* FROM (
+					SELECT   BBS_ID
+					       , BBS_NAME 
+                 		   --, LPAD(' ', (LEVELS-1) * 3, ' ') || BBS_NAME AS BBS_NAME
+					       , PARENT_BBS_ID
+					       , BBS_TYPE
+					       , BBS_GUBUN
+					       --, DECODE(LEVEL, 1, 1, LEVELS) AS LEVELS
+                 , LEVELS
+					       , SORT_SEQ
+					       , USE_YN
+					       , LEVEL
+					       , IS_MOBILE
+					       , (SELECT SUM(IS_MOBILE) FROM TB_A START WITH BBS_ID = K.BBS_ID CONNECT BY PRIOR BBS_ID = PARENT_BBS_ID)  TOT
+					       
+					FROM     TB_A K
+					         START WITH PARENT_BBS_ID IS NULL
+					         CONNECT BY PRIOR BBS_ID        = PARENT_BBS_ID        
+					         ORDER BY BBS_TYPE, SORT_SEQ
+			) H WHERE TOT > 0
+			
+	]]></statement>
+	
+	
+	<!-- 공지사항 조회건수를 조회한다. -->
+	<statement name="updateReadCnt" type="update">
+	/*+ com.hwfs.ms.mmb.messageBoardDAO.updateReadCnt */
+	<![CDATA[
+	UPDATE SCC_BBS_CON 
+	SET    READ_CNT = READ_CNT + 1
+	WHERE  CON_ID = :conId
+	]]></statement>
+	
+	<!-- 공지사항 조회시 조회 정보를 입력또는 수정한다. -->
+	<statement name="updateUserReadYn" type="update">
+	/*+ com.hwfs.ms.mmb.messageBoardDAO.updateUserReadYn */
+	<![CDATA[
+	MERGE INTO SCC_BBS_INQUERY_USER A
+	      USING DUAL
+	      ON    (NOTICEWTRID = :conId
+	      AND   SABUN        = :userId)
+	WHEN  MATCHED THEN
+	      UPDATE
+	      SET    LAST_INQUERY_DDTT = SYSDATE,
+	             INQUERY_CNT = INQUERY_CNT + 1
+	WHEN  NOT MATCHED THEN
+	      INSERT (
+	             NOTICEWTRID,
+	             SABUN,
+	             INITIAL_INQUERY_DDTT,
+	             LAST_INQUERY_DDTT,
+	             INQUERY_CNT
+	             )
+	      VALUES (
+	             :conId,
+	             :userId,
+	             SYSDATE,
+	             SYSDATE,
+	             1
+	             )
+	]]></statement>
+	
+	
+	<!-- 게시판 관리자 정보 조회 -->
+	<statement name="selectBoardMstList" type="select">
+	/*+ com.hwfs.ms.mmb.messageBoardDAO.selectBoardMstList */
+	<![CDATA[
+		--SELECT NVL(BOARD_MST, 'NONE') AS BOARD_MST FROM SCC_USERINFO WHERE USERID = :userId
+		SELECT
+	       CASE
+	              WHEN A.USER_GROUP = 'FC'
+	              THEN '관리자'
+	              ELSE NVL(A.BOARD_MST, 'NONE')
+	       END AS BOARD_MST
+		FROM   SCC_USERINFO A
+		WHERE  A.USERID = :userId
+		
+	
+	]]></statement>
+</hqml>

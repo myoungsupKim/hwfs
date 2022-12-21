@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT (SELECT A.CLS4_NAME  FROM MAS_HMR_MAP_CLS4 A, MAS_HMR_MAP B WHERE A.CLS4_CODE = B.CLS4_CODE AND B.MAP_CD = V1.MAP_CD) MAP_CDNM,
+       (SELECT B.UOM_CODE  FROM MAS_HMR_MAP_CLS4 A, MAS_HMR_MAP B  WHERE A.CLS4_CODE = B.CLS4_CODE AND B.MAP_CD = V1.MAP_CD) UOM_CODE,       
+       (SELECT A.CLS3_CODE  FROM MAS_HMR_MAP_CLS4 A, MAS_HMR_MAP B WHERE A.CLS4_CODE = B.CLS4_CODE AND B.MAP_CD = V1.MAP_CD) CLS3_CODE,       
+       (SELECT CLS3_NAME FROM MAS_HMR_MAP_CLS3 WHERE CLS3_CODE = (SELECT A.CLS3_CODE  FROM MAS_HMR_MAP_CLS4 A, MAS_HMR_MAP B WHERE A.CLS4_CODE = B.CLS4_CODE AND B.MAP_CD = V1.MAP_CD)) CLS3_NAME,       
+       NVL((SELECT AA.SALE_PRICE
+             FROM MAS_HMR_PRICE AA
+                ,(SELECT E.UPJANG, E.CLS4_CODE, MAX(E.START_DATE) AS START_DATE
+                    FROM MAS_HMR_PRICE E
+                   WHERE E.START_DATE BETWEEN '19000101' AND #START_DATE#
+                     AND E.UPJANG = #UPJANG#
+                   GROUP BY E.UPJANG, E.CLS4_CODE) D
+            WHERE AA.UPJANG         = D.UPJANG
+            AND   AA.CLS4_CODE      = D.CLS4_CODE
+            AND   AA.START_DATE     = D.START_DATE
+            AND   AA.CLS4_CODE      = V.CLS4_CODE), 0) SALE_PRICE,            
+       '100'  TAX_KIND,
+       '과세' TAX_KINDNM
+  FROM MAS_HMR_MAP_CLS4 V, 
+       MAS_HMR_MAP V1 
+WHERE V.CLS4_CODE = V1.CLS4_CODE 
+AND   V1.MAP_CD    = #MAP_CD#
+</statement>
+	<input default-name="ds_cond">	
+		<col name="MAP_CD" size="255" type="VARCHAR" description="" /> 		
+    <col name="UPJANG" size="" type="NUMERIC" description="" />
+		<col name="START_DATE" size="255" type="VARCHAR" description="" /> 		
+	</input>
+	<output default-name="ds_list">
+<col name="MAP_CDNM" size="255" type="VARCHAR" description="" />
+<col name="CLS3_CODE" size="255" type="VARCHAR" description="" />
+<col name="CLS3_NAME" size="255" type="VARCHAR" description="" />
+<col name="UOM_CODE" size="255" type="VARCHAR" description="" />
+<col name="SALE_PRICE" size="" type="NUMERIC" description="" />
+<col name="TAX_KIND" size="255" type="VARCHAR" description="" />
+<col name="TAX_KINDNM" size="255" type="VARCHAR" description="" />
+	</output>
+</query>

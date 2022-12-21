@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[주문상세조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.*
+ --운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 맹수영 20150919 시작
+ /*
+     , CASE WHEN C.OP_PRICE IS NOT NULL OR C.OP_RATE IS NOT NULL 
+			THEN DECODE(SIGN(NVL(C.OP_PRICE,0) ),0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE) 
+			WHEN D.OP_PRICE IS NOT NULL OR D.OP_RATE IS NOT NULL 
+			THEN DECODE(SIGN(NVL(D.OP_PRICE,0) ),0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(D.OP_RATE,0) / 100),D.CEIL_VAL), D.OP_PRICE) 
+	   ELSE A.SALE_PRICE END AS OP_PRICE
+	 , ROUND(A.PR_QTY * CASE WHEN C.OP_PRICE IS NOT NULL OR C.OP_RATE IS NOT NULL 
+							 THEN DECODE(SIGN(NVL(C.OP_PRICE,0) ),0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE) 
+							 WHEN D.OP_PRICE IS NOT NULL OR D.OP_RATE IS NOT NULL 
+							 THEN DECODE(SIGN(NVL(D.OP_PRICE,0) ),0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(D.OP_RATE,0) / 100),D.CEIL_VAL), D.OP_PRICE) 
+					    ELSE A.SALE_PRICE END) AS OP_AMOUNT
+*/
+   ,  DECODE(A.OP_PRICE_S, 0, A.SALE_PRICE, A.OP_PRICE_S) AS OP_PRICE --운영단가
+   ,  DECODE(A.OP_PRICE_S, 0, A.SALE_AMOUNT, ROUND(A.OP_PRICE_S * A.PR_QTY)) AS OP_AMOUNT 
+ --운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 맹수영 20150919  끝	 
+	 , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FM0037' AND CODE = A.LINE_STATUS AND USE_YN = 'Y') LINE_STATUS_NM
+  FROM 
+ --운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 맹수영 20150919 시작
+ /*
+       (SELECT UPJANG, ITEM_CODE, OP_RATE, OP_PRICE, CEIL_VAL, SDATE ,EDATE 
+         FROM FMU_OP_RATE 
+        WHERE USE_YN = 'Y' 
+          AND ITEM_TYPE = 'M' 
+       ) C 
+     ,(SELECT UPJANG, ITEM_CODE, OP_RATE, OP_PRICE, CEIL_VAL, SDATE ,EDATE 
+         FROM FMU_OP_RATE 
+        WHERE USE_YN = 'Y' 
+          AND ITEM_TYPE = 'C' 
+       ) D 
+*/
+ --운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 맹수영 20150919 끝
+      (SELECT A.PR_ID, A.PR_NUM , TO_CHAR(TO_DATE(A.PR_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS PR_DATE
+		    , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.PO_UOM, A.UNIT_PRICE, A.MARGIN_PRICE
+		    , A.SALE_PRICE, A.OP_PRICE AS OP_PRICE_S, A.PR_QTY, ROUND(A.SALE_PRICE * A.PR_QTY) AS SALE_AMOUNT
+		    --, A.LINE_STATUS
+		    --, DECODE(A.LINE_STATUS, '003', A.LINE_STATUS, (SELECT LINE_STATUS FROM HLDC_PO_PO WHERE PO_NUM = A.PR_NUM AND PO_ID = A.PR_ID)) AS LINE_STATUS
+		    , FMS_PO_LINESTATUS_FUN(A.PR_ID, A.PR_NUM, 'C') AS LINE_STATUS
+		    --LINE_STATUS 변경으로 상태값을 '001'로, DECODE(A.LINE_STATUS,'004','마감전','마감') AS CLS_STATUS
+		    --, DECODE(A.LINE_STATUS,'001','마감전','마감') AS CLS_STATUS
+		    , CASE WHEN FMS_PO_LINESTATUS_FUN(A.PR_ID, A.PR_NUM, 'C') IN('DL', 'GC', 'IV') OR A.SO_STATUS IN('005', '007', '008') THEN '마감' ELSE '마감전' END AS CLS_STATUS
+		    --, DECODE(A.LINE_STATUS,'005','[**발주취소**]')||A.PR_REMARK AS PR_REMARK
+		    , A.PR_REMARK
+		    , A.SUBINV_CODE, A.NEED_DATE
+		    , A.TAX_CODE, A.CUSTCD, A.CENTER_FLAG
+		    , A.CENTER_CODE, B.POINT_FLAG, A.PR_UPJANG
+		    , A.RC_UPJANG, A.INVAT_FLAG, A.OUTVAT_FLAG
+			  --수량통제 안하는 업장의 경우 소숫점발주가 Y이면 무조건 최소발주량/발주승수량을 무조건 0.1로 세팅하여 조회
+		  	, DECODE(#QTY_CONTROL_YN#||B.POINT_FLAG,'NY',DECODE(B.MIN_ORD_QTY,0,0,0.1),B.MIN_ORD_QTY) AS MIN_ORD_QTY
+		  	, B.MAX_ORD_QTY
+		  	, DECODE(#QTY_CONTROL_YN#||B.POINT_FLAG,'NY',DECODE(B.MULTIPLIER_QTY,0,0,0.1),B.MULTIPLIER_QTY) AS MULTIPLIER_QTY
+		    , '0000' AS OTCUSTCD
+		    , B.IMG_PATH AS IMAGE_PATH
+		    , 0 AS D_DAYS, 0 AS D_TIMES
+		    , A.DOCU_SOURCE
+		    , B.ITEM_CLASS4
+		    , B.KEEPING_TYPE
+		    , A.APPLY_SD
+		    , A.VD_SN
+		    , A.OP_RATE
+	     FROM SO_PR A, HLDC_PO_ITEM_MST B
+	    WHERE A.ITEM_CODE   = B.ITEM_CODE
+	      AND A.RC_UPJANG = #UPJANG#
+	      AND A.SUBINV_CODE = #SUBINV_CODE#
+	      AND A.NEED_DATE = #NEED_DATE#
+	      AND A.PR_NUM = #PR_NUM#
+	      AND A.DOCU_SOURCE IN (#DocSrc#,#DocSrc1#,#DocSrc2#,#DocSrc3#)
+	      AND A.LINE_STATUS NOT IN ('003','999')
+	    -----------
+	    UNION ALL
+	    -----------
+	   SELECT A.PR_ID, A.PR_NUM , TO_CHAR(TO_DATE(A.PR_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS PR_DATE
+	        , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.PO_UOM, A.UNIT_PRICE, A.UNIT_PRICE AS MARGIN_PRICE
+	        , A.SALE_PRICE, A.OP_PRICE AS OP_PRICE_S, A.PR_QTY, A.SALE_AMOUNT
+	        , A.LINE_STATUS
+	        --LINE_STATUS 변경으로 상태값을 '002'로, DECODE(A.LINE_STATUS, '004'
+	        , DECODE(A.LINE_STATUS, '002'
+	                , DECODE( SIGN( TO_DATE(#NEED_DATE#,'YYYYMMDD') - TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD'),'YYYYMMDD') - NVL(B.D_DAYS,0) - 1)
+	                        , 1, '마감전'
+	                        , 0, DECODE(SIGN(DECODE(B.D_TIMES,'',2400,0,2400,TO_NUMBER(B.D_TIMES)) - TO_NUMBER(TO_CHAR(SYSDATE,'HH24MI'))),1,'마감전','마감')
+	                        , '마감' )
+	                , '마감') AS CLS_STATUS
+	        , A.CONTENTS AS PR_REMARK
+	        , A.SUBINV_CODE, A.NEED_DATE
+	        , A.TAX_CODE, NULL AS CUSTCD, NULL AS CENTER_FLAG
+	        , NULL AS CENTER_CODE, B.POINT_FLAG, A.UPJANG AS PR_UPJANG
+	        , A.UPJANG AS RC_UPJANG, NULL AS INVAT_FLAG, NULL AS OUTVAT_FLAG
+	        , B.MIN_ORD_QTY, B.MAX_ORD_QTY, B.MULTIPLIER_QTY
+	        , B.OTCUSTCD AS OTCUSTCD
+	        , B.SIMAGE_PATH AS IMAGE_PATH
+	        , NVL(B.D_DAYS,0) + 1 AS D_DAYS
+	        , DECODE(B.D_TIMES,'',2400,0,2400,TO_NUMBER(B.D_TIMES)) AS D_TIMES
+	        , A.DOCU_SOURCE
+	        , B.ITEM_CLASS4
+	        , B.KEEPING_TYPE
+	        , '' AS APPLY_SD
+		    , '' AS VD_SN
+		    , NULL AS OP_RATE
+	     FROM FMP_OTCUST_PR A, FMP_OTCUST_ITEM B
+	    WHERE A.ITEM_CODE   = B.ITEM_CODE
+	      AND A.UPJANG = #UPJANG#
+	      AND A.SUBINV_CODE = #SUBINV_CODE#
+	      AND A.NEED_DATE = #NEED_DATE#
+	      AND A.PR_NUM = #PR_NUM#
+	      AND A.DOCU_SOURCE IN (#DocSrc#,#DocSrc1#,#DocSrc2#,#DocSrc3#)
+	      AND A.LINE_STATUS NOT IN ('003','999')
+	   ) A
+ --운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 맹수영 20150919 시작
+ /*
+ WHERE A.RC_UPJANG = C.UPJANG(+)
+   AND A.RC_UPJANG = D.UPJANG(+)
+   AND A.NEED_DATE BETWEEN C.SDATE(+) AND C.EDATE(+)
+   AND A.NEED_DATE BETWEEN D.SDATE(+) AND D.EDATE(+)
+   AND A.ITEM_CODE = C.ITEM_CODE(+)
+   AND A.ITEM_CLASS4 = D.ITEM_CODE(+)
+*/
+ --운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 맹수영 20150919 끝
+ ORDER BY A.PR_ID	
+]]></statement>
+	<input default-name="ds_Cond">
+		<col name="SUBINV_CODE" size="8" type="VARCHAR" description="" /> 
+		<col name="NEED_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="QTY_CONTROL_YN" size="1" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_List">
+		<col name="PR_ID" size="22" type="NUMERIC" description="" /> 
+		<col name="PR_NUM" size="50" type="VARCHAR" description="" /> 
+		<col name="ITEM_CODE" size="50" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAME" size="200" type="VARCHAR" description="" /> 
+		<col name="ITEM_SIZE" size="100" type="VARCHAR" description="" /> 
+		<col name="PO_UOM" size="10" type="VARCHAR" description="" /> 
+		<col name="UNIT_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="MARGIN_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="SALE_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="PR_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="SALE_AMOUNT" size="22" type="NUMERIC" description="" /> 
+		<col name="LINE_STATUS" size="50" type="VARCHAR" description="" /> 
+		<col name="CLS_STATUS" size="50" type="VARCHAR" description="" /> 
+		<col name="PR_REMARK" size="300" type="VARCHAR" description="" /> 
+		<col name="SUBINV_CODE" size="8" type="VARCHAR" description="" /> 
+		<col name="NEED_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="TAX_CODE" size="3" type="VARCHAR" description="" /> 
+		<col name="CUSTCD" size="22" type="NUMERIC" description="" /> 
+		<col name="CENTER_FLAG" size="1" type="VARCHAR" description="" /> 
+		<col name="CENTER_CODE" size="22" type="NUMERIC" description="" /> 
+		<col name="POINT_FLAG" size="1" type="VARCHAR" description="" /> 
+		<col name="PR_UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="RC_UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="INVAT_FLAG" size="1" type="VARCHAR" description="" /> 
+		<col name="OUTVAT_FLAG" size="1" type="VARCHAR" description="" /> 
+		<col name="MIN_ORD_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="MAX_ORD_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="MULTIPLIER_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="OTCUSTCD" size="50" type="VARCHAR" description="" /> 
+		<col name="OP_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="OP_AMOUNT" size="22" type="NUMERIC" description="" /> 
+		<col name="D_DAYS" size="4" type="INTEGER" description="" /> 
+		<col name="D_TIMES" size="4" type="INTEGER" description="" /> 
+		<col name="IMAGE_PATH" size="200" type="VARCHAR" description="" /> 
+	</output>
+</query>

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.UPJANG
+     , A.MENU_CD
+     , A.RECIPE_CD
+     , A.RECIPE_NAME
+     , A.ITEM_CODE
+     , A.ITEM_NAME
+     , '' FEATURE_NAME
+     , A.ITEM_SIZE
+     , A.PO_UOM
+     , A.NEED_QTY
+     , ROUND(A.PAST_PRICE) AS PAST_PRICE
+     , ROUND(A.ITEM_PRICE / A.KG_CONVERT_RATE / 1000) AS CUR_PRICE
+FROM (     
+      SELECT A.UPJANG
+           , A.MENU_DATE
+           , A.MENU_CD
+           , A.MEAL
+           , A.CORNER
+           , B.RECIPE_CD
+           , B.RECIPE_NAME
+           , C.NEED_QTY
+           , E.ITEM_CODE
+           , E.ITEM_NAME
+           , E.ITEM_SIZE
+           , E.PO_UOM
+           , NVL(C.NEED_QTY, 0) * NVL(C.MARGIN_PRICE / E.KG_CONVERT_RATE / 1000, 0) AS PAST_PRICE
+           , CASE WHEN D.MARGIN_RATE = 0 THEN 0
+                  WHEN D.MARGIN_RATE > 0 AND NVL(F.OUTVAT_FLAG, 'N') = 'Y' THEN
+                    NVL(C.NEED_QTY, 0) * ROUND(D.CONTRACT_PRICE * DECODE(E.TAX_CODE, '100', 1.1, 1) * (D.MARGIN_RATE / 100 + 1) / 10) * 10
+                  WHEN D.MARGIN_RATE > 0 AND NVL(F.OUTVAT_FLAG, 'N') = 'N' THEN
+                    NVL(C.NEED_QTY, 0) * ROUND(D.CONTRACT_PRICE * (D.MARGIN_RATE / 100 + 1) / 10) * 10
+                  ELSE 0
+             END AS ITEM_PRICE
+           , E.KG_CONVERT_RATE
+        FROM FSM_REAL_MENU_MST A
+           , FSM_REAL_RECIPE_MST B
+           , FSM_REAL_RECIPE_ITEM C
+           , HLDC_PO_CONTRACT_F D
+           , HLDC_PO_ITEM_MST E
+           , HLDC_PO_SUBINVENTORY F
+       WHERE A.UPJANG = B.UPJANG
+         AND A.MENU_CD = B.MENU_CD
+         AND B.UPJANG = C.UPJANG
+         AND B.MENU_CD = C.MENU_CD
+         AND B.RECIPE_CD = C.RECIPE_CD
+         AND A.UPJANG = #UPJANG#
+         AND A.MENU_CD = #MENU_CD#
+         AND C.UPJANG = D.UPJANG(+)
+         AND C.ITEM_CODE = D.ITEM_CODE(+)
+         AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN D.CONTRACT_START(+) AND D.CONTRACT_END(+)
+         AND C.ITEM_CODE = E.ITEM_CODE
+         AND A.UPJANG = F.UPJANG
+         AND F.SUBINV_CODE = #fa_SUBINV_CODE#
+        ) A
+  ORDER BY A.UPJANG, A.MENU_CD, A.MENU_DATE, A.RECIPE_NAME, A.ITEM_NAME
+]]>
+    </statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_Detail">
+	</output>
+</query>

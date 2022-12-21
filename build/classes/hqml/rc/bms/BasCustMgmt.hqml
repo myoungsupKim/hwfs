@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.bms.basCustMgmtDAO">
+	<desc> 거래처관리 </desc>
+
+	<!--  MASK 한 DATA를 조회한다. -->
+	<statement name="selectCustList" type="select">
+		<![CDATA[
+
+		SELECT 
+			CUST_CD,		CUST_NM,		
+	 		CUST_CLASS, 	CUST_CLASS_NM ,
+	 		PRCG_DEPT, 		PRCG_DEPT_NM ,
+	 		AM_CD, 		    AM_NM ,
+	 		JOB_POSITION,   JOB_POSITION_NM,
+	 		
+			BSN_NO,
+			CORP_NUM,
+			CEO_NM,		
+			BIZ_TYPE,
+			BIZ_CAT,
+			
+			SCC_TELNO_SPLIT_FUN(TEL_NUM,1) 
+ 					 || DECODE(NVL(SCC_TELNO_SPLIT_FUN(TEL_NUM,2),''),'','','-') 
+ 					 || SCC_TELNO_SPLIT_FUN(TEL_NUM,2)
+ 					 || DECODE(NVL(SCC_TELNO_SPLIT_FUN(TEL_NUM,3),''),'','','-') 
+ 					 || SCC_TELNO_SPLIT_FUN(TEL_NUM,3)     AS TEL_NUM,
+ 					 
+	 		SCC_TELNO_SPLIT_FUN(TEL_NUM,1)     AS TEL_NUM1,
+	 		SCC_TELNO_SPLIT_FUN(TEL_NUM,2)     AS TEL_NUM2,
+	 		SCC_TELNO_SPLIT_FUN(TEL_NUM,3)     AS TEL_NUM3,
+			
+			SCC_TELNO_SPLIT_FUN(HAND_PHONE,1) 
+ 					 || DECODE(NVL(SCC_TELNO_SPLIT_FUN(HAND_PHONE,2),''),'','','-') 
+ 					 || SCC_TELNO_SPLIT_FUN(HAND_PHONE,2)
+ 					 || DECODE(NVL(SCC_TELNO_SPLIT_FUN(HAND_PHONE,3),''),'','','-') 
+ 					 || SCC_TELNO_SPLIT_FUN(HAND_PHONE,3)     AS HAND_PHONE,
+ 					 
+	 		SCC_TELNO_SPLIT_FUN(HAND_PHONE,1)     AS HAND_PHONE1,
+	 		SCC_TELNO_SPLIT_FUN(HAND_PHONE,2)     AS HAND_PHONE2,
+	 		SCC_TELNO_SPLIT_FUN(HAND_PHONE,3)     AS HAND_PHONE3,
+			
+			SCC_TELNO_SPLIT_FUN(FAX_NUM,1) 
+ 					 || DECODE(NVL(SCC_TELNO_SPLIT_FUN(FAX_NUM,2),''),'','','-') 
+ 					 || SCC_TELNO_SPLIT_FUN(FAX_NUM,2)
+ 					 || DECODE(NVL(SCC_TELNO_SPLIT_FUN(FAX_NUM,3),''),'','','-') 
+ 					 || SCC_TELNO_SPLIT_FUN(FAX_NUM,3)     AS FAX_NUM,
+ 					 
+	 		SCC_TELNO_SPLIT_FUN(FAX_NUM,1)     AS FAX_NUM1,
+	 		SCC_TELNO_SPLIT_FUN(FAX_NUM,2)     AS FAX_NUM2,
+	 		SCC_TELNO_SPLIT_FUN(FAX_NUM,3)     AS FAX_NUM3,
+			 
+			 
+			PRCG_NM,
+			
+			EMAIL_ADDR,
+			 
+			ADDR_KEY,
+		    ADDR_INFO,
+			SAP_CUST_NM,SAP_CUST_CD,
+			REMARK,
+			USE_YN,
+			CDATE,
+			CUSER,
+			UDATE,
+			UUSER
+			
+FROM ( SELECT 		
+	 		MGMT.CUST_CD,			MGMT.CUST_NM,		
+	 		MGMT.CUST_CLASS, 		CLAS.CODE_NAME AS CUST_CLASS_NM ,
+	 		MGMT.PRCG_DEPT, 		DEPT.CODE_NAME AS PRCG_DEPT_NM ,
+	 		MGMT.AM_CD, 		    SCC_CRYPTO.MASKAUTH_FUN( AM.AM_NM,12,:loginPersMask, :maskAuth)     AS AM_NM ,
+	 		
+			MGMT.BSN_NO,
+			MGMT.CORP_NUM,
+			
+			SCC_CRYPTO.MASKAUTH_FUN(MGMT.CEO_NM,12,:loginPersMask, :maskAuth) AS CEO_NM,
+			MGMT.BIZ_TYPE,
+			MGMT.BIZ_CAT,
+			JOB_POSITION, DJOB.CODE_NAME AS JOB_POSITION_NM,
+			
+			SCC_CRYPTO.MASKAUTH_FUN(MGMT.TEL_NUM,9,:loginPersMask, :maskAuth) AS TEL_NUM,
+			SCC_CRYPTO.MASKAUTH_FUN(MGMT.HAND_PHONE,8,:loginPersMask, :maskAuth) AS HAND_PHONE,
+			SCC_CRYPTO.MASKAUTH_FUN(MGMT.FAX_NUM,9,:loginPersMask, :maskAuth) AS FAX_NUM,
+			
+			SCC_CRYPTO.MASKAUTH_FUN(MGMT.PRCG_NM,12,:loginPersMask, :maskAuth) AS PRCG_NM,
+			
+			SCC_CRYPTO.MASKAUTH_FUN(MGMT.EMAIL_ADDR,10,:loginPersMask, :maskAuth) AS EMAIL_ADDR,
+			 
+			MGMT.ADDR_KEY,
+			SCC_ADDR_FUN(MGMT.ADDR_KEY, :loginPersMask, :maskAuth) AS ADDR_INFO
+			
+			
+			,(SELECT A.CUSTNM      FROM ST_CUST A WHERE A.CUSTGUBUN IN ('002', '003') AND A.CUSTCD = MGMT.INTERG_NUM) AS SAP_CUST_NM	--SAP고객명
+			,(SELECT A.SAP_CUST_CD FROM ST_CUST A WHERE A.CUSTGUBUN IN ('002', '003') AND A.CUSTCD = MGMT.INTERG_NUM) AS SAP_CUST_CD    --SAP코드
+			 
+			,MGMT.REMARK,
+			DECODE(NVL(MGMT.USE_YN, 'N'), 'Y', '1', '0') AS USE_YN,
+			MGMT.CDATE,
+			MGMT.CUSER,
+			MGMT.UDATE,
+			MGMT.UUSER
+	       	
+		FROM   	BMS_CUST_MST MGMT
+		INNER JOIN SCC_COMMON_CODE DEPT ON DEPT.GROUP_CODE = 'BMS_0009' AND DEPT.CODE = MGMT.PRCG_DEPT		--부서
+		INNER JOIN SCC_COMMON_CODE DJOB ON DJOB.GROUP_CODE = 'BMS_0010' AND DJOB.CODE = MGMT.JOB_POSITION	--직위
+		INNER JOIN SCC_COMMON_CODE CLAS ON CLAS.GROUP_CODE = 'BMS_0006' AND CLAS.CODE = MGMT.CUST_CLASS	--거래처
+		LEFT OUTER JOIN BMS_AM_MST AM  ON AM.AM_CD = MGMT.AM_CD
+		 						<#if amNm?has_content> AND AM.AM_NM LIKE :amNm || '%' </#if>
+		WHERE  	1 = 1
+		
+		<#if useYn?has_content>  AND MGMT.USE_YN     = DECODE(:useYn, '1', 'Y', MGMT.USE_YN)  </#if>
+		<#if custNm?has_content> AND MGMT.CUST_NM LIKE :custNm || '%' </#if>
+		<#if prcgNm?has_content> AND MGMT.PRCG_NM LIKE :prcgNm || '%' </#if>
+		<#if amCd?has_content>   AND MGMT.AM_CD      = :amCd          </#if>
+		<#if custCd?has_content> AND MGMT.CUST_CD    = :custCd        </#if>
+	) 
+	ORDER BY CUST_CD, CUST_NM 
+
+		]]>
+	</statement>
+	
+	 
+	<!--  DATA를 저장한다. -->
+	<statement name="insertCustMgmt" type="insert">
+		<![CDATA[
+			 INSERT INTO BMS_CUST_MST
+						(
+						 CUST_CD,   
+						 AM_CD,     
+						 PRCG_DEPT,  
+						 CUST_CLASS, 
+						 CUST_NM,    
+						 CEO_NM,     
+						 BSN_NO,     
+						 CORP_NUM,   
+						 TEL_NUM,     
+						 HAND_PHONE,   
+						 FAX_NUM,       
+						 EMAIL_ADDR,   
+						 BIZ_TYPE,    
+						 BIZ_CAT,      
+						 INTERG_NUM,
+						  
+						 PRCG_NM,       
+						 
+						 JOB_POSITION,   
+						 REMARK,
+						 ADDR_KEY,
+						 USE_YN,
+						 CDATE,
+						 CUSER,
+						 UDATE,
+						 UUSER
+						) VALUES (
+						 :custCd,
+					 
+						<#if amCd?exists> :amCd, <#else> null, </#if>
+						<#if prcgDept?exists> :prcgDept, <#else> null, </#if>
+						<#if custClass?exists> :custClass, <#else> null, </#if>
+						<#if custNm?exists> :custNm, <#else> null, </#if>
+						<#if ceoNm?exists> :ceoNm, <#else> null, </#if>
+						<#if bsnNo?exists> :bsnNo, <#else> null, </#if>
+						<#if corpNum?exists> :corpNum, <#else> null, </#if>
+						<#if telNum?exists> SCC_CRYPTO.ENC_FUN(REPLACE(:telNum,'-','')), <#else> null, </#if>
+						<#if handPhone?exists> SCC_CRYPTO.ENC_FUN(REPLACE(:handPhone,'-','')), <#else> null, </#if>
+						<#if faxNum?exists> SCC_CRYPTO.ENC_FUN(REPLACE(:faxNum,'-','')), <#else> null, </#if>
+						<#if emailAddr?exists> SCC_CRYPTO.ENC_FUN(:emailAddr), <#else> null, </#if>
+						<#if bizType?exists> :bizType, <#else> null, </#if>
+						<#if bizCat?exists> :bizCat, <#else> null, </#if>
+						<#if intergNum?exists> :intergNum, <#else> null, </#if>
+						 
+						<#if prcgNm?exists> :prcgNm, <#else> null, </#if>
+						
+						<#if jobPosition?exists> :jobPosition, <#else> null, </#if>
+						<#if remark?exists> :remark, <#else> null, </#if>
+						<#if addrKey?exists> :addrKey, <#else> null, </#if>
+						<#if useYn?exists> DECODE(:useYn, '1', 'Y', 'N'), <#else> null, </#if>
+						 SYSDATE,
+						 :loginSabun,
+						 SYSDATE,
+						 :loginSabun
+						)
+
+		]]>
+	</statement>
+	
+	<!--  DATA를 수정한다. -->
+	<statement name="updateCustMgmt" type="update">
+		<![CDATA[
+		  UPDATE BMS_CUST_MST SET
+		       		 
+			<#if amCd?exists> AM_CD = :amCd, </#if>
+			<#if custClass?exists> CUST_CLASS = :custClass, </#if>
+			<#if custNm?exists> CUST_NM = :custNm, </#if>
+			<#if ceoNm?exists> CEO_NM = :ceoNm, </#if>
+			<#if bsnNo?exists> BSN_NO = :bsnNo, </#if>
+			<#if corpNum?exists> CORP_NUM = :corpNum, </#if>
+			<#if telNum?exists> TEL_NUM = SCC_CRYPTO.ENC_FUN(REPLACE(:telNum,'-','')), </#if>
+			<#if handPhone?exists> HAND_PHONE = SCC_CRYPTO.ENC_FUN(REPLACE(:handPhone,'-','')), </#if>
+			<#if faxNum?exists> FAX_NUM = SCC_CRYPTO.ENC_FUN(REPLACE(:faxNum,'-','')), </#if>
+			<#if emailAddr?exists> EMAIL_ADDR = SCC_CRYPTO.ENC_FUN(:emailAddr), </#if>
+			<#if bizType?exists> BIZ_TYPE = :bizType, </#if>
+			<#if bizCat?exists> BIZ_CAT = :bizCat, </#if>
+			<#if intergNum?exists> INTERG_NUM = :intergNum, </#if>
+			 
+			<#if prcgNm?exists> PRCG_NM = :prcgNm, </#if>
+			<#if prcgDept?exists> PRCG_DEPT = :prcgDept, </#if>
+			<#if jobPosition?exists> JOB_POSITION = :jobPosition, </#if>
+			<#if remark?exists> REMARK = :remark, </#if>
+			
+			<#if addrKey?exists> ADDR_KEY = :addrKey, </#if>
+			 
+			<#if useYn?exists> USE_YN = DECODE(:useYn, '1', 'Y', 'N'), </#if>
+			       UDATE = SYSDATE,
+			       UUSER = :loginSabun
+			WHERE  CUST_CD = :custCd
+		  
+		]]>
+	</statement>
+	
+	<!-- AM 코드를 생성한다. -->
+	<statement name="maxCustCodeCreate" type="select">
+		<![CDATA[
+ 		
+ 		SELECT  TO_CHAR(SYSDATE,'YYYYMM') || LPAD(NVL(MAX(TO_NUMBER(SUBSTR(CUST_CD,7,4))),'0') + 1,4,'0')  AS MAX_CUST_CD 
+ 		FROM BMS_CUST_MST
+ 		WHERE SUBSTR(CUST_CD,1,6) = TO_CHAR(SYSDATE,'YYYYMM')
+ 		
+		]]>
+	</statement>
+	
+	
+</hqml>	

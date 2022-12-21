@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[주기식단기본템플릿]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT /*+ USE_HASH(B A) */ A.MENU_CD, 
+       A.MENU_DATE,
+       A.UPJANG,
+       A.HALL_CD,
+       A.MEAL ,
+       C.CODE_NAME AS MEAL_NAME,
+       A.CORNER ,
+       D.CODE_NAME AS CORNER_NAME,
+       A.MAJOR_DISH_INFO,
+       A.MAJOR_DISH_INFO_NAME,
+       A.EXPECT_MEAL_QTY,
+       B.RECIPE_CD,
+       B.RECIPE_NAME,
+       NVL(B.RECIPE_COST_PRICE,0) AS RECIPE_COST_PRICE
+  FROM
+       (
+       SELECT (C.YMD||'-'||A.HALL_CD||A.MEAL||A.CORNER) AS MENU_CD,
+              C.YMD AS MENU_DATE,
+              A.UPJANG AS UPJANG,
+              A.HALL_CD AS HALL_CD,
+              A.MEAL AS MEAL,
+              A.CORNER AS CORNER,
+              B.CODE AS MAJOR_DISH_INFO,
+              B.CODE_NAME AS MAJOR_DISH_INFO_NAME,
+              NVL(D.EXPECT_MEAL_QTY,0) AS EXPECT_MEAL_QTY
+         FROM FSA_HALL_DTL A,
+              SCC_COMMON_CODE B,
+              SCC_COPY_YMD C,
+              FSH_CYCLE_MENU_MST D
+        WHERE A.UPJANG = #UPJANG#
+          AND A.HALL_CD = #HALL_CD#
+         AND A.USE_YN    = 'Y'
+        <isNotNull col="CORNER">
+          AND A.CORNER = #CORNER#
+        </isNotNull>
+          AND B.GROUP_CODE = 'FS0032'
+          AND C.YMD BETWEEN #START_DATE# AND #END_DATE#
+          AND A.UPJANG  = D.UPJANG
+          AND A.HALL_CD = D.HALL_CD
+          AND A.MEAL    = D.MEAL
+          AND A.CORNER  = D.CORNER
+          AND C.YMD     = D.MENU_DATE
+       ) A,
+       (
+	       SELECT /*+ USE_HASH(B A) */ A.MENU_CD ,
+	              A.UPJANG ,
+	              A.MAJOR_DISH_INFO ,
+	              A.RECIPE_CD,
+	              A.RECIPE_NAME,
+	              B.RECIPE_COST_PRICE
+	       FROM
+			    ( SELECT  MENU_CD ,
+			              UPJANG ,
+			              MAJOR_DISH_INFO ,
+			              RECIPE_CD,
+			              RECIPE_NAME
+			         FROM FSH_CYCLE_RECIPE_MST
+			        WHERE UPJANG = #UPJANG#
+			          AND MENU_CD BETWEEN #START_DATE# AND #END_DATE# ||'9'
+			     ) A,
+			    (
+                    SELECT
+                               A.MENU_DATE,
+                               A.UPJANG,
+                               A.MENU_CD,
+                               A.RECIPE_CD,
+                               ROUND(SUM(A.NEED_QTY * A.G_ITEM_PRICE))      AS RECIPE_COST_PRICE
+                      FROM
+                           (
+                            SELECT #UPJANG# AS UPJANG, G.MENU_DATE, G.MENU_CD, H.RECIPE_CD, H.ITEM_CODE, NEED_QTY, ROUND((DECODE(A.MARGIN_RATE, 0, A.CONTRACT_PRICE, DECODE(E.OUTVAT_FLAG, 'Y' , ( ROUND( (A.CONTRACT_PRICE * DECODE(D.TAX_CODE, '100' , 1.1, 1) * (A.MARGIN_RATE+100) / 100 ) / 10) * 10 ) , ( ROUND( (A.CONTRACT_PRICE * (A.MARGIN_RATE+100) / 100 ) / 10) * 10 ) ) ) )/KG_CONVERT_RATE/1000,2) AS G_ITEM_PRICE
+                                     FROM HLDC_ST_UPJANG B,
+                                          HLDC_PO_SUBINVENTORY E,
+                                          HLDC_PO_CONTRACT_F A,
+                                          HLDC_PO_ITEM_MST D,
+                                          FSH_CYCLE_MENU_MST G,
+                                          FSH_CYCLE_RECIPE_ITEM H
+                                    WHERE A.ITEM_CODE = D.ITEM_CODE
+                                      AND A.UPJANG     = G.UPJANG
+                                      AND G.UPJANG     = H.UPJANG
+                                      AND G.MENU_CD    = H.MENU_CD
+                                      AND A.USE_YN = 'Y'
+                                      AND A.CONTRACT_PRICE > 0
+                                      AND A.UPJANG      = B.AP_UNITPRICE_UPJANG
+                                      AND B.UPJANG      = E.UPJANG
+                                      AND B.UPJANG      = #UPJANG#
+                                      AND G.HALL_CD     = #HALL_CD#
+                                      AND E.SUBINV_CODE = G.SUBINV_CODE
+                                      AND G.MENU_DATE BETWEEN A.CONTRACT_START AND NVL(A.CONTRACT_END,'99999999')
+                                      AND A.ITEM_CODE = H.ITEM_CODE
+                                      AND G.MENU_DATE BETWEEN #START_DATE# AND #END_DATE#
+                           ) A
+                     GROUP BY A.MENU_DATE, A.UPJANG, A.MENU_CD, A.RECIPE_CD
+                 ) B
+		     WHERE A.UPJANG    = B.UPJANG(+)
+               AND A.MENU_CD   = B.MENU_CD(+)
+               AND A.RECIPE_CD = B.RECIPE_CD(+)
+       ) B,
+       SCC_COMMON_CODE C,
+       SCC_COMMON_CODE D
+ WHERE A.UPJANG = B.UPJANG(+)
+   AND A.MENU_CD = B.MENU_CD(+)
+   AND A.MAJOR_DISH_INFO = B.MAJOR_DISH_INFO(+)
+   AND A.MEAL = C.CODE
+   AND A.CORNER = D.CODE
+   AND C.GROUP_CODE = 'FS0023'
+   AND D.GROUP_CODE = 'FS0022'
+ORDER BY A.CORNER, A.MEAL, A.MAJOR_DISH_INFO
+    </statement>
+	<input default-name="ds_in">
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="HALL_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="CORNER" size="20" type="VARCHAR" description="" /> 
+		<col name="START_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="END_DATE" size="8" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_FSH_CYCLE">
+		<col name="MENU_CD" size="71" type="VARCHAR" description="" /> 
+		<col name="MENU_DATE" size="10" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="HALL_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="MEAL" size="20" type="VARCHAR" description="" /> 
+		<col name="MEAL_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="CORNER" size="20" type="VARCHAR" description="" /> 
+		<col name="CORNER_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="MAJOR_DISH_INFO" size="50" type="VARCHAR" description="" /> 
+		<col name="MAJOR_DISH_INFO_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="RECIPE_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="RECIPE_NAME" size="50" type="VARCHAR" description="" /> 
+		<col name="MENU_COST_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="MENU_SALE_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="EXPECT_MEAL_QTY" size="22" type="NUMERIC" description="" /> 
+	</output>
+</query>

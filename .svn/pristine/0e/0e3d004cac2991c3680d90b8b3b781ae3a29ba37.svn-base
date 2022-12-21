@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="sc.cmn.attachFileDAO">
+	<desc>Attach File HQML</desc>
+
+	<!-- 첨부파일 Select  -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sc.cmn.dao.AttachFileDAO.selectList */
+        <![CDATA[
+        SELECT
+               REF_SEQ,   APPEND_SEQ,  ORGNL_FILE_NM, SAVE_FILE_NM, REL_PATH 
+             , FILE_SIZE, FILE_EXT, FILE_DESC
+        FROM   SCC_APPEND_FILE
+        WHERE  REF_SEQ = :refSeq
+        ORDER BY APPEND_SEQ ASC
+        ]]>
+    </statement>
+
+	<!-- 첨부파일정보 Select  -->
+	<statement name="selectFileInfo" type="select">
+		/*+ com.hwfs.sc.cmn.dao.AttachFileDAO.selectFileInfo */
+        <![CDATA[
+        SELECT
+               REF_SEQ,   APPEND_SEQ,  ORGNL_FILE_NM, SAVE_FILE_NM, REL_PATH 
+             , FILE_SIZE, FILE_EXT, FILE_DESC
+             , DECODE(NVL(ENC_YN, '0'), 'Y', 1, 0) AS ENC_YN
+        FROM   SCC_APPEND_FILE
+        WHERE  REF_SEQ = :refSeq
+        AND    APPEND_SEQ = :appendSeq
+        ]]>
+    </statement>
+
+	<!-- 첨부파일 Insert -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sc.cmn.dao.AttachFileDAO.insert */
+        <![CDATA[
+        INSERT INTO SCC_APPEND_FILE
+              ( REF_SEQ
+              , APPEND_SEQ
+              , ORGNL_FILE_NM
+              , SAVE_FILE_NM
+              , REL_PATH
+              , FILE_SIZE
+              , FILE_EXT
+              , ENC_YN
+              , FILE_DESC
+              , CUSER
+              , CDATE )
+        VALUES (
+                :refSeq
+              , NVL((SELECT MAX(APPEND_SEQ) FROM SCC_APPEND_FILE WHERE REF_SEQ=:refSeq),0) + 1
+              , :orgnlFileNm
+              , :saveFileNm
+              , :relPath
+              , :fileSize
+              , :fileExt
+              , :encYn
+              <#if fileDesc?has_content> 
+              , :fileDesc 
+              <#else> 
+              , null 
+              </#if>
+              , :loginSabun
+              , sysdate
+               )
+        ]]>
+	</statement>
+
+	<!-- 첨부파일 Update -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sc.cmn.dao.AttachFileDAO.update */
+        <![CDATA[
+        <#if fileDesc?has_content >
+        UPDATE SCC_APPEND_FILE
+        SET
+               <#if fileDesc?has_content> 
+        	   FILE_DESC = :fileDesc, 
+               </#if>    
+               UUSER     = :loginSabun
+             , UDATE     = sysdate
+        WHERE  REF_SEQ  = :refSeq
+        AND    APPEND_SEQ = :appendSeq
+        </#if>
+        ]]>
+	</statement>
+
+	<!-- 첨부파일 Delete -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.sc.cmn.dao.AttachFileDAO.delete */
+		<![CDATA[
+        DELETE
+        FROM   SCC_APPEND_FILE
+        WHERE  REF_SEQ=:refSeq
+        <#if appendSeq?has_content >
+        AND    APPEND_SEQ  = :appendSeq
+        </#if>
+        ]]>
+	</statement>
+
+</hqml>

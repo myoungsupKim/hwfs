@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="ms.mlm.emergencyLoanAppDAO">
+	<desc>임시여신승인 HQML Query</desc>
+
+	<!-- 임시여신승인 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.ms.mlm.emergencyLoanAppDAO.selectList */
+	<![CDATA[
+	SELECT    A.UPJANG                                  AS UPJANG
+	        , A.MAIN_UPJANG                             AS MAIN_UPJANG
+	        , A.UPJANGNM_DISP                           AS UPJANGNM_DISP
+	        , A.CREDIT_REQ_GUBUN                        AS CREDIT_REQ_GUBUN
+	        , A.CREDIT_AMOUNT                           AS CREDIT_AMOUNT
+	        , A.CREDIT_OVER_AMOUNT                      AS CREDIT_OVER_AMOUNT
+	        , B.CREDIT_BEF_AMOUNT                       AS CREDIT_BEF_AMOUNT
+	        , B.CREDIT_ADD_AMOUNT                       AS CREDIT_ADD_AMOUNT
+	        , A.CREDIT_TURN_DAYS                        AS CREDIT_TURN_DAYS
+	        , B.CREDIT_OVER_END                         AS CREDIT_OVER_END
+	        , B.CREDIT_BEF_END                          AS CREDIT_BEF_END
+	        , ''                                        AS CREDIT_ADD_END
+	        , A.ATTR04                                  AS BIGO
+	        , B.REMARK                                  AS REMARK
+	        , B.APPR_YN                                 AS APPR_YN                                 
+	        , A.HEAD_CREDIT_YN                          AS HEAD_CREDIT_YN
+	        , (SELECT Z.NM_KOR
+	          FROM    HLDC_HR_PERSONAL Z
+	          WHERE   Z.SABUN = B.REQ_SABUN
+	          )                                         AS REQ_USER  
+	        , B.REQ_DATE                                AS REQ_DATE
+	        , (SELECT REPLACE(REPLACE(SC_CRYPTO_FUN('DEC', Z.HP_NO_ENC ,4),'-',''),'.','')
+	          FROM    SCC_USERINFO Z
+	          WHERE   Z.SABUN = B.CUSER
+	          )                                         AS HP_NO
+	        , TO_CHAR(A.UDATE,'YYYYMMDD')               AS UDATE 
+	        , (SELECT Z.NM_KOR
+	          FROM    HLDC_HR_PERSONAL Z
+	          WHERE   Z.SABUN = A.UUSER
+	          )                                         AS UUSER
+	        , ''	                                    AS CHK_GUBUN  
+	        , B.CREDIT_ID                               AS CREDIT_ID
+	 FROM     FMS_UPJANG A
+	        , FMS_CREDIT_MOBILE B
+	 WHERE   (
+	              1=1
+	         )
+	 AND     A.UPJANG = B.UPJANG
+	 <#if apprGubun?has_content>
+	 AND     B.APPR_YN = :apprGubun
+	 </#if>
+	 <#if dtFrom?has_content>
+	 AND     B.REQ_DATE BETWEEN :dtFrom AND :dtTo
+	 </#if>
+	 ORDER BY B.REQ_DATE DESC
+	 ]]></statement>
+
+	 <!-- 임시여신승인 FMS_UPJANG 수정한다. -->
+	 <statement name="updateUpjang" type="update">
+	 /*+ com.hwfs.ms.mlm.emergencyLoanAppDAO.updateUpjang */
+	 <![CDATA[
+	 UPDATE FMS_UPJANG SET    
+	        <#if creditOverAmount?exists> CREDIT_OVER_AMOUNT          = :creditOverAmount, </#if>
+	        <#if creditAddEnd?exists> CREDIT_OVER_END        = :creditAddEnd, </#if>
+	        <#if bigo?exists> ATTR04        = :bigo, </#if>
+	        UUSER         = :loginSabun,
+	        UDATE         = SYSDATE
+	 WHERE  UPJANG        = :upjang
+	 --AND    USE_YN      = 'Y'
+	 ]]></statement>
+	 
+	 <!-- 임시여신승인 FMS_CREDIT_MOBILE 수정한다. -->
+	 <statement name="updateCreditMobile" type="update">
+	 /*+ com.hwfs.ms.mlm.emergencyLoanAppDAO.updateCreditMobile */
+	 <![CDATA[
+	 UPDATE FMS_CREDIT_MOBILE SET    
+	        <#if creditOverAmount?exists> CREDIT_OVER_AMOUNT          = :creditOverAmount, </#if>
+	        <#if creditAddAmount?exists> CREDIT_ADD_AMOUNT          = :creditAddAmount, </#if>
+	        <#if creditAddEnd?exists> CREDIT_OVER_END        = :creditAddEnd, </#if>
+	        APPR_YN       = 'Y',
+	        APPR_DATE     = TO_CHAR(SYSDATE,'YYYYMMDD'),
+	        APPR_SABUN    = :loginSabun,
+	        UUSER         = :loginSabun,
+	        UDATE         = SYSDATE
+	 WHERE  UPJANG      = :upjang
+	 AND	   CREDIT_ID   = :creditId
+	 --AND    USE_YN        = 'Y'
+	 ]]></statement>
+	 
+	 <!-- 임시여신승인 FMS_UPJANG 수정한다. -->
+	 <statement name="updateReturnUpjang" type="update">
+	 /*+ com.hwfs.ms.mlm.emergencyLoanAppDAO.updateReturnUpjang */
+	 <![CDATA[
+	 UPDATE FMS_UPJANG SET    
+	        <#if creditBefAmount?exists> CREDIT_OVER_AMOUNT          = :creditBefAmount, </#if>
+	        <#if creditBefEnd?exists> CREDIT_OVER_END        = :creditBefEnd, </#if>
+	        UUSER         = :loginSabun,
+	        UDATE         = SYSDATE
+	 WHERE  UPJANG      = :upjang
+	 --AND    USE_YN        = 'Y'
+	 ]]></statement>
+	 
+	<!-- 임시여신승인 FMS_CREDIT_MOBILE 수정한다. --> 
+	<statement name="updateReturnCreditMobile" type="update">
+	/*+ com.hwfs.ms.mlm.emergencyLoanAppDAO.updateReturnCreditMobile */
+	<![CDATA[
+	UPDATE FMS_CREDIT_MOBILE SET    
+	       --<#if creditBefAmount?exists> CREDIT_OVER_AMOUNT          = :creditBefAmount, </#if>
+	       --<#if creditBefEnd?exists> CREDIT_OVER_END        = :creditBefEnd, </#if>
+	       --<#if creditOverAmount?exists> CREDIT_BEF_AMOUNT          = :creditOverAmount, </#if>
+	       --<#if creditOverEnd?exists> CREDIT_BEF_END        = :creditOverEnd, </#if>
+	       APPR_YN       = 'C',
+	       APPR_DATE     = TO_CHAR(SYSDATE,'YYYYMMDD'),
+	       APPR_SABUN    = :loginSabun,
+	       <#if remark?exists> REMARK        = :remark, </#if>
+	       UUSER         = :loginSabun,
+	       UDATE         = SYSDATE
+	WHERE  UPJANG      = :upjang
+	AND	   CREDIT_ID   = :creditId
+	--AND    USE_YN        = 'Y'
+	]]></statement>
+	
+	<!-- 임시여신승인시 승인여부값 불러온다. -->
+	<statement name="saveChk" type="select">
+	/*+ com.hwfs.ms.mlm.emergencyLoanAppDAO.saveChk */
+	<![CDATA[ 
+	SELECT  APPR_YN                                 AS APPR_YN                                 
+	FROM    FMS_CREDIT_MOBILE 
+	WHERE   (
+	             1=1
+	        )
+	AND     UPJANG = :upjang
+	AND     CREDIT_ID   = :creditId
+	]]></statement>
+</hqml>

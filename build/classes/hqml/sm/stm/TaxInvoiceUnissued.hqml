@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sm.stm.taxInvoiceUnissuedDAO">
+	<desc>세금계산서 미발행 HQML Query</desc>
+
+	<!-- 세금계산서 미발생내역 채권 목록을 조회한다. -->
+	<statement name="selectArList" type="select">
+		/*+ com.hwfs.sm.stm.dao.TaxInvoiceUnissuedDao.selectArList */
+		<![CDATA[
+		SELECT ROWNUM, T.*
+		 FROM (
+				SELECT 
+					   'AR' GUBUN,
+					   M.AR_NUM,
+					   M.OCCUR_DATE,
+					   M.MU_CD,
+					   (SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE M.MU_CD = MU.MU_CD) MU_NM,
+					   (SELECT DISTINCT TM.TM_CD FROM HLDC_SC_DEPT_V TM WHERE M.CC_CD = TM.CC_CD) TM_CD,
+					   (SELECT DISTINCT TM.TM_NM FROM HLDC_SC_DEPT_V TM WHERE M.CC_CD = TM.CC_CD) TM_NM,
+					   M.CC_CD,
+					   (SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE M.CC_CD = CC.CC_CD) CC_NM,
+					   M.CUST_CD,
+					   C.CUSTNM AS CUST_NM,
+					   M.AR_AMT OCCUR_AMT,
+					   M.AR_AMT - NVL(D.SUPPLY_AMT, 0) OBJ_AMT,
+					   0 APPLY_AMT,
+					   DECODE(D.AR_NUM, NULL, 'N', '', 'N', 'Y') OCCUR_YN,
+					   M.REMARK,
+					   M.SYS_CLASS,
+					   :inqueryOccurClass OCCUR_CLASS
+				FROM   SLA_AR_MST M,
+					   (SELECT AR_NUM,
+					   		   SUM(AMT) SUPPLY_AMT
+					   	FROM   SLA_TAX_SHET_OCCUR_OBJ
+					   	WHERE  RECD_STATUS = 'L'
+					   	AND	   AR_NUM IS NOT NULL
+					   	GROUP BY AR_NUM) D,
+					   ST_CUST C
+				WHERE  M.RECD_STATUS = 'L'
+				--AND	   M.SYS_CLASS IN ('12')
+				AND	   M.AR_NUM = D.AR_NUM(+)
+				AND	   M.CUST_CD = C.CUSTCD(+)
+				AND	   M.OCCUR_DATE BETWEEN :fiscalDateFr AND :fiscalDateTo
+				AND	   M.MU_CD = :muCd
+				<#if custCd?has_content>
+		        AND	   M.CUST_CD = :custCd
+		        </#if>
+		        <#if tmCd?has_content>
+		        AND	   M.CC_CD IN (SELECT A.CC_CD
+		        				   FROM   SCC_CC A,
+		        				   		  HLDC_SC_DEPT_V B
+		        				   WHERE  B.CC_CD = A.CC_CD
+		        				   AND	  A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+		        				   AND	  A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+		        				   AND	  B.TM_CD = :tmCd)
+		        </#if>
+		        <#if ccCd?has_content>
+		        AND	   M.CC_CD = :ccCd
+		        </#if>
+		        ORDER BY M.OCCUR_DATE, M.AR_NUM ) T
+		]]>
+	</statement>
+	
+	<!-- 세금계산서 미발생내역 선수금 목록을 조회한다. -->
+	<statement name="selectAdvanceList" type="select">
+		/*+ com.hwfs.sm.stm.dao.TaxInvoiceUnissuedDao.selectAdvanceList */
+		<![CDATA[
+		SELECT ROWNUM, T.*
+		  FROM (
+				SELECT 'ADVANCE' GUBUN,
+					   M.ADVANCE_NUM,
+					   M.OCCUR_DATE,
+					   M.MU_CD,
+					   (SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE M.MU_CD = MU.MU_CD) MU_NM,
+					   (SELECT DISTINCT TM.TM_CD FROM HLDC_SC_DEPT_V TM WHERE M.CC_CD = TM.CC_CD) TM_CD,
+					   (SELECT DISTINCT TM.TM_NM FROM HLDC_SC_DEPT_V TM WHERE M.CC_CD = TM.CC_CD) TM_NM,
+					   M.CC_CD,
+					   (SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE M.CC_CD = CC.CC_CD) CC_NM,
+					   M.CUST_CD,
+					   C.CUSTNM AS CUST_NM,
+					   M.OCCUR_AMT,
+					   M.OCCUR_AMT - NVL(D.SUPPLY_AMT, 0) OBJ_AMT,
+					   0 APPLY_AMT,
+					   NVL(D.SUPPLY_AMT, 0) SUPPLY_AMT,
+					   DECODE(D.ADVANCE_NUM, NULL, 'N', '', 'N', 'Y') OCCUR_YN,
+					   M.REMARK,
+					   M.SYS_CLASS,
+					   (SELECT TYPE_NM FROM SLA_TYPE_CD_MST WHERE TYPE_CD = M.ADVANCE_TYPE_CD) TYPE_NM,
+					   :inqueryOccurClass OCCUR_CLASS
+				FROM   SLA_ADVANCE_MST M,
+					   (SELECT ADVANCE_NUM,
+					   		   SUM(AMT) SUPPLY_AMT
+					   	FROM   SLA_TAX_SHET_OCCUR_OBJ
+					   	WHERE  RECD_STATUS = 'L'
+					   	AND	   ADVANCE_NUM IS NOT NULL
+					   	GROUP BY ADVANCE_NUM) D,
+					   ST_CUST C
+				WHERE  M.RECD_STATUS = 'L'
+				AND	   M.ADVANCE_NUM = D.ADVANCE_NUM(+)
+				AND	   M.CUST_CD = C.CUSTCD(+)
+				AND	   M.OCCUR_DATE BETWEEN :fiscalDateFr AND :fiscalDateTo
+				AND	   M.TAX_SHET_PUBLISH_YN = 'Y'
+				AND	   M.MU_CD = :muCd
+				<#if custCd?has_content>
+		        AND	   M.CUST_CD = :custCd
+		        </#if>
+		        <#if tmCd?has_content>
+		        AND	   M.CC_CD IN (SELECT A.CC_CD
+		        				   FROM   SCC_CC A,
+		        				   		  HLDC_SC_DEPT_V B
+		        				   WHERE  B.CC_CD = A.CC_CD
+		        				   AND	  A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+		        				   AND	  A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+		        				   AND	  B.TM_CD = :tmCd)
+		        </#if>
+		        <#if ccCd?has_content>
+		        AND	   M.CC_CD = :ccCd
+		        </#if>
+		        ORDER BY M.OCCUR_DATE, M.ADVANCE_NUM
+		        ) T
+		]]>
+	</statement>
+	
+	<!-- 세금계산서 미발생내역 매출 목록을 조회한다. -->
+	<statement name="selectSalsList" type="select">
+		/*+ com.hwfs.sm.stm.dao.TaxInvoiceUnissuedDao.selectSalsList */
+		<![CDATA[
+		SELECT ROWNUM, T.*
+		  FROM (
+				SELECT 'SALS' GUBUN,
+					   M.UPJANG_SALS_NUM,
+					   M.SALS_DATE OCCUR_DATE,
+					   M.MU_CD,
+					   (SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE M.MU_CD = MU.MU_CD) MU_NM,
+					   (SELECT DISTINCT TM.TM_CD FROM HLDC_SC_DEPT_V TM WHERE M.CC_CD = TM.CC_CD) TM_CD,
+					   (SELECT DISTINCT TM.TM_NM FROM HLDC_SC_DEPT_V TM WHERE M.CC_CD = TM.CC_CD) TM_NM,
+					   M.CC_CD,
+					   (SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE M.CC_CD = CC.CC_CD) CC_NM,
+					   M.UPJANG_CD,
+					   (SELECT DISTINCT UP.UPJANGNM FROM ST_UPJANG UP WHERE M.UPJANG_CD = UP.UPJANG) UPJANG_NM,
+					   M.CUST_CD,
+					   C.CUSTNM AS CUST_NM,
+					   M.POS_NUM,
+					   (SELECT SUBINV_NAME FROM HLDC_PO_SUBINVENTORY WHERE CC_CD = M.CC_CD AND SUBINV_CODE = M.POS_NUM) POS_NM,
+					   M.SALS_CLASS,
+					   (SELECT SALS_TYPE_NM FROM SLA_SALES_SALS_TYPE WHERE SALS_TYPE =M.SALS_CLASS) TYPE_NM,
+					   M.SALS_AMT OCCUR_AMT,
+					   M.SALS_AMT - NVL(D.SUPPLY_AMT, 0) OBJ_AMT,
+					   NVL(D.SUPPLY_AMT, 0) SUPPLY_AMT,
+					   0 APPLY_AMT,
+					   DECODE(D.UPJANG_SALS_NUM, NULL, 'N', '', 'N', 'Y') OCCUR_YN,
+					   M.VAT_CLASS,
+					   (SELECT VAT_NM FROM SLA_VAT_CD_MST WHERE VAT_CD = M.VAT_CLASS) VAT_CLASS_NM,
+					   SYS_CLASS,
+					   :inqueryOccurClass OCCUR_CLASS,
+                       FM.CS_SABUN,
+                       (SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = FM.CS_SABUN) AS NM_KOR
+				FROM   SLA_UPJANG_SALS_ISRC M,
+					   (SELECT UPJANG_SALS_NUM,
+					   		   SUM(AMT) SUPPLY_AMT
+					   	FROM   SLA_TAX_SHET_OCCUR_OBJ
+					   	WHERE  RECD_STATUS = 'L'
+					   	AND	   UPJANG_SALS_NUM IS NOT NULL
+					   	GROUP BY UPJANG_SALS_NUM) D,
+					   ST_CUST C,
+                       FMS_UPJANG FM
+				WHERE  M.RECD_STATUS = 'L'
+				--AND	   M.SYS_CLASS NOT IN ('12')
+				AND	   M.UPJANG_SALS_NUM = D.UPJANG_SALS_NUM(+)
+				AND	   M.CUST_CD = C.CUSTCD(+)
+				<#if muCd == '2004'>
+				AND	   M.SUB_UPJANG_CD = FM.UPJANG
+				<#else>
+				AND	   M.UPJANG_CD = FM.UPJANG(+)			
+				</#if>
+				AND	   M.SALS_DATE BETWEEN :fiscalDateFr AND :fiscalDateTo
+				AND	   M.MU_CD = :muCd
+				--AND	   M.VAT_CLASS = :inqueryVatCd
+		        <#if tmCd?has_content>
+		        AND	   M.CC_CD IN (SELECT A.CC_CD
+		        				   FROM   SCC_CC A,
+		        				   		  HLDC_SC_DEPT_V B
+		        				   WHERE  B.CC_CD = A.CC_CD
+		        				   AND	  A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+		        				   AND	  A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+		        				   AND	  B.TM_CD = :tmCd)
+		        </#if>
+		        <#if ccCd?has_content>
+		        AND	   M.CC_CD = :ccCd
+		        </#if>
+		        <#if upjang?has_content>
+		        AND	   M.UPJANG_CD = :upjang
+		        </#if>
+		        <#if custCd?has_content>
+		        AND	   M.CUST_CD = :custCd
+		        </#if>
+		        <#if csSabun?has_content>
+		        AND	   FM.CS_SABUN = :csSabun
+		        </#if>
+		        AND M.SALS_AMT - NVL(D.SUPPLY_AMT, 0) <> 0
+		        ORDER BY M.SALS_DATE, M.UPJANG_SALS_NUM
+		        ) T
+		]]>
+		</statement>
+
+	<!-- 세금계산서 미발행(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sm.stm.dao.TaxInvoiceUnissuedDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 세금계산서 미발행(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sm.stm.dao.TaxInvoiceUnissuedDAO.update */
+		<![CDATA[
+		UPDATE TABLE_NAME 
+		SET    COLUMN_NAME1 = :columnName1,
+		       COLUMN_NAME2 = :columnName2,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+	<!-- 세금계산서 미발행(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.sm.stm.dao.TaxInvoiceUnissuedDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>

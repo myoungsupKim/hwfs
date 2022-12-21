@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.scm.sysMgmtDAO">
+	<desc>시스템에서 사용되는 공통코드를 관리한다.</desc>
+
+	<!-- 시스템구분에 해당하는 시스템 정보를 조회한다. -->
+	<statement name="selectList" type="select">
+		<![CDATA[
+SELECT SYS_ID,
+       SYS_NAME,
+       SORT_SEQ,
+       SYS_TYPE,
+       CONTENTS,
+       DECODE(NVL(USE_YN, '0'), 'Y', '1', '0') AS USE_YN,
+       ATTR01,
+       ATTR02,
+       ATTR03,
+       ATTR04,
+       ATTR05,
+       ATTR06,
+       ATTR07,
+       ATTR08,
+       ATTR09,
+       ATTR10
+FROM   SCC_SYSTEM
+WHERE  SYS_TYPE = :sysType
+ORDER BY SORT_SEQ, SYS_ID
+		]]>
+	</statement>
+
+	<!-- 신규 시스템 정보를 추가한다.(SYS_ID는 MAX+1로 자동 순번처리) -->
+	<statement name="insertList" type="insert">
+		<![CDATA[
+INSERT INTO SCC_SYSTEM
+(
+ SYS_ID,
+ SYS_NAME,
+ SORT_SEQ,
+ SYS_TYPE,
+ CONTENTS,
+ REMARK,
+ USE_YN,
+ ATTR01,
+ ATTR02,
+ ATTR03,
+ ATTR04,
+ ATTR05,
+ ATTR06,
+ ATTR07,
+ ATTR08,
+ ATTR09,
+ ATTR10,
+ CUSER,
+ CDATE,
+ UUSER,
+ UDATE
+) (
+SELECT NVL(MAX(SYS_ID), 0) + 1,
+       :sysName,
+<#if sortSeq?exists> :sortSeq, <#else> null, </#if>
+       :sysType,
+<#if contents?exists> :contents, <#else> null, </#if>
+       null,
+       DECODE(:useYn, '1', 'Y', 'N'),
+<#if attr01?exists> :attr01, <#else> null, </#if>
+<#if attr02?exists> :attr02, <#else> null, </#if>
+<#if attr03?exists> :attr03, <#else> null, </#if>
+<#if attr04?exists> :attr04, <#else> null, </#if>
+<#if attr05?exists> :attr05, <#else> null, </#if>
+<#if attr06?exists> :attr06, <#else> null, </#if>
+<#if attr07?exists> :attr07, <#else> null, </#if>
+<#if attr08?exists> :attr08, <#else> null, </#if>
+<#if attr09?exists> :attr09, <#else> null, </#if>
+<#if attr10?exists> :attr10, <#else> null, </#if>
+       :loginSabun,
+       SYSDATE,
+       :loginSabun,
+       SYSDATE
+FROM   SCC_SYSTEM
+)
+		]]>
+	</statement>
+
+	<!-- 변경된 시스템 정보를 수정한다. -->
+	<statement name="updateList" type="update">
+		<![CDATA[
+UPDATE SCC_SYSTEM
+SET    SYS_NAME = :sysName,
+<#if sortSeq?exists> SORT_SEQ = :sortSeq, </#if>
+       SYS_TYPE = :sysType,
+<#if contents?exists> CONTENTS = :contents, </#if>
+       REMARK = null,
+       USE_YN = DECODE(:useYn, '1', 'Y', 'N'),
+<#if attr01?exists> ATTR01 = :attr01, </#if>
+<#if attr02?exists> ATTR02 = :attr02, </#if>
+<#if attr03?exists> ATTR03 = :attr03, </#if>
+<#if attr04?exists> ATTR04 = :attr04, </#if>
+<#if attr05?exists> ATTR05 = :attr05, </#if>
+<#if attr06?exists> ATTR06 = :attr06, </#if>
+<#if attr07?exists> ATTR07 = :attr07, </#if>
+<#if attr08?exists> ATTR08 = :attr08, </#if>
+<#if attr09?exists> ATTR09 = :attr09, </#if>
+<#if attr10?exists> ATTR10 = :attr10, </#if>
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+WHERE  SYS_ID = :sysId
+		]]>
+	</statement>
+
+	<!-- 시스템 정보를 삭제한다. -->
+	<statement name="deleteList" type="delete">
+		<![CDATA[
+UPDATE SCC_SYSTEM
+SET    USE_YN = 'N',
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+WHERE  SYS_ID = :sysId
+		]]>
+	</statement>
+</hqml>

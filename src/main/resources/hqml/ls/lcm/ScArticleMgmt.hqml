@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="ls.lcm.scArticleMgmtDAO">
+    <desc>시스템에서 사용되는 공통코드를 관리한다.</desc>
+
+    <!-- 공통코드의 그룹에 해당하는 DATA를 조회한다. -->
+    <statement name="selectGroupList" type="select">
+        /*+ com.hwfs.ls.lcm.dao.ScArticleMgmtDAO.selectGroupList */
+        <![CDATA[
+SELECT A.GROUP_CODE,
+       A.GROUP_NAME,
+       A.CONTENTS,
+       A.GROUP_TYPE,
+       DECODE(NVL(A.SYSTEM_YN, '0'), 'Y', '1', '0') AS SYSTEM_YN,
+       A.SET1,
+       A.SET2,
+       A.SET3,
+       A.SET4,
+       A.SET5,
+       DECODE(NVL(A.USE_YN, '0'), 'Y', '1', '0') AS USE_YN,
+       A.ATTR01,
+       A.ATTR02,
+       A.ATTR03,
+       A.ATTR04,
+       A.ATTR05,
+       A.ATTR06,
+       A.ATTR07,
+       A.ATTR08,
+       A.ATTR09,
+       A.ATTR10,
+       NVL((SELECT NM_KOR FROM SCC_USERINFO WHERE SABUN = A.UUSER), 'SYSTEM') AS UUSER,
+       A.UDATE
+FROM   SCC_COMMON_GROUP A
+WHERE  A.GROUP_TYPE = 'LS'
+<#if edtSearch?has_content>
+  AND (A.GROUP_CODE LIKE '%' || :edtSearch || '%' OR A.GROUP_NAME LIKE '%' || :edtSearch || '%')
+</#if>
+ORDER BY A.GROUP_CODE
+        ]]>
+    </statement>
+
+    <!-- 특정 그룹코드에 해당하는 상세코드 DATA를 조회한다. -->
+    <statement name="selectCodeList" type="select">
+        /*+ com.hwfs.ls.lcm.dao.ScArticleMgmtDAO.selectCodeList */
+        <![CDATA[
+SELECT A.GROUP_CODE,
+       A.CODE,
+       A.CODE_NAME,
+       A.CONTENTS,
+       A.SORT_SEQ,
+       DECODE(NVL(A.SYSTEM_YN, '0'), 'Y', '1', '0') AS SYSTEM_YN,
+       A.SET1,
+       A.SET2,
+       A.SET3,
+       A.SET4,
+       A.SET5,
+       DECODE(NVL(A.USE_YN, '0'), 'Y', '1', '0') AS USE_YN,
+       A.ATTR01,
+       A.ATTR02,
+       A.ATTR03,
+       A.ATTR04,
+       A.ATTR05,
+       A.ATTR06,
+       A.ATTR07,
+       A.ATTR08,
+       A.ATTR09,
+       A.ATTR10,
+       DECODE(NVL(A.POS_YN, '0'), 'Y', '1', '0') AS POS_YN,
+       NVL((SELECT NM_KOR FROM SCC_USERINFO WHERE SABUN = A.UUSER), 'SYSTEM') AS UUSER,
+       A.UDATE
+FROM   SCC_COMMON_CODE A
+WHERE  A.GROUP_CODE = :groupCode
+<#if useYn?exists> AND A.USE_YN = :useYn </#if>
+<#if edtCodeSearch?has_content> AND (A.CODE = :edtCodeSearch OR A.CODE_NAME LIKE '%' || :edtCodeSearch || '%') </#if>
+<#if searchContents?has_content> AND (A.CODE = :searchContents OR A.CODE_NAME LIKE '%' || :searchContents || '%') </#if>
+ORDER BY A.SORT_SEQ, A.CODE
+        ]]>
+    </statement>
+
+    <!-- 상세 코드 일괄 DATA를 조회한다. -->
+    <statement name="selectCodeDtlBatchList" type="select">
+        /*+ com.hwfs.ls.lcm.dao.ScArticleMgmtDAO.selectCodeDtlBatchList */
+        <![CDATA[
+SELECT GROUP_CODE,
+       CODE,
+       CODE_NAME
+FROM   SCC_COMMON_CODE
+WHERE  GROUP_CODE IN ( :groupCodeList )
+AND    USE_YN = 'Y'
+ORDER BY GROUP_CODE, SORT_SEQ, CODE
+        ]]>
+    </statement>
+
+    <!-- 공통그룹코드를 생성한다. -->
+    <statement name="insertGroupList" type="insert">
+        /*+ com.hwfs.ls.lcm.dao.ScArticleMgmtDAO.insertGroupList */
+        <![CDATA[
+INSERT INTO SCC_COMMON_GROUP (
+       GROUP_CODE,
+       GROUP_NAME,
+       CONTENTS,
+       GROUP_TYPE,
+       SYSTEM_YN,
+       SET1,
+       SET2,
+       SET3,
+       SET4,
+       SET5,
+       REMARK,
+       USE_YN,
+       ATTR01,
+       ATTR02,
+       ATTR03,
+       ATTR04,
+       ATTR05,
+       ATTR06,
+       ATTR07,
+       ATTR08,
+       ATTR09,
+       ATTR10,
+       CUSER,
+       CDATE,
+       UUSER,
+       UDATE
+) VALUES (
+       :groupCode,
+       :groupName,
+<#if contents?exists> :contents, <#else> null, </#if>
+       'LS',
+       DECODE(:systemYn, '1', 'Y', 'N'),
+<#if set1?exists> :set1, <#else> null, </#if>
+<#if set2?exists> :set2, <#else> null, </#if>
+<#if set3?exists> :set3, <#else> null, </#if>
+<#if set4?exists> :set4, <#else> null, </#if>
+<#if set5?exists> :set5, <#else> null, </#if>
+       null,
+       DECODE(:useYn, '1', 'Y', 'N'),
+<#if attr01?exists> :attr01, <#else> null, </#if>
+<#if attr02?exists> :attr02, <#else> null, </#if>
+<#if attr03?exists> :attr03, <#else> null, </#if>
+<#if attr04?exists> :attr04, <#else> null, </#if>
+<#if attr05?exists> :attr05, <#else> null, </#if>
+<#if attr06?exists> :attr06, <#else> null, </#if>
+<#if attr07?exists> :attr07, <#else> null, </#if>
+<#if attr08?exists> :attr08, <#else> null, </#if>
+<#if attr09?exists> :attr09, <#else> null, </#if>
+<#if attr10?exists> :attr10, <#else> null, </#if>
+       :loginSabun,
+       SYSDATE,
+       :loginSabun,
+       SYSDATE
+)
+        ]]>
+    </statement>
+
+    <!-- 공통그룹코드를 수정한다. -->
+    <statement name="updateGroupList" type="update">
+        /*+ com.hwfs.ls.lcm.dao.ScArticleMgmtDAO.updateGroupList */
+        <![CDATA[
+UPDATE SCC_COMMON_GROUP
+SET    GROUP_NAME = :groupName,
+<#if contents?exists>CONTENTS   = :contents,</#if>
+       SYSTEM_YN  = DECODE(:systemYn, '1', 'Y', 'N'),
+<#if set1?exists>SET1 = :set1,</#if>
+<#if set2?exists>SET2 = :set2,</#if>
+<#if set3?exists>SET3 = :set3,</#if>
+       USE_YN     = DECODE(:useYn, '1', 'Y', 'N'),
+       UUSER      = :loginSabun,
+       UDATE      = SYSDATE
+WHERE  GROUP_CODE = :groupCode
+  AND  GROUP_TYPE = 'LS'
+        ]]>
+    </statement>
+
+    <!-- 공통코드를 생성한다. -->
+    <statement name="insertCodeList" type="insert">
+        /*+ com.hwfs.ls.lcm.dao.ScArticleMgmtDAO.insertCodeList */
+        <![CDATA[
+INSERT INTO SCC_COMMON_CODE (
+       GROUP_CODE,
+       CODE,
+       CODE_NAME,
+       CONTENTS,
+       SORT_SEQ,
+       SYSTEM_YN,
+       SET1,
+       SET2,
+       SET3,
+       USE_YN,
+       CUSER,
+       CDATE,
+       UUSER,
+       UDATE
+) VALUES (
+       :groupCode,
+       :code,
+       :codeName,
+<#if contents?exists> :contents, <#else> null, </#if>
+<#if sortSeq?exists> :sortSeq, <#else> null, </#if>
+       DECODE(:systemYn, '1', 'Y', 'N'),
+<#if set1?exists> :set1, <#else> null, </#if>
+<#if set2?exists> :set2, <#else> null, </#if>
+<#if set3?exists> :set3, <#else> null, </#if>
+       DECODE(:useYn, '1', 'Y', 'N'),
+       :loginSabun,
+       SYSDATE,
+       :loginSabun,
+       SYSDATE
+)
+        ]]>
+    </statement>
+
+    <!-- 공통코드를 수정한다. -->
+    <statement name="updateCodeList" type="update">
+        /*+ com.hwfs.ls.lcm.dao.ScArticleMgmtDAO.updateCodeList */
+        <![CDATA[
+UPDATE SCC_COMMON_CODE
+SET    CODE_NAME = :codeName,
+<#if contents?exists> CONTENTS = :contents, </#if>
+<#if sortSeq?exists> SORT_SEQ = :sortSeq, </#if>
+       SYSTEM_YN = DECODE(:systemYn, '1', 'Y', 'N'),
+<#if set1?exists> SET1 = :set1, </#if>
+<#if set2?exists> SET2 = :set2, </#if>
+<#if set3?exists> SET3 = :set3, </#if>
+       USE_YN = DECODE(:useYn, '1', 'Y', 'N'),
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+WHERE  GROUP_CODE = :groupCode
+AND    CODE = :code
+        ]]>
+    </statement>
+
+    <!-- 공통코드를 수정한다. -->
+    <statement name="updateUseAllCode" type="update">
+        /*+ com.hwfs.ls.lcm.dao.ScArticleMgmtDAO.updateUseAllCode */
+        <![CDATA[
+UPDATE SCC_COMMON_CODE
+SET    USE_YN = :useYn,
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+WHERE  GROUP_CODE = :groupCode
+        ]]>
+    </statement>
+</hqml>

@@ -1,0 +1,1529 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="fm.fmf.closeDocMngtDAO">
+	<desc>마감장관리(브랜드) HQML Query</desc>
+
+	<!-- 마감장관리(브랜드) 목록 조회 -->
+	<statement name="selectList" type="select">
+		<![CDATA[
+		/*+ com.hwfs.fm.fmf.dao.CloseDocMngt.selectList */
+		SELECT '' CHK,
+			   A.MAIN_UPJANG,
+			   (SELECT UPJANGNM_DISP FROM FMS_UPJANG WHERE UPJANG = A.MAIN_UPJANG) MAIN_UPJANGNM,
+			   CUST_V.SAUPNO AS BIZ_NUM,
+		       MAX(CASE WHEN A.MAIN_UPJANG = A.UPJANG THEN REGEXP_REPLACE(SCC_CRYPTO.DEC_FUN(A.PART_SALES_TEL_NO_ENC), '[^0-9]+') ELSE NULL END) AS TEL_NO,
+		       MAX(CASE WHEN A.MAIN_UPJANG = A.UPJANG THEN REGEXP_REPLACE(SCC_CRYPTO.DEC_FUN(A.FAX_NO_ENC), '[^0-9]+') ELSE NULL END) AS FAX_NO,
+		       COUNT(DISTINCT V.UPJANG) AS SUB_UPJANG_CNT,
+		       --SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(:schTdate, 'YYYYMMDD'),-1), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT,
+		       ( SUM((CASE WHEN V.BOND_DATE BETWEEN '19000101' AND :schTdate THEN V.AMT ELSE 0 END)) -
+           		SUM((CASE WHEN V.BOND_DATE BETWEEN :schFdate AND :schTdate THEN V.AMT ELSE 0 END)) )
+           		- (SUM((CASE WHEN V.BOND_DATE BETWEEN '19000101' AND :schTdate THEN V.RCP_AMT1 ELSE 0 END)) -
+           		SUM((CASE WHEN V.BOND_DATE BETWEEN :schFdate AND :schTdate THEN V.RCP_AMT1 ELSE 0 END))) AS GICHO_AMT,
+		       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 8) BETWEEN :schFdate AND TO_CHAR(TO_DATE(:schTdate, 'YYYYMMDD'), 'YYYYMMDD')  THEN V.AMT ELSE 0 END)) SALE_AMT,
+		       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 8) BETWEEN :schFdate AND TO_CHAR(TO_DATE(:schTdate, 'YYYYMMDD'), 'YYYYMMDD')  THEN V.RCP_AMT1 ELSE 0 END)) COLLECT_AMT,
+		       ( SUM((CASE WHEN V.BOND_DATE BETWEEN '19000101' AND :schTdate THEN V.AMT ELSE 0 END)) -
+           		SUM((CASE WHEN V.BOND_DATE BETWEEN :schFdate AND :schTdate THEN V.AMT ELSE 0 END)) )
+           		- (SUM((CASE WHEN V.BOND_DATE BETWEEN '19000101' AND :schTdate THEN V.RCP_AMT1 ELSE 0 END)) -
+           		SUM((CASE WHEN V.BOND_DATE BETWEEN :schFdate AND :schTdate THEN V.RCP_AMT1 ELSE 0 END))) +
+		       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 8) BETWEEN :schFdate AND TO_CHAR(TO_DATE(:schTdate, 'YYYYMMDD'), 'YYYYMMDD')  THEN V.AMT ELSE 0 END)) -
+		       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 8) BETWEEN :schFdate AND TO_CHAR(TO_DATE(:schTdate, 'YYYYMMDD'), 'YYYYMMDD')  THEN V.RCP_AMT1 ELSE 0 END)) GIMAL_AMT,
+               FAX_SEND_RSLT_FUN('1', A.MAIN_UPJANG, :schFdate, :schTdate, MAX(REGEXP_REPLACE(SCC_CRYPTO.DEC_FUN(A.FAX_NO_ENC), '[^0-9]+'))) AS TR_RSLTSTAT,
+               FAX_SEND_RSLT_FUN('2', A.MAIN_UPJANG, :schFdate, :schTdate, MAX(REGEXP_REPLACE(SCC_CRYPTO.DEC_FUN(A.FAX_NO_ENC), '[^0-9]+'))) AS TR_SENDTIME,
+               FAX_SEND_RSLT_FUN('3', A.MAIN_UPJANG, :schFdate, :schTdate, MAX(REGEXP_REPLACE(SCC_CRYPTO.DEC_FUN(A.FAX_NO_ENC), '[^0-9]+'))) AS TR_RECVTIME,
+		       :schFdate AS schFdate,
+		       :schTdate AS schTdate
+		FROM  (
+					-- 채권(판매)
+					SELECT Z.UPJANG
+			      	     , Z.DEPT_ID
+					     , SUM(Z.SALE_SUM) AS AMT
+						 , Z.TRANS_DATE2 AS BOND_DATE
+					     ,0 AS RCP_AMT1
+					     ,0 AS CURR_MACHUL
+					     ,0 AS MI_BOND_AMT
+					     ,0 AS DO_BOND_AMT
+					     ,0 AS AK_BOND_AMT
+					FROM (
+								SELECT RS.TRANS_DATE
+									  , RS.ITEM_NAME
+									  , RS.SALE_SUM - (RS.CK_SUM + RS.JI_SUM) AS SALE_SUM		/* 매출합계 = 매출합계 - (각종 수수료금액 제외) */
+						              , RS.PR_NUM
+						              , RS.UPJANG
+						          	  , RS.DEPT_ID
+						         	  , RS.TRANS_DATE2
+								FROM (
+								   SELECT
+										  TO_CHAR(TO_DATE(X.TRANS_DATE,'YYYYMMDD'),'YYYY-MM-DD') TRANS_DATE
+						      			, X.ITEM_CODE
+						      			, X.ITEM_NAME
+						      			, X.ITEM_SIZE
+							  	        , X.TRANS_UOM
+							 			, SUM(
+							 				CASE WHEN X.FLAG = '1' THEN
+							 					DECODE(SUBSTR(X.TRANS_TYPE,1,1),'I',1,-1) * ROUND(DECODE(X.TAX_CODE,'100',1.1,1) * ROUND(X.SALE_PRICE * X.TRANS_QTY))
+							 				ELSE 
+							 					DECODE(SUBSTR(X.TRANS_TYPE,1,1),'I',1,-1) * ROUND(X.SALE_PRICE * X.TRANS_QTY) + X.SALE_VAT
+							 				END
+							 				) AS SALE_SUM 
+						      			, SUM(ROUND(X.CK_AMOUNT) + DECODE(X.TAX_CODE,100,ROUND(X.CK_AMOUNT / 10),0) * DECODE(SUBSTR(X.TRANS_TYPE,1,1), 'I', 1, -1)) AS CK_SUM
+						      			, SUM(ROUND(X.JI_AMOUNT) + DECODE(X.TAX_CODE,100,ROUND(X.JI_AMOUNT / 10),0) * DECODE(SUBSTR(X.TRANS_TYPE,1,1), 'I', 1, -1)) AS JI_SUM
+						                , x.pr_num
+						                , X.UPJANG
+						                , X.DEPT_ID
+						                , X.TRANS_DATE2
+						                , X.PO_TYPE
+								   FROM (
+											    SELECT T.TRANS_DATE
+									      			 , T.ITEM_CODE
+									      			 , T.ITEM_NAME
+									      			 , T.ITEM_SIZE
+									      			 , T.TRANS_UOM
+									      			 , T.TRANS_TYPE
+									      			 , T.TRANS_QTY
+									      			 , T.SALE_PRICE
+									      			 , T.TAX_CODE
+					                      			 , T.SALE_VAT
+									      			 , T.FLAG
+									     			 , CASE WHEN NVL(T.SALE_AMOUNT, 0) = 0 THEN 0
+														  ELSE
+										    					CASE WHEN NVL(T.C_SALE_RATE, 0) = 0 THEN  
+																	CASE WHEN NVL(T.C1_SALE_RATE, 0) = 0 THEN 0 
+							                                        ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.C1_SALE_RATE,0) / 100)))) END			    					
+										    					ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.C_SALE_RATE,0) / 100))))
+										    					END 
+														  END AS CK_AMOUNT
+									      			 , CASE WHEN NVL(T.SALE_AMOUNT, 0) = 0 THEN 0
+														  ELSE
+										    					CASE WHEN NVL(T.J_SALE_RATE, 0) = 0 THEN 
+																	CASE WHEN NVL(T.J1_SALE_RATE, 0) = 0 THEN 0 
+							                                        ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.J1_SALE_RATE,0) / 100)))) END			    					
+										    					ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.J_SALE_RATE,0) / 100))))
+										    					END 
+														END AS JI_AMOUNT
+			                						 , T.pr_num
+								                     , T.UPJANG
+								                     , T.DEPT_ID          
+								                     , T.TRANS_DATE2 		
+								                     , T.PO_TYPE		 
+												FROM (
+															SELECT /*+ PUSH_PRED(A) */
+																   A.TRANS_DATE
+											      				 , A.ITEM_CODE
+											      				 , A.ITEM_NAME
+											      				 , A.ITEM_SIZE
+											      				 , A.TRANS_UOM
+											      				 , A.TRANS_TYPE
+											      				 , A.TRANS_QTY
+											      				 , NVL(A.TRANS_MPRICE, 0) AS TRANS_MPRICE
+											      				 , NVL(A.TRANS_MAMOUNT, 0) AS TRANS_MAMOUNT
+											      				 /* , NVL(A.TRANS_MVAT, 0) AS TRANS_MVAT */
+											      				 , ROUND(DECODE(A.TAX_CODE,'100',0.1,0) * NVL(A.TRANS_MAMOUNT, 0)) AS TRANS_MVAT
+                                                                 , CASE WHEN A.PO_TYPE IN ('71', '72') THEN 0
+                                                                        ELSE NVL(A.SALE_PRICE, 0) END AS SALE_PRICE
+											      				 , CASE WHEN A.PO_TYPE IN ('71', '72') THEN 0
+                                                                        ELSE NVL(A.SALE_AMOUNT, 0) END AS SALE_AMOUNT
+											      				 , CASE WHEN A.PO_TYPE IN ('71', '72') THEN 0
+                                                                        ELSE NVL(A.SALE_VAT, 0) END AS SALE_VAT
+											      				 , A.TAX_CODE
+											      				 , A.FLAG
+							         							 /*검색 조건 : CK물류비제외*/
+											      				 , 0 AS C1_SALE_RATE								/* 분류 기준 CK 물류비율 */
+											      				 , 0 AS C_SALE_RATE									/* 자재 기준 CK 물류비율 */
+							         							 /*검색 조건 : 지급수수료제외*/
+											      				 , 0 AS J1_SALE_RATE									/* 분류 기준 지급수수료 비율 */
+											     				 , 0 AS J_SALE_RATE		/* 자재별 지급수수료 비율 */
+							         							 /*검색 조건 : 장려금제외*/
+															     ,	0 AS S1_SALE_RATE									/* 분류 기준 장려금 비율 */	
+											     			     , 0 AS S_SALE_RATE									/* 자재별 장려금 비율 */
+									                             , a.pr_id
+									                             , a.pr_num
+									                             , B2.UPJANG
+									                             , B2.DEPT_ID
+									                             , A.TRANS_DATE2
+									                             , A.PO_TYPE
+						 								      FROM FMS_TRANSACTION_RTN_V A
+															  INNER JOIN ST_UPJANG B2 ON 1 = 1
+															  /*검색 조건 : 본사*/
+															  <#if schMainUpjang?has_content>
+															  AND B2.UPJANG IN (SELECT UPJANG FROM FMS_UPJANG WHERE  MAIN_UPJANG = :schMainUpjang)
+															  </#if>
+															  /*검색 조건 : 사업장*/
+															  AND A.TRANS_UPJANG = B2.UPJANG																			
+															  INNER JOIN FMS_UPJANG Z ON 1 = 1
+	        												  /*검색 조건 : 영업담당*/
+	        												  /*검색 조건 : 세부직군*/
+															  AND A.TRANS_UPJANG = Z.UPJANG
+															  INNER JOIN HLDC_SC_DEPT_V D ON  1 = 1
+															  /*검색 조건 : 관리부서(팀)*/
+															  AND D.TM_CD LIKE 'CI%'
+															  /*검색 조건 : CC */
+															  AND  B2.DEPT_ID = D.DEPT_ID
+															WHERE (SUBSTR(A.SUBINV_CODE, 1, 2) = 'S1' )--AND SUBSTR(A.ITEM_CODE,1,1) = 'F') OR A.GUBUN = 'HNR')
+															  AND (A.TRANS_TYPE IN '_002' OR A.TRANS_TYPE = 'I001' )
+								           					  /*검색 조건 : 기간*/
+								           					  AND A.TRANS_DATE2 BETWEEN '19000101' AND :schTdate
+								           					  /*검색 조건 : 센터*/     
+								             				  /*검색 조건 : 납품업체*/
+												) T	
+								   ) X		
+								   GROUP BY X.TRANS_DATE, X.ITEM_CODE, X.ITEM_NAME, X.ITEM_SIZE, X.TRANS_UOM,  X.SALE_PRICE , x.pr_num, X.UPJANG, X.DEPT_ID, X.TRANS_DATE2, X.PO_TYPE
+								) RS
+					) Z
+			    	GROUP BY Z.TRANS_DATE, Z.PR_NUM, Z.UPJANG, Z.DEPT_ID, Z.TRANS_DATE2
+		
+		        	UNION ALL
+		
+					-- 입금(수금)
+			        SELECT 
+						   V.UPJANG_CD UPJANG
+						 , V.CC_CD AS DEPT_ID
+			             , 0 AS  AMT
+			             , V1.RECEIVE_DATE BOND_DATE
+						 , NVL(V1.RECEIVE_AMT,0) AS RCP_AMT1
+			             , 0 AS CURR_MACHUL
+			             , 0 MI_BOND_AMT
+			             , 0 DO_BOND_AMT
+			             , 0 AK_BOND_AMT
+			             --, V.CC_CD
+			          FROM SLA_AR_MST V INNER JOIN SLA_AR_RECEIVE_DETAIL V1 ON V1.RECEIVE_DATE BETWEEN '19000101' AND :schTdate
+					   AND V1.RECD_STATUS = 'L'	
+					   AND V.AR_NUM = V1.AR_NUM
+					   INNER JOIN FMS_UPJANG B ON 1 = 1
+					   <#if schMainUpjang?has_content>
+					   AND (B.MAIN_UPJANG = :schMainUpjang)
+					   </#if>
+					   AND V.UPJANG_CD = B.UPJANG
+					   INNER JOIN ST_UPJANG S ON  1 = 1
+					   AND B.UPJANG = S.UPJANG						
+					   INNER JOIN HLDC_SC_DEPT_V D ON  1 = 1
+					   AND (D.MU_CD      = '2004')
+					   AND (D.TM_CD LIKE 'CI%')
+					   AND S.DEPT_ID = D.DEPT_ID
+					   AND V.MU_CD = D.MU_CD
+			         WHERE V.SYS_CLASS IN ('13','14')
+					   AND V.RECD_STATUS='L'
+					   AND V1.ACCT_CD NOT IN ('11202010')  --대체된 금액은 입금반영이 되지 않도록함  
+		        
+		         		UNION ALL
+		        
+					-- 입금(선수금) : +, -  : 일자별 잔액 개념으로 변경, 2015-12-03
+					SELECT 
+						  X.UPJANG
+						, X.DEPT_ID
+						, 0 AS AMT
+						, X.BOND_DATE
+						, SUM(X.RCP_AMT1) - SUM(RCP_AMT2) AS RCP_AMT1
+						, 0 AS CURR_MACHUL
+						, 0 AS MI_BOND_AMT
+						, 0 AS DO_BOND_AMT
+						, 0 AS AK_BOND_AMT
+						--, V.CC_CD
+					 FROM (
+							-- 선수금 발생금액 
+				            SELECT 
+				                   V.UPJANG_CD UPJANG
+				                 , V.CC_CD AS DEPT_ID
+				                 , 0 AS  AMT
+				                 , V.OCCUR_DATE AS  BOND_DATE
+				                 , NVL(V.OCCUR_AMT,0) AS RCP_AMT1
+				                 , 0 AS RCP_AMT2
+				                 , 0 AS CURR_MACHUL
+				                 , 0 MI_BOND_AMT
+				                 , 0 DO_BOND_AMT
+				                 , 0 AK_BOND_AMT
+				                 --, V.CC_CD
+				              FROM SLA_ADVANCE_MST V INNER JOIN FMS_UPJANG B ON 1 = 1
+								   <#if schMainUpjang?has_content>
+								   AND (B.MAIN_UPJANG = :schMainUpjang)
+								   </#if>
+								   AND V.UPJANG_CD = B.UPJANG
+								   INNER JOIN ST_UPJANG S ON 1 = 1
+								   AND B.UPJANG = S.UPJANG
+								   AND V.UPJANG_CD = S.UPJANG
+								   INNER JOIN HLDC_SC_DEPT_V D ON 1 = 1	
+								   AND (D.MU_CD = '2004')
+						   		   AND (D.TM_CD LIKE 'CI%')
+						   		   AND S.DEPT_ID = D.DEPT_ID
+							 WHERE V.OCCUR_DATE BETWEEN '19000101' AND :schTdate
+							   AND V.SYS_CLASS IN ('13','14')
+							   AND V.RECD_STATUS='L'
+				
+				             UNION ALL
+				            
+							-- 선수금 대체금액 
+				            SELECT 
+				                   V.UPJANG_CD UPJANG
+				                 , V.CC_CD AS DEPT_ID
+				                 , 0 AS  AMT
+				                 , V1.ALT_DATE AS  BOND_DATE
+				                 , 0 AS RCP_AMT1
+				                 , NVL(V1.APPLY_AMT, 0) AS RCP_AMT2
+				                 , 0 AS CURR_MACHUL
+				                 , 0 MI_BOND_AMT
+				                 , 0 DO_BOND_AMT
+				                 , 0 AK_BOND_AMT
+				                 --, V.CC_CD
+				              FROM SLA_ADVANCE_MST V 
+								   INNER JOIN SLA_ADVANCE_ALT_DETAIL V1 ON 1 = 1
+								   AND V1.RECD_STATUS = 'L'
+								   AND V1.ALT_DATE BETWEEN '19000101' AND :schTdate
+								   AND V.ADVANCE_NUM = V1.ADVANCE_NUM
+								   INNER JOIN FMS_UPJANG B ON 1 = 1
+								   <#if schMainUpjang?has_content>
+								   AND (B.MAIN_UPJANG = :schMainUpjang)
+								   </#if>
+								   AND V.UPJANG_CD = B.UPJANG
+								   INNER JOIN ST_UPJANG S ON 1 = 1
+								   AND B.UPJANG = S.UPJANG
+								   AND V.UPJANG_CD = S.UPJANG
+								   INNER JOIN HLDC_SC_DEPT_V D ON 1 = 1
+								   AND (D.MU_CD = '2004')
+						   		   AND (D.TM_CD LIKE 'CI%')
+						   		   AND S.DEPT_ID = D.DEPT_ID
+								   INNER JOIN SLA_ADVANCE_ALT_MST V2 ON 1=1
+								   AND V2.ALT_NUM = V1.ALT_NUM
+								   -- AND V2.ALT_TYPE_CD NOT IN ('H01','H02','H03') --입금취소로 환불된 금액 계산
+							 WHERE V.OCCUR_DATE BETWEEN '19000101' AND :schTdate
+							   AND V.SYS_CLASS IN ('13','14')
+							   AND V.RECD_STATUS='L'
+					 ) X
+					 GROUP BY X.UPJANG, X.DEPT_ID, X.BOND_DATE
+		) V,
+        FMS_UPJANG A,
+		ST_UPJANG S,
+		HLDC_ST_UPJANG HSU,
+		HLDC_ST_CUST CUST_V,
+        ( SELECT TO_CHAR(V.UPJANG) UPJANG, SUM(V.CREDIT_EXT_DAYS) CREDIT_EXT_DAYS
+            FROM FMS_CREDIT_EXT V
+           WHERE :schTdate BETWEEN V.SUPPLY_START AND V.SUPPLY_END
+             AND V.APPR_YN = 'Y'
+           GROUP BY V.UPJANG
+        ) V2,
+        (
+        	 SELECT UPJANG
+                  , MAX(PAY_GUBUN_CD) AS PAY_GUBUN_CD
+                  , MAX(PAY_DATE) AS PAY_DATE
+               FROM SCO_UPJANG_CUST
+              GROUP BY UPJANG 
+        ) V3
+		WHERE V.UPJANG = A.UPJANG
+		  AND V.UPJANG = S.UPJANG
+		  AND V2.UPJANG(+) = A.UPJANG
+		  AND V3.UPJANG(+) = A.UPJANG
+		  AND A.MAIN_UPJANG = HSU.UPJANG
+		  AND HSU.CUSTCD = CUST_V.CUSTCD(+)
+		  <#if schMainUpjang?has_content>
+	   	  AND (A.MAIN_UPJANG = :schMainUpjang)
+	      </#if>
+		  AND INSTR(NVL(A.AR_DESC_CD, 0), 'AA') < 1
+		  --AND V.BOND_DATE BETWEEN :schFdate AND :schTdate
+		  AND A.DEPT_ID IN (SELECT CC_CD  
+		  					  FROM HLDC_SC_DEPT_V
+		    				 WHERE BU_CD = '2000'
+		        			   AND MU_CD ='2004'
+		        			   AND TM_CD LIKE 'CI%')
+		GROUP BY A.MAIN_UPJANG, CUST_V.SAUPNO
+	    ]]>
+	</statement>    
+	
+	<!-- 마감장관리(브랜드) Sub 목록 조회 -->
+	<statement name="selectSubList" type="select">
+		<![CDATA[
+		/*+ com.hwfs.fm.fmf.dao.CloseDocMngt.selectSubList */
+		SELECT PO_ID
+			 , PO_NUM
+			 , PO_DEPT_ID
+		  FROM HLDC_PO_PO A
+         WHERE 1=1
+           AND A.PO_NUM = :closeDocId
+	    ]]>
+	</statement>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+
+	<!-- 마감장관리(브랜드) 주문별 1:1 목록 조회 -->
+	<statement name="selectSubByOrder1List" type="select">
+		<![CDATA[
+		/*+ com.hwfs.fm.fmf.dao.CloseDocMngt.selectSubByOrder1List */
+		SELECT  BOND_DATE
+			  , DECODE(ITEM_NAME, NULL, '가상계좌입금', ITEM_NAME) AS ITEM_NAME
+			  , DECODE(ITEM_NAME, NULL, 2, 1) AS ITEM_NAME_ORDERBY
+			  , SALE_AMT
+			  , COLLECT_AMT
+			  , GIMAL_AMT
+              , SUM(GIMAL_AMT) OVER(ORDER BY GUBN, BOND_DATE, DECODE(ITEM_NAME, NULL, 2, 1), ITEM_NAME ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+			  + SUM(SALE_AMT) OVER(ORDER BY GUBN, BOND_DATE, DECODE(ITEM_NAME, NULL, 2, 1), ITEM_NAME ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+			  - SUM(COLLECT_AMT) OVER(ORDER BY GUBN, BOND_DATE, DECODE(ITEM_NAME, NULL, 2, 1), ITEM_NAME ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)  AS STOCK_BALANCE
+			  <#if vDsOut=="ds_byOrderN">
+			  , UPJANGNM
+			  </#if>
+        FROM (
+			 	  SELECT PR_NUM
+		       		   , SUBSTR(BOND_DATE,0,4)||'-'||SUBSTR(BOND_DATE,5,2)||'-'||SUBSTR(BOND_DATE,7,2) AS BOND_DATE
+					   , SUM(SALE_AMT) AS SALE_AMT
+					   , SUM(COLLECT_AMT) AS COLLECT_AMT
+					   , SUM(GIMAL_AMT) AS GIMAL_AMT
+					   , '2' AS GUBN
+					   , ITEM_NAME AS ITEM_NAME
+					   <#if vDsOut=="ds_byOrderN">
+					   , UPJANGNM
+					   </#if>
+		          FROM (
+							WITH TB_STOCK AS 
+							(
+								-- 채권
+								SELECT  '' AS AR_NUM
+									   , Z.UPJANG
+						      		   , Z.DEPT_ID
+								       , SUM(Z.SALE_SUM) AS AMT
+									   , Z.TRANS_DATE2 AS BOND_DATE
+								       ,0 AS RCP_AMT1
+								       ,0 AS CURR_MACHUL
+								       ,0 AS MI_BOND_AMT
+								       ,0 AS DO_BOND_AMT
+								       ,0 AS AK_BOND_AMT
+								       , Z.PR_NUM AS PR_NUM
+								       , MAX(ITEM_NAME)||DECODE(SIGN(COUNT(DISTINCT ITEM_NAME) - 1), 1, ' 외 ' || TO_CHAR(COUNT(DISTINCT ITEM_NAME) - 1) || '건') AS ITEM_NAME
+								   FROM (
+											SELECT RS.TRANS_DATE
+												  , RS.ITEM_NAME
+												  , RS.SALE_SUM - (RS.CK_SUM + RS.JI_SUM) AS SALE_SUM		/* 매출합계 = 매출합계 - (각종 수수료금액 제외) */
+									              , RS.PR_NUM
+									              , RS.UPJANG
+									          	  , RS.DEPT_ID
+									         	  , RS.TRANS_DATE2
+											  FROM (
+												SELECT
+													  TO_CHAR(TO_DATE(X.TRANS_DATE,'YYYYMMDD'),'YYYY-MM-DD') TRANS_DATE
+									      			, X.ITEM_CODE
+									      			, X.ITEM_NAME
+									      			, X.ITEM_SIZE
+										  	        , X.TRANS_UOM
+										 			, SUM(
+										 				CASE WHEN X.FLAG = '1' THEN
+										 					DECODE(SUBSTR(X.TRANS_TYPE,1,1),'I',1,-1) * ROUND(DECODE(X.TAX_CODE,'100',1.1,1) * ROUND(X.SALE_PRICE * X.TRANS_QTY))
+										 				ELSE 
+										 					DECODE(SUBSTR(X.TRANS_TYPE,1,1),'I',1,-1) * ROUND(X.SALE_PRICE * X.TRANS_QTY) + X.SALE_VAT
+										 				END
+										 				) AS SALE_SUM 
+									      			, SUM(ROUND(X.CK_AMOUNT) + DECODE(X.TAX_CODE,100,ROUND(X.CK_AMOUNT / 10),0) * DECODE(SUBSTR(X.TRANS_TYPE,1,1), 'I', 1, -1)) AS CK_SUM
+									      			, SUM(ROUND(X.JI_AMOUNT) + DECODE(X.TAX_CODE,100,ROUND(X.JI_AMOUNT / 10),0) * DECODE(SUBSTR(X.TRANS_TYPE,1,1), 'I', 1, -1)) AS JI_SUM
+									                , x.pr_num
+									                , X.UPJANG
+									                , X.DEPT_ID
+									                , X.TRANS_DATE2
+									                , X.PO_TYPE
+												  FROM (
+														    SELECT T.TRANS_DATE
+												      			 , T.ITEM_CODE
+												      			 , T.ITEM_NAME
+												      			 , T.ITEM_SIZE
+												      			 , T.TRANS_UOM
+												      			 , T.TRANS_TYPE
+												      			 , T.TRANS_QTY
+												      			 , T.SALE_PRICE
+												      			 , T.TAX_CODE
+								                      			 , T.SALE_VAT
+												      			 , T.FLAG
+												     			 , CASE WHEN NVL(T.SALE_AMOUNT, 0) = 0 THEN 0
+																	  ELSE
+													    					CASE WHEN NVL(T.C_SALE_RATE, 0) = 0 THEN  
+																				CASE WHEN NVL(T.C1_SALE_RATE, 0) = 0 THEN 0 
+										                                        ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.C1_SALE_RATE,0) / 100)))) END			    					
+													    					ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.C_SALE_RATE,0) / 100))))
+													    					END 
+																	  END AS CK_AMOUNT
+												      			 , CASE WHEN NVL(T.SALE_AMOUNT, 0) = 0 THEN 0
+																	  ELSE
+													    					CASE WHEN NVL(T.J_SALE_RATE, 0) = 0 THEN 
+																				CASE WHEN NVL(T.J1_SALE_RATE, 0) = 0 THEN 0 
+										                                        ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.J1_SALE_RATE,0) / 100)))) END			    					
+													    					ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.J_SALE_RATE,0) / 100))))
+													    					END 
+																	END AS JI_AMOUNT
+						                						 , T.pr_num
+											                     , T.UPJANG
+											                     , T.DEPT_ID          
+											                     , T.TRANS_DATE2 		
+											                     , T.PO_TYPE		 
+															  FROM (
+																	SELECT /*+ PUSH_PRED(A) */
+																		   A.TRANS_DATE
+													      				 , A.ITEM_CODE
+													      				 , A.ITEM_NAME
+													      				 , A.ITEM_SIZE
+													      				 , A.TRANS_UOM
+													      				 , A.TRANS_TYPE
+													      				 , A.TRANS_QTY
+													      				 , NVL(A.TRANS_MPRICE, 0) AS TRANS_MPRICE
+													      				 , NVL(A.TRANS_MAMOUNT, 0) AS TRANS_MAMOUNT
+													      				 /* , NVL(A.TRANS_MVAT, 0) AS TRANS_MVAT */
+													      				 , ROUND(DECODE(A.TAX_CODE,'100',0.1,0) * NVL(A.TRANS_MAMOUNT, 0)) AS TRANS_MVAT
+		                                                                 , CASE WHEN A.PO_TYPE IN ('71', '72') THEN 0
+		                                                                        ELSE NVL(A.SALE_PRICE, 0) END AS SALE_PRICE
+													      				 , CASE WHEN A.PO_TYPE IN ('71', '72') THEN 0
+		                                                                        ELSE NVL(A.SALE_AMOUNT, 0) END AS SALE_AMOUNT
+													      				 , CASE WHEN A.PO_TYPE IN ('71', '72') THEN 0
+		                                                                        ELSE NVL(A.SALE_VAT, 0) END AS SALE_VAT
+													      				 , A.TAX_CODE
+													      				 , A.FLAG
+									         							 /*검색 조건 : CK물류비제외*/
+													      				 , 0 AS C1_SALE_RATE								/* 분류 기준 CK 물류비율 */
+													      				 , 0 AS C_SALE_RATE									/* 자재 기준 CK 물류비율 */
+									         							 /*검색 조건 : 지급수수료제외*/
+													      				 , 0 AS J1_SALE_RATE									/* 분류 기준 지급수수료 비율 */
+													     				 , 0 AS J_SALE_RATE		/* 자재별 지급수수료 비율 */
+									         							 /*검색 조건 : 장려금제외*/
+																	     ,	0 AS S1_SALE_RATE									/* 분류 기준 장려금 비율 */	
+													     			     , 0 AS S_SALE_RATE									/* 자재별 장려금 비율 */
+											                             , a.pr_id
+											                             , a.pr_num
+											                             , B2.UPJANG
+											                             , B2.DEPT_ID
+											                             , A.TRANS_DATE2
+											                             , A.PO_TYPE
+								 								      FROM FMS_TRANSACTION_RTN_V A
+																		   INNER JOIN ST_UPJANG B2 ON 1 = 1
+																		   /*검색 조건 : 본사*/
+																		   AND B2.UPJANG IN (SELECT UPJANG FROM FMS_UPJANG WHERE  MAIN_UPJANG = :schMainUpjang)
+																		   /*검색 조건 : 사업장*/
+																		   AND A.TRANS_UPJANG = B2.UPJANG																			
+																		   INNER JOIN FMS_UPJANG Z ON 1 = 1
+           																   /*검색 조건 : 영업담당*/
+           																   /*검색 조건 : 세부직군*/
+																		   AND A.TRANS_UPJANG = Z.UPJANG
+																		   INNER JOIN HLDC_SC_DEPT_V D ON  1 = 1
+																		   /*검색 조건 : 관리부서(팀)*/
+																		   AND D.TM_CD LIKE 'CI%'
+																		   /*검색 조건 : CC */
+																		   AND  B2.DEPT_ID = D.DEPT_ID
+																	  WHERE (SUBSTR(A.SUBINV_CODE, 1, 2) = 'S1' )--AND SUBSTR(A.ITEM_CODE,1,1) = 'F') OR A.GUBUN = 'HNR')
+																		AND (A.TRANS_TYPE IN '_002' OR A.TRANS_TYPE = 'I001' )
+										           						/*검색 조건 : 기간*/
+										           						AND A.TRANS_DATE2 BETWEEN :schFdate AND :schTdate
+										           						/*검색 조건 : 센터*/     
+										             					/*검색 조건 : 납품업체*/
+														) T	
+											) X		
+											GROUP BY X.TRANS_DATE, X.ITEM_CODE, X.ITEM_NAME, X.ITEM_SIZE, X.TRANS_UOM,  X.SALE_PRICE , x.pr_num, X.UPJANG, X.DEPT_ID, X.TRANS_DATE2, X.PO_TYPE
+									) RS
+								) Z
+						        GROUP BY Z.TRANS_DATE, Z.PR_NUM, Z.UPJANG, Z.DEPT_ID, Z.TRANS_DATE2
+										
+								UNION ALL
+										
+								-- 입금
+						        SELECT V.AR_NUM
+									 , V.UPJANG_CD UPJANG
+									 , V.CC_CD AS DEPT_ID
+						             , 0 AS  AMT
+						             , V1.RECEIVE_DATE BOND_DATE
+									 , NVL(V1.RECEIVE_AMT,0) AS RCP_AMT1
+						             , 0 AS CURR_MACHUL
+						             , 0 MI_BOND_AMT
+						             , 0 DO_BOND_AMT
+						             , 0 AK_BOND_AMT
+		                     		 , '' AS PR_NUM
+		                     		 , '' AS ITEM_NAME
+						             --, V.CC_CD
+						          FROM SLA_AR_MST V INNER JOIN SLA_AR_RECEIVE_DETAIL V1 ON V1.RECEIVE_DATE BETWEEN '19000101' AND :schTdate
+								   AND V1.RECD_STATUS = 'L'	
+								   AND V.AR_NUM = V1.AR_NUM
+								   INNER JOIN FMS_UPJANG B ON 1 = 1
+								   AND (B.MAIN_UPJANG = :schMainUpjang)
+								   AND V.UPJANG_CD = B.UPJANG
+								   INNER JOIN ST_UPJANG S ON  1 = 1
+								   AND B.UPJANG = S.UPJANG						
+								   INNER JOIN HLDC_SC_DEPT_V D ON  1 = 1
+								   AND (D.MU_CD      = '2004')
+								   AND (D.TM_CD LIKE 'CI%')
+								   AND S.DEPT_ID = D.DEPT_ID
+								   AND V.MU_CD = D.MU_CD
+						         WHERE V.SYS_CLASS IN ('13','14')
+								   AND V.RECD_STATUS='L'
+								   AND V1.ACCT_CD NOT IN ('11202010')  --대체된 금액은 입금반영이 되지 않도록함  
+						           UNION ALL
+						
+								-- 입금(선수금) : +, -  : 일자별 잔액 개념으로 변경, 2015-12-03
+						
+								SELECT
+									X.ADVANCE_NUM AS AR_NUM
+									, X.UPJANG
+									, X.DEPT_ID
+									, 0 AS AMT
+									, X.BOND_DATE
+									, SUM(X.RCP_AMT1) - SUM(RCP_AMT2) AS RCP_AMT1
+									, 0 AS CURR_MACHUL
+									, 0 AS MI_BOND_AMT
+									, 0 AS DO_BOND_AMT
+									, 0 AS AK_BOND_AMT
+		              				, '' AS PR_NUM
+		              				, '' AS ITEM_NAME
+									--, V.CC_CD
+								FROM (
+										-- 선수금 발생금액 
+							            SELECT V.ADVANCE_NUM
+							                 , V.UPJANG_CD UPJANG
+							                 , V.CC_CD AS DEPT_ID
+							                 , 0 AS  AMT
+							                 , V.OCCUR_DATE AS  BOND_DATE
+							                 , NVL(V.OCCUR_AMT,0) AS RCP_AMT1
+							                 , 0 AS RCP_AMT2
+							                 , 0 AS CURR_MACHUL
+							                 , 0 MI_BOND_AMT
+							                 , 0 DO_BOND_AMT
+							                 , 0 AK_BOND_AMT
+							                 --, V.CC_CD
+							              FROM SLA_ADVANCE_MST V INNER JOIN FMS_UPJANG B ON 1 = 1																	                 
+											   AND (B.MAIN_UPJANG = :schMainUpjang)
+											   AND V.UPJANG_CD = B.UPJANG
+											   INNER JOIN ST_UPJANG S ON 1 = 1							 																					
+											   AND B.UPJANG = S.UPJANG
+											   AND V.UPJANG_CD = S.UPJANG
+											   INNER JOIN HLDC_SC_DEPT_V D ON 1 = 1						
+											   AND (D.MU_CD = '2004')
+									   		   AND (D.TM_CD LIKE 'CI%')
+									   		   AND S.DEPT_ID = D.DEPT_ID
+										WHERE  V.OCCUR_DATE BETWEEN '19000101' AND :schTdate
+										   AND V.SYS_CLASS IN ('13','14')
+										   AND V.RECD_STATUS='L'
+						
+						
+							            UNION ALL
+							
+							
+							            -- 선수금 대체금액 
+							            SELECT 
+							            	 V.ADVANCE_NUM
+							                 , V.UPJANG_CD UPJANG
+							                 , V.CC_CD AS DEPT_ID
+							                 , 0 AS  AMT
+							                 , V1.ALT_DATE AS  BOND_DATE
+							                 , 0 AS RCP_AMT1
+							                 , NVL(V1.APPLY_AMT, 0) AS RCP_AMT2
+							                 , 0 AS CURR_MACHUL
+							                 , 0 MI_BOND_AMT
+							                 , 0 DO_BOND_AMT
+							                 , 0 AK_BOND_AMT
+							                 --, V.CC_CD
+							              FROM SLA_ADVANCE_MST V 
+											   INNER JOIN SLA_ADVANCE_ALT_DETAIL V1 ON 1 = 1
+											   AND V1.RECD_STATUS = 'L'
+											   AND V1.ALT_DATE BETWEEN '19000101' AND :schTdate
+											   AND V.ADVANCE_NUM = V1.ADVANCE_NUM
+											   INNER JOIN FMS_UPJANG B ON 1 = 1
+											   AND (B.MAIN_UPJANG = :schMainUpjang)
+											   AND V.UPJANG_CD = B.UPJANG
+											   INNER JOIN ST_UPJANG S ON 1 = 1
+											   AND B.UPJANG = S.UPJANG
+											   AND V.UPJANG_CD = S.UPJANG
+											   INNER JOIN HLDC_SC_DEPT_V D ON 1 = 1
+											   AND (D.MU_CD = '2004')
+									   		   AND (D.TM_CD LIKE 'CI%')
+									   		   AND S.DEPT_ID = D.DEPT_ID
+											   INNER JOIN SLA_ADVANCE_ALT_MST V2 ON 1=1
+											   AND V2.ALT_NUM = V1.ALT_NUM
+											   -- AND V2.ALT_TYPE_CD NOT IN ('H01','H02','H03') --입금취소로 환불된 금액 계산
+										 WHERE V.OCCUR_DATE BETWEEN '19000101' AND :schTdate
+										   AND V.SYS_CLASS IN ('13','14')
+										   AND V.RECD_STATUS='L'
+								) X
+								GROUP BY X.UPJANG, X.DEPT_ID, X.BOND_DATE, X.ADVANCE_NUM
+							)
+		
+				SELECT V.PR_NUM
+					  ,SUM((CASE WHEN V.BOND_DATE BETWEEN '19000101' AND :schTdate THEN V.AMT ELSE 0 END)) SALE_AMT
+					  ,SUM((CASE WHEN V.BOND_DATE BETWEEN '19000101' AND :schTdate THEN V.RCP_AMT1 ELSE 0 END)) COLLECT_AMT
+				      ,0 GIMAL_AMT
+		              ,ITEM_NAME
+		              ,BOND_DATE
+		              <#if vDsOut=="ds_byOrderN">
+		              ,V.UPJANG
+                  	  ,(SELECT UPJANGNM FROM SCO_UPJANG_MST_V WHERE UPJANG = V.UPJANG) UPJANGNM
+		              </#if>
+				  FROM TB_STOCK V
+				 WHERE V.BOND_DATE BETWEEN :schFdate AND :schTdate
+				 GROUP BY V.PR_NUM, V.BOND_DATE,V.AMT,V.RCP_AMT1, V.ITEM_NAME
+				 <#if vDsOut=="ds_byOrderN">
+              	 	    , V.UPJANG
+              	 </#if>
+		)
+		GROUP BY PR_NUM, BOND_DATE, ITEM_NAME
+		<#if vDsOut=="ds_byOrderN">
+      		   , UPJANG, UPJANGNM
+      	</#if>
+
+		UNION ALL
+
+
+		SELECT '' AS PR_NUM 
+    		 , ' ' AS BOND_DATE
+    		 , 0 AS SALE_AMT
+             , 0 AS COLLECT_AMT
+             , GIMAL_AMT
+             ,'1' AS GUBN
+             , '이월잔액' AS ITEM_NAME 
+             <#if vDsOut=="ds_byOrderN">
+		   	 , '' AS UPJANGNM
+		   	 </#if>
+		FROM (
+				WITH TB_STOCK1 AS 
+				(
+								-- 채권
+								SELECT  '' AS AR_NUM
+									   , Z.UPJANG
+						      		   , Z.DEPT_ID
+								       , SUM(Z.SALE_SUM) AS AMT
+									   , Z.TRANS_DATE2 AS BOND_DATE
+								       ,0 AS RCP_AMT1
+								       ,0 AS CURR_MACHUL
+								       ,0 AS MI_BOND_AMT
+								       ,0 AS DO_BOND_AMT
+								       ,0 AS AK_BOND_AMT
+								       , Z.PR_NUM AS PR_NUM
+								       , MAX(ITEM_NAME)||DECODE(SIGN(COUNT(DISTINCT ITEM_NAME) - 1), 1, ' 외 ' || TO_CHAR(COUNT(DISTINCT ITEM_NAME) - 1) || '건') AS ITEM_NAME
+								   FROM (
+											SELECT RS.TRANS_DATE
+												  , RS.ITEM_NAME
+												  , RS.SALE_SUM - (RS.CK_SUM + RS.JI_SUM) AS SALE_SUM		/* 매출합계 = 매출합계 - (각종 수수료금액 제외) */
+									              , RS.PR_NUM
+									              , RS.UPJANG
+									          	  , RS.DEPT_ID
+									         	  , RS.TRANS_DATE2
+											  FROM (
+												SELECT
+													  TO_CHAR(TO_DATE(X.TRANS_DATE,'YYYYMMDD'),'YYYY-MM-DD') TRANS_DATE
+									      			, X.ITEM_CODE
+									      			, X.ITEM_NAME
+									      			, X.ITEM_SIZE
+										  	        , X.TRANS_UOM
+										 			, SUM(
+										 				CASE WHEN X.FLAG = '1' THEN
+										 					DECODE(SUBSTR(X.TRANS_TYPE,1,1),'I',1,-1) * ROUND(DECODE(X.TAX_CODE,'100',1.1,1) * ROUND(X.SALE_PRICE * X.TRANS_QTY))
+										 				ELSE 
+										 					DECODE(SUBSTR(X.TRANS_TYPE,1,1),'I',1,-1) * ROUND(X.SALE_PRICE * X.TRANS_QTY) + X.SALE_VAT
+										 				END
+										 				) AS SALE_SUM 
+									      			, SUM(ROUND(X.CK_AMOUNT) + DECODE(X.TAX_CODE,100,ROUND(X.CK_AMOUNT / 10),0) * DECODE(SUBSTR(X.TRANS_TYPE,1,1), 'I', 1, -1)) AS CK_SUM
+									      			, SUM(ROUND(X.JI_AMOUNT) + DECODE(X.TAX_CODE,100,ROUND(X.JI_AMOUNT / 10),0) * DECODE(SUBSTR(X.TRANS_TYPE,1,1), 'I', 1, -1)) AS JI_SUM
+									                , x.pr_num
+									                , X.UPJANG
+									                , X.DEPT_ID
+									                , X.TRANS_DATE2
+									                , X.PO_TYPE
+												  FROM (
+														    SELECT T.TRANS_DATE
+												      			 , T.ITEM_CODE
+												      			 , T.ITEM_NAME
+												      			 , T.ITEM_SIZE
+												      			 , T.TRANS_UOM
+												      			 , T.TRANS_TYPE
+												      			 , T.TRANS_QTY
+												      			 , T.SALE_PRICE
+												      			 , T.TAX_CODE
+								                      			 , T.SALE_VAT
+												      			 , T.FLAG
+												     			 , CASE WHEN NVL(T.SALE_AMOUNT, 0) = 0 THEN 0
+																	  ELSE
+													    					CASE WHEN NVL(T.C_SALE_RATE, 0) = 0 THEN  
+																				CASE WHEN NVL(T.C1_SALE_RATE, 0) = 0 THEN 0 
+										                                        ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.C1_SALE_RATE,0) / 100)))) END			    					
+													    					ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.C_SALE_RATE,0) / 100))))
+													    					END 
+																	  END AS CK_AMOUNT
+												      			 , CASE WHEN NVL(T.SALE_AMOUNT, 0) = 0 THEN 0
+																	  ELSE
+													    					CASE WHEN NVL(T.J_SALE_RATE, 0) = 0 THEN 
+																				CASE WHEN NVL(T.J1_SALE_RATE, 0) = 0 THEN 0 
+										                                        ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.J1_SALE_RATE,0) / 100)))) END			    					
+													    					ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.J_SALE_RATE,0) / 100))))
+													    					END 
+																	END AS JI_AMOUNT
+						                						 , T.pr_num
+											                     , T.UPJANG
+											                     , T.DEPT_ID          
+											                     , T.TRANS_DATE2 		
+											                     , T.PO_TYPE		 
+															  FROM (
+																	SELECT /*+ PUSH_PRED(A) */
+																		   A.TRANS_DATE
+													      				 , A.ITEM_CODE
+													      				 , A.ITEM_NAME
+													      				 , A.ITEM_SIZE
+													      				 , A.TRANS_UOM
+													      				 , A.TRANS_TYPE
+													      				 , A.TRANS_QTY
+													      				 , NVL(A.TRANS_MPRICE, 0) AS TRANS_MPRICE
+													      				 , NVL(A.TRANS_MAMOUNT, 0) AS TRANS_MAMOUNT
+													      				 /* , NVL(A.TRANS_MVAT, 0) AS TRANS_MVAT */
+													      				 , ROUND(DECODE(A.TAX_CODE,'100',0.1,0) * NVL(A.TRANS_MAMOUNT, 0)) AS TRANS_MVAT
+		                                                                 , CASE WHEN A.PO_TYPE IN ('71', '72') THEN 0
+		                                                                        ELSE NVL(A.SALE_PRICE, 0) END AS SALE_PRICE
+													      				 , CASE WHEN A.PO_TYPE IN ('71', '72') THEN 0
+		                                                                        ELSE NVL(A.SALE_AMOUNT, 0) END AS SALE_AMOUNT
+													      				 , CASE WHEN A.PO_TYPE IN ('71', '72') THEN 0
+		                                                                        ELSE NVL(A.SALE_VAT, 0) END AS SALE_VAT
+													      				 , A.TAX_CODE
+													      				 , A.FLAG
+									         							 /*검색 조건 : CK물류비제외*/
+													      				 , 0 AS C1_SALE_RATE								/* 분류 기준 CK 물류비율 */
+													      				 , 0 AS C_SALE_RATE									/* 자재 기준 CK 물류비율 */
+									         							 /*검색 조건 : 지급수수료제외*/
+													      				 , 0 AS J1_SALE_RATE									/* 분류 기준 지급수수료 비율 */
+													     				 , 0 AS J_SALE_RATE		/* 자재별 지급수수료 비율 */
+									         							 /*검색 조건 : 장려금제외*/
+																	     ,	0 AS S1_SALE_RATE									/* 분류 기준 장려금 비율 */	
+													     			     , 0 AS S_SALE_RATE									/* 자재별 장려금 비율 */
+											                             , a.pr_id
+											                             , a.pr_num
+											                             , B2.UPJANG
+											                             , B2.DEPT_ID
+											                             , A.TRANS_DATE2
+											                             , A.PO_TYPE
+								 								      FROM FMS_TRANSACTION_RTN_V A
+																		   INNER JOIN ST_UPJANG B2 ON 1 = 1
+																		   /*검색 조건 : 본사*/
+																		   AND B2.UPJANG IN (SELECT UPJANG FROM FMS_UPJANG WHERE  MAIN_UPJANG = :schMainUpjang)
+																		   /*검색 조건 : 사업장*/
+																		   AND A.TRANS_UPJANG = B2.UPJANG																			
+																		   INNER JOIN FMS_UPJANG Z ON 1 = 1
+           																   /*검색 조건 : 영업담당*/
+           																   /*검색 조건 : 세부직군*/
+																		   AND A.TRANS_UPJANG = Z.UPJANG
+																		   INNER JOIN HLDC_SC_DEPT_V D ON  1 = 1
+																		   /*검색 조건 : 관리부서(팀)*/
+																		   AND D.TM_CD LIKE 'CI%'
+																		   /*검색 조건 : CC */
+																		   AND  B2.DEPT_ID = D.DEPT_ID
+																	  WHERE (SUBSTR(A.SUBINV_CODE, 1, 2) = 'S1' )--AND SUBSTR(A.ITEM_CODE,1,1) = 'F') OR A.GUBUN = 'HNR')
+																		AND (A.TRANS_TYPE IN '_002' OR A.TRANS_TYPE = 'I001' )
+										           						/*검색 조건 : 기간*/
+										           						AND A.TRANS_DATE2 BETWEEN '19000101' AND :schTdate
+										           						/*검색 조건 : 센터*/     
+										             					/*검색 조건 : 납품업체*/
+														) T	
+												) X		
+											 GROUP BY X.TRANS_DATE, X.ITEM_CODE, X.ITEM_NAME, X.ITEM_SIZE, X.TRANS_UOM,  X.SALE_PRICE , x.pr_num, X.UPJANG, X.DEPT_ID, X.TRANS_DATE2, X.PO_TYPE
+						           --GROUP BY X.TRANS_DATE, X.SALE_PRICE, X.PR_NUM
+											) RS
+								 		) Z
+						        GROUP BY Z.TRANS_DATE, Z.PR_NUM, Z.UPJANG, Z.DEPT_ID, Z.TRANS_DATE2
+						
+		              			UNION ALL
+						
+								-- 입금
+						        SELECT V.AR_NUM
+									 , V.UPJANG_CD UPJANG
+									 , V.CC_CD AS DEPT_ID
+						             , 0 AS  AMT
+						             , V1.RECEIVE_DATE BOND_DATE
+									 , NVL(V1.RECEIVE_AMT,0) AS RCP_AMT1
+						             , 0 AS CURR_MACHUL
+						             , 0 MI_BOND_AMT
+						             , 0 DO_BOND_AMT
+						             , 0 AK_BOND_AMT
+					                 , '' AS PR_NUM
+					           		 , '' AS ITEM_NAME
+						             --, V.CC_CD
+						          FROM SLA_AR_MST V INNER JOIN SLA_AR_RECEIVE_DETAIL V1 ON V1.RECEIVE_DATE BETWEEN '19000101' AND :schTdate
+								   AND V1.RECD_STATUS = 'L'	
+								   AND V.AR_NUM = V1.AR_NUM
+								   INNER JOIN FMS_UPJANG B ON 1 = 1
+								   AND (B.MAIN_UPJANG = :schMainUpjang)
+								   AND V.UPJANG_CD = B.UPJANG
+								   INNER JOIN ST_UPJANG S ON  1 = 1
+								   AND B.UPJANG = S.UPJANG						
+								   INNER JOIN HLDC_SC_DEPT_V D ON  1 = 1
+								   AND (D.MU_CD      = '2004')
+								   AND (D.TM_CD LIKE 'CI%')
+								   AND S.DEPT_ID = D.DEPT_ID
+								   AND V.MU_CD = D.MU_CD
+						         WHERE V.SYS_CLASS IN ('13','14')
+								   AND V.RECD_STATUS='L'
+								   AND V1.ACCT_CD NOT IN ('11202010')  --대체된 금액은 입금반영이 되지 않도록함  
+			           			UNION ALL
+						
+								-- 입금(선수금) : +, -  : 일자별 잔액 개념으로 변경, 2015-12-03
+									
+								SELECT
+									  X.ADVANCE_NUM AS AR_NUM
+									, X.UPJANG
+									, X.DEPT_ID
+									, 0 AS AMT
+									, X.BOND_DATE
+									, SUM(X.RCP_AMT1) - SUM(RCP_AMT2) AS RCP_AMT1
+									, 0 AS CURR_MACHUL
+									, 0 AS MI_BOND_AMT
+									, 0 AS DO_BOND_AMT
+									, 0 AS AK_BOND_AMT
+					                , '' AS PR_NUM
+					                , '' AS ITEM_NAME
+									 --, V.CC_CD
+								 FROM (
+										-- 선수금 발생금액 
+							            SELECT V.ADVANCE_NUM
+							                 , V.UPJANG_CD UPJANG
+							                 , V.CC_CD AS DEPT_ID
+							                 , 0 AS  AMT
+							                 , V.OCCUR_DATE AS  BOND_DATE
+							                 , NVL(V.OCCUR_AMT,0) AS RCP_AMT1
+							                 , 0 AS RCP_AMT2
+							                 , 0 AS CURR_MACHUL
+							                 , 0 MI_BOND_AMT
+							                 , 0 DO_BOND_AMT
+							                 , 0 AK_BOND_AMT
+							                 --, V.CC_CD
+							              FROM SLA_ADVANCE_MST V INNER JOIN FMS_UPJANG B ON 1 = 1																	                 
+											   AND (B.MAIN_UPJANG = :schMainUpjang)
+											   AND V.UPJANG_CD = B.UPJANG
+											   INNER JOIN ST_UPJANG S ON 1 = 1							 																					
+											   AND B.UPJANG = S.UPJANG
+											   AND V.UPJANG_CD = S.UPJANG
+											   INNER JOIN HLDC_SC_DEPT_V D ON 1 = 1						
+											   AND (D.MU_CD = '2004')
+									   		   AND (D.TM_CD LIKE 'CI%')
+									   		   AND S.DEPT_ID = D.DEPT_ID
+										WHERE  V.OCCUR_DATE BETWEEN '19000101' AND :schTdate
+										   AND V.SYS_CLASS IN ('13','14')
+										   AND V.RECD_STATUS='L'
+									
+									
+								UNION ALL
+									
+									
+					            -- 선수금 대체금액 
+					            SELECT 
+					            	 V.ADVANCE_NUM
+					                 , V.UPJANG_CD UPJANG
+					                 , V.CC_CD AS DEPT_ID
+					                 , 0 AS  AMT
+					                 , V1.ALT_DATE AS  BOND_DATE
+					                 , 0 AS RCP_AMT1
+					                 , NVL(V1.APPLY_AMT, 0) AS RCP_AMT2
+					                 , 0 AS CURR_MACHUL
+					                 , 0 MI_BOND_AMT
+					                 , 0 DO_BOND_AMT
+					                 , 0 AK_BOND_AMT
+					                 --, V.CC_CD
+					              FROM SLA_ADVANCE_MST V 
+									   INNER JOIN SLA_ADVANCE_ALT_DETAIL V1 ON 1 = 1
+									   AND V1.RECD_STATUS = 'L'
+									   AND V1.ALT_DATE BETWEEN '19000101' AND :schTdate
+									   AND V.ADVANCE_NUM = V1.ADVANCE_NUM
+									   INNER JOIN FMS_UPJANG B ON 1 = 1
+									   AND (B.MAIN_UPJANG = :schMainUpjang)
+									   AND V.UPJANG_CD = B.UPJANG
+									   INNER JOIN ST_UPJANG S ON 1 = 1
+									   AND B.UPJANG = S.UPJANG
+									   AND V.UPJANG_CD = S.UPJANG
+									   INNER JOIN HLDC_SC_DEPT_V D ON 1 = 1
+									   AND (D.MU_CD = '2004')
+							   		   AND (D.TM_CD LIKE 'CI%')
+							   		   AND S.DEPT_ID = D.DEPT_ID
+									   INNER JOIN SLA_ADVANCE_ALT_MST V2 ON 1=1
+									   AND V2.ALT_NUM = V1.ALT_NUM
+									   -- AND V2.ALT_TYPE_CD NOT IN ('H01','H02','H03') --입금취소로 환불된 금액 계산
+								 WHERE V.OCCUR_DATE BETWEEN '19000101' AND :schTdate
+								   AND V.SYS_CLASS IN ('13','14')
+								   AND V.RECD_STATUS='L'
+								 ) X
+								 GROUP BY X.UPJANG, X.DEPT_ID, X.BOND_DATE, X.ADVANCE_NUM
+				)
+		
+		SELECT  
+               SUM(GIMAL_AMT) AS GIMAL_AMT
+		  FROM (
+				  SELECT 
+						( SUM((CASE WHEN V1.BOND_DATE BETWEEN '19000101' AND :schTdate THEN V1.AMT ELSE 0 END)) -
+		           		 SUM((CASE WHEN V1.BOND_DATE BETWEEN :schFdate AND :schTdate THEN V1.AMT ELSE 0 END)) )
+		           		 - (SUM((CASE WHEN V1.BOND_DATE BETWEEN '19000101' AND :schTdate THEN V1.RCP_AMT1 ELSE 0 END)) -
+		           		 SUM((CASE WHEN V1.BOND_DATE BETWEEN :schFdate AND :schTdate THEN V1.RCP_AMT1 ELSE 0 END))) AS GIMAL_AMT
+			        FROM TB_STOCK1 V1
+				)
+			)
+		)
+		WHERE (SALE_AMT != 0 OR COLLECT_AMT != 0 OR GIMAL_AMT != 0 OR GUBN = '1')
+  		ORDER BY GUBN, BOND_DATE, ITEM_NAME_ORDERBY, ITEM_NAME
+	    ]]>
+	</statement>     
+	
+	<!-- 마감장관리(브랜드) 주문별 1:N 목록 조회 -->
+	<statement name="selectSubByOrderNList" type="select">
+		<![CDATA[
+		/*+ com.hwfs.fm.fmf.dao.CloseDocMngt.selectSubByOrderNList */
+	    ]]>
+	</statement>     
+	
+	<!-- 마감장관리(브랜드) 일자별 목록 조회 -->
+	<statement name="selectSubByDateList" type="select">
+		<![CDATA[
+		/*+ com.hwfs.fm.fmf.dao.CloseDocMngt.selectSubByDateList */
+		SELECT  BOND_DATE
+			  , BRIEFS
+			  , SALE_AMT
+			  , COLLECT_AMT
+			  , GIMAL_AMT
+			  , SUM(GIMAL_AMT) OVER(ORDER BY BOND_DATE ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+			    + SUM(SALE_AMT) OVER(ORDER BY BOND_DATE ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+			    - SUM(COLLECT_AMT) OVER(ORDER BY BOND_DATE ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)  AS STOCK_BALANCE
+         FROM (
+				SELECT SUBSTR(BOND_DATE,0,4)||'-'||SUBSTR(BOND_DATE,5,2)||'-'||SUBSTR(BOND_DATE,7,2) AS BOND_DATE
+					 , SUM(SALE_AMT) AS SALE_AMT
+					 , SUM(COLLECT_AMT) AS COLLECT_AMT
+					 , SUM(GIMAL_AMT) AS GIMAL_AMT
+					 , '2' AS GUBN
+					 , '월계' AS BRIEFS 
+				FROM (
+					WITH TB_STOCK AS 
+					(
+						-- 채권
+				        SELECT  '' AS AR_NUM
+							   , Z.UPJANG
+				      		   , Z.DEPT_ID
+						       , SUM(Z.SALE_SUM) AS AMT
+							   , Z.TRANS_DATE2 AS BOND_DATE
+						       ,0 AS RCP_AMT1
+						       ,0 AS CURR_MACHUL
+						       ,0 AS MI_BOND_AMT
+						       ,0 AS DO_BOND_AMT
+						       ,0 AS AK_BOND_AMT
+						   FROM (
+									SELECT RS.TRANS_DATE
+										  , RS.ITEM_NAME
+										  , RS.SALE_SUM - (RS.CK_SUM + RS.JI_SUM) AS SALE_SUM
+							              , RS.PR_NUM
+							              , RS.UPJANG
+							          	  , RS.DEPT_ID
+							         	  , RS.TRANS_DATE2
+									  FROM (
+										SELECT
+											  TO_CHAR(TO_DATE(X.TRANS_DATE,'YYYYMMDD'),'YYYY-MM-DD') TRANS_DATE
+							      			, X.ITEM_CODE
+							      			, X.ITEM_NAME
+							      			, X.ITEM_SIZE
+								  	        , X.TRANS_UOM
+								 			, SUM(
+								 				CASE WHEN X.FLAG = '1' THEN
+								 					DECODE(SUBSTR(X.TRANS_TYPE,1,1),'I',1,-1) * ROUND(DECODE(X.TAX_CODE,'100',1.1,1) * ROUND(X.SALE_PRICE * X.TRANS_QTY))
+								 				ELSE 
+								 					DECODE(SUBSTR(X.TRANS_TYPE,1,1),'I',1,-1) * ROUND(X.SALE_PRICE * X.TRANS_QTY) + X.SALE_VAT
+								 				END
+								 				) AS SALE_SUM 
+							      			, SUM(ROUND(X.CK_AMOUNT) + DECODE(X.TAX_CODE,100,ROUND(X.CK_AMOUNT / 10),0) * DECODE(SUBSTR(X.TRANS_TYPE,1,1), 'I', 1, -1)) AS CK_SUM
+							      			, SUM(ROUND(X.JI_AMOUNT) + DECODE(X.TAX_CODE,100,ROUND(X.JI_AMOUNT / 10),0) * DECODE(SUBSTR(X.TRANS_TYPE,1,1), 'I', 1, -1)) AS JI_SUM
+							                , x.pr_num
+							                , X.UPJANG
+							                , X.DEPT_ID
+							                , X.TRANS_DATE2
+							                , X.PO_TYPE
+										  FROM (
+												    SELECT T.TRANS_DATE
+										      			 , T.ITEM_CODE
+										      			 , T.ITEM_NAME
+										      			 , T.ITEM_SIZE
+										      			 , T.TRANS_UOM
+										      			 , T.TRANS_TYPE
+										      			 , T.TRANS_QTY
+										      			 , T.SALE_PRICE
+										      			 , T.TAX_CODE
+						                      			 , T.SALE_VAT
+										      			 , T.FLAG
+										     			 , CASE WHEN NVL(T.SALE_AMOUNT, 0) = 0 THEN 0
+															  ELSE
+											    					CASE WHEN NVL(T.C_SALE_RATE, 0) = 0 THEN  
+																		CASE WHEN NVL(T.C1_SALE_RATE, 0) = 0 THEN 0 
+								                                        ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.C1_SALE_RATE,0) / 100)))) END			    					
+											    					ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.C_SALE_RATE,0) / 100))))
+											    					END 
+															  END AS CK_AMOUNT
+										      			 , CASE WHEN NVL(T.SALE_AMOUNT, 0) = 0 THEN 0
+															  ELSE
+											    					CASE WHEN NVL(T.J_SALE_RATE, 0) = 0 THEN 
+																		CASE WHEN NVL(T.J1_SALE_RATE, 0) = 0 THEN 0 
+								                                        ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.J1_SALE_RATE,0) / 100)))) END			    					
+											    					ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.J_SALE_RATE,0) / 100))))
+											    					END 
+															END AS JI_AMOUNT
+				                						 , T.pr_num
+									                     , T.UPJANG
+									                     , T.DEPT_ID          
+									                     , T.TRANS_DATE2 		
+									                     , T.PO_TYPE		 
+													  FROM (
+															SELECT /*+ PUSH_PRED(A) */
+																   A.TRANS_DATE
+											      				 , A.ITEM_CODE
+											      				 , A.ITEM_NAME
+											      				 , A.ITEM_SIZE
+											      				 , A.TRANS_UOM
+											      				 , A.TRANS_TYPE
+											      				 , A.TRANS_QTY
+											      				 , NVL(A.TRANS_MPRICE, 0) AS TRANS_MPRICE
+											      				 , NVL(A.TRANS_MAMOUNT, 0) AS TRANS_MAMOUNT
+											      				 /* , NVL(A.TRANS_MVAT, 0) AS TRANS_MVAT */
+											      				 , ROUND(DECODE(A.TAX_CODE,'100',0.1,0) * NVL(A.TRANS_MAMOUNT, 0)) AS TRANS_MVAT
+                                                                 , CASE WHEN A.PO_TYPE IN ('71', '72') THEN 0
+                                                                        ELSE NVL(A.SALE_PRICE, 0) END AS SALE_PRICE
+											      				 , CASE WHEN A.PO_TYPE IN ('71', '72') THEN 0
+                                                                        ELSE NVL(A.SALE_AMOUNT, 0) END AS SALE_AMOUNT
+											      				 , CASE WHEN A.PO_TYPE IN ('71', '72') THEN 0
+                                                                        ELSE NVL(A.SALE_VAT, 0) END AS SALE_VAT
+											      				 , A.TAX_CODE
+											      				 , A.FLAG
+							         							 /*검색 조건 : CK물류비제외*/
+											      				 , 0 AS C1_SALE_RATE								/* 분류 기준 CK 물류비율 */
+											      				 , 0 AS C_SALE_RATE									/* 자재 기준 CK 물류비율 */
+							         							 /*검색 조건 : 지급수수료제외*/
+											      				 , 0 AS J1_SALE_RATE									/* 분류 기준 지급수수료 비율 */
+											     				 , 0 AS J_SALE_RATE		/* 자재별 지급수수료 비율 */
+							         							 /*검색 조건 : 장려금제외*/
+															     ,	0 AS S1_SALE_RATE									/* 분류 기준 장려금 비율 */	
+											     			     , 0 AS S_SALE_RATE									/* 자재별 장려금 비율 */
+									                             , a.pr_id
+									                             , a.pr_num
+									                             , B2.UPJANG
+									                             , B2.DEPT_ID
+									                             , A.TRANS_DATE2
+									                             , A.PO_TYPE
+						 								      FROM FMS_TRANSACTION_RTN_V A
+																   INNER JOIN ST_UPJANG B2 ON 1 = 1
+																   /*검색 조건 : 본사*/
+																   AND B2.UPJANG IN (SELECT UPJANG FROM FMS_UPJANG WHERE  MAIN_UPJANG = :schMainUpjang)
+																   /*검색 조건 : 사업장*/
+																   AND A.TRANS_UPJANG = B2.UPJANG																			
+																   INNER JOIN FMS_UPJANG Z ON 1 = 1
+         																   /*검색 조건 : 영업담당*/
+         																   /*검색 조건 : 세부직군*/
+																   AND A.TRANS_UPJANG = Z.UPJANG
+																   INNER JOIN HLDC_SC_DEPT_V D ON  1 = 1
+																   /*검색 조건 : 관리부서(팀)*/
+																   AND D.TM_CD LIKE 'CI%'
+																   /*검색 조건 : CC */
+																   AND  B2.DEPT_ID = D.DEPT_ID
+															  WHERE (SUBSTR(A.SUBINV_CODE, 1, 2) = 'S1' )--AND SUBSTR(A.ITEM_CODE,1,1) = 'F') OR A.GUBUN = 'HNR')
+																AND (A.TRANS_TYPE IN '_002' OR A.TRANS_TYPE = 'I001' )
+								           						/*검색 조건 : 기간*/
+								           						AND A.TRANS_DATE2 BETWEEN '19000101' AND :schTdate
+								           						/*검색 조건 : 센터*/     
+								             					/*검색 조건 : 납품업체*/
+											) T	
+									) X		
+									GROUP BY X.TRANS_DATE, X.ITEM_CODE, X.ITEM_NAME, X.ITEM_SIZE, X.TRANS_UOM,  X.SALE_PRICE , x.pr_num, X.UPJANG, X.DEPT_ID, X.TRANS_DATE2, X.PO_TYPE
+							) RS
+						) Z
+				        GROUP BY Z.TRANS_DATE, Z.PR_NUM, Z.UPJANG, Z.DEPT_ID, Z.TRANS_DATE2
+				
+				        UNION ALL
+				
+						-- 입금
+				        SELECT V.AR_NUM
+							 , V.UPJANG_CD UPJANG
+							 , V.CC_CD AS DEPT_ID
+				             , 0 AS  AMT
+				             , V1.RECEIVE_DATE BOND_DATE
+							 , NVL(V1.RECEIVE_AMT,0) AS RCP_AMT1
+				             , 0 AS CURR_MACHUL
+				             , 0 MI_BOND_AMT
+				             , 0 DO_BOND_AMT
+				             , 0 AK_BOND_AMT
+				             --, V.CC_CD
+				          FROM SLA_AR_MST V INNER JOIN SLA_AR_RECEIVE_DETAIL V1 ON V1.RECEIVE_DATE BETWEEN '19000101' AND :schTdate
+						   AND V1.RECD_STATUS = 'L'	
+						   AND V.AR_NUM = V1.AR_NUM
+						   INNER JOIN FMS_UPJANG B ON 1 = 1
+						   AND (B.MAIN_UPJANG = :schMainUpjang)
+						   AND V.UPJANG_CD = B.UPJANG
+						   INNER JOIN ST_UPJANG S ON  1 = 1
+						   AND B.UPJANG = S.UPJANG						
+						   INNER JOIN HLDC_SC_DEPT_V D ON  1 = 1
+						   AND (D.MU_CD      = '2004')
+						   AND (D.TM_CD LIKE 'CI%')
+						   AND S.DEPT_ID = D.DEPT_ID
+						   AND V.MU_CD = D.MU_CD
+				         WHERE V.SYS_CLASS IN ('13','14')
+						   AND V.RECD_STATUS='L'
+						   AND V1.ACCT_CD NOT IN ('11202010')  --대체된 금액은 입금반영이 되지 않도록함  
+				           UNION ALL
+				
+						-- 입금(선수금) : +, -  : 일자별 잔액 개념으로 변경, 2015-12-03
+				
+						SELECT
+							X.ADVANCE_NUM AS AR_NUM
+							, X.UPJANG
+							, X.DEPT_ID
+							, 0 AS AMT
+							, X.BOND_DATE
+							, SUM(X.RCP_AMT1) - SUM(RCP_AMT2) AS RCP_AMT1
+							, 0 AS CURR_MACHUL
+							, 0 AS MI_BOND_AMT
+							, 0 AS DO_BOND_AMT
+							, 0 AS AK_BOND_AMT
+							--, V.CC_CD
+						FROM
+							(
+								-- 선수금 발생금액 
+				            SELECT V.ADVANCE_NUM
+				                 , V.UPJANG_CD UPJANG
+				                 , V.CC_CD AS DEPT_ID
+				                 , 0 AS  AMT
+				                 , V.OCCUR_DATE AS  BOND_DATE
+				                 , NVL(V.OCCUR_AMT,0) AS RCP_AMT1
+				                 , 0 AS RCP_AMT2
+				                 , 0 AS CURR_MACHUL
+				                 , 0 MI_BOND_AMT
+				                 , 0 DO_BOND_AMT
+				                 , 0 AK_BOND_AMT
+				                 --, V.CC_CD
+				              FROM SLA_ADVANCE_MST V INNER JOIN FMS_UPJANG B ON 1 = 1																	                 
+								   AND (B.MAIN_UPJANG = :schMainUpjang)
+								   AND V.UPJANG_CD = B.UPJANG
+								   INNER JOIN ST_UPJANG S ON 1 = 1							 																					
+								   AND B.UPJANG = S.UPJANG
+								   AND V.UPJANG_CD = S.UPJANG
+								   INNER JOIN HLDC_SC_DEPT_V D ON 1 = 1						
+								   AND (D.MU_CD = '2004')
+						   		   AND (D.TM_CD LIKE 'CI%')
+						   		   AND S.DEPT_ID = D.DEPT_ID
+							WHERE  V.OCCUR_DATE BETWEEN '19000101' AND :schTdate
+							   AND V.SYS_CLASS IN ('13','14')
+							   AND V.RECD_STATUS='L'
+				
+				
+				            UNION ALL
+				
+				
+				            -- 선수금 대체금액 
+				            SELECT 
+				            	 V.ADVANCE_NUM
+				                 , V.UPJANG_CD UPJANG
+				                 , V.CC_CD AS DEPT_ID
+				                 , 0 AS  AMT
+				                 , V1.ALT_DATE AS  BOND_DATE
+				                 , 0 AS RCP_AMT1
+				                 , NVL(V1.APPLY_AMT, 0) AS RCP_AMT2
+				                 , 0 AS CURR_MACHUL
+				                 , 0 MI_BOND_AMT
+				                 , 0 DO_BOND_AMT
+				                 , 0 AK_BOND_AMT
+				                 --, V.CC_CD
+				              FROM SLA_ADVANCE_MST V 
+								   INNER JOIN SLA_ADVANCE_ALT_DETAIL V1 ON 1 = 1
+								   AND V1.RECD_STATUS = 'L'
+								   AND V1.ALT_DATE BETWEEN '19000101' AND :schTdate
+								   AND V.ADVANCE_NUM = V1.ADVANCE_NUM
+								   INNER JOIN FMS_UPJANG B ON 1 = 1
+								   AND (B.MAIN_UPJANG = :schMainUpjang)
+								   AND V.UPJANG_CD = B.UPJANG
+								   INNER JOIN ST_UPJANG S ON 1 = 1
+								   AND B.UPJANG = S.UPJANG
+								   AND V.UPJANG_CD = S.UPJANG
+								   INNER JOIN HLDC_SC_DEPT_V D ON 1 = 1
+								   AND (D.MU_CD = '2004')
+						   		   AND (D.TM_CD LIKE 'CI%')
+						   		   AND S.DEPT_ID = D.DEPT_ID
+								   INNER JOIN SLA_ADVANCE_ALT_MST V2 ON 1=1
+								   AND V2.ALT_NUM = V1.ALT_NUM
+								   -- AND V2.ALT_TYPE_CD NOT IN ('H01','H02','H03') --입금취소로 환불된 금액 계산
+							 WHERE V.OCCUR_DATE BETWEEN '19000101' AND :schTdate
+							   AND V.SYS_CLASS IN ('13','14')
+							   AND V.RECD_STATUS='L'
+							
+						) X
+						GROUP BY X.UPJANG, X.DEPT_ID, X.BOND_DATE, X.ADVANCE_NUM
+					)
+		
+			SELECT V.BOND_DATE
+				 , SUM((CASE WHEN V.BOND_DATE BETWEEN '19000101' AND :schTdate THEN V.AMT ELSE 0 END)) SALE_AMT
+				 , SUM((CASE WHEN V.BOND_DATE BETWEEN '19000101' AND :schTdate THEN V.RCP_AMT1 ELSE 0 END)) COLLECT_AMT
+			     , 0 GIMAL_AMT
+			  FROM TB_STOCK V
+			 WHERE V.BOND_DATE BETWEEN :schFdate AND :schTdate
+			 GROUP BY V.BOND_DATE,V.AMT,V.RCP_AMT1
+			 ORDER BY V.BOND_DATE
+		)
+		GROUP BY BOND_DATE
+		
+		UNION ALL
+
+
+		SELECT ' ' BOND_DATE
+		  	  , 0 AS SALE_AMT
+		  	  , 0 AS COLLECT_AMT
+		  	  , SUM(GIMAL_AMT) AS GIAL_AMT
+		  	  ,'1' AS GUBN
+		  	  , '이월잔액' AS BRIEFS 
+	  	  FROM (
+				WITH TB_STOCK1 AS 
+				(
+					-- 채권
+			        SELECT  '' AS AR_NUM
+						   , Z.UPJANG
+			      		   , Z.DEPT_ID
+					       , SUM(Z.SALE_SUM) AS AMT
+						   , Z.TRANS_DATE2 AS BOND_DATE
+					       ,0 AS RCP_AMT1
+					       ,0 AS CURR_MACHUL
+					       ,0 AS MI_BOND_AMT
+					       ,0 AS DO_BOND_AMT
+					       ,0 AS AK_BOND_AMT
+					   FROM (
+								SELECT RS.TRANS_DATE
+									  , RS.ITEM_NAME
+									  , RS.SALE_SUM - (RS.CK_SUM + RS.JI_SUM) AS SALE_SUM
+						              , RS.PR_NUM
+						              , RS.UPJANG
+						          	  , RS.DEPT_ID
+						         	  , RS.TRANS_DATE2
+								  FROM (
+									SELECT
+										  TO_CHAR(TO_DATE(X.TRANS_DATE,'YYYYMMDD'),'YYYY-MM-DD') TRANS_DATE
+						      			, X.ITEM_CODE
+						      			, X.ITEM_NAME
+						      			, X.ITEM_SIZE
+							  	        , X.TRANS_UOM
+							 			, SUM(
+							 				CASE WHEN X.FLAG = '1' THEN
+							 					DECODE(SUBSTR(X.TRANS_TYPE,1,1),'I',1,-1) * ROUND(DECODE(X.TAX_CODE,'100',1.1,1) * ROUND(X.SALE_PRICE * X.TRANS_QTY))
+							 				ELSE 
+							 					DECODE(SUBSTR(X.TRANS_TYPE,1,1),'I',1,-1) * ROUND(X.SALE_PRICE * X.TRANS_QTY) + X.SALE_VAT
+							 				END
+							 				) AS SALE_SUM 
+						      			, SUM(ROUND(X.CK_AMOUNT) + DECODE(X.TAX_CODE,100,ROUND(X.CK_AMOUNT / 10),0) * DECODE(SUBSTR(X.TRANS_TYPE,1,1), 'I', 1, -1)) AS CK_SUM
+						      			, SUM(ROUND(X.JI_AMOUNT) + DECODE(X.TAX_CODE,100,ROUND(X.JI_AMOUNT / 10),0) * DECODE(SUBSTR(X.TRANS_TYPE,1,1), 'I', 1, -1)) AS JI_SUM
+						                , x.pr_num
+						                , X.UPJANG
+						                , X.DEPT_ID
+						                , X.TRANS_DATE2
+						                , X.PO_TYPE
+									  FROM (
+											    SELECT T.TRANS_DATE
+									      			 , T.ITEM_CODE
+									      			 , T.ITEM_NAME
+									      			 , T.ITEM_SIZE
+									      			 , T.TRANS_UOM
+									      			 , T.TRANS_TYPE
+									      			 , T.TRANS_QTY
+									      			 , T.SALE_PRICE
+									      			 , T.TAX_CODE
+					                      			 , T.SALE_VAT
+									      			 , T.FLAG
+									     			 , CASE WHEN NVL(T.SALE_AMOUNT, 0) = 0 THEN 0
+														  ELSE
+										    					CASE WHEN NVL(T.C_SALE_RATE, 0) = 0 THEN  
+																	CASE WHEN NVL(T.C1_SALE_RATE, 0) = 0 THEN 0 
+							                                        ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.C1_SALE_RATE,0) / 100)))) END			    					
+										    					ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.C_SALE_RATE,0) / 100))))
+										    					END 
+														  END AS CK_AMOUNT
+									      			 , CASE WHEN NVL(T.SALE_AMOUNT, 0) = 0 THEN 0
+														  ELSE
+										    					CASE WHEN NVL(T.J_SALE_RATE, 0) = 0 THEN 
+																	CASE WHEN NVL(T.J1_SALE_RATE, 0) = 0 THEN 0 
+							                                        ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.J1_SALE_RATE,0) / 100)))) END			    					
+										    					ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.J_SALE_RATE,0) / 100))))
+										    					END 
+														END AS JI_AMOUNT
+			                						 , T.pr_num
+								                     , T.UPJANG
+								                     , T.DEPT_ID          
+								                     , T.TRANS_DATE2 	
+								                     , T.PO_TYPE			 
+												  FROM (
+														SELECT /*+ PUSH_PRED(A) */
+															   A.TRANS_DATE
+										      				 , A.ITEM_CODE
+										      				 , A.ITEM_NAME
+										      				 , A.ITEM_SIZE
+										      				 , A.TRANS_UOM
+										      				 , A.TRANS_TYPE
+										      				 , A.TRANS_QTY
+										      				 , NVL(A.TRANS_MPRICE, 0) AS TRANS_MPRICE
+										      				 , NVL(A.TRANS_MAMOUNT, 0) AS TRANS_MAMOUNT
+										      				 /* , NVL(A.TRANS_MVAT, 0) AS TRANS_MVAT */
+										      				 , ROUND(DECODE(A.TAX_CODE,'100',0.1,0) * NVL(A.TRANS_MAMOUNT, 0)) AS TRANS_MVAT
+                                                             , CASE WHEN A.PO_TYPE IN ('71', '72') THEN 0
+                                                                    ELSE NVL(A.SALE_PRICE, 0) END AS SALE_PRICE
+									      				  	 , CASE WHEN A.PO_TYPE IN ('71', '72') THEN 0
+                                                                    ELSE NVL(A.SALE_AMOUNT, 0) END AS SALE_AMOUNT
+									      				 	 , CASE WHEN A.PO_TYPE IN ('71', '72') THEN 0
+                                                                    ELSE NVL(A.SALE_VAT, 0) END AS SALE_VAT
+										      				 , A.TAX_CODE
+										      				 , A.FLAG
+						         							 /*검색 조건 : CK물류비제외*/
+										      				 , 0 AS C1_SALE_RATE								/* 분류 기준 CK 물류비율 */
+										      				 , 0 AS C_SALE_RATE									/* 자재 기준 CK 물류비율 */
+						         							 /*검색 조건 : 지급수수료제외*/
+										      				 , 0 AS J1_SALE_RATE									/* 분류 기준 지급수수료 비율 */
+										     				 , 0 AS J_SALE_RATE		/* 자재별 지급수수료 비율 */
+						         							 /*검색 조건 : 장려금제외*/
+														     ,	0 AS S1_SALE_RATE									/* 분류 기준 장려금 비율 */	
+										     			     , 0 AS S_SALE_RATE									/* 자재별 장려금 비율 */
+								                             , a.pr_id
+								                             , a.pr_num
+								                             , B2.UPJANG
+								                             , B2.DEPT_ID
+								                             , A.TRANS_DATE2
+								                             , A.PO_TYPE
+					 								      FROM FMS_TRANSACTION_RTN_V A
+															   INNER JOIN ST_UPJANG B2 ON 1 = 1
+															   /*검색 조건 : 본사*/
+															   AND B2.UPJANG IN (SELECT UPJANG FROM FMS_UPJANG WHERE  MAIN_UPJANG = :schMainUpjang)
+															   /*검색 조건 : 사업장*/
+															   AND A.TRANS_UPJANG = B2.UPJANG																			
+															   INNER JOIN FMS_UPJANG Z ON 1 = 1
+        																   /*검색 조건 : 영업담당*/
+        																   /*검색 조건 : 세부직군*/
+															   AND A.TRANS_UPJANG = Z.UPJANG
+															   INNER JOIN HLDC_SC_DEPT_V D ON  1 = 1
+															   /*검색 조건 : 관리부서(팀)*/
+															   AND D.TM_CD LIKE 'CI%'
+															   /*검색 조건 : CC */
+															   AND  B2.DEPT_ID = D.DEPT_ID
+														  WHERE (SUBSTR(A.SUBINV_CODE, 1, 2) = 'S1' )--AND SUBSTR(A.ITEM_CODE,1,1) = 'F') OR A.GUBUN = 'HNR')
+															AND (A.TRANS_TYPE IN '_002' OR A.TRANS_TYPE = 'I001' )
+							           						/*검색 조건 : 기간*/
+							           						AND A.TRANS_DATE2 BETWEEN '19000101' AND :schTdate
+							           						/*검색 조건 : 센터*/     
+							             					/*검색 조건 : 납품업체*/
+											) T	
+									) X		
+								 	GROUP BY X.TRANS_DATE, X.ITEM_CODE, X.ITEM_NAME, X.ITEM_SIZE, X.TRANS_UOM,  X.SALE_PRICE , x.pr_num, X.UPJANG, X.DEPT_ID, X.TRANS_DATE2, X.PO_TYPE
+							) RS
+					) Z
+			        GROUP BY Z.TRANS_DATE, Z.PR_NUM, Z.UPJANG, Z.DEPT_ID, Z.TRANS_DATE2
+			
+			        UNION ALL
+			
+					-- 입금
+			        SELECT V.AR_NUM
+						 , V.UPJANG_CD UPJANG
+						 , V.CC_CD AS DEPT_ID
+			             , 0 AS  AMT
+			             , V1.RECEIVE_DATE BOND_DATE
+						 , NVL(V1.RECEIVE_AMT,0) AS RCP_AMT1
+			             , 0 AS CURR_MACHUL
+			             , 0 MI_BOND_AMT
+			             , 0 DO_BOND_AMT
+			             , 0 AK_BOND_AMT
+			             --, V.CC_CD
+			          FROM SLA_AR_MST V INNER JOIN SLA_AR_RECEIVE_DETAIL V1 ON V1.RECEIVE_DATE BETWEEN '19000101' AND :schTdate
+					   AND V1.RECD_STATUS = 'L'	
+					   AND V.AR_NUM = V1.AR_NUM
+					   INNER JOIN FMS_UPJANG B ON 1 = 1
+					   AND (B.MAIN_UPJANG = :schMainUpjang)
+					   AND V.UPJANG_CD = B.UPJANG
+					   INNER JOIN ST_UPJANG S ON  1 = 1
+					   AND B.UPJANG = S.UPJANG						
+					   INNER JOIN HLDC_SC_DEPT_V D ON  1 = 1
+					   AND (D.MU_CD      = '2004')
+					   AND (D.TM_CD LIKE 'CI%')
+					   AND S.DEPT_ID = D.DEPT_ID
+					   AND V.MU_CD = D.MU_CD
+			         WHERE V.SYS_CLASS IN ('13','14')
+					   AND V.RECD_STATUS='L'
+					   AND V1.ACCT_CD NOT IN ('11202010')  --대체된 금액은 입금반영이 되지 않도록함  
+			           UNION ALL
+			
+					-- 입금(선수금) : +, -  : 일자별 잔액 개념으로 변경, 2015-12-03
+			
+					SELECT
+						X.ADVANCE_NUM AS AR_NUM
+						, X.UPJANG
+						, X.DEPT_ID
+						, 0 AS AMT
+						, X.BOND_DATE
+						, SUM(X.RCP_AMT1) - SUM(RCP_AMT2) AS RCP_AMT1
+						, 0 AS CURR_MACHUL
+						, 0 AS MI_BOND_AMT
+						, 0 AS DO_BOND_AMT
+						, 0 AS AK_BOND_AMT
+						--, V.CC_CD
+					FROM
+						(
+							-- 선수금 발생금액 
+				            SELECT V.ADVANCE_NUM
+				                 , V.UPJANG_CD UPJANG
+				                 , V.CC_CD AS DEPT_ID
+				                 , 0 AS  AMT
+				                 , V.OCCUR_DATE AS  BOND_DATE
+				                 , NVL(V.OCCUR_AMT,0) AS RCP_AMT1
+				                 , 0 AS RCP_AMT2
+				                 , 0 AS CURR_MACHUL
+				                 , 0 MI_BOND_AMT
+				                 , 0 DO_BOND_AMT
+				                 , 0 AK_BOND_AMT
+				                 --, V.CC_CD
+				              FROM SLA_ADVANCE_MST V INNER JOIN FMS_UPJANG B ON 1 = 1																	                 
+								   AND (B.MAIN_UPJANG = :schMainUpjang)
+								   AND V.UPJANG_CD = B.UPJANG
+								   INNER JOIN ST_UPJANG S ON 1 = 1							 																					
+								   AND B.UPJANG = S.UPJANG
+								   AND V.UPJANG_CD = S.UPJANG
+								   INNER JOIN HLDC_SC_DEPT_V D ON 1 = 1						
+								   AND (D.MU_CD = '2004')
+						   		   AND (D.TM_CD LIKE 'CI%')
+						   		   AND S.DEPT_ID = D.DEPT_ID
+							WHERE  V.OCCUR_DATE BETWEEN '19000101' AND :schTdate
+							   AND V.SYS_CLASS IN ('13','14')
+							   AND V.RECD_STATUS='L'
+				
+				
+				            UNION ALL
+				
+				
+				            -- 선수금 대체금액 
+				            SELECT 
+				            	 V.ADVANCE_NUM
+				                 , V.UPJANG_CD UPJANG
+				                 , V.CC_CD AS DEPT_ID
+				                 , 0 AS  AMT
+				                 , V1.ALT_DATE AS  BOND_DATE
+				                 , 0 AS RCP_AMT1
+				                 , NVL(V1.APPLY_AMT, 0) AS RCP_AMT2
+				                 , 0 AS CURR_MACHUL
+				                 , 0 MI_BOND_AMT
+				                 , 0 DO_BOND_AMT
+				                 , 0 AK_BOND_AMT
+				                 --, V.CC_CD
+				              FROM SLA_ADVANCE_MST V 
+								   INNER JOIN SLA_ADVANCE_ALT_DETAIL V1 ON 1 = 1
+								   AND V1.RECD_STATUS = 'L'
+								   AND V1.ALT_DATE BETWEEN '19000101' AND :schTdate
+								   AND V.ADVANCE_NUM = V1.ADVANCE_NUM
+								   INNER JOIN FMS_UPJANG B ON 1 = 1
+								   AND (B.MAIN_UPJANG = :schMainUpjang)
+								   AND V.UPJANG_CD = B.UPJANG
+								   INNER JOIN ST_UPJANG S ON 1 = 1
+								   AND B.UPJANG = S.UPJANG
+								   AND V.UPJANG_CD = S.UPJANG
+								   INNER JOIN HLDC_SC_DEPT_V D ON 1 = 1
+								   AND (D.MU_CD = '2004')
+						   		   AND (D.TM_CD LIKE 'CI%')
+						   		   AND S.DEPT_ID = D.DEPT_ID
+								   INNER JOIN SLA_ADVANCE_ALT_MST V2 ON 1=1
+								   AND V2.ALT_NUM = V1.ALT_NUM
+								   -- AND V2.ALT_TYPE_CD NOT IN ('H01','H02','H03') --입금취소로 환불된 금액 계산
+							 WHERE V.OCCUR_DATE BETWEEN '19000101' AND :schTdate
+							   AND V.SYS_CLASS IN ('13','14')
+							   AND V.RECD_STATUS='L'
+							
+					) X
+					GROUP BY X.UPJANG, X.DEPT_ID, X.BOND_DATE, X.ADVANCE_NUM
+				)
+				
+				  SELECT 
+						 SUM(GIMAL_AMT) AS GIMAL_AMT
+					FROM(
+				  	 	 SELECT ( SUM((CASE WHEN V1.BOND_DATE BETWEEN '19000101' AND :schTdate THEN V1.AMT ELSE 0 END)) -
+				           		SUM((CASE WHEN V1.BOND_DATE BETWEEN :schFdate AND :schTdate THEN V1.AMT ELSE 0 END)) )
+				           		- (SUM((CASE WHEN V1.BOND_DATE BETWEEN '19000101' AND :schTdate THEN V1.RCP_AMT1 ELSE 0 END)) -
+				           		SUM((CASE WHEN V1.BOND_DATE BETWEEN :schFdate AND :schTdate THEN V1.RCP_AMT1 ELSE 0 END))) AS GIMAL_AMT
+						   FROM TB_STOCK1 V1
+					)
+  	  		)
+		)
+  		ORDER BY GUBN, BOND_DATE
+	    ]]>
+	</statement>
+</hqml>
+
+
+

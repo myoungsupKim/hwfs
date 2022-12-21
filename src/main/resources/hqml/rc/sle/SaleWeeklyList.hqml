@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="rc.sle.saleWeeklyDAO">
+	<desc>sale weekly list</desc>
+
+	<statement name="selectList" type="select"><![CDATA[
+	
+SELECT OUTLET_CD
+	   ,OUTLET_NM
+	   ,OUTLET_CD||' : '||OUTLET_NM AS UPJANG
+	   ,TO_CHAR(TO_DATE(TO_NUMBER(SALES_DATE),'YYYY_MM_DD'),'IW') AS WEEK_NUM
+       ,MIN(SALES_DATE)||' ~ '||MAX(SALES_DATE) AS SALES_DATE
+       ,SUM(SUN) AS SUN
+       ,SUM(MON) AS MON
+       ,SUM(TUE) AS TUE
+       ,SUM(WED) AS WED
+       ,SUM(THU) AS THU
+       ,SUM(FRI) AS FRI
+       ,SUM(SAT) AS SAT
+	   ,SUM(TOT_AMT) AS TOT_AMT
+  FROM (
+		SELECT  MST.OUTLET_CD
+			   ,MST.SALES_DATE AS SALES_DATE
+			   ,MAX(OUTLET.OUTLET_NM) AS OUTLET_NM
+			   ,SUM(NET_AMT) AS TOT_AMT
+			   ,CASE TO_NUMBER(TO_CHAR(TO_DATE(MST.SALES_DATE,'YYYYMMDD'), 'D')) WHEN 1 THEN  SUM(NET_AMT) ELSE 0 END SUN
+			   ,CASE TO_NUMBER(TO_CHAR(TO_DATE(MST.SALES_DATE,'YYYYMMDD'), 'D')) WHEN 2 THEN  SUM(NET_AMT) ELSE 0 END MON
+			   ,CASE TO_NUMBER(TO_CHAR(TO_DATE(MST.SALES_DATE,'YYYYMMDD'), 'D')) WHEN 3 THEN  SUM(NET_AMT) ELSE 0 END TUE
+			   ,CASE TO_NUMBER(TO_CHAR(TO_DATE(MST.SALES_DATE,'YYYYMMDD'), 'D')) WHEN 4 THEN  SUM(NET_AMT) ELSE 0 END WED
+			   ,CASE TO_NUMBER(TO_CHAR(TO_DATE(MST.SALES_DATE,'YYYYMMDD'), 'D')) WHEN 5 THEN  SUM(NET_AMT) ELSE 0 END THU
+			   ,CASE TO_NUMBER(TO_CHAR(TO_DATE(MST.SALES_DATE,'YYYYMMDD'), 'D')) WHEN 6 THEN  SUM(NET_AMT) ELSE 0 END FRI
+			   ,CASE TO_NUMBER(TO_CHAR(TO_DATE(MST.SALES_DATE,'YYYYMMDD'), 'D')) WHEN 7 THEN  SUM(NET_AMT) ELSE 0 END SAT
+		  FROM SLE_SALS_GOODS MST
+		 INNER JOIN (SELECT MST.OUTLET_CD, MST.OUTLET_NM
+		               FROM SLE_OUTLET_MST MST
+		              INNER JOIN SCO_UPJANG_V UPJANG ON UPJANG.UPJANG = TO_NUMBER(MST.OUTLET_CD) 
+		                     <#if muCd?has_content> AND UPJANG.MU_CD = :muCd </#if>
+		                     <#if tmCd?has_content> AND UPJANG.TM_CD = :tmCd </#if>
+					  <#if outletCd?has_content> WHERE MST.OUTLET_CD = :outletCd </#if>
+		            ) OUTLET ON OUTLET.OUTLET_CD = MST.OUTLET_CD 
+		 
+		 INNER JOIN (
+					SELECT INFO.OUTLET_CD, INFO.SALES_DATE, INFO.RECEIPT_NUM 
+					FROM SLE_SALS_INFO INFO
+					LEFT OUTER JOIN (
+					      SELECT OUTLET_CD, POS_NUM, CODE_NAME FROM SLE_POS_SET POS
+					      INNER JOIN SCC_COMMON_CODE GRP ON GRP.GROUP_CODE = 'SLE_0111' AND GRP.CODE = POS.OUTLET_SUB_CD
+					      <#if outletSub?has_content> WHERE GRP.CODE = :outletSub </#if>  --01:다채움 02:마루 03:나무 
+					      ORDER BY  OUTLET_CD, POS_NUM
+					) POS ON POS.OUTLET_CD = INFO.OUTLET_CD AND POS.POS_NUM = INFO.POS_NUM
+					WHERE INFO.SALS_CLASS     = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+					  AND INFO.MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+					  <#if internalYn == 'Y' > AND INFO.RECEIPT_STATUS IN ('Q','R','E') </#if> --영수증 상태 Q:정상 R:반품(-)
+                      <#if internalYn == 'N' > AND INFO.RECEIPT_STATUS IN ('Q','R') </#if> --영수증 상태 Q:정상 R:반품(-)MST.RECEIPT_STATUS IN('Q','R')   --영수증 상태 Q:정상 R:반품(-)
+                      AND INFO.SALES_DATE BETWEEN :searchDateFr AND :searchDateTo
+					  <#if outletCd?has_content> AND INFO.OUTLET_CD = :outletCd </#if>
+					  <#if outletSub?has_content> AND INFO.POS_NUM  = POS.POS_NUM  </#if>
+					ORDER BY    INFO.OUTLET_CD, INFO.SALES_DATE, INFO.RECEIPT_NUM
+   				)  INFO ON INFO.OUTLET_CD = MST.OUTLET_CD 
+   				       AND INFO.SALES_DATE = MST.SALES_DATE
+   				       AND INFO.RECEIPT_NUM = MST.RECEIPT_NUM	
+		            
+		 WHERE 1=1
+		   --MST.SALS_YN        = 'Y'		--판매여부
+           --시작 : 2017.03.02 현대카드M포인트 제휴 추가로 매출여부 조건 변경 처리자:김호석 CH201702_00668
+		   AND MST.SELL_YN  = DECODE(MST.RECEIPT_STATUS ,'E','N','Y')				--매출 여부
+		   --종료
+		   AND MST.DATA_CLASS     = '1'  -- 1:메뉴 3:주문사항 
+           AND MST.SALS_CLASS     = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+           AND MST.MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+           <#if internalYn == 'Y' > AND MST.RECEIPT_STATUS IN ('Q','R','E') </#if> --영수증 상태 Q:정상 R:반품(-)
+           <#if internalYn == 'N' > AND MST.RECEIPT_STATUS IN ('Q','R') </#if> --영수증 상태 Q:정상 R:반품(-)MST.RECEIPT_STATUS IN('Q','R')   --영수증 상태 Q:정상 R:반품(-)
+           AND MST.SALES_DATE BETWEEN :searchDateFr AND :searchDateTo
+		   <#if outletCd?has_content> AND MST.OUTLET_CD = :outletCd </#if>
+		 GROUP BY MST.OUTLET_CD, MST.SALES_DATE
+	   ) DUAL
+ GROUP BY OUTLET_CD,OUTLET_NM,TO_CHAR(TO_DATE(TO_NUMBER(SALES_DATE),'YYYY_MM_DD'),'IW')
+ ORDER BY OUTLET_CD,OUTLET_NM, WEEK_NUM
+
+		]]></statement>
+
+</hqml>

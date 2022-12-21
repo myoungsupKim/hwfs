@@ -1,0 +1,306 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="SCC80011P" onload="form_onload" titletext="게시판 그룹 조회" position="absolute 0 0 548 457" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Static id="Static02" class="sta_WFSA_Labelbg" position="absolute 15 40 533 81" anchor="left top right"/>
+        <Button id="btn_search" onclick="fn_commBtn_OnClick" taborder="2" text="조회" position="absolute 427 10 486 35" class="btn_WF_searchCm" image=""/>
+        <Button id="btn_close" onclick="fn_Close" taborder="2" tabstop="false" text="닫기" position="absolute 488 10 533 35" class="btn_WF_CRUD" image=""/>
+        <Static id="st_tOwner" text="게시판 구분" position="absolute 30 50 109 71" class="sta_WFSA_label"/>
+        <Static id="Static05" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 237"/>
+        <Static id="Static06" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 520 10"/>
+        <Static id="Static07" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 533 0 548 238"/>
+        <Static id="Static08" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 0 442 530 457"/>
+        <Combo id="cbo_bbsType" taborder="10" innerdataset="ds_SC0100Cd" codecolumn="CODE" datacolumn="CODE_NAME" displayrowcount="10" onitemchanged="cbo_bbsType_OnChanged" position="absolute 116 50 248 70"/>
+        <Grid id="grd_list" taborder="11" tabstop="false" binddataset="ds_list" wheelscrollrow="1" readonly="true" autoenter="select" useinputpanel="false" cellsizingtype="both" cellmovingtype="col" onheadclick="grd_list_OnHeadClick" oncelldblclick="grd_list_OnCellDblClick" position="absolute 15 96 533 442" userdata="자랑레시피">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="36"/>
+                <Column size="81"/>
+                <Column size="130"/>
+                <Column size="105"/>
+                <Column size="149"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="text"/>
+                <Cell col="1" displaytype="text" text="게시판 구분"/>
+                <Cell col="2" displaytype="text" text="게시판 명"/>
+                <Cell col="3" displaytype="text" text="상위 게시판 명"/>
+                <Cell col="4" displaytype="text" text="설 명"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" style="align:center;" text="bind:RN" expr="expr:currow+1"/>
+                <Cell col="1" displaytype="combo" edittype="expr:setEditExpr(decode(gfn_length(PARENT_BBS_ID),0,decode(getRowType(currow), 2, 'combo', 'none'), 'none'))" editfilter="expr:setfilterExpr(decode(gfn_length(PARENT_BBS_ID),0,decode(getRowType(currow), 2, 'combo', 'none'), 'none'))" style="align:left;" text="bind:BBS_TYPE" combodataset="ds_SC0100Cd" combocodecol="CODE" combodatacol="CODE_NAME"/>
+                <Cell col="2" displaytype="text" style="align:left;" text="bind:BBS_NAME"/>
+                <Cell col="3" displaytype="text" style="align:left;" text="bind:PARENT_BBS_NAME"/>
+                <Cell col="4" displaytype="text" style="align:left;" text="bind:CONTENTS"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="Static12" text="W10" visible="false" position="absolute 106 50 116 71" style="background:#ff000055;align:center middle;"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_cond">
+        <ColumnInfo>
+          <Column id="BBS_GUBUN" size="255" type="STRING"/>
+          <Column id="BBS_TYPE" size="255" type="STRING"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="BBS_GUBUN">100</Col>
+            <Col id="BBS_TYPE"/>
+          </Row>
+        </Rows>
+      </Dataset>
+      <Dataset id="ds_list">
+        <ColumnInfo>
+          <Column id="BBS_GUBUN" size="50" type="STRING"/>
+          <Column id="BBS_ID" size="22" type="BIGDECIMAL"/>
+          <Column id="BBS_NAME" size="100" type="STRING"/>
+          <Column id="BBS_TYPE" size="50" type="STRING"/>
+          <Column id="COPY_YN" size="1" type="STRING"/>
+          <Column id="IMAGE_ID" size="50" type="STRING"/>
+          <Column id="LEVELS" size="22" type="BIGDECIMAL"/>
+          <Column id="PARENT_BBS_ID" size="22" type="BIGDECIMAL"/>
+          <Column id="PARENT_BBS_NAME" size="100" type="STRING"/>
+          <Column id="PRIV_YN" size="1" type="STRING"/>
+          <Column id="REP_YN" size="1" type="STRING"/>
+          <Column id="SORT_SEQ" size="22" type="BIGDECIMAL"/>
+          <Column id="VOC_YN" size="1" type="STRING"/>
+          <Column id="BBS_GUBUN_NM" size="50" type="STRING"/>
+          <Column id="BBS_TYPE_NM" size="50" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_SC0100Cd">
+        <ColumnInfo>
+          <Column id="CODE" size="256" type="STRING"/>
+          <Column id="CODE_NAME" size="256" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Bind>
+      <BindItem id="cbo_bbsType_value" compid="cbo_bbsType" propid="value" datasetid="ds_cond" columnid="BBS_TYPE"/>
+    </Bind>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 게시판 그룹 선택 
+ * 프로그램명   : SCC80011P.XML
+ * 기      능   : 게시판 그룹 선택 
+ * 작  성  자   : 조은영 
+ * 작성  일자   : 2008-02-01
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ *              본사 업장만 조회하는 기능 필요 
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js";
+//@@컨버터에서 주석처리 #include "LIB::tit_comm_0001.js";
+//@@컨버터에서 주석처리 #include "LIB::sc_comon.js";
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+	
+	// Action 정보 생성 
+	fsp_init(this);
+	
+    if (opener.cbo_bbsType.index != -1) cbo_bbsType.index = opener.cbo_bbsType.index;
+    
+    ds_SC0100Cd.copyData(opener.ds_SC0100Cd);
+    
+    fn_search();
+}
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Search
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : 정보 조회 
+ * 작  성  자   : 조은영
+ * 작성  일자   : 2007-11-20
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function fn_search()
+{
+    gfn_clearGrid(grd_list);
+    fsp_clear(this);
+    // 조회 
+    fsp_addSearch(this,"sc/scc:SCC80010E_S001");
+    // 서버 호출 
+    fsp_callService(this, "", ""
+        , "ds_cond=ds_cond"
+        , "ds_list=ds_list"
+        , " BBS_GUBUN='200'"
+        , "fn_afterSearch"
+        , true);
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_afterSearch
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : 
+ * 작  성  자   : 
+ * 작성  일자   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function fn_afterSearch(errCode, errMsg) {
+    gfn_showMsgGrid(grd_list);
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Delete
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : 정보 삭제 
+ * 작  성  자   : 조은영
+ * 작성  일자   : 2007-11-20
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function fn_delete()
+{
+   
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Save
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : 정보 저장 
+ * 작  성  자   : 조은영
+ * 작성  일자   : 2007-11-20
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function fn_save()
+{
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Close
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : 화면 닫기 
+ * 작  성  자   : 조은영
+ * 작성  일자   : 2007-11-20
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function fn_Close()
+{
+    close();
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Help
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : 도움말
+ * 작  성  자   : 조은영
+ * 작성  일자   : 2007-11-20
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function fn_help()
+{
+
+}
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 개요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : grd_list_OnCellDblClick
+ * 입      력   : 
+ * 반      환   : 없음
+ * 기      능   : 그리드에서 cell 클릭시 데이터 전송 
+ * 작  성  자   : 조은영
+ * 작성  일자   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function grd_list_OnCellDblClick(obj:Grid, e:GridClickEventInfo)
+{
+    var arr = [
+            ds_list.getColumn(e.row, "BBS_ID")
+            , ds_list.getColumn(e.row, "BBS_NAME")
+            , ds_list.getColumn(e.row, "BBS_TYPE")
+            , ds_list.getColumn(e.row, "LEVELS")
+        ];
+    close( arr );
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : grd_list_OnHeadClick
+ * 입      력   : 
+ * 반      환   : 없음
+ * 기      능   : header 선택 시 sort 처리 
+ * 작  성  자   : 조은영
+ * 작성  일자   : 2007-11-28
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function grd_list_OnHeadClick(obj:Grid, e:GridClickEventInfo)
+{
+    if ( e.cell == 0 ) {
+        return;
+    }
+    
+	gfn_gridSort(obj, e); //(ds_list, obj, e.cell);
+}
+
+function cbo_bbsType_OnChanged(obj:Combo, e:ItemChangeEventInfo)
+{
+
+    fn_search(); 
+}
+]]></Script>
+  </Form>
+</FDL>

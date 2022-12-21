@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[표준식단 목록 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT AA.*
+FROM
+(
+SELECT A.SINGLE_MENU_CD
+      , A.MENU_NAME --식단명
+      , SUM(ROUND( (E.NEED_QTY * B.ITEM_RATE / 100) * (NVL(F.MARGIN_PRICE,0) / G.KG_CONVERT_RATE / 1000) ) ) AS MENU_COST  -- 표준원가
+      , FSM_SINGLE_RECIPE_NAME_FUN(A.SINGLE_MENU_CD) AS RECIPE_INFO --레시피구성
+      , PHOTO_TITLE_1
+      , PHOTO_PATH_1
+      , SPHOTO_PATH_1
+      ,'http://203.233.82.53/hwfs/upload/fs/single/menu' AS PHOTO_URL_1
+      , PHOTO_TITLE_2
+      , PHOTO_PATH_2
+      , SPHOTO_PATH_2
+      ,'http://203.233.82.53/hwfs/upload/fs/single/menu' AS PHOTO_URL_2
+  FROM FSM_SINGLE_MENU_MST A
+      ,FSM_SINGLE_MENU_RECIPE B
+    --  ,FSM_SINGLE_MENU_ITEM_RATE C
+      ,FSR_STD_RECIPE_MST D
+      ,FSR_STD_RECIPE_ITEM E
+      ,FSI_STD_PRICE F
+      ,(
+       SELECT ITEM_CODE,
+              KG_CONVERT_RATE
+         FROM HLDC_PO_ITEM_MST
+        WHERE ITEM_CLASS1 = 'F'
+       ) G
+ WHERE A.SINGLE_MENU_CD = B.SINGLE_MENU_CD
+ --  AND B.SINGLE_MENU_CD = C.SINGLE_MENU_CD
+ --  AND B.RECIPE_CD = C.RECIPE_CD
+   AND B.RECIPE_CD = D.RECIPE_CD
+   AND B.RECIPE_CD = E.RECIPE_CD
+ --  AND C.ITEM_CODE = E.ITEM_CODE
+   AND E.ITEM_CODE = F.ITEM_CODE(+)
+   AND E.ITEM_CODE = G.ITEM_CODE
+<isNotNull col="MENU_CLASS">
+  AND A.MENU_CLASS= #MENU_CLASS#
+</isNotNull>  
+<isNotNull col="MENU_NAME">
+  AND A.MENU_NAME like '%'||#MENU_NAME# ||'%'
+</isNotNull>  
+<isNotNull col="RECIPE_NAME">
+  AND FSM_SINGLE_RECIPE_NAME_FUN(A.SINGLE_MENU_CD) LIKE '%'||#RECIPE_NAME#||'%'
+</isNotNull>  
+<isNotNull col="RECIPE_SEQ">
+  AND D.RECIPE_CD =  #RECIPE_SEQ#
+</isNotNull>  
+ GROUP BY A.SINGLE_MENU_CD
+         ,A.MENU_NAME
+         ,PHOTO_TITLE_1
+         ,PHOTO_PATH_1
+	 ,SPHOTO_PATH_1
+         ,PHOTO_TITLE_2
+         ,PHOTO_PATH_2
+	 ,SPHOTO_PATH_2
+) AA
+WHERE 1=1
+<isNotNull col="FROM_COST">
+  AND AA.MENU_COST >= #FROM_COST#
+</isNotNull>  
+ 
+<isNotNull col="TO_COST">
+  AND AA.MENU_COST  &lt;= #TO_COST# 
+</isNotNull>	</statement>
+	<input default-name="ds_cond">
+		<col name="MENU_CLASS" size="255" type="VARCHAR" description="" /> 
+		<col name="MENU_CD" size="255" type="VARCHAR" description="" /> 
+		<col name="RECIPE_NAME" size="255" type="VARCHAR" description="" /> 
+		<col name="RECIPE_SEQ" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="MENU_COST" size="22" type="NUMERIC" description="" /> 
+		<col name="MENU_NAME" size="50" type="VARCHAR" description="" /> 
+		<col name="PHOTO_PATH_1" size="200" type="VARCHAR" description="" /> 
+		<col name="PHOTO_PATH_2" size="200" type="VARCHAR" description="" /> 
+		<col name="PHOTO_TITLE_1" size="200" type="VARCHAR" description="" /> 
+		<col name="PHOTO_TITLE_2" size="200" type="VARCHAR" description="" /> 
+		<col name="RECIPE_INFO" size="4000" type="VARCHAR" description="" /> 
+		<col name="SINGLE_MENU_CD" size="20" type="VARCHAR" description="" /> 
+	</output>
+</query>

@@ -1,0 +1,265 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\..\..\default_typedef.xml"/>
+  <Form id="CardPopup" classname="sam_MasterDetail" position="absolute 0 0 320 295" titletext="끼니팝업(MealPopup)" onload="form_onload">
+    <Layouts>
+      <Layout>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 321 9"/>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 294"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 307 1 320 295"/>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 15 280 307 295"/>
+        <Button id="btn_cancel" taborder="4" text="취소" onclick="btn_cancel_onclick" class="btn_POP_Default" position="absolute 256 258 306 283" anchor="right bottom"/>
+        <Button id="btn_confirm" taborder="5" text="확인" onclick="btn_confirm_onclick" class="btn_POP_Default" position="absolute 204 258 254 283" anchor="right bottom"/>
+        <Grid id="grd_list" taborder="3" binddataset="ds_list" useinputpanel="false" autofittype="col" onkeydown="grd_list_onkeydown" oncelldblclick="grd_list_oncelldblclick" position="absolute 15 37 305 250" anchor="all">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="109"/>
+                <Column size="181"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="끼니코드"/>
+                <Cell col="1" text="끼니명"/>
+              </Band>
+              <Band id="body">
+                <Cell text="bind:mealCd" editlimitbymask="none"/>
+                <Cell col="1" style="align:left middle;" text="bind:mealNm"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="Static17" text="h10" visible="false" position="absolute 15 250 305 260" style="background:#ff000055;align:center middle;"/>
+        <Static id="sta_title" text="끼니 검색" class="sta_WF_Title" position="absolute 15 16 215 40"/>
+        <Button id="btn_search" taborder="6" text="조회" onclick="fn_search" class="btn_WF_searchCm" position="absolute 245 10 304 35" anchor="top right"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_list" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="mealCd" type="STRING" size="256"/>
+          <Column id="mealNm" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_search" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="saleGubun" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Bind/>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : Mealpopup
+  파 일 명 : Mealpopup.xfdl
+  기    능 : 끼니 조회
+
+    수정일    수정자                  수정내용
+  ----------   -------  --------------------------------------------------
+  2020.06.11   김호석   최초 생성
+*/
+
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+************************************************************************************************/
+include "lib::lib_com.xjs";
+
+
+/************************************************************************************************
+ * FORM 변수 선언 영역 (필수)
+************************************************************************************************/
+var fv_sToday = gfn_today();
+
+
+/************************************************************************************************
+ * FORM EVENT 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Form Load (필수)
+ *---------------------------------------------------------------------------------------------*/
+function form_onload(obj:Form, e:LoadEventInfo)
+{	
+	// Form Load 시 공통 기능 처리(obj:Form, bCreateEvent:이벤트 생성 여부)
+	gfn_formOnLoad(this);
+	
+	// 초기값 셋팅
+	fn_init();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 초기값 셋팅
+ *---------------------------------------------------------------------------------------------*/
+function fn_init()
+{		
+	ds_search.addRow();
+	ds_search.setColumn(0,"saleGubun",arrSchVal[1]);
+	
+	fn_search();
+}
+
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 화면 닫기 전 변경 유무 체크 (필수-Frame에서 창 닫힐때 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_close()
+{
+	// 조회프로그램에도 Return true; 기술해 주세요!
+	return true;
+}
+
+
+/************************************************************************************************
+ * 공통기능 FUNCTION 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 조회 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_search()
+{
+    // Grid sort 표시 초기화(필수)
+    gfn_clearSortMark(grd_list);
+    
+    //ds_search.setColumn(0, "buycpnyNm", edt_cardComNm.value);
+
+    var strSvcID    = "search";
+    var strURL      = "fs/fsl/cardPopup/selectMealList.xdo";
+    var strInDs     = "ds_search=ds_search";
+    var strOutDs    = "ds_list=ds_list";
+    var strArg      = "";
+    var strCallback = "fn_callBack";
+    var bAsync      = true;
+    
+    gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 신규 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_insert()
+{	
+
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 삭제 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_delete()
+{
+
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 저장 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_save()
+{
+
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 출력 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_print()
+{
+	
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 도움말 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_help()
+{
+	
+}
+
+/************************************************************************************************
+ * TRANSACTION 및 CallBack 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 트랜잭션 콜백 함수 (필수)
+ *---------------------------------------------------------------------------------------------*/
+function fn_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	// 에러시 gfn_callBack에서 메시지 제공, 화면별 특정 에러 발생시에만 사용하세요.
+	if (nErrorCode < 0) 
+	{
+		return;
+	}
+	
+    switch(strSvcID)
+    {
+        case "search" :    		// 코드분류 조회
+            //trace(ds_list.saveXML());
+            grd_list.setFocus();
+            break; 
+    }
+}
+
+
+/************************************************************************************************
+ * 사용자 FUNCTION 영역 (필수)
+************************************************************************************************/
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Return할 Array 생성 및 창 닫기
+ *---------------------------------------------------------------------------------------------*/
+function fn_return()
+{
+ 	var arr = new Array();
+ 	var nRow = ds_list.rowposition;
+ 	for ( var i = 0; i < ds_list.getColCount(); i++ ) {
+ 		arr[ds_list.getColID(i)] = ds_list.getColumn(nRow, i);
+ 	}
+ 	this.close(arr);
+}
+
+
+
+/************************************************************************************************
+ * 각 COMPONENT 별 EVENT 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 취소버튼 클릭 이벤트
+ *---------------------------------------------------------------------------------------------*/
+function btn_cancel_onclick(obj:Button,  e:ClickEventInfo)
+{
+	this.close();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 확인버튼 클릭 이벤트
+ *---------------------------------------------------------------------------------------------*/
+function btn_confirm_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_return();
+}
+
+function grd_list_oncelldblclick(obj:Grid, e:GridClickEventInfo)
+{
+	fn_return();
+}
+
+function grd_list_onkeydown(obj:Grid, e:KeyEventInfo)
+{
+	// Enter 키
+	if(e.keycode == 13) {		
+		// Return할 Array 생성 및 창 닫기
+		fn_return();
+	}
+}
+
+
+function edt_cardComNm_onkeydown(obj:Edit, e:KeyEventInfo)
+{
+	// Enter 키
+	if(e.keycode == 13) {		
+		// Return할 Array 생성 및 창 닫기
+		ds_search.setColumn(0, "buycpnyNm", edt_cardComNm.value);
+		fn_search();
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

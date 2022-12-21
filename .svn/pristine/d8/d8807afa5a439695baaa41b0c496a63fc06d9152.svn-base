@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.rcg.couponDestributionDAO">
+	<desc>쿠폰 배포 처리 HQML Query</desc>
+
+	<!-- 쿠폰 배포 처리 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.rc.rcg.dao.CouponDestributionDAO.selectList */
+	    <![CDATA[
+			SELECT 
+				 '0' AS CHK
+				, C.COUPON_NUM
+				, C.COUPON_KIND_CD
+                , A.COUPON_KIND_NM
+				, C.COUPON_AMT
+				, C.COUPON_NUM_SEQ
+				, C.START_DATE
+				, C.END_DATE
+				, C.MU_CD
+				, C.CC_CD
+				, (SELECT  CC_NM FROM SCC_CC WHERE CC_CD = C.CC_CD) AS CC_NM
+				, C.ACCT_CD
+				, C.SUPPLY_AMT
+				, C.VAT_INCLUDE_YN
+				, C.VAT_CD
+				, GFN_SCC_CODENAME_FUN('TAX_CD', C.VAT_CD) AS VAT_CD_NM
+				, C.VAT_AMT
+				, C.NEWHGHT_UPJANG
+				, C.SELF_BU_CLASS_CD
+				, C.SALS_VAT_ACCT
+				, C.ADVANCE
+				, C.FOC_CLASS
+				, C.COUPON_TYPE
+				, C.DISCNT_CLASS
+				, C.DISCNT_TYPE
+				, C.DISCNT_RATE
+				, C.DISCNT_AMT
+				, C.COUPON_CLASS
+				, C.COUPON_STATUS
+				, C.DISUSE_STATUS
+				, C.REF_NUM
+				, C.PUBLISH_DATE
+				, C.DPLY_DATE
+				, C.SALE_DATE
+				, C.USE_DATE
+				, C.USE_AMT
+				, C.REFUND_DATE
+				, C.SALS_UPJANG_CD
+				, C.ACCT_TYPE
+				, C.COUPON_NUM_OF_TIMES
+				, C.USE_NUM_OF_TIMES
+				, C.INSIDE_USE_YN
+				, C.PACKAGE_DESC
+				, C.COUPON_PROC_NUM
+				, C.ADVANCE_NUM
+				, C.COUPON_DISUSE_BEFORE_STATUS
+				, C.COUPON_SAL_AGED
+				, C.USE_YN
+				, C.CUSER
+				, C.CDATE
+				, C.UUSER
+				, C.UDATE
+			FROM   SLA_COUPON_KIND_MST A, SLA_COUPON_NUM_MST C
+			WHERE  1=1 
+			AND A.COUPON_KIND_CD = C.COUPON_KIND_CD
+			AND A.RECD_STATUS = 'L'
+
+				<#if couponKindCd?has_content>AND    A.COUPON_KIND_CD = :couponKindCd</#if>
+            	<#if posType?has_content>AND A.COUPON_KIND_GRP_CD = :posType</#if>
+            	<#if couponGrpCd?has_content>AND A.COUPON_GRP_CD = :couponGrpCd</#if>
+				<#if couponNumFr?has_content>AND COUPON_NUM >= :couponNumFr</#if>
+				<#if couponNumTo?has_content>AND COUPON_NUM <= :couponNumTo</#if>
+				<#if couponAmtFr?has_content>AND    C.COUPON_AMT >= :couponAmtFr</#if>
+				<#if couponAmtTo?has_content>AND    C.COUPON_AMT <= :couponAmtTo</#if>
+				<#if startDate?has_content>AND    START_DATE = :startDate</#if>
+				<#if endDate?has_content>AND    END_DATE = :endDate</#if>
+				<#if focClass?has_content>AND    C.FOC_CLASS = :focClass</#if>
+				AND C.COUPON_STATUS = '1'
+			ORDER BY COUPON_NUM
+		]]></statement>
+
+	<!-- 쿠폰 배포 처리시 배포번호 MAX값을  조회한다. -->
+	<statement name="selectMaxDplyNum" type="select">
+		/*+ com.hwfs.rc.rcg.dao.CouponDestributionDAO.selectList */
+		<![CDATA[
+			SELECT :moveDate || SUBSTR('0000' || (NVL(MAX(TO_NUMBER(SUBSTR(COUPON_DPLY_NUM,9,4))),0)+1), -4) AS maxCouponDplyNum
+			FROM SLA_COUPON_DPLY_MST WHERE SUBSTR(COUPON_DPLY_NUM,1,8) = :moveDate
+		]]>
+	</statement>
+
+	<!-- 쿠폰 배포 처리 마스터(을)를 등록한다. -->
+	<statement name="insertMst" type="insert">
+		/*+ com.hwfs.rc.rcg.dao.CouponDestributionDAO.insert */
+		<![CDATA[
+		INSERT INTO SLA_COUPON_DPLY_MST
+		(
+			 COUPON_DPLY_NUM,
+			 COUPON_MOVE_CLASS,
+			 MOVE_DATE,
+			 MU_CD,
+			 CC_CD,
+			 MOVE_REQUEST_PROC_USER,
+			 FOC_YN,
+			 COUPON_KIND_CD,
+			 DELIVER_DEPT_CD,
+			 DELIVER_PROC_USER,
+			 MOVE_QUANTITY,
+			 MOVE_AMT,
+			 CUST_CD,
+			 REMARK,
+			 APPRV_YN,
+			 APPRV_DATE,
+			 APPRV_PROC_USER,
+			 RECD_STATUS,
+			 CUSER,
+			 CDATE,
+			 UUSER,
+			 UDATE
+		) VALUES (
+			 :maxCouponDplyNum,
+			<#if couponMoveClass?exists> :couponMoveClass, <#else> null, </#if>
+			<#if moveDate?exists> :moveDate, <#else> null, </#if>
+			<#if muCd?exists> :muCd, <#else> null, </#if>
+			<#if ccCd?exists> :ccCd, <#else> null, </#if>
+			<#if moveRequestProcUser?exists> :moveRequestProcUser, <#else> null, </#if>
+			<#if focYn?exists> DECODE(:couponMoveClass, '3', 'Y', 'N'), <#else> 'N', </#if>
+			<#if couponKindCd?exists> :couponKindCd, <#else> null, </#if>
+			<#if deliverDeptCd?exists> :ccCd, <#else> null, </#if>
+			<#if deliverProcUser?exists> :deliverProcUser, <#else> :moveRequestProcUser, </#if>
+			<#if moveQuantity?exists> :moveQuantity, <#else> null, </#if>
+			<#if moveAmt?exists> :moveAmt, <#else> null, </#if>
+			<#if custCd?exists> :custCd, <#else> null, </#if>
+			<#if remark?exists> :remark, <#else> null, </#if>
+			<#if apprvYn?exists> DECODE(:apprvYn, '1', 'Y', 'N'), <#else> null, </#if>
+			<#if apprvDate?exists> :apprvDate, <#else> null, </#if>
+			<#if apprvProcUser?exists> :apprvProcUser, <#else> null, </#if>
+			<#if recdStatus?exists> :recdStatus, <#else> 'L', </#if>
+			 :loginSabun,
+			 SYSDATE,
+			 :loginSabun,
+			 SYSDATE
+		)
+
+		]]>
+	</statement>
+
+	<!-- 쿠폰 배포 처리 상세(을)를 등록한다. -->
+	<statement name="insertDetail" type="insert">
+		/*+ com.hwfs.rc.rcg.dao.CouponDestributionDAO.insert */
+		<![CDATA[
+		INSERT INTO SLA_COUPON_DPLY_DETAIL
+		(
+			 COUPON_DPLY_NUM,
+			 COUPON_NUM,
+			 QUANTITY,
+			 COUPON_AMT,
+			 COUPON_STATUS,
+			 RECD_STATUS,
+			 CUSER,
+			 CDATE,
+			 UUSER,
+			 UDATE
+		) VALUES (
+			 :maxCouponDplyNum,
+			 :couponNum,
+			<#if quantity?exists> :quantity, <#else> null, </#if>
+			<#if couponAmt?exists> :couponAmt, <#else> null, </#if>
+			<#if couponStatus?exists> :couponStatus, <#else> null, </#if>
+			<#if recdStatus?exists> :recdStatus, <#else> null, </#if>
+			 :loginSabun,
+			 SYSDATE,
+			 :loginSabun,
+			 SYSDATE
+		)
+		]]>
+	</statement>
+
+	<!-- 쿠폰 번호 마스터에 배포 업데이트 처리(을)를 수정한다. -->
+	<statement name="updateNumMst" type="update">
+		/*+ com.hwfs.rc.rcg.dao.CouponDestributionDAO.update */
+		<![CDATA[
+		UPDATE SLA_COUPON_NUM_MST 
+		SET    COUPON_STATUS = :couponStatus,
+		       DPLY_DATE = :dplyDate,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COUPON_NUM = :couponNum
+			AND COUPON_KIND_CD = :couponKindCd
+		]]>
+	</statement>
+
+	<!-- 쿠폰 배포 처리(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.rc.rcg.dao.CouponDestributionDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>

@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="ms.msm.salesReportDAO">
+	<desc>매출현황 조회 HQML Query</desc>
+
+	<!-- 매출현황 조회 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.ms.msm.salesReportDAO.selectList */
+	<![CDATA[
+	SELECT UPJANG
+       , UPJANGNM
+       , SP_AMT/:unit AS SP_AMT
+       , SS_AMT/:unit AS SS_AMT
+       , TRUNC(ABS(DECODE(SP_AMT, 0, 0, SS_AMT / SP_AMT * 100)),1) AS SDP_RATE     /* 매출액 - 계획대비 - 비율 */
+    FROM (   
+          SELECT A.MU_CD
+             , A.MU_NAME
+             , A.TM_CD
+             , A.TM_NAME
+             , A.UPJANG
+             , A.UPJANGNM
+             , A.JOB_NAME
+             , A.SUB_JOB_NAME
+             , A.LOC_NAME
+             , SUM(B.SP_AMT) AS SP_AMT     /* 매출액 - 식음료매출 계획 */
+             , SUM(C.SS_AMT) AS SS_AMT     /* 매출액 - 식음료매출 실적 */             
+          FROM MAC_UPJANG_V A
+             , (
+		        /* 매출 - 식음료매출 계획(P), 추정(R) */
+		        SELECT UPJANG
+		             , NVL(SUM(PAMT), 0) AS SP_AMT
+		             , NVL(SUM(RAMT), 0) AS SR_AMT
+		          FROM (
+		                SELECT A.UPJANG
+		                     , DECODE(B.DAY_CLASS, 'P', SUM(B.DD_AMT), 0) AS PAMT
+		                     , DECODE(B.DAY_CLASS, 'R', SUM(B.DD_AMT), 0) AS RAMT
+		                  FROM MAP_DAY_LOG_MGMT A
+		                     , MAP_DAY_PLAN_CAPTURE B
+		                 WHERE A.UPJANG = B.UPJANG
+		                   <#if upjang?has_content>
+				           AND B.UPJANG = :upjang
+				           </#if>
+                           AND A.YY = B.YY
+		                   AND A.MM = B.MM
+		                   AND A.DAY_CLASS = B.DAY_CLASS
+		                   AND A.CONFIRM_YN = 'Y'
+		                   AND B.YMD BETWEEN :startDate AND :endDate
+		                   /* 41203010:[매출액]식음료매출_식료, 41203020:[매출액]식음료매출_음료, 41203030:[매출액]식음료매출(FS) */                   
+		                   AND B.ACCT_CD IN ('41203010', '41203020', '41203030','41209040')
+		                GROUP BY A.UPJANG, B.DAY_CLASS
+                )
+         		GROUP BY UPJANG    
+               ) B
+             , (
+		        /* 매출 - 식음료매출 실적 (내부이용포함) SYSDATE기준으로 당일까지는 실적, 그 이후는 일추정에서 금액을 가져옴 20151230 맹수영*/
+SELECT UPJANG,
+       SUM(SS_AMT) SS_AMT
+FROM (
+      SELECT  UPJANG
+             ,CASE WHEN TO_CHAR(SYSDATE,'YYYYMMDD') > OCCUR_DATE
+                   THEN SS_AMT
+                   ELSE SR_AMT END SS_AMT
+      FROM        
+      (
+                  SELECT YMD OCCUR_DATE, 
+                         UPJANG
+                       , NVL(RAMT, 0) AS SR_AMT
+                       , 0 SS_AMT
+                    FROM (
+                          SELECT B.YMD, A.UPJANG
+                               , DECODE(B.DAY_CLASS, 'R', B.DD_AMT, 0) AS RAMT
+                            FROM MAP_DAY_LOG_MGMT A
+                               , MAP_DAY_PLAN B
+                           WHERE A.UPJANG = B.UPJANG
+		                       AND A.YY = B.YY
+                             AND A.MM = B.MM
+                             AND A.DAY_CLASS = B.DAY_CLASS
+                             AND A.CONFIRM_YN = 'Y'
+                             AND B.YMD  BETWEEN :startDate AND :endDate
+		                   /* 41203010:[매출액]식음료매출_식료, 41203020:[매출액]식음료매출_음료, 41203030:[매출액]식음료매출(FS), 41209040:[매출액]기타매출-기타 */                   
+		                   AND B.ACCT_CD IN ('41203010', '41203020', '41203030','41209040')
+		
+                      )  
+                   UNION ALL
+                  SELECT  B.OCCUR_DATE 
+                        , A.UPJANG_CD AS UPJANG
+                        , 0 SR_AMT
+                        , B.NET_AMT AS SS_AMT
+                    FROM SLA_IF_UPJANG_SALS_MST A
+                       , SLA_IF_UPJANG_SALS_DETAIL B
+                   WHERE A.OCCUR_DATE = B.OCCUR_DATE
+                     AND A.SYS_CLASS = B.SYS_CLASS
+                     AND A.UPJANG_CD = B.UPJANG_CD
+                     <#if upjang?has_content>
+		             AND A.UPJANG_CD = :upjang
+		             </#if>
+		             AND A.OCCUR_DATE  BETWEEN :startDate AND :endDate
+                     AND A.RECEIPT_NUM = B.RECEIPT_NUM
+                       /* 1103:[FS사업]식음료매출(FS), 1106:[FS사업]기타매출_기타, 1204:[외식사업]식음료매출_식료, 1205:[외식사업]식음료매출_음료, 2001:[매점POS]식음료매출(FS), 2101:[외식POS]식음료매출_식료, 2102:[외식POS]식음료매출_음료 */
+		          /* 1103:[FS사업]식음료매출(FS), 1106:[FS사업]기타매출_기타, 1204:[외식사업]식음료매출_식료, 1205:[외식사업]식음료매출_음료, 2001:[매점POS]식음료매출(FS), 2101:[외식POS]식음료매출_식료, 2102:[외식POS]식음료매출_음료 */
+		           AND B.SALS_CLASS IN ('1103', '2001', '2002', '1106', '1204', '1205', '2101', '2102','1901') 
+		          )
+    )
+GROUP BY UPJANG
+               ) C
+         WHERE A.UPJANG = B.UPJANG(+)
+           AND A.UPJANG = C.UPJANG(+)           
+           <#if muCd?has_content>
+           AND A.MU_CD = :muCd
+           </#if>
+           <#if tmCd?has_content>
+           AND (A.TM_CD = :tmCd OR A.PT_CD = :tmCd)
+           </#if>
+           <#if upjang?has_content>
+           AND A.UPJANG = :upjang
+           </#if>
+           AND A.CLOSE_DATE IS NULL
+           GROUP BY A.MU_CD, A.MU_NAME, A.TM_CD, A.TM_NAME, A.UPJANG, A.UPJANGNM, A.JOB_NAME, A.SUB_JOB_NAME, A.LOC_NAME
+)  
+]]></statement>	
+</hqml>

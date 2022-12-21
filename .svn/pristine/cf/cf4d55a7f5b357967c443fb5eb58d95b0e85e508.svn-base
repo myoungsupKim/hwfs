@@ -1,0 +1,1027 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fm.fms.gainRateSetMngtDAO">
+	<desc>이익율 설정 HQML Query</desc>
+
+	<!-- 팀 목록을 조회한다. -->
+	<statement name="selectTm" type="select">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.selectTm */
+		<![CDATA[
+		SELECT DISTINCT A.DEPT_ID AS TM_CD, 
+	   			   B.CC_NM AS TM_NM,
+	   			   '1' AS ORDR
+		FROM FMS_UPJANG A INNER JOIN HLDC_SC_CC B ON A.DEPT_ID = B.CC_CD		
+		UNION ALL
+		SELECT '*',
+			   '전체',
+			   '0'
+		FROM DUAL
+		ORDER BY ORDR ASC, TM_CD ASC
+		]]>
+	</statement>
+	
+	<!-- 단가계약업장 목록을 조회한다. : 이익율 설정관리 -->
+	<statement name="selectStd" type="select">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.selectStd */
+		<![CDATA[
+		SELECT DISTINCT	      
+	  			  A.AP_UNITPRICE_UPJANG AS STD_UPJANG
+				, B.UPJANGNM AS STD_UPJANG_NM
+				, D.TM_NM || '(' || D.TM_CD || ')' AS TM_NM
+				, D.CC_NM || '(' || D.CC_CD || ')' AS CC_NM
+		        , DECODE(C.ATTR09, 'Y', '1', '0') AS CHK2
+		        , DECODE(C.ATTR10, 'Y', '1', '0') AS CHK3
+		        , DECODE(C.ATTR09, 'Y', '1', '0') AS PREV_CHK2
+		        , DECODE(C.ATTR10, 'Y', '1', '0') AS PREV_CHK3
+				<#if schGainYn?has_content>
+				, (SELECT COUNT(*) FROM FMS_STD_MARGIN WHERE AP_UNITPRICE_UPJANG = A.AP_UNITPRICE_UPJANG) AS STD_CNT		/* 자재별 이익율 정보 여부 */
+				, (SELECT COUNT(*) FROM FMS_STD_MARGIN WHERE AP_UNITPRICE_UPJANG = A.AP_UNITPRICE_UPJANG AND CLASS_TYPE = 'M' AND FIXED_PRICE > 0) AS FIXED_CNT	/* 고정단가 등록 COUNT */
+				</#if>
+				, 0 STD_CHK
+				, C.ATTR11				/* 이익율 설정 관련 비고 */
+				, D.CC_CD AS STD_CC
+		FROM  ST_UPJANG A INNER JOIN ST_UPJANG B ON 	A.AP_UNITPRICE_UPJANG = B.UPJANG
+						  			  INNER JOIN FMS_UPJANG C ON  C.USE_YN = 'Y'
+						  			  										AND  A.AP_UNITPRICE_UPJANG = C.UPJANG
+						  			  INNER JOIN HLDC_SC_DEPT_V D ON 1 = 1
+																				<#if schTm?has_content>
+						  			  											AND D.TM_CD = :schTm 
+																				</#if>
+																				<#if schCc?has_content>
+						  			  											AND D.CC_CD = :schCc 
+																				</#if>
+					  			  											    AND B.DEPT_ID = D.DEPT_ID 													
+		WHERE   A.UPJANG = A.AP_UNITPRICE_UPJANG
+		<#if schStdUpjang?has_content>
+		AND (A.AP_UNITPRICE_UPJANG LIKE '%' || :schStdUpjang || '%' OR B.UPJANGNM LIKE '%' || :schStdUpjang || '%')
+		</#if>
+		<#if partSalesSabun?has_content>
+		AND C.PART_SALES_SABUN = :partSalesSabun
+		</#if>
+		ORDER BY A.AP_UNITPRICE_UPJANG ASC		
+		]]>
+	</statement>
+	
+	
+
+	<!-- 판매그룹 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.selectList */
+		<![CDATA[
+		SELECT
+			TM_CD,
+			SAL_GRP_CD,
+			REMARK
+		FROM FMS_STD_GROUP
+		WHERE 1 = 1
+		<#if schTmCd?has_content>
+			<#if schTmCd != '*'>
+			AND   TM_CD = :schTmCd
+			</#if>
+		</#if>
+		<#if schSalGrpCd?has_content>
+		AND   SAL_GRP_CD = :schSalGrpCd
+		</#if>
+		ORDER BY TM_CD ASC, SAL_GRP_CD ASC		
+		]]>
+	</statement>
+
+	<!-- 판매그룹(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.insert */
+		<![CDATA[
+		INSERT INTO FMS_STD_GROUP 
+		(
+		       TM_CD,
+			   SAL_GRP_CD,
+			   REMARK,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :tmCd,		/* TM_CD */
+		       :salGrpCd,	/* SAL_GRP_CD */
+		       :remark,		/* REMARK */
+		       :loginSabun,	/* CUSER */
+		       SYSDATE		/* CDATE */
+		)
+		]]>
+	</statement>
+	
+	<!-- 판매그룹(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.update */
+		<![CDATA[
+		UPDATE FMS_STD_GROUP
+		SET    REMARK = :remark,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  TM_CD = :tmCd
+		AND    SAL_GRP_CD = :salGrpCd
+		]]>
+	</statement>
+
+	<!-- 판매그룹(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   FMS_STD_GROUP 
+		WHERE  TM_CD = :tmCd
+		AND    SAL_GRP_CD = :salGrpCd
+		]]>
+	</statement>
+
+	<!-- 대분류별 목록을 조회한다. -->
+	<statement name="selectClassCode" type="select">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.selectClassCode */
+		<![CDATA[
+		SELECT 
+			  CLASS_CODE
+			, CLASS_NAME
+		FROM HLDC_PO_ITEM_CLASS
+		WHERE CLASS_TYPE = 'M'			/* 대분류 기준 */
+		AND    SUBSTR(CLASS_CODE, 1, 1) = 'F'		/* 식자재기준 */
+		AND    USE_YN = 'Y'
+		ORDER BY CLASS_CODE ASC
+		]]>
+	</statement>
+
+
+
+	<!-- 분류별 목록을 조회한다. -->
+	<statement name="selectClass" type="select">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.selectClass */
+		<![CDATA[
+		SELECT
+			ROWNUM AS ROW_NUM,
+			M.CLS_CD4,
+			M.CLS_NM1,
+			M.CLS_NM2,
+			M.CLS_NM3,
+			M.CLS_NM4,
+			NVL(S.MARGIN_RATE,0) AS SALE_RATE,
+			(SELECT NM_KOR FROM HR_PERSONAL H WHERE H.SABUN = NVL(S.UPDATE_BY, S.CREATE_BY)) AS INPUT_USER,
+			TO_CHAR(NVL(S.UPDATE_DATE, S.CREATE_DATE),'YYYY-MM-DD HH24:MI') INPUT_DATE,
+			:selStdUpjang AS STD_UPJANG,
+			M.CLS_CD1,
+			M.CLS_CD2,
+			M.CLS_CD3,
+			M.USE_YN
+		FROM 
+		(
+			SELECT
+				A.CLASS_CODE1 AS CLS_CD1,
+				A.CLASS_NAME1 AS CLS_NM1,
+				A.CLASS_CODE2 AS CLS_CD2,
+				A.CLASS_NAME2 AS CLS_NM2,
+				A.CLASS_CODE3 AS CLS_CD3,
+				A.CLASS_NAME3 AS CLS_NM3,
+				A.CLASS_CODE4 AS CLS_CD4,
+				A.CLASS_NAME4 AS CLS_NM4,
+				USE_YN4 AS USE_YN,
+				A.CLASS_CODE4 AS ORDR
+			FROM HLDC_PO_ITEM_CLASS_V	 A
+			WHERE A.CLASS_CODE1 = 'F'
+		) M LEFT JOIN FMS_STD_MARGIN S ON S.AP_UNITPRICE_UPJANG = :selStdUpjang
+													   AND S.CLASS_TYPE = 'D'
+									  				   AND M.CLS_CD4 = S.ITEM_CODE
+		WHERE M.CLS_CD2 NOT IN ('F28','F30','F70')
+		ORDER  BY M.ORDR
+		]]>
+	</statement>
+
+
+	<!-- 업장 목록을 조회한다. -->
+	<statement name="selectUpjang" type="select">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.selectUpjang */
+		<![CDATA[
+		SELECT 
+				A.UPJANG,
+				'(' || A.UPJANG || ')' || NVL(A.UPJANGNM,'') AS 	UPJANG_NM
+		FROM ST_UPJANG A INNER JOIN VO_CENTER_UPJANG B ON B.CENTER_CODE = :schCenter	/* 조건 : 센터코드 */
+																					AND A.UPJANG = B.UPJANG
+		WHERE A.AP_UNITPRICE_UPJANG = :selStdUpjang		/* 조건 : 기준업장 */
+		ORDER BY A.UPJANG DESC
+		]]>
+	</statement>
+
+
+	<!-- 자재별 목록을 조회한다. -->
+	<statement name="selectItem" type="select">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.selectItem */
+		<![CDATA[
+		SELECT
+	  		  ROWNUM AS ROW_NUM
+			, C1.CLASS_NAME AS CLASS_NAME2
+			, C2.CLASS_NAME AS CLASS_NAME3
+			, C3.CLASS_NAME AS CLASS_NAME4
+			, A.ITEM_CODE
+			, B.ITEM_NAME
+			, B.ITEM_SIZE
+			, B.PO_UOM AS ITEM_UNIT
+			, NVL(A.MARGIN_RATE, 0) AS SALE_RATE
+			, NVL(A.FIXED_PRICE, 0) AS FIXED_PRICE
+			, (SELECT NM_KOR FROM HR_PERSONAL H WHERE H.SABUN = NVL(A.UPDATE_BY, A.CREATE_BY)) AS INPUT_USER
+			, TO_CHAR(NVL(A.UPDATE_DATE, A.CREATE_DATE),'YYYY-MM-DD HH24:MI') INPUT_DATE
+			, :selStdUpjang AS STD_UPJANG
+		FROM FMS_STD_MARGIN A INNER JOIN HLDC_PO_ITEM_MST B ON A.ITEM_CODE = B.ITEM_CODE
+				       						   INNER JOIN 	VO_ITEM_CLASS C1 ON C1.CLASS_TYPE = 'M'
+										  												  AND B.ITEM_CLASS2 = C1.CLASS_CODE
+				       						   INNER JOIN 	VO_ITEM_CLASS C2 ON C2.CLASS_TYPE = 'S'
+										 												  AND B.ITEM_CLASS3 = C2.CLASS_CODE
+				       						   INNER JOIN 	VO_ITEM_CLASS C3 ON C3.CLASS_TYPE = 'D'
+										 												  AND B.ITEM_CLASS4 = C3.CLASS_CODE
+		WHERE A.AP_UNITPRICE_UPJANG = :selStdUpjang
+		AND    A.CLASS_TYPE NOT IN ('D')
+		ORDER BY A.ITEM_CODE ASC		
+		]]>
+	</statement>
+
+
+	<!-- 테마자재별 목록을 조회한다. -->
+	<statement name="selectTheme" type="select">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.selectTheme */
+		<![CDATA[
+		SELECT
+	  		  ROWNUM AS ROW_NUM
+			, C1.CLASS_NAME AS CLASS_NAME2
+			, C2.CLASS_NAME AS CLASS_NAME3
+			, C3.CLASS_NAME AS CLASS_NAME4
+			, A.ITEM_CODE
+			, B.ITEM_NAME
+			, B.ITEM_SIZE
+			, B.PO_UOM AS ITEM_UNIT
+			, NVL(A.MARGIN_RATE, 0) AS SALE_RATE
+			, NVL(A.FIXED_PRICE, 0) AS FIXED_PRICE
+            , NVL(A.STRATEGY_RATE, 0) AS GUIDE_RATE
+            , NVL(A.STRATEGY_PRICE, 0) AS GUIDE_PRICE
+			, (SELECT NM_KOR FROM HR_PERSONAL H WHERE H.SABUN = NVL(A.UPDATE_BY, A.CREATE_BY)) AS INPUT_USER
+			, TO_CHAR(NVL(A.UPDATE_DATE, A.CREATE_DATE),'YYYY-MM-DD HH24:MI') INPUT_DATE
+			, :selStdUpjang AS STD_UPJANG
+			, (SELECT DECODE( (SELECT H.ITEM_CODE
+                FROM FMS_STD_MARGIN H 
+                WHERE H.AP_UNITPRICE_UPJANG = A.AP_UNITPRICE_UPJANG AND H.ITEM_CODE = A.ITEM_CODE
+                ) ,  NULL, 'N', 'Y') AS STD_YN 
+				FROM DUAL) AS STD_YN
+		FROM (SELECT A.CENTER_CODE, A.CC_CD, A.ITEM_CODE, A.CLASS_TYPE, :selStdUpjang AS AP_UNITPRICE_UPJANG,
+               NVL(S.MARGIN_RATE,0) AS MARGIN_RATE, NVL(S.FIXED_PRICE,0) AS FIXED_PRICE  
+            ,  A.STRATEGY_RATE, A.STRATEGY_PRICE
+			,  S.UPDATE_BY, S.CREATE_BY, S.UPDATE_DATE, S.CREATE_DATE
+          FROM ( SELECT CENTER_CODE, CC_CD, ITEM_CODE, CLASS_TYPE, 0 AS MARGIN_RATE, 0 AS FIXED_PRICE, 
+                       STRATEGY_RATE, STRATEGY_PRICE,
+                       UPDATE_BY, CREATE_BY, UPDATE_DATE, CREATE_DATE
+                  FROM FMS_THEME_ITEM_PROFIT 
+                 WHERE CC_CD = :schCc  
+                   AND CENTER_CODE = (SELECT CENTER_CODE FROM HLDC_PO_UPJANG_CENTER WHERE UPJANG = :selStdUpjang)
+                 ) A LEFT JOIN FMS_THEME_MARGIN S ON S.AP_UNITPRICE_UPJANG = :selStdUpjang
+									  				   AND A.ITEM_CODE = S.ITEM_CODE) A 
+									  		   INNER JOIN HLDC_PO_ITEM_MST B ON A.ITEM_CODE = B.ITEM_CODE
+				       						   INNER JOIN 	VO_ITEM_CLASS C1 ON C1.CLASS_TYPE = 'M'
+										  												  AND B.ITEM_CLASS2 = C1.CLASS_CODE
+				       						   INNER JOIN 	VO_ITEM_CLASS C2 ON C2.CLASS_TYPE = 'S'
+										 												  AND B.ITEM_CLASS3 = C2.CLASS_CODE
+				       						   INNER JOIN 	VO_ITEM_CLASS C3 ON C3.CLASS_TYPE = 'D'
+										 												  AND B.ITEM_CLASS4 = C3.CLASS_CODE
+		WHERE A.AP_UNITPRICE_UPJANG = :selStdUpjang
+		AND    A.CLASS_TYPE NOT IN ('D')
+		ORDER BY A.ITEM_CODE ASC		
+		]]>
+	</statement>
+
+
+	<!-- 자재별 이익율 현황을 조회한다. -->
+	<!-- 자재별 특약사항 항목은 제외 : 속도문제로  -->
+	<statement name="selectGainList_old" type="select">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.selectGainList_old */
+		<![CDATA[
+		SELECT
+			  X.DEPT_ID
+			, X.DEPT_NM
+			, X.PART_SALES_SABUN
+			, X.PART_SALES_SABUN_NM	
+			, X.CLASS_NAME1
+			, X.CLASS_NAME2
+			, X.CLASS_NAME3
+			, X.CLASS_NAME4
+			, X.ITEM_CODE
+			, X.ITEM_NAME
+			, X.ITEM_SIZE
+			, X.ITEM_UNIT
+			, X.PO_PRICE					/* 구매단가 */
+			, X.ADD_PRICE					/* 추가단가 */
+			, X.STRATEGY_PRICE			/* 전략단가 */
+			, X.PLANNING_PRICE		/* 기획단가 */
+			, X.TAX_CODE
+			, X.UPJANG
+			, X.SALE_PRICE				/* 판매단가 */
+			, CASE WHEN X.TAX_CODE = '100' THEN
+				(CASE WHEN NVL(X.SALE_PRICE, 0) = 0 THEN 0
+				ELSE (X.SALE_PRICE - ROUND(X.SALE_PRICE / (1 + (NVL(X.FM_SALE_RATE,0) / 100))))
+				END) 
+		  	ELSE 
+				(CASE WHEN NVL(X.SALE_PRICE, 0) = 0 THEN 0
+				ELSE (X.SALE_PRICE - ROUND(X.SALE_PRICE / (1 + (NVL(X.FM_NO_SALE_RATE,0) / 100))))
+				END)
+		  	END AS GAIN_AMT			/* 특약사항금액 */
+		FROM (
+			SELECT	
+			  	 C.DEPT_ID
+				, D.CC_NM || '(' || TO_CHAR(C.DEPT_ID) || ')' AS DEPT_NM
+				, E.PART_SALES_SABUN
+				, E.PART_SALES_SABUN || ' ' || (SELECT NM_KOR FROM SCO_FS_HR_PERSONAL_V  WHERE SABUN = E.PART_SALES_SABUN) AS PART_SALES_SABUN_NM	
+				, M1.CLASS_NAME1
+				, M1.CLASS_NAME2
+				, M1.CLASS_NAME3
+				, M1.CLASS_NAME4
+				, A.ITEM_CODE
+				, M.ITEM_NAME
+				, M.ITEM_SIZE
+				, M.PO_UOM AS ITEM_UNIT
+				, A.PO_PRICE			/* 구매단가 */
+				, A.ADD_PRICE			/* 추가단가 */
+				, A.STRATEGY_PRICE		/* 전략단가 */
+				, A.PLANNING_PRICE		/* 기획단가 */
+				, M.TAX_CODE
+				, A.UPJANG
+				, A.SALE_PRICE			/* 판매단가 */
+				, R1.FM_SALE_RATE AS FM_SALE_RATE1					/* 중분류 기준 특약사항 */
+				, R1.FM_NOSALE_RATE AS FM_NOSALE_RATE1
+				, R2.FM_SALE_RATE AS FM_SALE_RATE2					/* 소분류 기준 특약사항 */
+				, R2.FM_NOSALE_RATE AS FM_NOSALE_RATE2
+				--, R3.FM_SALE_RATE AS FM_SALE_RATE3
+				--, R3.FM_NOSALE_RATE AS FM_NOSALE_RATE3				/* 자재코드 기준 특약사항 */
+				,  CASE WHEN NVL(R2.FM_SALE_RATE, 0) <> 0 THEN NVL(R2.FM_SALE_RATE, 0)
+							ELSE CASE WHEN NVL(R1.FM_SALE_RATE, 0) <> 0 THEN NVL(R1.FM_SALE_RATE, 0) ELSE 0 END  
+				  END AS FM_SALE_RATE
+				, CASE WHEN NVL(R2.FM_NOSALE_RATE, 0) <> 0 THEN NVL(R2.FM_NOSALE_RATE, 0)
+							ELSE CASE WHEN NVL(R1.FM_NOSALE_RATE, 0) <> 0 THEN NVL(R1.FM_NOSALE_RATE, 0) ELSE 0 END  
+				  END AS FM_NO_SALE_RATE
+				/*
+				, CASE WHEN NVL(R3.FM_SALE_RATE, 0) <> 0 THEN NVL(R3.FM_SALE_RATE, 0)
+						ELSE CASE WHEN NVL(R2.FM_SALE_RATE, 0) <> 0 THEN NVL(R2.FM_SALE_RATE, 0)
+							ELSE CASE WHEN NVL(R1.FM_SALE_RATE, 0) <> 0 THEN NVL(R1.FM_SALE_RATE, 0) ELSE 0 END  
+						END
+				  END AS FM_SALE_RATE
+				, CASE WHEN NVL(R3.FM_NOSALE_RATE, 0) <> 0 THEN NVL(R3.FM_NOSALE_RATE, 0)
+						ELSE CASE WHEN NVL(R2.FM_NOSALE_RATE, 0) <> 0 THEN NVL(R2.FM_NOSALE_RATE, 0)
+							ELSE CASE WHEN NVL(R1.FM_NOSALE_RATE, 0) <> 0 THEN NVL(R1.FM_NOSALE_RATE, 0) ELSE 0 END  
+						END
+				  END AS FM_NO_SALE_RATE
+				  */
+			FROM PO_CONTRACT_FSALE A INNER JOIN 
+					    												(
+					    													SELECT 
+						    													F.CENTER_CODE, 
+						    													F.UPJANG,
+						    													F.CUSTCD, 
+						    													F.ITEM_CODE, 
+						    													MAX(F.CONTRACT_START) AS CONTRACT_START
+					    													FROM PO_CONTRACT_FSALE F
+					    													WHERE F.UPJANG          = :schUpjang    		/* 조건 : 업장 */        
+					    													AND    F.CUSTCD          > 0                		/* 거래처코드 존재 */
+					    													AND    F.ITEM_CODE      > ' '            		/* 자재코드 존재 */        
+					    													AND    F.CONTRACT_START <= :schDate    /* 조건 : 기준일자 */
+					    													AND    F.USE_YN          = 'Y'
+					    													GROUP BY F.CENTER_CODE, F.UPJANG, F.CUSTCD, F.ITEM_CODE
+					    												) B  ON A.CENTER_CODE = B.CENTER_CODE
+																			AND A.UPJANG = B.UPJANG
+																			AND A.CUSTCD = B.CUSTCD
+																			AND A.ITEM_CODE = B.ITEM_CODE
+																			AND A.CONTRACT_START = B.CONTRACT_START
+														INNER JOIN ST_UPJANG C ON A.UPJANG = C.UPJANG     
+														INNER JOIN HLDC_SC_DEPT_V D ON C.DEPT_ID = D.DEPT_ID			/* 관리부서 */
+														INNER JOIN FMS_UPJANG E ON A.UPJANG = E.UPJANG					/* 영업사원 */
+														INNER JOIN HLDC_PO_ITEM_MST M ON A.ITEM_CODE = M.ITEM_CODE
+														INNER JOIN HLDC_PO_ITEM_CLASS_V M1 ON M.ITEM_CLASS4 = M1.CLASS_CODE4
+			   											 -- 추가 : 특약사항관련
+			    										LEFT JOIN FMS_SALE_RATE R1 ON R1.UPJANG = :schUpjang
+																								AND R1.SUBINV_CODE = :schSubinv
+																								AND R1.CASH_CODE = '003'			/* 장려금(003) */
+																								AND :schDate BETWEEN R1.SDATE AND R1.EDATE
+																								AND M.ITEM_CLASS3 = R1.ITEM_CLASS /* 중분류 */
+			    										LEFT JOIN FMS_SALE_RATE R2 ON R2.UPJANG = :schUpjang
+																								AND R2.SUBINV_CODE = :schSubinv
+																								AND R2.CASH_CODE = '003'			/* 장려금(003) */
+																								AND :schDate BETWEEN R2.SDATE AND R2.EDATE
+																								AND M.ITEM_CLASS4 = R2.ITEM_CLASS	/* 소분류 */
+														/* 자재별 특약사항 장려율 일단 제외 : Query 보완 필요 */									
+														/*
+			    										LEFT JOIN (SELECT ITEM_CODE, FM_SALE_RATE, FM_NOSALE_RATE
+				       													FROM FMS_ITEM_SALE_RATE
+				       													WHERE UPJANG = :schUpjang
+				       													AND   SUBINV_CODE = :schSubinv
+				       													AND   CASH_CODE = '003'
+				       													AND   :schDate BETWEEN SDATE AND EDATE
+				       													) R3 ON R3.ITEM_CODE = A.ITEM_CODE		-- 자재별
+				       									*/				      
+		   		WHERE (A.SALE_PRICE > 0 OR A.PO_PRICE > 0)
+				) X 	
+   		ORDER BY X.ITEM_CODE    
+		]]>
+	</statement>
+
+	<!-- 자재별 이익율 현황을 조회한다. -->
+	<!-- 아이템별 장려율은 기준일자를 구하고 바로 대입하여 조회함  -->
+	<statement name="selectGainList" type="select">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.selectGainList */
+		<![CDATA[
+		SELECT
+			  X.DEPT_ID
+			, X.DEPT_NM
+			, X.PART_SALES_SABUN
+			, X.PART_SALES_SABUN_NM	
+			, X.CLASS_NAME1
+			, X.CLASS_NAME2
+			, X.CLASS_NAME3
+			, X.CLASS_NAME4
+			, X.ITEM_CODE
+			, X.ITEM_NAME
+			, X.ITEM_SIZE
+			, X.ITEM_UNIT
+			, X.PO_PRICE					/* 구매단가 */
+			, X.ADD_PRICE					/* 추가단가 */
+			, X.STRATEGY_PRICE			/* 전략단가 */
+			, X.PLANNING_PRICE		/* 기획단가 */
+			, X.OP_PRICE					/* 운영단가 */
+			, X.TAX_CODE
+			, X.UPJANG
+			, X.SALE_PRICE				/* 판매단가 */
+			, CASE WHEN X.TAX_CODE = '100' THEN
+				(CASE WHEN NVL(X.SALE_PRICE, 0) = 0 THEN 0
+				ELSE (X.SALE_PRICE - ROUND(X.SALE_PRICE / (1 + (NVL(X.FM_SALE_RATE,0) / 100))))
+				END) 
+		  	ELSE 
+				(CASE WHEN NVL(X.SALE_PRICE, 0) = 0 THEN 0
+				ELSE (X.SALE_PRICE - ROUND(X.SALE_PRICE / (1 + (NVL(X.FM_NO_SALE_RATE,0) / 100))))
+				END)
+		  	END AS GAIN_AMT			/* 특약사항금액 */
+		FROM (
+
+			SELECT
+				  S.DEPT_ID
+				, S.DEPT_NM
+				, S.PART_SALES_SABUN
+				, S.PART_SALES_SABUN_NM
+				, S.CLASS_NAME1
+				, S.CLASS_NAME2
+				, S.CLASS_NAME3
+				, S.CLASS_NAME4
+				, S.ITEM_CODE
+				, S.ITEM_NAME
+				, S.ITEM_SIZE
+				, S.ITEM_UNIT
+				, S.PO_PRICE
+				, S.ADD_PRICE
+				, S.STRATEGY_PRICE
+				, S.PLANNING_PRICE
+				, S.OP_PRICE
+				, S.TAX_CODE
+				, S.UPJANG
+				, S.CASH_CODE
+				, S.SUBINV_CODE
+				, S.SALE_PRICE
+				, S.FM_SALE_RATE1
+				, S.FM_NOSALE_RATE1
+				, S.FM_SALE_RATE2
+				, S.FM_NOSALE_RATE2
+				, S.STD_DATE
+				, S1.FM_SALE_RATE AS FM_SALE_RATE3
+				, S1.FM_NOSALE_RATE AS FM_NOSALE_RATE3
+				, CASE WHEN NVL(S1.FM_SALE_RATE, 0) <> 0 THEN NVL(S1.FM_SALE_RATE, 0)
+						ELSE CASE WHEN NVL(S.FM_SALE_RATE2, 0) <> 0 THEN NVL(S.FM_SALE_RATE2, 0)
+							ELSE CASE WHEN NVL(S.FM_SALE_RATE1, 0) <> 0 THEN NVL(S.FM_SALE_RATE1, 0) ELSE 0 END  
+						END
+				END AS FM_SALE_RATE
+				, CASE WHEN NVL(S1.FM_NOSALE_RATE, 0) <> 0 THEN NVL(S1.FM_NOSALE_RATE, 0)
+						ELSE CASE WHEN NVL(S.FM_NOSALE_RATE2, 0) <> 0 THEN NVL(S.FM_NOSALE_RATE2, 0)
+							ELSE CASE WHEN NVL(S.FM_NOSALE_RATE1, 0) <> 0 THEN NVL(S.FM_NOSALE_RATE1, 0) ELSE 0 END  
+						END
+				END AS FM_NO_SALE_RATE
+			FROM
+				(
+				SELECT	
+					 C.DEPT_ID
+					, D.CC_NM || '(' || TO_CHAR(C.DEPT_ID) || ')' AS DEPT_NM
+					, E.PART_SALES_SABUN
+					, E.PART_SALES_SABUN || ' ' || (SELECT NM_KOR FROM SCO_FS_HR_PERSONAL_V  WHERE SABUN = E.PART_SALES_SABUN) AS PART_SALES_SABUN_NM	
+					, M1.CLASS_NAME1
+					, M1.CLASS_NAME2
+					, M1.CLASS_NAME3
+					, M1.CLASS_NAME4
+					, A.ITEM_CODE
+					, M.ITEM_NAME
+					, M.ITEM_SIZE
+					, M.PO_UOM AS ITEM_UNIT
+					, A.PO_PRICE			/* 구매단가 */
+					, A.ADD_PRICE			/* 추가단가 */
+					, A.STRATEGY_PRICE		/* 전략단가 */
+					, A.PLANNING_PRICE		/* 기획단가 */
+					, A.OP_PRICE		/* 운영단가 */
+					, M.TAX_CODE
+					, :schUpjang AS UPJANG
+					, :schSubinv AS SUBINV_CODE
+					, '003' AS CASH_CODE
+					, A.SALE_PRICE			/* 판매단가 */
+					, R1.FM_SALE_RATE AS FM_SALE_RATE1					/* 중분류 기준 특약사항 */
+					, R1.FM_NOSALE_RATE AS FM_NOSALE_RATE1
+					, R2.FM_SALE_RATE AS FM_SALE_RATE2					/* 소분류 기준 특약사항 */
+					, R2.FM_NOSALE_RATE AS FM_NOSALE_RATE2
+					, R3.STD_DATE			/* 아이템별 장려율 기준일자 */
+				FROM PO_CONTRACT_FSALE A INNER JOIN 
+																		(
+																			SELECT 
+																				F.CENTER_CODE, 
+																				F.UPJANG,
+																				F.CUSTCD, 
+																				F.ITEM_CODE, 
+																				MAX(F.CONTRACT_START) AS CONTRACT_START
+																			FROM PO_CONTRACT_FSALE F
+																			WHERE F.UPJANG          = (SELECT AP_UNITPRICE_UPJANG FROM ST_UPJANG WHERE UPJANG = :schUpjang)    		/* 조건 : 단가업장 */        
+																			AND    F.CUSTCD          > 0                		/* 거래처코드 존재 */
+																			AND    SUBSTR(F.ITEM_CODE, 1, 1)  = 'F'            		/* 자재코드 존재 */        
+																			AND    :schDate BETWEEN F.CONTRACT_START AND F.CONTRACT_END     /* 조건 : 기준일자 */
+																			AND    F.USE_YN          = 'Y'
+																			GROUP BY F.CENTER_CODE, F.UPJANG, F.CUSTCD, F.ITEM_CODE
+																		) B  ON A.CENTER_CODE = B.CENTER_CODE
+																				AND A.UPJANG = B.UPJANG
+																				AND A.CUSTCD = B.CUSTCD
+																				AND A.ITEM_CODE = B.ITEM_CODE
+																				AND A.CONTRACT_START = B.CONTRACT_START
+															INNER JOIN ST_UPJANG C ON A.UPJANG = C.UPJANG     
+															INNER JOIN HLDC_SC_DEPT_V D ON C.DEPT_ID = D.DEPT_ID			/* 관리부서 */
+															INNER JOIN FMS_UPJANG E ON A.UPJANG = E.UPJANG					/* 영업사원 */
+															INNER JOIN HLDC_PO_ITEM_MST M ON A.ITEM_CODE = M.ITEM_CODE
+															INNER JOIN HLDC_PO_ITEM_CLASS_V M1 ON M.ITEM_CLASS4 = M1.CLASS_CODE4
+															 -- 추가 : 특약사항관련
+														LEFT JOIN FMS_SALE_RATE R1 ON R1.UPJANG = :schUpjang
+																									AND R1.SUBINV_CODE = :schSubinv
+																									AND R1.CASH_CODE = '003'			/* 장려금(003) */
+																									AND :schDate BETWEEN R1.SDATE AND R1.EDATE
+																									AND M.ITEM_CLASS3 = R1.ITEM_CLASS /* 중분류 */
+														LEFT JOIN FMS_SALE_RATE R2 ON R2.UPJANG = :schUpjang
+																									AND R2.SUBINV_CODE = :schSubinv
+																									AND R2.CASH_CODE = '003'			/* 장려금(003) */
+																									AND :schDate BETWEEN R2.SDATE AND R2.EDATE
+																									AND M.ITEM_CLASS4 = R2.ITEM_CLASS	/* 소분류 */
+
+														LEFT JOIN (
+																SELECT MAX(SDATE) AS STD_DATE
+																 FROM FMS_ITEM_SALE_RATE
+																 WHERE UPJANG = :schUpjang
+																 AND    SUBINV_CODE = :schSubinv
+																 AND    CASH_CODE = '003'
+																 AND    SDATE <= :schDate
+																) R3 ON 1 = 1
+
+						WHERE (A.SALE_PRICE > 0 OR A.PO_PRICE > 0)
+
+					) S LEFT JOIN FMS_ITEM_SALE_RATE S1 ON S.UPJANG = S1.UPJANG
+											     AND S.SUBINV_CODE = S1.SUBINV_CODE
+											     AND S.CASH_CODE = S1.CASH_CODE
+											     AND S.STD_DATE = S1.SDATE
+											     AND S.ITEM_CODE = S1.ITEM_CODE
+
+				) X 	
+   		ORDER BY X.ITEM_CODE
+		
+		
+		
+		]]>
+	</statement>
+
+
+	<!-- 자재별 이익율 현황을 조회한다. -->
+	<!-- 2015-11-12 PI 요청건 반영-->
+	<statement name="selectGainList2" type="select">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.selectGainList2 */
+		<![CDATA[
+		SELECT
+			  S.DEPT_ID
+			, S.DEPT_NM
+			, S.PART_SALES_SABUN
+			, S.PART_SALES_SABUN_NM	
+			, S.CLASS_NAME1
+			, S.CLASS_NAME2
+			, S.CLASS_NAME3
+			, S.CLASS_NAME4
+			, S.ITEM_CODE
+			, S.ITEM_NAME
+			, S.ITEM_SIZE
+			, S.ITEM_UNIT
+			, S.PO_PRICE
+			, S.ADD_PRICE
+			, S.STRATEGY_PRICE
+			, S.PLANNING_PRICE
+			, S.OP_PRICE
+			, S.TAX_CODE
+			, S.UPJANG
+			, S.SALE_PRICE
+		FROM
+		(
+		SELECT	
+			 C.DEPT_ID
+			, D.CC_NM || '(' || TO_CHAR(C.DEPT_ID) || ')' AS DEPT_NM
+			, E.PART_SALES_SABUN
+			, E.PART_SALES_SABUN || ' ' || (SELECT NM_KOR FROM SCO_FS_HR_PERSONAL_V  WHERE SABUN = E.PART_SALES_SABUN) AS PART_SALES_SABUN_NM	
+			, M1.CLASS_NAME1
+			, M1.CLASS_NAME2
+			, M1.CLASS_NAME3
+			, M1.CLASS_NAME4
+			, A.ITEM_CODE
+			, M.ITEM_NAME
+			, M.ITEM_SIZE
+			, M.PO_UOM AS ITEM_UNIT
+			, A.PO_PRICE			/* 구매단가 */
+			, A.ADD_PRICE			/* 추가단가 */
+			, A.STRATEGY_PRICE		/* 전략단가 */
+			, A.PLANNING_PRICE		/* 기획단가 */
+			, A.OP_PRICE		/* 운영단가 */
+			, M.TAX_CODE
+			, :schMainUpjang AS UPJANG
+			, A.SALE_PRICE			/* 판매단가 */
+		FROM PO_CONTRACT_FSALE A 
+												INNER JOIN ST_UPJANG C ON A.UPJANG = C.UPJANG     
+												INNER JOIN HLDC_SC_DEPT_V D ON C.DEPT_ID = D.DEPT_ID			/* 관리부서 */
+												INNER JOIN FMS_UPJANG E ON A.UPJANG = E.UPJANG					/* 영업사원 */
+												INNER JOIN HLDC_PO_ITEM_MST M ON A.ITEM_CODE = M.ITEM_CODE
+												INNER JOIN HLDC_PO_ITEM_CLASS_V M1 ON M.ITEM_CLASS4 = M1.CLASS_CODE4
+		WHERE A.UPJANG = (SELECT AP_UNITPRICE_UPJANG FROM ST_UPJANG WHERE UPJANG = :schMainUpjang)    		/* 조건 : 단가업장 */
+		AND    SUBSTR(A.ITEM_CODE, 1, 1)  = 'F'            /* 자재코드 존재 */        
+		AND    :schDate BETWEEN A.CONTRACT_START AND A.CONTRACT_END     /* 조건 : 기준일자 */
+		AND    A.USE_YN          = 'Y'				
+		AND (A.SALE_PRICE > 0 OR A.PO_PRICE > 0)
+		) S
+		--ORDER BY S.ITEM_CODE
+		]]>
+	</statement>
+
+
+	<!-- 추가할 자재를 검색한다.(팝업화면 참조) -->
+	<statement name="selectItemPop" type="select">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.selectItemPop */
+		<![CDATA[
+		SELECT
+			  A.ITEM_CODE
+      		, A.ITEM_NAME
+      		, A.ITEM_SIZE
+      		, A.PO_UOM AS ITEM_UNIT
+      		, C1.CLASS_NAME AS CLASS_NAME2
+      		, C2.CLASS_NAME AS CLASS_NAME3
+     		, C3.CLASS_NAME AS CLASS_NAME4
+		FROM HLDC_PO_ITEM_MST A INNER JOIN VO_ITEM_CLASS C1 ON C1.CLASS_TYPE = 'M'
+                                                                            		AND A.ITEM_CLASS2 = C1.CLASS_CODE
+                                 		INNER JOIN VO_ITEM_CLASS C2 ON C2.CLASS_TYPE = 'S'
+                                                                            		AND A.ITEM_CLASS3 = C2.CLASS_CODE
+				 						INNER JOIN VO_ITEM_CLASS C3 ON C3.CLASS_TYPE = 'D'
+									    											AND A.ITEM_CLASS4 = C3.CLASS_CODE
+		WHERE A.ITEM_CLASS1 = 'F'		/* 조건 : 식자재 */
+		AND    A.USE_YN = 'Y'
+		<#if schCode?has_content>
+		AND    A.ITEM_CODE LIKE  :schCode || '%'
+		</#if>
+		<#if schName?has_content>
+		AND     A.ITEM_NAME LIKE  '%' || :schName || '%'			
+		</#if>
+		<#if schType?has_content>
+			<#if schType == '+'>
+				/* (-) 품목은 제외 */	
+				AND NOT EXISTS (SELECT 1
+										 FROM FMS_ITEM_EXCEPTION EX
+										 WHERE EX.UPJANG = :selStdUpjang
+										 AND    EX.EXCEPTION_TYPE = '-'
+										 AND    EX.ITEM_CODE = A.ITEM_CODE
+										 )
+			</#if>
+			<#if schType == '-'>
+				/* (+) 품목은 제외 */	
+				AND NOT EXISTS (SELECT 1
+										 FROM FMS_ITEM_EXCEPTION EX
+										 WHERE EX.UPJANG = :selStdUpjang
+										 AND    EX.EXCEPTION_TYPE = '+'
+										 AND    EX.ITEM_CODE = A.ITEM_CODE
+										 )
+			</#if>
+		</#if>
+		ORDER BY A.ITEM_CODE ASC
+		]]>
+	</statement>
+
+
+	<!-- 자재별 목록을 조회한다.(구) -->
+	<statement name="selectItemOld" type="select">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.selectItemOld */
+		<![CDATA[
+		SELECT 
+			ROWNUM AS ROW_NUM,
+			C.CLASS_NAME4,					/* 소분류명 */
+			A.ITEM_CODE,							/* 자재코드 */
+			B.ITEM_NAME,							/* 명칭 */
+			B.ITEM_SIZE,							/* 규격 */
+			B.PO_UOM AS ITEM_UNIT,			/* 단위 */
+			A.CONTRACT_PRICE AS PO_PRICE,	/* 구매단가 */
+			A.MARGIN_RATE AS ADD_RATE,		/* 추가율 */
+			A.CONTRACT_PRICE_M AS ADD_PRICE,	/* 추가단가 */
+			<#if selSalAuth == '1'>
+			0 AS STRATEGY_RATE,				
+			0 AS STRATEGY_PRICE,
+			0 AS PLANNING_RATE,
+			0 AS PLANNING_PRICE,
+			<#else>
+			S.STRATEGY_RATE,
+			S.STRATEGY_PRICE,
+			S.PLANNING_RATE,
+			S.PLANNING_PRICE,
+			</#if>
+			S.SALE_RATE,
+			S.SALE_PRICE,
+			S.FIXED_PRICE,
+			:schCenter AS CENTER_CODE,
+			:schUpjang AS UPJANG,
+			:selStdUpjang AS STD_UPJANG
+		FROM PO_CONTRACT_F A INNER JOIN HLDC_PO_ITEM_MST B ON A.ITEM_CODE = B.ITEM_CODE
+				     						 INNER JOIN HLDC_PO_ITEM_CLASS_V C ON B.ITEM_CLASS4 = C.CLASS_CODE4 	
+				    						 LEFT JOIN FMS_STD_ITEM_MARGIN S ON S.AP_UNITPRICE_UPJANG = :selStdUpjang					/* 조건 : 기준업장 */
+									      												      AND A.CENTER_CODE = S.CENTER_CODE
+									      												      AND A.UPJANG = S.UPJANG
+									      												      AND A.ITEM_CODE = S.ITEM_CODE
+				    	
+		WHERE A.CENTER_CODE = :schCenter		/* 조건 : 센터코드 */
+		AND    A.UPJANG = :schUpjang				/* 조건 : 업장코드 */
+		AND    :schDate BETWEEN A.CONTRACT_START AND A.CONTRACT_END		/* 조건 : 기준일 */
+		ORDER BY A.ITEM_CODE ASC		
+		]]>
+	</statement>
+
+
+	<!-- 분류목록을 삭제한다.(소분류 기준) -->
+	<statement name="deleteClass" type="delete">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.deleteClass */
+		<![CDATA[
+		DELETE 
+		FROM   FMS_STD_MARGIN 
+		WHERE  AP_UNITPRICE_UPJANG = :stdUpjang
+		AND     CLASS_TYPE = 'D'	/* 조건 : 소분류 */
+		]]>
+	</statement>
+
+
+	<!-- 분류목록을 등록한다. -->
+	<statement name="insertClass" type="insert">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.insertClass */
+		<![CDATA[
+		INSERT INTO FMS_STD_MARGIN 
+		(
+			AP_UNITPRICE_UPJANG,
+			ITEM_CODE,
+			USE_YN,
+			MARGIN_RATE,
+			CLASS_TYPE,
+		    CREATE_BY,
+			CREATE_DATE
+		)
+		VALUES
+		(
+		    :stdUpjang,		/* AP_UNITPRICE_UPJANG */
+		    :clsCd4,			/* ITEM_CODE */
+           <#if useYn?has_content> :useYn, <#else> 'Y', </#if>			/* USE_YN */
+		   <#if saleRate?has_content> :saleRate, <#else> null, </#if>	/* MARGIN_RATE */
+            'D',				/* CLASS_TYPE : D(소분류) */
+		    :loginSabun,	/* CREATE_BY */
+		    SYSDATE			/* CREATE_DATE */
+		)
+		]]>
+	</statement>
+
+
+	<!-- 분류별 자료개수를 조회한다. -->
+	<statement name="selectClassCnt" type="select">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.selectClassCnt */
+		<![CDATA[
+		SELECT
+			COUNT(*) AS CNT
+		FROM FMS_STD_MARGIN
+		WHERE AP_UNITPRICE_UPJANG = :stdUpjang
+		AND   ITEM_CODE = :clsCd4
+		AND   CLASS_TYPE = 'D'	/* 조건 : 소분류 */
+		]]>
+	</statement>
+
+
+	
+	<!-- 자재별 자료개수를 조회한다. -->
+	<statement name="selectItemCnt" type="select">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.selectItemCnt */
+		<![CDATA[
+		SELECT
+			COUNT(*) AS CNT
+		FROM FMS_STD_ITEM_MARGIN
+		WHERE CENTER_CODE = :centerCode
+		AND    UPJANG = :upjang
+		AND    ITEM_CODE = :itemCode
+		AND    AP_UNITPRICE_UPJANG = :stdUpjang
+		]]>
+	</statement>
+	
+
+	<!-- 이익율 전체 목록을 삭제한다. -->
+	<statement name="deleteAll" type="delete">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.deleteAll */
+		<![CDATA[
+		DELETE 
+		FROM   FMS_STD_MARGIN 
+		WHERE AP_UNITPRICE_UPJANG = :stdUpjang
+		]]>
+	</statement>
+
+	<!-- 자재목록을 삭제한다. -->
+	<statement name="deleteItem" type="delete">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.deleteItem */
+		<![CDATA[
+		DELETE 
+		FROM   FMS_STD_MARGIN 
+		WHERE AP_UNITPRICE_UPJANG = :stdUpjang
+		AND    ITEM_CODE = :itemCode
+		AND    CLASS_TYPE = 'M'	/* 조건 : 자재 */
+		]]>
+	</statement>
+	
+	<!-- 자재목록을 일괄 삭제한다. : 자재저장 시 -->
+	<statement name="deleteItemAll" type="delete">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.deleteItemAll */
+		<![CDATA[
+		DELETE 
+		FROM   FMS_STD_MARGIN 
+		WHERE AP_UNITPRICE_UPJANG = :stdUpjang
+		AND    CLASS_TYPE NOT IN ('D')			/* 조건 : 자재코드만 삭제 */
+		]]>
+	</statement>
+
+	
+	<!-- 자재목록을 등록한다. -->
+	<statement name="insertItem" type="insert">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.insertItem */
+		<![CDATA[
+		MERGE INTO FMS_STD_MARGIN A
+		USING DUAL
+		ON  (AP_UNITPRICE_UPJANG = :stdUpjang
+		AND ITEM_CODE = :itemCode
+		AND CLASS_TYPE = 'M')
+        WHEN NOT MATCHED THEN
+		INSERT  
+		(
+		         AP_UNITPRICE_UPJANG
+			   , ITEM_CODE
+			   , USE_YN
+			   , MARGIN_RATE
+			   , FIXED_PRICE
+			   , CLASS_TYPE
+		       , CREATE_BY
+			   , CREATE_DATE
+		       , UPDATE_BY
+			   , UPDATE_DATE
+		)
+		VALUES
+		(
+		    :stdUpjang		/* AP_UNITPRICE_UPJANG */
+		    ,UPPER(:itemCode)		/* ITEM_CODE */
+            ,'Y'				/* USE_YN */
+		    ,<#if saleRate?has_content> :saleRate <#else> null </#if>		/* MARGIN_RATE */
+			,<#if fixedPrice?has_content> TRUNC(:fixedPrice) <#else> null </#if>	/* FIXED_PRICE */
+            ,'M'				/* CLASS_TYPE : 자재(M) */
+		    ,:loginSabun	/* CREATE_BY */
+		    ,SYSDATE		/* CREATE_DATE */
+		    ,:loginSabun	/* UPDATE_BY */
+		    ,SYSDATE		/* UPDATE_DATE */
+		)
+		]]>
+	</statement>
+
+
+	<!-- 자재목록을 수정한다. -->
+	<statement name="updateItem" type="update">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.updateItem */
+		<![CDATA[
+		UPDATE FMS_STD_MARGIN 
+		SET  MARGIN_RATE  = <#if saleRate?has_content> :saleRate, <#else> null, </#if>
+		       FIXED_PRICE    = <#if fixedPrice?has_content> :fixedPrice, <#else> null, </#if>
+		       UPDATE_BY 		= :loginSabun,
+		       UPDATE_DATE  = SYSDATE
+		WHERE AP_UNITPRICE_UPJANG = :stdUpjang
+		AND    ITEM_CODE = :itemCode
+		AND    CLASS_TYPE = 'M'	/* 조건 : 자재 */
+		]]>
+	</statement>
+	
+	
+	<!-- 분류목록을 등록한다. : 전체 복사 -->
+	<statement name="classCopy" type="insert">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.ClassCopy */
+		<![CDATA[
+		INSERT INTO FMS_STD_MARGIN 
+		  (
+		      AP_UNITPRICE_UPJANG,
+		      ITEM_CODE,
+		      USE_YN,
+		      MARGIN_RATE,
+			  FIXED_PRICE,
+		      CLASS_TYPE,
+		      CREATE_BY,
+		      CREATE_DATE
+		  )
+		  SELECT :stdUpjang,
+		      ITEM_CODE,
+		      USE_YN,
+		      MARGIN_RATE,
+			  FIXED_PRICE,
+		      CLASS_TYPE,
+		      :loginSabun,
+		      SYSDATE
+		  FROM FMS_STD_MARGIN
+		  WHERE AP_UNITPRICE_UPJANG = :upjang
+		  AND USE_YN = 'Y'
+		]]>
+	</statement>
+
+	<!-- 테마자재목록을 삭제한다. -->
+	<statement name="deleteTheme" type="delete">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.deleteTheme */
+		<![CDATA[
+		DELETE 
+		FROM   FMS_THEME_MARGIN 
+		WHERE AP_UNITPRICE_UPJANG = :stdUpjang
+		AND    ITEM_CODE = :itemCode
+		AND    CLASS_TYPE = 'M'	/* 조건 : 자재 */
+		]]>
+	</statement>
+	
+	<!-- 테마자재목록을 일괄 삭제한다. : 자재저장 시 -->
+	<statement name="deleteThemeAll" type="delete">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.deleteThemeAll */
+		<![CDATA[
+		DELETE 
+		FROM   FMS_THEME_MARGIN 
+		WHERE AP_UNITPRICE_UPJANG = :stdUpjang
+		AND    CLASS_TYPE NOT IN ('D')			/* 조건 : 자재코드만 삭제 */
+		]]>
+	</statement>
+
+	
+	<!-- 테마자재목록을 등록한다. -->
+	<statement name="insertTheme" type="insert">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.insertTheme */
+		<![CDATA[
+		MERGE INTO FMS_THEME_MARGIN A
+		USING DUAL
+		ON  (AP_UNITPRICE_UPJANG = :stdUpjang
+		AND ITEM_CODE = :itemCode
+		AND CLASS_TYPE = 'M')
+        WHEN NOT MATCHED THEN
+		INSERT  
+		(
+		         AP_UNITPRICE_UPJANG
+			   , ITEM_CODE
+			   , USE_YN
+			   , MARGIN_RATE
+			   , FIXED_PRICE
+			   , CLASS_TYPE
+		       , CREATE_BY
+			   , CREATE_DATE
+		       , UPDATE_BY
+			   , UPDATE_DATE
+		)
+		VALUES
+		(
+		    :stdUpjang		/* AP_UNITPRICE_UPJANG */
+		    ,UPPER(:itemCode)		/* ITEM_CODE */
+            ,'Y'				/* USE_YN */
+		    ,<#if saleRate?has_content> :saleRate <#else> null </#if>		/* MARGIN_RATE */
+			,<#if fixedPrice?has_content> TRUNC(:fixedPrice) <#else> null </#if>	/* FIXED_PRICE */
+            ,'M'				/* CLASS_TYPE : 자재(M) */
+		    ,:loginSabun	/* CREATE_BY */
+		    ,SYSDATE		/* CREATE_DATE */
+		    ,:loginSabun	/* UPDATE_BY */
+		    ,SYSDATE		/* UPDATE_DATE */
+		)
+		]]>
+	</statement>
+
+
+	<!-- 테마자재목록을 수정한다. -->
+	<statement name="updateTheme" type="update">
+		/*+ com.hwfs.fm.fms.dao.GainRateSetMngtDAO.updateTheme */
+		<![CDATA[
+		UPDATE FMS_THEME_MARGIN 
+		SET  MARGIN_RATE  = <#if saleRate?has_content> :saleRate, <#else> null, </#if>
+		       FIXED_PRICE    = <#if fixedPrice?has_content> :fixedPrice, <#else> null, </#if>
+		       UPDATE_BY 		= :loginSabun,
+		       UPDATE_DATE  = SYSDATE
+		WHERE AP_UNITPRICE_UPJANG = :stdUpjang
+		AND    ITEM_CODE = :itemCode
+		AND    CLASS_TYPE = 'M'	/* 조건 : 자재 */
+		]]>
+	</statement>
+
+
+
+</hqml>

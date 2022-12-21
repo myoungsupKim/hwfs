@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="guide.sample.guideSampleDAO">
+	<desc>시스템에서 사용되는 공통코드를 관리한다.</desc>
+
+	<!-- 쿼리에 대한 설명을 기술하세요. -->
+	<statement name="selectList" type="select">
+		<![CDATA[
+		SELECT ID,
+		       NAME,
+		       DESCRIPTION,
+		       DECODE(NVL(USE_YN, '0'), 'Y', '1', '0') AS USE_YN,
+		       AMT,
+		       RATIO,
+		       TO_CHAR(WORK_DATE, 'YYYYMMDD') AS WORK_DATE,
+		       REF_SEQ,
+		       SIGN_INSTANCE_ID,
+		       SCC_SIGN_STATUS_FUN(SIGN_INSTANCE_ID) AS SIGN_PROGRESS_STATUS
+		FROM   GUIDE_SAMPLE
+		WHERE  1=1
+		<#if id?has_content>
+		AND    ID = :id
+		</#if>
+		<#if name?has_content>
+		AND    NAME LIKE '%' || :name || '%'
+		</#if>
+		]]>
+	</statement>
+
+	<!-- 쿼리에 대한 설명을 기술하세요. -->
+	<statement name="insert" type="insert">
+		<![CDATA[
+		INSERT INTO GUIDE_SAMPLE
+		(
+		       ID,
+		       NAME,
+		       DESCRIPTION,
+		       USE_YN,
+		       AMT,
+		       RATIO,
+		       WORK_DATE,
+		       REF_SEQ,
+		       CUSER,
+		       CDATE,
+		       UUSER,
+		       UDATE
+		)
+		VALUES
+		(
+		       :id,
+		       :name,
+		<#if description?has_content> :description, <#else> null, </#if>
+		       DECODE(:useYn, '1', 'Y', 'N'),
+		       :amt,
+		       :ratio,
+		       TO_DATE(:workDate, 'YYYYMMDD'),
+		<#if refSeq?has_content> :refSeq, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE,
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+
+	<!-- 쿼리에 대한 설명을 기술하세요. -->
+	<statement name="update" type="update">
+		<![CDATA[
+		UPDATE GUIDE_SAMPLE
+		SET    NAME = :name,
+		<#if description?has_content>
+		       DESCRIPTION = :description,
+		</#if>
+		       USE_YN = DECODE(:useYn, '1', 'Y', 'N'),
+		       AMT = :amt,
+		       RATIO = :ratio,
+		       WORK_DATE = TO_DATE(:workDate, 'YYYYMMDD'),
+		<#if refSeq?has_content >
+			   REF_SEQ=:refSeq,
+		</#if>
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  ID = :id
+		]]>
+	</statement>
+
+	<!-- 전자결재정보를 Update한다. -->
+	<statement name="updateSign" type="update">
+		/*+ com.hwfs.guide.sample.dao.GuideSampleDAO.updateSign */
+		<![CDATA[
+		UPDATE GUIDE_SAMPLE
+		SET
+			   SIGN_INSTANCE_ID=:signInstanceId,
+		<#if loginSabun?has_content >
+		       UUSER = :loginSabun,
+		</#if>
+		       UDATE = SYSDATE
+		WHERE  ID = :id
+		]]>
+	</statement>
+
+	<!-- 쿼리에 대한 설명을 기술하세요. -->
+	<statement name="delete" type="delete">
+		<![CDATA[
+		DELETE
+		FROM   GUIDE_SAMPLE
+		WHERE  ID = :id
+		]]>
+	</statement>
+
+	<!-- 쿼리에 대한 설명을 기술하세요. -->
+	<statement name="insertDTO" type="insert">
+		<![CDATA[
+		INSERT INTO GUIDE_SAMPLE
+		(
+		       ID,
+		       NAME,
+		       DESCRIPTION,
+		       USE_YN,
+		       AMT,
+		       RATIO,
+		       WORK_DATE,
+		       CUSER,
+		       CDATE,
+		       UUSER,
+		       UDATE
+		)
+		VALUES
+		(
+		       :id,
+		       :name,
+		<#if description?has_content> :description, <#else> null, </#if>
+		       DECODE(:useYn, '1', 'Y', 'N'),
+		       :amt,
+		       :ratio,
+		       TO_DATE(:workDate, 'YYYYMMDD'),
+		       :cuser,
+		       SYSDATE,
+		       :uuser,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+
+	<!-- 쿼리에 대한 설명을 기술하세요. -->
+	<statement name="updateDTO" type="update">
+		<![CDATA[
+		UPDATE GUIDE_SAMPLE
+		SET    NAME = :name,
+		<#if description?has_content>
+		       DESCRIPTION = :description,
+		</#if>
+		       USE_YN = DECODE(:useYn, '1', 'Y', 'N'),
+		       AMT = :amt,
+		       RATIO = :ratio,
+		       WORK_DATE = TO_DATE(:workDate, 'YYYYMMDD'),
+		       UUSER = :uuser,
+		       UDATE = SYSDATE
+		WHERE  ID = :id
+		]]>
+	</statement>
+
+	<statement name="selectCcsTempList"><![CDATA[
+		SELECT	USER_ID,
+			   	USER_NAME
+		FROM   	CCS_TEMP
+		WHERE  	1=1
+		ORDER	BY USER_ID
+
+		]]></statement>
+	<statement name="insertCcsTempList"><![CDATA[
+		INSERT INTO CCS_TEMP
+		(
+		       USER_ID,
+		       USER_NAME
+		)
+		VALUES
+		(
+		       :userId,
+		       :userName
+		)
+		]]></statement>
+	<statement name="updateCcsTempList"><![CDATA[
+		UPDATE 	CCS_TEMP
+		SET    	USER_NAME = :userName
+		WHERE	USER_ID = :userId
+
+		]]></statement>
+	<statement name="deleteCcsTempList"><![CDATA[
+		DELETE
+		FROM   CCS_TEMP
+		WHERE  USER_ID = :userId
+		]]></statement>
+
+	<!-- 조직도 쿼리. -->
+	<statement name="selectOrg" type="select">
+		<![CDATA[
+SELECT A.ORG_MGMT_CD,
+       A.ORG_CD,
+       A.ORG_NM || '(' || A.ORG_CD || ')' AS ORG_NM,
+       A.HLEVEL_ORG_MGMT_CD AS UP_ORG_MGMT_CD,
+       A.CC_YN,
+       A.ORG_CLASS,
+       A.ATTR01,
+       A.ATTR02,
+       A.ATTR03,
+       A.ATTR04,
+       A.ATTR05,
+       A.ATTR06,
+       A.ATTR07,
+       A.ATTR08,
+       A.ATTR09,
+       A.ATTR10,
+       LEVEL,
+       --DECODE(CONNECT_BY_ISLEAF, 1, 'Y', 'N') AS IS_LEAF,
+       SUBSTR(SYS_CONNECT_BY_PATH(A.ORG_NM, ' > '), 4) AS ORG_PATH
+FROM   SCC_ORG A
+START WITH HLEVEL_ORG_MGMT_CD IS NULL
+CONNECT BY PRIOR ORG_MGMT_CD = HLEVEL_ORG_MGMT_CD
+
+		]]>
+	</statement>
+
+
+</hqml>

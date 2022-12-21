@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT '0' AS CHK
+     , B.ITEM_CODE, B.ITEM_NAME, B.ITEM_SIZE, B.PO_UOM
+     , #SDATE# AS SDATE, D.EDATE
+     , NVL(C.UNIT_PRICE,0) AS PRE_UNIT_PRICE
+     , NVL(C.SALE_PRICE,0) AS PRE_SALE_PRICE
+     --, NVL(D.SALE_PRICE,0) AS SALE_PRICE
+     , NVL(D.UNIT_PRICE,NVL(C.UNIT_PRICE,0)) AS UNIT_PRICE
+     , NVL(D.SALE_PRICE,NVL(C.SALE_PRICE,0)) AS SALE_PRICE
+     , SCC_YN_FUN(NVL(D.USE_YN,'Y')) AS USE_YN
+     , #CUSER# AS CUSER
+  FROM FMP_OTCUST_ITEM B, FMP_OTCUST_PRICE D
+     ,(SELECT A.ITEM_CODE, A.SDATE, A.UNIT_PRICE, A.SALE_PRICE
+         FROM FMP_OTCUST_PRICE A
+            ,(SELECT UPJANG, ITEM_CODE, MAX(SDATE) AS SDATE
+                FROM FMP_OTCUST_PRICE
+               WHERE UPJANG = #UPJANG#
+                 AND ITEM_CODE LIKE #OTCUSTCD#||'%'
+                 AND SDATE < #SDATE#
+                 AND USE_YN = 'Y'
+               GROUP BY UPJANG, ITEM_CODE) B
+        WHERE A.UPJANG = B.UPJANG
+          AND A.ITEM_CODE = B.ITEM_CODE
+          AND A.SDATE = B.SDATE) C
+ WHERE B.ITEM_CODE = C.ITEM_CODE(+)
+   AND D.UPJANG(+) = #UPJANG#
+   AND D.ITEM_CODE(+) = B.ITEM_CODE
+   AND D.SDATE(+) = #SDATE#
+   AND B.ITEM_CODE LIKE #OTCUSTCD#||'%'
+   AND B.USE_YN = 'Y'
+   AND NOT EXISTS (SELECT 1 FROM FMP_OTCUST_LINK Z WHERE Z.OTCUSTCD = B.OTCUSTCD AND Z.USE_YN = 'N' AND Z.UPJANG = #UPJANG#)
+ ORDER BY B.ITEM_CODE	]]></statement>
+	<input default-name="ds_Cond">
+		<col name="CUSER" size="9" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="SDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="OTCUSTCD" size="50" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_List">
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="ITEM_CODE" size="50" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAME" size="200" type="VARCHAR" description="" /> 
+		<col name="ITEM_SIZE" size="100" type="VARCHAR" description="" /> 
+		<col name="PO_UOM" size="10" type="VARCHAR" description="" /> 
+		<col name="SDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="EDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="PRE_SALE_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="SALE_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="USE_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="CUSER" size="9" type="VARCHAR" description="" /> 
+	</output>
+</query>

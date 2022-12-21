@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fm.fms.eventItemListDAO">
+	<desc>행사상품을 조회 HQML Query</desc>
+	
+	<!-- 행사상품을 조회한다  -->
+	<statement name="selectEventItemList" type="select">
+		/* fm.fms.eventItemListDAO.selectEventItemList */
+		<![CDATA[
+        SELECT A.EVENT_ID                  /* 이벤트ID */
+             , A.EVENT_TITLE               /* 이벤트명 */
+             , A.APPLY_SD                  /* 이벤트시작적용일자 */
+             , A.APPLY_ED                  /* 이벤트종료적용일자 */
+             , A.APPLY_ST                  /* 이벤트시작적용시각(hh24mi) */
+             , A.APPLY_ET                  /* 이벤트종료적용시각(hh24mi) */
+             , B.UPJANG_CD                 /* 업장코드 */
+             , U.UPJANGNM_DISP             /* 거래처명 */
+             , C.ITEM_CODE                 /* 상품코드 */
+             , C.EVENT_PRICE               /* 행사출고가 */
+             , I1.ITEM_NAME                /* 상품명 */
+             , I1.ITEM_SIZE                /* 규격 */
+             , I1.UOM_CODE                 /* 단위 */
+             , I2.WIN_ITEM_CD              /* 88코드 */
+             , A.EVENT_STATUS              /* 이벤트상태 ( N:정상 / H:보류 / C:취소 / E:오류 .. ) */
+             , A.USE_YN AS EVENT_USE_YN    /* 이벤트 사용여부 */
+             , B.USE_YN AS UPJANG_USE_YN   /* 업장 사용여부 */
+             , C.USE_YN AS ITEM_USE_YN     /* 행사상품  사용여부 */
+          FROM FMS_EVENT_MST            A  /* 행사관리(브랜드유통사업장) */
+             , FMS_EVENT_UPJANG_MST     B  /* 행사관리 업장정보 */
+             , FMS_EVENT_ITEM_MST       C  /* 행사상품관리 */
+             , FMS_UPJANG               U  /* 매출처업장관리 */
+             , EPROCUSR.MV_ITEM_MST3    I1
+             , EPROCUSR.ESMMTGL         I2
+         WHERE A.EVENT_ID             = B.EVENT_ID
+           AND A.EVENT_ID             = C.EVENT_ID
+           AND B.UPJANG_CD            = U.UPJANG
+           AND C.ITEM_CODE            = I1.ITEM_CODE
+           AND C.ITEM_CODE            = I2.ITEM_CD(+)
+           AND I2.SYS_ID              = '100'
+           <#if schFromDate?has_content> AND A.APPLY_SD >= :schFromDate /* 행사 행사적용일자 */ </#if>
+           <#if schItem?has_content>
+               <#if schGbn == 'ITEM_NAME'> AND I1.ITEM_NAME   LIKE '%' || :schItem || '%' /* 자재명 */   </#if>
+               <#if schGbn == '88'>        AND I2.WIN_ITEM_CD LIKE '%' || :schItem        /* 88코드 */   </#if>
+               <#if schGbn == 'ITEM_CODE'> AND C.ITEM_CODE    LIKE '%' || :schItem || '%' /* 자재코드 */ </#if>
+           </#if>
+           <#if schUpjang?has_content>      AND B.UPJANG_CD =  :schUpjang </#if>
+           <#if schEventStatus?has_content> AND A.EVENT_STATUS =  :schEventStatus </#if>
+           <#if schEventUseYn?has_content>  AND A.USE_YN =  :schEventUseYn </#if>
+           <#if schUpjangUseYn?has_content> AND B.USE_YN =  :schUpjangUseYn </#if>
+           <#if schItemUseYn?has_content>   AND C.USE_YN =  :schItemUseYn </#if>
+         
+         <#if schFromDate?has_content && schGbn == '88'>
+             ORDER BY A.EVENT_ID, B.UPJANG_CD, I2.WIN_ITEM_CD
+         <#else>
+             ORDER BY A.EVENT_ID, B.UPJANG_CD, C.ITEM_CODE
+         </#if>
+         
+		]]>
+	</statement>
+
+</hqml>

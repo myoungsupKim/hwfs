@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.sle.billVoidListDAO">
+	<desc>bill void list</desc>
+
+
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.rc.sle.dao.billVoidListDAO.selectList */
+		<![CDATA[
+			
+	        --검색내역 (판매일자,업장,영수증번호,포스번호,내국인,외국인,인원수,과세,영세,면세,부가세,매출액,VIOD사유)
+	        
+	        --매출해더 (업장코드,업장명, 매출일자, 영수증번호,포스번호, 내국인수,외국인수,인원수, void자료)
+	        SELECT 	MST.OUTLET_CD, OUTLET.OUTLET_NM AS OUTLET_NM, 			--업장코드,업장명
+	                 		MST.SALES_DATE, MST.RECEIPT_NUM, 				--매출일자,영수증번호
+	                 		MST.POS_NUM,									--포스번호		
+	               	MST.KOR_PSN, MST.FOR_PSN, MST.PSN,						--내국인,외국인,인원수 
+	                         GOODS.NET_AMT,GOODS.DUTY_AMT,GOODS.FREE_AMT,	--과세,영세,면세
+	                         GOODS.SVC_AMT,GOODS.VAT_AMT,GOODS.TOT_AMT,		--봉사료,부가세,매출액
+	                         MST.VOID_TIME, MST.VOID_ID, MST.VOID_REASON,   --VOID 시간,VOID ID,VOID 사유 
+	                         MST.VOID_RECEIPT_NUM 							--VOID 영수증 번호
+	                         
+	        FROM SLE_SALS_INFO MST
+	                 INNER JOIN (	
+	                 			--매출상세(과세,영세,면세,봉사료,부가세,매출액)
+	                 			SELECT 	OUTLET_CD,SALES_DATE, RECEIPT_NUM,
+	                 					SUM(NET_AMT)  AS NET_AMT, 
+	                                     SUM(DUTY_AMT) AS DUTY_AMT,
+	                                     SUM(FREE_AMT) AS FREE_AMT,
+	                                     SUM(SVC_AMT)  AS SVC_AMT,
+	                                     SUM(VAT_AMT)  AS VAT_AMT,
+	                                     SUM(TOT_AMT)  AS TOT_AMT
+	                 			FROM (
+	                                 SELECT 	MST.OUTLET_CD, SALES_DATE, RECEIPT_NUM,	--업장, 매출일자,영수증번호
+	                                         --과세,영세,면세,봉사료,부가세,매출액
+	                                         --차후 변경 될수 있음....
+	                                         DECODE(TAX_CLASS,'14',SUM(NET_AMT),0) AS NET_AMT,	--과세
+	                                         DECODE(TAX_CLASS,'27',SUM(NET_AMT),0) AS DUTY_AMT,	--영세
+	                                         DECODE(TAX_CLASS,'10',SUM(NET_AMT), DECODE(TAX_CLASS,'25',SUM(NET_AMT), 0)) AS FREE_AMT, 	--내부이용,외교관면세25 
+	                                         SUM(SVC)	 AS SVC_AMT,
+	                                         SUM(VAT)	 AS VAT_AMT,
+	                                         SUM(TOT_AMT) AS TOT_AMT
+	                                     FROM SLE_SALS_GOODS MST
+	                                     INNER JOIN (SELECT MST.OUTLET_CD 
+							                           FROM   SLE_OUTLET_MST      MST
+							                           INNER JOIN  SCO_UPJANG_V   UPJANG ON  UPJANG.UPJANG = TO_NUMBER(MST.OUTLET_CD) 
+							                                         					<#if muCd?has_content> AND  UPJANG.MU_CD = :muCd </#if>
+							                                         					<#if tmCd?has_content> AND  UPJANG.TM_CD = :tmCd </#if>
+							                           <#if outletCd?has_content > WHERE MST.OUTLET_CD   = :outletCd </#if>
+							              			 ) OUTLET ON OUTLET.OUTLET_CD =  MST.OUTLET_CD
+	                                     WHERE MST.RECEIPT_STATUS IN('V','C','R','X')		--Q:정상 V:VOID
+	                                       AND DATA_CLASS = '1'
+	                                       AND SALES_DATE BETWEEN  :frSalesDt AND :toSalesDt
+	                                       <#if outletCd?has_content>   AND MST.OUTLET_CD   = :outletCd   </#if>
+	                                       <#if receiptNum?has_content> AND MST.RECEIPT_NUM = :receiptNum </#if>
+	                                       GROUP BY MST.OUTLET_CD,SALES_DATE, RECEIPT_NUM ,TAX_CLASS
+	                              	) DUAL 
+	                                 GROUP BY OUTLET_CD,SALES_DATE, RECEIPT_NUM 
+	                                      
+	                 			) GOODS  ON GOODS.OUTLET_CD   = MST.OUTLET_CD 
+	                             		AND GOODS.SALES_DATE  = MST.SALES_DATE 
+	                                    AND GOODS.RECEIPT_NUM = MST.RECEIPT_NUM
+	                                    
+	        INNER JOIN (SELECT MST.OUTLET_CD, MST.OUTLET_NM
+                          FROM   SLE_OUTLET_MST      MST
+                          INNER JOIN  SCO_UPJANG_V   UPJANG ON  UPJANG.UPJANG = TO_NUMBER(MST.OUTLET_CD) 
+                                        					<#if muCd?has_content> AND  UPJANG.MU_CD = :muCd </#if>
+                                        					<#if tmCd?has_content> AND  UPJANG.TM_CD = :tmCd </#if>
+                          <#if outletCd?has_content > WHERE MST.OUTLET_CD   = :outletCd </#if>
+             			 ) OUTLET ON OUTLET.OUTLET_CD =  MST.OUTLET_CD
+	        WHERE MST.RECEIPT_STATUS IN('V','C','R','X')		--Q:정상 V:VOID
+	          AND MST.SALES_DATE BETWEEN  :frSalesDt AND :toSalesDt
+	          <#if outletCd?has_content>   AND MST.OUTLET_CD   = :outletCd   </#if>
+	          <#if receiptNum?has_content> AND MST.RECEIPT_NUM = :receiptNum </#if>
+	        ORDER BY MST.OUTLET_CD, MST.SALES_DATE, MST.RECEIPT_NUM
+		]]>
+	</statement>	
+	
+</hqml>			

@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+		   
+		   SELECT * FROM (
+		   SELECT V.UPJANG,
+		       V.ITEM_TYPE,
+		       (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = V.UPJANG) UPJANG_NM,
+		       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0122' AND CODE = V.ITEM_TYPE) ITEM_TYPENM,
+		       V.ITEM_CODE,
+		       (SELECT ITEM_NAME || '; '  || ITEM_SIZE || '; ' || PO_UOM FROM HLDC_PO_ITEM_MST WHERE ITEM_CODE = V.ITEM_CODE) ITEM_NM,
+		       V.TAX_SHET_PUBLISH_YN,
+		       V.UPRICE,
+		       V.QTY,
+		       V.OO_QTY,       
+		       V.ALT_QTY,
+		       V.OO_QTY - (V.ALT_QTY  + V.XC_QTY + V.XL_QTY + WR_QTY)  AS MAX_S_QTY,
+		       V.QTY - V.OO_QTY AS MAX_E_QTY,
+		       V.TICKET_ENDNUM,
+               V.TICKET_SEQ
+		  FROM (
+		        SELECT V.UPJANG,
+		               V.ITEM_TYPE,
+		               V.ITEM_CODE,
+		               V.TAX_SHET_PUBLISH_YN,
+		               V.UPRICE,
+                       NVL(X.QTY, 0) AS QTY,
+                       NVL(Y.OO_QTY, 0) AS OO_QTY,
+                       NVL(Z.ALT_QTY, 0) AS ALT_QTY,
+                       NVL(XX.XC_QTY, 0) AS XC_QTY,
+                       NVL(XX.XL_QTY, 0) AS XL_QTY,
+                       NVL(XX.WR_QTY, 0) AS WR_QTY, 
+                       --기존판매식권이 없는경우 0으로 나오게 변경 20160321                      
+                       NVL(Y.TICKET_ENDNUM,0) AS TICKET_ENDNUM,
+                       X.TICKET_SEQ
+		          FROM MAS_TICKET_STD V
+                  , (SELECT A.ITEM_CODE, NVL(SUM(QTY), 0) AS QTY  , MAX(A.TICKET_SEQ) TICKET_SEQ 
+		                    FROM MAS_TICKET_MST A,
+		                         MAS_TICKET_CODE B
+		                WHERE A.TRANS_TYPE  = B.TRANS_TYPE
+		                AND   A.TRANS_GUBUN = B.TRANS_GUBUN
+		                AND   A.UPJANG      = #UPJANG#
+		                AND   B.SET1        = 'I'
+		                AND   A.SUBUL_YN    = 'Y'
+                     GROUP BY A.ITEM_CODE) X
+                  , (SELECT A.ITEM_CODE, NVL(SUM(QTY), 0) AS OO_QTY , MAX(A.TICKET_ENDNUM) AS TICKET_ENDNUM
+		                    FROM MAS_TICKET_MST A,
+		                         MAS_TICKET_CODE B
+		                WHERE A.TRANS_TYPE  = B.TRANS_TYPE
+		                AND   A.TRANS_GUBUN = B.TRANS_GUBUN
+		                AND   A.UPJANG      = #UPJANG#
+		                AND   B.TRANS_GUBUN = 'OO'
+		                AND   A.SUBUL_YN    = 'Y'
+                     GROUP BY A.ITEM_CODE) Y 
+                  , (SELECT A.ITEM_CODE, NVL(SUM(QTY), 0) AS ALT_QTY
+		                    FROM MAS_TICKET_MST A,
+		                         MAS_TICKET_CODE B
+		                WHERE A.TRANS_TYPE  = B.TRANS_TYPE
+		                AND   A.TRANS_GUBUN = B.TRANS_GUBUN
+		                AND   A.UPJANG      = #UPJANG#
+		                AND   B.TRANS_GUBUN = 'WW'  
+		                AND   A.SUBUL_YN    = 'Y'
+                     GROUP BY A.ITEM_CODE ) Z     
+				 , (SELECT A.ITEM_CODE,
+                           NVL(SUM(DECODE(B.TRANS_GUBUN,'XC',QTY,0)), 0) AS XC_QTY, -- 교환
+                           NVL(SUM(DECODE(B.TRANS_GUBUN,'XL',QTY,0)), 0) AS XL_QTY, -- 로스
+                           NVL(SUM(DECODE(B.TRANS_GUBUN,'WR',QTY,0)), 0) AS WR_QTY --환불
+		                    FROM MAS_TICKET_MST A,
+		                         MAS_TICKET_CODE B
+		                WHERE A.TRANS_TYPE  = B.TRANS_TYPE
+		                AND   A.TRANS_GUBUN = B.TRANS_GUBUN
+		                AND   A.UPJANG      = #UPJANG#
+		                AND   B.TRANS_GUBUN IN ('XC','XL','WR')  
+		                AND   A.SUBUL_YN    = 'Y'
+                     GROUP BY A.ITEM_CODE ) XX                       
+		        WHERE V.UPJANG      = #UPJANG#
+					 AND  V.ITEM_TYPE   = '001' 
+ 			         AND  V.USE_YN      = 'Y'
+ 			         AND  V.ITEM_CODE IS NOT NULL
+                AND  V.ITEM_CODE = X.ITEM_CODE (+)
+                AND  V.ITEM_CODE = Y.ITEM_CODE (+)
+                AND  V.ITEM_CODE = Z.ITEM_CODE (+)
+                AND  V.ITEM_CODE = XX.ITEM_CODE (+)
+		       ) V
+		   WHERE  1=1
+		  <isNull col="S_ITEM_CODE">
+		  <![CDATA[ AND V.OO_QTY - (V.ALT_QTY  + V.XC_QTY + V.XL_QTY + WR_QTY) > 0  ]]>
+		   </isNull>		   
+		  <isNotNull col="S_ITEM_CODE">
+		   AND V.ITEM_CODE NOT IN (#S_ITEM_CODE#)
+		  <![CDATA[ AND (V.QTY - V.OO_QTY) > 0  ]]>
+		  </isNotNull>		   
+		  )
+		ORDER BY UPJANG,ITEM_NM DESC 
+</statement>
+	<input default-name="ds_search">
+		<col name="GUBUN1" size="255" type="VARCHAR" description="" /> 
+		<col name="GUBUN2" size="" type="NUMERIC" description="" /> 
+		<col name="UPJANG" size="" type="NUMERIC" description="" /> 
+	</input>
+	<output default-name="ds_list">					
+	</output>
+</query>

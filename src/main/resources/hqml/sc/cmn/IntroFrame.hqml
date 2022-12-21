@@ -1,0 +1,2967 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+    name="sc.cmn.introFrameDAO">
+    <desc>인트로 화면 HQML Query </desc>
+
+    <!-- 전체공지사항을 조회한다. -->
+    <statement name="selectBbsProperty" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectTotalBbsList */
+        <![CDATA[
+SELECT NVL(VOC_YN, 'N') AS VOC_YN,
+       NVL(MAIN_YN, 'N') AS MAIN_YN,
+       NVL(PRIV_YN, 'N') AS PRIV_YN
+FROM   SCC_BBS
+WHERE  BBS_ID = :bbsId
+        ]]>
+    </statement>
+
+    <!-- 게시판목록을 조회한다 - 1. -->
+    <statement name="selectBbsList1" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectBbsList1 */
+        <![CDATA[
+SELECT /*+ USE_NL(C) PUSH_PRED(C) */
+		A.BBS_ID,
+       '0' AS CHK,
+       A.CON_ID,
+       A.PARENT_CON_ID,
+       A.LEVELS,
+       A.STEP,
+       REPLACE(REPLACE(REPLACE(A.TITLE, CHR(9), ' '), CHR(10), ' '), CHR(13), ' ') AS TITLE,
+       LPAD(' ', (LEVELS-1) * 5, '  ☞') || REPLACE(A.TITLE, CHR(10)||CHR(13), '') AS V_TITLE,
+       DECODE( NVL(A.APPEND1, '')||NVL(A.APPEND2, '')||NVL(A.APPEND3, '')||NVL(A.APPEND4, '')||NVL(A.APPEND5, ''), '', 'N', 'Y') AS APPEND_YN,
+       CASE WHEN A.NOTICE_EDATE >= TO_CHAR(SYSDATE, 'YYYYMMDD') THEN 'Y' ELSE 'N' END AS NOTICE_YN,
+       A.READ_CNT,
+       A.PASSWORD,
+       A.WRITE_SABUN,
+       B.NM_KOR,
+       A.UPJANG,
+       (SELECT CODE_NAME FROM SCC_UPJANGCUST_V WHERE CODE = A.UPJANG) AS UPJANGNM,
+       ROUND(SYSDATE - A.WRITE_TIME, 0 ) AS DAY_CNT,
+       DECODE( A.EDATE, '99991231', '보존', TO_CHAR( TO_DATE(A.EDATE, 'YYYYMMDD'), 'YYYY-MM-DD')) AS EDATE,
+       TO_CHAR( A.WRITE_TIME, 'YYYY-MM-DD') AS WRITE_DATE,
+       (SELECT COUNT(CON_ID) FROM SCC_BBS_CON_REP WHERE CON_ID = A.CON_ID AND USE_YN='Y') AS REP_CNT,
+       A.READ_ALL_YN,
+       A.RN,
+       DECODE(D.CON_ID, NULL, 'N', 'Y') AS POPUP_YN,
+       A.USER_READ_YN
+FROM   (SELECT M.CON_ID,
+               M.BBS_ID,
+               M.TITLE,
+               M.UPJANG,
+               M.WRITE_SABUN,
+               M.WRITE_TIME,
+               M.CONTENTS,
+               M.READ_CNT,
+               M.SECRET_YN,
+               M.PASSWORD,
+               M.NOTICE_YN,
+               M.NOTICE_EDATE,
+               M.EDATE,
+               M.PARENT_CON_ID,
+               M.LEVELS,
+               M.STEP,
+               M.APPEND1,
+               M.APPEND2,
+               M.APPEND3,
+               M.APPEND4,
+               M.APPEND5,
+               M.READ_ALL_YN,
+               ROW_NUMBER() OVER(ORDER BY
+                     DECODE( NOTICE_YN, 'Y', CASE WHEN M.NOTICE_EDATE >= TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '1' ELSE NULL END,NULL),
+                       M.ATTR06 ASC, PARENT_CON_ID DESC, STEP DESC, M.UDATE DESC  ) AS RN,
+               (SELECT DECODE(COUNT(*), 0, 'N', 'Y') FROM SCC_BBS_INQUERY_USER WHERE NOTICEWTRID = M.CON_ID AND SABUN = :loginSabun) AS USER_READ_YN
+        FROM   SCC_BBS_CON M
+        WHERE  USE_YN = 'Y'
+        AND    BBS_ID = :bbsId
+        AND    EDATE >= TO_CHAR(SYSDATE, 'YYYYMMDD')
+<#if writeSabun?has_content>
+        AND ( WRITE_SABUN = :writeSabun OR ( UPJANG IN(  SELECT CODE FROM SCC_UPJANGCUST_V WHERE MAIN_CODE = :upjang) ) )
+</#if>
+<#if mainUpjang?has_content>
+        AND UPJANG IN ( SELECT CODE FROM SCC_UPJANGCUST_V WHERE MAIN_CODE = :mainUpjang )
+</#if>
+       ) A,
+       SCC_USERINFO B,
+       SCC_UPJANGCUST_V C,
+       SCC_BBS_POPUP D
+WHERE  B.SABUN = A.WRITE_SABUN
+AND    C.CODE = DECODE(NVL(B.UPJANG, 0), 0, B.CUSTCD, B.UPJANG)
+AND    A.RN <= :pageCnt
+AND    A.CON_ID = D.CON_ID(+)
+ORDER BY A.RN
+        ]]>
+    </statement>
+
+    <!-- 게시판목록을 조회한다 - 2. -->
+    <statement name="selectBbsList2" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectBbsList2 */
+        <![CDATA[
+SELECT A.BBS_ID,
+       A.CON_ID,
+       A.PARENT_CON_ID,
+       A.LEVELS,
+       A.STEP,
+       REPLACE(REPLACE(REPLACE(A.TITLE, CHR(9), ' '), CHR(10), ' '), CHR(13), ' ') AS TITLE,
+       LPAD(' ', (LEVELS-1) * 5, '  ☞') || A.TITLE AS V_TITLE,
+       DECODE( NVL(A.APPEND1, '')||NVL(A.APPEND2, '')||NVL(A.APPEND3, '')||NVL(A.APPEND4, '')||NVL(A.APPEND5, ''), '', 'N', 'Y') AS APPEND_YN,
+       CASE WHEN A.NOTICE_EDATE >= TO_CHAR(SYSDATE, 'YYYYMMDD') THEN 'Y' ELSE 'N' END AS NOTICE_YN,
+       A.READ_CNT,
+       A.PASSWORD,
+       A.WRITE_SABUN,
+       B.NM_KOR,
+       A.UPJANG,
+       (SELECT CODE_NAME FROM SCC_UPJANGCUST_V WHERE CODE = A.UPJANG) AS UPJANGNM,
+       ROUND(SYSDATE - A.WRITE_TIME, 0 ) AS DAY_CNT,
+       DECODE( A.EDATE, '99991231', '보존', TO_CHAR( TO_DATE(A.EDATE, 'YYYYMMDD'), 'YYYY-MM-DD')) AS EDATE,
+       TO_CHAR( A.WRITE_TIME, 'YYYY-MM-DD') AS WRITE_DATE,
+       (SELECT COUNT(CON_ID) FROM SCC_BBS_CON_REP WHERE CON_ID = A.CON_ID AND USE_YN='Y') AS REP_CNT,
+       A.READ_ALL_YN,
+       A.RN
+FROM   (SELECT M.CON_ID,
+               M.BBS_ID,
+               M.TITLE,
+               M.UPJANG,
+               M.WRITE_SABUN,
+               M.WRITE_TIME,
+               M.CONTENTS,
+               M.READ_CNT,
+               M.SECRET_YN,
+               M.PASSWORD,
+               M.NOTICE_YN,
+               M.NOTICE_EDATE,
+               M.EDATE,
+               M.PARENT_CON_ID,
+               M.LEVELS,
+               M.STEP,
+               M.APPEND1,
+               M.APPEND2,
+               M.APPEND3,
+               M.APPEND4,
+               M.APPEND5,
+               M.READ_ALL_YN,
+               ROW_NUMBER() OVER(ORDER BY
+                     DECODE( NOTICE_YN, 'Y', CASE WHEN M.NOTICE_EDATE >= TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '1' ELSE NULL END,NULL)
+                   , M.ATTR06 ASC, PARENT_CON_ID DESC, STEP DESC, M.UDATE DESC ) AS RN
+        FROM (SELECT A.*
+              FROM   SCC_BBS_CON A,
+                     SCC_BBS B,
+                     SCC_UPJANGCUST_V C
+              WHERE  A.BBS_ID = B.BBS_ID
+              AND    A.UPJANG = C.CODE
+              AND    A.BBS_ID = :bbsId
+              AND A.EDATE >= TO_CHAR(SYSDATE, 'YYYYMMDD')
+              AND READ_ALL_YN = 'Y'
+              AND DECODE(A.BBS_ID, 23, A.UPJANG, 1) = DECODE(A.BBS_ID, 23, :upjang, 1)
+<#if writeSabun?has_content>
+              AND ( WRITE_SABUN = :writeSabun OR ( UPJANG IN(  SELECT CODE FROM SCC_UPJANGCUST_V WHERE MAIN_CODE = :upjang) ) )
+</#if>
+<#if mainUpjang?has_content>
+              AND A.UPJANG IN ( SELECT CODE FROM SCC_UPJANGCUST_V WHERE MAIN_CODE = :mainUpjang )
+</#if>
+         UNION ALL
+              SELECT M.*
+              FROM   SCC_BBS_CON M,
+                     SCC_BBS_PRIV_LIST A
+              WHERE  (1=1)
+              AND    M.BBS_ID = :bbsId
+              AND EDATE >= TO_CHAR(SYSDATE, 'YYYYMMDD')
+              AND READ_ALL_YN = 'N'
+              AND DECODE(M.BBS_ID, 23, M.UPJANG, 1) = DECODE(M.BBS_ID, 23, :upjang, 1)
+              AND M.CON_ID = A.CON_ID
+              AND A.TARGET_CODE = :upjang
+<#if mainUpjang?has_content>
+              AND M.UPJANG IN ( SELECT CODE FROM SCC_UPJANGCUST_V WHERE MAIN_CODE = :mainUpjang )
+</#if>
+             ) M
+       ) A,
+       SCC_USERINFO B,
+       SCC_UPJANGCUST_V C
+WHERE  B.SABUN = A.WRITE_SABUN
+AND    C.CODE = DECODE(NVL(B.UPJANG, 0), 0, B.CUSTCD, B.UPJANG)
+AND    A.RN <= :pageCnt
+ORDER BY A.RN
+        ]]>
+    </statement>
+
+
+    <!-- 퀵 아이콘 리스트를 조회한다. -->
+    <statement name="selectQuickList" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectQuickList */
+        <![CDATA[
+SELECT CODE,
+       CODE_NAME,
+       SET1,
+       SET2,
+       SET3,
+       SET4,
+       SET5
+FROM   SCC_COMMON_CODE
+WHERE  GROUP_CODE = :introFrameId
+AND    USE_YN = 'Y'
+ORDER BY SORT_SEQ
+        ]]>
+    </statement>
+
+    <!-- 담당영업사원/CS사원 연락처. -->
+    <statement name="selectPersonal01List" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectPersonal01List */
+        <![CDATA[
+SELECT A.PART_SALES_NAME || '(' || SCC_TELNO_SPLIT_FUN(A.PART_SALES_TEL_NO, 1) || '-' || SCC_TELNO_SPLIT_FUN(A.PART_SALES_TEL_NO, 2) || '-' || SCC_TELNO_SPLIT_FUN(A.PART_SALES_TEL_NO, 3) || ')' AS PART_SALES,
+       A.CS_NAME || '(' || SCC_TELNO_SPLIT_FUN(A.CS_TEL_NO, 1) || '-' || SCC_TELNO_SPLIT_FUN(A.CS_TEL_NO, 2) || '-' || SCC_TELNO_SPLIT_FUN(A.CS_TEL_NO, 3) || ')' AS CS
+FROM   (SELECT (SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = PART_SALES_SABUN) AS PART_SALES_NAME,
+               SCC_CRYPTO.DEC_FUN(PART_SALES_TEL_NO_ENC) AS PART_SALES_TEL_NO,
+               (SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = CS_SABUN) AS CS_NAME,
+               SCC_CRYPTO.DEC_FUN(CS_TEL_NO_ENC) AS CS_TEL_NO
+        FROM   FMS_UPJANG
+        WHERE  UPJANG = :upjang) A
+        ]]>
+    </statement>
+
+    <!-- 담당영업사원/CS사원 연락처.(간납자정보) -->
+    <statement name="selectPersonal02List" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectPersonal02List */
+        <![CDATA[
+SELECT A.PART_SALES_NAME || '(' || SCC_TELNO_SPLIT_FUN(A.PART_SALES_TEL_NO, 1) || '-' || SCC_TELNO_SPLIT_FUN(A.PART_SALES_TEL_NO, 2) || '-' || SCC_TELNO_SPLIT_FUN(A.PART_SALES_TEL_NO, 3) || ')' AS PART_SALES,
+       A.CS_NAME || '(' || SCC_TELNO_SPLIT_FUN(A.CS_TEL_NO, 1) || '-' || SCC_TELNO_SPLIT_FUN(A.CS_TEL_NO, 2) || '-' || SCC_TELNO_SPLIT_FUN(A.CS_TEL_NO, 3) || ')' AS CS
+FROM   (SELECT CASE WHEN GANAP_SALE_PART_NAME IS NULL THEN (SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = PART_SALES_SABUN) ELSE GANAP_SALE_PART_NAME END AS PART_SALES_NAME,
+               CASE WHEN GANAP_SALE_PART_NAME IS NULL THEN SCC_CRYPTO.DEC_FUN(PART_SALES_TEL_NO_ENC) ELSE SCC_CRYPTO.DEC_FUN(GANAP_SALE_PART_TEL_NO_ENC) END AS PART_SALES_TEL_NO,
+               CASE WHEN GANAP_CS_PART_NAME IS NULL THEN (SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = CS_SABUN) ELSE GANAP_CS_PART_NAME END AS CS_NAME,
+               CASE WHEN GANAP_CS_PART_NAME IS NULL THEN SCC_CRYPTO.DEC_FUN(CS_TEL_NO_ENC) ELSE SCC_CRYPTO.DEC_FUN(GANAP_CS_PART_TEL_NO_ENC) END AS CS_TEL_NO
+        FROM   FMS_UPJANG
+        WHERE  UPJANG = :upjang) A
+        ]]>
+    </statement>
+
+    <!-- 기획식재리스트 -->
+    <statement name="selectDutyMstList" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectDutyMstList */
+        <![CDATA[
+SELECT A.ITEM_CODE || ' ' || B.ITEM_NAME AS ITEM
+     , TO_CHAR(TO_DATE(A.START_DATE, 'YYYYMMDD'), 'MM.DD') || '~' || TO_CHAR(TO_DATE(A.END_DATE, 'YYYYMMDD'), 'MM.DD') AS BETWEEN_DATE
+  FROM FSI_DUTY_MST A
+     , HLDC_PO_ITEM_MST B
+     --기간이 지난 기획자재는 안보이도록, 기획자재여부가 N으로 변경되면 안보이도록 오류 수정 2018.01.31 김호석(윤지혜대리 요청)
+     ,(
+     	 SELECT WH.CENTER_CODE
+             , WH.CENTER_NAME
+             , SP.SP_VD_CD   AS CUSTCD
+             , GL.VD_NM      AS CUSTNM
+             , SP.ITEM_CD    AS ITEM_CODE
+             , SP.APPLY_SD   AS CONTRACT_START
+             , SP.APPLY_ED   AS CONTRACT_END
+             , SP.ITEM_PRICE AS CONTRACT_PRICE
+             , SP.MD_PRICE   AS MD_PRICE
+             , SP.EVENT_ITEM_YN
+          FROM EPROCUSR.ESPINFO SP 
+             , HLDC_PO_CENTER WH
+             , EPROCUSR.VO_FC_VENDOR GL
+         WHERE SP.SYS_ID = '100'
+           AND SP.COMP_CD = 'HFC'
+           AND SP.APPLY_SD <= TO_CHAR(sysdate,'YYYYMM') || '31' AND SP.APPLY_ED >= TO_CHAR(sysdate,'YYYYMM') || '01'
+           AND SP.PURC_OPER_ORG_SN = WH.OPER_ORG_SN_PURC
+           AND SP.SP_VD_SN = GL.VD_SN
+        ) C
+ WHERE A.ITEM_CODE = B.ITEM_CODE
+   AND A.ITEM_CODE = C.ITEM_CODE
+   AND A.CENTER_CODE = C.CENTER_CODE
+   AND A.START_DATE = C.CONTRACT_START 
+   AND C.EVENT_ITEM_YN = 'Y'
+   AND A.MAIN_YN = 'Y'
+   AND A.CENTER_CODE = :centerCode
+        ]]>
+    </statement>
+
+    <!-- 업장별 기획식재 실적 리스트 -->
+    <statement name="selectUpjangByDutyRateList" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectUpjangByDutyRateList
+        */
+        <![CDATA[
+SELECT B.UPJANG
+     , B.UPJANGNM
+     , DECODE(A.M_ALL_AMT, 0, 0, ROUND(A.M_PLN_AMT / A.M_ALL_AMT * 100, 2)) AS TRANS_RATE
+  FROM (
+        SELECT UPJANG
+             , SUM(M_PLN_AMT) AS M_PLN_AMT
+             , SUM(M_ALL_AMT) AS M_ALL_AMT
+          FROM (
+                SELECT A.UPJANG
+                     , CASE WHEN A.DUTY_YN = 'Y' AND NVL(B.USE_YN, 'N') = 'Y' THEN SUM(ROUND(A.TRANS_MAMOUNT)) ELSE 0 END AS M_PLN_AMT
+                     , SUM(ROUND(A.TRANS_MAMOUNT)) AS M_ALL_AMT
+                  FROM FSI_DUTY_DAILY_USE A
+                     , FSI_DUTY_MST B
+                 WHERE A.CENTER_CODE = B.CENTER_CODE(+)
+                   AND A.CUSTCD = B.CUSTCD(+)
+                   AND A.ITEM_CODE = B.ITEM_CODE(+)
+                   AND A.START_DATE = B.START_DATE(+)
+                   AND A.TRANS_DATE BETWEEN TO_CHAR(SYSDATE, 'YYYYMM') || '01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   AND B.START_DATE(+) <= TO_CHAR(SYSDATE, 'YYYYMMDD') AND B.END_DATE(+) >= TO_CHAR(SYSDATE, 'YYYYMM') || '01'
+                   AND B.USE_YN(+) = 'Y'
+                 GROUP BY A.UPJANG
+                        , A.DUTY_YN
+                        , B.MARKET_PRICE
+                        , B.MD_PRICE
+                        , NVL(B.USE_YN, 'N')
+               )
+         GROUP BY UPJANG
+       ) A
+     , MAC_UPJANG_V B
+     , SCC_COMMON_CODE C
+ WHERE A.UPJANG = B.UPJANG
+   AND B.CLOSE_DATE IS NULL
+   AND A.M_PLN_AMT > 0
+   AND C.GROUP_CODE = 'MA0045'
+   AND B.TM_CD = C.CODE
+ ORDER BY DECODE(A.M_ALL_AMT, 0, 0, ROUND(A.M_PLN_AMT / A.M_ALL_AMT * 100, 2)) DESC
+        ]]>
+    </statement>
+
+    <!-- 업장별 당월누계 리스트 -->
+    <statement name="selectUpjangToMothList" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectUpjangToMothList */
+        <![CDATA[
+SELECT ROUND(NVL(SP_AMT, 0), 2) AS SP_AMT -- 매출 계획
+     , ROUND(NVL(SS_AMT, 0), 2) AS SS_AMT
+     , ROUND(DECODE(NVL(SP_AMT, 0), 0, 0.0, NVL(SS_AMT, 0) / NVL(SP_AMT, 0) * 100), 2) AS S_RATE
+     , ROUND(NVL(MP_AMT, 0), 2) AS MP_AMT -- 재료비 계획
+     , ROUND(NVL(MS_AMT, 0), 2) AS MS_AMT
+     , ROUND(DECODE(NVL(MP_AMT, 0), 0, 0.0, NVL(MS_AMT, 0) / NVL(MP_AMT, 0) * 100), 2) AS M_RATE
+  FROM (
+        SELECT SUM(B.SP_AMT) AS SP_AMT     /* 매출액 - 식음료매출 계획 */
+             , SUM(C.SS_AMT) AS SS_AMT     /* 매출액 - 식음료매출 실적 */
+             , SUM(D.MP_AMT) AS MP_AMT     /* 재료비 - 식음료원가 계획 */
+             , SUM(NVL(E.MS_AMT1, 0)) - SUM(NVL(G.MS_AMT3, 0)) AS MS_AMT     /* 재료비 - 식음료매출 실적 */
+          FROM (
+                SELECT TO_CHAR(TO_DATE(TO_CHAR(SYSDATE, 'YYYYMM')||'01', 'YYYYMMDD') + LEVEL - 1, 'YYYYMMDD') AS BASE_DD
+                FROM   DUAL
+                CONNECT BY LEVEL <= SYSDATE - TO_DATE(TO_CHAR(SYSDATE, 'YYYYMM')||'01', 'YYYYMMDD') + 1
+               ) A /* 일자 기준정보 */
+             , (
+                /* 매출 - 식음료매출 계획(P), 추정(R) */
+                SELECT YMD AS BASE_DD
+                     , NVL(SUM(PAMT), 0) AS SP_AMT
+                     , NVL(SUM(RAMT), 0) AS SR_AMT
+                  FROM (
+                        SELECT B.YMD
+                             , DECODE(B.DAY_CLASS, 'P', SUM(B.DD_AMT), 0) AS PAMT
+                             , DECODE(B.DAY_CLASS, 'R', SUM(B.DD_AMT), 0) AS RAMT
+                          FROM MAP_DAY_LOG_MGMT A
+                             , MAP_DAY_PLAN B
+                         WHERE A.UPJANG = B.UPJANG
+                           AND B.UPJANG = :upjang
+                           AND A.YY = B.YY
+                           AND A.MM = B.MM
+                           AND A.DAY_CLASS = B.DAY_CLASS
+                           AND A.CONFIRM_YN = 'Y'
+                           AND B.YMD BETWEEN TO_CHAR(SYSDATE, 'YYYYMM') || '01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                           AND B.ACCT_CD IN ('41203010', '41203020', '41203030')
+                         GROUP BY YMD, B.DAY_CLASS
+                        )
+                 GROUP BY YMD
+               ) B
+             , (
+                /* 매출 - 식음료매출 실적 (내부이용포함) */
+                SELECT A.OCCUR_DATE AS BASE_DD
+                     , SUM(B.NET_AMT) AS SS_AMT
+                  FROM SLA_IF_UPJANG_SALS_MST A
+                     , SLA_IF_UPJANG_SALS_DETAIL B
+                 WHERE A.OCCUR_DATE = B.OCCUR_DATE
+                   AND A.SYS_CLASS = B.SYS_CLASS
+                   AND A.UPJANG_CD = B.UPJANG_CD
+                   AND A.UPJANG_CD = :upjang
+                   AND A.OCCUR_DATE BETWEEN TO_CHAR(SYSDATE, 'YYYYMM') || '01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   AND A.RECEIPT_NUM = B.RECEIPT_NUM
+                   AND B.SALS_CLASS IN ('1103', '2001', '1106', '1204', '1205', '2101', '2102') -- 1103 : 식음료매출_식료, 2001 : POS식음료매출_식료, 1106 : 기타매출-기타
+                 GROUP BY A.OCCUR_DATE
+               ) C
+             , (
+                /* 재료비 - 식음료원가 계획, 추정 */
+                SELECT YMD AS BASE_DD
+                     , NVL(SUM(PAMT), 0) AS MP_AMT
+                     , NVL(SUM(RAMT), 0) AS MR_AMT
+                  FROM (
+                        SELECT B.YMD
+                             , DECODE(B.DAY_CLASS, 'P', SUM(B.DD_AMT), 0) AS PAMT
+                             , DECODE(B.DAY_CLASS, 'R', SUM(B.DD_AMT), 0) AS RAMT
+                          FROM MAP_DAY_LOG_MGMT A
+                             , MAP_DAY_PLAN B
+                         WHERE A.UPJANG = B.UPJANG
+                           AND B.UPJANG = :upjang
+                           AND A.YY = B.YY
+                           AND A.MM = B.MM
+                           AND A.DAY_CLASS = B.DAY_CLASS
+                           AND A.CONFIRM_YN = 'Y'
+                           AND B.YMD BETWEEN TO_CHAR(SYSDATE, 'YYYYMM') || '01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                           AND B.ACCT_CD IN ('42203010', '42203020', '42203030')  -- 식음료원가_식료(FC음료포함)
+                         GROUP BY YMD, B.DAY_CLASS
+                        )
+                 GROUP BY YMD
+               ) D
+             , (
+                /* 재료비 - 실적 - 전산구매 */
+                SELECT TRANS_DATE AS BASE_DD
+                     , NVL( DECODE(B.OUTVAT_FLAG, 'Y', ROUND( SUM( MARGIN_AMOUNT * DECODE( TAX_CODE, '100', DECODE( MATERIAL_ACCTCD, '11402000', 1.1, 1), 2) ) ), SUM( MARGIN_AMOUNT ) ), 0) AS MS_AMT1
+                  FROM HLDC_PO_TRANSACTION_NHASH A
+                     , HLDC_PO_SUBINVENTORY B
+                 WHERE A.SUBINV_CODE = B.SUBINV_CODE
+                   AND A.TRANS_DATE BETWEEN TO_CHAR(SYSDATE, 'YYYYMM') || '01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   AND A.TRANS_UPJANG = :upjang
+                   AND A.TRANS_TYPE LIKE 'O%'        -- 출고
+                   AND A.TRANS_TYPE <> 'O002'  -- 이동출고 제외
+                   AND A.ACCTCD IN ('42203010', '42203020', '42203030')         -- 식재료 (FS사업부 식음료 출고계정 : '42203030', 외식사업부 식음료 출고계정 : '42203010', '42203020')
+                 GROUP BY TRANS_DATE, B.OUTVAT_FLAG
+               ) E
+             , (
+                /* 복리후생 식대비 - 일수로 Split */
+                SELECT ROUND(NVL(SUM(AMT), 0) / TO_NUMBER(TO_CHAR(LAST_DAY(SYSDATE), 'DD')), 0) AS MS_AMT3
+                  FROM MAS_WELFARE
+                 WHERE UPJANG = :upjang
+                   AND APPLY_MM = TO_CHAR(SYSDATE, 'YYYYMM')
+               ) G
+         WHERE A.BASE_DD = B.BASE_DD(+)
+           AND A.BASE_DD = C.BASE_DD(+)
+           AND A.BASE_DD = D.BASE_DD(+)
+           AND A.BASE_DD = E.BASE_DD(+)
+       )
+        ]]>
+    </statement>
+
+    <!-- 업장별 식재료율 리스트 -->
+    <statement name="selectUpjangTwoWeekChart" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectUpjangTwoWeekChart
+        */
+        <![CDATA[
+SELECT TO_CHAR(TO_DATE(BASE_DD, 'YYYYMMDD'), 'MM.DD') AS BASE_DD
+     , NVL(P_RATE, 0) AS P_RATE
+     , NVL(S_RATE, 0) AS S_RATE
+  FROM (
+        SELECT A.BASE_DD
+             , ROUND(DECODE(SUM(B.SP_AMT), 0, 0, SUM(D.MP_AMT) / SUM(B.SP_AMT) * 100), 1) AS P_RATE   /* 식재료율 - 계획 */
+             , ROUND(DECODE(SUM(NVL(C.SS_AMT, 0)), 0, 0, (SUM(NVL(E.MS_AMT1, 0)) - SUM(NVL(G.MS_AMT3, 0))) / SUM(C.SS_AMT) * 100), 1) AS S_RATE   /* 식재료율 - 실적 */
+          FROM (
+                SELECT TO_CHAR(TO_DATE(TO_CHAR(SYSDATE-14, 'YYYYMMDD'), 'YYYYMMDD') + LEVEL, 'YYYYMMDD') AS BASE_DD
+                FROM   DUAL
+                CONNECT BY LEVEL <= SYSDATE - TO_DATE(TO_CHAR(SYSDATE-14, 'YYYYMMDD'), 'YYYYMMDD')
+               ) A /* 일자 기준정보 */
+             , (
+                /* 매출 - 식음료매출 계획(P), 추정(R) */
+                SELECT YMD AS BASE_DD
+                     , NVL(SUM(PAMT), 0) AS SP_AMT
+                     , NVL(SUM(RAMT), 0) AS SR_AMT
+                  FROM (
+                        SELECT B.YMD
+                             , DECODE(B.DAY_CLASS, 'P', SUM(B.DD_AMT), 0) AS PAMT
+                             , DECODE(B.DAY_CLASS, 'R', SUM(B.DD_AMT), 0) AS RAMT
+                          FROM MAP_DAY_LOG_MGMT A
+                             , MAP_DAY_PLAN B
+                         WHERE A.UPJANG = B.UPJANG
+                           AND B.UPJANG = :upjang
+                           AND A.YY = B.YY
+                           AND A.MM = B.MM
+                           AND A.DAY_CLASS = B.DAY_CLASS
+                           AND A.CONFIRM_YN = 'Y'
+                           AND B.YMD BETWEEN TO_CHAR(SYSDATE-13, 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                           AND B.ACCT_CD IN ('41203010', '41203020', '41203030')
+                         GROUP BY YMD, B.DAY_CLASS
+                        )
+                 GROUP BY YMD
+               ) B
+             , (
+                /* 매출 - 식음료매출 실적 (내부이용포함) */
+                SELECT A.OCCUR_DATE AS BASE_DD
+                     , SUM(B.NET_AMT) AS SS_AMT
+                  FROM SLA_IF_UPJANG_SALS_MST A
+                     , SLA_IF_UPJANG_SALS_DETAIL B
+                 WHERE A.OCCUR_DATE = B.OCCUR_DATE
+                   AND A.SYS_CLASS = B.SYS_CLASS
+                   AND A.UPJANG_CD = B.UPJANG_CD
+                   AND A.UPJANG_CD = :upjang
+                   AND A.OCCUR_DATE BETWEEN TO_CHAR(SYSDATE-13, 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   AND A.RECEIPT_NUM = B.RECEIPT_NUM
+                   AND B.SALS_CLASS IN ('1103', '2001', '1106', '1204', '1205', '2101', '2102') -- 1103 : 식음료매출_식료, 2001 : POS식음료매출_식료, 1106 : 기타매출-기타
+                 GROUP BY A.OCCUR_DATE
+               ) C
+             , (
+                /* 재료비 - 식음료원가 계획, 추정 */
+                SELECT YMD AS BASE_DD
+                     , NVL(SUM(PAMT), 0) AS MP_AMT
+                     , NVL(SUM(RAMT), 0) AS MR_AMT
+                  FROM (
+                        SELECT B.YMD
+                             , DECODE(B.DAY_CLASS, 'P', SUM(B.DD_AMT), 0) AS PAMT
+                             , DECODE(B.DAY_CLASS, 'R', SUM(B.DD_AMT), 0) AS RAMT
+                          FROM MAP_DAY_LOG_MGMT A
+                             , MAP_DAY_PLAN B
+                         WHERE A.UPJANG = B.UPJANG
+                           AND B.UPJANG = :upjang
+                           AND A.YY = B.YY
+                           AND A.MM = B.MM
+                           AND A.DAY_CLASS = B.DAY_CLASS
+                           AND A.CONFIRM_YN = 'Y'
+                           AND B.YMD BETWEEN TO_CHAR(SYSDATE-13, 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                           AND B.ACCT_CD IN ('42203010', '42203020', '42203030')  -- 식음료원가_식료(FC음료포함)
+                         GROUP BY YMD, B.DAY_CLASS
+                        )
+                 GROUP BY YMD
+               ) D
+             , (
+                /* 재료비 - 실적 - 전산구매 */
+                SELECT TRANS_DATE AS BASE_DD
+                     , NVL( DECODE(B.OUTVAT_FLAG, 'Y', ROUND( SUM( MARGIN_AMOUNT * DECODE( TAX_CODE, '100', DECODE( MATERIAL_ACCTCD, '11402000', 1.1, 1), 2) ) ), SUM( MARGIN_AMOUNT ) ), 0) AS MS_AMT1
+                  FROM HLDC_PO_TRANSACTION_NHASH A
+                     , HLDC_PO_SUBINVENTORY B
+                 WHERE A.SUBINV_CODE = B.SUBINV_CODE
+                   AND A.TRANS_DATE BETWEEN TO_CHAR(SYSDATE-13, 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   AND A.TRANS_UPJANG = :upjang
+                   AND A.TRANS_TYPE LIKE 'O%'        -- 출고
+                   AND A.TRANS_TYPE <> 'O002'  -- 이동출고 제외
+                   AND A.ACCTCD IN ('42203010', '42203020', '42203030')         -- 식재료 (FS사업부 식음료 출고계정 : '42203030', 외식사업부 식음료 출고계정 : '42203010', '42203020')
+                 GROUP BY TRANS_DATE, B.OUTVAT_FLAG
+               ) E
+             , (
+                /* 복리후생 식대비 - 전표처리일기준이 아닌 발생일 기준으로 처리 */
+                SELECT ROUND(NVL(SUM(AMT), 0) / TO_NUMBER(TO_CHAR(LAST_DAY(SYSDATE), 'DD')), 0) * 14 AS MS_AMT3
+                  FROM MAS_WELFARE
+                 WHERE UPJANG = :upjang
+                   AND APPLY_MM = TO_CHAR(SYSDATE, 'YYYYMM')
+               ) G
+         WHERE A.BASE_DD = B.BASE_DD(+)
+           AND A.BASE_DD = C.BASE_DD(+)
+           AND A.BASE_DD = D.BASE_DD(+)
+           AND A.BASE_DD = E.BASE_DD(+)
+         GROUP BY A.BASE_DD
+         ORDER BY A.BASE_DD
+       )
+        ]]>
+    </statement>
+
+    <!-- 점장별 업장 리스트 -->
+    <statement name="selectChargeUpjangList" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectChargeUpjangList */
+        <![CDATA[
+SELECT A.UPJANG,
+       A.UPJANGNM
+FROM   ST_UPJANG A,
+       SCO_UPJANG_MST B
+WHERE  B.UPJANG = A.UPJANG
+AND    B.CHARGE_SABUN = :loginSabun
+AND    CASE WHEN B.CLOSE_DATE IS NULL THEN 'N' ELSE CASE WHEN B.CLOSE_DATE = '99991231' THEN 'N' ELSE 'Y' END END = 'N'
+ORDER BY A.UPJANGNM
+        ]]>
+    </statement>
+
+    <!-- 위생점검 현황 업장 리스트 -->
+    <statement name="selectClearCheckList" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectClearCheckList */
+        <![CDATA[
+SELECT A.UPJANG
+     , A.UPJANGNM
+     , B.CHK_CNT
+     , DECODE(B.CHK_CNT, 0, 0, ROUND(B.NOT_FIT_CNT / B.CHK_CNT * 100, 2)) || ' %' AS NOT_FIT_RATE
+  FROM SCO_UPJANG_MST_V A
+     , (
+        SELECT UPJANG
+             , SUM(NOT_FIT_YN) AS NOT_FIT_CNT
+             , COUNT(1) CHK_CNT
+          FROM FSC_RESULT_MST
+         WHERE SUBTEAM_MST_SABUN = :loginSabun
+           AND CHECK_DATE BETWEEN TO_CHAR(SYSDATE, 'YYYY') || '0101' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+           AND CONFIRM_YN = 'Y'
+         GROUP BY UPJANG
+       ) B
+ WHERE A.UPJANG = B.UPJANG
+ ORDER BY A.UPJANGNM ASC
+        ]]>
+    </statement>
+
+	<!-- 업장리스트 -->
+    <statement name="selectGetPlanUpperUpjangList" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectGetPlanUpperUpjangList */
+        <![CDATA[
+		SELECT A.UPJANG
+        FROM   SCO_UPJANG_MST A
+        WHERE  SUBTEAM_MST_SABUN = :loginSabun
+        ]]>
+    </statement>
+	
+    <!-- 계획대비 재료비 초과 사업장 -->
+    <statement name="selectPlanUpperUpjangList" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectPlanUpperUpjangList
+        */
+        <![CDATA[
+SELECT UPJANG
+     , UPJANGNM
+     , P_RATE
+     , S_RATE
+     , P_RATE - S_RATE AS U_RATE                                 /* 식재료비율 - 계획대비 - 차이(%P) */
+  FROM (
+        SELECT A.UPJANG
+             , A.UPJANGNM
+             , ROUND(DECODE(SUM(B.SP_AMT), 0, 0, SUM(D.MP_AMT) / SUM(B.SP_AMT) * 100), 2) AS P_RATE   /* 식재료율 - 계획 */
+             , ROUND(DECODE(SUM(NVL(C.SS_AMT, 0)), 0, 0, (SUM(NVL(E.MS_AMT1, 0)) - SUM(NVL(G.MS_AMT3, 0))) / SUM(C.SS_AMT) * 100), 2) AS S_RATE   /* 식재료율 - 실적 */
+          FROM (
+                SELECT A.UPJANG
+                     , B.UPJANGNM
+                FROM   SCO_UPJANG_MST A,
+                       ST_UPJANG B
+                WHERE  B.UPJANG = A.UPJANG
+                AND    SUBTEAM_MST_SABUN = :loginSabun
+               ) A
+             , (
+                /* 매출 - 식음료매출 계획(P), 추정(R) */
+                SELECT UPJANG
+                     , NVL(SUM(PAMT), 0) AS SP_AMT
+                  FROM (
+                        SELECT A.UPJANG
+                             , DECODE(B.DAY_CLASS, 'P', SUM(B.DD_AMT), 0) AS PAMT
+                          FROM MAP_DAY_LOG_MGMT A
+                             , MAP_DAY_PLAN B
+                         WHERE A.UPJANG = B.UPJANG
+                           AND A.YY = B.YY
+                           AND A.MM = B.MM
+                           AND A.DAY_CLASS = B.DAY_CLASS
+                           AND B.UPJANG IN (SELECT UPJANG FROM SCO_UPJANG_MST WHERE  SUBTEAM_MST_SABUN = :loginSabun)
+                           AND A.CONFIRM_YN = 'Y'
+                           AND B.YMD BETWEEN TO_CHAR(SYSDATE, 'YYYYMM')||'01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                           AND B.ACCT_CD IN ('41203010', '41203020', '41203030')
+                         GROUP BY A.UPJANG, B.DAY_CLASS
+                        )
+                 GROUP BY UPJANG
+               ) B
+             , (
+                /* 매출 - 식음료매출 실적 (내부이용포함) */
+                SELECT A.UPJANG_CD AS UPJANG
+                     , SUM(B.NET_AMT) AS SS_AMT
+                  FROM SLA_IF_UPJANG_SALS_MST A
+                     , SLA_IF_UPJANG_SALS_DETAIL B
+                 WHERE A.OCCUR_DATE = B.OCCUR_DATE
+                   AND A.SYS_CLASS = B.SYS_CLASS
+                   AND A.UPJANG_CD = B.UPJANG_CD
+                   AND A.UPJANG_CD IN (SELECT UPJANG FROM SCO_UPJANG_MST WHERE  SUBTEAM_MST_SABUN = :loginSabun)
+                   AND A.OCCUR_DATE BETWEEN TO_CHAR(SYSDATE, 'YYYYMM')||'01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   AND A.RECEIPT_NUM = B.RECEIPT_NUM
+                   AND B.SALS_CLASS IN ('1103', '2001', '1106', '1204', '1205', '2101', '2102') -- 1103 : 식음료매출_식료, 2001 : POS식음료매출_식료, 1106 : 기타매출-기타
+                 GROUP BY A.UPJANG_CD
+               ) C
+             , (
+                /* 재료비 - 식음료원가 계획, 추정 */
+                SELECT UPJANG
+                     , NVL(SUM(PAMT), 0) AS MP_AMT
+                  FROM (
+                        SELECT A.UPJANG
+                             , DECODE(B.DAY_CLASS, 'P', SUM(B.DD_AMT), 0) AS PAMT
+                          FROM MAP_DAY_LOG_MGMT A
+                             , MAP_DAY_PLAN B
+                         WHERE A.UPJANG = B.UPJANG
+                           AND A.YY = B.YY
+                           AND A.MM = B.MM
+                           AND A.DAY_CLASS = B.DAY_CLASS
+                           AND A.CONFIRM_YN = 'Y'
+                           AND B.UPJANG IN (SELECT UPJANG FROM SCO_UPJANG_MST WHERE  SUBTEAM_MST_SABUN = :loginSabun)
+                           AND B.YMD BETWEEN TO_CHAR(SYSDATE, 'YYYYMM')||'01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                           AND B.ACCT_CD IN ('42203010', '42203020', '42203030')  -- 식음료원가_식료(FC음료포함)
+                         GROUP BY A.UPJANG, B.DAY_CLASS
+                        )
+                 GROUP BY UPJANG
+               ) D
+             , (
+                /* 재료비 - 실적 - 전산구매 */
+                /*
+                SELECT A.TRANS_UPJANG AS UPJANG
+                     , NVL( DECODE(B.OUTVAT_FLAG, 'Y', SUM( MARGIN_AMOUNT * DECODE( TAX_CODE, '100', DECODE( MATERIAL_ACCTCD, '11402000', 1.1, 1) ) ), SUM( MARGIN_AMOUNT ) ), 0) AS MS_AMT1
+                  FROM HLDC_PO_TRANSACTION_NHASH A
+                     , HLDC_PO_SUBINVENTORY B
+                 WHERE A.SUBINV_CODE = B.SUBINV_CODE
+                   AND A.TRANS_DATE BETWEEN TO_CHAR(SYSDATE, 'YYYYMM')||'01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   AND A.TRANS_TYPE LIKE 'O%'        -- 출고
+                   AND A.TRANS_TYPE <> 'O002'  -- 이동출고 제외
+                   AND A.ACCTCD IN ('42203010', '42203020', '42203030')         -- 식재료 (FS사업부 식음료 출고계정 : '42203030', 외식사업부 식음료 출고계정 : '42203010', '42203020')
+                   <#if strKeyword?has_content>
+                   AND A.TRANS_UPJANG IN (${strKeyword})
+                   </#if>	
+                 GROUP BY A.TRANS_UPJANG, B.OUTVAT_FLAG
+                 */
+               SELECT A.TRANS_UPJANG AS UPJANG
+                     , NVL( DECODE(B.OUTVAT_FLAG, 'Y', SUM( MARGIN_AMOUNT * DECODE( TAX_CODE, '100', DECODE( MATERIAL_ACCTCD, '11402000', 1.1, 1) ) ), SUM( MARGIN_AMOUNT ) ), 0) AS MS_AMT1
+                  FROM 
+                       (
+                        SELECT 
+                               DT.MG_NO AS TRANS_ID,  /* 자재수불번호 */
+                               CASE
+                                 WHEN DT.MOVEMENT_TYP = '701' OR DT.MOVEMENT_TYP = '702' THEN (SELECT INSP_DATE FROM EPROCUSR.ESIMIHD WHERE SYS_ID = DT.SYS_ID AND COMP_CD = DT.COMP_CD AND IVT_INSP_NO = DT.IVT_INSP_NO AND STS <> 'D')
+                                 ELSE DT.MG_DATE
+                               END AS TRANS_DATE,  /* 수불일자*/
+                               DT.MOVEMENT_TYP AS MVT,                                                             /*이동유형 */
+                               CASE
+                                 WHEN DT.PROC_TYP_CD IS NOT NULL AND MOD(TO_NUMBER(DT.MOVEMENT_TYP),2)=1 THEN DT.GI_MGT_PRICE * DECODE(DT.GR_QTY,NULL,DT.GI_PURC_QTY,DT.GR_PURC_QTY) --20151022
+                                 WHEN DT.PROC_TYP_CD IS NOT NULL AND MOD(TO_NUMBER(DT.MOVEMENT_TYP),2)=0 THEN DT.GI_MGT_PRICE * DECODE(DT.GR_QTY,NULL,DT.GI_PURC_QTY*-1,DT.GR_PURC_QTY*-1) --20151022
+                                 WHEN DT.PROC_TYP_CD IS NULL AND MOD(TO_NUMBER(DT.MOVEMENT_TYP),2)=1 THEN DECODE(DT.GR_QTY,NULL,DT.GI_MGT_AMT,DT.GR_MGT_AMT)
+                                 WHEN DT.PROC_TYP_CD IS NULL AND MOD(TO_NUMBER(DT.MOVEMENT_TYP),2)=0 THEN DECODE(DT.GR_QTY,NULL,DT.GI_MGT_AMT*-1,DT.GR_MGT_AMT*-1)
+                               END AS MARGIN_AMOUNT,                 -- 관리단가 * 수량 
+                               DT.PROC_TYP_CD,
+                               DT.PO_NO AS PO_NO,                                        /* 발주번호 */
+                               DT.PO_LNO AS PO_LNO,                                      /* 발주항번*/
+                               HD.MU_CD AS TRANS_MU_CD,                                  /*  MU 코드 */
+                               HD.CC_CD AS TRANS_DEPT_ID,                                /* CC 코드*/
+                               HD.SHOP_CD AS TRANS_UPJANG,                               /* 업장코드 */
+                               DT.WH_CD AS SUBINV_CODE,                                  /* 창고코드 */
+                               (SELECT MAX(JR.DR_ACC_CD) FROM EPROCUSR.ESIJRNL JR WHERE JR.SYS_ID = DT.SYS_ID AND JR.COMP_CD = DT.COMP_CD AND JR.JRNL_TYP_CD = DT.JRNL_TYP_CD AND JR.MG_CLS_CD = 'GI') AS ACCTCD,
+                               DT.ITEM_CD AS ITEM_CODE,                                  /* 품목코드 */
+                               MT.ITEM_NM AS ITEM_NAME,                                  /* 품목명 */
+                               MT.SPEC AS ITEM_SIZE,                                     /*  규격 */
+                               '220' AS TAX_CODE  /* 과면세 코드 */
+                          FROM EPROCUSR.ESIMGHD HD,                                               /* 수불헤더*/
+                               EPROCUSR.ESIMGDT DT,                                               /* 수불상세 */
+                               EPROCUSR.ESMMTGL MT                                                /* 품목마스터 */
+                         WHERE HD.SYS_ID = '100'
+                           AND HD.COMP_CD = 'HFC'
+                           AND HD.BU_CD = '2000'
+                           AND HD.SYS_ID = DT.SYS_ID
+                           AND HD.COMP_CD = DT.COMP_CD
+                           AND HD.WH_CD = DT.WH_CD
+                           AND HD.ITEM_CD = DT.ITEM_CD
+                           AND DT.MOVEMENT_TYP NOT IN ('561','562','998','999','901','902','801','802','111','112','211','212')   /* 기초 , 기말 재고,배송입출고,  직송 가상입출고  제외 */
+                           AND DT.SYS_ID = MT.SYS_ID
+                           AND DT.ITEM_CD = MT.ITEM_CD
+                           AND DT.STS <> 'D'
+                           AND HD.SHOP_CD IN (SELECT UPJANG FROM SCO_UPJANG_MST WHERE  SUBTEAM_MST_SABUN = :loginSabun)
+                           AND DT.MOVEMENT_TYP IN ('701','702','251','252','197','198')
+                           AND DT.MG_DATE BETWEEN TO_CHAR(SYSDATE, 'YYYYMM')||'01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                           /*
+                           AND  CASE
+                                 WHEN DT.MOVEMENT_TYP = '701' OR DT.MOVEMENT_TYP = '702' THEN 
+                                      (SELECT INSP_DATE FROM EPROCUSR.ESIMIHD WHERE SYS_ID = DT.SYS_ID AND COMP_CD = DT.COMP_CD AND IVT_INSP_NO = DT.IVT_INSP_NO AND STS <> 'D')
+                                 ELSE DT.MG_DATE
+                               END BETWEEN TO_CHAR(SYSDATE, 'YYYYMM')||'01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')                       
+                           */    
+                       ) A
+                     , HLDC_PO_SUBINVENTORY B
+                 WHERE A.SUBINV_CODE = B.SUBINV_CODE
+                   AND A.TRANS_DATE BETWEEN TO_CHAR(SYSDATE, 'YYYYMM')||'01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   AND A.ACCTCD IN ('42203010', '42203020', '42203030')         -- 식재료 (FS사업부 식음료 출고계정 : '42203030', 외식사업부 식음료 출고계정 : '42203010', '42203020')
+                 GROUP BY A.TRANS_UPJANG, B.OUTVAT_FLAG                 
+               ) E
+             , (
+                /* 복리후생 식대비 - 일수로 Split */
+                SELECT UPJANG
+                     , ROUND(NVL(SUM(AMT), 0) / TO_NUMBER(TO_CHAR(LAST_DAY(SYSDATE), 'DD')), 0) * TRUNC(SYSDATE - TRUNC(SYSDATE, 'MONTH') + 1) AS MS_AMT3
+                  FROM MAS_WELFARE
+                 WHERE APPLY_MM = TO_CHAR(SYSDATE, 'YYYYMM')
+                   AND UPJANG IN (SELECT UPJANG FROM SCO_UPJANG_MST WHERE  SUBTEAM_MST_SABUN = :loginSabun)
+                 GROUP BY UPJANG
+               ) G
+         WHERE A.UPJANG = B.UPJANG(+)
+           AND A.UPJANG = C.UPJANG(+)
+           AND A.UPJANG = D.UPJANG(+)
+           AND A.UPJANG = E.UPJANG(+)
+           AND A.UPJANG = G.UPJANG(+)
+         GROUP BY A.UPJANG, A.UPJANGNM
+       )
+ WHERE NVL(P_RATE, 0) - NVL(S_RATE, 0) < 0
+ ORDER BY P_RATE - S_RATE
+        ]]>
+    </statement>
+
+    <!-- 일일손익 미확인 업장 -->
+    <statement name="selectUpjangPlNotInputList" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectUpjangPlNotInputList
+        */
+        <![CDATA[
+SELECT B.UPJANGNM
+  FROM 
+       (SELECT *
+          FROM MAP_DAY_PLAN 
+         WHERE UPJANG IN (SELECT UPJANG FROM SCO_UPJANG_MST WHERE  SUBTEAM_MST_SABUN = :loginSabun)
+       ) A  
+     , (
+        SELECT A.UPJANG, A.CLOSE_DATE, 
+               REPLACE (B.UPJANGNM, '단체급식 ', '') || 
+                       CASE WHEN A.CLOSE_DATE IS NULL THEN '' 
+                            ELSE CASE WHEN A.CLOSE_DATE = '99991231' THEN '' 
+                                      ELSE '(폐점:' || SUBSTR (A.CLOSE_DATE, 1, 4) || '년' || SUBSTR (A.CLOSE_DATE, 5, 2) || '월' || SUBSTR (A.CLOSE_DATE, 7, 2) || '일)' 
+                                      END 
+                            END AS UPJANGNM
+          FROM SCO_UPJANG_MST A, ST_UPJANG B 
+         WHERE A.UPJANG = B.UPJANG 
+           AND A.SUBTEAM_MST_SABUN = :loginSabun     
+           AND DECODE(A.CLOSE_DATE, NULL, 'N', 'Y') = 'N'
+       )B
+ WHERE A.UPJANG(+) = B.UPJANG
+   AND A.YY(+) = '2015'
+   AND A.DAY_CLASS(+)= 'R'
+   AND A.YY IS NULL
+   AND A.MM IS NULL
+ GROUP BY B.UPJANGNM, B.UPJANG, A.YY, A.MM
+ /*        
+SELECT B.UPJANGNM
+  FROM MAP_DAY_PLAN A
+     , SCO_UPJANG_MST_V B
+ WHERE A.UPJANG(+) = B.UPJANG
+   AND A.YY(+) = '2015'
+   AND A.DAY_CLASS(+)= 'R'
+   AND B.SUBTEAM_MST_SABUN = :loginSabun
+   AND A.YY IS NULL
+   AND A.MM IS NULL
+   AND DECODE(B.CLOSE_DATE, NULL, 'N', 'Y') = 'N'
+ GROUP BY B.UPJANGNM, B.UPJANG, A.YY, A.MM
+ */
+        ]]>
+    </statement>
+
+    <!-- e-Foodist 목록 -->
+    <statement name="selectEFoodistList" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectEFoodistList */
+        <![CDATA[
+SELECT A.TITLE,
+       A.REF_SEQ,
+       A.APPEND_SEQ,
+       A.ORGNL_FILE_NM
+FROM  (SELECT A.TITLE
+            , A.REF_SEQ
+            , B.APPEND_SEQ
+            , B.ORGNL_FILE_NM
+            , ROW_NUMBER() OVER(ORDER BY A.TITLE DESC) AS RN
+       FROM   SCZ_EFOODIST_BOARD A,
+              SCC_APPEND_FILE B
+       WHERE  B.REF_SEQ = A.REF_SEQ
+       AND    A.USE_YN = 'Y') A
+WHERE  RN <= :pageCnt
+        ]]>
+    </statement>
+
+    <!-- 보증보험만료예정거래처 목록 -->
+    <statement name="selectSalesUpjangList" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectSalesUpjangList */
+        <![CDATA[
+SELECT A.UPJANG,
+       MAX(B.UPJANGNM_DISP) UPJANGNM_DISP,
+       MAX(A.GUARAN_EXPIRE_DATE) GUARAN_EXPIRE_DATE
+  FROM FMS_SECURE_GUARANTEE A , FMS_UPJANG B
+ WHERE A.GUARAN_EXPIRE_DATE BETWEEN TO_CHAR(SYSDATE,'YYYYMMDD') AND TO_CHAR(SYSDATE+30,'YYYYMMDD') --오늘부터 30일 이후마감 보증
+   AND A.GUARAN_CANCEL_YN = 'N'         --해지여부
+   AND A.UPJANG = B.UPJANG
+   AND B.PART_SALES_SABUN = :loginSabun
+  GROUP BY A.UPJANG
+ORDER BY UPJANG
+        ]]>
+    </statement>
+
+    <!-- 인트로 미승인 카운트(점장) -->
+    <statement name="selectUnApprovedJumCnt" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectUnApprovedJumCnt */
+        <![CDATA[
+            SELECT (X.CNT_A+X.CNT_B+X.CNT_C+X.CNT_D+X.CNT_E) UN_APPROVED_CNT--200600986
+            FROM
+                (SELECT
+                    ------ 케터링(1차 점장)---
+                    (SELECT COUNT(*)
+                      FROM FSC_CATERINGCELE_REG   --행사
+                     WHERE ALLC_YN = 'N'
+                       AND CUSER = :loginSabun) CNT_A
+                    ,
+                    ------ 케터링(1차 점장)---
+                    (SELECT COUNT(*)
+                      FROM FSC_CATERINGCOOKHUMAN_REG -- 조리인력
+                     WHERE ALLC_YN = 'N'
+                       AND CUSER = :loginSabun) CNT_B
+                    ,
+                    ------ 케터링(1차 점장)---
+                    (SELECT COUNT(*)
+                      FROM FSC_CATERINGUTENSIL_REG -- 기기/기물
+                     WHERE APPRV_YN = 'N'
+                       AND CUSER = :loginSabun) CNT_C
+                    ,
+                    ------ 케터링(1차 점장)---
+                    (SELECT COUNT(*)
+                      FROM FSC_CATERINGCOOKGUID_REG -- 조리지도
+                     WHERE ALLC_YN = 'N'
+                       AND CUSER = :loginSabun) CNT_D
+                    ,
+                    ----- 마케팅 > 기존사업장정보활용 > 손익PL열람승인 (점장)--------
+                    (SELECT COUNT(*)
+                      FROM FSO_PL_VIEW_SIGN
+                     WHERE FIRST_SIGN_SABUN = :loginSabun
+                       AND FIRST_SIGN_STATUS = 'N') CNT_E
+               FROM DUAL) X
+        ]]>
+    </statement>
+
+    <!-- FS점장 미승인 리스트 -->
+    <statement name="selectUnApprovedJumJang" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectUnApprovedJumJang */
+        <![CDATA[
+SELECT A.GUBUN,
+       A.GUBUN_NAME,
+       A.REQUEST_DATE,
+       A.UPJANGNM,
+       SUM(CNT) AS CNT,
+       GROUPING(A.GUBUN) AS A,
+       GROUPING(A.GUBUN_NAME) AS B,
+       GROUPING(A.REQUEST_DATE) AS C,
+       GROUPING(A.UPJANGNM) AS D
+FROM   (SELECT A.CLOSE_GUBUN AS GUBUN,
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0035' AND CODE = A.CLOSE_GUBUN) AS GUBUN_NAME,
+               TO_CHAR(A.REQUEST_DATE, 'YYYY-MM-DD') AS REQUEST_DATE,
+               (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = A.UPJANG) AS UPJANGNM,
+               1 AS CNT
+        FROM   MAS_CLOSE_MODIFYREQ A
+        WHERE  A.TEAM_MST_CONGUBN = 'N'
+        AND    A.REQUEST_SABUN = :loginSabun
+        UNION ALL
+        SELECT 'A01' AS SORT_SEQ,
+               '행사지원자요청' AS TITLE,
+               TO_CHAR(A.CDATE, 'YYYY-MM-DD') AS REQUEST_DATE,
+               (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = A.REQUEST_UPJANG_CD) AS UPJANGNM,
+               1 AS CNT
+        FROM   FSC_CATERINGCELE_REG A
+        WHERE  A.ALLC_YN = 'N'
+        AND    A.CUSER = :loginSabun
+        UNION ALL
+        SELECT 'A02' AS SORT_SEQ,
+               '조리인력요청' AS TITLE,
+               TO_CHAR(A.CDATE, 'YYYY-MM-DD') AS REQUEST_DATE,
+               (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = A.REQUEST_UPJANG_CD) AS UPJANGNM,
+               1 AS CNT
+        FROM   FSC_CATERINGCOOKHUMAN_REG A
+        WHERE  A.ALLC_YN = 'N'
+        AND    A.CUSER = :loginSabun
+        UNION ALL
+        SELECT 'A03' AS SORT_SEQ,
+               '기기/기물요청' AS TITLE,
+               TO_CHAR(A.CDATE, 'YYYY-MM-DD') AS REQUEST_DATE,
+               (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = A.REQUEST_UPJANG_CD) AS UPJANGNM,
+               1 AS CNT
+        FROM   FSC_CATERINGUTENSIL_REG A
+        WHERE  A.APPRV_YN = 'N'
+        AND    A.CUSER = :loginSabun
+        UNION ALL
+        SELECT 'A04' AS SORT_SEQ,
+               '조리지도요청' AS TITLE,
+               TO_CHAR(A.CDATE, 'YYYY-MM-DD') AS REQUEST_DATE,
+               (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = A.REQUEST_UPJANG_CD) AS UPJANGNM,
+               1 AS CNT
+        FROM   FSC_CATERINGCOOKGUID_REG A
+        WHERE  A.ALLC_YN = 'N'
+        AND    A.CUSER = :loginSabun
+        UNION ALL
+        SELECT 'B01' AS SORT_SEQ,
+               '메뉴지도신청' AS TITLE,
+               TO_CHAR(A.CDATE, 'YYYY-MM-DD') AS REQUEST_DATE,
+               (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = A.UPJANG) AS UPJANGNM,
+               1 AS CNT
+        FROM   FSM_MENU_GUID_REQ A
+        WHERE  A.STATUS_CD IN ('01', '04')
+        AND    A.CUSER = :loginSabun
+        UNION ALL
+        SELECT 'C01' AS SORT_SEQ,
+               '신규레시피신청' AS TITLE,
+               TO_CHAR(TO_DATE(A.SUBMIT_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS REQUEST_DATE,
+               (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = A.UPJANG) AS UPJANGNM,
+               1 AS CNT
+        FROM   FSR_NEW_RECIPE_MST A
+        WHERE  A.APPRV_YN IN ('N', 'M')
+        AND    A.SUBMIT_USER = :loginSabun
+        UNION ALL
+        SELECT 'D01' AS SORT_SEQ,
+               '추가구매신청' AS TITLE,
+               TO_CHAR(TO_DATE(A.PR_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS REQUEST_DATE,
+               (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = A.UPJANG) AS UPJANGNM,
+               1 AS CNT
+        FROM   FSA_PR_CHECK A
+        WHERE  A.APRV_YN = 'N'
+        AND    A.CUSER = :loginSabun
+        UNION ALL
+        SELECT 'E01' AS SORT_SEQ,
+               '식권폐기요청' AS TITLE,
+               TO_CHAR(A.REQUEST_DATE, 'YYYY-MM-DD') AS REQUEST_DATE,
+               (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = A.UPJANG) AS UPJANGNM,
+               1 AS CNT
+        FROM   MAS_TICKET_MST A
+        WHERE  A.TEAM_MST_CONGUBN = 'N'
+        AND    A.REQUEST_SABUN = :loginSabun
+        ) A
+GROUP BY ROLLUP(A.GUBUN, A.GUBUN_NAME, A.REQUEST_DATE, A.UPJANGNM)
+ORDER BY A.GUBUN, A.REQUEST_DATE, A.UPJANGNM
+        ]]>
+    </statement>
+
+    <!-- 인트로 미승인 카운트(팀장) -->
+    <statement name="selectUnApprovedTeamCnt" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectUnApprovedTeamCnt */
+        <![CDATA[
+            SELECT (X.CNT_A+X.CNT_B+X.CNT_C+X.CNT_D+X.CNT_E+X.CNT_F+X.CNT_G) UN_APPROVED_CNT--200110493
+            FROM
+                (SELECT
+                    ----- 마감취소 신청(팀장) --------------
+                    (SELECT COUNT(*)
+                      FROM MAS_CLOSE_MODIFYREQ
+                     WHERE TEAM_MST_SABUN = :loginSabun
+                       AND APPRV_GUBUN = 'N') CNT_A
+                    ,
+                    ----- 마케팅 > 기존사업장정보활용 > 손익PL열람승인 (팀장)--------
+                    (SELECT COUNT(*)
+                      FROM FSO_PL_VIEW_SIGN
+                     WHERE SECOND_SIGN_SABUN = :loginSabun
+                       AND SECOND_SIGN_STATUS = 'N') CNT_B
+                    ,
+                    ----- 식권폐기승인(팀장)
+                    (SELECT COUNT(*)
+                      FROM MAS_TICKET_MST
+                     WHERE TEAM_MST_CONGUBN = 'N'
+                       AND TEAM_MST_SABUN = :loginSabun) CNT_C
+                    ,
+                    ------ 케터링(1차 팀장)---
+                    (SELECT COUNT(*)
+                      FROM FSC_CATERINGCELE_REG   --행사(참고적으로 이두순만 결재 가능)
+                     WHERE ALLC_YN = 'N') CNT_D
+                    ,
+                    ------ 케터링(1차 팀장)---
+                    (SELECT COUNT(*)
+                      FROM FSC_CATERINGCOOKHUMAN_REG -- 조리인력(참고적으로 이두순만 결재 가능)
+                     WHERE ALLC_YN = 'N') CNT_E
+                    ,
+                    ------ 케터링(1차 팀장)---
+                    (SELECT COUNT(*)
+                      FROM FSC_CATERINGUTENSIL_REG -- 기기/기물
+                     WHERE APPRV_YN = 'N'
+                       AND FIRST_SIGN_PRCG_EMP = :loginSabun) CNT_F
+                    ,
+                    ------ 케터링(1차 팀장)---
+                    (SELECT COUNT(*)
+                      FROM FSC_CATERINGCOOKGUID_REG -- 조리지도(참고적으로 이두순만 결재 가능)
+                     WHERE ALLC_YN = 'N') CNT_G
+               FROM DUAL) X
+        ]]>
+    </statement>
+
+    <!-- 인트로 미승인 카운트(팀장) -->
+    <statement name="selectUnApprovedTeamJang" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectUnApprovedTeamJang
+        */
+        <![CDATA[
+SELECT A.GUBUN,
+       A.GUBUN_NAME,
+       A.REQUEST_DATE,
+       A.UPJANGNM,
+       SUM(CNT) AS CNT,
+       GROUPING(A.GUBUN) AS A,
+       GROUPING(A.GUBUN_NAME) AS B,
+       GROUPING(A.REQUEST_DATE) AS C,
+       GROUPING(A.UPJANGNM) AS D
+FROM   (SELECT A.CLOSE_GUBUN AS GUBUN,
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0035' AND CODE = A.CLOSE_GUBUN) AS GUBUN_NAME,
+               TO_CHAR(A.REQUEST_DATE, 'YYYY-MM-DD') AS REQUEST_DATE,
+               (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = A.UPJANG) AS UPJANGNM,
+               1 AS CNT
+        FROM   MAS_CLOSE_MODIFYREQ A
+        WHERE  A.TEAM_MST_CONGUBN = 'N'
+        AND    A.TEAM_MST_SABUN = :loginSabun
+        UNION ALL
+        SELECT 'B01' AS SORT_SEQ,
+               '메뉴지도신청' AS TITLE,
+               TO_CHAR(A.CDATE, 'YYYY-MM-DD') AS REQUEST_DATE,
+               (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = A.UPJANG) AS UPJANGNM,
+               1 AS CNT
+        FROM   FSM_MENU_GUID_REQ A
+        WHERE  A.STATUS_CD IN ('01', '04')
+        AND    A.APPRV_USER = :loginSabun
+        UNION ALL
+        SELECT 'D01' AS SORT_SEQ,
+               '추가구매신청' AS TITLE,
+               TO_CHAR(TO_DATE(A.PR_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS REQUEST_DATE,
+               (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = A.UPJANG) AS UPJANGNM,
+               1 AS CNT
+        FROM   FSA_PR_CHECK A
+        WHERE  A.APRV_YN = 'N'
+        AND    A.UPJANG IN (SELECT UPJANG FROM SCO_UPJANG_MST WHERE TEAM_MST_SABUN = :loginSabun)
+        UNION ALL
+        SELECT 'E01' AS SORT_SEQ,
+               '식권폐기요청' AS TITLE,
+               TO_CHAR(A.REQUEST_DATE, 'YYYY-MM-DD') AS REQUEST_DATE,
+               (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = A.UPJANG) AS UPJANGNM,
+               1 AS CNT
+        FROM   MAS_TICKET_MST A
+        WHERE  A.TEAM_MST_CONGUBN = 'N'
+        AND    A.TEAM_MST_SABUN = :loginSabun
+        ) A
+GROUP BY ROLLUP(A.GUBUN, A.GUBUN_NAME, A.REQUEST_DATE, A.UPJANGNM)
+ORDER BY A.GUBUN, A.REQUEST_DATE, A.UPJANGNM
+        ]]>
+    </statement>
+
+    <!-- 업장에 대한 여신구분 -->
+    <statement name="selectUseCreditYn" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectUseCreditYn */
+        <![CDATA[
+SELECT NVL(HEAD_CREDIT_YN,'N') AS HEAD_CREDIT_YN
+     , MAIN_UPJANG		-- 108607
+     , UPJANG
+     , TO_CHAR(SYSDATE, 'YYYYMMDD') AS NEED_DATE
+FROM   FMS_UPJANG
+WHERE  UPJANG = :upjang
+        ]]>
+    </statement>
+
+	<!-- 업장에 대한 본사여신 신규 20170821 김호석 -->
+    <statement name="selectMainUpjangCredit" type="select"><![CDATA[  
+      /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectMainUpjangCredit */
+	SELECT
+		  A.CREDIT_AMOUNT					/* 기본여신금액 */
+		, A.CREDIT_AVAIL_AMT				/* 실주문가능금액*/	
+     	, R.RECEIVE_AMT						/* 당월입금금액 */     	
+		/**
+		, CASE WHEN A.ACNTCD IS NOT NULL THEN SUBSTR(A.ACNTCD, 1 , 3) || '-' ||
+           SUBSTR(A.ACNTCD, 4 , 6) || '-' ||
+           SUBSTR(A.ACNTCD, 10, 2) || '-' ||
+           SUBSTR(A.ACNTCD, 12)
+	        ELSE NULL
+	       END AS BANK_ACCT_NO				
+	    **/
+	    , CASE WHEN A.ACNTCD IS NOT NULL THEN A.ACNTCD
+	    	ELSE NULL
+	    	END AS BANK_ACCT_NO 
+		, CASE WHEN K.BANK_ACCT_NO IS NULL THEN '' ELSE '우리은행' END AS BANK_NAME
+        , CASE WHEN K.BANK_ACCT_NO IS NULL THEN '' ELSE '푸디스트 주식회사' END AS BANK_ACCT_NM
+		, (SELECT G.CODE_NAME FROM SCC_COMMON_CODE G WHERE G.GROUP_CODE = 'FM0005' AND G.CODE = A.GANAP_BANK_CD) AS GANAP_BANK_NM
+        , A.GANAP_BANK_ACCT_NO
+        , A.GANAP_BANK_ACCT_NAME
+        , A.GANAP_CREDIT_YN
+        , A.GANAP_BANK_YN
+
+		FROM TABLE(FCUS.FT_UPJANG_CREDIT_LIMIT(arg_schUpjang=> :upjang, arg_schNeedDate=> :schNeedDate)) A
+		 	LEFT OUTER JOIN (
+                SELECT *
+                  FROM SLA_SAP_BANK_ACCT_NO
+                 WHERE BANK_ACCT_TYPE = 'V'
+                   AND UPJANG_CD = TO_NUMBER(:upjang)
+                   AND ROWNUM <= 1	/* TEST DATA 관계로  1개이상 존재함 */
+               ) K ON TO_NUMBER(K.UPJANG_CD) = A.UPJANG  
+            
+            --현재 월중에 마이그레이션하여 해당월의 입금금액을 가져올 수 없음 추후에 수정 가능 20170919 김호석   
+			--LEFT OUTER JOIN CREDITAMT_SUM_DTL B ON TO_NUMBER(B.UPJANG_CD) = A.UPJANG		
+			--기존 당월입금금액 가져오는 부분으로 수정
+			
+			 LEFT OUTER JOIN (
+                SELECT X.MAIN_UPJANG
+                     , NVL(SUM(X.AMT), 0) AS RECEIVE_AMT
+                  FROM (
+                        SELECT /* 가상입금계죄 */
+                               C.MAIN_UPJANG AS MAIN_UPJANG
+                             , NVL(A.RECEIVE_AMT,0) AS AMT
+                          FROM SLA_SAP_SUSPENSE_INFO A
+                             , SLA_SAP_BANK_ACCT_NO B
+                             , FMS_UPJANG C
+                         WHERE A.BANK_ACCT_NO = B.BANK_ACCT_NO
+                           AND B.UPJANG_CD = C.UPJANG
+                           AND A.RECD_STATUS = 'L'
+                           AND A.RECEIVE_DATE BETWEEN SUBSTR(TO_CHAR(SYSDATE,'YYYYMM'),1,6)||'01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                           AND B.UPJANG_CD = (select  case nvl(a.head_credit_yn, 'N') when 'Y' then to_number(a.main_upjang)
+                                           else          to_number(a.upjang     ) END 
+                                            from fms_upjangv a
+                                               , (select *
+                                                    from fms_upjangv
+                                                   where 1=1
+                                                     and main_upjang = upjang
+                                                 ) b
+                                           where (1=1)
+                                             and a.main_upjang = b.main_upjang
+                                             and a.upjang      = to_number(:upjang)
+                                             and a.use_yn      = 'Y')
+                           AND B.BANK_ACCT_TYPE = 'V'
+                           AND C.HEAD_CREDIT_YN = 'Y'
+                         UNION ALL
+                        SELECT /* 수기입금 */
+                               M.UPJANG_CD AS UPJANG
+                             , NVL(D.RECEIVE_AMT,0) AS AMT
+                          FROM SLA_AR_RECEIVE_DETAIL D
+                             , SLA_AR_MST M
+                             , SLA_AR_RECEIVE_MST R
+                             , FMS_UPJANG C
+                         WHERE D.AR_NUM = M.AR_NUM
+                           AND D.RECEIVE_NUM = R.RECEIVE_NUM
+                           AND M.UPJANG_CD = C.UPJANG
+                           AND D.RECD_STATUS = 'L'
+                           AND D.RECEIVE_DATE BETWEEN SUBSTR(TO_CHAR(SYSDATE,'YYYYMM'),1,6)||'01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                           AND R.RECEIVE_TYPE_CD NOT IN ('B07','B16')  --이성훈 채권이관건 제거
+                            AND M.UPJANG_CD = (select  case nvl(a.head_credit_yn, 'N') when 'Y' then to_number(a.main_upjang)
+                                           else          to_number(a.upjang     ) END 
+                                            from fms_upjangv a
+                                               , (select *
+                                                    from fms_upjangv
+                                                   where 1=1
+                                                     and main_upjang = upjang
+                                                 ) b
+                                           where (1=1)
+                                             and a.main_upjang = b.main_upjang
+                                             and a.upjang      = to_number(:upjang)
+                                             and a.use_yn      = 'Y')
+                           AND M.RECD_STATUS = 'L'
+                           AND M.SYS_CLASS = '13'
+                           AND R.RECEIVE_TYPE_CD NOT IN ('B10')     -- 선수금 제외
+                           AND C.HEAD_CREDIT_YN = 'Y'
+                           AND D.ACCT_CD NOT IN ('11202010')  --대체된 금액은 입금반영이 되지 않도록함
+                       ) X
+                 GROUP BY X.MAIN_UPJANG
+               ) R
+      
+       ON TO_NUMBER(R.MAIN_UPJANG) = A.UPJANG
+		
+		
+	]]></statement>
+	
+    <!-- 업장에 대한 본사여신 -->
+    <statement name="selectMainUpjangCredit_old" type="select"><![CDATA[
+
+SELECT A.CREDIT_AMOUNT --업장에 대한 본사여신
+     , A.CREDIT_AVAIL_AMT
+     , A.RECEIVE_AMT
+     , CASE WHEN A.BANK_ACCT_NO IS NOT NULL THEN SUBSTR(A.BANK_ACCT_NO, 1 , 3) || '-' ||
+           SUBSTR(A.BANK_ACCT_NO, 4 , 6) || '-' ||
+           SUBSTR(A.BANK_ACCT_NO, 10, 2) || '-' ||
+           SUBSTR(A.BANK_ACCT_NO, 12)
+        ELSE NULL
+       END AS BANK_ACCT_NO
+     , A.BANK_NAME
+     , A.BANK_ACCT_NM   
+     , A.GANAP_BANK_NM
+     , A.GANAP_BANK_ACCT_NO
+     , A.GANAP_BANK_ACCT_NAME
+     , A.GANAP_CREDIT_YN
+	 , A.GANAP_BANK_YN
+  FROM (
+         SELECT /*+ optimizer_features_enable('10.2.0.5') */
+                CASE WHEN :schNeedDate BETWEEN NVL(A.CREDIT_START,'00000000') AND NVL(A.CREDIT_END,'99999999') 
+                     THEN NVL(A.CREDIT_AMOUNT,0) ELSE 0 END AS CREDIT_AMOUNT /* 여신_책정금액 */
+              , CASE WHEN :schNeedDate BETWEEN NVL(A.CREDIT_START,'00000000') AND NVL(A.CREDIT_END,'99999999') 
+                     THEN NVL(A.CREDIT_AMOUNT,0) ELSE 0 END - NVL(C0.RMN_AMT,0) + NVL(C1.PRE_AMT,0) - NVL(D.TR_AMT,0) - NVL(E.PO_AMT,0) - NVL(F.PR_AMT,0) 
+                        /*+ NVL(CASE WHEN NVL(A.CREDIT_OVER_END,'99999999') >= TO_CHAR(SYSDATE,'YYYYMMDD') THEN A.CREDIT_OVER_AMOUNT ELSE 0 END,0)*/ AS CREDIT_AVAIL_AMT /* 여신_발주가능액(임시여신은 계산미포함) */
+              , NVL(R.RECEIVE_AMT, 0) AS RECEIVE_AMT					/* 여신_당월입금액 */
+              , SCC_CRYPTO.DEC_FUN(K.BANK_ACCT_NO) AS BANK_ACCT_NO	/* 여신_가상계좌번호 */
+              , CASE WHEN K.BANK_ACCT_NO IS NULL THEN '' ELSE '우리은행' END AS BANK_NAME
+              , CASE WHEN K.BANK_ACCT_NO IS NULL THEN '' ELSE '푸디스트 주식회사' END AS BANK_ACCT_NM
+              , (SELECT G.CODE_NAME FROM SCC_COMMON_CODE G WHERE G.GROUP_CODE = 'FM0005' AND G.CODE = A.GANAP_BANK_CD) AS GANAP_BANK_NM
+              , SCC_CRYPTO.DEC_FUN(A.GANAP_BANK_ACCT_NO) AS GANAP_BANK_ACCT_NO
+              , A.GANAP_BANK_ACCT_NAME
+              , A.GANAP_CREDIT_YN
+              , A.GANAP_BANK_YN
+          FROM FMS_UPJANG A
+             , FMS_UPJANG A1
+               /************************************************************************
+                C.외상잔액정보 - 사용안함
+               **************************************************************************/
+             , (SELECT B.MAIN_UPJANG
+                     , MIN(M.OCCUR_DATE) AS L_BILL_DATE
+                     , SUM(NVL(M.AR_AMT,0) - NVL(D.RECEIVE_AMT,0)) AS RMN_AMT
+                  FROM SLA_AR_MST M
+				     , SLA_AR_RECEIVE_DETAIL D
+				     , FMS_UPJANG B
+                 WHERE M.AR_NUM = D.AR_NUM
+                   AND M.UPJANG_CD = B.UPJANG
+                   AND M.SYS_CLASS = '13'
+                   AND M.RECD_STATUS = 'L'
+                   AND M.OCCUR_DATE <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   AND D.RECD_STATUS = 'L'
+                   AND D.RECEIVE_DATE <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   AND NVL(M.AR_AMT,0) - NVL(D.RECEIVE_AMT,0) > 0  /*  채권잔액이 있는 자료 기준 */
+                   <#if sUpjangList?has_content>
+                   AND M.UPJANG_CD IN ${sUpjangList}
+                   <#else>
+                   AND M.UPJANG_CD  IN (SELECT UPJANG
+                                          FROM FMS_UPJANG
+                                         WHERE MAIN_UPJANG = :mainUpjang
+                                           AND HEAD_CREDIT_YN = 'Y')
+                   </#if>
+                   AND B.HEAD_CREDIT_YN = 'Y'
+                 GROUP BY B.MAIN_UPJANG
+               ) C
+               /************************************************************************
+                R. 입금금액
+               **************************************************************************/
+             , (
+                SELECT X.MAIN_UPJANG
+                     , NVL(SUM(X.AMT), 0) AS RECEIVE_AMT
+                  FROM (
+                        SELECT /* 가상입금계죄 */
+                               C.MAIN_UPJANG AS MAIN_UPJANG
+                             , NVL(A.RECEIVE_AMT,0) AS AMT
+                          FROM SLA_SAP_SUSPENSE_INFO A
+                             , SLA_SAP_BANK_ACCT_NO B
+                             , FMS_UPJANG C
+                         WHERE A.BANK_ACCT_NO = B.BANK_ACCT_NO
+                           AND B.UPJANG_CD = C.UPJANG
+                           AND A.RECD_STATUS = 'L'
+                           AND A.RECEIVE_DATE BETWEEN SUBSTR(TO_CHAR(SYSDATE,'YYYYMM'),1,6)||'01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                           <#if sUpjangList?has_content>
+                           AND B.UPJANG_CD IN ${sUpjangList}
+                           <#else>
+                           AND B.UPJANG_CD  IN (SELECT UPJANG
+                                                  FROM FMS_UPJANG
+                                                 WHERE MAIN_UPJANG = :mainUpjang
+                                                   AND HEAD_CREDIT_YN = 'Y')
+                           </#if>
+                           AND B.BANK_ACCT_TYPE = 'V'
+                           AND C.HEAD_CREDIT_YN = 'Y'
+                         UNION ALL
+                        SELECT /* 수기입금 */
+                               M.UPJANG_CD AS UPJANG
+                             , NVL(D.RECEIVE_AMT,0) AS AMT
+                          FROM SLA_AR_RECEIVE_DETAIL D
+                             , SLA_AR_MST M
+                             , SLA_AR_RECEIVE_MST R
+                             , FMS_UPJANG C
+                         WHERE D.AR_NUM = M.AR_NUM
+                           AND D.RECEIVE_NUM = R.RECEIVE_NUM
+                           AND M.UPJANG_CD = C.UPJANG
+                           AND D.RECD_STATUS = 'L'
+                           AND D.RECEIVE_DATE BETWEEN SUBSTR(TO_CHAR(SYSDATE,'YYYYMM'),1,6)||'01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                           AND R.RECEIVE_TYPE_CD NOT IN ('B07','B16')  --이성훈 채권이관건 제거
+                           <#if sUpjangList?has_content>
+                           AND M.UPJANG_CD IN ${sUpjangList}
+                           <#else>
+                           AND M.UPJANG_CD  IN (SELECT UPJANG
+                                                  FROM FMS_UPJANG
+                                                 WHERE MAIN_UPJANG = :mainUpjang
+                                                   AND HEAD_CREDIT_YN = 'Y')
+                           </#if>
+                           AND M.RECD_STATUS = 'L'
+                           AND M.SYS_CLASS = '13'
+                           AND R.RECEIVE_TYPE_CD NOT IN ('B10')     -- 선수금 제외
+                           AND C.HEAD_CREDIT_YN = 'Y'
+                           AND D.ACCT_CD NOT IN ('11202010')  --대체된 금액은 입금반영이 되지 않도록함
+                       ) X
+                 GROUP BY X.MAIN_UPJANG
+               ) R
+               /************************************************************************ 
+                C0.외상잔액정보 
+               **************************************************************************/ 
+             , (SELECT T.MAIN_UPJANG 
+                     , SUM(NVL(T.AR_AMT,0) - NVL(T.RECEIVE_AMT,0)) AS RMN_AMT 
+                  FROM (SELECT B.MAIN_UPJANG 
+                             , NVL(M.AR_AMT, 0) AS AR_AMT 
+                             , (SELECT NVL(SUM(D.RECEIVE_AMT),0) 
+                                  FROM SLA_AR_RECEIVE_DETAIL D 
+                                 WHERE D.RECD_STATUS  = 'L' 
+                                   AND D.RECEIVE_DATE <= :schNeedDate
+                                   AND D.AR_NUM = M.AR_NUM) AS RECEIVE_AMT 
+                          FROM SLA_AR_MST M
+                             , FMS_UPJANG B 
+                         WHERE M.UPJANG_CD = B.UPJANG
+                           AND M.SYS_CLASS = '13' 
+                           AND M.RECD_STATUS = 'L' 
+                           AND M.OCCUR_DATE <= :schNeedDate
+                           <#if sUpjangList?has_content>
+                           AND M.UPJANG_CD IN ${sUpjangList}
+                           <#else>
+                           AND M.UPJANG_CD  IN (SELECT UPJANG
+                                                  FROM FMS_UPJANG
+                                                 WHERE MAIN_UPJANG = :mainUpjang
+                                                   AND HEAD_CREDIT_YN = 'Y')
+                           </#if>
+                           AND B.HEAD_CREDIT_YN = 'Y'
+                       ) T 
+                 GROUP BY T.MAIN_UPJANG 
+               ) C0
+               /************************************************************************
+                C1.선수잔액정보
+               **************************************************************************/
+             , (
+                SELECT S.MAIN_UPJANG
+                     , MIN(S.OCCUR_DATE) AS L_BILL_DATE
+                     , SUM(NVL(S.OCCUR_AMT,0) - NVL(S.APPLY_AMT,0)) AS PRE_AMT
+                  FROM (
+                        SELECT B.MAIN_UPJANG
+                             , M.OCCUR_DATE
+                             , NVL(M.OCCUR_AMT,0) AS OCCUR_AMT
+                             , (SELECT NVL(SUM(D.APPLY_AMT),0)
+                                  FROM SLA_ADVANCE_ALT_DETAIL D
+                                 WHERE D.RECD_STATUS  = 'L'
+                                   AND D.ALT_DATE <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+                                   AND D.ADVANCE_NUM = M.ADVANCE_NUM) AS APPLY_AMT
+                          FROM SLA_ADVANCE_MST M
+                             , FMS_UPJANG B
+                         WHERE M.UPJANG_CD = B.UPJANG
+                           AND M.SYS_CLASS = '13'
+                           AND M.RECD_STATUS = 'L'
+                           AND M.OCCUR_DATE <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+                           <#if sUpjangList?has_content>
+                           AND M.UPJANG_CD IN ${sUpjangList}
+                           <#else>
+                           AND M.UPJANG_CD  IN (SELECT UPJANG
+                                                  FROM FMS_UPJANG
+                                                 WHERE MAIN_UPJANG = :mainUpjang
+                                                   AND HEAD_CREDIT_YN = 'Y')
+                           </#if>
+                           AND B.HEAD_CREDIT_YN = 'Y'
+                       ) S
+                GROUP BY S.MAIN_UPJANG
+               ) C1
+               /************************************************************************
+                D.당월 미매출마감된 검수금액
+               **************************************************************************/
+            , (
+                SELECT X.MAIN_UPJANG
+                     , SUM(X.TR_AMT) AS TR_AMT
+                  FROM (
+                        /* D2. 식재매출집계(FMS_SALES)의 최종마감일자 이후에서 기준일자 까지 */
+                        SELECT /*+ PUSH_PRED(A) */
+                               C.MAIN_UPJANG
+                             , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(DECODE(A.TAX_CODE,'100',1.1,1) * ROUND(A.SALE_PRICE * A.TRANS_QTY))) AS TR_AMT
+                          FROM (
+                                                SELECT DT.MG_NO AS TRANS_ID,  /* 자재수불번호 */
+                                                       CASE
+                                                         WHEN SUBSTR(DT.MOVEMENT_TYP,0,2)='25' THEN 'FO'
+                                                         WHEN DT.PROC_TYP_CD IS NULL AND DT.IVT_INSP_NO IS NOT NULL THEN '재고조정'
+                                                         WHEN DT.PROC_TYP_CD IS NULL AND DT.IVT_INSP_NO IS NULL THEN 'INV'
+                                                         ELSE 'PO'
+                                                       END AS SOURCE_TYPE,  /* FO, PO, INV, 재고조정 */
+                                                       SL.CUST_GR_DATE AS TRANS_DATE,  /* 판매일자 */
+                                                       DT.MG_DATE AS MG_DATE,  /* 수불일자*/
+                                                       CASE
+                                                         WHEN SUBSTR(DT.MOVEMENT_TYP,0,1) = '3' AND DT.GR_QTY IS NULL THEN 'O002'         /* 재고이동 - 이동출고   */
+                                                         WHEN SUBSTR(DT.MOVEMENT_TYP,0,1) = '3' AND DT.GR_QTY IS NOT NULL THEN 'I002'      /*재고이동 - 이동입고  */
+                                                         WHEN DT.MOVEMENT_TYP = '251'OR DT.MOVEMENT_TYP = '252' THEN 'O001'      /* POS 매출 유형  */
+                                                         WHEN DT.MOVEMENT_TYP = '701' OR DT.MOVEMENT_TYP = '702' THEN 'O004'      /* 재고실사 */
+                                                         ELSE 'I001'
+                                                       END AS TRANS_TYPE,
+                                                      CASE
+                                                         WHEN MOD(TO_NUMBER(DT.MOVEMENT_TYP),2)=0 AND DT.PROC_TYP_CD IS NOT NULL THEN DECODE(DT.GR_QTY,NULL,DT.GI_PURC_QTY*-1,DT.GR_PURC_QTY*-1)
+                                                         WHEN MOD(TO_NUMBER(DT.MOVEMENT_TYP),2)=1 AND DT.PROC_TYP_CD IS NOT NULL THEN DECODE(DT.GR_QTY,NULL,DT.GI_PURC_QTY,DT.GR_PURC_QTY)
+                                                         WHEN MOD(TO_NUMBER(DT.MOVEMENT_TYP),2)=0 AND DT.PROC_TYP_CD IS NULL THEN DECODE(DT.GR_QTY,NULL,DT.GI_QTY*-1,DT.GR_QTY*-1)
+                                                         WHEN MOD(TO_NUMBER(DT.MOVEMENT_TYP),2)=1 AND DT.PROC_TYP_CD IS NULL THEN DECODE(DT.GR_QTY,NULL,DT.GI_QTY,DT.GR_QTY)
+                                                       END AS TRANS_QTY,             /* 수량 */
+                                                       SL.SHOP_CD AS TRANS_UPJANG,    /* 업장코드 */
+                                                       SL.CUST_WH_CD AS SUBINV_CODE,     /* 창고코드*/
+                                                       DECODE(MT.ACC_TAX_CD,'1','100','3','210','220') AS TAX_CODE,             /* 과면세 코드 */
+                                                       SL.SAL_PRICE AS SALE_PRICE                               /* 외부판매단가 */
+                                                 FROM EPROCUSR.ESIMGHD HD,                                                /* 수불헤더*/
+                                                      EPROCUSR.ESIMGDT DT,                                               /* 수불상세 */
+                                                      EPROCUSR.ESPPODT PO,                                              /* 발주 상세 */
+                                                      EPROCUSR.ESPPOHD PH,                                              /* 발주 헤더 */
+                                                      EPROCUSR.ESMMTGL MT,                                              /* 품목마스터 */
+                                                      EPROCUSR.ESISALP SL                                               /* 판매단가 */
+                                                WHERE HD.SYS_ID = '100'
+                                                  AND HD.COMP_CD = 'HFC'
+                                                  AND HD.BU_CD = '2000'
+                                                  AND HD.SYS_ID = DT.SYS_ID
+                                                  AND HD.COMP_CD = DT.COMP_CD
+                                                  AND HD.WH_CD = DT.WH_CD
+                                                  AND HD.ITEM_CD = DT.ITEM_CD
+                                                  AND DT.MOVEMENT_TYP NOT IN ('561','562','998','999','901','902','801','802','111','112','211','212')   /* 기초 , 기말 재고,배송입출고, 직송 가상입출고  제외 */
+                                                  AND DT.SYS_ID = PO.SYS_ID(+)
+                                                  AND DT.COMP_CD = PO.COMP_CD(+)
+                                                  AND DT.PO_NO = PO.PO_NO(+)
+                                                  AND DT.PO_LNO = PO.PO_LNO(+)
+                                                  AND DT.SYS_ID = PH.SYS_ID(+)
+                                                  AND DT.COMP_CD = PH.COMP_CD(+)
+                                                  AND DT.PO_NO = PH.PO_NO(+)
+                                                  AND DT.SYS_ID = MT.SYS_ID
+                                                  AND DT.ITEM_CD = MT.ITEM_CD
+                                                  AND DT.SYS_ID = SL.SYS_ID
+                                                  AND DT.COMP_CD = SL.COMP_CD
+                                                  AND DT.MG_NO = SL.MG_NO
+                                                  AND DT.STS <> 'D'
+                                                  AND SL.SHOP_CD IN (SELECT UPJANG FROM FMS_UPJANG WHERE MAIN_UPJANG = :mainUpjang AND HEAD_CREDIT_YN = 'Y' AND USE_YN = 'Y')
+                                                  AND DT.MG_DATE BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMM') || '01' AND :schNeedDate
+                                                UNION ALL
+                                                   SELECT B.TRANS_ID,
+                                                          B.SOURCE_TYPE ,
+                                                          B.TRANS_DATE,
+                                                          B.TRANS_DATE AS MG_DATE,
+                                                          B.TRANS_TYPE,
+                                                          B.TRANS_QTY,
+                                                          TO_CHAR (B.TRANS_UPJANG) AS TRANS_UPJANG,
+                                                          B.SUBINV_CODE,
+                                                          B.TAX_CODE,
+                                                          B.SALE_PRICE
+                                                     FROM FMS_TRANSACTION B
+                                                    WHERE B.TRANS_UPJANG IN (SELECT UPJANG FROM FMS_UPJANG WHERE MAIN_UPJANG = :mainUpjang AND HEAD_CREDIT_YN = 'Y' AND USE_YN = 'Y')
+                                                      AND B.TRANS_DATE BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMM') || '01' AND :schNeedDate
+                                                ) A
+                             , (SELECT UPJANG
+                                     , MAX(SALE_DATE) AS SALE_DATE
+                                  FROM FMS_SALES
+                                 WHERE SALE_DATE <= :schNeedDate
+                                   AND UPJANG IN (SELECT UPJANG FROM FMS_UPJANG WHERE MAIN_UPJANG = :mainUpjang AND HEAD_CREDIT_YN = 'Y' AND USE_YN = 'Y')
+                                   AND TRANS_YN = 'Y' /* 영업회계 마감대상 */
+                                 GROUP BY UPJANG) B
+                             , FMS_UPJANG C
+                         WHERE A.TRANS_UPJANG = B.UPJANG(+)
+                           AND A.TRANS_UPJANG = C.UPJANG
+                           /* 업장별 최종마감일자 이후 ~ 기준일자까지의 집계 : 만약 마감정보가 없으면 기준일자 대비 1개월 전부터 대입 */
+                           AND A.MG_DATE BETWEEN DECODE(B.SALE_DATE, NULL, GREATEST(TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMM') || '01', NVL(TO_CHAR(TO_DATE(B.SALE_DATE, 'YYYYMMDD')+1, 'YYYYMMDD'),' ')),  TO_CHAR(TO_DATE(B.SALE_DATE, 'YYYYMMDD')+1, 'YYYYMMDD')) AND :schNeedDate
+                           AND (A.TRANS_TYPE = 'I001' OR (A.TRANS_TYPE LIKE '_002' AND A.SOURCE_TYPE = 'PO'))
+                           AND C.UPJANG IN (SELECT UPJANG FROM FMS_UPJANG WHERE MAIN_UPJANG = :mainUpjang AND HEAD_CREDIT_YN = 'Y' AND USE_YN = 'Y')
+                           AND C.HEAD_CREDIT_YN = 'Y'
+                         GROUP BY C.MAIN_UPJANG
+                       ) X
+                 GROUP BY X.MAIN_UPJANG
+               ) D
+               /************************************************************************
+                E.당월 미검수 발주금액
+               **************************************************************************/
+             , (
+                /* PW(발주진행), PC(발주완료), DL(배송중) 만 집계 */
+                /* CENTER_DELI_QTY(센터입고수량), DIRECT_DELI_QTY(직송수량), DELIVERED_QTY(업장입고수량-센터출고), UNDELIVERED_QTY(센터미입고수량) */
+                SELECT /*+ PUSH_PRED(A) */
+                       B.MAIN_UPJANG
+                     , SUM(ROUND(DECODE(A.TAX_CODE,'100',1.1,1) * ROUND((A.CENTER_DELI_QTY + A.DIRECT_DELI_QTY - A.DELIVERED_QTY - A.UNDELIVERED_QTY) * A.SALE_PRICE))) AS PO_AMT
+                  FROM (
+                        SELECT
+                               SAL.SHOP_CD              AS RC_UPJANG   -- 입고업장 코드
+                             , CASE
+                                 WHEN PODT.DUTY_FREE_YN ='1' THEN '100'
+                                 WHEN PODT.DUTY_FREE_YN ='3' THEN '210'
+                                 WHEN PODT.DUTY_FREE_YN ='2' THEN '220'
+                               END  AS TAX_CODE   -- 과세구분코드
+                             , PODT.PR_QTY              AS PR_QTY      -- 신청 수량
+                             , PODT.ITEM_QTY            AS PO_QTY      -- 발수 수량
+                             , CASE WHEN PODT.PROC_TYP_CD IN('DC', 'TC') THEN PODT.ITEM_QTY ELSE 0 END  AS CENTER_DELI_QTY  -- 센터입고수량
+                             , 0  AS CENTER_UNDELI_QTY             -- 센터미입고 수량
+                             , CASE PODT.PROC_TYP_CD WHEN 'VC' THEN PODT.ITEM_QTY ELSE 0 END  AS DIRECT_DELI_QTY  -- 직송 수량
+                             , CASE PODT.PROC_TYP_CD WHEN 'VC' THEN NVL(PODT.GR_QTY,0) ELSE NVL(PODT.GR_QTY_WMS,0) END  AS DELIVERED_QTY    --업장입고수량(센터출고)
+                            , CASE
+                                 WHEN PODT.PO_COMP_YN='Y' OR PODT.GR_COMP_YN='Y' THEN NVL(PODT.ITEM_QTY,0) - NVL(PODT.GR_QTY,0) -- 입고완료
+                                 ELSE 0
+                               END AS UNDELIVERED_QTY -- 감량수량
+                             , PODT.RTN_QTY AS RETURNED_QTY -- 반품수량
+                             , SAL.CUST_GR_DATE                AS NEED_DATE -- 입고희망일자
+                             , NVL(CASE WHEN POHD.PO_TYP = 'BP' THEN
+                                     CASE
+                                       WHEN PODT.GR_COMP_YN='N' AND POHD.APRV_STS = 'T'         THEN 'RW' --통합영업에서 뷰 불가
+                                       WHEN PODT.GR_COMP_YN='N' AND POHD.APRV_STS = 'P'         THEN 'PW'
+                                       WHEN PODT.GR_COMP_YN='N' AND POHD.APRV_STS IN ('R', 'W') THEN 'PD'
+                                       WHEN PODT.GR_COMP_YN='N' AND POHD.APRV_STS = 'B'         THEN 'PD'
+                                       WHEN PODT.GR_COMP_YN='Y' AND POHD.APRV_STS = 'B'         THEN 'GC'
+                                       WHEN PODT.GR_COMP_YN='Y' AND POHD.APRV_STS IN ('C', 'K') THEN 'GC'
+                                     END
+                                  ELSE DECODE(PODT.GR_COMP_YN, 'Y', 'GC', NVL(PRDT.PR_PROG_STS,'PC'))
+                               END,'PC') AS LINE_STATUS  -- 라인 상태 코드
+                             , NVL(SAL.SAL_PRICE,0)      AS SALE_PRICE -- 판매 단가
+                          FROM EPROCUSR.ESPPOHD POHD   -- PO 헤더
+                             , EPROCUSR.ESPPODT PODT   -- PO 상세(품목)
+                             , EPROCUSR.ESMMTGL MTGL   -- 자재마스터
+                             , EPROCUSR.ESPPODTSAL SAL -- 판매단가정보[통합영업]
+                             , EPROCUSR.ESPPRDT PRDT   -- PR 상세(품목)
+                         WHERE PODT.SYS_ID  = POHD.SYS_ID(+)
+                           AND PODT.COMP_CD = POHD.COMP_CD (+)
+                           AND PODT.PO_NO   = POHD.PO_NO(+)
+                           AND PODT.SYS_ID  = SAL.SYS_ID(+)
+                           AND PODT.COMP_CD = SAL.COMP_CD(+)
+                           AND PODT.PO_NO   = SAL.PO_NO(+)
+                           AND PODT.PO_LNO  = SAL.PO_LNO(+)
+                           AND PODT.SYS_ID  = MTGL.SYS_ID
+                           AND PODT.ITEM_CD = MTGL.ITEM_CD
+                           AND PODT.PR_NO   = PRDT.PR_NO(+)
+                           AND PODT.PR_LNO  = PRDT.PR_LNO(+)
+                           AND PODT.SYS_ID  = PRDT.SYS_ID(+)
+                           AND PODT.COMP_CD = PRDT.COMP_CD(+)
+                           AND PODT.SYS_ID  = '100'
+                           AND PODT.COMP_CD = 'HFC'
+                           AND PODT.SHOP_TYP_CD = '02'
+                           AND PODT.STS    <> 'D'
+                           AND POHD.PO_TYP IN ('UP','BP')
+                           and SAL.CUST_GR_DATE between to_char(add_months(sysdate,-1),'yyyymm') || '01' and :schNeedDate
+                           and SAL.SHOP_CD IN (SELECT UPJANG FROM FMS_UPJANG WHERE MAIN_UPJANG = :mainUpjang AND HEAD_CREDIT_YN = 'Y' AND USE_YN = 'Y')
+                           and NVL(CASE WHEN POHD.PO_TYP = 'BP' THEN
+                                     CASE
+                                       WHEN PODT.GR_COMP_YN='N' AND POHD.APRV_STS = 'T'         THEN 'RW' --통합영업에서 뷰 불가
+                                       WHEN PODT.GR_COMP_YN='N' AND POHD.APRV_STS = 'P'         THEN 'PW'
+                                       WHEN PODT.GR_COMP_YN='N' AND POHD.APRV_STS IN ('R', 'W') THEN 'PD'
+                                       WHEN PODT.GR_COMP_YN='N' AND POHD.APRV_STS = 'B'         THEN 'PD'
+                                       WHEN PODT.GR_COMP_YN='Y' AND POHD.APRV_STS = 'B'         THEN 'GC'
+                                       WHEN PODT.GR_COMP_YN='Y' AND POHD.APRV_STS IN ('C', 'K') THEN 'GC'
+                                     END
+                                  ELSE DECODE(PODT.GR_COMP_YN, 'Y', 'GC', NVL(PRDT.PR_PROG_STS,'PC'))
+                               END,'PC') IN ('PW', 'PC', 'DL')
+                        ) A
+                     , FMS_UPJANG B
+                 WHERE A.RC_UPJANG = B.UPJANG
+                   AND A.NEED_DATE <= :schNeedDate
+                   --AND A.LINE_STATUS IN ('PW', 'PC', 'DL')
+                   AND B.UPJANG IN (SELECT UPJANG FROM FMS_UPJANG WHERE MAIN_UPJANG = :mainUpjang AND HEAD_CREDIT_YN = 'Y' AND USE_YN = 'Y')
+                   AND B.HEAD_CREDIT_YN = 'Y'
+                 GROUP BY B.MAIN_UPJANG
+               ) E 
+               /************************************************************************
+                F.당월 미발주 주문금액
+               **************************************************************************/
+             , (
+                SELECT B.MAIN_UPJANG
+                     , SUM(ROUND(DECODE(A.TAX_CODE,'100',1.1,1) * ROUND(A.PR_QTY * A.SALE_PRICE))) AS PR_AMT
+                  FROM SO_PR A
+                     , FMS_UPJANG B
+                 WHERE A.RC_UPJANG = B.UPJANG
+                   AND A.NEED_DATE <= :schNeedDate
+                   <#if sUpjangList?has_content>
+                   AND A.RC_UPJANG IN ${sUpjangList}
+                   <#else>
+                   AND A.RC_UPJANG IN (SELECT UPJANG
+                                         FROM FMS_UPJANG
+                                        WHERE MAIN_UPJANG = :mainUpjang
+                                          AND HEAD_CREDIT_YN = 'Y')
+                   </#if>
+                   AND A.LINE_STATUS = '001' /* 진행상태 : 001(신청저장) */
+                   AND B.HEAD_CREDIT_YN = 'Y'
+                 GROUP BY B.MAIN_UPJANG
+               ) F
+             , (
+                SELECT *
+                  FROM SLA_SAP_BANK_ACCT_NO
+                 WHERE BANK_ACCT_TYPE = 'V'
+                   AND UPJANG_CD = :mainUpjang
+                   AND ROWNUM <= 1	/* TEST DATA 관계로  1개이상 존재함 */
+               ) K
+         WHERE A1.MAIN_UPJANG = A.UPJANG
+           AND A.UPJANG = C.MAIN_UPJANG(+)
+           AND A.UPJANG = R.MAIN_UPJANG(+)
+           AND A.UPJANG = C0.MAIN_UPJANG(+)
+           AND A.UPJANG = C1.MAIN_UPJANG(+)
+           AND A.UPJANG = D.MAIN_UPJANG(+)
+           AND A.UPJANG = E.MAIN_UPJANG(+)
+           AND A.UPJANG = F.MAIN_UPJANG(+)
+           AND A.UPJANG = K.UPJANG_CD(+)
+           AND A1.MAIN_UPJANG = :mainUpjang
+           AND A1.UPJANG = :upjang
+           AND A1.HEAD_CREDIT_YN = 'Y'
+           AND A1.USE_YN = 'Y'
+           AND A.CREDIT_CONTROL_YN = 'Y'
+           AND (A.CREDIT_TURN_CONTROL_YN = 'Y' OR A.CREDIT_AMOUNT_CONTROL_YN = 'Y')
+        ) A
+
+        ]]></statement>
+        
+    <!-- 업장에 대한 본사여신 백업 20160503 박용대  -->
+    <statement name="selectMainUpjangCreditTemp" type="select"><![CDATA[
+
+SELECT A.CREDIT_AMOUNT
+     , A.CREDIT_AVAIL_AMT
+     , A.RECEIVE_AMT
+     , CASE WHEN A.BANK_ACCT_NO IS NOT NULL THEN SUBSTR(A.BANK_ACCT_NO, 1 , 3) || '-' ||
+           SUBSTR(A.BANK_ACCT_NO, 4 , 6) || '-' ||
+           SUBSTR(A.BANK_ACCT_NO, 10, 2) || '-' ||
+           SUBSTR(A.BANK_ACCT_NO, 12)
+        ELSE NULL
+       END AS BANK_ACCT_NO
+     , A.BANK_NAME
+     , A.BANK_ACCT_NM
+  FROM (
+         SELECT /*+ optimizer_features_enable('10.2.0.5') */
+                CASE WHEN :schNeedDate BETWEEN NVL(A.CREDIT_START,'00000000') AND NVL(A.CREDIT_END,'99999999') 
+                     THEN NVL(A.CREDIT_AMOUNT,0) ELSE 0 END AS CREDIT_AMOUNT /* 여신_책정금액 */
+              , CASE WHEN :schNeedDate BETWEEN NVL(A.CREDIT_START,'00000000') AND NVL(A.CREDIT_END,'99999999') 
+                     THEN NVL(A.CREDIT_AMOUNT,0) ELSE 0 END - NVL(C0.RMN_AMT,0) + NVL(C1.PRE_AMT,0) - NVL(D.TR_AMT,0) - NVL(E.PO_AMT,0) - NVL(F.PR_AMT,0) 
+                        + NVL(CASE WHEN NVL(A.CREDIT_OVER_END,'99999999') >= TO_CHAR(SYSDATE,'YYYYMMDD') THEN A.CREDIT_OVER_AMOUNT ELSE 0 END,0) AS CREDIT_AVAIL_AMT /* 여신_발주가능액 */
+              , NVL(R.RECEIVE_AMT, 0) AS RECEIVE_AMT					/* 여신_당월입금액 */
+              , SCC_CRYPTO.DEC_FUN(K.BANK_ACCT_NO) AS BANK_ACCT_NO	/* 여신_가상계좌번호 */
+              , CASE WHEN K.BANK_ACCT_NO IS NULL THEN '' ELSE '우리은행' END AS BANK_NAME
+              , CASE WHEN K.BANK_ACCT_NO IS NULL THEN '' ELSE '푸디스트 주식회사' END AS BANK_ACCT_NM
+          FROM FMS_UPJANG A
+             , FMS_UPJANG A1
+               /************************************************************************
+                C.외상잔액정보 - 사용안함
+               **************************************************************************/
+             , (SELECT B.MAIN_UPJANG
+                     , MIN(M.OCCUR_DATE) AS L_BILL_DATE
+                     , SUM(NVL(M.AR_AMT,0) - NVL(D.RECEIVE_AMT,0)) AS RMN_AMT
+                  FROM SLA_AR_MST M
+				     , SLA_AR_RECEIVE_DETAIL D
+				     , FMS_UPJANG B
+                 WHERE M.AR_NUM = D.AR_NUM
+                   AND M.UPJANG_CD = B.UPJANG
+                   AND M.SYS_CLASS = '13'
+                   AND M.RECD_STATUS = 'L'
+                   AND M.OCCUR_DATE <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   AND D.RECD_STATUS = 'L'
+                   AND D.RECEIVE_DATE <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   AND NVL(M.AR_AMT,0) - NVL(D.RECEIVE_AMT,0) > 0  /*  채권잔액이 있는 자료 기준 */
+                   <#if sUpjangList?has_content>
+                   AND M.UPJANG_CD IN ${sUpjangList}
+                   <#else>
+                   AND M.UPJANG_CD  IN (SELECT UPJANG
+                                          FROM FMS_UPJANG
+                                         WHERE MAIN_UPJANG = :mainUpjang
+                                           AND HEAD_CREDIT_YN = 'Y')
+                   </#if>
+                   AND B.HEAD_CREDIT_YN = 'Y'
+                 GROUP BY B.MAIN_UPJANG
+               ) C
+               /************************************************************************
+                R. 입금금액
+               **************************************************************************/
+             , (
+                SELECT X.MAIN_UPJANG
+                     , NVL(SUM(X.AMT), 0) AS RECEIVE_AMT
+                  FROM (
+                        SELECT /* 가상입금계죄 */
+                               C.MAIN_UPJANG AS MAIN_UPJANG
+                             , NVL(A.RECEIVE_AMT,0) AS AMT
+                          FROM SLA_SAP_SUSPENSE_INFO A
+                             , SLA_SAP_BANK_ACCT_NO B
+                             , FMS_UPJANG C
+                         WHERE A.BANK_ACCT_NO = B.BANK_ACCT_NO
+                           AND B.UPJANG_CD = C.UPJANG
+                           AND A.RECD_STATUS = 'L'
+                           AND A.RECEIVE_DATE BETWEEN SUBSTR(TO_CHAR(SYSDATE,'YYYYMM'),1,6)||'01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                           <#if sUpjangList?has_content>
+                           AND B.UPJANG_CD IN ${sUpjangList}
+                           <#else>
+                           AND B.UPJANG_CD  IN (SELECT UPJANG
+                                                  FROM FMS_UPJANG
+                                                 WHERE MAIN_UPJANG = :mainUpjang
+                                                   AND HEAD_CREDIT_YN = 'Y')
+                           </#if>
+                           AND B.BANK_ACCT_TYPE = 'V'
+                           AND C.HEAD_CREDIT_YN = 'Y'
+                         UNION ALL
+                        SELECT /* 수기입금 */
+                               M.UPJANG_CD AS UPJANG
+                             , NVL(D.RECEIVE_AMT,0) AS AMT
+                          FROM SLA_AR_RECEIVE_DETAIL D
+                             , SLA_AR_MST M
+                             , SLA_AR_RECEIVE_MST R
+                             , FMS_UPJANG C
+                         WHERE D.AR_NUM = M.AR_NUM
+                           AND D.RECEIVE_NUM = R.RECEIVE_NUM
+                           AND M.UPJANG_CD = C.UPJANG
+                           AND D.RECD_STATUS = 'L'
+                           AND D.RECEIVE_DATE BETWEEN SUBSTR(TO_CHAR(SYSDATE,'YYYYMM'),1,6)||'01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                           <#if sUpjangList?has_content>
+                           AND M.UPJANG_CD IN ${sUpjangList}
+                           <#else>
+                           AND M.UPJANG_CD  IN (SELECT UPJANG
+                                                  FROM FMS_UPJANG
+                                                 WHERE MAIN_UPJANG = :mainUpjang
+                                                   AND HEAD_CREDIT_YN = 'Y')
+                           </#if>
+                           AND M.RECD_STATUS = 'L'
+                           AND M.SYS_CLASS = '13'
+                           AND R.RECEIVE_TYPE_CD NOT IN ('B10')     -- 선수금 제외
+                           AND C.HEAD_CREDIT_YN = 'Y'
+                       ) X
+                 GROUP BY X.MAIN_UPJANG
+               ) R
+               /************************************************************************ 
+                C0.외상잔액정보 
+               **************************************************************************/ 
+             , (SELECT T.MAIN_UPJANG 
+                     , SUM(NVL(T.AR_AMT,0) - NVL(T.RECEIVE_AMT,0)) AS RMN_AMT 
+                  FROM (SELECT B.MAIN_UPJANG 
+                             , NVL(M.AR_AMT, 0) AS AR_AMT 
+                             , (SELECT NVL(SUM(D.RECEIVE_AMT),0) 
+                                  FROM SLA_AR_RECEIVE_DETAIL D 
+                                 WHERE D.RECD_STATUS  = 'L' 
+                                   AND D.RECEIVE_DATE <= :schNeedDate
+                                   AND D.AR_NUM = M.AR_NUM) AS RECEIVE_AMT 
+                          FROM SLA_AR_MST M
+                             , FMS_UPJANG B 
+                         WHERE M.UPJANG_CD = B.UPJANG
+                           AND M.SYS_CLASS = '13' 
+                           AND M.RECD_STATUS = 'L' 
+                           AND M.OCCUR_DATE <= :schNeedDate
+                           <#if sUpjangList?has_content>
+                           AND M.UPJANG_CD IN ${sUpjangList}
+                           <#else>
+                           AND M.UPJANG_CD  IN (SELECT UPJANG
+                                                  FROM FMS_UPJANG
+                                                 WHERE MAIN_UPJANG = :mainUpjang
+                                                   AND HEAD_CREDIT_YN = 'Y')
+                           </#if>
+                           AND B.HEAD_CREDIT_YN = 'Y'
+                       ) T 
+                 GROUP BY T.MAIN_UPJANG 
+               ) C0
+               /************************************************************************
+                C1.선수잔액정보
+               **************************************************************************/
+             , (
+                SELECT S.MAIN_UPJANG
+                     , MIN(S.OCCUR_DATE) AS L_BILL_DATE
+                     , SUM(NVL(S.OCCUR_AMT,0) - NVL(S.APPLY_AMT,0)) AS PRE_AMT
+                  FROM (
+                        SELECT B.MAIN_UPJANG
+                             , M.OCCUR_DATE
+                             , NVL(M.OCCUR_AMT,0) AS OCCUR_AMT
+                             , (SELECT NVL(SUM(D.APPLY_AMT),0)
+                                  FROM SLA_ADVANCE_ALT_DETAIL D
+                                 WHERE D.RECD_STATUS  = 'L'
+                                   AND D.ALT_DATE <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+                                   AND D.ADVANCE_NUM = M.ADVANCE_NUM) AS APPLY_AMT
+                          FROM SLA_ADVANCE_MST M
+                             , FMS_UPJANG B
+                         WHERE M.UPJANG_CD = B.UPJANG
+                           AND M.SYS_CLASS = '13'
+                           AND M.RECD_STATUS = 'L'
+                           AND M.OCCUR_DATE <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+                           <#if sUpjangList?has_content>
+                           AND M.UPJANG_CD IN ${sUpjangList}
+                           <#else>
+                           AND M.UPJANG_CD  IN (SELECT UPJANG
+                                                  FROM FMS_UPJANG
+                                                 WHERE MAIN_UPJANG = :mainUpjang
+                                                   AND HEAD_CREDIT_YN = 'Y')
+                           </#if>
+                           AND B.HEAD_CREDIT_YN = 'Y'
+                       ) S
+                GROUP BY S.MAIN_UPJANG
+               ) C1
+               /************************************************************************
+                D.당월 미매출마감된 검수금액
+               **************************************************************************/
+             , (
+                SELECT X.MAIN_UPJANG
+                     , SUM(X.TR_AMT) AS TR_AMT
+                  FROM (
+                        /* D2. 식재매출집계(FMS_SALES)의 최종마감일자 이후에서 기준일자 까지 */
+                        SELECT /*+ PUSH_PRED(A) */
+                               C.MAIN_UPJANG
+                             , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(DECODE(A.TAX_CODE,'100',1.1,1) * ROUND(A.SALE_PRICE * A.TRANS_QTY))) AS TR_AMT
+                          FROM FMS_TRANSACTION_V A
+                             , (SELECT UPJANG
+                                     , MAX(SALE_DATE) AS SALE_DATE
+                                  FROM FMS_SALES
+                                 WHERE SALE_DATE <= :schNeedDate
+                                   <#if sUpjangList?has_content>
+                                   AND UPJANG IN ${sUpjangList}
+                                   <#else>
+                                   AND UPJANG IN (SELECT UPJANG
+                                                    FROM FMS_UPJANG
+                                                   WHERE MAIN_UPJANG = :mainUpjang
+                                                     AND HEAD_CREDIT_YN = 'Y')
+                                   </#if>
+                                   AND TRANS_YN = 'Y' /* 영업회계 마감대상 */
+                                 GROUP BY UPJANG) B
+                             , FMS_UPJANG C
+                         WHERE A.TRANS_UPJANG = B.UPJANG(+)
+                           AND A.TRANS_UPJANG = C.UPJANG
+                           /* 업장별 최종마감일자 이후 ~ 기준일자까지의 집계 : 만약 마감정보가 없으면 기준일자 대비 1개월 전부터 대입 */
+                           AND A.MG_DATE <= :schNeedDate
+                           AND A.MG_DATE >= DECODE(B.SALE_DATE, NULL, GREATEST(TO_CHAR(ADD_MONTHS(TO_DATE(:schNeedDate, 'YYYYMMDD'), -1), 'YYYYMM') || '01', NVL(TO_CHAR(TO_DATE(B.SALE_DATE, 'YYYYMMDD')+1, 'YYYYMMDD'),' ')),  TO_CHAR(TO_DATE(B.SALE_DATE, 'YYYYMMDD')+1, 'YYYYMMDD'))
+                           AND (A.TRANS_TYPE = 'I001' OR (A.TRANS_TYPE LIKE '_002' AND A.SOURCE_TYPE = 'PO'))
+                           <#if sUpjangList?has_content>
+                           AND C.UPJANG IN ${sUpjangList}
+                           <#else>
+                           AND C.UPJANG IN (SELECT UPJANG
+                                              FROM FMS_UPJANG
+                                             WHERE MAIN_UPJANG = :mainUpjang
+                                               AND HEAD_CREDIT_YN = 'Y')
+                           </#if>
+                           AND C.HEAD_CREDIT_YN = 'Y'
+                         GROUP BY C.MAIN_UPJANG
+                       ) X
+                 GROUP BY X.MAIN_UPJANG
+               ) D
+               /************************************************************************
+                E.당월 미검수 발주금액
+               **************************************************************************/
+             , (
+                /* PW(발주진행), PC(발주완료), DL(배송중) 만 집계 */
+                /* CENTER_DELI_QTY(센터입고수량), DIRECT_DELI_QTY(직송수량), DELIVERED_QTY(업장입고수량-센터출고), UNDELIVERED_QTY(센터미입고수량) */
+                SELECT /*+ PUSH_PRED(A) */
+                       B.MAIN_UPJANG
+                     , SUM(ROUND(DECODE(A.TAX_CODE,'100',1.1,1) * ROUND((A.CENTER_DELI_QTY + A.DIRECT_DELI_QTY - A.DELIVERED_QTY - A.UNDELIVERED_QTY) * A.SALE_PRICE))) AS PO_AMT
+                  FROM HLDC_PO_PO A
+                     , FMS_UPJANG B
+                 WHERE A.RC_UPJANG = B.UPJANG
+                   AND A.NEED_DATE <= :schNeedDate
+                   AND A.LINE_STATUS IN ('PW', 'PC', 'DL')
+                   <#if sUpjangList?has_content>
+                   AND B.UPJANG IN ${sUpjangList}
+                   <#else>
+                   AND B.UPJANG IN (SELECT UPJANG
+                                      FROM FMS_UPJANG
+                                     WHERE MAIN_UPJANG = :mainUpjang
+                                       AND HEAD_CREDIT_YN = 'Y')
+                   </#if>
+                   AND B.HEAD_CREDIT_YN = 'Y'
+                 GROUP BY B.MAIN_UPJANG
+               ) E
+               /************************************************************************
+                F.당월 미발주 주문금액
+               **************************************************************************/
+             , (
+                SELECT B.MAIN_UPJANG
+                     , SUM(ROUND(DECODE(A.TAX_CODE,'100',1.1,1) * ROUND(A.PR_QTY * A.SALE_PRICE))) AS PR_AMT
+                  FROM SO_PR A
+                     , FMS_UPJANG B
+                 WHERE A.RC_UPJANG = B.UPJANG
+                   AND A.NEED_DATE <= :schNeedDate
+                   <#if sUpjangList?has_content>
+                   AND A.RC_UPJANG IN ${sUpjangList}
+                   <#else>
+                   AND A.RC_UPJANG IN (SELECT UPJANG
+                                         FROM FMS_UPJANG
+                                        WHERE MAIN_UPJANG = :mainUpjang
+                                          AND HEAD_CREDIT_YN = 'Y')
+                   </#if>
+                   AND A.LINE_STATUS = '001' /* 진행상태 : 001(신청저장) */
+                   AND B.HEAD_CREDIT_YN = 'Y'
+                 GROUP BY B.MAIN_UPJANG
+               ) F
+             , (
+                SELECT *
+                  FROM SLA_SAP_BANK_ACCT_NO
+                 WHERE BANK_ACCT_TYPE = 'V'
+                   AND UPJANG_CD = :mainUpjang
+                   AND ROWNUM <= 1	/* TEST DATA 관계로  1개이상 존재함 */
+               ) K
+         WHERE A1.MAIN_UPJANG = A.UPJANG
+           AND A.UPJANG = C.MAIN_UPJANG(+)
+           AND A.UPJANG = R.MAIN_UPJANG(+)
+           AND A.UPJANG = C0.MAIN_UPJANG(+)
+           AND A.UPJANG = C1.MAIN_UPJANG(+)
+           AND A.UPJANG = D.MAIN_UPJANG(+)
+           AND A.UPJANG = E.MAIN_UPJANG(+)
+           AND A.UPJANG = F.MAIN_UPJANG(+)
+           AND A.UPJANG = K.UPJANG_CD(+)
+           AND A1.MAIN_UPJANG = :mainUpjang
+           AND A1.UPJANG = :upjang
+           AND A1.HEAD_CREDIT_YN = 'Y'
+           AND A1.USE_YN = 'Y'
+           AND A.CREDIT_CONTROL_YN = 'Y'
+           AND (A.CREDIT_TURN_CONTROL_YN = 'Y' OR A.CREDIT_AMOUNT_CONTROL_YN = 'Y')
+        ) A
+
+        ]]></statement>
+        
+    <!-- 업장에 대한 여신 신규 20170821 김호석 -->
+    <statement name="selectUpjangCredit" type="select"><![CDATA[  
+      
+      /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectUpjangCredit */
+      
+	SELECT
+		  A.CREDIT_AMOUNT					/* 기본여신금액 */
+		, A.CREDIT_AVAIL_AMT				/* 실주문가능금액*/	
+     	, R.RECEIVE_AMT						/* 당월입금금액 */		
+		, CASE WHEN A.ACNTCD IS NOT NULL THEN SUBSTR(A.ACNTCD, 1 , 3) || '-' ||
+           SUBSTR(A.ACNTCD, 4 , 6) || '-' ||
+           SUBSTR(A.ACNTCD, 10, 2) || '-' ||
+           SUBSTR(A.ACNTCD, 12)
+	        ELSE NULL
+	       END AS BANK_ACCT_NO				/* 계좌정보*/
+		, CASE WHEN K.BANK_ACCT_NO IS NULL THEN '' ELSE '우리은행' END AS BANK_NAME
+        , CASE WHEN K.BANK_ACCT_NO IS NULL THEN '' ELSE '푸디스트 주식회사' END AS BANK_ACCT_NM
+		, (SELECT G.CODE_NAME FROM SCC_COMMON_CODE G WHERE G.GROUP_CODE = 'FM0005' AND G.CODE = A.GANAP_BANK_CD) AS GANAP_BANK_NM
+        , A.GANAP_BANK_ACCT_NO
+        , A.GANAP_BANK_ACCT_NAME
+        , A.GANAP_CREDIT_YN
+        , A.GANAP_BANK_YN
+
+		FROM TABLE(FCUS.FT_UPJANG_CREDIT_LIMIT(arg_schUpjang=> :upjang, arg_schNeedDate=> :schNeedDate)) A
+		 	LEFT OUTER JOIN (
+                SELECT *
+                  FROM SLA_SAP_BANK_ACCT_NO
+                 WHERE BANK_ACCT_TYPE = 'V'
+                   AND UPJANG_CD = TO_NUMBER(:upjang)
+                   AND ROWNUM <= 1	/* TEST DATA 관계로  1개이상 존재함 */
+               ) K ON TO_NUMBER(K.UPJANG_CD) = A.UPJANG  
+			 
+            --현재 월중에 마이그레이션하여 해당월의 입금금액을 가져올 수 없음 추후에 수정 가능 20170919 김호석   
+			--LEFT OUTER JOIN CREDITAMT_SUM_DTL B ON TO_NUMBER(B.UPJANG_CD) = A.UPJANG		
+			--기존 당월입금금액 가져오는 부분으로 수정
+			
+			 LEFT OUTER JOIN (
+                SELECT X.MAIN_UPJANG
+                     , NVL(SUM(X.AMT), 0) AS RECEIVE_AMT
+                  FROM (
+                        SELECT /* 가상입금계죄 */
+                              -- C.MAIN_UPJANG AS MAIN_UPJANG
+                               DECODE(C.head_credit_yn, 'Y', C.MAIN_UPJANG, C.UPJANG) AS MAIN_UPJANG
+                             , NVL(A.RECEIVE_AMT,0) AS AMT
+                          FROM SLA_SAP_SUSPENSE_INFO A
+                             , SLA_SAP_BANK_ACCT_NO B
+                             , FMS_UPJANG C
+                         WHERE A.BANK_ACCT_NO = B.BANK_ACCT_NO
+                           AND B.UPJANG_CD = C.UPJANG
+                           AND A.RECD_STATUS = 'L'
+                           AND A.RECEIVE_DATE BETWEEN SUBSTR(TO_CHAR(SYSDATE,'YYYYMM'),1,6)||'01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                     --    AND B.UPJANG_CD = (select  case nvl(a.head_credit_yn, 'N') when 'Y' then to_number(a.main_upjang)
+                     --                     else          to_number(a.upjang     ) END 
+                     --                      from fms_upjangv a
+                     --                         , (select *
+                     --                               from fms_upjangv
+                     --                              where 1=1
+                     --                                and main_upjang = upjang
+                     --                            ) b
+                     --                      where (1=1)
+                     --                        and a.main_upjang = b.main_upjang
+                     --                         and a.upjang      = to_number(:upjang)
+                     --                         and a.use_yn      = 'Y')
+                     AND B.UPJANG_CD = DECODE(C.head_credit_yn, 'Y',(SELECT MAIN_UPJANG FROM FMS_UPJANGV WHERE UPJANG =  to_number(:upjang)),  to_number(:upjang) )
+                           AND B.BANK_ACCT_TYPE = 'V'
+                          -- AND C.HEAD_CREDIT_YN = 'Y'
+                         UNION ALL
+                        SELECT /* 수기입금 */
+                               M.UPJANG_CD AS UPJANG
+                             , NVL(D.RECEIVE_AMT,0) AS AMT
+                          FROM SLA_AR_RECEIVE_DETAIL D
+                             , SLA_AR_MST M
+                             , SLA_AR_RECEIVE_MST R
+                             , FMS_UPJANG C
+                         WHERE D.AR_NUM = M.AR_NUM
+                           AND D.RECEIVE_NUM = R.RECEIVE_NUM
+                           AND M.UPJANG_CD = C.UPJANG
+                           AND D.RECD_STATUS = 'L'
+                           AND D.RECEIVE_DATE BETWEEN SUBSTR(TO_CHAR(SYSDATE,'YYYYMM'),1,6)||'01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                           AND R.RECEIVE_TYPE_CD NOT IN ('B07','B16')  --이성훈 채권이관건 제거
+                       --본사 통합이 아닌경우 금액 안나와서 수정 20171211 맹수영
+                       --     AND M.UPJANG_CD = (select  case nvl(a.head_credit_yn, 'N') when 'Y' then to_number(a.main_upjang)
+                       --                    else          to_number(a.upjang     ) END 
+                       --                     from fms_upjangv a
+                       --                       , (select *
+                       --                             from fms_upjangv
+                       --                            where 1=1
+                       --                              and main_upjang = upjang
+                       --                          ) b
+                       --                    where (1=1)
+                       --                      and a.main_upjang = b.main_upjang
+                       --                      and a.upjang      = to_number(:upjang)
+                       --                      and a.use_yn      = 'Y')
+                           AND M.UPJANG_CD = DECODE(C.head_credit_yn, 'Y',(SELECT MAIN_UPJANG FROM FMS_UPJANGV WHERE UPJANG =  to_number(:upjang)),  to_number(:upjang) )
+                           AND M.RECD_STATUS = 'L'
+                           AND M.SYS_CLASS = '13'
+                           AND R.RECEIVE_TYPE_CD NOT IN ('B10')     -- 선수금 제외
+                          -- AND C.HEAD_CREDIT_YN = 'Y'
+                           AND D.ACCT_CD NOT IN ('11202010')  --대체된 금액은 입금반영이 되지 않도록함
+                       ) X
+                 GROUP BY X.MAIN_UPJANG
+               ) R
+      
+       ON TO_NUMBER(R.MAIN_UPJANG) = A.UPJANG
+        
+	]]></statement>
+
+    <!-- 업장에 대한 여신 -->
+    <statement name="selectUpjangCredit_old" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectUpjangCredit */
+        <![CDATA[
+
+SELECT A.CREDIT_AMOUNT
+     , A.CREDIT_AVAIL_AMT
+     , A.RECEIVE_AMT
+     , CASE WHEN A.BANK_ACCT_NO IS NOT NULL THEN SUBSTR(A.BANK_ACCT_NO, 1 , 3) || '-' ||
+           SUBSTR(A.BANK_ACCT_NO, 4 , 6) || '-' ||
+           SUBSTR(A.BANK_ACCT_NO, 10, 2) || '-' ||
+           SUBSTR(A.BANK_ACCT_NO, 12)
+        ELSE NULL
+       END AS BANK_ACCT_NO
+     , A.BANK_NAME
+     , A.BANK_ACCT_NM
+     , A.GANAP_BANK_NM
+     , A.GANAP_BANK_ACCT_NO
+     , A.GANAP_BANK_ACCT_NAME
+	 , A.GANAP_CREDIT_YN
+	 , A.GANAP_BANK_YN
+  FROM (
+         SELECT /*+ optimizer_features_enable('10.2.0.5') */
+                CASE WHEN :schNeedDate BETWEEN NVL(A.CREDIT_START,'00000000') AND NVL(A.CREDIT_END,'99999999') 
+                     THEN NVL(A.CREDIT_AMOUNT,0) ELSE 0 END AS CREDIT_AMOUNT /* 여신_책정금액 */
+              , CASE WHEN :schNeedDate BETWEEN NVL(A.CREDIT_START,'00000000') AND NVL(A.CREDIT_END,'99999999') 
+                     THEN NVL(A.CREDIT_AMOUNT,0) ELSE 0 END - NVL(C0.RMN_AMT,0) + NVL(C1.PRE_AMT,0) - NVL(D.TR_AMT,0) - NVL(E.PO_AMT,0) - NVL(F.PR_AMT,0) 
+                        + NVL(CASE WHEN NVL(A.CREDIT_OVER_END,'99999999') >= TO_CHAR(SYSDATE,'YYYYMMDD') THEN A.CREDIT_OVER_AMOUNT ELSE 0 END,0) AS CREDIT_AVAIL_AMT /* 여신_발주가능액 */
+              , NVL(R.RECEIVE_AMT, 0) AS RECEIVE_AMT					/* 여신_당월입금액 */
+              , SCC_CRYPTO.DEC_FUN(K.BANK_ACCT_NO) AS BANK_ACCT_NO	/* 여신_가상계좌번호 */
+              , CASE WHEN K.BANK_ACCT_NO IS NULL THEN '' ELSE '우리은행' END AS BANK_NAME
+              , CASE WHEN K.BANK_ACCT_NO IS NULL THEN '' ELSE '푸디스트 주식회사' END AS BANK_ACCT_NM
+              , (SELECT G.CODE_NAME FROM SCC_COMMON_CODE G WHERE G.GROUP_CODE = 'FM0005' AND G.CODE = A.GANAP_BANK_CD) AS GANAP_BANK_NM
+              , SCC_CRYPTO.DEC_FUN(A.GANAP_BANK_ACCT_NO) AS GANAP_BANK_ACCT_NO
+              , A.GANAP_BANK_ACCT_NAME
+              , A.GANAP_CREDIT_YN
+              , A.GANAP_BANK_YN
+          FROM FMS_UPJANG A
+               /************************************************************************
+                C.외상잔액정보 - 사용안함
+               **************************************************************************/
+             , (SELECT B.UPJANG
+                     , MIN(M.OCCUR_DATE) AS L_BILL_DATE
+                     , SUM(NVL(M.AR_AMT,0) - NVL(D.RECEIVE_AMT,0)) AS RMN_AMT
+                  FROM SLA_AR_MST M
+				     , SLA_AR_RECEIVE_DETAIL D
+				     , FMS_UPJANG B
+                 WHERE M.AR_NUM = D.AR_NUM
+                   AND M.UPJANG_CD = B.UPJANG
+                   AND M.SYS_CLASS = '13'
+                   AND M.RECD_STATUS = 'L'
+                   AND M.OCCUR_DATE <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   AND D.RECD_STATUS = 'L'
+                   AND D.RECEIVE_DATE <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   AND NVL(M.AR_AMT,0) - NVL(D.RECEIVE_AMT,0) > 0  /*  채권잔액이 있는 자료 기준 */
+                   AND B.UPJANG = :upjang
+                   AND B.HEAD_CREDIT_YN = 'N'
+                 GROUP BY B.UPJANG
+               ) C
+               /************************************************************************
+                R. 입금금액
+               **************************************************************************/
+             , (
+                SELECT X.UPJANG
+                     , NVL(SUM(X.AMT), 0) AS RECEIVE_AMT
+                  FROM (
+                        SELECT /* 가상입금계죄 */
+                               C.UPJANG AS UPJANG
+                             , NVL(A.RECEIVE_AMT,0) AS AMT
+                          FROM SLA_SAP_SUSPENSE_INFO A
+                             , SLA_SAP_BANK_ACCT_NO B
+                             , FMS_UPJANG C
+                         WHERE A.BANK_ACCT_NO = B.BANK_ACCT_NO
+                           AND B.UPJANG_CD = C.UPJANG
+                           AND A.RECD_STATUS = 'L'
+                           AND A.RECEIVE_DATE BETWEEN SUBSTR(TO_CHAR(SYSDATE,'YYYYMM'),1,6)||'01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                           AND C.UPJANG = :upjang
+                           AND B.BANK_ACCT_TYPE = 'V'
+                           AND C.HEAD_CREDIT_YN = 'N'
+                         UNION ALL
+                        SELECT /* 수기입금 */
+                               M.UPJANG_CD AS UPJANG
+                             , NVL(D.RECEIVE_AMT,0) AS AMT
+                          FROM SLA_AR_RECEIVE_DETAIL D
+                             , SLA_AR_MST M
+                             , SLA_AR_RECEIVE_MST R
+                             , FMS_UPJANG C
+                         WHERE D.AR_NUM = M.AR_NUM
+                           AND D.RECEIVE_NUM = R.RECEIVE_NUM
+                           AND M.UPJANG_CD = C.UPJANG
+                           AND D.RECD_STATUS = 'L'
+                           AND D.RECEIVE_DATE BETWEEN SUBSTR(TO_CHAR(SYSDATE,'YYYYMM'),1,6)||'01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                           AND C.UPJANG = :upjang
+                           AND M.RECD_STATUS = 'L'
+                           AND M.SYS_CLASS = '13'
+                           AND R.RECEIVE_TYPE_CD NOT IN ('B10')     -- 선수금 제외
+                           AND C.HEAD_CREDIT_YN = 'N'
+                           AND D.ACCT_CD NOT IN ('11202010')  --대체된 금액은 입금반영이 되지 않도록함
+                       ) X
+                 GROUP BY X.UPJANG
+               ) R
+               /************************************************************************ 
+                C0.외상잔액정보 
+               **************************************************************************/ 
+             , (SELECT T.UPJANG 
+                     , SUM(NVL(T.AR_AMT,0) - NVL(T.RECEIVE_AMT,0)) AS RMN_AMT 
+                  FROM (SELECT B.UPJANG 
+                             , NVL(M.AR_AMT, 0) AS AR_AMT 
+                             , (SELECT NVL(SUM(D.RECEIVE_AMT),0) 
+                                  FROM SLA_AR_RECEIVE_DETAIL D 
+                                 WHERE D.RECD_STATUS  = 'L' 
+                                   AND D.RECEIVE_DATE <= :schNeedDate
+                                   AND D.AR_NUM = M.AR_NUM) AS RECEIVE_AMT 
+                          FROM SLA_AR_MST M
+                             , FMS_UPJANG B 
+                         WHERE M.UPJANG_CD = B.UPJANG
+                           AND M.SYS_CLASS = '13' 
+                           AND M.RECD_STATUS = 'L' 
+                           AND M.OCCUR_DATE <= :schNeedDate
+                           AND B.UPJANG = :upjang
+                           AND B.HEAD_CREDIT_YN = 'N'
+                       ) T 
+                 GROUP BY T.UPJANG 
+               ) C0
+               /************************************************************************
+                C1.선수잔액정보
+               **************************************************************************/
+             , (
+                SELECT S.UPJANG
+                     , MIN(S.OCCUR_DATE) AS L_BILL_DATE
+                     , SUM(NVL(S.OCCUR_AMT,0) - NVL(S.APPLY_AMT,0)) AS PRE_AMT
+                  FROM (
+                        SELECT B.UPJANG
+                             , M.OCCUR_DATE
+                             , NVL(M.OCCUR_AMT,0) AS OCCUR_AMT
+                             , (SELECT NVL(SUM(D.APPLY_AMT),0)
+                                  FROM SLA_ADVANCE_ALT_DETAIL D
+                                 WHERE D.RECD_STATUS  = 'L'
+                                   AND D.ALT_DATE <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+                                   AND D.ADVANCE_NUM = M.ADVANCE_NUM) AS APPLY_AMT
+                          FROM SLA_ADVANCE_MST M
+                             , FMS_UPJANG B
+                         WHERE M.UPJANG_CD = B.UPJANG
+                           AND M.SYS_CLASS = '13'
+                           AND M.RECD_STATUS = 'L'
+                           AND M.OCCUR_DATE <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+                           AND B.UPJANG = :upjang
+                           AND B.HEAD_CREDIT_YN = 'N'
+                       ) S
+                GROUP BY S.UPJANG
+               ) C1
+               /************************************************************************
+                D.당월 미매출마감된 검수금액
+               **************************************************************************/
+             , (
+                SELECT X.UPJANG
+                     , SUM(X.TR_AMT) AS TR_AMT
+                  FROM (
+                        /* D2. 식재매출집계(FMS_SALES)의 최종마감일자 이후에서 기준일자 까지 */
+                        SELECT /*+ PUSH_PRED(A) */
+                               C.UPJANG
+                             , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(DECODE(A.TAX_CODE,'100',1.1,1) * ROUND(A.SALE_PRICE * A.TRANS_QTY))) AS TR_AMT
+                          FROM FMS_TRANSACTION_V A
+                             , (SELECT UPJANG
+                                     , MAX(SALE_DATE) AS SALE_DATE
+                                  FROM FMS_SALES
+                                 WHERE SALE_DATE <= :schNeedDate
+                                   AND UPJANG = :upjang
+                                   AND TRANS_YN = 'Y' /* 영업회계 마감대상 */
+                                 GROUP BY UPJANG) B
+                             , FMS_UPJANG C
+                         WHERE A.TRANS_UPJANG = B.UPJANG(+)
+                           AND A.TRANS_UPJANG = C.UPJANG
+                           /* 업장별 최종마감일자 이후 ~ 기준일자까지의 집계 : 만약 마감정보가 없으면 기준일자 대비 1개월 전부터 대입 */
+                           AND A.MG_DATE <= :schNeedDate
+                           AND A.MG_DATE >= DECODE(B.SALE_DATE, NULL, GREATEST(TO_CHAR(ADD_MONTHS(TO_DATE(:schNeedDate, 'YYYYMMDD'), -1), 'YYYYMM') || '01', NVL(TO_CHAR(TO_DATE
+
+(B.SALE_DATE, 'YYYYMMDD')+1, 'YYYYMMDD'),' ')),  TO_CHAR(TO_DATE(B.SALE_DATE, 'YYYYMMDD')+1, 'YYYYMMDD'))
+                           AND (A.TRANS_TYPE = 'I001' OR (A.TRANS_TYPE LIKE '_002' AND A.SOURCE_TYPE = 'PO'))
+                           AND C.UPJANG = :upjang
+                           AND C.HEAD_CREDIT_YN = 'N'
+                         GROUP BY C.UPJANG
+                       ) X
+                 GROUP BY X.UPJANG
+               ) D
+               /************************************************************************
+                E.당월 미검수 발주금액
+               **************************************************************************/
+             , (
+                /* PW(발주진행), PC(발주완료), DL(배송중) 만 집계 */
+                /* CENTER_DELI_QTY(센터입고수량), DIRECT_DELI_QTY(직송수량), DELIVERED_QTY(업장입고수량-센터출고), UNDELIVERED_QTY(센터미입고수량) */
+                SELECT /*+ PUSH_PRED(A) */
+                       B.UPJANG
+                     , SUM(ROUND(DECODE(A.TAX_CODE,'100',1.1,1) * ROUND((A.CENTER_DELI_QTY + A.DIRECT_DELI_QTY - A.DELIVERED_QTY - A.UNDELIVERED_QTY) * A.SALE_PRICE))) AS PO_AMT
+                  FROM HLDC_PO_PO A
+                     , FMS_UPJANG B
+                 WHERE A.RC_UPJANG = B.UPJANG
+                   AND A.NEED_DATE <= :schNeedDate
+                   AND A.LINE_STATUS IN ('PW', 'PC', 'DL')
+                   AND B.UPJANG = :upjang
+                   AND B.HEAD_CREDIT_YN = 'N'
+                 GROUP BY B.UPJANG
+               ) E
+               /************************************************************************
+                F.당월 미발주 주문금액
+               **************************************************************************/
+             , (
+                SELECT B.UPJANG
+                     , SUM(ROUND(DECODE(A.TAX_CODE,'100',1.1,1) * ROUND(A.PR_QTY * A.SALE_PRICE))) AS PR_AMT
+                  FROM SO_PR A
+                     , FMS_UPJANG B
+                 WHERE A.RC_UPJANG = B.UPJANG
+                   AND A.NEED_DATE <= :schNeedDate
+                   AND UPJANG = :upjang
+                   AND A.LINE_STATUS = '001' /* 진행상태 : 001(신청저장) */
+                   AND B.HEAD_CREDIT_YN = 'N'
+                 GROUP BY B.UPJANG
+               ) F
+             , (
+                SELECT *
+                  FROM SLA_SAP_BANK_ACCT_NO
+                 WHERE BANK_ACCT_TYPE = 'V'
+                   AND UPJANG_CD = :upjang
+                   AND ROWNUM <= 1	/* TEST DATA 관계로  1개이상 존재함 */
+               ) K
+         WHERE 1=1
+           AND A.UPJANG = C.UPJANG(+)
+           AND A.UPJANG = R.UPJANG(+)
+           AND A.UPJANG = C0.UPJANG(+)
+           AND A.UPJANG = C1.UPJANG(+)
+           AND A.UPJANG = D.UPJANG(+)
+           AND A.UPJANG = E.UPJANG(+)
+           AND A.UPJANG = F.UPJANG(+)
+           AND A.UPJANG = K.UPJANG_CD(+)
+           AND A.UPJANG = :upjang
+           AND A.HEAD_CREDIT_YN = 'N'
+           AND A.USE_YN = 'Y'
+           AND A.CREDIT_CONTROL_YN = 'Y'
+           AND (A.CREDIT_TURN_CONTROL_YN = 'Y' OR A.CREDIT_AMOUNT_CONTROL_YN = 'Y')
+        ) A
+
+        ]]>
+    </statement>
+
+ 	<!-- 업장에 대한 예산조회 -->
+    <statement name="selectUpjangBudget" type="select">
+    <![CDATA[  
+      /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectUpjangBudget */
+       			SELECT A.UPJANG
+     , (SELECT UPJANGNM_DISP
+       FROM    FMS_UPJANG
+       WHERE   UPJANG = A.UPJANG)
+       AS UPJANGNM_DISP
+     , A.SUBINV_CODE
+     , A.SUBINV_NAME
+     , A.TERM
+     , A.START_DATE
+     , A.END_DATE
+     ,(NVL(B.PO_AMT, 0)+NVL(B.TR_AMT, 0)) AS TOT
+     , A.BUDGET_AMT
+     , NVL(A.BUDGET_AMT, 0) - (NVL(B.PO_AMT, 0)+NVL(B.TR_AMT, 0)) AS AMT
+FROM   ( SELECT  C.START_DATE || '~' || C.END_DATE AS TERM
+              , C.SUBINV_CODE
+              , C.START_DATE
+              , C.END_DATE
+              , C.BUDGET_AMT
+              , D.UPJANG
+              , D.SUBINV_NAME
+       FROM     FMO_BUDGET_MGMT C
+              , HLDC_PO_SUBINVENTORY D
+              , FMS_UPJANG E
+       WHERE    C.SUBINV_CODE = D.SUBINV_CODE
+       <#if upjang == mainUpjang>
+       AND		E.MAIN_UPJANG = :mainUpjang
+       <#else>
+       AND      D.UPJANG      = :upjang
+       </#if>
+       AND		D.UPJANG = E.UPJANG
+       
+       GROUP BY C.START_DATE || '~' || C.END_DATE
+              , C.SUBINV_CODE
+              , C.START_DATE
+              , C.END_DATE
+              , C.BUDGET_AMT
+              , D.UPJANG
+              , D.SUBINV_NAME )
+       A
+     , (SELECT  SUBINV_CODE
+              , RC_UPJANG
+              , SUM(PO_AMT) AS PO_AMT
+              , SUM(TR_AMT) AS TR_AMT
+              , BUDGET_AMT
+       FROM     (SELECT A.SUBINV_CODE
+                      , A.RC_UPJANG
+                      , ROUND(DECODE(A.TAX_CODE,'100',1.1,1) 
+                      					* (A.CENTER_DELI_QTY + A.DIRECT_DELI_QTY - A.DELIVERED_QTY - A.UNDELIVERED_QTY) 
+                                * A.SAL_OPER_PRICE) AS PO_AMT
+                      , 0       AS TR_AMT
+                      , B.BUDGET_AMT
+                FROM    HLDC_PO_PO A
+                      , FMO_BUDGET_MGMT B
+                      , FMS_UPJANG C
+                WHERE   A.RC_UPJANG	  = C.UPJANG
+                <#if upjang == mainUpjang>
+       			AND		C.MAIN_UPJANG = :mainUpjang
+       			<#else>
+       			AND		RC_UPJANG     = :upjang
+       			</#if>
+                AND     A.SUBINV_CODE = B.SUBINV_CODE
+                AND     A.NEED_DATE BETWEEN B.START_DATE AND     B.END_DATE
+                AND     A.LINE_STATUS IN ('PW', 'PC', 'DL')
+                
+                UNION ALL
+                
+                SELECT A.SUBINV_CODE
+                     , A.TRANS_UPJANG AS RC_UPJANG
+                     , 0              AS PO_AMT
+                     , DECODE(A.FLAG,1
+                            ,DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(DECODE(A.TAX_CODE,'100',1.1,1) * ROUND(A.TRANS_QTY * A.SAL_OPER_PRICE))
+                            ,DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(A.TRANS_QTY * A.SAL_OPER_PRICE + A.SALE_VAT) ) AS TR_AMT
+                     , B.BUDGET_AMT
+                FROM   FMS_TRANSACTION_V A
+                     , FMO_BUDGET_MGMT B
+                     , FMS_UPJANG C
+                WHERE  A.TRANS_UPJANG = C.UPJANG
+                <#if upjang == mainUpjang>
+                AND C.MAIN_UPJANG = :mainUpjang
+                <#else>
+                AND A.TRANS_UPJANG  = TO_CHAR(:upjang)
+                </#if>
+                
+                AND    A.SUBINV_CODE = B.SUBINV_CODE
+                AND    A.TRANS_DATE2 BETWEEN B.START_DATE AND    B.END_DATE)
+       GROUP BY SUBINV_CODE
+              , RC_UPJANG
+              , BUDGET_AMT)
+       B
+WHERE  A.SUBINV_CODE = B.SUBINV_CODE(+)
+
+
+     ]]>
+    </statement>  
+    <!-- 외식점장 :: 업장에 대한 주간 매출추이(차트) 용도 (최종결과에 대한 Alias는 반드시 지켜주세요.) -->
+    <statement name="selectUpjangSaleChart" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectUpjangSaleChart */
+        <![CDATA[
+            WITH SAL_AMT_T AS (
+                SELECT  OCCUR_DATE
+                        ,ROUND(NVL(SUM(NET_AMT),0)/1000000, 1) SAL_AMT
+                FROM    SLA_IF_UPJANG_SALS_DETAIL
+                WHERE   RECD_STATUS = 'L'
+                --AND     TO_DATE(OCCUR_DATE,'YYYYMMDD') BETWEEN ADD_MONTHS(SYSDATE, -1) AND SYSDATE
+                AND     OCCUR_DATE BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                --AND     TO_CHAR(UPJANG_CD) = :upjang
+                AND     UPJANG_CD = :upjang
+                GROUP BY OCCUR_DATE
+            )
+            SELECT  X1.WEEK_NM  WEEK_NM
+                    ,X1.SAL_AMT B_W_AMT
+                    ,X2.SAL_AMT T_W_AMT
+                    ,0          P_W_AMT
+            FROM    (
+                    SELECT  X.OCCUR_DATE
+                            ,SCC_GET_WEEK_FUN('NAME',X.OCCUR_DATE) WEEK_NM
+                            ,NVL(Y.SAL_AMT,0) SAL_AMT
+                    FROM    (
+                            SELECT  TO_CHAR(TRUNC(SYSDATE,'IW') + (LEVEL-8),'YYYYMMDD') OCCUR_DATE
+                            FROM    DUAL
+                            CONNECT BY LEVEL <=7
+                            ) X
+                            ,SAL_AMT_T Y
+                    WHERE   X.OCCUR_DATE = Y.OCCUR_DATE (+)
+                    ) X1    -- 전주
+                    ,(
+                    SELECT  X.OCCUR_DATE
+                            ,SCC_GET_WEEK_FUN('NAME',X.OCCUR_DATE) WEEK_NM
+                            ,NVL(Y.SAL_AMT,0) SAL_AMT
+                    FROM    (
+                            SELECT  TO_CHAR(TRUNC(SYSDATE,'IW') + (LEVEL-1),'YYYYMMDD') OCCUR_DATE
+                            FROM    DUAL
+                            CONNECT BY LEVEL <=7
+                            ) X
+                            ,SAL_AMT_T Y
+                    WHERE   X.OCCUR_DATE = Y.OCCUR_DATE (+)
+                    ) X2    -- 금주
+            WHERE   X1.WEEK_NM = X2.WEEK_NM
+            ORDER BY X1.OCCUR_DATE, X2.OCCUR_DATE
+        ]]>
+    </statement>
+
+    <!-- 외식점장 :: 채권현황 표 -->
+    <statement name="selectUpjangBondList" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectUpjangBondList */
+        <![CDATA[
+SELECT '업장명' AS UPJANGNM,
+       25000000 AS ARRIVAL_BOND,   --도래채권
+       12340000 AS WEAK_BOND       --부실채권
+FROM   DUAL
+        ]]>
+    </statement>
+
+
+    <!-- 외식팀장 :: 팀에 대한 주간 매출추이(차트) 용도 (최종결과에 대한 Alias는 반드시 지켜주세요.) -->
+    <statement name="selectTmSaleChart" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectTmSaleChart */
+        <![CDATA[
+            WITH SAL_AMT_T AS (
+                SELECT  A.OCCUR_DATE
+                        ,A.MU_CD
+                        ,SCC_GET_TM_BY_CC('CODE',B.CC_CD) TM_CD
+                        ,ROUND(NVL(SUM(NET_AMT),0)/1000000, 1) SAL_AMT
+                FROM    SLA_IF_UPJANG_SALS_DETAIL A
+                        ,ST_UPJANG B
+                WHERE   A.UPJANG_CD = B.UPJANG
+                AND     A.RECD_STATUS = 'L'
+                --AND     TO_DATE(OCCUR_DATE,'YYYYMMDD') BETWEEN ADD_MONTHS(SYSDATE, -1) AND SYSDATE
+                AND     OCCUR_DATE BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+                AND     SCC_GET_TM_BY_CC('CODE',B.CC_CD) = :tmCd
+                GROUP BY A.OCCUR_DATE
+                        ,A.MU_CD
+                        ,SCC_GET_TM_BY_CC('CODE',B.CC_CD)
+            )
+            SELECT  X1.WEEK_NM
+                    ,X1.SAL_AMT B_W_AMT
+                    ,X2.SAL_AMT T_W_AMT
+                    ,0 P_W_AMT
+            FROM    (
+                    SELECT  X.OCCUR_DATE
+                            ,SCC_GET_WEEK_FUN('NAME',X.OCCUR_DATE) WEEK_NM
+                            ,NVL(Y.SAL_AMT,0) SAL_AMT
+                    FROM    (
+                            SELECT  TO_CHAR(TRUNC(SYSDATE,'IW') + (LEVEL-8),'YYYYMMDD') OCCUR_DATE
+                            FROM    DUAL
+                            CONNECT BY LEVEL <=7
+                            ) X
+                            ,SAL_AMT_T Y
+                    WHERE   X.OCCUR_DATE = Y.OCCUR_DATE (+)
+                    ) X1    -- 전주
+                    ,(
+                    SELECT  X.OCCUR_DATE
+                            ,SCC_GET_WEEK_FUN('NAME',X.OCCUR_DATE) WEEK_NM
+                            ,NVL(Y.SAL_AMT,0) SAL_AMT
+                    FROM    (
+                            SELECT  TO_CHAR(TRUNC(SYSDATE,'IW') + (LEVEL-1),'YYYYMMDD') OCCUR_DATE
+                            FROM    DUAL
+                            CONNECT BY LEVEL <=7
+                            ) X
+                            ,SAL_AMT_T Y
+                    WHERE   X.OCCUR_DATE = Y.OCCUR_DATE (+)
+                    ) X2    -- 금주
+            WHERE   X1.WEEK_NM = X2.WEEK_NM
+            ORDER BY X1.OCCUR_DATE, X2.OCCUR_DATE
+        ]]>
+    </statement>
+
+    <!-- 외식팀장 :: 채권현황 표 -->
+    <statement name="selectTmBondList" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectTmBondList */
+        <![CDATA[
+SELECT '업장명1' AS UPJANGNM,
+       251000000 / 1000000 AS ARRIVAL_BOND,   --도래채권
+       121340000 / 1000000 AS WEAK_BOND       --부실채권
+FROM   DUAL
+UNION ALL
+SELECT '업장명2' AS UPJANGNM,
+       231000000 / 1000000 AS ARRIVAL_BOND,   --도래채권
+       121340000 / 1000000 AS WEAK_BOND       --부실채권
+FROM   DUAL
+        ]]>
+    </statement>
+
+    <!-- 외식팀장/점장 :: 날씨정보 -->
+    <statement name="selectWeatherList" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectWeatherList */
+        <![CDATA[
+SELECT A.FDAY
+     , B.WDESC WNM
+     , DECODE(B.WCODE,NULL,'','NEW' || LPAD(B.WCODE,2,'0')) AS WIMG
+  FROM (SELECT FDAY
+             , TO_CHAR(TO_DATE(FDAY, 'YYYYMMDD'), 'DY', 'NLS_DATE_LANGUAGE=KOREAN') AS WE
+          FROM (SELECT TO_CHAR(TO_DATE(TO_CHAR(SYSDATE, 'YYYYMM')||'01', 'YYYYMMDD') + LEVEL - 1, 'YYYYMMDD') AS FDAY
+                  FROM DUAL
+                CONNECT BY LEVEL <= TO_DATE(TO_CHAR(LAST_DAY(SYSDATE), 'YYYYMMDD'), 'YYYYMMDD') - TO_DATE(TO_CHAR(SYSDATE, 'YYYYMM')||'01', 'YYYYMMDD') + 1)) A
+     , (SELECT * FROM UPOS_SC_WEATHER_INFO_V WHERE AREA_CODE IN (SELECT LOC_CD FROM SCO_UPJANG_MST WHERE UPJANG = :upjang)) B
+ WHERE A.FDAY = B.CUR_DATE
+ORDER BY A.FDAY ASC
+        ]]>
+    </statement>
+
+    <!-- 식재도매 :: 현황관련(SQL의 Alias는 변경하지 말아주세요.) -->
+    <statement name="selectsWholeSaleList" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectsWholeSaleList */
+        <![CDATA[
+SELECT
+   GROUPING(FLAG)||GROUPING(SALE_AGED) AS LVL
+  ,CASE WHEN GROUPING(FLAG)||GROUPING(SALE_AGED)   = '01' THEN
+        '소계'
+   WHEN GROUPING(FLAG)||GROUPING(SALE_AGED)   = '11' THEN
+        '합계'
+   ELSE
+     (SELECT CODE_NAME FROM SCC_COMMON_CODE T WHERE  T.GROUP_CODE = 'SALE_AGED' AND T.CODE=SALE_AGED)
+   END AS SALE_AGED_NM
+
+  ,CASE WHEN SALE_AGED = '20' THEN
+        1
+   WHEN SALE_AGED = '10' THEN
+        2
+   WHEN SALE_AGED = '30' THEN
+        3
+   WHEN SALE_AGED = '25' THEN
+        4
+   WHEN SALE_AGED = '15' THEN
+        5
+   WHEN SALE_AGED = '35' THEN
+        6
+   END ORDER_CNT
+
+  , SUM(REAL_SALE_AMT_1) REAL_SALE_AMT_1
+  , SUM(GAIN_AMT_1) GAIN_AMT_1  
+  , TO_CHAR(DECODE(SUM(REAL_SALE_AMT_1),0,0, (SUM(GAIN_AMT_1) / SUM(REAL_SALE_AMT_1 ) *100)),'FM9999990.0') ||'%' AS GAIN_RATE_1
+
+  , SUM(REAL_SALE_AMT_2) REAL_SALE_AMT_2
+  , SUM(GAIN_AMT_2) GAIN_AMT_2
+  , TO_CHAR(DECODE(SUM(REAL_SALE_AMT_2),0,0, (SUM(GAIN_AMT_2) / SUM(REAL_SALE_AMT_2 ) *100)),'FM9999990.0') ||'%' AS GAIN_RATE_2
+
+  , SUM(REAL_SALE_AMT_3) REAL_SALE_AMT_3
+  , SUM(GAIN_AMT_3) GAIN_AMT_3
+  , TO_CHAR(DECODE(SUM(REAL_SALE_AMT_3),0,0, (SUM(GAIN_AMT_3) / SUM(REAL_SALE_AMT_3 ) *100)),'FM9999990.0') ||'%' AS GAIN_RATE_3
+
+  , SUM(REAL_SALE_AMT_4) REAL_SALE_AMT_4
+  , SUM(GAIN_AMT_4) GAIN_AMT_4
+  , TO_CHAR(DECODE(SUM(REAL_SALE_AMT_4),0,0, (SUM(GAIN_AMT_4) / SUM(REAL_SALE_AMT_4 ) *100)),'FM9999990.0') ||'%' AS GAIN_RATE_4
+
+FROM
+(
+  SELECT
+         B.CODE SALE_AGED
+        ,B.CODE_NAME AS SALE_AGED_NM
+        ,CASE WHEN B.CODE IN ('10','20','30') THEN
+              '1'
+         ELSE
+              '2'
+         END FLAG
+        ,NVL(ROUND(A.REAL_SALE_AMT_1/1000000),0) AS REAL_SALE_AMT_1
+        ,NVL(ROUND(A.GAIN_AMT_1/1000000),0) AS GAIN_AMT_1
+        ,NVL(ROUND(A.GAIN_RATE_1,1),0) AS GAIN_RATE_1
+
+        ,NVL(ROUND(A.REAL_SALE_AMT_2/1000000),0) AS REAL_SALE_AMT_2
+        ,NVL(ROUND(A.GAIN_AMT_2/1000000),0) AS GAIN_AMT_2
+        ,NVL(ROUND(A.GAIN_RATE_2,1),0) AS GAIN_RATE_2
+
+        ,NVL(ROUND(A.REAL_SALE_AMT_3/1000000),0) AS REAL_SALE_AMT_3
+        ,NVL(ROUND(A.GAIN_AMT_3/1000000),0) AS GAIN_AMT_3
+        ,NVL(ROUND(A.GAIN_RATE_3,1),0) AS GAIN_RATE_3
+
+        ,NVL(ROUND(A.REAL_SALE_AMT_4/1000000),0) AS REAL_SALE_AMT_4
+        ,NVL(ROUND(A.GAIN_AMT_4/1000000),0) AS GAIN_AMT_4
+        ,NVL(ROUND(A.GAIN_RATE_4,1),0) AS GAIN_RATE_4
+
+  FROM(
+
+    SELECT
+         A.SALE_AGED
+        ,CASE WHEN A.SALE_AGED IN ('10','20','30') THEN
+              '1'
+         ELSE
+              '2'
+         END FALG
+        ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'SALE_AGED' AND CODE = A.SALE_AGED ) AS SALE_AGED_NM
+        ,NVL(SUM(CASE WHEN A.FLAG = 1 THEN
+            A.REAL_SALE_AMT
+         END),0) REAL_SALE_AMT_1
+        ,NVL(SUM(CASE WHEN A.FLAG = 1 THEN
+            A.GAIN_AMT
+         END),0) GAIN_AMT_1
+        ,NVL(SUM(CASE WHEN A.FLAG = 1 THEN
+            A.GAIN_RATE
+         END),0) GAIN_RATE_1
+
+        ,NVL(SUM(CASE WHEN A.FLAG = 2 THEN
+            A.REAL_SALE_AMT
+         END),0) REAL_SALE_AMT_2
+        ,NVL(SUM(CASE WHEN A.FLAG = 2 THEN
+            A.GAIN_AMT
+         END),0) GAIN_AMT_2
+        ,NVL(SUM(CASE WHEN A.FLAG = 2 THEN
+            A.GAIN_RATE
+         END),0) GAIN_RATE_2
+
+        ,NVL(SUM(CASE WHEN A.FLAG = 3 THEN
+            A.REAL_SALE_AMT
+         END),0) REAL_SALE_AMT_3
+        ,NVL(SUM(CASE WHEN A.FLAG = 3 THEN
+            A.GAIN_AMT
+         END),0) GAIN_AMT_3
+        ,NVL(SUM(CASE WHEN A.FLAG = 3 THEN
+            A.GAIN_RATE
+         END),0) GAIN_RATE_3
+
+        ,NVL(SUM(CASE WHEN A.FLAG = 4 THEN
+            A.REAL_SALE_AMT
+         END),0) REAL_SALE_AMT_4
+        ,NVL(SUM(CASE WHEN A.FLAG = 4 THEN
+            A.GAIN_AMT
+         END),0) GAIN_AMT_4
+        ,NVL(SUM(CASE WHEN A.FLAG = 4 THEN
+            A.GAIN_RATE
+         END),0) GAIN_RATE_4
+
+    FROM
+    (
+        --전월누계
+        SELECT
+            1 FLAG
+           ,A.SALE_AGED
+           ,A.REAL_SALE_AMT   --매출액
+           ,BUY_CST
+           ,A.REAL_SALE_AMT - BUY_CST AS GAIN_AMT   --이익액
+           ,DECODE(A.BUY_CST, 0, 0, ROUND((A.REAL_SALE_AMT - BUY_CST) / A.REAL_SALE_AMT, 2)) *100  AS GAIN_RATE
+        FROM
+        (
+          SELECT
+                   A.SALE_AGED
+                  ,SUM(ROUND(A.REAL_SALE_AMT)) AS REAL_SALE_AMT        /*매출액*/
+                  ,SUM(ROUND(A.REAL_SALE_AMT)) - SUM(A.BUY_CST)        /*이익액*/
+                  ,SUM(A.BUY_CST)  AS BUY_CST                          /*매출원가*/
+                  
+           FROM   RELEASE_ITEM_MGMT A,
+                  SALE_ORDER_ITEM_MGMT B,
+                  INVENTORY_MGMT_DELIVER C
+            WHERE A.SALE_ORDER_NUM=B.SALE_ORDER_NUM
+              AND A.SALE_ORDER_NUM_SEQ = B.SALE_ORDER_NUM_SEQ
+              AND B.DELIVER_NUM = C.DELIVER_NUM
+              AND A.RELEASE_DATE BETWEEN DECODE(TO_CHAR(ADD_MONTHS(SYSDATE, -1),'YYYY'), TO_CHAR(SYSDATE,'YYYY'), TO_CHAR(SYSDATE,'YYYY'), '9999') || '0101' AND TO_CHAR(ADD_MONTHS(SYSDATE, -1),'YYYYMM') || '31'
+            GROUP BY A.SALE_AGED
+            ORDER BY DECODE(A.SALE_AGED,10,1,20,2,30,3,4)            
+        ) A        
+ 
+        UNION ALL
+
+        --당월누계
+        SELECT
+            2 FLAG
+           ,A.SALE_AGED
+           ,A.REAL_SALE_AMT   --매출액
+           ,BUY_CST
+           ,A.REAL_SALE_AMT - BUY_CST AS GAIN_AMT   --이익액
+           ,DECODE(A.BUY_CST, 0, 0, ROUND((A.REAL_SALE_AMT - BUY_CST) / A.REAL_SALE_AMT, 2)) *100  AS GAIN_RATE
+        FROM
+        (
+          SELECT
+                   A.SALE_AGED
+                  ,SUM(ROUND(A.REAL_SALE_AMT)) AS REAL_SALE_AMT        /*매출액*/
+                  ,SUM(ROUND(A.REAL_SALE_AMT)) - SUM(A.BUY_CST)        /*이익액*/
+                  ,SUM(A.BUY_CST)  AS BUY_CST                          /*매출원가*/
+                  
+           FROM   RELEASE_ITEM_MGMT A,
+                  SALE_ORDER_ITEM_MGMT B,
+                  INVENTORY_MGMT_DELIVER C
+            WHERE A.SALE_ORDER_NUM=B.SALE_ORDER_NUM
+              AND A.SALE_ORDER_NUM_SEQ = B.SALE_ORDER_NUM_SEQ
+              AND B.DELIVER_NUM = C.DELIVER_NUM
+              AND A.RELEASE_DATE BETWEEN TO_CHAR(SYSDATE,'YYYYMM') || '01' AND TO_CHAR(SYSDATE,'YYYYMMDD')
+            GROUP BY A.SALE_AGED
+            ORDER BY DECODE(A.SALE_AGED,10,1,20,2,30,3,4)           
+        ) A
+        
+        UNION ALL
+
+        --전일매출
+        SELECT
+            3 FLAG
+           ,A.SALE_AGED
+           ,A.REAL_SALE_AMT   --매출액
+           ,BUY_CST
+           ,A.REAL_SALE_AMT - BUY_CST AS GAIN_AMT   --이익액
+           ,DECODE(A.BUY_CST, 0, 0, ROUND((A.REAL_SALE_AMT - BUY_CST) / A.REAL_SALE_AMT, 2)) *100  AS GAIN_RATE
+        FROM
+        (
+        
+          SELECT
+                   A.SALE_AGED
+                  ,SUM(ROUND(A.REAL_SALE_AMT)) AS REAL_SALE_AMT        /*매출액*/
+                  ,SUM(ROUND(A.REAL_SALE_AMT)) - SUM(A.BUY_CST)        /*이익액*/
+                  ,SUM(A.BUY_CST)  AS BUY_CST                          /*매출원가*/
+                  
+           FROM   RELEASE_ITEM_MGMT A,
+                  SALE_ORDER_ITEM_MGMT B,
+                  INVENTORY_MGMT_DELIVER C
+            WHERE A.SALE_ORDER_NUM=B.SALE_ORDER_NUM
+              AND A.SALE_ORDER_NUM_SEQ = B.SALE_ORDER_NUM_SEQ
+              AND B.DELIVER_NUM = C.DELIVER_NUM
+              AND A.RELEASE_DATE = (
+                                    SELECT MAX(CD_SY || CD_SM || CD_SD) 
+                                      FROM SCC_CALENDA_DATA 
+                                     WHERE CD_SY || CD_SM || CD_SD < TO_CHAR(SYSDATE, 'YYYYMMDD') 
+                                       AND HOLIDAY NOT IN (1,2)
+                                       AND CD_WEEK NOT IN ('토','일')              
+                                   )
+            GROUP BY A.SALE_AGED
+            ORDER BY DECODE(A.SALE_AGED,10,1,20,2,30,3,4)  
+        ) A
+
+        UNION ALL
+
+        --당일매출
+        SELECT
+            4 FLAG
+           ,A.SALE_AGED
+           ,A.REAL_SALE_AMT   --매출액
+           ,BUY_CST
+           ,A.REAL_SALE_AMT - BUY_CST AS GAIN_AMT   --이익액
+           ,DECODE(A.BUY_CST, 0, 0, ROUND((A.REAL_SALE_AMT - BUY_CST) / A.REAL_SALE_AMT, 2)) *100  AS GAIN_RATE
+        FROM
+        (
+          SELECT
+                   A.SALE_AGED
+                  ,SUM(ROUND(A.REAL_SALE_AMT)) AS REAL_SALE_AMT        /*매출액*/
+                  ,SUM(ROUND(A.REAL_SALE_AMT)) - SUM(A.BUY_CST)        /*이익액*/
+                  ,SUM(A.BUY_CST)  AS BUY_CST                          /*매출원가*/
+                  
+           FROM   RELEASE_ITEM_MGMT A,
+                  SALE_ORDER_ITEM_MGMT B,
+                  INVENTORY_MGMT_DELIVER C
+            WHERE A.SALE_ORDER_NUM=B.SALE_ORDER_NUM
+              AND A.SALE_ORDER_NUM_SEQ = B.SALE_ORDER_NUM_SEQ
+              AND B.DELIVER_NUM = C.DELIVER_NUM
+              AND A.RELEASE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+            GROUP BY A.SALE_AGED
+            ORDER BY DECODE(A.SALE_AGED,10,1,20,2,30,3,4)   
+        ) A
+
+    ) A
+     GROUP BY ROLLUP ( SALE_AGED)
+  ) A,(SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'SALE_AGED'  ) B
+      WHERE A.SALE_AGED(+) = B.CODE
+     ORDER BY DECODE(B.CODE,20,1,10,2,30,3,25,4,15,5,6)
+) A
+GROUP BY ROLLUP ( FLAG, SALE_AGED)
+ORDER BY FLAG,DECODE(A.SALE_AGED,20,1,10,2,30,3,25,4,15,5,6)
+        ]]>
+    </statement>
+
+    <!-- FS팀장/FS점장(체크리스트-전일재고) -->
+    <statement name="selectCheckList01" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectCheckList01 */
+        <![CDATA[
+SELECT DECODE(COUNT(1), 0, 'N', 'Y') AS YN
+  FROM HLDC_PO_PHYSICAL_INVENTORY A
+     , (SELECT IVT_INSP_NO
+             , IVT_INSP_LNO
+             , PHYSIC_DATE
+          FROM HLDC_PO_PHYSICAL_INVENTORY
+         WHERE PHYSIC_DATE = TO_CHAR(SYSDATE - 1, 'YYYYMMDD')
+           AND SUBINV_CODE IN (SELECT SUBINV_CODE
+                                FROM HLDC_PO_SUBINVENTORY
+                               WHERE UPJANG = :upjang
+                                 AND USE_YN = 'Y'
+                              )
+         GROUP BY IVT_INSP_NO, IVT_INSP_LNO, PHYSIC_DATE
+        HAVING COUNT(1) = 1) B
+ WHERE A.IVT_INSP_NO = B.IVT_INSP_NO
+   AND A.IVT_INSP_LNO = B.IVT_INSP_LNO
+   AND A.PHYSIC_DATE =  B.PHYSIC_DATE
+   AND CANCEL_YN = 'N'
+        ]]>
+    </statement>
+
+    <!-- FS팀장/FS점장(체크리스트-운영일지) -->
+    <statement name="selectCheckList02" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectCheckList02 */
+        <![CDATA[
+SELECT DECODE(COUNT(1), 0, 'N', 'Y') AS YN
+  FROM FSM_DAILY_OP_DIARY
+ WHERE UPJANG = :upjang
+   AND MENU_DATE = TO_CHAR(SYSDATE - 1, 'YYYYMMDD')
+        ]]>
+    </statement>
+
+    <!-- FS팀장/FS점장(체크리스트-자동구매신청) -->
+    <statement name="selectCheckList03" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectCheckList03 */
+        <![CDATA[
+SELECT /*+ index(b FSM_REAL_RECIPE_ITEM_IDX01) */ DECODE(COUNT(1), 0, 'N', 'Y') AS YN
+  FROM FSM_REAL_MENU_MST A
+     , FSM_REAL_RECIPE_ITEM B
+ WHERE A.UPJANG = B.UPJANG
+   AND A.MENU_CD = B.MENU_CD
+   AND B.UPJANG = :upjang
+   AND B.NEED_DATE = :dt
+   AND B.ORDER_YN = 'N'
+        ]]>
+    </statement>
+
+    <!-- FS점장 도래채권수 -->
+    <statement name="selectDoBondCount" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectDoBondCount */
+        <![CDATA[
+SELECT  COUNT(CASE WHEN X.DO_BOND_AMT > 0 THEN 1 ELSE NULL END) + COUNT(CASE WHEN X.AK_BOND_AMT > 0 THEN 1 ELSE NULL END) AS CNT
+FROM    (
+        SELECT 'A' SAUP_TYPE,
+                   V.MU_CD,
+                   V.TM_CD,
+                   (SELECT TM_NM FROM HLDC_SC_TM WHERE TM_CD = V.TM_CD AND USE_YN = 'Y') TM_NM,
+                   V.UPJANG,
+                   (SELECT UPJANGNM FROM SCO_UPJANG_MST_V WHERE UPJANG = V.UPJANG) UPJANGNM,
+                   V.CUSTCD,
+                   (SELECT CUSTNM FROM HLDC_ST_CUST WHERE CUSTCD = V.CUSTCD) CUSTNM,
+                   (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0015' AND CODE = (SELECT PAY_GUBUN_CD FROM SCO_UPJANG_CUST WHERE UPJANG = V.UPJANG AND CUSTCD = V.CUSTCD))||
+                   (SELECT PAY_DATE FROM SCO_UPJANG_CUST WHERE UPJANG = V.UPJANG AND CUSTCD = V.CUSTCD)||'일' PAY_GUBUN_CDNM,
+                   SUM(V.CURR_TRX_AMT)                                         CURR_TRX_AMT,
+                   SUM(v.CURR_RCP_AMT)                                         CURR_RCP_AMT,
+                   SUM(DECODE(V.DUE_GUBUN, '미도래채권', V.AMT - V.RCP_AMT, 0))             MI_BOND_AMT,
+                   SUM(DECODE(V.DUE_GUBUN, '도래채권',   V.AMT - V.RCP_AMT, 0))             DO_BOND_AMT,
+                   SUM(DECODE(V.DUE_GUBUN, '악성채권',   V.AMT - V.RCP_AMT, 0))             AK_BOND_AMT,
+                   SUM(DECODE(V.DUE_GUBUN, '미수금',     V.AMT - V.RCP_AMT, 0))             MISU_BOND_AMT,
+                   SUM(DECODE(V.DUE_GUBUN, '미수금(신용카드)',     V.AMT - V.RCP_AMT, 0))   MISUCARD_BOND_AMT,
+                   V.TM_CD||'-'||V.UPJANG||'-'||V.CUSTCD PL_CD,
+                   SUM(V.RCP_AMT) RCP_AMT,
+                   '1' PL_UP_CD,
+                   '0' BL_SHOW,
+                   3 LEVEL_NO,
+                   '+' BL_PLUS
+              FROM (
+                        SELECT X.MU_CD, X.TM_CD, X.UPJANG, X.CUSTCD, X.AMT, X.BOND_DATE, X.DUE_GUBUN, SUM(X.RCP_AMT) RCP_AMT, SUM(X.CURR_TRX_AMT) CURR_TRX_AMT, SUM(X.CURR_RCP_AMT) CURR_RCP_AMT
+                          FROM (
+                                             SELECT C.MU_CD, C.TM_CD,
+                                                   V.UPJANG_CD UPJANG,
+                                                   V.CUST_CD CUSTCD,
+                                                   NVL(V.AR_AMT, 0) AMT,
+                                                   V.OCCUR_DATE BOND_DATE,
+                                                   (CASE WHEN TO_CHAR(SYSDATE, 'YYYYMMDD') >  DECODE(B.PAY_GUBUN_CD, '999', TO_CHAR(ADD_MONTHS(LAST_DAY(TO_DATE(V.OCCUR_DATE, 'YYYYMMDD')),1),'YYYYMMDD'), TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(B.PAY_GUBUN_CD)+1), 'YYYYMM')||
+                                                                         LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(B.PAY_GUBUN_CD)+1), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(B.PAY_DATE, 2, '0'))
+                                                                         ) THEN
+                                                              '악성채권'
+                                                         WHEN TO_CHAR(SYSDATE, 'YYYYMMDD') <=  DECODE(B.PAY_GUBUN_CD, '999', TO_CHAR(ADD_MONTHS(LAST_DAY(TO_DATE(V.OCCUR_DATE, 'YYYYMMDD')),1),'YYYYMMDD'), TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(B.PAY_GUBUN_CD)+1), 'YYYYMM')||
+                                                                         LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(B.PAY_GUBUN_CD)+1), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(B.PAY_DATE, 2, '0'))
+                                                                         ) AND
+                                                              TO_CHAR(SYSDATE, 'YYYYMMDD') > DECODE(B.PAY_GUBUN_CD, '999', TO_CHAR(LAST_DAY(TO_DATE(V.OCCUR_DATE, 'YYYYMMDD')),'YYYYMMDD'), TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(B.PAY_GUBUN_CD)), 'YYYYMM')||
+                                                                         LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(B.PAY_GUBUN_CD)), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(B.PAY_DATE, 2, '0'))
+                                                                         ) THEN
+                                                              '도래채권'
+                                                         WHEN TO_CHAR(SYSDATE, 'YYYYMMDD') <=  DECODE(B.PAY_GUBUN_CD, '999', TO_CHAR(LAST_DAY(TO_DATE(V.OCCUR_DATE, 'YYYYMMDD')),'YYYYMMDD'), TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(B.PAY_GUBUN_CD)), 'YYYYMM')||
+                                                                         LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(B.PAY_GUBUN_CD)), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(B.PAY_DATE, 2, '0'))
+                                                                         ) THEN
+                                                              '미도래채권' END) DUE_GUBUN,
+                                                   NVL(D.RECEIVE_AMT, 0) RCP_AMT,
+                                                   (CASE WHEN D.OCCUR_DATE   BETWEEN SUBSTR(TO_CHAR(SYSDATE, 'YYYYMMDD'), 1, 6)||'01' AND SUBSTR(TO_CHAR(SYSDATE, 'YYYYMMDD'), 1, 6)||'31' THEN
+                                                                    D.AR_AMT --(V.BILL_AMOUNT + V.BILL_VAT)
+                                                               ELSE
+                                                                    0
+                                                          END) CURR_TRX_AMT,
+                                                   (CASE WHEN D.OCCUR_DATE   BETWEEN SUBSTR(TO_CHAR(SYSDATE, 'YYYYMMDD'), 1, 6)||'01' AND SUBSTR(TO_CHAR(SYSDATE, 'YYYYMMDD'), 1, 6)||'31' THEN
+                                                                    D.RECEIVE_AMT --(V.BILL_AMOUNT + V.BILL_VAT)
+                                                               ELSE
+                                                                    0
+                                                          END) CURR_RCP_AMT
+                                              FROM SLA_AR_MST V,
+                                                   SLA_AR_RECEIVE_DETAIL D,
+                                                   SCO_UPJANG_CUST  B,
+                                                   SCO_UPJANG_MST_V C
+                                            WHERE  V.AR_NUM = D.AR_NUM
+                                            AND   (V.UPJANG_CD     = B.UPJANG)
+                                            AND   (V.CUST_CD     = B.CUSTCD)
+                                            AND   (V.UPJANG_CD     = C.UPJANG)
+                                            AND   (V.OCCUR_DATE   BETWEEN '19000101' AND TO_CHAR(SYSDATE, 'YYYYMMDD'))
+                                             AND   (C.UPJANG     = :upjang)
+                                            AND D.RECD_STATUS = 'L'
+                                ) X
+                        GROUP BY X.MU_CD, X.TM_CD, X.UPJANG, X.CUSTCD, X.AMT, X.BOND_DATE, X.DUE_GUBUN
+                       ) V
+            GROUP BY V.MU_CD,
+                     V.TM_CD,
+                     V.UPJANG,
+                     V.CUSTCD
+           ) X
+        ]]>
+    </statement>
+
+    <!-- FS팀장/FS점장(식단공유) -->
+    <statement name="selectMyDesk04" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectMyDesk04 */
+        <![CDATA[
+SELECT A.UPJANG
+     , A.UPJANGNM
+     , COUNT(*) NOT_JOINT_CNT
+  FROM SCO_UPJANG_MST_V A
+     , FSM_MENU_JOINT B
+ WHERE A.UPJANG = B.UPJANG
+   AND A.CLOSE_DATE IS NULL
+   AND B.JOINT_YYMM = TO_CHAR(SYSDATE, 'YYYYMM')
+   AND B.JOINT_YN = 'N'
+   AND A.UPJANG = :upjang
+ GROUP BY A.UPJANG, A.UPJANGNM
+
+        ]]>
+    </statement>
+
+    <!-- FS점장(구매반려) -->
+    <statement name="selectMyDesk03" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectMyDesk03 */
+        <![CDATA[
+SELECT TO_CHAR(TO_DATE(A.PR_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS PR_DATE
+     , A.ITEM_NAME
+     , A.PR_SABUN
+     , A.NM_KOR
+     , SUM(A.CNT) AS CNT
+     , GROUPING(A.PR_DATE) AS A
+     , GROUPING(A.ITEM_NAME) AS B
+     , GROUPING(A.PR_SABUN) AS C
+     , GROUPING(A.NM_KOR) AS D
+     , GROUPING(A.PO_TYPE) AS E
+     , GROUPING(A.ITEM_CODE) AS F
+  FROM (SELECT PR_DATE, PO_TYPE, ITEM_CODE, ITEM_NAME, PR_SABUN, (SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = PR_SABUN) AS NM_KOR, 1 AS CNT
+          FROM SO_PR
+         WHERE RC_UPJANG = :upjang
+           AND NEED_DATE >= TO_CHAR(SYSDATE, 'YYYYMMDD')
+           AND LINE_STATUS IN ('PR', 'PD') ) A
+ GROUP BY ROLLUP(A.PR_DATE, A.ITEM_CODE, A.ITEM_NAME, A.PO_TYPE, A.PR_SABUN, A.NM_KOR)
+        ]]>
+    </statement>
+
+    <!-- FS점장(구매반려) -->
+    <statement name="selectMainImage" type="select">
+        /*+ com.hwfs.sc.cmn.dao.IntroFrameDAO.selectMainImage */
+        <![CDATA[
+SELECT FILE_NAME
+  FROM (SELECT *
+          FROM SCC_MAIN_IMG
+         WHERE MAIN_TYPE = :mainType
+         ORDER BY CREATE_DATE DESC, SEQ DESC ) A
+ WHERE ROWNUM = 1
+        ]]>
+    </statement>
+
+</hqml>

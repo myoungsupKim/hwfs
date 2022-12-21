@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.rrm.recipeClassCodeMgntDAO">
+	<desc>레시피 분류 코드 HQML Query</desc>
+
+	<!-- 레시피 대분류 코드 목록을 조회한다. -->
+	<statement name="selectListMgrp" type="select">
+		/*+ com.hwfs.rc.rrm.dao.RecipeClassCodeMgntDAO.selectListMgrp */
+		<![CDATA[
+		SELECT MGRP_CD,
+		       MGRP_CD_NM,
+		       'G' CODE_GB
+		FROM   RSS_RECIPE_MGRP_CD
+		ORDER BY MGRP_CD ASC
+		]]>
+	</statement>
+	
+	<!-- 레시피 중분류 코드 목록을 조회한다. -->
+	<statement name="selectListMcalss" type="select">
+		/*+ com.hwfs.rc.rrm.dao.RecipeClassCodeMgntDAO.selectListMcalss */
+		<![CDATA[
+		SELECT A.MCALSS_CD,
+		       A.MCALSS_CD_NM,
+		       A.MGRP_CD,
+		       B.MGRP_CD_NM,
+		       'M' CODE_GB
+		FROM   RSS_RECIPE_MCALSS_CD A,
+			   RSS_RECIPE_MGRP_CD B
+		WHERE  A.MGRP_CD = B.MGRP_CD
+		AND	   A.MGRP_CD = <#if mgrpCd?has_content> :mgrpCd <#else> '' </#if>
+		ORDER BY A.MCALSS_CD ASC
+		]]>
+	</statement>
+	
+	<!-- 레시피 소분류 코드 목록을 조회한다. -->
+	<statement name="selectListSclass" type="select">
+		/*+ com.hwfs.rc.rrm.dao.RecipeClassCodeMgntDAO.selectListSclass */
+		<![CDATA[
+		SELECT A.SCLASS_CD,
+		       A.SCLASS_CD_NM,
+		       A.MCALSS_CD,
+		       B.MCALSS_CD_NM,
+		       B.MGRP_CD,
+		       C.MGRP_CD_NM,
+		       'S' CODE_GB
+		FROM   RSS_RECIPE_SCLASS_CD A,
+			   RSS_RECIPE_MCALSS_CD B,
+			   RSS_RECIPE_MGRP_CD C
+		WHERE  A.MCALSS_CD = B.MCALSS_CD
+		AND	   B.MGRP_CD = C.MGRP_CD
+		AND	   A.MCALSS_CD = <#if mcalssCd?has_content> :mcalssCd <#else> '' </#if>
+		ORDER BY A.SCLASS_CD ASC
+		]]>
+	</statement>
+	
+	<!-- 레시피 대분류 코드 중복 검색 -->
+	<statement name="selectMgrpExists" type="select">
+		/*+ com.hwfs.rc.rrm.dao.RecipeClassCodeMgntDAO.selectMgrpExists */
+		<![CDATA[
+		SELECT COUNT(*)
+		FROM   RSS_RECIPE_MGRP_CD
+		WHERE  MGRP_CD = :mgrpCd
+		]]>
+	</statement>
+	
+	<!-- 레시피 중분류 코드 중복 검색 -->
+	<statement name="selectMcalssExists" type="select">
+		/*+ com.hwfs.rc.rrm.dao.RecipeClassCodeMgntDAO.selectMcalssExists */
+		<![CDATA[
+		SELECT COUNT(*)
+		FROM   RSS_RECIPE_MCALSS_CD
+		WHERE  MCALSS_CD = :mcalssCd
+		]]>
+	</statement>
+	
+	<!-- 레시피 소분류 코드 중복 검색 -->
+	<statement name="selectSclassExists" type="select">
+		/*+ com.hwfs.rc.rrm.dao.RecipeClassCodeMgntDAO.selectSclassExists */
+		<![CDATA[
+		SELECT COUNT(*)
+		FROM   RSS_RECIPE_SCLASS_CD
+		WHERE  SCLASS_CD = :sclassCd
+		]]>
+	</statement>
+	
+	<!-- 레시피 대분류 코드(을)를 등록한다. -->
+	<statement name="insertMgrp" type="insert">
+		/*+ com.hwfs.rc.rrm.dao.RecipeClassCodeMgntDAO.insertMgrp */
+		<![CDATA[
+		INSERT INTO RSS_RECIPE_MGRP_CD 
+		(
+		       MGRP_CD,
+			   MGRP_CD_NM,
+		       CUSER,
+		       CDATE,
+		       UUSER,
+		       UDATE
+		)
+		VALUES
+		(
+		       :mgrpCd,
+			   <#if mgrpCdNm?has_content> :mgrpCdNm, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE,
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 레시피 중분류 코드(을)를 등록한다. -->
+	<statement name="insertMcalss" type="insert">
+		/*+ com.hwfs.rc.rrm.dao.RecipeClassCodeMgntDAO.insertMcalss */
+		<![CDATA[
+		INSERT INTO RSS_RECIPE_MCALSS_CD 
+		(
+		       MCALSS_CD,
+			   MCALSS_CD_NM,
+			   MGRP_CD,
+		       CUSER,
+		       CDATE,
+		       UUSER,
+		       UDATE
+		)
+		VALUES
+		(
+			   :mcalssCd,
+			   <#if mcalssCdNm?has_content> :mcalssCdNm, <#else> null, </#if>
+		       :mgrpCd,
+			   :loginSabun,
+		       SYSDATE,
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 레시피 소분류 코드(을)를 등록한다. -->
+	<statement name="insertSclass" type="insert">
+		/*+ com.hwfs.rc.rrm.dao.RecipeClassCodeMgntDAO.insertSclass */
+		<![CDATA[
+		INSERT INTO RSS_RECIPE_SCLASS_CD 
+		(
+		       SCLASS_CD,
+			   SCLASS_CD_NM,
+			   MCALSS_CD,
+		       CUSER,
+		       CDATE,
+		       UUSER,
+		       UDATE
+		)
+		VALUES
+		(
+			   :sclassCd,
+			   <#if sclassCdNm?has_content> :sclassCdNm, <#else> null, </#if>
+		       :mcalssCd,
+			   :loginSabun,
+		       SYSDATE,
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 레시피 대분류 코드(을)를 수정한다. -->
+	<statement name="updateMgrp" type="update">
+		/*+ com.hwfs.rc.rrm.dao.RecipeClassCodeMgntDAO.updateMgrp */
+		<![CDATA[
+		UPDATE RSS_RECIPE_MGRP_CD 
+		SET    MGRP_CD_NM = :mgrpCdNm,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  MGRP_CD = :mgrpCd
+		]]>
+	</statement>
+	
+	<!-- 레시피 중분류 코드(을)를 수정한다. -->
+	<statement name="updateMcalss" type="update">
+		/*+ com.hwfs.rc.rrm.dao.RecipeClassCodeMgntDAO.updateMcalss */
+		<![CDATA[
+		UPDATE RSS_RECIPE_MCALSS_CD 
+		SET    MCALSS_CD_NM = :mcalssCdNm,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  MCALSS_CD = :mcalssCd
+		]]>
+	</statement>
+	
+	<!-- 레시피 소분류 코드(을)를 수정한다. -->
+	<statement name="updateSclass" type="update">
+		/*+ com.hwfs.rc.rrm.dao.RecipeClassCodeMgntDAO.updateSclass */
+		<![CDATA[
+		UPDATE RSS_RECIPE_SCLASS_CD 
+		SET    SCLASS_CD_NM = :sclassCdNm,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  SCLASS_CD = :sclassCd
+		]]>
+	</statement>
+
+	<!-- 레시피 대분류 코드(을)를 삭제한다. -->
+	<statement name="deleteMgrp" type="delete">
+		/*+ com.hwfs.rc.rrm.dao.RecipeClassCodeMgntDAO.deleteMgrp */
+		<![CDATA[
+		DELETE 
+		FROM   RSS_RECIPE_MGRP_CD 
+		WHERE  MGRP_CD = :mgrpCd
+		]]>
+	</statement>
+	
+	<!-- 레시피 중분류 코드(을)를 삭제한다. -->
+	<statement name="deleteMcalss" type="delete">
+		/*+ com.hwfs.rc.rrm.dao.RecipeClassCodeMgntDAO.deleteMcalss */
+		<![CDATA[
+		DELETE 
+		FROM   RSS_RECIPE_MCALSS_CD 
+		WHERE  MCALSS_CD = :mcalssCd
+		]]>
+	</statement>
+	
+	<!-- 레시피 소분류 코드(을)를 삭제한다. -->
+	<statement name="deleteSclass" type="delete">
+		/*+ com.hwfs.rc.rrm.dao.RecipeClassCodeMgntDAO.deleteSclass */
+		<![CDATA[
+		DELETE 
+		FROM   RSS_RECIPE_SCLASS_CD 
+		WHERE  SCLASS_CD = :sclassCd
+		]]>
+	</statement>
+	
+	<!-- 레시피 중분류 코드 모든 목록을 조회한다. -->
+	<statement name="selectListMcalssAll" type="select">
+		/*+ com.hwfs.rc.rrm.dao.RecipeClassCodeMgntDAO.selectListMcalssAll */
+		<![CDATA[
+		SELECT A.MCALSS_CD,
+		       A.MCALSS_CD_NM,
+		       A.MGRP_CD,
+		       B.MGRP_CD_NM,
+		       'M' CODE_GB
+		FROM   RSS_RECIPE_MCALSS_CD A,
+			   RSS_RECIPE_MGRP_CD B
+		WHERE  A.MGRP_CD = B.MGRP_CD
+		ORDER BY A.MCALSS_CD_NM ASC
+		]]>
+	</statement>
+	
+	<!-- 레시피 소분류 코드 모든 목록을 조회한다.(표준 레시피관리 사용) -->
+	<statement name="selectListSclassAll" type="select">
+		/*+ com.hwfs.rc.rrm.dao.RecipeClassCodeMgntDAO.selectListSclassAll */
+		<![CDATA[
+		SELECT A.SCLASS_CD,
+		       A.SCLASS_CD_NM,
+		       A.MCALSS_CD,
+		       B.MCALSS_CD_NM,
+		       B.MGRP_CD,
+		       C.MGRP_CD_NM
+		FROM   RSS_RECIPE_SCLASS_CD A,
+			   RSS_RECIPE_MCALSS_CD B,
+			   RSS_RECIPE_MGRP_CD C
+		WHERE  A.MCALSS_CD = B.MCALSS_CD
+		AND	   B.MGRP_CD = C.MGRP_CD
+		ORDER BY A.SCLASS_CD_NM ASC
+		]]>
+	</statement>
+
+</hqml>

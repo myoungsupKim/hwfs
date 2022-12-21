@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT V.GUBUN,
+       V.PLAN_A,
+       V.CURR_A,
+       ROUND(DECODE(V.PLAN_A, 0, 0, (V.CURR_A/V.PLAN_A) * 100), 1) PLAN_A_RATIO,
+       V.PLAN_B,
+       V.CURR_B,
+       ROUND(DECODE(V.PLAN_B, 0, 0, (V.CURR_B/V.PLAN_B) * 100), 1) PLAN_B_RATIO
+  FROM (
+        SELECT '수주매출' GUBUN,
+               NVL((SELECT SUM(SALE_YEAR) FROM MAK_NEWORDER_MGMT_PLAN WHERE MGMT_SABUN = #SABUN#  AND ORDER_YYMM BETWEEN #DATE# AND #DATE#), 0) PLAN_A,
+               NVL((SELECT SUM(SALE_YEAR) FROM MAK_NEWORDER_MGMT      WHERE ORD_SABUN = #SABUN#   AND ORDER_DATE BETWEEN #DATE#||'01' AND #DATE#||'31'), 0) CURR_A,
+               NVL((SELECT SUM(SALE_YEAR) FROM MAK_NEWORDER_MGMT_PLAN WHERE MGMT_SABUN = #SABUN#  AND ORDER_YYMM BETWEEN SUBSTR(#DATE#, 1, 4)||'01' AND #DATE#), 0) PLAN_B,
+               NVL((SELECT SUM(SALE_YEAR) FROM MAK_NEWORDER_MGMT WHERE ORD_SABUN = #SABUN# AND ORDER_DATE BETWEEN SUBSTR(#DATE#, 1, 4)||'0101' AND #DATE#||'31'), 0) CURR_B
+          FROM DUAL
+        UNION ALL
+        SELECT '수주건수' GUBUN,
+               NVL((SELECT COUNT(*) FROM MAK_NEWORDER_MGMT_PLAN WHERE MGMT_SABUN = #SABUN#  AND ORDER_YYMM BETWEEN #DATE# AND #DATE#), 0) PLAN_A,
+               NVL((SELECT COUNT(*) FROM MAK_NEWORDER_MGMT WHERE ORD_SABUN = #SABUN# AND ORDER_DATE BETWEEN #DATE#||'01' AND #DATE#||'31'), 0) CURR_A,
+               NVL((SELECT COUNT(*) FROM MAK_NEWORDER_MGMT_PLAN WHERE MGMT_SABUN = #SABUN#  AND ORDER_YYMM BETWEEN SUBSTR(#DATE#, 1, 4)||'01' AND #DATE#), 0) PLAN_B,
+               NVL((SELECT COUNT(*) FROM MAK_NEWORDER_MGMT WHERE ORD_SABUN = #SABUN# AND ORDER_DATE BETWEEN SUBSTR(#DATE#, 1, 4)||'0101' AND #DATE#||'31'), 0) CURR_B
+          FROM DUAL
+        UNION ALL
+        SELECT '신규매출' GUBUN,
+               NVL((SELECT SUM(SALE_CURR_YEAR) FROM MAK_NEWORDER_MGMT_PLAN WHERE MGMT_SABUN = #SABUN#  AND ORDER_YYMM BETWEEN #DATE# AND #DATE#), 0) PLAN_A,
+               NVL((SELECT SUM(SALE_CURR_YEAR) FROM MAK_NEWORDER_MGMT WHERE ORD_SABUN = #SABUN# AND ORDER_DATE BETWEEN #DATE#||'01' AND #DATE#||'31'), 0) CURR_A,
+               NVL((SELECT SUM(SALE_CURR_YEAR) FROM MAK_NEWORDER_MGMT_PLAN WHERE MGMT_SABUN = #SABUN#  AND ORDER_YYMM BETWEEN SUBSTR(#DATE#, 1, 4)||'01' AND #DATE#), 0) PLAN_B,
+               NVL((SELECT SUM(SALE_CURR_YEAR) FROM MAK_NEWORDER_MGMT WHERE ORD_SABUN = #SABUN# AND ORDER_DATE BETWEEN SUBSTR(#DATE#, 1, 4)||'0101' AND #DATE#||'31'), 0) CURR_B
+          FROM DUAL
+       ) V
+</statement>
+	<input default-name="ds_cond">
+		<col name="SABUN" size="255" type="VARCHAR" description="" /> 	
+		<col name="DATE" size="255" type="VARCHAR" description="" /> 								
+	</input>
+	<output default-name="ds_listDetail2">
+		<col name="GUBUN" size="255" type="VARCHAR" description="" /> 
+		<col name="PLAN_A" size="" type="NUMERIC" description="" /> 
+		<col name="CURR_A" size="" type="NUMERIC" description="" /> 
+		<col name="PLAN_A_RATIO" size="" type="NUMERIC" description="" /> 
+		<col name="PLAN_B" size="" type="NUMERIC" description="" /> 
+		<col name="CURR_B" size="" type="NUMERIC" description="" /> 
+		<col name="PLAN_B_RATIO" size="" type="NUMERIC" description="" /> 
+	</output>
+</query>

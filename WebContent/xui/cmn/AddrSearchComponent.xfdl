@@ -1,0 +1,472 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="AddrSearchComponent" classname="AddrSearchComponent" inheritanceid="" position="absolute 0 0 360 43" titletext="주소검색 Component" onload="AddrSearchComponent_onload" bindDataset="" isAutoDatasetRowChangedEvent="true" bindAddrColumn="addr" eventBeforeTrigger="" eventAfterTrigger="" bindAddrKeyColumn="addrKey" isReadOnly="false">
+    <Layouts>
+      <Layout>
+        <Button id="btn_search" taborder="1" onclick="btn_search_onclick" class="btn_WF_popSearch" position="absolute 56 0 77 21" anchor="default" style="border:1 solid #aaaaaaff ;"/>
+        <Edit id="edt_baseAddr" taborder="2" readonly="true" position="absolute 78 0 360 21" anchor="left top right" style="padding:1 0 0 5;align:left middle;" onkeydown="edt_baseAddr_onkeydown"/>
+        <Edit id="edt_detailAddr" taborder="3" readonly="true" position="absolute 78 22 237 43" anchor="default" style="padding:1 0 0 5;align:left middle;" onkeydown="edt_detailAddr_onkeydown"/>
+        <Edit id="edt_etcAddr" taborder="4" readonly="false" position="absolute 238 22 360 43" anchor="default" style="padding:1 0 0 5;align:left middle;" visible="true"/>
+        <Static id="sta_baseWidth" text="Component의 Size를 조정하므로 임의로 Width를 조정하지 마세요." position="absolute 78 162 360 212" style="border:1 solid #808080ff ;" anchor="left top right" onsize="sta_baseWidth_onsize" visible="false"/>
+        <Edit id="edt_postNo" taborder="0" position="absolute 0 0 55 21" readonly="true" style="padding:1 0 0 0;align:center middle;" onkeydown="edt_postNo_onkeydown"/>
+        <Edit id="edt_addrClassNm" taborder="5" position="absolute 0 22 77 43" readonly="true" style="align:center middle;"/>
+        <TextArea id="txt_addr" taborder="6" position="absolute 78 74 359 125" visible="false"/>
+      </Layout>
+    </Layouts>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : 주소 검색용 컴포넌트
+  파 일 명 : AddrSearchComponent.xfdl
+  기    능 : 주소 검색 Composite 콤포넌트
+
+    수정일     수정자                  수정내용
+  ----------   -------  --------------------------------------------------
+  2015.06.02   김재섭   최초 생성
+*/
+
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+************************************************************************************************/
+include "lib::lib_com.xjs";
+
+var CLASS_JIBUN = "1"; //주소구분이 지번인 경우
+var CLASS_ROAD = "2";  //주소구분이 도로명인 경우
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 초기설정한다.
+ *---------------------------------------------------------------------------------------------*/
+function AddrSearchComponent_onload(obj:Form, e:LoadEventInfo)
+{
+	//필수 표시여부에 대한 class를 정의한다.
+	if (!gfn_isNull(this.class) && this.class == "edt_WF_Essential")
+	{
+		edt_postNo.class = this.class;
+		edt_baseAddr.class = this.class;
+		edt_detailAddr.class = this.class;
+		edt_etcAddr.class = this.class;
+		btn_search.class = "btn_WF_popSearchEssential";
+	}
+	
+	fn_setBindItem();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 바인정보를 생성한다.
+ *---------------------------------------------------------------------------------------------*/
+function fn_setBindItem()
+{
+	if (!gfn_isNull(this.bindDataset))
+	{
+		//주소관리 key 바인딩
+// 		if (!gfn_isNull(this.bindAddrKeyColumn))
+// 		{
+// 			var bindItemAddrKey = new BindItem("addrSearchBindItemAddrKey", "edt_addrKey", "value", this.bindDataset, this.bindAddrKeyColumn);
+// 			this.addChild(bindItemAddrKey.name, bindItemAddrKey);
+// 			bindItemAddrKey.bind();
+// 		}
+
+		//주소 바인딩(JSON)
+		if (!gfn_isNull(this.bindAddrColumn))
+		{
+			var bindItemAddr = new BindItem("addrSearchBindItemAddr", "txt_addr", "value", this.bindDataset, this.bindAddrColumn);
+			this.addChild(bindItemAddr.name, bindItemAddr);
+			bindItemAddr.bind();
+		}
+		
+		var isAuthority = fn_isAuthority();
+
+		//Dataset의 RowChangeEvent를 설정한다.
+		if (this.isAutoDatasetRowChangedEvent.toLowerCase() == "true") {
+			eval(this.bindDataset).onrowposchanged.addHandler(function (o, e) {
+				
+				bind();
+			});
+		}
+		
+		//권한이 있는 경우에는 아래의 조건을 수행한다.
+		if (isAuthority) {
+			btn_search.visible = true;
+			edt_postNo.position.width = 55;
+			edt_etcAddr.readonly = false;
+			
+			edt_etcAddr.ontextchanged.addHandler(function (o, e) {
+				var json = parseJsonObject(txt_addr.value);
+				
+				if (json.addrKey == "") {
+					o.value = "";
+					gfn_alert("먼저 주소부터 검색해 주세요.");
+					return false;
+				}
+				
+				//json.etcAddr = o.value;
+				json.etcAddr = e.posttext;
+				txt_addr.value = parseJsonString(json);
+				o.setFocus();
+			});
+		}
+		else {
+			btn_search.visible = false;
+			edt_postNo.position.width = 77;
+			edt_etcAddr.readonly = true;
+		}
+		
+		bind();
+	}
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : JSON Format의 String을 JSON Object로 변환
+ *---------------------------------------------------------------------------------------------*/
+function parseJsonObject(strJson){
+    return eval("(" + strJson + ")");
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : JSON Object를 JSON Format의 String으로 변환
+ *---------------------------------------------------------------------------------------------*/
+function parseJsonString(object) {
+    var isArray = (object.join && object.pop && object.push
+                    && object.reverse && object.shift && object.slice && object.splice);
+    var results = [];
+    
+    for (var i in object) {
+        var value = object[i];
+
+        if (typeof value == "object"){
+            results.push((isArray ? "" : "\"" + i.toString() + "\" : ") + gfn_jsonObjectToString(value));
+        }
+        else {
+			value=gfn_addSlash(value);
+            results.push((isArray ? "" : "\"" + i.toString() + "\" : ") + (typeof value == "string" ? "\"" + value + "\"" : value));
+        }
+    }
+    
+    return (isArray ? "[" : "{") + results.join(", ") + (isArray ? "]" : "}");
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 현재 화면의 권한을 체크한다.
+ *---------------------------------------------------------------------------------------------*/
+function fn_isAuthority()
+{
+	if (this.isReadOnly.toLowerCase() == "false")
+	{
+		var dsAuth = eval("ds_cmnAuth");
+
+		if ((dsAuth.getColumn(0, "insYn") == "Y" || dsAuth.getColumn(0, "insYn") == "1") || (dsAuth.getColumn(0, "delYn") == "Y" || dsAuth.getColumn(0, "delYn") == "1") || (dsAuth.getColumn(0, "savYn") == "Y" || dsAuth.getColumn(0, "savYn") == "1")) {
+			return true;
+		}
+		else {
+			return false;
+		}
+	}
+	else
+	{
+		return false;
+	}
+}
+
+function setReadonly(val)
+{
+	if (val)
+	{
+		btn_search.enable = false;
+		edt_etcAddr.readonly = true;
+	}
+	else
+	{
+		btn_search.enable = true;
+		edt_etcAddr.readonly = false;
+	}
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 상세주소와 기타주소의 Width를 조정한다.
+ *---------------------------------------------------------------------------------------------*/
+function sta_baseWidth_onsize(obj:Static, e:SizeEventInfo)
+{
+	var baseWidth = parseInt(e.cx);
+	//edt_baseAddr.position.width = baseWidth * 0.4;
+	//edt_detailAddr.position.x = edt_baseAddr.position.right + 1;
+	//edt_detailAddr.position.width = baseWidth * 0.5;
+	//edt_etcAddr.position.x = edt_detailAddr.position.right + 1;
+	//edt_etcAddr.position.width = baseWidth * 0.5 - 0.5;	
+	edt_detailAddr.position.width = baseWidth * 0.7;
+	edt_etcAddr.position.x = edt_detailAddr.position.right + 1;
+	edt_etcAddr.position.width = baseWidth * 0.3;
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 지번/도로명에 따른 값을 Viwer Component에 바인딩한다.
+ *---------------------------------------------------------------------------------------------*/
+function bind()
+{
+	var dataSet = eval(this.bindDataset);
+	var json = parseJsonObject(dataSet.getColumn(dataSet.rowposition, this.bindAddrColumn));
+	
+	if (json == undefined) {
+		return;
+	}
+	
+	if (json.addrClass == CLASS_JIBUN) {
+		if (!gfn_isNull(json.zipCode1) && gfn_length(json.zipCode1) == 6) {
+			edt_postNo.value = gfn_subStr(json.zipCode1, 0, 3) + "-" + gfn_subStr(json.zipCode1, 3, 3);
+		}
+		else {
+			edt_postNo.value = json.zipCode1;
+		}
+		
+		edt_baseAddr.value = json.baseAddr1;
+		edt_detailAddr.value = json.detailAddr1;
+		edt_addrClassNm.value = "지번주소";
+	}
+	else if (json.addrClass == CLASS_ROAD) {
+		edt_postNo.value = json.zipCode2;
+		edt_baseAddr.value = json.baseAddr2;
+		edt_detailAddr.value = json.detailAddr2;
+		edt_addrClassNm.value = "도로명주소";
+	}
+	else {
+		edt_postNo.value = "";
+		edt_baseAddr.value = "";
+		edt_detailAddr.value = "";
+		edt_addrClassNm.value = "";
+	}
+	
+	//edt_addrKey.value = json.addrKey;
+	
+	edt_etcAddr.value = json.etcAddr;
+	
+	//검증이 안된 경우에는 Border의 색을 변경하여 사용자에게 알린다.
+	if (json.confirmYn == "N") {
+		edt_postNo.style.border = "1 solid #ff0000";
+		edt_baseAddr.style.border = "1 solid #ff0000";
+		edt_detailAddr.style.border = "1 solid #ff0000";
+		edt_etcAddr.style.border = "1 solid #ff0000";
+		btn_search.style.border = "1 solid #ff0000";
+		edt_addrClassNm.style.border = "1 solid #ff0000";
+	}
+	else {
+		edt_postNo.style.border = "1 solid #c2c2c2";
+		edt_baseAddr.style.border = "1 solid #c2c2c2";
+		edt_detailAddr.style.border = "1 solid #c2c2c2";
+		edt_etcAddr.style.border = "1 solid #aaaaaa";
+		btn_search.style.border = "1 solid #aaaaaa";
+		edt_addrClassNm.style.border = "1 solid #c2c2c2";
+	}
+}
+
+function getPostNo()
+{
+	return edt_postNo.value;
+}
+
+function getBaseAddr()
+{
+	return edt_baseAddr.value;
+}
+
+function getDetailAddr()
+{
+	return edt_detailAddr.value;
+}
+
+function getEtcAddr()
+{
+	return edt_etcAddr.value;
+}
+
+function getAddrClass()
+{
+	if (edt_addrClassNm.value == "지번주소")
+	{
+		return CLASS_JIBUN;
+	}
+	else
+	{
+		return CLASS_ROAD;
+	}
+}
+
+//신규로 생성할 경우
+function newData() {
+	var jsonString = '{"addrKey":"","addrClass":"","confirmYn":"","zipCode1":"","baseAddr1":"","detailAddr1":"","lat1":"","lon1":"","zipCode2":"","baseAddr2":"","detailAddr2":"","lat2":"","lon2":"","buildingMgmtNum":"","etcAddr":"","oldAddrKey":""}';
+	txt_addr.value = jsonString;
+	bind();
+	return jsonString;
+}
+
+var fv_newKey = "";
+
+function newKey() {
+	var json = parseJsonObject(txt_addr.value);
+	fv_newKey = "";	
+    var strSvcID    = "selectNewKey";
+    var strURL      = "/sc/cmn/addrSearch/selectNewKey.xdo";
+    var strInDs     = "";
+    var strOutDs    = "";
+    var strArg      = "";
+    var strCallback = "";
+    var bAsync      = false;
+    
+    gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+	
+	json.addrKey = fv_newKey;
+	json.oldAddrKey = "";
+	txt_addr.value = parseJsonString(json);
+	
+	return json.addrKey;
+}
+
+//삭제 처리를 할 경우
+function deleteData(rowposition) {
+	var dataSet = eval(this.bindDataset);
+	var json = parseJsonObject(dataSet.getColumn(rowposition, this.bindAddrColumn));
+	json.addrKey = "";
+	
+	dataSet.setColumn(rowposition, this.bindAddrColumn, parseJsonString(json));
+	dataSet.updatecontrol = false;
+	dataSet.setRowType(rowposition, Dataset.ROWTYPE_NORMAL);
+	dataSet.updatecontrol = true;
+}
+
+function clearAll()
+{
+	edt_addrClassNm.value = "";
+	edt_baseAddr.value = "";
+	edt_postNo.value = "";
+	edt_detailAddr.value = "";
+	edt_etcAddr.value = "";
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Event 처리
+ *---------------------------------------------------------------------------------------------*/
+function fn_keyDownEvent(o, e)
+{
+	if (e.keycode == 13) {
+		if (gfn_isNull(o.value)) {
+			btn_search.click();
+		}
+	}
+	else if (e.keycode == 46) {
+		var json = parseJsonObject(txt_addr.value);
+		json.addrKey = "";
+		json.addrClass = "";
+		json.confirmYn = "";
+		json.zipCode1 = "";
+		json.baseAddr1 = "";
+		json.detailAddr1 = "";
+		json.lat1 = "";
+		json.lon1 = "";
+		json.zipCode2 = "";
+		json.baseAddr2 = "";
+		json.detailAddr2 = "";
+		json.lat2 = "";
+		json.lon2 = "";
+		json.buildingMgmtNum = "";
+		json.etcAddr = "";
+		
+		txt_addr.value = parseJsonString(json);
+		bind();
+		
+		var dataSet = eval(this.bindDataset);
+		dataSet.setColumn(dataSet.rowposition, this.bindAddrKeyColumn, "");
+	}
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : KEY DOWN EVENT
+ *---------------------------------------------------------------------------------------------*/
+function edt_postNo_onkeydown(obj:Edit, e:KeyEventInfo)
+{
+	if (!fn_isAuthority()) return;
+	
+	fn_keyDownEvent(obj, e);
+}
+
+function edt_baseAddr_onkeydown(obj:Edit, e:KeyEventInfo)
+{
+	if (!fn_isAuthority()) return;
+	
+	fn_keyDownEvent(obj, e);
+}
+
+function edt_detailAddr_onkeydown(obj:Edit, e:KeyEventInfo)
+{
+	if (!fn_isAuthority()) return;
+	
+	fn_keyDownEvent(obj, e);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 찾기버튼 클릭 이벤트	
+ *---------------------------------------------------------------------------------------------*/
+function btn_search_onclick(obj:Button,  e:ClickEventInfo)
+{
+	//[[Before Event를 정의한다.
+	if (!gfn_isNull(this.eventBeforeTrigger))
+	{
+		var beforeEvent = eval("parent."+this.eventBeforeTrigger);
+		var rtn = beforeEvent(this);
+		
+		if (!rtn) return;
+	}
+	//Before Event를 정의한다.]]
+
+	//[[팝업창을 호출한다.
+	var strId       = "AddrSearch";
+	var strURL      = "cmn::AddrSearchPop.xfdl";
+	var objArgument = {P_ETC_ADDR : edt_etcAddr.value};
+	var nWidth      = -1;
+	var nHeight     = -1;
+	var strStyle    = "";
+	var nLeft       = -1;
+	var nTop        = -1;
+	var isModeless  = false;
+	var bShowTitle  = true;
+	var strAlign    = "-1";
+
+	// 리턴값을 배열로 받을 경우	
+	var arrRtn = gfn_dialog(strId, strURL, objArgument, nWidth, nHeight, strStyle, nLeft, nTop, isModeless, bShowTitle, strAlign);
+	
+	if (arrRtn instanceof Object)
+	{
+		var json = parseJsonObject(txt_addr.value);
+		json.addrKey = arrRtn.addrKey;
+		json.addrClass = arrRtn.addrClass;
+		json.confirmYn = arrRtn.confirmYn;
+		json.zipCode1 = arrRtn.zipCode1;
+		json.baseAddr1 = arrRtn.baseAddr1;
+		json.detailAddr1 = arrRtn.detailAddr1;
+		json.lat1 = gfn_isNull(arrRtn.lat1)?"":arrRtn.lat1;
+		json.lon1 = gfn_isNull(arrRtn.lon1)?"":arrRtn.lon1;
+		json.zipCode2 = arrRtn.zipCode2;
+		json.baseAddr2 = arrRtn.baseAddr2;
+		json.detailAddr2 = arrRtn.detailAddr2;
+		json.lat2 = gfn_isNull(arrRtn.lat2)?"":arrRtn.lat2;
+		json.lon2 = gfn_isNull(arrRtn.lon2)?"":arrRtn.lon2;
+		json.buildingMgmtNum = gfn_isNull(arrRtn.buildingMgmtNum)?"":arrRtn.buildingMgmtNum;
+		json.etcAddr = gfn_isNull(arrRtn.etcAddr)?"":arrRtn.etcAddr;
+		
+		txt_addr.value = parseJsonString(json);
+		bind();
+		
+//		trace(json.oldAddrKey);
+		
+		var dataSet = eval(this.bindDataset);
+		dataSet.setColumn(dataSet.rowposition, this.bindAddrKeyColumn, gfn_isNull(json.oldAddrKey)?arrRtn.addrKey:json.oldAddrKey);
+
+		//[[After Event를 정의한다.
+		if (!gfn_isNull(this.eventAfterTrigger))
+		{
+			var afterEvent = eval("parent."+this.eventAfterTrigger);
+			afterEvent(this, arrRtn);
+		}
+		//After Event를 정의한다.]]
+	}
+	//팝업창을 호출한다.]]
+}
+]]></Script>
+  </Form>
+</FDL>

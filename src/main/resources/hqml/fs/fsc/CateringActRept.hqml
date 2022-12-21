@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="fs.fsc.cateringActReptDAO">
+	<desc>케터링 실적보고(행사실적) HQML Query</desc>
+
+	<!-- 케터링 실적보고(행사실적) 목록을 조회한다. -->
+	<statement name="selectCeleList" type="select"><![CDATA[
+ SELECT TM_CD                             AS TM_CD
+      , TM_NM                             AS TM_NM
+      , REQUEST_UPJANG_CD                 AS REQUEST_UPJANG_CD   /* 신청 업장코드         */
+      , UPJANGNM                          AS REQUEST_UPJANG_NM   /* 신청 업장명           */
+     -- , REQUEST_ID                        AS REQUEST_ID          /* 신청ID                */
+     -- , SEQ                               AS SEQ                 /* 신청ID 기준 일련번호  */
+     -- , CELE_NM                           AS CELE_NM             /* 행사명                */
+      , CELE_TERM_SDATE                   AS CELE_TERM_SDATE     /* 행사기간 시작일자     */
+      , CELE_TERM_EDATE                   AS CELE_TERM_EDATE     /* 행사기간 종료일자     */                                                               
+      , SUM(NO_MAN)                            AS PLAN_NO_MAN         /* 인원 수               */
+      , CATER_UPRICE                      AS PLAN_CATER_UPRICE   /* vat포함 금액          */
+      , CATER_UPRICE  * NVL( MIN(GUEST_NO_MAN), 0) AS PLAN_ALLC_UPRICE
+      , NVL( SUM(ALLC_TOT), 0)                   AS PLAN_ALLC_TOT      
+      , SUM(NO_MAN)                            AS EXE_NO_MAN          /* 인원 수               */
+      , CATER_UPRICE                      AS EXE_CATER_UPRICE    /* vat포함 금액          */
+      , CATER_UPRICE  * NVL( MIN(GUEST_NO_MAN), 0) AS EXE_ALLC_UPRICE
+      , NVL( SUM(ALLC_TOT), 0)                   AS EXE_ALLC_TOT      
+      , MAX(SPCLFACT)                          AS SPCLFACT            /* 특이사항              */
+      , MIN(GUEST_NO_MAN)                      AS GUEST_NO_MAN           /* 연회 인원 */  
+      
+      FROM(
+			 SELECT
+			        C.TM_CD                             
+			      , C.TM_NM                             
+			      , M.REQUEST_UPJANG_CD                  /* 신청 업장코드         */
+			      , C.UPJANGNM                           /* 신청 업장명           */
+			      , M.REQUEST_ID                               /* 신청ID                */
+			     -- , M.SEQ                                               /* 신청ID 기준 일련번호  */
+			      , M.CELE_NM                            /* 행사명                */
+			      , M.CELE_TERM_SDATE                        /* 행사기간 시작일자     */
+			      , M.CELE_TERM_EDATE                        /* 행사기간 종료일자     */                                                               
+			      , M.NO_MAN                                     /* 인원 수               */
+			      , M.CATER_UPRICE                         /* vat포함 금액          */
+			     -- , M.CATER_UPRICE  * NVL( ALLC_TOT, 0) 
+			      --, NVL( ALLC_TOT, 0)                         
+			      --, M.NO_MAN                                      /* 인원 수               */
+			      --, M.CATER_UPRICE                          /* vat포함 금액          */
+			      --, M.CATER_UPRICE  * NVL( ALLC_TOT, 0) 
+			      , NVL( ALLC_TOT, 0)                   AS ALLC_TOT      
+			      , M.SPCLFACT                                      /* 특이사항              */  
+			      , GUEST_NO_MAN                                    /* 연회 인원 */    
+			   FROM FSC_CATERINGCELE_REG M
+			      , (
+			         SELECT   
+			                REQUEST_UPJANG_CD                              /* 신청업장코드        */
+			              , CATER_CLASS                                    /* 케터링구분          */
+			              , REQUEST_ID                                     /* 신청ID              */
+			          --    , SEQ                                            /* 신청ID 기준 순번    */      
+			              , COUNT(*)           AS ALLC_TOT
+			          FROM  FSC_CATERINGCELE_ALLC S
+			         WHERE CATER_CLASS       = '001'                      /* 케터링구분          */ 
+			        <#if upjang?has_content>           
+			           AND REQUEST_UPJANG_CD = :upjangCd                  /* 신청업장코드        */ 
+			        </#if>         
+			           AND  ALLC_STATUS       = '002'                      /* 배정상태            */
+			         GROUP BY 
+			               REQUEST_UPJANG_CD                              /* 신청업장코드        */
+			             , CATER_CLASS                                    /* 케터링구분          */
+			             , REQUEST_ID                                     /* 신청ID              */
+			          --   , SEQ                                            /* 신청ID 기준 순번    */      
+			        ) S
+			     , SCO_UPJANG_MST_V  C
+			 WHERE M.REQUEST_UPJANG_CD  = S.REQUEST_UPJANG_CD             /* 신청업장코드        */
+			   AND M.REQUEST_ID         = S.REQUEST_ID                    /* 신청ID              */
+			 --  AND M.SEQ                = S.SEQ                           /* 신청ID 기준 순번    */      
+			   AND M.ALLC_YN            = 'Y'                             /* 배정여부(Y/N)              */
+			   AND M.REQUEST_UPJANG_CD  = C.UPJANG    
+			      AND C.FS_UPJANG = 'Y'    
+			<#if muCd?has_content>
+			AND    C.MU_CD = :muCd
+			</#if>
+			<#if tmCd?has_content>
+			AND    C.TM_CD = :tmCd
+			</#if>
+			<#if upjangCd?has_content>
+			AND    M.REQUEST_UPJANG_CD = :upjangCd
+			</#if>                                                                        
+			   AND (    TO_DATE(M.CELE_TERM_SDATE,'YYYYMMDD') BETWEEN TO_DATE(:fromDay,'YYYYMMDD')  AND TO_DATE(:toDay,'YYYYMMDD')            
+			      OR TO_DATE(M.CELE_TERM_EDATE,'YYYYMMDD') BETWEEN TO_DATE(:fromDay,'YYYYMMDD')  AND TO_DATE(:toDay,'YYYYMMDD')            
+			      OR TO_DATE(:fromDay,'YYYYMMDD') BETWEEN TO_DATE( M.CELE_TERM_SDATE,'YYYYMMDD') AND TO_DATE(M.CELE_TERM_EDATE,'YYYYMMDD') 
+			      OR TO_DATE(:toDay,'YYYYMMDD')   BETWEEN TO_DATE( M.CELE_TERM_SDATE,'YYYYMMDD') AND TO_DATE(M.CELE_TERM_EDATE,'YYYYMMDD')   
+			    )   
+			 ORDER BY
+			       M.REQUEST_UPJANG_CD                                    /* 신청 업장코드              */
+			     , M.REQUEST_ID                                           /* 신청ID                     */
+			    -- , M.SEQ                                                  /* 신청ID 기준 일련번호       */  
+			     , M.CELE_TERM_SDATE                  DESC                /* 행사기간 시작일자     */ 
+			     )
+			     GROUP BY TM_CD,TM_NM,REQUEST_UPJANG_CD,UPJANGNM,CELE_TERM_SDATE,CELE_TERM_EDATE,CATER_UPRICE
+    			 ORDER BY TM_CD,REQUEST_UPJANG_CD,CELE_TERM_SDATE,CELE_TERM_EDATE  
+]]></statement>
+
+	<!-- 케터링 실적보고(행사실적)(을)를 등록한다. -->
+
+
+	<!-- 케터링 실적보고(행사실적)(을)를 수정한다. -->
+
+
+	<!-- 케터링 실적보고(행사실적)(을)를 삭제한다. -->
+
+
+	<statement name="selectCookHumanList"><![CDATA[
+ SELECT
+        C.TM_CD                             AS TM_CD
+      , C.TM_NM                             AS TM_NM
+      , M.REQUEST_UPJANG_CD                 AS REQUEST_UPJANG_CD            /* 신청 업장코드         */
+      , C.UPJANGNM                          AS REQUEST_UPJANG_NM            /* 신청 업장명           */
+      , M.REQUEST_ID                        AS REQUEST_ID                   /* 신청ID                */
+      --, M.SEQ                               AS SEQ                          /* 신청ID 기준 일련번호  */      
+      , M.SUP_TERM_SDATE                    AS REQ_SUP_TERM_SDATE               /*  지원기간 시작일자 */
+      , M.SUP_TERM_EDATE                    AS REQ_SUP_TERM_EDATE               /*  지원기간 종료일자 */
+      , M.NO_MAN                            AS REQ_NO_MAN                       /*  인원 수           */
+      
+      , M.SUP_TERM_SDATE                    AS SUPPT_SUP_TERM_SDATE               /*  지원기간 시작일자 */
+      , M.SUP_TERM_EDATE                    AS SUPPT_SUP_TERM_EDATE               /*  지원기간 종료일자 */
+      , NVL( ALLC_TOT, 0)                   AS SUPPT_ALLC_TOT
+      
+      , M.REQUEST_REASON                    AS REQUEST_REASON               /*  요청사유 기술     */
+      , S.REMARK                            AS REMARK
+   FROM FSC_CATERINGCOOKHUMAN_REG M
+      , (
+       SELECT   REQUEST_UPJANG_CD                              /* 신청업장코드        */
+              , CATER_CLASS                                    /* 케터링구분          */
+              , REQUEST_ID                                     /* 신청ID              */
+             -- , SEQ                                            /* 신청ID 기준 순번    */
+              , MAX( SUBSTR(SYS_CONNECT_BY_PATH (ALLC_REASON, ','),2)) AS  REMARK
+              , MAX(ALLC_TOT) AS ALLC_TOT
+          FROM (  
+               SELECT   
+                      REQUEST_UPJANG_CD                              /* 신청업장코드        */
+                    , CATER_CLASS                                    /* 케터링구분          */
+                    , REQUEST_ID                                     /* 신청ID              */
+                   -- , SEQ                                            /* 신청ID 기준 순번    */
+                    , ALLC_REASON
+                    , ROW_NUMBER () OVER  (
+                                      PARTITION BY                
+                                      REQUEST_UPJANG_CD              /* 신청업장코드        */
+                                    , CATER_CLASS                    /* 케터링구분          */
+                                    , REQUEST_ID                     /* 신청ID              */
+                                   -- , SEQ                            /* 신청ID 기준 순번    */
+                                      ORDER BY                       
+                                     REQUEST_UPJANG_CD               /* 신청업장코드        */
+                                   , CATER_CLASS                     /* 케터링구분          */
+                                   , REQUEST_ID                      /* 신청ID              */
+                                  -- , SEQ                             /* 신청ID 기준 순번    */
+                                   , allc_seq 
+                      )   AS LV
+                   , COUNT ( * ) OVER ( 
+                                      PARTITION BY                
+                                      REQUEST_UPJANG_CD              /* 신청업장코드        */
+                                    , CATER_CLASS                    /* 케터링구분          */
+                                    , REQUEST_ID                     /* 신청ID              */
+                                   -- , SEQ    
+                                    )  AS ALLC_TOT          /* 지원내역 인력지원    */
+                FROM  FSC_CATERINGCELE_ALLC S
+               WHERE CATER_CLASS       = '002'                       /* 케터링구분          */                
+                AND  ALLC_STATUS       = '002'          
+               <#if upjang?has_content>           
+                AND REQUEST_UPJANG_CD = :upjangCd                    /* 신청업장코드        */ 
+       		   </#if> 
+              ) a
+        START with LV = 1
+      CONNECT BY  LV - 1 = PRIOR LV
+          AND REQUEST_ID  = PRIOR REQUEST_ID                   /* 신청업장코드        */
+          AND CATER_CLASS = PRIOR CATER_CLASS                  /* 케터링구분          */
+          AND REQUEST_ID  = PRIOR REQUEST_ID                   /* 신청ID              */
+          --AND SEQ         = PRIOR SEQ                          /* 신청ID 기준 순번    */
+        GROUP BY 
+               REQUEST_UPJANG_CD                              /* 신청업장코드        */
+             , CATER_CLASS                                    /* 케터링구분          */
+             , REQUEST_ID                                     /* 신청ID              */
+            -- , SEQ                                            /* 신청ID 기준 순번    */      
+        ) S
+     , SCO_UPJANG_MST_V C
+ WHERE M.REQUEST_UPJANG_CD  = S.REQUEST_UPJANG_CD             /* 신청업장코드        */
+   AND M.REQUEST_ID         = S.REQUEST_ID                    /* 신청ID              */
+   --AND M.SEQ                = S.SEQ                           /* 신청ID 기준 순번    */      
+   AND M.ALLC_YN            = 'Y'                             /* 배정여부(Y/N)              */
+   AND M.REQUEST_UPJANG_CD  = C.UPJANG
+   AND C.FS_UPJANG = 'Y'    
+<#if muCd?has_content>
+AND    MU_CD = :muCd
+</#if>
+<#if tmCd?has_content>
+AND    TM_CD = :tmCd
+</#if>
+<#if upjangCd?has_content>
+AND    M.REQUEST_UPJANG_CD = :upjangCd
+</#if>
+AND (    TO_DATE(SUP_TERM_SDATE,'YYYYMMDD') BETWEEN TO_DATE(:fromDay,'YYYYMMDD')  AND TO_DATE(:toDay,'YYYYMMDD')
+      OR TO_DATE(SUP_TERM_EDATE,'YYYYMMDD') BETWEEN TO_DATE(:fromDay,'YYYYMMDD')  AND TO_DATE(:toDay,'YYYYMMDD')
+      OR TO_DATE(:fromDay,'YYYYMMDD') BETWEEN TO_DATE( SUP_TERM_SDATE,'YYYYMMDD') AND TO_DATE(SUP_TERM_EDATE,'YYYYMMDD')
+      OR TO_DATE(:toDay,'YYYYMMDD') BETWEEN TO_DATE( SUP_TERM_SDATE,'YYYYMMDD') AND TO_DATE(SUP_TERM_EDATE,'YYYYMMDD')
+    )  
+ ORDER BY
+       M.REQUEST_UPJANG_CD                                    /* 신청 업장코드              */
+     , M.REQUEST_ID                                           /* 신청ID                     */
+     --, M.SEQ                                                  /* 신청ID 기준 일련번호       */  
+     , SUP_TERM_SDATE                   DESC               /*  지원기간 시작일자 */
+]]></statement>
+</hqml>

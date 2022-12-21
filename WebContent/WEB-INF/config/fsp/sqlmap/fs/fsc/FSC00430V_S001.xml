@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[CS진단 사업장별진단결과조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT NVL(C.CHARGE_SABUN, D.CHARGE_SABUN) AS CHARGE_SABUN
+     , (SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN = NVL(C.CHARGE_SABUN, D.CHARGE_SABUN)) AS CHARGE_NM
+     , D.TM_NM
+     , D.UPJANGNM
+     , D.UPJANG
+     , SUM(C.NOT_FIT_CNT) OVER(PARTITION BY C.CHARGE_SABUN, C.UPJANG ORDER BY C.CHARGE_SABUN, C.UPJANG) AS TOT_NOT_FIT_CNT
+     , C.NOT_FIT_CNT AS NOT_FIT_CNT
+     , SUM(NVL(C.CNT, 0)) OVER(PARTITION BY C.CHARGE_SABUN, C.UPJANG ORDER BY C.CHARGE_SABUN, C.UPJANG) AS TOT_CNT
+     , C.CHK_DD
+     , ROUND(AVG(C.SCORE) OVER(PARTITION BY C.CHARGE_SABUN, C.UPJANG ORDER BY C.CHARGE_SABUN, C.UPJANG), 2) AS AVG_SCORE     
+     , C.SCORE AS SCORE
+  FROM (SELECT 
+<isEqual col="EMP_TYPE" value="1">
+               A.CHARGE_SABUN
+</isEqual>
+<isEqual col="EMP_TYPE" value="2">
+               A.TEAM_MST_SABUN AS CHARGE_SABUN
+</isEqual>              
+<isEqual col="EMP_TYPE" value="3">
+               A.SUBTEAM_MST_SABUN AS CHARGE_SABUN
+</isEqual>              
+<isEqual col="EMP_TYPE" value="4">
+               A.RESP_USER1 AS CHARGE_SABUN
+</isEqual>              
+             , A.UPJANG
+             , SUBSTR(A.CHK_DD,1,6) AS CHK_DD
+             , COUNT(1) AS CNT
+             , ROUND(AVG(A.SCORE), 2) AS SCORE
+             , (SELECT COUNT(1)
+                  FROM FSC_PATL_RESULT L
+                     , FSC_PATL_RESULT_DTL M
+                 WHERE L.TABLE_TYPE = M.TABLE_TYPE
+                   AND L.FORM_CD = M.FORM_CD
+                   AND L.UPJANG = M.UPJANG
+                   AND L.CHK_DD = M.CHK_DD
+                   AND L.CONFIRM_YN = 'Y'
+                   AND L.UPJANG = A.UPJANG
+                   AND SUBSTR(L.CHK_DD,1,6) = SUBSTR(A.CHK_DD,1,6)
+                   AND M.CHK_RESULT = '2') AS NOT_FIT_CNT
+          FROM FSC_PATL_RESULT A
+         WHERE A.CONFIRM_YN = 'Y'
+           AND A.CHK_DD BETWEEN #START_DD# AND #END_DD#
+<isNotNull col="TABLE_TYPE">   
+           AND A.TABLE_TYPE = #TABLE_TYPE#
+</isNotNull>  
+<isNotNull col="CHK_CLASS">
+           AND A.CHK_CLASS = #CHK_CLASS#
+</isNotNull>
+<isNotNull col="UPJANG">
+           AND A.UPJANG = #UPJANG#
+</isNotNull>   
+<isNotNull col="SCORE_FROM">
+           AND A.SCORE BETWEEN #SCORE_FROM# AND #SCORE_TO#
+</isNotNull>   
+<isEqual col="EMP_TYPE" value="1">
+           AND A.CHARGE_SABUN IS NOT NULL
+</isEqual>
+<isEqual col="EMP_TYPE" value="2">
+           AND A.TEAM_MST_SABUN IS NOT NULL
+</isEqual>              
+<isEqual col="EMP_TYPE" value="3">
+           AND A.SUBTEAM_MST_SABUN IS NOT NULL
+</isEqual>              
+<isEqual col="EMP_TYPE" value="4">
+           AND A.RESP_USER1 IS NOT NULL
+</isEqual>              
+<isNotNull col="EMP_TYPE">
+    <isNotNull col="EMP_SABUN">
+		<isEqual col="EMP_TYPE" value="1">
+		   AND A.CHARGE_SABUN = #EMP_SABUN#    
+		</isEqual>
+		<isEqual col="EMP_TYPE" value="2">
+		   AND A.TEAM_MST_SABUN = #EMP_SABUN#   
+		</isEqual>
+		<isEqual col="EMP_TYPE" value="3"> 
+		   AND A.SUBTEAM_MST_SABUN = #EMP_SABUN# 
+		</isEqual>
+		<isEqual col="EMP_TYPE" value="4">
+		   AND (   A.RESP_USER1 = #EMP_SABUN#
+	            OR A.RESP_USER2 = #EMP_SABUN#
+	            OR A.RESP_USER3 = #EMP_SABUN#)
+		</isEqual>
+	</isNotNull>
+</isNotNull>
+<isEqual col="EMP_TYPE" value="1">
+		GROUP BY A.CHARGE_SABUN, A.UPJANG, SUBSTR(A.CHK_DD,1,6)
+</isEqual>
+<isEqual col="EMP_TYPE" value="2">
+        GROUP BY A.TEAM_MST_SABUN, A.UPJANG, SUBSTR(A.CHK_DD,1,6)
+</isEqual>              
+<isEqual col="EMP_TYPE" value="3">
+        GROUP BY A.SUBTEAM_MST_SABUN, A.UPJANG, SUBSTR(A.CHK_DD,1,6)
+</isEqual>              
+<isEqual col="EMP_TYPE" value="4">
+        GROUP BY A.RESP_USER1, A.UPJANG, SUBSTR(A.CHK_DD,1,6)
+</isEqual>       
+       ) C
+       , SCO_UPJANG_MST_V D 
+ WHERE 1 = 1        
+<isEqual col="ENTIRE_YN" value="Y">
+   AND C.UPJANG(+) = D.UPJANG   
+   AND D.SAUP_TYPE &lt;&gt; '004'
+   AND D.CHARGE_SABUN IS NOT NULL
+</isEqual>
+<isEqual col="ENTIRE_YN" value="N">   
+   AND C.UPJANG = D.UPJANG
+</isEqual>
+<isNotNull col="MU_CD">
+   AND D.MU_CD = #MU_CD#
+</isNotNull>
+<isNotNull col="TM_CD">
+   AND D.TM_CD = #TM_CD#
+</isNotNull>
+<isEqual col="CLOSE_YN" value="Y">    
+   AND D.CLOSE_DATE IS NULL
+</isEqual>
+ ORDER BY C.CHARGE_SABUN, C.UPJANG, CHK_DD 
+    </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

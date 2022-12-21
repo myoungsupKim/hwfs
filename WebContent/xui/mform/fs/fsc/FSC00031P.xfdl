@@ -1,0 +1,367 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FSC00031P" onkeydown="frm_OnKeyDown" onload="form_onload" titletext="사진정보" position="absolute 0 0 647 281" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Static id="st_note" text="한개의 사진만 선택가능합니다." position="absolute 15 252 250 266" class="sta_WF_DiscInfo"/>
+        <Button id="btn_close" onclick="fn_Close" taborder="2" text="닫기" position="absolute 587 10 632 35" class="btn_WF_CRUD" image=""/>
+        <Div id="div_photo" scrollbars="autoboth" taborder="3" position="absolute 15 40 632 244">
+          <Layouts>
+            <Layout/>
+          </Layouts>
+        </Div>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 281"/>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 531 10"/>
+        <Static id="Static00" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 15 266 531 281"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 632 0 647 281"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_list">
+        <ColumnInfo>
+          <Column id="CHECK_DATE" size="8" type="STRING"/>
+          <Column id="CHK" size="1" type="STRING"/>
+          <Column id="CLASS_CD" size="8" type="STRING"/>
+          <Column id="FORM_CD" size="20" type="STRING"/>
+          <Column id="PHOTO" size="200" type="STRING"/>
+          <Column id="PHOTO_TYPE" size="1" type="STRING"/>
+          <Column id="SEQ" size="22" type="BIGDECIMAL"/>
+          <Column id="SPHOTO" size="200" type="STRING"/>
+          <Column id="TABLE_TYPE" size="20" type="STRING"/>
+          <Column id="UPJANG" size="22" type="BIGDECIMAL"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_input">
+        <ColumnInfo>
+          <Column id="TABLE_TYPE" size="256" type="STRING"/>
+          <Column id="FORM_CD" size="256" type="STRING"/>
+          <Column id="MST_UPJANG" size="256" type="STRING"/>
+          <Column id="CHECK_DATE" size="256" type="STRING"/>
+          <Column id="CLASS_CD" size="256" type="STRING"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="CHECK_DATE"/>
+            <Col id="CLASS_CD"/>
+            <Col id="FORM_CD"/>
+            <Col id="MST_UPJANG"/>
+            <Col id="TABLE_TYPE"/>
+          </Row>
+        </Rows>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 메뉴관리/위생관리/점검결과등록
+ * 프로그램명   : FSC00031P.XML
+ * 기      능   : 개선개획작성- 사진선택
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2008-03-25
+ * 비      고   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "lib::sc_comon.js"
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js"
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+var fnSEQ;			// 선택된 사진SEQ
+var fstrSPhoto;		// 선택된 사진명
+var nRcnt = new Array();
+var fCnt = 0;
+//var fa_Enable;
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	try
+	{
+		if (fa_Enable == "false")
+		{
+			st_note.visible = false;
+		}
+	}
+	catch(e)
+	{
+	}
+	
+	fstrSPhoto = this.opener.ds_Detail.getColumn(this.opener.ds_Detail.rowposition,"SINDICATE_PHOTO");
+
+	fn_search();
+}
+
+function frm_OnKeyDown(obj:Form, e:KeyEventInfo)
+{
+	gfn_formKeyDown(obj, e); //(obj,e.fromreferenceobject,e.keycode,e.shiftKey,e.ctrlKey,e.altKey,-1,-1);
+}
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Search()
+ * 기      능   : [조회버튼] 검색조건에 해당하는 정보를 조회
+ ******************************************************************************************
+ */
+function fn_search()
+{
+	// 초기화
+	ds_list.clearData();
+	
+	var actionName, cmdName, inData, outData, otherArg, callBackFnc;
+
+	ds_input.setColumn(0,"TABLE_TYPE",this.opener.ds_Detail.getColumn(this.opener.ds_Detail.rowposition,"TABLE_TYPE"));
+	ds_input.setColumn(0,"FORM_CD",this.opener.ds_Detail.getColumn(this.opener.ds_Detail.rowposition,"FORM_CD"));
+	ds_input.setColumn(0,"MST_UPJANG",this.opener.ds_Detail.getColumn(this.opener.ds_Detail.rowposition,"UPJANG"));
+	ds_input.setColumn(0,"CHECK_DATE",this.opener.ds_Detail.getColumn(this.opener.ds_Detail.rowposition,"CHECK_DATE"));
+	ds_input.setColumn(0,"CLASS_CD",this.opener.ds_Detail.getColumn(this.opener.ds_Detail.rowposition,"CLASS_CD"));
+	
+	actionName		= "FSC00031P_T001";
+	cmdName			= "U_svc::" + "fs/fsc/FSC00031P_T001.jsp";
+	inData			= "ds_input=ds_input";
+	outData			= "ds_list=ds_list";
+	callBackFnc		= "fn_afterSearch";
+	
+	jsp_transaction(this,actionName, cmdName ,inData ,outData,otherArg,callBackFnc,true,false,false);
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Close()
+ * 기      능   : [닫기버튼] 화면을 닫을때 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_Close(obj:Button, e:ClickEventInfo)
+{
+	var nRow, nFRow;
+	
+	nRow = this.opener.ds_Detail.rowposition;
+	nFRow = ds_list.findRow("SEQ",fnSEQ);
+	
+	// 선택항목 셋팅
+	if (nFRow >= 0)
+	{
+		this.opener.ds_Detail.setColumn(nRow,"INDICATE_PHOTO",ds_list.getColumn(nFRow,"PHOTO"));
+		this.opener.ds_Detail.setColumn(nRow,"SINDICATE_PHOTO",ds_list.getColumn(nFRow,"SPHOTO"));
+	}
+	
+	this.close();
+}
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_afterSearch()
+ * 입      력   : errCode 	= 에러코드
+				  errMsg	= 에러메세지
+ * 반      환   : 없음
+ * 기      능   : 사업장 조회 후 실행 함수
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2008-02-14  
+ ******************************************************************************************
+ */
+function fn_afterSearch(errCode, errMsg)
+{
+	//trace(ds_list.SaveXML());
+	
+	fn_MakeDetail();
+	
+	//trace(fnSEQ);
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_MakeDetail()
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : 상세내역 생성
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2007-12-12  
+ ******************************************************************************************
+ */
+function fn_MakeDetail()
+{
+	if ( ds_list.getRowCount() > 0 ) 
+	{
+        var strTotContents = "";
+        var nPos;
+        var nSEQ,strSPhoto;
+        
+        div_photo.visible = false;
+        
+        // 상세내역 생성
+        nPos = 0;
+        
+        for ( i = 0; i < ds_list.getRowCount(); i++ ) 
+        {
+			nSEQ 		= ds_list.getColumn(i, "SEQ");
+			strSPhoto 	= ds_list.getColumn(i, "SPHOTO");
+			bValue		= iif(fstrSPhoto==strSPhoto,true,false);
+			fnSEQ		= iif(fstrSPhoto==strSPhoto,nSEQ,fnSEQ);
+
+			strTotContents += fn_MakeComp(nSEQ, nPos, strSPhoto, bValue);	// 이미지 추가
+
+			nPos += 205;
+			
+        }        
+        //div_photo.layout = '<Contnets>' + strTotContents +'</Contnets>';        
+        div_photo.visible = true;
+        this.div_photo.resetScroll();
+    }
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_MakeComp(nSEQ, nPos, strSPhoto, bValue) 
+ * 입      력   : nSEQ=사진생성  , nPos=위치	, strSPhoto=사진명	, bValue=체크박스값
+ * 반      환   : 없음
+ * 기      능   : 레시피코드별 컴포넌트 그룹생성 
+ * 작  성  자   : 박지영
+ * 작성  일자   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+
+function fn_MakeComp(nSEQ, nPos, strSPhoto, bValue) 
+{
+
+   var strContents,str_st_bk,str_st_imgbk,str_chkbk,str_img,str_chk;
+
+	var nRan = gfn_getRandom(1,10000000);	
+	var objImgBkStatic = new Static("Satric", nPos, 0, 196+nPos, 180);
+	this.div_photo.addChild("st_bk_" + nSEQ, objImgBkStatic);
+	//this.div_photo.addChild("st_bk_" + nSEQ + nRan, objImgBkStatic);
+	objImgBkStatic.style.background 	= "#ffffff";
+	objImgBkStatic.style.border 		= "1 solid #aaaaaa";
+	objImgBkStatic.show();
+	
+	nPos += 2;
+	var objImageViewer = new ImageViewer("ImageViewer", nPos, 3, 192+nPos, 148);
+	this.div_photo.addChild("img_photo_" + nSEQ, objImageViewer);
+	//this.div_photo.addChild("img_photo_" + nSEQ + nRan, objImageViewer);
+	objImageViewer.stretch = "fit";
+	objImageViewer.image = this.opener.serverSaveUrl + strSPhoto;
+	objImageViewer.show();
+	
+	var objStatic1 = new Static("Static", nPos, 151, 192+nPos, 177);
+	this.div_photo.addChild("st_chkbk_" + nSEQ, objStatic1);
+	//this.div_photo.addChild("st_chkbk_" + nSEQ + nRan, objStatic1);
+	objStatic1.style.background = "#ffffff";
+	objStatic1.style.border		= "1 solid #aaaaaa";
+	objStatic1.show();
+    
+    nPos += 90;    
+    var objCheckBox = new CheckBox("chk_" + nSEQ + nRan, nPos, 155, 13+nPos, 174);
+    this.div_photo.addChild("chk_" + nSEQ, objCheckBox);
+    //this.div_photo.addChild("chk_" + nSEQ + nRan, objCheckBox);
+    objCheckBox.onclick.addHandler(div_photo_Checkbox_OnClick);
+    objCheckBox.style.bordertype 	   = "normal 0 0";
+    objCheckBox.style.buttonbackground = "URL('theme://images/new/chk_WF_BgN.png')";
+    objCheckBox.style.buttonimage 	   = "theme://images/new/chk_WF_Icon.png";
+    objCheckBox.style.buttonborder 	   = "0 none #808080";
+    objCheckBox.style.focusborder 	   = "1 none #808080";
+    objCheckBox.userdata 		 	   = nSEQ;
+    objCheckBox.value 			 	   = bValue;
+    objCheckBox.show();    
+    nRcnt[fCnt] = objCheckBox;
+    //trace(nRcnt[fCnt]);
+    fCnt++;
+	
+    try
+    {
+		if (fa_Enable == "false")
+		{
+			objCheckBox.style.buttonbackground = "URL('theme://images/new/chk_WF_BgD.png')";
+			objCheckBox.enable = false;
+		}
+    }
+    catch(e)
+    {
+    }
+    
+ 	
+ 	
+//  	// BK 생성
+//     str_st_bk 		=  '<Static Height="180" Id="st_bk_' + nSEQ + '" Left="' + nPos + '" Style="sty_st1" ';
+//     str_st_bk 	   +=  'TabOrder="2" Width="200"></Static>\n';
+//     
+//     // 이미지BK 생성
+//     nPos = nPos + 2;
+//     str_st_imgbk	=  '<Static Align="Center" Border="Flat" Height="150" Id="st_imgbk_' + nSEQ + '" ';
+//     str_st_imgbk   +=  'Left="' + nPos + '" Style="sty_st3" TabOrder="3" Top="2" VAlign="Middle" Width="196"></Static>\n';
+// 	
+// 	// 이미지생성
+//     str_img			=  '<Image FillType="STRETCH" Height="148" Id="img_photo_' + nSEQ + '" ImageID="' + this.opener.serverSaveUrl + strSPhoto + '" ';
+//     str_img		   +=  'Left="' + nPos + '" Style="sty_st5" TabOrder="1" Top="3" Width="194"></Image>\n';
+// 	
+// 	// 체크박스BK생성
+//     str_chkbk		=  '<Static Align="Center" Border="Flat" Height="22" Id="st_chkbk_' + nSEQ + '" Left="' + nPos + '" ';
+//     str_chkbk	   +=  'Style="sty_st3" TabOrder="4" Top="156" VAlign="Middle" Width="196"></Static>\n';
+// 	
+// 	// 체크박스생성
+//     nPos = nPos + 90;
+//     str_chk			=  '<Checkbox ';
+//     if (fa_Enable == "false")
+// 	{
+// 		str_chk		   +=  'DisableBKColor="white" Enable="FALSE" ';
+// 	}
+//     str_chk		   +=  'Height="21" Id="chk_' + nSEQ + '" OnClick="div_photo_Checkbox_OnClick" ';
+//     str_chk		   +=  'Left="' + nPos + '" TabOrder="5" Top="157"  UserData="' + nSEQ + '" Value="' + bValue + '" Width="12"></Checkbox>\n';
+//     
+//     strContents = str_st_bk + str_st_imgbk + str_img + str_chkbk + str_chk;
+
+//    return strContents;
+}
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+
+function div_photo_Checkbox_OnClick(obj,strValue)
+{
+	var nSEQ;
+	if (strValue)
+	{
+		fnSEQ = obj.userdata;
+		
+		for ( i = 0; i < ds_list.getRowCount(); i++ ) 
+        {
+			nSEQ 		=  gfn_toString(ds_list.getColumn(i, "SEQ"));
+			
+			if (nSEQ != fnSEQ)
+			{
+				eval("div_photo.chk_" + nSEQ).value = false;
+			}
+        }
+	}
+	else
+	{
+		fnSEQ = "";
+	}	
+}
+]]></Script>
+  </Form>
+</FDL>

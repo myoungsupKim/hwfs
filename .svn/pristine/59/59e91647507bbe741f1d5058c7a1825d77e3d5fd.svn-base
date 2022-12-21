@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[사업계획 구분 정보 조회 SQL]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+    SELECT DECODE(B.BIZ_CLASS, NULL, A.VER_NM, '', A.VER_NM, B.BIZ_CLASS)AS BIZ_CLASS
+          ,DECODE(CONFIRM_YN, NULL,'N', '', 'N', CONFIRM_YN) CONFIRM_YN
+          ,DECODE(IMPROV_YN, NULL, 'N', '', 'N', IMPROV_YN) IMPROV_YN
+          ,DECODE(BPC_SEND_YN, NULL, 'N', '', 'N', BPC_SEND_YN) BPC_SEND_YN
+          ,DECODE(ORGIN_YN, NULL, 'N', '', 'N', ORGIN_YN) ORGIN_YN
+          ,DECODE(B.UPJANG, NULL, 0, B.UPJANG) UPJANG
+          ,A.VER_CD
+      FROM MAP_BPC_MODIFY_PLAN A
+          ,(
+            SELECT BIZ_CLASS
+                  ,CONFIRM_YN
+                  ,IMPROV_YN
+                  ,BPC_SEND_YN
+                  ,ORGIN_YN
+                  ,UPJANG
+                  ,VER_CD
+                  ,YY
+              FROM MAP_BIZ_LOG_MGMT2 A
+             WHERE A.YY(+) = #INPUT_YY#
+               AND A.TM_CD(+) = #TM_CD# 			
+               AND A.SABUN(+) = #SABUN#
+           ) B
+     WHERE A.VER_CD = B.VER_CD(+)
+       AND A.PLAN_YEAR = B.YY(+)
+       AND A.PLAN_CLASS = 'AP'
+       --AND A.PLAN_YEAR = #INPUT_YY#
+       AND A.OPEN_YN = 'Y' 
+       
+	</statement>
+	<input default-name="ds_Cond">
+	</input>
+	<output default-name="ds_cbo_GBN">
+		<col name="BIZ_CLASS" size="256" type="VARCHAR" description="" />  
+		<col name="CONFIRM_YN" size="256" type="VARCHAR" description="" />
+		<col name="IMPROV_YN" size="256" type="VARCHAR" description="" />
+		<col name="BPC_SEND_YN" size="256" type="VARCHAR" description="" />
+		<col name="ORGIN_YN" size="256" type="VARCHAR" description="" />
+		<col name="UPJANG" size="256" type="VARCHAR" description="" />
+		<col name="VER_CD" size="256" type="VARCHAR" description="" />
+	</output>
+</query>

@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="rc.sle.bnbSaleDAO">
+	<desc>조회 HQML Query</desc>
+
+	<!-- 조회 목록을 조회한다. -->
+	<statement name="selectList" type="select"><![CDATA[SELECT             POS_NO
+                  , LOC_NAME
+                  , SALE_DATE
+                  , BAR_CD
+                  , LOC_CD
+                  , ITEM_NAME_SHRT
+                  , QTY
+                  , UNIT_PRIC
+                  , SALE_AMT
+  FROM (
+         SELECT  A.POS_NO                                               POS_NO
+                , '설악쏘라노' || (SELECT LOC_NAME
+                     FROM SC_LOC_MAST
+                    WHERE BRCH_CD = A.BRCH_CD
+                      AND LOC_CD = A.LOC_CD  )                           LOC_NAME
+                , A.SALE_DATE                                            SALE_DATE
+                , A.ITEM_CD                                              BAR_CD
+                , A.LOC_CD                                               LOC_CD
+                , A.ITEM_NAME_SHRT                                       ITEM_NAME_SHRT
+                , SUM(DECODE(A.TRAN_DIV,'N',1,'I',1,-1) * SALE_QTY)            QTY
+                , A.UNIT_PRIC                                            UNIT_PRIC
+                , SUM(DECODE(A.TRAN_DIV,'N',1,'I',1,-1) * A.STOT_SALE_AMT)      SALE_AMT
+            FROM  BD_POSJ_TRAN_ITEM A
+           WHERE  A.SALE_DATE  BETWEEN :occurDateFr AND :occurDateTo
+             AND A.BRCH_CD = '0100'
+             AND A.LOC_CD ='0109'  
+             and A.SALE_QTY <> 0
+            GROUP BY A.BRCH_CD
+                   , A.SALE_DATE
+                   , A.POS_NO
+                   , A.LOC_CD
+                   , A.ITEM_CD
+                   , A.UNIT_PRIC
+                   , A.ITEM_NAME_SHRT
+           UNION ALL
+           SELECT   POS_NO                                  POS_NO
+                  , LOC_NAME                                LOC_NAME
+                  , SALE_DATE                               SALE_DATE
+                  , BAR_CD                                  BAR_CD
+                  , LOC_CD                                  LOC_CD
+                  , ITEM_NAME_SHRT                          ITEM_NAME_SHRT
+                  , SALE_QTY                                QTY
+                  , UNIT_PRIC                               UNIT_PRICE
+                  , TOT_SALE_AMT                            SALE_AMT
+              FROM BD_POSJ_BNB_ITEM
+              WHERE SALE_DATE BETWEEN :occurDateFr
+                                  AND :occurDateTo
+             )]]></statement>
+
+	<!-- 조회(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.rc.sle.dao.BnbSaleDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+
+	<!-- 조회(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.rc.sle.dao.BnbSaleDAO.update */
+		<![CDATA[
+		UPDATE TABLE_NAME 
+		SET    COLUMN_NAME1 = :columnName1,
+		       COLUMN_NAME2 = :columnName2,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+	<!-- 조회(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.rc.sle.dao.BnbSaleDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT '단체급식' TITLE_GUBUN,
+        ROUND(SUM(DECODE(GUBUN, '수주매출',  V.PLAN, 0))/100) PLAN_A,
+        ROUND(SUM(DECODE(GUBUN, '수주매출',  V.CURR, 0))/100) CURR_A,
+        SUM(DECODE(GUBUN, '수주매출',  ROUND(DECODE(V.PLAN, 0, 0, (V.CURR/V.PLAN) * 100), 1), 0)) PLAN_A_RATIO,
+        ROUND(SUM(DECODE(GUBUN, '신규매출',  V.PLAN, 0))/100) PLAN_B,
+        ROUND(SUM(DECODE(GUBUN, '신규매출',  V.CURR, 0))/100) CURR_B,
+        SUM(DECODE(GUBUN, '신규매출',  ROUND(DECODE(V.PLAN, 0, 0, (V.CURR/V.PLAN) * 100), 1), 0)) PLAN_B_RATIO
+  FROM (
+        SELECT '수주매출' GUBUN,
+               NVL((SELECT SUM(SALE_YEAR) FROM MAK_NEWORDER_MGMT_PLAN WHERE ORDER_YYMM BETWEEN SUBSTR(TO_CHAR(SYSDATE, 'YYYYMM'), 1, 4)||'01' AND TO_CHAR(SYSDATE, 'YYYYMM')), 0) PLAN,
+               NVL((SELECT SUM(SALE_YEAR) FROM MAK_NEWORDER_MGMT WHERE ORDER_DATE BETWEEN SUBSTR(TO_CHAR(SYSDATE, 'YYYYMM'), 1, 4)||'0101' AND TO_CHAR(SYSDATE, 'YYYYMM')||'31'), 0) CURR
+          FROM DUAL
+        UNION ALL
+        SELECT '신규매출' GUBUN,
+               NVL((SELECT SUM(SALE_CURR_YEAR) FROM MAK_NEWORDER_MGMT_PLAN WHERE ORDER_YYMM BETWEEN SUBSTR(TO_CHAR(SYSDATE, 'YYYYMM'), 1, 4)||'01' AND TO_CHAR(SYSDATE, 'YYYYMM')), 0) PLAN,
+               NVL((SELECT NVL(SUM(AMT), 0)/1000000
+                    FROM MAS_DD_SALE A,
+                         SCO_UPJANG_MST B
+                    WHERE A.UPJANG = B.UPJANG
+                    AND   B.FICS_YN = 'N'
+                    AND   SUBSTR(B.OPEN_DATE, 1, 4) =  SUBSTR(TO_CHAR(SYSDATE, 'YYYYMM'), 1, 4)), 0) CURR
+          FROM DUAL
+       ) V]]></statement>
+	<input default-name="ds_in">
+	</input>
+	<output default-name="ds_suju">
+	</output>
+</query>

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	
+
+SELECT NVL(TO_KM, 0) TO_KM
+      ,(SELECT MAX(T1.TO_KM) FROM MAK_DRIVING_MGMT T1, MAK_VISIT_MGMT_TOT_V T2
+         WHERE T1.VISIT_ID = T2.VISIT_ID 
+           AND T1.CAR_CLASS = V.CAR_CLASS AND T1.CAR_NUMBER = V.CAR_NUMBER
+           AND T2.VISIT_DATE = (SELECT TO_CHAR((TO_DATE(VISIT_DATE, 'YYYYMMDD')-1),'YYYYMMDD') AS VISIT_DATE 
+                                                  FROM MAK_VISIT_MGMT_TOT_V
+                                                 WHERE VISIT_ID = #VISIT_ID# AND GUBUN = V.GUBUN )
+           AND T1.GUBUN = V.GUBUN
+        ) AS BEFTO_KM
+      ,(SELECT MIN(T1.TO_KM) FROM MAK_DRIVING_MGMT T1, MAK_VISIT_MGMT_TOT_V T2
+         WHERE T1.VISIT_ID = T2.VISIT_ID 
+           AND T1.CAR_CLASS = V.CAR_CLASS AND T1.CAR_NUMBER = V.CAR_NUMBER
+           AND T2.VISIT_DATE = (SELECT TO_CHAR((TO_DATE(VISIT_DATE, 'YYYYMMDD')+1),'YYYYMMDD') AS VISIT_DATE 
+                                                  FROM MAK_VISIT_MGMT_TOT_V
+                                                 WHERE VISIT_ID = #VISIT_ID# AND GUBUN = V.GUBUN )
+           AND T1.GUBUN = V.GUBUN
+        ) AS AFTFROM_KM
+FROM MAK_DRIVING_MGMT V
+WHERE (DRIVING_ID IN NVL((
+                          SELECT MAX(DRIVING_ID) DRIVING_ID
+                          FROM MAK_DRIVING_MGMT A,
+                               MAK_VISIT_MGMT_TOT_V B
+                        WHERE A.VISIT_ID   = B.VISIT_ID
+                        AND   B.GUBUN      = #GUBUN#
+                        AND   A.GUBUN      = #GUBUN#
+                        AND   B.MGMT_SABUN = (SELECT MGMT_SABUN
+                                              FROM MAK_VISIT_MGMT_TOT_V
+                                              WHERE GUBUN    = #GUBUN#
+                                              AND   VISIT_ID = #VISIT_ID#
+                                             )
+                         ), 0))
+</statement>
+	<input default-name="ds_cond">
+		<col name="GUBUN" size="200" type="VARCHAR" description="" /> 
+		<col name="VISIT_ID" size="22" type="NUMERIC" description="" />			 		
+	</input>
+	<output default-name="ds_list">
+				
+	</output>
+</query>

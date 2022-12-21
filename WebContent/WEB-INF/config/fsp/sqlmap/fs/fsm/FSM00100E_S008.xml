@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic = "true">
+	<type>select</type>
+	<description><![CDATA[권장메뉴대상사업장 체크]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+SELECT NVL(A.USE_YN, 'N') AS USE_YN
+     , NVL(A.COMP_YN, 'N') AS COMP_YN
+     , B.COST_TYPE AS COST_TYPE
+  FROM FSM_REC_UPJANG A
+     , FSM_REC_UPJANG_GRP B
+ WHERE A.GRP_SEQ = B.GRP_SEQ
+   AND A.UPJANG = #fa_UPJANG#
+   AND A.USE_YN = 'Y'
+   AND B.USE_YN = 'Y'
+<isNotNull col = "fa_TO">
+   AND B.START_DATE &lt;= #fa_TO#
+</isNotNull>
+<isNotNull col = "fa_FR">
+   AND B.END_DATE &gt;= #fa_FR#
+</isNotNull>
+<isNotNull col = "fa_DATE">
+   AND #fa_DATE# BETWEEN B.START_DATE AND B.END_DATE
+</isNotNull>
+  ORDER BY CASE WHEN NVL(A.COMP_YN, 'N') = 'Y' THEN 1
+                WHEN NVL(A.USE_YN, 'N') = 'Y' THEN 2
+                ELSE 3
+            END
+        , A.UDATE DESC
+
+   </statement>
+	<input default-name="_none">
+	</input>
+	<output default-name="ds_recUpjang">
+	</output>
+</query>

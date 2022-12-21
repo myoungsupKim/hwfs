@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[상품정보 조회 ]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.ITEM_CODE
+	 , C.ITEM_NAME
+	 , C.ITEM_SIZE
+	 , C.PO_UOM
+	 , DECODE(C.TAX_CODE,'100','과세','210','면세','영세') AS TAX_CODE
+	 , A.SALE_PRICE AS UNIT_PRICE	 -- 단가
+	 , '' ITEM_DESC
+	 , C.ORIGIN_TYPE
+FROM FMS_ITEM_V C, 
+     (
+        SELECT #UPJANG# AS UPJANG
+             , TO_CHAR(SYSDATE,'YYYYMMDD') AS NEED_DATE
+             , A.ITEM_CODE, A.SALE_PRICE, A.CENTER_CODE
+          FROM HLDC_PO_CONTRACT_FSALE A, HLDC_ST_UPJANG C 
+         WHERE A.UPJANG = C.AP_UNITPRICE_UPJANG 
+           AND C.UPJANG = #UPJANG# 
+           AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN A.CONTRACT_START AND NVL(A.CONTRACT_END, '99999999') 
+           AND A.SALE_PRICE > 0 
+           AND A.USE_YN = 'Y' 
+        ----------- 
+         UNION ALL 
+        ----------- 
+        SELECT #UPJANG# AS UPJANG,
+               TO_CHAR(SYSDATE,'YYYYMMDD') AS NEED_DATE ,
+               A.ITEM_CODE,
+               A.SALE_PRICE,
+               0 CENTER_CODE
+          FROM FMP_OTCUST_PRICE_AVA_V A, 
+               ( 
+               SELECT UPJANG, ITEM_CODE, MAX(SDATE) AS SDATE 
+                 FROM FMP_OTCUST_PRICE_AVA_V 
+                WHERE UPJANG = 
+                      ( 
+                      SELECT OTCUST_PRICE_UPJANG 
+                        FROM FMS_UPJANG 
+                       WHERE UPJANG = #UPJANG# 
+                      ) 
+                  AND SDATE &lt;= TO_CHAR(SYSDATE,'YYYYMMDD') 
+                GROUP BY UPJANG, ITEM_CODE 
+               ) C 
+         WHERE A.UPJANG = C.UPJANG 
+           AND A.SDATE = C.SDATE 
+           AND A.ITEM_CODE = C.ITEM_CODE 
+           AND A.SDATE = C.SDATE 
+           AND A.SALE_PRICE > 0 
+           AND A.USE_YN = 'Y' 
+     ) A
+WHERE A.ITEM_CODE = C.ITEM_CODE(+)
+<isEqual col="S_GBN" value="1">
+ AND A.ITEM_CODE LIKE #S_WORD# || '%'
+</isEqual>
+<isEqual col="S_GBN" value="2">
+ AND C.ITEM_NAME LIKE '%' || #S_WORD# || '%'
+</isEqual>  
+ ORDER BY A.ITEM_CODE	</statement>
+	<input default-name="ds_cond">
+		<col name="UPJANG" size="6" type="NUMERIC" description="" /> 
+		<col name="S_WORD" size="255" type="VARCHAR" description="" /> 
+		<col name="S_GBN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="ITEM_CODE" size="50" type="VARCHAR" description="" /> 
+		<col name="ITEM_DESC" size="0" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAME" size="200" type="VARCHAR" description="" /> 
+		<col name="ITEM_SIZE" size="100" type="VARCHAR" description="" /> 
+		<col name="UNIT_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="PO_UOM" size="10" type="VARCHAR" description="" /> 
+		<col name="TAX_CODE" size="4" type="VARCHAR" description="" /> 
+	</output>
+</query>

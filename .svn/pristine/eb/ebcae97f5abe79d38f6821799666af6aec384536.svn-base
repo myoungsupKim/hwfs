@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[사업장식단검색]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<isNotNull col="TOPCNT">
+     SELECT * FROM (
+</isNotNull>
+SELECT A.UPJANG
+     , A.MENU_CD
+     , ROUND(SUM(A.PAST_PRICE)) AS PAST_PRICE
+     , ROUND(SUM(A.ITEM_PRICE / A.KG_CONVERT_RATE / 1000)) AS CUR_PRICE
+     , FSM_REAL_RECIPE_NAME_FUN(A.UPJANG, A.MENU_CD) AS RECIPE_INFO
+     , A.MENU_DATE         -- 제공일
+     , D.WDESC             -- 날씨
+     , A.HALL_CD           -- 식당코드
+     , A.HALL_NAME         -- 식당명
+     , A.MEAL              -- 끼니
+     , B.CODE_NAME AS MEAL_NAME -- 끼니명
+     , A.CORNER
+     , C.CODE_NAME AS CORNER_NAME
+     , 0 AS CHK
+     , A.UPJANG || A.MENU_CD AS MENU_ID
+FROM (     
+      SELECT A.UPJANG
+           , A.MENU_DATE
+           , A.MENU_CD
+           , A.MEAL
+           , A.CORNER
+           , B.RECIPE_CD
+           , C.ITEM_CODE
+           , NVL(C.NEED_QTY, 0) * NVL(C.MARGIN_PRICE / E.KG_CONVERT_RATE / 1000, 0) AS PAST_PRICE
+           , CASE WHEN D.MARGIN_RATE = 0 THEN 0
+                  WHEN D.MARGIN_RATE > 0 AND NVL(F.OUTVAT_FLAG, 'N') = 'Y' THEN
+                    NVL(C.NEED_QTY, 0) * ROUND(D.CONTRACT_PRICE * DECODE(E.TAX_CODE, '100', 1.1, 1) * (D.MARGIN_RATE / 100 + 1) / 10 * 10)
+                  WHEN D.MARGIN_RATE > 0 AND NVL(F.OUTVAT_FLAG, 'N') = 'N' THEN
+                    NVL(C.NEED_QTY, 0) * ROUND(D.CONTRACT_PRICE * (D.MARGIN_RATE / 100 + 1) / 10 * 10)
+                  ELSE 0
+             END AS ITEM_PRICE
+           , C.NEED_QTY
+           , E.KG_CONVERT_RATE
+           , G.LOC_CD
+           , H.HALL_CD
+           , H.HALL_NAME
+        FROM FSM_REAL_MENU_MST A
+           , FSM_REAL_RECIPE_MST B
+           , FSM_REAL_RECIPE_ITEM C
+           , HLDC_PO_CONTRACT_F D
+           , HLDC_PO_ITEM_MST E
+           , HLDC_PO_SUBINVENTORY F
+           , SCO_UPJANG_MST G
+           , FSA_HALL_MST H
+       WHERE A.UPJANG = B.UPJANG
+         AND A.MENU_CD = B.MENU_CD
+         AND B.UPJANG = C.UPJANG
+         AND B.MENU_CD = C.MENU_CD
+         AND B.RECIPE_CD = C.RECIPE_CD
+         AND A.UPJANG = #UPJANG#
+         AND A.HALL_CD = #HALL_CD#
+         AND A.MENU_DATE BETWEEN #MENU_F_DATE1# AND #MENU_T_DATE1#
+         AND C.UPJANG = D.UPJANG(+)
+         AND C.ITEM_CODE = D.ITEM_CODE(+)
+         AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN D.CONTRACT_START(+) AND D.CONTRACT_END(+)
+         AND C.ITEM_CODE = E.ITEM_CODE
+         AND A.UPJANG = F.UPJANG
+         AND F.SUBINV_CODE = #SUBINV_CODE#
+         AND A.UPJANG = G.UPJANG
+         AND A.UPJANG = H.UPJANG
+         AND A.HALL_CD = H.HALL_CD
+<isNotNull col="MEAL1">
+         AND A.MEAL = #MEAL1#     --끼니
+</isNotNull>
+<isNotNull col="CORNER1">
+         AND A.CORNER = #CORNER1#    --코너
+</isNotNull>
+<isNotNull col="MENU_FEATURE">
+         AND A.MENU_FEATURE LIKE '%' || #MENU_FEATURE# || '%'  --식단특성
+</isNotNull>
+<isNotNull col="SCHEDULE">
+           AND A.MENU_DATE IN (                    -- 고객사 일정
+                                SELECT OP_DATE
+                                  FROM MAF_OP_CALENDAR
+                                 WHERE UPJANG = #UPJANG#
+                                   AND OP_DATE BETWEEN #MENU_F_DATE1# AND #MENU_T_DATE1# --기간
+                                   AND FCT_SCHEDULE || ACT_SCHEDULE LIKE '%' || #SCHEDULE# || '%'
+                              )
+</isNotNull>
+<isNotNull col="RECIPE_NAME1">
+         AND (A.UPJANG, A.MENU_CD) IN (             --레시피명
+                                        SELECT DISTINCT G.UPJANG, G.MENU_CD
+                                          FROM FSM_REAL_MENU_MST G,
+                                               FSM_REAL_RECIPE_MST H
+                                         WHERE G.UPJANG = H.UPJANG
+                                           AND G.MENU_CD = H.MENU_CD
+                                           AND G.UPJANG = A.UPJANG
+                                           AND G.MENU_DATE = A.MENU_DATE
+                                           AND G.MEAL = A.MEAL
+                                           AND G.CORNER = A.CORNER
+                                           AND H.RECIPE_NAME LIKE '%' || #RECIPE_NAME1# || '%'
+                                      )
+</isNotNull>
+        ) A
+      , SCC_COMMON_CODE B
+      , SCC_COMMON_CODE C
+      , UPOS_SC_WEATHER_INFO_V D
+  WHERE B.GROUP_CODE = 'FS0023'
+    AND B.CODE = A.MEAL
+    AND C.GROUP_CODE = 'FS0022'
+    AND C.CODE = A.CORNER
+    AND A.MENU_DATE = D.CUR_DATE(+)
+    AND A.LOC_CD = D.AREA_CODE(+)
+  GROUP BY A.UPJANG, A.MENU_CD, A.MENU_DATE, D.WDESC, A.HALL_CD, A.HALL_NAME, A.MEAL, B.CODE_NAME, A.CORNER, C.CODE_NAME
+  --ORDER BY A.UPJANG, A.MENU_CD, A.MENU_DATE, D.WDESC, A.HALL_CD, A.HALL_NAME, A.MEAL, B.CODE_NAME, A.CORNER, C.CODE_NAME
+<isNotNull col="TOPCNT">
+  ORDER BY A.MENU_DATE DESC,A.MEAL,A.CORNER
+     )
+ WHERE ROWNUM &lt;= #TOPCNT#
+</isNotNull>  
+    </statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_Master">
+	</output>
+</query>

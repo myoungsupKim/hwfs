@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[강제레시피그룹 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.GRP_SEQ
+     , A.GRP_NAME
+     , A.REMARK
+     , DECODE(A.ENF_YN,'Y','1','N','0',0) AS ENF_YN
+     , DECODE(A.USE_YN,'Y','1','N','0',0) AS USE_YN
+     , A.CUSER
+     , A.CDATE
+     , A.UUSER
+     , A.UDATE
+     , (SELECT COUNT(1)
+          FROM FSR_ENF_RECIPE
+         WHERE GRP_SEQ = A.GRP_SEQ) AS RECIPE_CNT
+     , (SELECT COUNT(1)
+          FROM FSR_ENF_RECIPE_UPJANG
+         WHERE RECIPE_GRP_SEQ = A.GRP_SEQ) AS UPJANG_GRP_CNT
+     , CASE WHEN B.UPJANG_GRP_SEQ IS NULL THEN '0' ELSE '1' END AS CHK
+     , CASE WHEN B.UPJANG_GRP_SEQ IS NULL THEN 'C' ELSE 'U' END AS STATUS
+  FROM FSR_ENF_RECIPE_GRP A
+     , FSR_ENF_RECIPE_UPJANG B
+ WHERE A.GRP_SEQ = B.RECIPE_GRP_SEQ(+)
+   AND B.UPJANG_GRP_SEQ(+) = #UPJANG_GRP_SEQ#
+<isNotNull col="ENF_YN">
+   AND A.ENF_YN = #ENF_YN#
+</isNotNull>
+<isNotNull col="GRP_NAME">
+   AND A.GRP_NAME LIKE '%' || #GRP_NAME# || '%'
+</isNotNull> 	
+ ORDER BY A.GRP_SEQ DESC    
+    </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_enfGrp">
+	</output>
+</query>

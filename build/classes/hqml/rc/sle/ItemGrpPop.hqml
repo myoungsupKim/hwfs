@@ -1,0 +1,363 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.sle.itemGrpPopDAO">
+	<desc>아이템 그룹 등록 관리</desc>
+ 
+	
+	
+	<!--  DATA를 조회한다. -->
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.rc.sle.itemGrpPopDAO.selectList */
+	<![CDATA[
+	SELECT  TREE_KEY,  DSPL_CD ,
+			 MENU_CLASS,
+			 MENU_CLSFI,
+			 MENU_SCLASS,
+			 MENU_CLSFI_NM,
+			 LANGAE1,
+			 LANGAE2,
+			 LANGAE3,
+			 PIC_PLACE,
+			 SELECT_YN
+	
+	FROM (
+		
+		<#if menuClass != '00'>
+			<#if menuClsfi != '00'>
+
+				SELECT
+							'2'  AS TREE_KEY,
+							CLSFI.MENU_SCLASS AS  DSPL_CD,
+							CLSFI.MENU_CLASS,
+							CLSFI.MENU_CLSFI,
+							CLSFI.MENU_SCLASS,
+							MAX(CLSFI.MENU_CLSFI_NM) AS MENU_CLSFI_NM,
+							MAX(CLSFI.LANGAE1) AS LANGAE1,
+							MAX(CLSFI.LANGAE2) AS LANGAE2,
+							MAX(CLSFI.LANGAE3) AS LANGAE3,
+							MAX(CLSFI.PIC_PLACE) AS PIC_PLACE ,
+							'Y' AS SELECT_YN
+						
+						FROM  SLE_MENU_CLSFI CLSFI
+				        INNER JOIN SLE_MENU_CLSFI 	MAST  	ON MAST.MENU_CLSFI_NM LIKE  '%' || :menuClsfiNm || '%'
+				        								   AND MAST.MENU_CLASS = CLSFI.MENU_CLASS  
+				                                           AND MAST.MENU_CLSFI = CLSFI.MENU_CLSFI
+						WHERE CLSFI.MENU_CLASS  = :menuClass
+						AND   CLSFI.MENU_CLSFI  = :menuClsfi
+						AND   CLSFI.MENU_SCLASS <> '00'
+						AND   CLSFI.MENU_CLSFI_NM LIKE  '%' || :menuClsfiNm || '%'
+				        GROUP BY    CLSFI.MENU_CLASS, CLSFI.MENU_CLSFI, CLSFI.MENU_SCLASS    
+				UNION ALL
+				SELECT
+							'1'  AS TREE_KEY,
+							CLSFI.MENU_CLSFI AS  DSPL_CD,
+							CLSFI.MENU_CLASS,
+							CLSFI.MENU_CLSFI,
+							'00' MENU_SCLASS,
+							MAX(CLSFI.MENU_CLSFI_NM) AS MENU_CLSFI_NM,
+							MAX(CLSFI.LANGAE1) AS LANGAE1,
+							MAX(CLSFI.LANGAE2) AS LANGAE2,
+							MAX(CLSFI.LANGAE3) AS LANGAE3,
+							MAX(CLSFI.PIC_PLACE) AS PIC_PLACE ,
+							'N' AS SELECT_YN
+						
+						FROM  SLE_MENU_CLSFI CLSFI
+				        INNER JOIN SLE_MENU_CLSFI 	MAST  	ON MAST.MENU_CLSFI_NM LIKE '%' || :menuClsfiNm || '%'
+				        								   AND MAST.MENU_CLASS = CLSFI.MENU_CLASS  
+				                                           AND MAST.MENU_CLSFI = CLSFI.MENU_CLSFI
+						WHERE CLSFI.MENU_CLASS = :menuClass
+						AND   CLSFI.MENU_CLSFI = :menuClsfi
+						AND   CLSFI.MENU_SCLASS = '00'  
+				        GROUP BY    CLSFI.MENU_CLASS, CLSFI.MENU_CLSFI   
+				UNION ALL
+				SELECT
+							'0'  AS TREE_KEY,
+							CLSFI.MENU_CLASS  AS  DSPL_CD,
+							CLSFI.MENU_CLASS,
+							'00' MENU_CLSFI,
+							'00' MENU_SCLASS,
+							MAX(CLSFI.MENU_CLSFI_NM) AS MENU_CLSFI_NM,
+							MAX(CLSFI.LANGAE1) AS LANGAE1,
+							MAX(CLSFI.LANGAE2) AS LANGAE2,
+							MAX(CLSFI.LANGAE3) AS LANGAE3,
+							MAX(CLSFI.PIC_PLACE) AS PIC_PLACE ,
+							'N' AS SELECT_YN
+						
+						FROM  SLE_MENU_CLSFI CLSFI
+				        inner JOIN SLE_MENU_CLSFI 	MAST  	ON MAST.MENU_CLSFI_NM LIKE '%' || :menuClsfiNm || '%'
+				        								   AND MAST.MENU_CLASS = CLSFI.MENU_CLASS  
+				                                       
+						WHERE CLSFI.MENU_CLASS  = :menuClass
+						AND   CLSFI.MENU_CLSFI  = '00' 
+						AND   CLSFI.MENU_SCLASS = '00'  
+				        GROUP BY    CLSFI.MENU_CLASS 
+			<#else>
+				SELECT
+							'1'  AS TREE_KEY,
+							CLSFI.MENU_CLSFI AS  DSPL_CD,
+							CLSFI.MENU_CLASS,
+							CLSFI.MENU_CLSFI,
+							'00' MENU_SCLASS,
+							MAX(CLSFI.MENU_CLSFI_NM) AS MENU_CLSFI_NM,
+							MAX(CLSFI.LANGAE1) AS LANGAE1,
+							MAX(CLSFI.LANGAE2) AS LANGAE2,
+							MAX(CLSFI.LANGAE3) AS LANGAE3,
+							MAX(CLSFI.PIC_PLACE) AS PIC_PLACE ,
+							'Y' AS SELECT_YN 
+						FROM  SLE_MENU_CLSFI CLSFI
+				        INNER JOIN SLE_MENU_CLSFI 	MAST  	ON MAST.MENU_CLSFI_NM LIKE '%' || :menuClsfiNm || '%'
+				        								   AND MAST.MENU_CLASS = CLSFI.MENU_CLASS  
+				                                           AND MAST.MENU_CLSFI = CLSFI.MENU_CLSFI
+						WHERE CLSFI.MENU_CLASS = :menuClass
+						AND   CLSFI.MENU_CLSFI <> '00'
+						AND   CLSFI.MENU_SCLASS = '00'  
+						AND   CLSFI.MENU_CLSFI_NM LIKE  '%' || :menuClsfiNm || '%'
+				        GROUP BY    CLSFI.MENU_CLASS, CLSFI.MENU_CLSFI   
+				UNION ALL
+				SELECT
+							'0'  AS TREE_KEY,
+							CLSFI.MENU_CLASS  AS  DSPL_CD,
+							CLSFI.MENU_CLASS,
+							'00' MENU_CLSFI,
+							'00' MENU_SCLASS,
+							MAX(CLSFI.MENU_CLSFI_NM) AS MENU_CLSFI_NM,
+							MAX(CLSFI.LANGAE1) AS LANGAE1,
+							MAX(CLSFI.LANGAE2) AS LANGAE2,
+							MAX(CLSFI.LANGAE3) AS LANGAE3,
+							MAX(CLSFI.PIC_PLACE) AS PIC_PLACE ,
+							'N' AS SELECT_YN
+						
+						FROM       SLE_MENU_CLSFI   CLSFI
+				        inner JOIN SLE_MENU_CLSFI 	MAST  	ON MAST.MENU_CLSFI_NM LIKE '%' || :menuClsfiNm || '%'
+				        								   AND MAST.MENU_CLASS = CLSFI.MENU_CLASS  
+				                                       
+						WHERE CLSFI.MENU_CLASS = :menuClass
+						AND   CLSFI.MENU_CLSFI = '00' 
+						AND   CLSFI.MENU_SCLASS = '00'  
+				        GROUP BY    CLSFI.MENU_CLASS 
+			</#if>
+		<#else>
+			
+		SELECT  '0' AS TREE_KEY, '' AS DSPL_CD ,
+				'00' AS MENU_CLASS,
+				'00' AS MENU_CLSFI,
+				'00' AS MENU_SCLASS,
+				'Item Group' AS MENU_CLSFI_NM,
+				'' AS LANGAE1,
+				'' AS LANGAE2,
+				'' AS LANGAE3,
+				'' AS PIC_PLACE,
+				'N' AS SELECT_YN
+		FROM DUAL
+		UNION ALL
+			SELECT
+				'1' AS TREE_KEY,
+				MENU_CLASS  AS  DSPL_CD,
+				MENU_CLASS,
+				MENU_CLSFI,
+				MENU_SCLASS,
+				MENU_CLSFI_NM,
+				LANGAE1,
+				LANGAE2,
+				LANGAE3,
+				PIC_PLACE,
+				'Y' AS SELECT_YN
+			FROM  SLE_MENU_CLSFI 
+			WHERE USE_YN = 'Y'
+			<#if menuClsfiNm?has_content> AND MENU_CLSFI_NM LIKE '%' || :menuClsfiNm || '%' </#if>
+			<#if menuClass?has_content>   AND MENU_CLASS    =    DECODE( :menuClass,'00', MENU_CLASS, :menuClass)		 </#if>
+			<#if menuClsfi?has_content>   AND MENU_CLSFI    =    :menuClsfi          </#if>
+			<#if menuSclass?has_content>  AND MENU_SCLASS   =    :menuSclass         </#if>
+		</#if>
+	)
+		ORDER BY TREE_KEY, PIC_PLACE, MENU_CLASS, MENU_CLSFI, MENU_SCLASS
+
+	]]>
+	</statement>
+	
+	<statement name="selectListMenuGrp" type="select">
+	/*+ com.hwfs.rc.sle.dao.itemGrpPopDAO.selectListMenuGrp */
+	<![CDATA[
+	SELECT  TREE_KEY,  DSPL_CD ,
+			 MENU_CLASS,
+			 MENU_CLSFI,
+			 MENU_SCLASS,
+			 MENU_CLSFI_NM,
+			 LANGAE1,
+			 LANGAE2,
+			 LANGAE3,
+			 PIC_PLACE,
+			 SELECT_YN
+	
+	FROM (
+		
+		
+		
+		<#if menuClass != '00'>
+			<#if menuClsfi != '00'>
+			
+				SELECT
+							'2'  AS TREE_KEY,
+							CLSFI.MENU_SCLASS AS  DSPL_CD,
+							CLSFI.MENU_CLASS,
+							CLSFI.MENU_CLSFI,
+							CLSFI.MENU_SCLASS,
+							MAX(CLSFI.MENU_CLSFI_NM) AS MENU_CLSFI_NM,
+							MAX(CLSFI.LANGAE1) AS LANGAE1,
+							MAX(CLSFI.LANGAE2) AS LANGAE2,
+							MAX(CLSFI.LANGAE3) AS LANGAE3,
+							MAX(CLSFI.PIC_PLACE) AS PIC_PLACE,
+							'Y' AS SELECT_YN
+						
+						FROM       SLE_OUTLET_MENU_GRP CLSFI
+				        INNER JOIN SLE_OUTLET_MENU_GRP MAST   ON MAST.MENU_CLSFI_NM LIKE  '%' || :menuClsfiNm || '%'
+				        								     AND MAST.MENU_CLASS = CLSFI.MENU_CLASS  
+				                                             AND MAST.MENU_CLSFI = CLSFI.MENU_CLSFI
+				                                             AND MAST.OUTLET_CD  = CLSFI.OUTLET_CD  
+						WHERE CLSFI.USE_YN = 'Y'
+						AND   CLSFI.OUTLET_CD   = :outletCd
+						AND   CLSFI.MENU_CLASS  = :menuClass
+						AND   CLSFI.MENU_CLSFI  = :menuClsfi
+						AND   CLSFI.MENU_SCLASS <> '00'
+						AND   CLSFI.MENU_CLSFI_NM LIKE  '%' || :menuClsfiNm || '%'
+				        GROUP BY    CLSFI.MENU_CLASS, CLSFI.MENU_CLSFI, CLSFI.MENU_SCLASS    
+				UNION ALL
+				SELECT
+							'1'  AS TREE_KEY,
+							CLSFI.MENU_CLSFI AS  DSPL_CD,
+							CLSFI.MENU_CLASS,
+							CLSFI.MENU_CLSFI,
+							'00' MENU_SCLASS,
+							MAX(CLSFI.MENU_CLSFI_NM) AS MENU_CLSFI_NM,
+							MAX(CLSFI.LANGAE1) AS LANGAE1,
+							MAX(CLSFI.LANGAE2) AS LANGAE2,
+							MAX(CLSFI.LANGAE3) AS LANGAE3,
+							MAX(CLSFI.PIC_PLACE) AS PIC_PLACE,
+							'N' AS SELECT_YN
+						
+						FROM       SLE_OUTLET_MENU_GRP CLSFI
+				        INNER JOIN SLE_OUTLET_MENU_GRP MAST    ON MAST.MENU_CLSFI_NM LIKE '%' || :menuClsfiNm || '%'
+				        								      AND MAST.MENU_CLASS = CLSFI.MENU_CLASS  
+				                                              AND MAST.MENU_CLSFI = CLSFI.MENU_CLSFI
+				                                              AND MAST.OUTLET_CD  = CLSFI.OUTLET_CD  
+						WHERE CLSFI.USE_YN = 'Y'
+						AND   CLSFI.OUTLET_CD   = :outletCd
+						AND   CLSFI.MENU_CLASS  = :menuClass
+						AND   CLSFI.MENU_CLSFI  = :menuClsfi
+						AND   CLSFI.MENU_SCLASS = '00'  
+				        GROUP BY    CLSFI.MENU_CLASS, CLSFI.MENU_CLSFI   
+				UNION ALL
+				SELECT
+							'0'  AS TREE_KEY,
+							CLSFI.MENU_CLASS  AS  DSPL_CD,
+							CLSFI.MENU_CLASS,
+							'00' MENU_CLSFI,
+							'00' MENU_SCLASS,
+							MAX(CLSFI.MENU_CLSFI_NM) AS MENU_CLSFI_NM,
+							MAX(CLSFI.LANGAE1) AS LANGAE1,
+							MAX(CLSFI.LANGAE2) AS LANGAE2,
+							MAX(CLSFI.LANGAE3) AS LANGAE3,
+							MAX(CLSFI.PIC_PLACE) AS PIC_PLACE,
+							'N' AS SELECT_YN
+						
+						FROM       SLE_OUTLET_MENU_GRP CLSFI
+				        inner JOIN SLE_OUTLET_MENU_GRP MAST  ON MAST.MENU_CLSFI_NM LIKE '%' || :menuClsfiNm || '%'
+				        								    AND MAST.MENU_CLASS = CLSFI.MENU_CLASS
+				        								    AND MAST.OUTLET_CD  = CLSFI.OUTLET_CD    
+				                                       
+						WHERE CLSFI.USE_YN = 'Y'
+						AND   CLSFI.OUTLET_CD  = :outletCd
+						AND   CLSFI.MENU_CLASS = :menuClass
+						AND   CLSFI.MENU_CLSFI = '00' 
+						AND   CLSFI.MENU_SCLASS = '00' 
+				        GROUP BY    CLSFI.MENU_CLASS 
+			<#else>
+				SELECT
+							'1'  AS TREE_KEY,
+							CLSFI.MENU_CLSFI AS  DSPL_CD,
+							CLSFI.MENU_CLASS,
+							CLSFI.MENU_CLSFI,
+							'00' MENU_SCLASS,
+							MAX(CLSFI.MENU_CLSFI_NM) AS MENU_CLSFI_NM,
+							MAX(CLSFI.LANGAE1) AS LANGAE1,
+							MAX(CLSFI.LANGAE2) AS LANGAE2,
+							MAX(CLSFI.LANGAE3) AS LANGAE3,
+							MAX(CLSFI.PIC_PLACE) AS PIC_PLACE,
+							'Y' AS SELECT_YN 
+						FROM       SLE_OUTLET_MENU_GRP CLSFI
+				        INNER JOIN SLE_OUTLET_MENU_GRP 	MAST  	ON MAST.MENU_CLSFI_NM LIKE '%' || :menuClsfiNm || '%'
+				        								   AND MAST.MENU_CLASS = CLSFI.MENU_CLASS  
+				                                           AND MAST.MENU_CLSFI = CLSFI.MENU_CLSFI
+				                                           AND MAST.OUTLET_CD  = CLSFI.OUTLET_CD  
+						WHERE CLSFI.USE_YN = 'Y'
+						AND   CLSFI.OUTLET_CD  = :outletCd
+						AND   CLSFI.MENU_CLASS = :menuClass
+						AND   CLSFI.MENU_CLSFI <> '00'
+						AND   CLSFI.MENU_SCLASS = '00'  
+						AND   CLSFI.MENU_CLSFI_NM LIKE  '%' || :menuClsfiNm || '%'
+				        GROUP BY    CLSFI.MENU_CLASS, CLSFI.MENU_CLSFI   
+				UNION ALL
+				SELECT
+							'0'  AS TREE_KEY,
+							CLSFI.MENU_CLASS  AS  DSPL_CD,
+							CLSFI.MENU_CLASS,
+							'00' MENU_CLSFI,
+							'00' MENU_SCLASS,
+							MAX(CLSFI.MENU_CLSFI_NM) AS MENU_CLSFI_NM,
+							MAX(CLSFI.LANGAE1) AS LANGAE1,
+							MAX(CLSFI.LANGAE2) AS LANGAE2,
+							MAX(CLSFI.LANGAE3) AS LANGAE3,
+							MAX(CLSFI.PIC_PLACE) AS PIC_PLACE,
+							'N' AS SELECT_YN
+						
+						FROM       SLE_OUTLET_MENU_GRP CLSFI
+				        INNER JOIN SLE_OUTLET_MENU_GRP 	MAST  	ON MAST.MENU_CLSFI_NM LIKE '%' || :menuClsfiNm || '%'
+				        								        AND MAST.MENU_CLASS = CLSFI.MENU_CLASS  
+				                                                AND MAST.OUTLET_CD = CLSFI.OUTLET_CD  
+						WHERE CLSFI.USE_YN = 'Y'
+						AND   CLSFI.OUTLET_CD   = :outletCd
+						AND   CLSFI.MENU_CLASS  = :menuClass
+						AND   CLSFI.MENU_CLSFI  = '00' 
+						AND   CLSFI.MENU_SCLASS = '00'  
+				        GROUP BY    CLSFI.MENU_CLASS 
+			</#if>
+		<#else>
+			
+		SELECT  '0' AS TREE_KEY, '' AS DSPL_CD ,
+				'00' AS MENU_CLASS,
+				'00' AS MENU_CLSFI,
+				'00' AS MENU_SCLASS,
+				'Item Group' AS MENU_CLSFI_NM,
+				'' AS LANGAE1,
+				'' AS LANGAE2,
+				'' AS LANGAE3,
+				'' AS PIC_PLACE,
+				'N' AS SELECT_YN
+		FROM DUAL
+		UNION ALL
+			SELECT
+				'1' AS TREE_KEY,
+				MENU_CLASS  AS  DSPL_CD,
+				MENU_CLASS,
+				MENU_CLSFI,
+				MENU_SCLASS,
+				MENU_CLSFI_NM,
+				LANGAE1,
+				LANGAE2,
+				LANGAE3,
+				PIC_PLACE,
+				'Y' AS SELECT_YN
+			FROM  SLE_OUTLET_MENU_GRP 
+			WHERE USE_YN = 'Y'
+			AND   OUTLET_CD = :outletCd
+			<#if menuClsfiNm?has_content> AND MENU_CLSFI_NM LIKE '%' || :menuClsfiNm || '%' </#if>
+			<#if menuClass?has_content>   AND MENU_CLASS    =    DECODE( :menuClass,'00', MENU_CLASS, :menuClass)		 </#if>
+			<#if menuClsfi?has_content>   AND MENU_CLSFI    =    :menuClsfi          </#if>
+			<#if menuSclass?has_content>  AND MENU_SCLASS   =    :menuSclass         </#if>
+		</#if>
+	)
+		ORDER BY TREE_KEY, PIC_PLACE, MENU_CLASS, MENU_CLSFI, MENU_SCLASS
+
+	]]>
+	</statement>
+	
+</hqml>

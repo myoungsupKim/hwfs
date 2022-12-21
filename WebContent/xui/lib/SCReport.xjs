@@ -1,0 +1,432 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Script type="xscript4.0"><![CDATA[/**
+ * Report 처리 공통 JS 스크립트
+ * @ClassName SCReport.xjs
+ * @Description SCReport javascript 
+ * @Modification-Information
+ *    수정일      수정자         수정내용
+ *  ----------   ----------   -------------------------------
+ *  2015.02.02    kksoo       최초 생성
+ *
+ * @author FC종합전산구축 : AA kksoo
+ * @since 2015.02.02.
+ * @version 1.0
+ * @see 
+ * 
+ *  Copyright (C) 2014 by HANWHA S&C CO.,LTD. All right reserved.
+ */
+
+var SCReport={
+/* Report Constants */
+RPT_NAME	 : "url" ,
+RPT_ODINAME	 : "odiname" ,
+RPT_TITLE    : "title" ,
+RPT_ZOOM     : "zoom" ,
+RPT_LOCKFLAG : "lockflag",
+RPT_ONCEFLAG : "onceflag",
+RPT_BINDDATA : "binddata",
+RPT_BINDPARAM: "bindparam",
+RPT_PARAMCNVT: "paramcnvt",
+RPT_XMLBIND  : "xmlbind",
+RPT_VERTICAL : "vertical",
+
+/**
+ * 레포트 뷰를 위한 공통 폼을 호출한다.
+ * @param objForm 호출한 폼 ID이며 this로 전달
+ * @param arrParams 레포트에 전달할 파라미터 배열
+ * @param [blnVertical] Vertical 방향 여부
+ * @param [blnModal] Modal 여부
+ * @param [blnPersInfo] 개인정보포함 여부
+ * @return none
+ */
+viewReport:function (objForm, arrParams, blnVertical, blnModal, blnPersInfo) 
+{
+    //-------------------------------------------
+    // 개인정보유무에 따라 처리 by kksoo
+    // 개인정보가 있는 화면인 경우 마스크 정보와 개인정보처리레벨(9=관리자)에 따라 Export가 가능 
+    //-------------------------------------------
+    if (gfn_isNull(blnPersInfo) || blnPersInfo == true) {
+		try {
+			//g_PersInfoProcLevel = 1; g_PersInfoMask = "N" + g_PersInfoMask; //테스트용
+			//처리레벨이 CPO가 아니고 Mask가 안된 것이 있는 경우
+			//alert (g_PersInfoProcLevel + "," + g_PersInfoMask.indexOf("N"));
+			if (g_PersInfoProcLevel != 9 && g_PersInfoMask.indexOf("N") != -1 && g_PersInfoMask.indexOf("N") < 11) {	//성명 이후는 무시
+				if (objForm.isValidObject("ds_cmnAuth")) {	//권한 데이터셋이 있는 경우만
+					var persInfoYn = objForm.ds_cmnAuth.getColumn(0,"persInfoYn");
+					if (!gfn_isNull(persInfoYn) && (persInfoYn == "1" || persInfoYn == "Y")) {
+						gfn_alert("msg.pers.no.mask.not.report"); //마스크 처리되지 않은 개인정보가 있는 경우는 인쇄할 수 없습니다.
+						return;
+					}
+				}
+			}
+		}catch(e){
+			gfn_alert(gfn_getMessage("msg.pers.proc.grade.not.set") + e.message); //개인정보처리등급 또는 권한정보가 설정되어 있지 않습니다. 관리자에게 연락하여 확인하십시요!
+			return;
+		}
+	}
+	var objRet;
+	var strId       = "reportViewPop";
+	var strURL      = "X_SCC::ReportViewPop.xfdl";
+	var objArgument = {params:arrParams};
+	var nWidth; 
+	var nHeight;
+	
+	if (typeof(blnVertical) == "undefined" || blnVertical == true) {
+		nWidth  = 950; 
+		nHeight = 1000;
+		setParams (arrParams, SCReport.RPT_VERTICAL, "Y");
+	} else {
+		nWidth  = 1250; 
+		nHeight = 800;
+		setParams (arrParams, SCReport.RPT_VERTICAL, "N");
+	}
+
+	var strStyle    = "";	
+	var nLeft       = -1;
+	var nTop        = -1;
+	var isModeless;
+	if (typeof(blnModal) == "undefined" || blnModal == true)
+		isModeless  = false;
+	else
+		isModeless  = true;
+	var bShowTitle  = true;
+	var strAlign    = "-1";
+	var bResizable  = true;
+	
+	// Report Viewer 호출	
+	gfn_dialog(strId, strURL, objArgument, nWidth, nHeight, strStyle, nLeft, nTop, isModeless, bShowTitle, strAlign, bResizable);
+	
+	//생성된 폼ID를 반환하여 폼에 접근하도록 한다.
+	//return objRet;
+},
+
+/**
+ * 그리드 내용을 레포트한다.
+ * @param objGrid 레포트할 Grid
+ * @param [sReportTitle] 레포트 타이틀, default는 폼 타이틀
+ * @param [blnVertical] Vertical 방향 여부, default는 false
+ * @param [blnModal] Modal 여부
+ * @return none
+ */
+viewGridReport:function (objForm, objGrid, sReportTitle, blnVertical, blnModal) 
+{	
+	//레포트에 전달할 파라메터 생성
+	var arrParams	= SCReport.newParams ();
+	
+	//데이터셋을 클라이언트에서 바인딩 처리하고 데이터셋을 이용하여 동적으로 레포트 생성
+	//-창 타이틀 (필수)
+	if (gfn_isNull(sReportTitle)) {
+		if (gfn_isNull(objForm.titletext))
+			sReportTitle = "Grid Report";
+		else
+			sReportTitle = objForm.titletext;
+	}
+	SCReport.setParams (arrParams, SCReport.RPT_TITLE, sReportTitle);
+	
+	//-Zoom (디폴트는 100)
+	//SCReport.setParams (arrParams, SCReport.RPT_ZOOM, "100");
+	
+	//클라이언트 바인딩 설정
+	var strData;
+	strData = SCReport.makeReportGridXml (objGrid); //출력할 그리드 데이터
+	
+	SCReport.setClientGridBind (arrParams, strData);	
+
+	if (gfn_isNull(blnVertical)) blnVertical = false;
+
+	//ReportViewer Popup 호출 : 파라미터 (this, arrParams, [Vertical여부], [Modal여부})
+	//- 형식1 : Vertical, Modal
+	if (gfn_isNull(objGrid.persinfo) || objGrid.persinfo.toUpperCase() <> "N")	//개인정보 포함여부 검사
+		SCReport.viewReport (objForm, arrParams, blnVertical, blnModal);
+	else
+		SCReport.viewReport (objForm, arrParams, blnVertical, blnModal, false);
+},
+
+/**
+ * 서버 레포트 뷰에 전달할 파라미티 객체를 만든다. 
+ * - 공통 파리미터를 설정한다.
+ * @return Array형태의 파라미터 객체
+ */
+newParams:function () {
+	var arrParams = new Array();
+	
+	//공통 파라미터 설정
+	setParams (arrParams, "sysType", g_SystemId);		// Syetem ID
+	setParams (arrParams, "menuId",  gv_menuId);		// 메뉴ID        
+	setParams (arrParams, "prgId",   gv_progrmId);		// 프로그램 ID
+
+	return arrParams;
+},
+
+/**
+ * 서버 레포트 뷰에 전달할 파라미티를 설정한다.
+ * @param arrParams 레포트에 전달할 파라미터 객체
+ * @param strName 파라미터 명
+ * @param strValue 파라미터 값
+ * @return 파라미터 객체
+ */
+setParams:function (arrParams, strName, strValue) {
+	if (gfn_isNull(strValue)) 
+		return arrParams[strName] =  wrapQuote(strValue);
+	else
+		return arrParams[strName] =  strValue;
+},
+
+/**
+ * 서버 레포트 뷰에 전달할 파라미티 값을 얻는다.
+ * @param arrParams 레포트에 전달할 파라미터 객체
+ * @param strName 파라미터 명
+ * @return 파라미터 값, 없으면 undefined를 반환
+ */
+getParams:function (arrParams, strName) {
+	return arrParams[strName];
+},
+
+/**
+ * 클라이언트에서 바인드할 파라미터를 설정한다.
+ * @param arrParams 레포트에 전달할 파라미터 객체
+ * @param strData 파라미터 데이터
+ * @return 파라미터 객체
+ */
+setClientBind:function (arrParams, strData) {
+	arrParams[SCReport.RPT_XMLBIND] = "Y";
+	arrParams[SCReport.RPT_BINDDATA] = strData;
+	return arrParams;
+},
+
+/**
+ * 클라이언트에서 바인드할 파라미터를 설정한다. 그리드에 맞게 동적으로 레포트가 생성된다.
+ * @param arrParams 레포트에 전달할 파라미터 객체
+ * @param strData 파라미터 데이터
+ * @return 파라미터 객체
+ */
+setClientGridBind:function (arrParams, strData) {
+	arrParams[SCReport.RPT_XMLBIND] = "D";
+	arrParams[SCReport.RPT_BINDDATA] = strData;
+	return arrParams;
+},
+
+/**
+ * 서버 레포트 뷰에 전달할 파라미터와 호출 주소를 만든다.
+ * @param arrParams 레포트에 전달할 파라미터 객체
+ * @return 호출 주소
+ */
+getReportUrl:function (arrParams) {
+	return gv_ozReport + "?" + makeReportParams (arrParams);
+},
+
+/**
+ * 서버 레포트 뷰에 전달할 파라미터를 만든다.
+ * @param objParams 레포트에 전달할 파라미터 배열
+ * @return 파라미터 문자열
+ */
+makeReportParams:function (objParams)
+{
+	var strParams = "";
+	for(x in objParams) {
+		//(중요) 클라이언트 바인딩을 위한 data와 bindParam이 있는 경우는 서버에 전송하지 않도록 하고 클라이언트에서 바인드하도록 한다.
+		if (x != RPT_BINDDATA)
+			strParams = strParams + encodeURI(x) + "=" + encodeURI(objParams[x]) + "&";
+		else
+			strParams = strParams + encodeURI(x) + "=" + "" + "&";
+		//trace("arr " + x + " " + objParams[x]);
+	}
+	strParams += "&" + RPT_PARAMCNVT + "=n";	//ToBe에서는 기본적으로 설정해야 함
+	return strParams;
+},
+
+/**
+ * 서버의 레포트에 전송할 XPLATFORM 형태의 파라미터를 만든다.
+ * @param objParams 레포트에 전송할 파라미터 배열
+ * @return 파라미터 문자열
+ */
+makeReportParamsXpFormat:function (objParams)
+{
+	var strParams = "";
+	for(x in objParams) {
+		//(중요) 클라이언트 바인딩을 위한 data와 bindParam이 있는 경우는 서버에 전송하지 않도록 하고 클라이언트에서 바인드하도록 한다.
+		if (x != SCReport.RPT_BINDDATA)
+			strParams = strParams + x + "=" + wrapQuote(objParams[x]) + " ";
+		else
+			strParams = strParams + x + "=" + "" + " ";
+		//trace("arr " + x + " " + objParams[x]);
+	}
+	return strParams;
+},
+
+/**
+ * 클라이언트에서 레포트에 바인드할 데이터가 있는지 검사한다.
+ * @param objParams 레포트에 전달할 파라미터 배열
+ * @return true/false
+ */
+hasClientBindData:function (objParams)
+{
+	for(x in objParams) {
+		if (x == SCReport.RPT_BINDDATA) return true;
+	}
+	return false;
+},
+
+/**
+ * 클라이언트에서 레포트에 바인드할 파라미터가 있는지 검사한다.
+ * @param objParams 레포트에 전달할 파라미터 배열
+ * @return true/false
+ */
+hasClientBindParam:function (objParams)
+{
+	for(x in objParams) {
+		if (x == SCReport.RPT_BINDPARAM) return true;
+	}
+	return false;
+},
+
+/**
+ * 클라이언트에서 레포트에 바인드할 데이터를 XML형식으로 만든다.
+ * @param objDSArgs 데이터셋으로 여러개를 파라미터로 전달 가능. 예: makeReportXml (dsA, dsB, dsC)
+ * @return xml데이터
+ */
+makeReportXml:function (objDSArgs)
+{
+	//alert (arguments.length + "," + arguments[0]);
+	//var tmpXml = "<?xml version='1.0' encoding='EUC-KR'?><root>";
+	var tmpXml = "<root>";
+	for(var i=0; i<arguments.length; i++)	{
+		//alert(arguments[i].name);
+		var objDS = arguments[i];
+		tmpXml += "<dataset id='" + objDS.name + "'>";
+		
+		for (var nRow=0; nRow<objDS.getRowCount(); nRow++) {
+			tmpXml += "<row>\n";
+			for (var nCol=0; nCol<objDS.getColCount(); nCol++) {
+				tmpXml += "<" + objDS.getColID(nCol) + ">"
+						+  SCReport.replaceTag(objDS.getColumn(nRow, nCol))
+						+ "</" + objDS.getColID(nCol) + ">\n";
+			}
+			tmpXml += "</row>\n";
+		}
+		tmpXml += "</dataset>";
+	}
+	tmpXml += "</root>";
+	return tmpXml;
+
+},
+
+/**
+ * 클라이언트에서 레포트에 바인드할 Grid를 XML형식으로 만든다. 
+ * - XML을 이용하여 동적으로 레포트를 만든다.
+ * - 첫번째 레코드는 레포트의 칼럼 헤더가 된다.
+ * @param objGrid Grid 예: makeReportDynamicXml (grdA)
+ * @return xml데이터
+ */
+makeReportGridXml:function (objGrid:Grid)
+{
+	var objDs = eval(objGrid.binddataset);
+	
+	//Grid 칼럼헤더목록을 얻는다.
+	var arrCol = getGridHeaderColumn (objGrid);
+		
+	//var tmpXml = "<?xml version='1.0' encoding='EUC-KR'?><root>";
+	var tmpXml = "<root>";
+	tmpXml += "<dataset id='baseinfo'>";	//baseinfo으로 사용
+	
+	//칼럼 헤더를 만든다.
+	tmpXml += "<row>\n";
+	for (var i=0; i<arrCol.length; i++)	{
+		var colInfo = arrCol[i];	//데이터셋 바인딩ID, 칼럼텍스트]로 구성
+		tmpXml += "<col" + i + ">"
+				+  colInfo[1]
+				+ "</col" + i + ">\n";
+	}
+	tmpXml += "</row>\n";
+	
+	//칼럼 데이터를 만든다.
+	for (var nRow=0; nRow<objDs.getRowCount(); nRow++) {
+		tmpXml += "<row>\n";
+		for (var i=0; i<arrCol.length; i++)	{
+			var colInfo = arrCol[i];	//데이터셋 바인딩ID, 칼럼텍스트]로 구성
+			tmpXml += "<col" + i + ">"
+					+  SCReport.replaceTag(objGrid.getCellText(nRow,colInfo[0]))
+					+ "</col" + i + ">\n";
+		}
+		tmpXml += "</row>\n";
+	}
+	tmpXml += "</dataset>";
+	tmpXml += "</root>";
+	return tmpXml;
+
+},
+
+/**
+ * null, undefuned 값 ""로 치환
+ * @param p_value 입력 문자열(필수)
+ * @param p_value null, undefuned 값일경우 경우 대체될 문자열 (옵션) default:""
+ * @return 결과 문자열
+ */
+nvl:function(p_value, r_value) {
+	var strVal = new String(p_value);
+	if(strVal == null || strVal == "null" || strVal == "undefined" ){
+	    if(r_value == null){ 
+	        return "";
+	    }else{
+			return r_value;
+	    }
+	} else {
+	    return strVal.trim();
+	}
+},
+
+replaceTag:function(p_value) {
+	var strVal = new String(p_value);
+	if(strVal == null || strVal == "null" || strVal == "undefined" ){
+	        return "";
+	} else {
+        strVal = strVal.replace(/&/g, "&amp;" );
+        strVal = strVal.replace(/>/g, "&gt;" );
+        strVal = strVal.replace(/</g, "&lt;" );
+        strVal = strVal.replace(/"/g,'&quot;');
+	    return strVal.trim();
+	}
+},
+
+/**
+ * Grid 칼럼Header정보를 얻는다.
+ * @param objGrid Grid 
+ * @return 칼럼Header정보 배열을 항목으로하는 배열 ([칼럼번호,칼럼텍스트]., [,], ....)
+ */
+getGridHeaderColumn:function (objGrid:Grid)
+{
+	var arrTmpCol = new Array (objGrid.getCellCount("head"));
+	//모든 Header 칼럼에 대해 검사
+	for (var i=0;i<objGrid.getCellCount("head");i++)
+	{	
+		var strText = objGrid.getCellProperty("head",i,"text");
+		if (typeof(strText) == "undefined") strText = "";
+		var intCol = objGrid.getCellProperty( "Head", i, "col");
+		var arrColInfo = new Array(2);	//Col번호, 칼럼텍스트로 구성
+		arrColInfo[0] = intCol;
+		arrColInfo[1] = strText; 
+		arrTmpCol[i] = arrColInfo;
+	}
+	return arrTmpCol;
+},
+
+/**
+ * Grid Cell에 바이드된 Dataset Column ID를 구한다.
+ * @param obj Grid  
+ * @param intCellNo
+ * @return 바인드 ID
+ */
+getCellBindId:function (obj:Grid, intCellNo){
+	var strBind = obj.getCellProperty("body", intCellNo, "text");
+	if (typeof(strBind) === "undefined")
+		return "";
+	else{
+		return strBind.replace("bind:", "");
+	}
+},
+
+dummy:function(){
+}
+};
+
+]]></Script>

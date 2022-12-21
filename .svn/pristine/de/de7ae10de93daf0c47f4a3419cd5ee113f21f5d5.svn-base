@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="fs.fsa.adoptionSiteListDAO">
+	<desc>채용사이트관리 HQML Query</desc>
+
+	<!-- 채용사이트관리 목록을 조회한다. -->
+	<statement name="selectList" type="select"><![CDATA[  
+
+	SELECT    
+	         SITE_NUM                					/* 사이트관리 일련번호  */
+	       , SITE_NM                 					/* 사이트명             */
+	       , SITE_ADDR               					/* 사이트 주소(URL)     */
+	       , OFFER_ORG               					/* 제공기관             */
+	       , INCHARGE                					/* 담당자               */  	
+	       , TELNO                                       /* 전화번호           */
+		   , EMAIL										/* 이메일 주소          */
+		   , REMARK                  					/* 비고사항 기술        */
+	       , CUSER                   					/* 생성자 사번          */
+	       , CUSER_NM				 					/* 생성자	            */
+	       , CDATE					 					/* 생성일시             */
+	       ,USE_YN 										/* 사용여부            */
+	       , SORT_SEQ																/* 정렬순서		*/
+     FROM (   
+				SELECT   
+			         SITE_NUM                /* 사이트관리 일련번호  */
+			       , SITE_NM                 /* 사이트명             */
+			       , SITE_ADDR               /* 사이트 주소(URL)     */
+			       , OFFER_ORG               /* 제공기관             */
+			       , INCHARGE                /* 담당자               */              
+				   , SCC_CRYPTO.MASKAUTH_FUN(TELNO_ENC, 9, :loginPersMask, :maskAuth) AS TELNO 	/* 전화번호 암호화      */ 
+				   , SCC_CRYPTO.MASKAUTH_FUN(EMAIL, 7, :loginPersMask, :maskAuth) AS EMAIL  	/* 이메일 주소          */
+			       , REMARK                  /* 비고사항 기술        */
+			       , CUSER                   /* 생성자 사번          */
+			       , ( 
+			         SELECT NM_KOR 
+			           FROM SCC_USERINFO A
+			          WHERE A.SABUN = M.CUSER
+			            AND ROWNUM = 1
+			         )   AS CUSER_NM
+			       , TO_CHAR( CDATE,'YYYYMMDDHH24MI') AS CDATE                  /* 생성일시             */
+			       ,USE_YN       	                                                              /* 사용여부            */
+			       , SORT_SEQ																/* 정렬순서		*/
+			   	FROM  FSA_SITE_MASTER M
+		   )
+<#if siteNm?has_content>
+   WHERE    SITE_NM LIKE '%' || :siteNm || '%'
+</#if>
+  ORDER BY SORT_SEQ, CDATE DESC
+]]></statement>
+
+	<!-- 채용사이트관리(을)를 등록한다. -->
+	<statement name="insert" type="insert"><![CDATA[
+INSERT INTO FSA_SITE_MASTER (
+         SITE_NUM                   /* 사이트관리 일련번호  */
+       , SITE_NM                    /* 사이트명             */
+       , SITE_ADDR                  /* 사이트 주소(URL)     */
+       , OFFER_ORG                  /* 제공기관             */
+       , INCHARGE                   /* 담당자               */
+       , TELNO_ENC                  /* 전화번호 암호화      */
+       , EMAIL                      /* 이메일 주소          */
+       , REMARK                     /* 비고사항 기술        */
+       , CUSER                      /* 생성자 사번          */
+       , CDATE                      /* 생성일시             */
+       , UUSER                      /* 수정자 사번          */
+       , UDATE                      /* 수정일시             */
+       , USE_YN					  /*  사용여부			*/
+       , SORT_SEQ				/* 정렬순서				*/
+ ) VALUES (
+         FSA_SITE_MASTER_S.NEXTVAL  													/* 사이트관리 일련번호  */
+       , :siteNm                    													/* 사이트명             */
+       , <#if siteAddr?has_content>:siteAddr  <#else> null </#if>                		/* 사이트 주소(URL)     */
+       , <#if offerOrg?has_content>:offerOrg  <#else> null </#if>                 		/* 제공기관             */
+       , <#if incharge?has_content>:incharge  <#else> null </#if>                 		/* 담당자               */
+       , <#if telno?has_content> SCC_CRYPTO.ENC_FUN(:telno) <#else> null </#if>    							/* 전화번호 암호화      */
+       , <#if email?has_content>SCC_CRYPTO.ENC_FUN(:email)<#else> null </#if>         	/* 이메일 주소          */
+       , <#if remark?has_content>:remark    <#else> null </#if>                 		/* 비고사항 기술        */
+       , :empNo                     													/* 생성자 사번          */
+       , SYSDATE                                                                     	/* 생성일시             */
+       , :loginSabun                     												/* 수정자 사번          */
+       , SYSDATE                    													/* 수정일시             */
+       , <#if useYn?has_content>:useYn    <#else> null </#if>                 		/* 사용여부        */
+       , <#if sortSeq?has_content> :sortSeq </#if>							/* 정렬순서			*/
+ )]]></statement>
+
+	<!-- 채용사이트관리(을)를 수정한다. -->
+	<statement name="update" type="update"><![CDATA[
+UPDATE FSA_SITE_MASTER SET
+       SITE_NM    = :siteNm                    													    /* 사이트명             */
+     , SORT_SEQ   = :sortSeq																			/* 정렬순서	*/  
+     , SITE_ADDR  = <#if siteAddr?has_content> :siteAddr <#else> null </#if>                	    /* 사이트 주소(URL)     */
+     , OFFER_ORG  = <#if offerOrg?has_content> :offerOrg <#else> null </#if>                 	    /* 제공기관             */
+     , INCHARGE   = <#if incharge?has_content> :incharge <#else> null </#if>                 	    /* 담당자               */
+     , TELNO_ENC  = SCC_CRYPTO.ENC_FUN(:telno) 						 							/* 전화번호 암호화      */
+     , EMAIL      = <#if email?has_content> SCC_CRYPTO.ENC_FUN(:email)<#else> null </#if>           /* 이메일 주소          */
+     , USE_YN      = <#if useYn?has_content> :useYn<#else> null </#if>           /* 사용 여부          */
+     , REMARK     = <#if remark?has_content> :remark <#else> null </#if>                 		    /* 비고사항 기술        */
+     , UUSER      = :loginSabun                                                                   	/* 수정자 사번          */
+     , UDATE      = SYSDATE                                                                       	/* 수정일시             */
+WHERE SITE_NUM    = :siteNum                                                                      	/* 사이트관리 일련번호  */
+          ]]></statement>
+
+	<!-- 채용사이트관리(을)를 삭제한다. -->
+	<statement name="delete" type="delete"><![CDATA[
+DELETE 
+FROM   FSA_SITE_MASTER 
+WHERE SITE_NUM    = :siteNum   
+		]]></statement>
+
+</hqml>

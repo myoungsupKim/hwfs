@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.bms.amBlEventListDAO">
+
+	<desc>AM 수익분석</desc>
+	
+	<!-- DATA를 조회한다. -->
+	<statement name="selectList" type="select">
+		<![CDATA[
+				 
+                SELECT SMGR.AM_TM_CD,  TEAM.CODE_NAME AS TEAM_NM    --팀명
+	            	 , MAST.AM_CD,     SCC_CRYPTO.MASKAUTH_FUN(SMGR.AM_NM,12,:loginPersMask,:maskAuth) AS AM_NM --AM명
+				     , MAST.KIND_CD,   KIND.CODE_NAME AS KIND_NM   --행사종류
+	                 , MAST.OUTLET_CD, SHOP.OUTLET_NM AS OUTLET_NM --사업장명	
+                	 , MAST.RESERV_NM
+                	 , MAST.STR_DATE, MAST.END_DATE 
+                     , TO_CHAR(TO_DATE(MAST.STR_DATE,'YYYY-MM-DD'),'YYYY-MM-DD') || '~' || 
+		       		   TO_CHAR(TO_DATE(MAST.END_DATE,'YYYY-MM-DD'),'YYYY-MM-DD') AS RESERV_DATE
+                     , MAST.RSVN_NM
+                     , MAST.CUST_CD
+                     , (SELECT A.CUSTNM      FROM ST_CUST A WHERE A.CUSTGUBUN IN ('002', '003') AND A.CUSTCD = MAST.CUST_CD) AS CUST_NM		--SAP고객명
+					 , (SELECT A.SAP_CUST_CD FROM ST_CUST A WHERE A.CUSTGUBUN IN ('002', '003') AND A.CUSTCD = MAST.CUST_CD) AS SAP_CUST_CD --SAP코드
+
+                     , DEPT.CODE_NAME AS PRCG_DEPT_NM	    --부서명
+				     , DJOB.CODE_NAME AS JOB_POSITION_NM    --직위명
+				     , CLAS.CODE_NAME AS CUST_CLASS_NM	    --고객구분
+	
+					 , MAST.RESERV_STATUS, STAT.CODE_NAME AS RESERV_STATUS_NM  --예약상태
+                     , MAST.PSN  --인원수
+                      
+                     , MENU.TOT_AMT	AS TOT_AMT	--예상매출액
+                     , MENU.ROM_AMT AS ROM_AMT  --객실매출액
+                     , MENU.FNB_AMT AS FNB_AMT  --식음금액
+                     , MENU.BNK_AMT AS BNK_AMT  --연회금액
+                     , MENU.ETC_AMT AS ETC_AMT  --기타금액
+                     
+                     , GODS.OCC_AMT AS OCC_AMT  --POS 매출금액
+                     , GODS.DSC_AMT AS DSC_AMT	--POS 할인금액
+                     , GODS.NET_AMT AS NET_AMT  --POS 공급가
+                     , GODS.SVC_AMT AS SVC_AMT  --POS 봉사료
+                     , GODS.VAT_AMT AS VAT_AMT  --POS 부가세
+                     , GODS.TOT_AMT AS POS_AMT  --POS 합계금액
+                     
+	                  				
+			   	FROM   BMS_RESERV_MST  MAST
+			   	     INNER JOIN (SELECT RESERV_NUM, SUM(BNK_AMT) + SUM(FNB_AMT) + SUM(ETC_AMT) + SUM(ROM_AMT) AS TOT_AMT
+                                                  , SUM(BNK_AMT) AS BNK_AMT
+                                                  , SUM(FNB_AMT) AS FNB_AMT
+                                                  , SUM(ETC_AMT) AS ETC_AMT
+                                                  , SUM(ROM_AMT) AS ROM_AMT
+                                   FROM ( 
+                                          SELECT A.RESERV_NUM, 0 AS BNK_AMT, 0 AS FNB_AMT, 0 AS ETC_AMT, SUM(A.TOT_AMT) AS ROM_AMT
+                                          FROM BMS_RESERV_ROOM A
+                                               INNER JOIN BMS_RESERV_MST B ON B.RESERV_NUM = A.RESERV_NUM
+                                          WHERE A.USE_YN = 'Y'  
+                                            AND A.RESERV_NUM = A.RESERV_NUM
+                                            AND B.RESERV_STATUS IN ('2','3') 
+                                            AND B.USE_YN = 'Y' 
+                                            AND (( B.STR_DATE  BETWEEN :reservDtFr AND :reservDtTo OR B.END_DATE  BETWEEN :reservDtFr AND :reservDtTo )
+                                              OR ( :reservDtFr BETWEEN B.STR_DATE  AND B.END_DATE  OR :reservDtTo BETWEEN B.STR_DATE  AND B.END_DATE ))  
+                                          GROUP BY A.RESERV_NUM
+                                          
+                                          UNION ALL
+                                          
+                                          SELECT A.RESERV_NUM, CASE A.FNB_CLASS WHEN 'R' THEN SUM(TOT_AMT) END AS BNK_AMT
+                                                             , CASE A.FNB_CLASS WHEN 'F' THEN SUM(TOT_AMT) END AS FNB_AMT
+                                                             , CASE  WHEN A.FNB_CLASS = 'O' 
+                                                                       OR A.FNB_CLASS = 'P' THEN SUM(TOT_AMT) END AS ETC_AMT
+                                                             , 0  AS ROM_AMT
+                                          FROM BMS_RESERV_MENU A 
+                                               INNER JOIN BMS_RESERV_MST B ON B.RESERV_NUM = A.RESERV_NUM
+                                               INNER JOIN BMS_AM_MST     C ON C.AM_CD      = B.AM_CD		                    
+                                          WHERE A.USE_YN = 'Y'  
+                                            AND A.RESERV_NUM = B.RESERV_NUM
+                                            AND B.RESERV_STATUS IN ('2','3') 
+                                            AND B.USE_YN = 'Y' 
+                                            AND (( B.STR_DATE  BETWEEN :reservDtFr AND :reservDtTo OR B.END_DATE  BETWEEN :reservDtFr AND :reservDtTo )
+                                              OR ( :reservDtFr BETWEEN B.STR_DATE  AND B.END_DATE  OR :reservDtTo BETWEEN B.STR_DATE  AND B.END_DATE ))
+                                            <#if amCd?has_content >       AND B.AM_CD     = :amCd     </#if>
+				  							<#if amTmCd?has_content >     AND C.AM_TM_CD  = :amTmCd   </#if>
+                                            GROUP BY A.RESERV_NUM,A.FNB_CLASS
+                                        ) DUAL GROUP BY RESERV_NUM
+                                ) MENU ON MENU.RESERV_NUM = MAST.RESERV_NUM                                            --예약 메뉴
+                                
+                     INNER JOIN SLE_OUTLET_MST  SHOP ON SHOP.OUTLET_CD = MAST.OUTLET_CD                                 --사업장 
+                     INNER JOIN BMS_AM_MST      SMGR ON SMGR.AM_CD = MAST.AM_CD                                         --AM명칭
+				     INNER JOIN SCC_COMMON_CODE TEAM ON TEAM.GROUP_CODE = 'BMS_0003' AND TEAM.CODE = SMGR.AM_TM_CD      --팀코드명
+                     INNER JOIN SCC_COMMON_CODE RSRV ON RSRV.GROUP_CODE = 'BMS_0005' AND RSRV.CODE = MAST.RESERV_CD	    --행사형태
+				     INNER JOIN SCC_COMMON_CODE STAT ON STAT.GROUP_CODE = 'BMS_0001' AND STAT.CODE = MAST.RESERV_STATUS	--예약상태
+				     INNER JOIN SCC_COMMON_CODE KIND ON KIND.GROUP_CODE = 'BMS_0002' AND KIND.CODE = MAST.KIND_CD       --예약종류
+                LEFT OUTER JOIN SCC_COMMON_CODE DEPT ON DEPT.GROUP_CODE = 'BMS_0009' AND DEPT.CODE = MAST.PRCG_DEPT		--부서
+				LEFT OUTER JOIN SCC_COMMON_CODE DJOB ON DJOB.GROUP_CODE = 'BMS_0010' AND DJOB.CODE = MAST.JOB_POSITION	--직위
+				LEFT OUTER JOIN SCC_COMMON_CODE CLAS ON CLAS.GROUP_CODE = 'BMS_0006' AND CLAS.CODE = MAST.CUST_CLASS	--고객구분
+                LEFT OUTER JOIN (SELECT B.RESERV_NUM, SUM(A.OCCUR_AMT) AS OCC_AMT, SUM(A.DISCNT_AMT) AS DSC_AMT
+                                                    , SUM(A.NET_AMT)   AS NET_AMT, SUM(A.SVC)        AS SVC_AMT
+                                                    , SUM(A.VAT)       AS VAT_AMT, SUM(A.TOT_AMT)    AS TOT_AMT
+			    				   FROM SLE_SALS_GOODS A
+                                   INNER JOIN SLE_SALS_INFO B   ON B.OUTLET_CD   = A.OUTLET_CD 
+                                                               AND B.SALES_DATE  = A.SALES_DATE
+                                                               AND B.RECEIPT_NUM = A.RECEIPT_NUM
+                				   INNER JOIN BMS_RESERV_MST C  ON C.RESERV_NUM  = B.RESERV_NUM              
+                                   INNER JOIN BMS_AM_MST     D  ON D.AM_CD       = C.AM_CD	 	
+                                   							  
+                                   WHERE A.RECEIPT_STATUS IN ('Q', 'R')
+                                     AND A.SALS_CLASS = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+                                     AND C.USE_YN = 'Y'  
+                                     AND C.RESERV_STATUS IN ('2','3')  --확정,종료
+                                     AND (( C.STR_DATE  BETWEEN :reservDtFr AND :reservDtTo OR C.END_DATE  BETWEEN :reservDtFr AND :reservDtTo )
+                                       OR ( :reservDtFr BETWEEN C.STR_DATE  AND C.END_DATE  OR :reservDtTo BETWEEN C.STR_DATE  AND C.END_DATE ))
+                                    <#if amCd?has_content >       AND C.AM_CD     = :amCd     </#if>
+                                    <#if amTmCd?has_content >     AND D.AM_TM_CD  = :amTmCd   </#if>	
+                                   GROUP BY B.RESERV_NUM 
+                                ) GODS ON GODS.RESERV_NUM = MAST.RESERV_NUM                                            --POS 매출테이블   
+                                   
+				WHERE MAST.USE_YN = 'Y'    --사용유무
+				  AND MAST.RESERV_STATUS IN ('2','3') --확정,종료
+	              AND (   ( MAST.STR_DATE BETWEEN :reservDtFr   AND :reservDtTo    OR  MAST.END_DATE BETWEEN :reservDtFr   AND :reservDtTo )
+					         OR ( :reservDtFr   BETWEEN MAST.STR_DATE AND MAST.END_DATE  OR :reservDtTo    BETWEEN MAST.STR_DATE AND MAST.END_DATE ))
+				  <#if amCd?has_content >       AND MAST.AM_CD     = :amCd     </#if>
+				  <#if amTmCd?has_content >     AND SMGR.AM_TM_CD  = :amTmCd   </#if>
+				 
+	           
+                
+		]]>
+	</statement>
+	
+</hqml>	

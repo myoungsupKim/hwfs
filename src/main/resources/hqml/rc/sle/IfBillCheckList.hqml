@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.sle.ifBillCheckListDAO">
+	<desc>bill check list</desc>
+
+	<!--  bill check list  -->
+	
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.rc.sle.dao.ifBillCheckListDAO.selectList */
+		<![CDATA[
+			--검색내역 (판매일자,업장,영수증번호,포스번호,영수증상태,인원수,원금액,할인금액,과세매출,영세매출,면세매출,봉사료,부가세,총금액)
+
+	        --매출해더 (업장코드,업장명, 매출일자, 영수증번호,포스번호, 내국인수,외국인수,인원수)
+	        SELECT 	MST.OUTLET_CD, SHOP.OUTLET_NM AS OUTLET_NM, 			--업장코드,업장명
+            		MST.RECEIPT_STATUS, CODE.CODE_NAME  AS RECEIPT_NM,		--영수증 상태, 상태명
+	                 		MST.SALES_DATE, MST.RECEIPT_NUM, 				--매출일자,영수증번호
+	                 		MST.POS_NUM, POS.POS_NM,  					    --포스번호, 포스명
+	               			MST.KOR_PSN, MST.FOR_PSN, MST.PSN,				--내국인,외국인,인원수
+	                        OCCUR_AMT,DISCNT_AMT,							--원금액,할인금액
+	                        GOODS.NET_AMT,GOODS.DUTY_AMT,GOODS.FREE_AMT,	--과세,영세,면세
+	                        GOODS.SVC_AMT,GOODS.VAT_AMT,GOODS.TOT_AMT		--봉사료,부가세,매출액
+
+	        FROM IF_SLE_SALS_INFO MST
+	                 INNER JOIN (
+	                 			--매출상세(과세,영세,면세,봉사료,부가세,매출액)
+	                 			SELECT 	OUTLET_CD,SALES_DATE, RECEIPT_NUM,
+	                 					SUM(OCCUR_AMT)   AS OCCUR_AMT,
+	                 					SUM(DISCNT_AMT)  AS DISCNT_AMT,
+	                 					SUM(NET_AMT)  AS NET_AMT,
+	                                    SUM(DUTY_AMT) AS DUTY_AMT,
+	                                    SUM(FREE_AMT) AS FREE_AMT,
+	                                    SUM(SVC_AMT)  AS SVC_AMT,
+	                                    SUM(VAT_AMT)  AS VAT_AMT,
+	                                    SUM(TOT_AMT)  AS TOT_AMT
+	                 			FROM (
+	                                 SELECT 	A.OUTLET_CD, A.SALES_DATE, A.RECEIPT_NUM,	--업장,매출일자,영수증번호
+	                                 
+	                                 		 SUM(A.OCCUR_AMT) AS OCCUR_AMT,		--발생 금액(원금액)
+											 SUM(A.DISCNT_AMT) AS DISCNT_AMT,	--할인금액
+	                                         --과세,영세,면세,봉사료,부가세,매출액
+	                                         --차후 변경 될수 있음....
+	                                         DECODE(A.TAX_CLASS,'14',SUM(A.NET_AMT),0) AS NET_AMT,	--과세
+	                                         DECODE(A.TAX_CLASS,'25',SUM(A.NET_AMT),0) AS DUTY_AMT,	--영세
+	                                         DECODE(A.TAX_CLASS,'10',SUM(A.NET_AMT), DECODE(A.TAX_CLASS,'27',SUM(A.NET_AMT), 0)) AS FREE_AMT, 	--내부이용,외교관면세25
+	                                         SUM(A.SVC)	 AS SVC_AMT,
+	                                         SUM(A.VAT)	 AS VAT_AMT,
+	                                         SUM(A.TOT_AMT) AS TOT_AMT
+	                                     FROM IF_SLE_SALS_GOODS A
+                                         	INNER JOIN (SELECT MST.OUTLET_CD, MST.OUTLET_NM 
+                                                             FROM   SLE_OUTLET_MST MST
+                                                        INNER JOIN  SCO_UPJANG_V   UPJANG ON  UPJANG.UPJANG = TO_NUMBER(MST.OUTLET_CD) 
+                                                        		   <#if muCd?has_content> AND  UPJANG.MU_CD = :muCd </#if>
+                                    							   <#if tmCd?has_content> AND  UPJANG.TM_CD = :tmCd </#if>
+                                                        ) OUTLET ON OUTLET.OUTLET_CD = A.OUTLET_CD
+	                                     WHERE A.DATA_CLASS = '1'
+	                                       AND A.SALES_DATE = :salesDate
+	                                       <#if outletCd?has_content>      AND A.OUTLET_CD      = :outletCd   </#if>
+	                                       <#if posNum?has_content>        AND A.POS_NUM        = :posNum        </#if>
+	                                       <#if receiptStatus?has_content> AND A.RECEIPT_STATUS = :receiptStatus </#if>
+	                                       GROUP BY A.OUTLET_CD, A.SALES_DATE, A.RECEIPT_NUM, A.TAX_CLASS
+	                              	) DUAL
+	                                 GROUP BY OUTLET_CD,SALES_DATE, RECEIPT_NUM
+
+	                 			) GOODS  ON GOODS.OUTLET_CD   = MST.OUTLET_CD
+	                             		AND GOODS.SALES_DATE  = MST.SALES_DATE
+	                                    AND GOODS.RECEIPT_NUM = MST.RECEIPT_NUM
+	                 INNER JOIN SLE_OUTLET_MST  SHOP ON SHOP.OUTLET_CD  = MST.OUTLET_CD
+                     INNER JOIN SCC_COMMON_CODE CODE ON CODE.GROUP_CODE ='SLE_0075' AND CODE.CODE = MST.RECEIPT_STATUS
+				LEFT OUTER JOIN IF_SLE_SALS_POS_MST POS ON POS.OUTLET_CD = MST.OUTLET_CD AND POS.POS_NUM = MST.POS_NUM 	
+	        WHERE MST.SALES_DATE = :salesDate
+	        
+	          <#if outletCd?has_content>      AND MST.OUTLET_CD      = :outletCd      </#if>
+	          <#if posNum?has_content>        AND MST.POS_NUM        = :posNum        </#if>
+	          <#if receiptStatus?has_content> AND MST.RECEIPT_STATUS = :receiptStatus </#if>
+	        ORDER BY OUTLET_CD, SALES_DATE, RECEIPT_NUM	
+		]]>
+	</statement>	
+
+</hqml>		

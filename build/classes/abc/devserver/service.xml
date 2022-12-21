@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<server>
+    <!-- 디폴트 로거의 로그 출력 레벨을 설정한다
+      디폴트 로거는, 콘솔에 출력된다.
+    -->
+    <default-log>
+        <debug output="false"/>
+        <information output="false"/>
+        <warning output="true"/>
+        <error output="true"/>
+        <fatal output="true"/>
+    </default-log>
+
+	<!-- 운영시에는 false로 설정. -->
+	<server-property name="INOUT_DEBUG">false</server-property>
+	
+	<!-- 게시판 nomo에서 첨부된 이미지 및 파일 관리 디렉토리 설정 by kksoo -->
+	<server-property name="WORK_DIR">/app/build/app_repository/hwfs</server-property>
+	<server-property name="global.imagerepository.path">/app/build/app_repository/hwfs/imagerepository</server-property>
+	<server-property name="mobile.bbs.url">/upload/bbs</server-property>
+	<server-property name="mobile.bbs.html.charset">utf-8</server-property>
+	<server-property name="autologin.use">false</server-property>	<!-- 자동로그인 사용여부 by kksoo -->
+	
+<manager>
+<!--  XPLATFORM 서비스 구성 -->
+		<!-- 이전 설정 막음 bu kksoo 
+         <service name="xDefaultAction"
+			code="com.sz.service.ui.xplatform.DefaultXplatformAction">
+	        	<attribute name="BizServiceName">#xDefaultBiz</attribute>
+        </service>
+         -->
+         
+        <!-- 세션타임아웃 검사를 위해 설정 by kksoo --> 
+        <service name="xDefaultAction"
+			code="com.hwfs.sc.cmn.interceptor.security.FspLoginCheckInterceptor">
+	        	<attribute name="BizServiceName">#xDefaultBiz</attribute>
+        </service>
+
+        <service name="xDefaultBiz"
+			code="com.sz.service.ui.xplatform.XplatformExecutableService">
+	        	<attribute name="ResourceFactoryServiceName">#JdbcConnectionFactory</attribute>
+	        	<depends>JdbcConnectionFactory</depends>
+        </service>
+
+        <!--  저장 처리 서비스 -->
+        <service name="saveService"
+			code="com.sz.service.ui.xplatform.DefaultSaveService">
+	        	<attribute name="ResourceFactoryServiceName">#JdbcConnectionFactory</attribute>
+	        	<depends>JdbcConnectionFactory</depends>
+        </service>
+
+  		<!--
+         DB를 사용하는 서비스들..
+        -->
+        <service name="BizServiceFactory"
+        	code="com.sz.ui.DefaultActionServiceFactoryService">
+        	<attribute name="ResourceFactoryServiceName">#JdbcConnectionFactory</attribute>
+        	<attribute name="Services">
+        	<!-- 아래부분부터 개발자 서비스 정의 -->
+        	SCC00070E_ACT=com.ifis.sc.scc.SCC00070E_ACT
+        	FMO00200V_ACT=com.ifis.fm.fmo.FMO00200V_ACT
+        	FMO00100V_ACT=com.ifis.fm.fmo.FMO00100V_ACT
+        	MAC_COMMON_SELECT=com.ifis.ma.mac.MAC_COMMON_SELECT
+        	FSR00150E_ACT=com.ifis.fs.fsr.FSR00150E_ACT
+        	FMM00030E_ACT=com.ifis.fm.fmm.FMM00030E_ACT
+        	SCC80050E_ACT=com.ifis.sc.scc.SCC80050E_ACT
+        	FSA00040E_ACT=com.ifis.fs.fsa.FSA00040E_ACT
+        	FMM_COMMON_ACT=com.ifis.fm.fmm.FMM_COMMON_ACT
+        	<!-- FMM00240V_ACT=com.ifis.fm.fmm.FMM00240V_ACT 컨버팅화면에서 미사용으로 주석 처리-->
+        	FMO00110E_ACT=com.ifis.fm.fmo.FMO00110E_ACT
+        	FMO00210E_ACT=com.ifis.fm.fmo.FMO00210E_ACT
+        	FMO00250E_ACT=com.ifis.fm.fmo.FMO00250E_ACT
+        	FMO00350V_ACT=com.ifis.fm.fmo.FMO00350V_ACT
+        	FMO00370V_ACT=com.ifis.fm.fmo.FMO00370V_ACT
+            FSI00080V_ACT=com.ifis.fs.fsi.FSI00080V_ACT
+            FSM00710E_ACT=com.ifis.fs.fsm.FSM00710E_ACT
+            FSM00720E_ACT=com.ifis.fs.fsm.FSM00720E_ACT
+        	</attribute>
+        	<depends>JdbcConnectionFactory</depends>
+        </service>
+
+        <service name="IRIS_ACT"
+        	code="com.sz.service.ui.xplatform.DefaultXplatformAction">
+        	<attribute name="BizServiceName">#IRIS_BIZ</attribute>
+        </service>
+        <service name="IRIS_BIZ"
+        	code="com.sz.service.ui.xplatform.XplatformExecutableService">
+        	<attribute name="ResourceFactoryServiceName">#IRISDB</attribute>
+        	<depends>IRISDB</depends>
+        </service>
+    	<!--  data source 용 jndi finder  -->
+        <service name="DatasourceJndiFinder"
+                 code="com.sz.service.jndi.DefaultJndiFinderService">
+        </service>
+
+        <!-- Connection 정보 설정 -->
+        <service name="JdbcConnectionFactory"
+                 code="com.sz.service.resource.jdbc.JdbcConnectionFactoryDataSourceService">
+            <attribute name="DataSourceName">hwfsDS</attribute>
+            <attribute name="ManagedResource">false</attribute>
+            <attribute name="JndiFinderServiceName">#DatasourceJndiFinder</attribute>
+            <attribute name="SQLLogServiceName">#DefaultLogService</attribute>
+            <attribute name="SupportGlobalTransaction">true</attribute>
+            <depends>DatasourceJndiFinder</depends>
+			<depends>DefaultLogService</depends>
+        </service>
+
+        <!-- Connection 정보 설정 -->
+        <service name="JSPJdbcConnectionFactory"
+                 code="com.sz.service.resource.jdbc.JdbcConnectionFactoryDataSourceService">
+            <attribute name="DataSourceName">hwfsDS</attribute>
+            <attribute name="ManagedResource">false</attribute>
+            <attribute name="JndiFinderServiceName">#DatasourceJndiFinder</attribute>
+            <attribute name="SQLLogServiceName">#DefaultLogService</attribute>
+            <attribute name="SupportGlobalTransaction">false</attribute>
+            <depends>DatasourceJndiFinder</depends>
+			<depends>DefaultLogService</depends>
+        </service>
+
+        <service name="IRISDB"
+                 code="com.sz.service.resource.jdbc.JdbcConnectionFactoryDataSourceService">
+            <attribute name="DataSourceName">hwfsDS</attribute>
+            <attribute name="ManagedResource">false</attribute>
+            <attribute name="JndiFinderServiceName">#DatasourceJndiFinder</attribute>
+            <attribute name="SQLLogServiceName">#DefaultLogService</attribute>
+            <attribute name="SupportGlobalTransaction">true</attribute>
+            <depends>DatasourceJndiFinder</depends>
+			<depends>DefaultLogService</depends>
+        </service>
+
+        <!-- SQL Factory 서비스로 SQL 그룹정보를 가지고 있는 config 파일 및
+		SQL 이 저장되어 있는 최상위 디렉토리를 설정한다. -->
+		<service name="SqlFactory"
+				code="com.sz.service.sqlmap.XMLFileSqlMapFactoryService">
+        	<attribute name="ServiceConfigUrl">config/fsp/sqlmap_config.xml</attribute>
+			<attribute name="SqlMapDirPath">config/fsp/sqlmap/</attribute>
+			<attribute name="FileCheckInterval">1000</attribute>
+			<attribute name="SqlMapFileCache">true</attribute>
+		</service>
+
+         <service name="DefaultLogService"
+             code="com.sz.service.log.ThreadManagedLogService">
+			<!-- attribute name="DefaultRecordWriterServiceName">#FileWriter</attribute>
+			<attribute name="DefaultRecordFactoryServiceName">#LogRecordFactoryService</attribute-->
+			<attribute name="SystemDebugEnabled">false</attribute>
+			<attribute name="SystemErrorEnabled">true</attribute>
+			<attribute name="SystemFatalEnabled">true</attribute>
+			<attribute name="SystemInfoEnabled">false</attribute>
+			<attribute name="SystemWarnEnabled">true</attribute>
+			<attribute name="DebugEnabled">false</attribute>
+			<attribute name="CategoryServiceNames">
+				#SQLLogCategoryService
+			</attribute>
+			<depends>SQLLogCategoryService</depends>
+		</service>
+
+         <service name="SQLLogCategoryService"
+			code="com.sz.service.log.SimpleLogCategoryService">
+			<attribute name="CategoryName">com.sz.service.log.SQL_INFO_CATEGORY</attribute>
+			<attribute name="PriorityRange">50:99</attribute>
+			<attribute name="RecordFactoryServiceName">#LogRecordFactoryService</attribute>
+			<attribute name="RecordWriterServiceNames">
+				#ConsoleWriter
+			</attribute>
+			<depends>LogRecordFactoryService</depends>
+			<depends>ConsoleWriter</depends>
+		</service>
+
+         <service name="LogRecordFactoryService"
+		      	code="com.sz.service.writer.LogRecordFactoryService">
+			<attribute name="DateFormat">yyyy-MM-dd HH:mm:ss</attribute>
+			<attribute name="Format">[%DATE%] %MESSAGE% %LOG_REQ_ID% %LOG_TIME%</attribute>
+		</service>
+
+		<service name="ConsoleWriter"
+			code="com.sz.service.writer.ConsoleWriterService">
+		</service>
+
+		<!--  Http File Upload -->
+    	<service name="HttpFileManagerService"
+                 code="com.sz.service.ui.xplatform.DefaultHttpFileManagerService">
+				<attribute name="FileRootDir">/app/build/app_repository/ifis/upload/</attribute>
+				<attribute name="AppendTime">true</attribute>
+				<!-- attribute name="SupportDynamicDir">true</attribute-->
+				<!-- 파일 업로드 시 허용할 수 없는 파일의 확장자 by kksoo -->
+				<attribute name="UnapprovedFileExtension">jsp,php,asp,exe,bat,cmd,c,cc,com,css,js,cgi,jar,java,class,lib,log,bak,php3,phtml,py,reg,vbs,xfdl,xjs,xadl,xml,sql</attribute>
+				<attribute name="SubDirList">
+   					FMS_UPJANG_STAMP=fm/stamp
+   					FMS_SUBINVENTORY=fm/map/
+					FMM_STD_RECIPE_MST=fm/std/recipe
+					FMM_STD_RECIPE_CUISINE=fm/std/cuisine
+					FMM_UPJANG_RECIPE_MST=fm/upjang/recipe
+					FMM_UPJANG_RECIPE_CUISINE=fm/upjang/cuisine
+					FMM_RECIPE=fm/recipe
+					FMM_RECIPE_CUISINE=fm/cuisine
+					FMM_UPJANG_IMG=fm/upjangimg
+					FMP_OTCUST_ITEM=fm/item
+					FSR_STD_RECIPE_MST=fs/std/recipe
+					FSR_STD_RECIPE_CUISINE=fs/std/cuisine
+					FSR_UPJANG_RECIPE_MST=fs/upjang/recipe
+					FSR_UPJANG_RECIPE_CUISINE=fs/upjang/cuisine
+					FSR_NEW_RECIPE_MST=fs/new/recipe
+					FSR_NEW_RECIPE_CUISINE=fs/new/cuisine
+					FSR_PRIDE_RECIPE_MST=fs/pride/recipe
+					FSR_PRIDE_RECIPE_CUISINE=fs/pride/cuisine
+					FSM_REAL_RECIPE_MST=fs/real/recipe
+					FSM_REAL_RECIPE_CUISINE=fs/real/cuisine
+					FSH_CYCLE_RECIPE_MST=fs/cycle/recipe
+					FSH_CYCLE_RECIPE_CUISINE=fs/cycle/cuisine
+					FSC_RESULT_PHOTO=fs/fsc/photo
+					FSC_RESULT_SUPERIOR=fs/fsc/superior
+					SCO_UPJANG_MST=sc/upjang
+					FSM_SINGLE_MENU_MST=fs/single/menu
+					SCC_BBS=sc/bbs/
+					SCC_UI=img/
+					FSV_DOC=fs/fsv/doc
+					MAS_DOC=ma/mas/doc
+					MOBILE_ROOT=ms
+					FSR_CUISINE_IMG=img/cook_ctrl
+					FSE_PHOTO=fs/fse/photo
+				</attribute>
+        </service>
+
+    	<!-- FSPmobile 파일업로드 -->
+		<service name="HttpFileManagerServiceMobile"
+				code="com.sz.service.ui.json.DefaultHttpFileManagerService">
+			<attribute name="FileRootDir">/app/build/app_repository/ifis/upload/</attribute>
+			<!-- AppendTime false 로 임시수정 22.09.14 -->
+			<attribute name="AppendTime">false</attribute>
+			<!--
+			<attribute name="SupportDynamicDir">true</attribute>
+			-->
+			<!-- 파일 업로드 시 허용할 수 없는 파일의 확장자 by kksoo -->
+			<attribute name="UnapprovedFileExtension">jsp,php,asp,exe,bat,cmd,c,cc,com,css,js,cgi,jar,java,class,lib,log,bak,php3,phtml,py,reg,vbs,xfdl,xjs,xadl,xml,sql</attribute>
+			<attribute name="SystemEncoding">utf-8</attribute>
+			<attribute name="SubDirList">
+				MOB_PHOTO_FMS=ms/fm
+				FSC_RESULT_PHOTO=fs/fsc/photo
+			</attribute>
+		</service>
+</manager>
+
+	<!-- SQLMAP 개발용도로 사용하는 서비스 들 -->
+<manager name="sql">
+		<!--  Sqlmap layout 제공 서비스  -->
+		<service name="SqlMapLayoutService"
+			code="com.sz.service.sqlmap.layout.DefaultSqlMapLayoutService">
+		</service>
+
+		<service name="DefaultSqlMapManagerService"
+			code="com.sz.console.xplatform.sqlmap.SqlMapManagerService">
+			<attribute name="ServiceConfigUrl">config/fsp/sqlmap_config.xml</attribute> <!-- WEB-INF/sqlmap_config.xml -->
+			<attribute name="SqlMapDirPath">config/fsp/sqlmap/</attribute> <!-- WEB-hwfs_sql /-->
+			<attribute name="Charset">utf-8</attribute>
+		</service>
+
+		<service name="SqlMapManagerActionDefault"
+		         code="com.sz.console.xplatform.sqlmap.SqlMapManagerAction">
+		    <attribute name="SqlMapManagerServiceName">#DefaultSqlMapManagerService</attribute>
+		    <attribute name="DBExecutorServiceName">#DatabaseExecutorService</attribute>
+		    <attribute name="JdbcConnectionServiceNames">
+		    </attribute>
+		    <depends>DefaultSqlMapManagerService</depends>
+		    <depends>
+		        <!-- 데이터베이스 처리자 서비스  -->
+				<service name="DatabaseExecutorService"
+				         code="com.sz.console.xplatform.DatabaseExecutorService">
+				    <attribute name="TableSql">SELECT * FROM %TABLE% WHERE 2 = 1</attribute>
+				</service>
+			</depends>
+		</service>
+
+		<!-- Connection 정보 설정 -->
+        <service name="JdbcConnectionFactory"
+                 code="com.sz.service.resource.jdbc.JdbcConnectionFactoryDataSourceService">
+            <attribute name="DataSourceName">hwfsDS</attribute>
+            <attribute name="ManagedResource">false</attribute>
+            <attribute name="JndiFinderServiceName">FSPManager#DatasourceJndiFinder</attribute>
+            <depends>FSPManager#DatasourceJndiFinder</depends>
+        </service>
+
+        <service name="IRISDB"
+                 code="com.sz.service.resource.jdbc.JdbcConnectionFactoryDataSourceService">
+            <attribute name="DataSourceName">hwfsDS</attribute>
+            <attribute name="ManagedResource">false</attribute>
+            <attribute name="JndiFinderServiceName">FSPManager#DatasourceJndiFinder</attribute>
+            <depends>FSPManager#DatasourceJndiFinder</depends>
+        </service>
+
+		<service name="SqlMapManagerAction"
+                 code="com.sz.console.xplatform.sqlmap.MultiSqlMapManagerAction">
+            <attribute name="JdbcConnectionServiceNames">
+            	hwfsDS=sql#JdbcConnectionFactory
+            	,iris=sql#IRISDB
+            </attribute>
+            <attribute name="SqlmapUser">fsp</attribute>
+            <attribute name="SqlmapPwd">fsp</attribute>
+            <attribute name="SqlManagerActionNames">
+            	sql#SqlMapManagerActionDefault
+            	,sql#SqlMapManagerActionDefault
+            </attribute>
+            <attribute name="DatabaseLogin">
+            	false
+            	,false
+            </attribute>
+            <attribute name="UseActionProperties">
+            	sqlmgt=sql#SqlMapManagerAction,true
+            	performance=sql#SqlmapPerformanceAction,false
+            	serverInfo=sql#ServerInfoAction,false
+            	doc=sql#SqlmapDocAction,false
+            </attribute>
+        </service>
+ </manager>
+</server>

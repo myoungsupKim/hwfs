@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="rc.sle.dailySaleListDAO">
+	<desc>매출속보</desc>
+
+	<!--  매출 속보  -->
+
+	<statement name="selectList" type="select"><![CDATA[
+			SELECT DUAL.OUTLET_CD,  MAX(OUTLET_NM) AS OUTLET_NM,
+			       SUM(CNT_RECEIPT) AS CNT_RECEIPT, --매수(영수증)
+			       SUM(TOT_PSN)     AS TOT_PSN,		--전체인원
+			       SUM(KOR_PSN)	    AS KOR_PSN,		--내국인수
+			       SUM(FOR_PSN) 	AS FOR_PSN,  	--외국인수
+			       SUM(FOOD_AMT) 	AS FOOD_AMT,	--식료금액
+			       SUM(BEVG_AMT) 	AS BEVG_AMT,	--음료금액
+			       SUM(OTHE_AMT) 	AS OTHE_AMT,	--기타금액
+			       SUM(GOOD_AMT) 	AS GOOD_AMT,  	--상품금액       
+			       SUM(QUANTITY)  	AS QUANTITY,   	--판매수량
+			       SUM(OCCUR_AMT) 	AS OCCUR_AMT, 	--발생금액
+			       SUM(DISCNT_AMT) 	AS DISCNT_AMT, 	--할인금액
+			       SUM(NET_AMT)    	AS NET_AMT, 	--net금액
+			       SUM(SVC_AMT)     AS SVC_AMT, 	--봉사료
+			       SUM(VAT_AMT)     AS VAT_AMT, 	--부가세
+			       SUM(TOT_AMT)    	AS TOT_AMT, 	--전체금액
+			       SUM(NOTAX_AMT)  	AS NOTAX_AMT, 	--NOTAX 금액
+			       SUM(NOSVC_AMT)  	AS NOSVC_AMT,  	--NOSVC 금액
+			       SUM(DISCNT_NET)  AS DISCNT_NET   --할인 NET
+			       
+				  
+                   	
+			FROM (
+			        --매출해더 매수,총인원,한국인,외국인
+			        SELECT INFO.OUTLET_CD, MAX(OUTLET.OUTLET_NM) AS OUTLET_NM, 
+			                
+			               COUNT(INFO.RECEIPT_NUM)  AS CNT_RECEIPT,
+			               SUM(INFO.PSN)            AS TOT_PSN,
+			               SUM(INFO.KOR_PSN)	       AS KOR_PSN,
+			               SUM(INFO.FOR_PSN) 	   AS FOR_PSN,
+			               '' AS MENU_CLASS,
+			               0  AS FOOD_AMT,
+			               0  AS BEVG_AMT,
+			               0  AS OTHE_AMT,
+			               0  AS GOOD_AMT,       
+			               0  AS QUANTITY,   	--판매수량
+			               0  AS OCCUR_AMT, 	--발생금액
+			               0  AS DISCNT_AMT, 	--할인금액
+			               0  AS NET_AMT, 		--net금액
+			               0  AS SVC_AMT, 		--봉사료
+			               0  AS VAT_AMT, 		--부가세
+			               0  AS TOT_AMT, 		--전체금액
+			               0  AS NOTAX_AMT, 	--NOTAX 금액
+			               0  AS NOSVC_AMT,  	--NOSVC 금액
+			               0  AS DISCNT_NET     --할인 NET  
+			            
+			        FROM SLE_SALS_INFO  INFO
+                    INNER JOIN (SELECT MST.OUTLET_CD, MST.OUTLET_NM
+		                           FROM   SLE_OUTLET_MST      MST
+		                           INNER JOIN  SCO_UPJANG_V   UPJANG ON  UPJANG.UPJANG = TO_NUMBER(MST.OUTLET_CD) 
+		                                         					<#if muCd?has_content> AND  UPJANG.MU_CD = :muCd </#if>
+		                                         					<#if tmCd?has_content> AND  UPJANG.TM_CD = :tmCd </#if>
+		                           <#if outletCd?has_content > WHERE MST.OUTLET_CD   = :outletCd </#if>
+		              			 ) OUTLET ON OUTLET.OUTLET_CD =  INFO.OUTLET_CD
+		            LEFT OUTER JOIN (
+								      SELECT OUTLET_CD, POS_NUM, CODE_NAME FROM SLE_POS_SET POS
+								      INNER JOIN SCC_COMMON_CODE GRP ON GRP.GROUP_CODE = 'SLE_0111' AND GRP.CODE = POS.OUTLET_SUB_CD
+								      <#if outletSub?has_content> WHERE GRP.CODE = :outletSub </#if>  --01:다채움 02:마루 03:나무 
+								      ORDER BY  OUTLET_CD, POS_NUM
+								) POS ON POS.OUTLET_CD = INFO.OUTLET_CD AND POS.POS_NUM = INFO.POS_NUM  
+			        WHERE 1=1
+			          <#if internalYn == 'Y' > AND RECEIPT_STATUS IN ('Q','R','E') </#if> --영수증 상태 Q:정상 R:반품(-)
+   				      <#if internalYn == 'N' > AND RECEIPT_STATUS IN ('Q','R') </#if> --영수증 상태 Q:정상 R:반품(-)
+			          AND INFO.SALES_DATE BETWEEN :frSalesDt AND :toSalesDt
+			          --AND SALS_CLASS     = '0' --0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+			          AND INFO.MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+			          <#if outletCd?has_content>  AND INFO.OUTLET_CD  = :outletCd  </#if>
+			          <#if salsClass?has_content> AND INFO.SALS_CLASS = :salsClass  </#if> --0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+			          <#if outletSub?has_content> AND INFO.POS_NUM  = POS.POS_NUM  </#if>
+			        GROUP BY  INFO.OUTLET_CD 
+			
+			        UNION ALL
+			        
+			        --상품 그룹을 모두 한개의 영수증으로 만든다.
+			        SELECT MST.OUTLET_CD, MAX(OUTLET.OUTLET_NM) AS OUTLET_NM, 
+			        	   
+			               0  AS CNT_RECEIPT,
+			               0  AS TOT_PSN,
+			               0  AS KOR_PSN,
+			               0  AS FOR_PSN,
+			               MENU_CLASS,
+			               DECODE(MENU_CLASS,'F',SUM(NET_AMT),0) AS FOOD_AMT,
+			               DECODE(MENU_CLASS,'B',SUM(NET_AMT),0) AS BEVG_AMT,
+			               DECODE(MENU_CLASS,'O',SUM(NET_AMT),0) AS OTHE_AMT,
+			               DECODE(MENU_CLASS,'P',SUM(NET_AMT),0) AS GOOD_AMT,       
+			               SUM(QUANTITY)   AS QUANTITY,   	--판매수량
+			               SUM(NET_AMT)+ SUM(DISCNT_NET)  AS OCCUR_AMT, 	--발생금액
+			               SUM(DISCNT_NET) AS DISCNT_AMT, 	--할인금액
+			               SUM(NET_AMT)    AS NET_AMT, 		--net금액
+			               SUM(SVC)        AS SVC_AMT, 		--봉사료
+			               SUM(VAT)        AS VAT_AMT, 		--부가세
+			               SUM(TOT_AMT)    AS TOT_AMT, 		--전체금액
+			               SUM(NOTAX_AMT)  AS NOTAX_AMT, 	--NOTAX 금액
+			               SUM(NOSVC_AMT)  AS NOSVC_AMT,  	--NOSVC 금액
+			               SUM(DISCNT_NET)  AS DISCNT_NET   --할인 NET
+			            
+			        FROM SLE_SALS_GOODS  MST
+                    INNER JOIN (SELECT MST.OUTLET_CD, MST.OUTLET_NM
+		                           FROM   SLE_OUTLET_MST      MST
+		                           INNER JOIN  SCO_UPJANG_V   UPJANG ON  UPJANG.UPJANG = TO_NUMBER(MST.OUTLET_CD) 
+		                                         					<#if muCd?has_content> AND  UPJANG.MU_CD = :muCd </#if>
+		                                         					<#if tmCd?has_content> AND  UPJANG.TM_CD = :tmCd </#if>
+		                           <#if outletCd?has_content > WHERE MST.OUTLET_CD   = :outletCd </#if>
+		              			 ) OUTLET ON OUTLET.OUTLET_CD =  MST.OUTLET_CD 
+		            INNER JOIN (
+								SELECT INFO.OUTLET_CD, INFO.SALES_DATE, INFO.RECEIPT_NUM ,NVL(INFO.TABLE_CD,'00') AS TABLE_CD
+								FROM SLE_SALS_INFO INFO
+								LEFT OUTER JOIN (
+								      SELECT OUTLET_CD, POS_NUM, CODE_NAME FROM SLE_POS_SET POS
+								      INNER JOIN SCC_COMMON_CODE GRP ON GRP.GROUP_CODE = 'SLE_0111' AND GRP.CODE = POS.OUTLET_SUB_CD
+								      <#if outletSub?has_content> WHERE GRP.CODE = :outletSub </#if>  --01:다채움 02:마루 03:나무 
+								      ORDER BY  OUTLET_CD, POS_NUM
+								) POS ON POS.OUTLET_CD = INFO.OUTLET_CD AND POS.POS_NUM = INFO.POS_NUM
+								WHERE INFO.SALS_CLASS     = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+								  AND INFO.MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+								  <#if internalYn == 'Y' > AND INFO.RECEIPT_STATUS IN ('Q','R','E') </#if> --영수증 상태 Q:정상 R:반품(-)
+   				    			  <#if internalYn == 'N' > AND INFO.RECEIPT_STATUS IN ('Q','R') </#if> --영수증 상태 Q:정상 R:반품(-)                                  
+								  AND INFO.SALES_DATE BETWEEN :frSalesDt AND :toSalesDt
+								  <#if outletCd?has_content> AND INFO.OUTLET_CD = :outletCd </#if>
+								  <#if outletSub?has_content> AND INFO.POS_NUM  = POS.POS_NUM  </#if>
+								
+		    				)  INFO ON INFO.OUTLET_CD = MST.OUTLET_CD 
+		    				       AND INFO.SALES_DATE = MST.SALES_DATE
+		    				       AND INFO.RECEIPT_NUM = MST.RECEIPT_NUM
+			        WHERE 1=1
+			          <#if internalYn == 'Y' > AND MST.RECEIPT_STATUS IN ('Q','R','E') </#if> --영수증 상태 Q:정상 R:반품(-)
+   				      <#if internalYn == 'N' > AND MST.RECEIPT_STATUS IN ('Q','R') </#if> --영수증 상태 Q:정상 R:반품(-)                         
+			          AND MST.DATA_CLASS     = '1'  -- 1:메뉴 3:주문사항 
+				      AND MST.MODIFY_STATUS  IN ('0','1')
+				      --시작 : 2017.03.02 현대카드M포인트 제휴 추가로 매출여부 조건 변경 처리자:김호석 CH201702_00668
+					  AND MST.SELL_YN  = DECODE(MST.RECEIPT_STATUS ,'E','N','Y')				--매출 여부
+  					  --종료
+                      AND MST.SALES_DATE BETWEEN :frSalesDt AND :toSalesDt					--매출일자
+			          <#if outletCd?has_content>  AND   MST.OUTLET_CD  = :outletCd  </#if>
+			          <#if salsClass?has_content> AND   MST.SALS_CLASS  = :salsClass  </#if>
+			        GROUP BY  MST.OUTLET_CD,  MST.MENU_CLASS
+
+			
+			) DUAL
+			 
+			GROUP BY DUAL.OUTLET_CD
+			ORDER BY DUAL.OUTLET_CD
+		]]></statement>
+
+
+
+	<!--  매출 체크  -->
+
+	<statement name="selectListChk" type="select">
+		/*+ com.hwfs.rc.sle.dailySaleListMgmtDAO.selectListChk */
+		<![CDATA[
+		
+			SELECT MST.OUTLET_CD,    OUTLET.OUTLET_NM, 
+			       SOD.SOD_STATUS,   SOD.SOD_DDTT,   SOD.CLOSE_DDTT,   SOD.POS_IP,
+			       TOT_AMT,          PAY_AMT, 
+			       TOT_AMT - PAY_AMT AS BALANCE_AMT,
+			       DECODE(TOT_AMT ,  PAY_AMT, '정상','오류') AS BALANCE_NM,
+				   DECODE(TOT_AMT ,  PAY_AMT, 'Y','N') AS BALANCE_YN
+			FROM (
+				SELECT OUTLET_CD       AS OUTLET_CD, 
+				       SUM(TOT_AMT)    AS TOT_AMT,  
+				       SUM(PAY_AMT)    AS PAY_AMT
+	                   	
+				FROM ( 
+				        --상품  
+				        SELECT OUTLET_CD       AS OUTLET_CD, 
+				               SUM(TOT_AMT)    AS TOT_AMT, 		 
+				               0               AS PAY_AMT       
+				        FROM SLE_SALS_GOODS  MST
+				        WHERE 1=1
+				          <#if internalYn == 'Y' > AND RECEIPT_STATUS IN ('Q','R','E') </#if> --영수증 상태 Q:정상 R:반품(-)
+   				          <#if internalYn == 'N' > AND RECEIPT_STATUS IN ('Q','R') </#if> --영수증 상태 Q:정상 R:반품(-)			          
+				          AND DATA_CLASS     = '1'
+				          AND SALES_DATE     = :salesDate
+				          AND TRIM(RECEIPT_NUM) IS NOT NULL
+				          --시작 : 2017.03.02 현대카드M포인트 제휴 추가로 매출여부 조건 변경 처리자:김호석 CH201702_00668
+			  			  AND MST.SELL_YN  = DECODE(MST.RECEIPT_STATUS ,'E','N','Y')				--매출 여부
+						  --종료
+				          <#if outletCd?has_content>  AND   OUTLET_CD   = :outletCd  </#if>
+				          <#if salsClass?has_content> AND   SALS_CLASS  = :salsClass  </#if>
+				        GROUP BY  OUTLET_CD, SALES_DATE
+				        
+				        UNION ALL
+				        
+				        --지불
+				        SELECT OUTLET_CD     AS OUTLET_CD, 
+				               0             AS TOT_AMT, 		--전체금액
+				               SUM(PAY_AMT)  AS PAY_AMT  		--NOTAX 금액
+				        FROM SLE_SALS_PAY   
+				        WHERE 1=1
+				          <#if internalYn == 'Y' > AND RECEIPT_STATUS IN ('Q','R','E') </#if> --영수증 상태 Q:정상 R:반품(-)
+   				          <#if internalYn == 'N' > AND RECEIPT_STATUS IN ('Q','R') </#if> --영수증 상태 Q:정상 R:반품(-)
+				          AND SALES_DATE     = :salesDate				          
+				          --시작 : 2017.03.02 현대카드M포인트 제휴 추가로 매출여부 조건 변경 처리자:김호석 CH201702_00668
+			  			  AND SELL_YN  = DECODE(RECEIPT_STATUS ,'E','N','Y')				--매출 여부
+						  --종료
+				          <#if outletCd?has_content>  AND   OUTLET_CD  = :outletCd  </#if>
+				          <#if salsClass?has_content> AND   SALS_CLASS = :salsClass  </#if>
+				        GROUP BY  OUTLET_CD, SALES_DATE 
+				 
+				) AA  GROUP BY  OUTLET_CD 
+			) MST 
+			
+			LEFT OUTER JOIN (
+			 			SELECT OUTLET_CD,    
+						       SOD_STATUS,  POS_IP,
+						       TO_CHAR( TO_DATE(SOD_DDTT,  'YYYYMMDDHH24MISS'),'YYYY-MM-DD HH24:MI:SS') AS SOD_DDTT,
+      						   TO_CHAR( TO_DATE(CLOSE_DDTT,'YYYYMMDDHH24MISS'),'YYYY-MM-DD HH24:MI:SS') AS CLOSE_DDTT               
+			      
+						 
+					      FROM SLE_POS_SOD MST
+						 WHERE POS_NUM     = '01' 
+			        	   AND SALES_DATE  = :salesDate
+			        	   <#if outletCd?has_content>  AND OUTLET_CD  = :outletCd  </#if>
+			        	   
+			           ) SOD ON SOD.OUTLET_CD = MST.OUTLET_CD
+			           
+			INNER JOIN (SELECT MST.OUTLET_CD, MST.OUTLET_NM
+                          FROM   SLE_OUTLET_MST      MST
+                          INNER JOIN  SCO_UPJANG_V   UPJANG ON  UPJANG.UPJANG = TO_NUMBER(MST.OUTLET_CD) 
+                                        					<#if muCd?has_content> AND  UPJANG.MU_CD = :muCd </#if>
+                                        					<#if tmCd?has_content> AND  UPJANG.TM_CD = :tmCd </#if>
+                          <#if outletCd?has_content > WHERE MST.OUTLET_CD   = :outletCd </#if>
+             			 ) OUTLET ON OUTLET.OUTLET_CD =  MST.OUTLET_CD
+             			 
+			ORDER BY OUTLET_CD
+			
+		]]>
+
+
+
+	</statement>
+
+
+</hqml>

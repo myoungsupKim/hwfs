@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[사업장 운영정보1 조회]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>1</result-count>
+    <statement>
+SELECT *
+  FROM (
+        SELECT A.TM_NM,
+               B.JOB_NAME,
+               C.SUB_JOB_NAME,
+               (SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN = A.LEADER_SABUN) AS LEADER_SABUNNM,
+               A.UPJANGNM,
+               A.DELIVERY_ADDR,
+               A.OPEN_DATE,
+               (SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN = A.TEAM_MST_SABUN) AS TEAM_MST_NM,
+               (SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN = A.SUBTEAM_MST_SABUN) AS SUBTEAM_MST_NM,
+               A.CHARGE_SABUNNM
+               , A.UPJANG_TEL, A.CHARGE_SABUNHP
+               , A.VENDING_MACHINE_YN, A.ICE_MACHINE_YN,
+               (SELECT COUNT(*) FROM SCO_UPJANG_PURIFIER Z WHERE Z.UPJANG = A.UPJANG) AS PURIFIER_CNT,
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0004' AND CODE = A.PERMISSION_TYPE) PERMISSION_TYPE,
+               DECODE(A.WATER_GUBUN,'001','지하수','002','상수도') AS WATER_GUBUN,
+               A.UNDERWATER_PUR_YN, A.UNDERWATER_PUR_TYPE,
+               (SELECT MAX(Z.CHECK_DATE) FROM FSC_RESULT_MST Z WHERE Z.UPJANG = A.UPJANG) AS CHECK_DATE,
+               A.KUNSOK,
+               A.FIRST_JUMJANG_YN,
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0005' AND CODE = A.DIST_TYPE) DIST_TYPENM,
+               A.LIVE_NO_MAN,
+               (SELECT COUNT(*) FROM HLDC_HR_PERSONAL Z WHERE Z.DEPT_ID = A.DEPT_ID AND Z.JIK_KUN = '0019') AS JORI_CNT,
+               A.CLOSE_DATE,
+               SUM(AVG_MEAL_QTY1 + AVG_MEAL_QTY2 + AVG_MEAL_QTY3 + AVG_MEAL_QTY4 + AVG_MEAL_QTY5 + AVG_MEAL_QTY6) AS AVG_MEAL_QTY_SUM,
+               SUM(AVG_MEAL_QTY1) AS AVG_MEAL_QTY1, SUM(AVG_MEAL_QTY2) AS AVG_MEAL_QTY2, SUM(AVG_MEAL_QTY3) AS AVG_MEAL_QTY3,
+               SUM(AVG_MEAL_QTY4) AS AVG_MEAL_QTY4, SUM(AVG_MEAL_QTY5) AS AVG_MEAL_QTY5, SUM(AVG_MEAL_QTY6) AS AVG_MEAL_QTY6,
+               A.STORE_YN
+          FROM (
+                SELECT T1.*,
+                       CASE WHEN T2.MEAL = '001' THEN T2.AVG_MEAL_QTY ELSE 0 END AS AVG_MEAL_QTY1,
+                       CASE WHEN T2.MEAL = '002' THEN T2.AVG_MEAL_QTY ELSE 0 END AS AVG_MEAL_QTY2,
+                       CASE WHEN T2.MEAL = '003' THEN T2.AVG_MEAL_QTY ELSE 0 END AS AVG_MEAL_QTY3,
+                       CASE WHEN T2.MEAL = '004' THEN T2.AVG_MEAL_QTY ELSE 0 END AS AVG_MEAL_QTY4,
+                       CASE WHEN T2.MEAL = '005' THEN T2.AVG_MEAL_QTY ELSE 0 END AS AVG_MEAL_QTY5,
+                       CASE WHEN T2.MEAL = '006' THEN T2.AVG_MEAL_QTY ELSE 0 END AS AVG_MEAL_QTY6
+                  FROM (
+                        SELECT A.TM_CD, A.JOB_CD, A.SUB_JOB_CD, A.UPJANG, A.TM_NM, A.LEADER_SABUN,
+                               A.UPJANGNM, B.NM_KOR AS CHARGE_SABUNNM,
+                               DECODE(B.PER_DTA, NULL, '', SCC_KUNSOK_YMD_FUN(B.PER_DTA, DECODE(B.PER_DTD, NULL, TO_CHAR(SYSDATE,'YYYYMMDD'), B.PER_DTD))) AS KUNSOK,
+                               A.FIRST_JUMJANG_YN, A.DIST_TYPE, A.LIVE_NO_MAN, A.CLOSE_DATE, A.DEPT_ID
+                               , SCC_GET_ADDR_FUN('BASE', DELIVERY_ADDR_KEY, #PERS_INFO_MASK#, #MASK_AUTH#) DELIVERY_ADDR
+                               , A.OPEN_DATE
+                               , A.TEAM_MST_SABUN, A.SUBTEAM_MST_SABUN
+                               , A.UPJANG_TEL
+                               , A.CHARGE_SABUNHP
+                               , A.VENDING_MACHINE_YN, A.ICE_MACHINE_YN, A.PERMISSION_TYPE
+                               , A.WATER_GUBUN, A.UNDERWATER_PUR_YN, A.UNDERWATER_PUR_TYPE
+                               , A.STORE_YN
+                          FROM SCO_UPJANG_MST_V A, SCO_FS_HR_PERSONAL_V B
+                         WHERE 1 = 1
+                          <isNotNull col="MU_CD">
+                           AND A.MU_CD = #MU_CD# --검색조건(사업부)
+                          </isNotNull>
+                          <isNotNull col="TM_CD">
+                           AND A.TM_CD = #TM_CD# --검색조건(운영부서)
+                          </isNotNull>
+                          <isNotEqual col="JOB_CD" value="000">
+                           AND A.JOB_CD = #JOB_CD# --검색조건(직군)
+                          </isNotEqual>
+                          <isNotEqual col="SUB_JOB_CD" value="000000">
+                           AND A.SUB_JOB_CD = #SUB_JOB_CD# --검색조건(상세직군)
+                          </isNotEqual>
+                          <isNotNull col="LEADER_SABUN">
+                           AND A.LEADER_SABUN = #LEADER_SABUN# --검색조건(리더)
+                          </isNotNull>
+                          <isNotNull col="UPJANG">
+                           AND A.UPJANG = #UPJANG# --검색조건(업장)
+                          </isNotNull>
+                          <isNotEqual col="DIST_TYPE" value="000">
+                           AND A.DIST_TYPE = #DIST_TYPE# --검색조건(배식형태)
+                          </isNotEqual>
+                          <isNotEqual col="FIRST_JUMJANG_YN" value="0">
+                           AND A.FIRST_JUMJANG_YN = #FIRST_JUMJANG_YN# --검색조건(초임여부)
+                          </isNotEqual>
+                          <isEqual col="CHK_CLOSE" value="Y">
+                           AND A.CLOSE_DATE IS NULL -- 폐점업장 제외
+                          </isEqual>
+                           AND A.CHARGE_SABUN = B.SABUN(+) ) T1,
+                       (
+                        SELECT A.UPJANG, A.HALL_CD, B.MEAL, NVL(B.MEAL_UPRICE, 0) AS MEAL_UPRICE, NVL(B.AVG_MEAL_QTY, 0) AS AVG_MEAL_QTY
+                          FROM FSA_HALL_MST A, FSA_HALL_DTL B
+                         WHERE A.UPJANG = B.UPJANG
+                           AND A.HALL_CD = B.HALL_CD
+                           AND B.USE_YN = 'Y' ) T2
+                 WHERE T1.UPJANG = T2.UPJANG(+)
+                  <isNotNull col="FROM_KUNSOK">
+                   AND DECODE(T1.KUNSOK, NULL, 0, TO_NUMBER(SUBSTR(T1.KUNSOK, 1, 2))) &gt;= DECODE(T1.KUNSOK, NULL, 1, #FROM_KUNSOK#) --검색조건(FROM 근속년수)
+                  </isNotNull>
+                  <isNotNull col="TO_KUNSOK">
+                   AND DECODE(T1.KUNSOK, NULL, 1, TO_NUMBER(SUBSTR(T1.KUNSOK, 1, 2))) &lt;= DECODE(T1.KUNSOK, NULL, 1, #TO_KUNSOK#) --검색조건(TO 근속년수)
+                  </isNotNull>
+                  <isNotNull col="FROM_UPRICE">
+                   AND NVL(T2.MEAL_UPRICE, 0) &gt;= #FROM_UPRICE# --검색조건(FROM 식단가)
+                  </isNotNull>
+                  <isNotNull col="TO_UPRICE">
+                   AND NVL(T2.MEAL_UPRICE, 0) &lt;= #TO_UPRICE# --검색조건(TO 식단가)
+                  </isNotNull>
+               ) A, MAS_JOB B, MAS_JOB_SUB C
+        WHERE A.JOB_CD = B.JOB_CD
+          AND A.JOB_CD = C.JOB_CD AND A.SUB_JOB_CD = C.SUB_JOB_CD
+        GROUP BY TM_CD, A.JOB_CD, B.JOB_NAME, A.SUB_JOB_CD, C.SUB_JOB_NAME, UPJANG, TM_NM, LEADER_SABUN, UPJANGNM, CHARGE_SABUNNM, KUNSOK, FIRST_JUMJANG_YN, DIST_TYPE, LIVE_NO_MAN, A.DEPT_ID, CLOSE_DATE
+               , A.DELIVERY_ADDR, A.OPEN_DATE, A.TEAM_MST_SABUN, A.SUBTEAM_MST_SABUN, A.UPJANG_TEL, A.CHARGE_SABUNHP
+               , A.VENDING_MACHINE_YN, A.ICE_MACHINE_YN, A.PERMISSION_TYPE, A.WATER_GUBUN, A.UNDERWATER_PUR_YN, A.UNDERWATER_PUR_TYPE, A.STORE_YN
+       )
+ WHERE 1 = 1
+  <isNotNull col="FROM_AVG_MEAL_QTY">
+   AND AVG_MEAL_QTY_SUM &gt;= #FROM_AVG_MEAL_QTY# --검색조건(FROM 일평균식수)
+  </isNotNull>
+  <isNotNull col="TO_AVG_MEAL_QTY">
+   AND AVG_MEAL_QTY_SUM &lt;= #TO_AVG_MEAL_QTY# --검색조건(TO 일평균식수)
+  </isNotNull>
+ ORDER BY TM_NM, JOB_NAME, SUB_JOB_NAME, UPJANGNM	</statement>
+    <input default-name="ds_Input">
+    </input>
+    <output default-name="ds_List1">
+    </output>
+</query>

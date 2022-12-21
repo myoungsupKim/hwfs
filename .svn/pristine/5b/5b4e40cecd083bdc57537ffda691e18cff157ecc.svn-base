@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>insert</type>
+	<description><![CDATA[마이레시피에서 선택한 정보를 기준으로 업장표준레시피자재를 실제레시피자재로 복사]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+INSERT INTO FSM_REAL_RECIPE_ITEM
+            (UPJANG, MENU_CD, RECIPE_CD, ITEM_CODE, ITEM_SEQ, NEED_QTY, EDIBLE_QTY, CUT_SPEC
+            ,ORDER_YN, PR_ID, PR_NUM, PR_QTY, NEED_DATE, UNIT_PRICE, MARGIN_RATE, MARGIN_PRICE
+            ,CUSER, CDATE, UUSER, UDATE)
+SELECT 
+       #UPJANG# UPJANG -- 사업장
+      ,#MENU_CD# MENU_CD -- MENU_CD
+      ,A.RECIPE_CD
+      ,A.ITEM_CODE
+      ,NVL(A.ITEM_SEQ,0) ITEM_SEQ
+      ,A.NEED_QTY
+      ,A.EDIBLE_QTY
+      ,A.CUT_SPEC
+      ,'N' ORDER_YN
+      ,0 PR_ID
+      ,'' PR_NUM
+      ,0 PR_QTY
+      ,FSM_ITEM_NEED_DATE_FUN( #UPJANG#, #HALL_CD#, #MEAL#, #CORNER#, #MENU_DATE#) NEED_DATE -- 입고예정일(제공일)
+      ,0 -- NVL(B.CONTRACT_PRICE,0) UNIT_PRICE
+      ,0 -- NVL(B.MARGIN_RATE,0) MARGIN_RATE
+      ,NVL(B.ITEM_PRICE,0) MARGIN_PRICE
+      ,#g_EmpNo# CUSER -- 복사하는 USER
+      ,SYSDATE CDATE
+      ,#g_EmpNo# UUSER -- 복사하는 USER
+      ,SYSDATE UDATE
+  FROM (
+        SELECT 
+			   A.RECIPE_CD
+			   , A.ITEM_CODE
+			   , A.ITEM_SEQ
+			   , A.NEED_QTY
+			   , A.EDIBLE_QTY
+			   , A.CUT_SPEC
+		FROM
+                FSR_UPJANG_RECIPE_ITEM A, FSR_MY_RECIPE_INFO B, FSA_HALL_MST C
+        WHERE 
+			  A.UPJANG = B.UPJANG
+			  AND A.HALL_CLASS = C.HALL_CLASS
+			  AND A.RECIPE_CD = B.RECIPE_CD
+			  AND C.UPJANG = B.UPJANG
+			  AND C.HALL_CD = B.HALL_CD
+			  AND B.UPJANG = #UPJANG#
+			  AND B.HALL_CD = #HALL_CD#
+			  AND B.MY_GRP_CD || B.RECIPE_CD IN ( #GRP_RECIPE_CD$# )
+       ) A
+      ,(
+       SELECT A.ITEM_CODE,
+              D.ITEM_NAME,
+              D.ITEM_SIZE,
+              D.PO_UOM,
+              A.CUSTCD,
+              DECODE(A.MARGIN_RATE, 0, A.CONTRACT_PRICE, DECODE(E.OUTVAT_FLAG, 'Y' , ( ROUND( (A.CONTRACT_PRICE * DECODE(D.TAX_CODE, '100' , 1.1, 1) * (A.MARGIN_RATE+100) / 100 ) / 10) * 10 ) , ( ROUND( (A.CONTRACT_PRICE * (A.MARGIN_RATE+100) / 100 ) / 10) * 10 ) ) ) AS ITEM_PRICE,
+              KG_CONVERT_RATE,
+              ROUND((DECODE(A.MARGIN_RATE, 0, A.CONTRACT_PRICE, DECODE(E.OUTVAT_FLAG, 'Y' , ( ROUND( (A.CONTRACT_PRICE * DECODE(D.TAX_CODE, '100' , 1.1, 1) * (A.MARGIN_RATE+100) / 100 ) / 10) * 10 ) , ( ROUND( (A.CONTRACT_PRICE * (A.MARGIN_RATE+100) / 100 ) / 10) * 10 ) ) ) )/KG_CONVERT_RATE/1000,2) AS G_ITEM_PRICE,
+              F.UPJANG
+         FROM HLDC_ST_UPJANG B,
+	          HLDC_PO_SUBINVENTORY E,
+              HLDC_PO_UPJANG_CENTER F,
+              HLDC_PO_CONTRACT_F A,
+              HLDC_PO_ITEM_MST D
+        WHERE A.ITEM_CODE = D.ITEM_CODE
+          AND A.CENTER_CODE = F.CENTER_CODE
+          AND A.USE_YN = 'Y'
+          AND A.CONTRACT_PRICE > 0
+          AND A.UPJANG = B.AP_UNITPRICE_UPJANG
+          AND B.UPJANG = E.UPJANG
+          AND B.AP_UNITPRICE_UPJANG = F.UPJANG
+          AND B.UPJANG = #UPJANG#  
+          AND E.SUBINV_CODE = #SUBINV_CODE#
+          AND #MENU_DATE# BETWEEN A.CONTRACT_START AND A.CONTRACT_END  --[메뉴일자]
+       ) B
+ WHERE A.ITEM_CODE = B.ITEM_CODE(+)	</statement>
+	<input default-name="ds_list">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

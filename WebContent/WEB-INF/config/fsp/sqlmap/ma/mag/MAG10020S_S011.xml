@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+--------------------------------------------------------------------------------------------------------
+-- 채권대체
+--------------------------------------------------------------------------------------------------------
+SELECT Y.FISCAL_DATE, Y.RECEIVE_DATE, Y.RECEIVE_NUM, Y.RECEIVE_TYPE_CD, Y.RECEIVE_TYPE_NM,
+       Y.CUST_CD, Y.CUST_NM, Y.AR_AMT, Y.RECEIVE_AMT, 
+       SUM(Y.AR_AMT-Y.T) OVER (PARTITION BY Y.RECEIVE_NUM ORDER BY Y.AR_NUM) AS JAN_AMT ,
+       Y.DEDUC_AMT, Y.MU_CD, Y.MU_NM,
+       Y.CC_CD,  Y.CC_NM, Y.JOURNALZ_NUM, Y.REMARK, Y.AR_NUM
+       ,(SELECT CUST.CUSTNM FROM ST_CUST CUST WHERE Y.TRANS_CUST_CD = CUST.CUSTCD) TRANS_CUST_NM
+       ,(SELECT DISTINCT CC.CC_NM FROM SCC_CC CC WHERE Y.TRANS_CC_CD = CC.CC_CD) TRANS_CC_NM
+       ,Y.RECEIVE_PRO_NM
+  FROM (
+            SELECT XX.FISCAL_DATE, XX.RECEIVE_DATE, XX.RECEIVE_NUM, XX.RECEIVE_TYPE_CD, XX.RECEIVE_TYPE_NM,
+                   XX.CUST_CD, XX.CUST_NM, XX.AR_AMT, XX.RECEIVE_AMT, 
+                   XX.DEDUC_AMT, XX.MU_CD, XX.MU_NM,
+                   XX.CC_CD,  XX.CC_NM, XX.JOURNALZ_NUM, XX.REMARK, XX.AR_NUM, XX.TRANS_CUST_CD , XX.TRANS_CC_CD , XX.RECEIVE_PRO_NM,
+                   SUM(XX.RECEIVE_AMT) OVER ( PARTITION BY XX.AR_NUM ORDER BY XX.RECEIVE_NUM ) AS T  FROM (
+                            SELECT C.FISCAL_DATE,
+                                   A.RECEIVE_DATE,
+                                   A.RECEIVE_NUM,
+                                   A.RECEIVE_TYPE_CD,
+								   CASE WHEN A.RECEIVE_TYPE_CD IN ('B07','B16') THEN '채권이관' ELSE '입금관리' END AS RECEIVE_PRO_NM ,
+                                   (SELECT TYPE_NM FROM SLA_TYPE_CD_MST WHERE TYPE_GRP_CD = '002' AND TYPE_CD = A.RECEIVE_TYPE_CD) AS RECEIVE_TYPE_NM,
+                                   A.CUST_CD,
+                                   C.CUST_NM,
+                                   C.AR_AMT,
+                                   B.RECEIVE_AMT,
+                                   --C.AR_AMT - A.RECEIVE_AMT AS AFTER_AMT,
+                                   A.DEDUC_AMT,
+                                   A.MU_CD,
+                                   (SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE MU.MU_CD = A.MU_CD)  AS MU_NM,
+                                   A.CC_CD,
+                                   (SELECT  CC_NM FROM SCC_CC WHERE CC_CD = A.CC_CD) AS CC_NM,
+                                   C.JOURNALZ_NUM,
+                                   A.REMARK,
+                                   C.AR_NUM,
+								   (SELECT DISTINCT CUST_CD FROM SLA_AR_MST MST WHERE MST.RECD_STATUS = 'L' AND MST.REF_NUM = A.RECEIVE_NUM) TRANS_CUST_CD ,
+                   				   (SELECT  DISTINCT CC_CD FROM SLA_AR_MST MST WHERE   MST.RECD_STATUS = 'L' AND MST.REF_NUM = A.RECEIVE_NUM) TRANS_CC_CD,
+                                   RANK() OVER (ORDER BY A.RECEIVE_NUM ASC) RANK
+                            FROM   SLA_AR_RECEIVE_MST A,
+                                   SLA_AR_RECEIVE_DETAIL B,
+                                   SLA_AR_MST C
+                            WHERE  1=1
+                            AND    A.RECEIVE_NUM = B.RECEIVE_NUM
+                            AND    B.AR_NUM      = C.AR_NUM
+                            AND    A.RECD_STATUS = 'L'
+                            AND    A.MU_CD = '2002'
+                            AND     A.CC_CD IN (
+                                            SELECT  A.CC_CD
+                                            FROM    SCC_CC A
+                                                    ,HLDC_SC_DEPT_V B
+                                            WHERE   B.CC_CD = A.CC_CD
+                                            AND     A.START_DATE &lt;= TO_CHAR(SYSDATE,'YYYYMMDD')
+                                            AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+                                            AND     B.TM_CD = #TM_CD#
+                                            )
+                            AND     C.UPJANG_CD = #UPJANG#                
+                            AND     C.AR_NUM = #AR_NUM#
+                            <isEqual col="T_GUBUN" value="2">
+								AND  A.RECEIVE_TYPE_CD IN ('B07','B16')
+							</isEqual>
+                            <isEqual col="T_GUBUN" value="1">
+								AND  A.RECEIVE_TYPE_CD NOT IN ('B07','B16')
+							</isEqual>							
+                            ORDER BY A.RECEIVE_NUM, C.FISCAL_DATE, A.RECEIVE_DATE ASC
+                   ) XX
+  ) Y
+</statement>
+	<input default-name="ds_search">
+		<col name="UPJANG" size="6" type="NUMERIC" description="업장코드" /> 
+		<col name="DATEFR" size="255" type="VARCHAR" description="" /> 
+		<col name="TM_CD" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

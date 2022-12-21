@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT V.SABUN,
+       V.NM_KOR,
+       NVL((SELECT COUNT(*) FROM MAK_VISIT_MGMT_A WHERE MGMT_SABUN = V.SABUN AND VISIT_DATE BETWEEN #DATE#||'01' AND #DATE#||'31' AND VISIT_GUBUN IN ('004')), 0) CNT_A,
+       NVL((SELECT COUNT(*) FROM MAK_VISIT_MGMT_A WHERE MGMT_SABUN = V.SABUN AND VISIT_DATE BETWEEN #DATE#||'01' AND #DATE#||'31'  AND VISIT_GUBUN IN ('003', '005')), 0) CNT_B,
+       NVL((SELECT COUNT(*) FROM MAK_VISIT_MGMT_A WHERE MGMT_SABUN = V.SABUN AND VISIT_DATE BETWEEN #DATE#||'01' AND #DATE#||'31'  AND VISIT_GUBUN IN ('002')), 0) CNT_C,
+       NVL((SELECT COUNT(*) FROM MAK_VISIT_MGMT_A WHERE MGMT_SABUN = V.SABUN AND VISIT_DATE BETWEEN #DATE#||'01' AND #DATE#||'31'  AND VISIT_GUBUN IN ('008')), 0) CNT_D,
+       NVL((SELECT COUNT(*) FROM MAK_NEWORDER_MGMT WHERE ORD_SABUN = V.SABUN AND ORDER_DATE BETWEEN #DATE#||'01' AND #DATE#||'31' ), 0) CNT_E,
+       NVL((SELECT SUM(SALE_YEAR) FROM MAK_NEWORDER_MGMT      WHERE ORD_SABUN = V.SABUN AND ORDER_DATE BETWEEN #DATE#||'01' AND #DATE#||'31' ), 0) SALE_E,
+       NVL((SELECT SUM(SALE_CURR_YEAR) FROM MAK_NEWORDER_MGMT WHERE ORD_SABUN = V.SABUN AND ORDER_DATE BETWEEN #DATE#||'01' AND #DATE#||'31' ), 0) SALE_CURR_E
+  FROM HLDC_HR_PERSONAL V
+  WHERE (NVL(V.PER_DTD, '99999999') >= #DATE#||'01')
+  AND   (V.DEPT_ID                   IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA1002' AND SET1 = 'IFIS'))     
+
+ <isNotNull col="DEPT_ID">
+  AND   (V.DEPT_ID = #DEPT_ID#)
+  </isNotNull>
+  
+ <isNotNull col="SABUN">
+  AND   (V.SABUN = #SABUN#)
+  </isNotNull>
+                        
+ORDER BY V.DEPT_ID, V.SABUN
+</statement>
+	<input default-name="ds_cond">
+		<col name="DATE" size="255" type="VARCHAR" description="" /> 				
+		<col name="DEPT_ID" size="22" type="NUMERIC" description="" /> 
+		<col name="SABUN" size="255" type="VARCHAR" description="" /> 				
+	</input>
+	<output default-name="ds_list">
+		<col name="SABUN" size="256" type="VARCHAR" description="" /> 
+		<col name="NM_KOR" size="256" type="VARCHAR" description="" /> 
+		<col name="CNT_A" size="" type="NUMERIC" description="" /> 
+		<col name="CNT_B" size="" type="NUMERIC" description="" /> 
+		<col name="CNT_C" size="" type="NUMERIC" description="" /> 
+		<col name="CNT_D" size="" type="NUMERIC" description="" /> 
+		<col name="CNT_E" size="" type="NUMERIC" description="" /> 
+		<col name="SALE_E" size="" type="NUMERIC" description="" /> 
+		<col name="SALE_CURR_E" size="" type="NUMERIC" description="" /> 		
+	</output>
+</query>

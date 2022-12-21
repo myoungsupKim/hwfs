@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>insert</type>
+	<description><![CDATA[자재추가]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+INSERT INTO FMM_RECIPE_ITEM --FSM_REAL_RECIPE_ITEM
+      (
+       UPJANG
+     , MENU_CD
+     , RECIPE_CD
+     , ITEM_CODE
+     , ITEM_SEQ
+     <isNotNull col="NEED_QTY">
+     , NEED_QTY
+     , EDIBLE_QTY
+     </isNotNull>
+     , CUT_SPEC
+     , ORDER_YN, PR_ID
+     , PR_NUM
+     , PR_QTY
+     <isNotNull col="MENU_DATE">
+     , NEED_DATE
+     </isNotNull>
+     <isNotNull col="UNIT_PRICE">
+     , UNIT_PRICE
+     </isNotNull>
+     <isNotNull col="MARGIN_RATE">
+     , MARGIN_RATE
+     </isNotNull>
+     <isNotNull col="MARGIN_PRICE">
+     , MARGIN_PRICE
+     </isNotNull>
+     , CUSER
+     , CDATE
+     )
+VALUES(
+       #UPJANG#
+     , #MENU_CD#
+     , #RECIPE_CD#
+     , #ITEM_CODE#
+     , #ITEM_SEQ#
+     <isNotNull col="NEED_QTY">
+     , #NEED_QTY#
+     , #NEED_QTY# * (SELECT 100 - SUM(CALC)
+                       FROM (SELECT 'G' AS GUBUN, 0 AS CALC FROM DUAL
+                              UNION ALL
+                             SELECT 'G' AS GUBUN, NVL(DISUSE_RATE, 0) AS CALC
+                               FROM FSI_ITEM_NUT
+                              WHERE ITEM_CODE = #ITEM_CODE#)
+                      GROUP BY GUBUN)/100
+     </isNotNull>
+     , NULL
+     , #ORDER_YN#
+     , #PR_ID#
+     , NULL
+     , #PR_QTY#
+     <isNotNull col="MENU_DATE">
+     , TO_CHAR(TO_DATE(#MENU_DATE#, 'RRRR-MM-DD') - (SELECT SUM(D_DAY) AS D_DAY
+                                                       FROM (SELECT 'G' AS GUBUN, 0 AS D_DAY FROM DUAL
+                                                              UNION ALL
+                                                             SELECT 'G' AS GUBUN, NVL(D_DAY, 0) 
+                                                               FROM FSA_HALL_DTL 
+                                                              WHERE UPJANG = #UPJANG#
+                                                                AND HALL_CD = #HALL_CD#
+                                                                AND MEAL = #MEAL#
+                                                                AND CORNER = #CORNER#)
+                                                      GROUP BY GUBUN), 'YYYYMMDD')
+     </isNotNull>
+     <isNotNull col="UNIT_PRICE">
+     , #UNIT_PRICE#
+     </isNotNull>
+     <isNotNull col="MARGIN_RATE">
+     , #MARGIN_RATE#
+     </isNotNull>
+     <isNotNull col="MARGIN_PRICE">
+     , #MARGIN_PRICE#
+     </isNotNull>
+     , #g_EmpNo#
+     , SYSDATE
+	  )	</statement>
+	<input default-name="ds_Data">
+	</input>
+	<output default-name="ds_Data">
+	</output>
+</query>

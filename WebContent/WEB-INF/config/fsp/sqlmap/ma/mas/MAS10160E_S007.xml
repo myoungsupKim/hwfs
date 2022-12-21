@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT V.MST_ID,
+       V.DTL_ID,
+       V.UPJANG,
+       (SELECT UPJANGNM FROM SCO_UPJANG_MST_V WHERE UPJANG = V.UPJANG) UPJANGNM,
+       V.TRX_DATE,
+       V.ITEM_CODE,
+       (SELECT ITEM_NAME FROM HLDC_PO_ITEM_MST WHERE ITEM_CODE = V.ITEM_CODE) ITEM_CODENM,
+       V.TAX_KIND,
+       DECODE(V.TAX_KIND,'100','과세','210','면세','220','영세') TAX_KINDNM,
+       V.SALE_PRICE,
+       V.QTY,
+       V.AMT,
+       V.TRX_ID,
+       V.RCP_ID,
+       NVL(V.IMPORT_YN, 'N') IMPORT_YN,
+       DECODE(V.TRX_ID, NULL, '0', '') CHK,
+       'A' ORDER_GUBUN
+FROM MAS_CORNER_MST V
+WHERE (V.UPJANG   = #UPJANG#)
+AND   (V.TRX_DATE = #TRX_DATE#)
+UNION ALL
+SELECT NULL MST_ID,
+       NULL DTL_ID,
+       B.UPJANG,
+       (SELECT UPJANGNM FROM SCO_UPJANG_MST_V WHERE UPJANG = B.UPJANG) UPJANGNM,
+       #TRX_DATE# TRX_DATE,
+       A.ITEM_CODE,
+       A.ITEM_NAME ITEM_CODENM,
+       A.TAX_CODE TAX_KIND,
+       DECODE(A.TAX_CODE,'100','과세','210','면세','220','영세') TAX_KINDNM,
+       B.SALE_PRICE,
+       0 QTY,
+       0 AMT,
+       NULL TRX_ID,
+       NULL RCP_ID,
+       'N' IMPORT_YN,
+       '0' CHK,
+       'B' ORDER_GUBUN
+  FROM HLDC_PO_ITEM_MST A
+     ,(SELECT C.UPJANG, C.ITEM_CODE, C.START_DATE, C.END_DATE, C.SALE_PRICE, C.PRC_DESC
+         FROM MAS_CORNER_PRICE C
+            ,(SELECT E.UPJANG, E.ITEM_CODE, MAX(E.START_DATE) AS START_DATE
+                FROM MAS_CORNER_PRICE E
+               WHERE E.START_DATE BETWEEN '19000101' AND #TRX_DATE#
+                 AND E.UPJANG = #UPJANG#
+               GROUP BY E.UPJANG, E.ITEM_CODE) D
+        WHERE C.UPJANG         = D.UPJANG
+          AND C.ITEM_CODE      = D.ITEM_CODE
+          AND C.START_DATE     = D.START_DATE
+          AND C.SALE_PRICE     &lt;&gt; 0
+          ) B
+WHERE A.ITEM_CODE = B.ITEM_CODE
+ORDER BY ORDER_GUBUN, ITEM_CODENM	
+</statement>
+	<input default-name="ds_cond">
+		<col name="UPJANG" size="6" type="NUMERIC" description="업장코드" /> 
+		<col name="TRX_DATE" size="255" type="VARCHAR" description="" /> 		
+	</input>
+	<output default-name="ds_MAS_CORNER_MST">
+<col name="MST_ID" size="" type="NUMERIC" description="" />
+<col name="DTL_ID" size="" type="NUMERIC" description="" />
+<col name="UPJANG" size="" type="NUMERIC" description="" />
+<col name="UPJANGNM" size="255" type="VARCHAR" description="" />
+<col name="TRX_DATE" size="255" type="VARCHAR" description="" />
+<col name="ITEM_CODE" size="255" type="VARCHAR" description="" />
+<col name="ITEM_CODENM" size="255" type="VARCHAR" description="" />
+<col name="TAX_KIND" size="255" type="VARCHAR" description="" />
+<col name="TAX_KINDNM" size="255" type="VARCHAR" description="" />
+<col name="SALE_PRICE" size="" type="NUMERIC" description="" />
+<col name="QTY" size="" type="NUMERIC" description="" />
+<col name="AMT" size="" type="NUMERIC" description="" />
+<col name="TRX_ID" size="" type="NUMERIC" description="" />
+<col name="RCP_ID" size="" type="NUMERIC" description="" />
+<col name="IMPORT_YN" size="255" type="VARCHAR" description="" />
+	</output>
+</query>

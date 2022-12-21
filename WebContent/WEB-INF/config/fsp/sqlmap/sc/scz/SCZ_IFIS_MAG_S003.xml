@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[  
+SELECT V.CUSTCD,
+       V.CUSTCDNM,
+       V.DO_AK_BOND_AMT,
+       V.DO_BOND_AMT,
+       V.AK_BOND_AMT
+  FROM (
+        SELECT V.CUSTCD,
+               (SELECT CODE_NAME FROM SCC_UPJANGCUST_V WHERE CODE = V.CUSTCD) CUSTCDNM,
+               ROUND(V.DO_BOND_AMT/1000000) + ROUND(V.AK_BOND_AMT/1000000) DO_AK_BOND_AMT, -- 채권합계
+               ROUND(V.DO_BOND_AMT/1000000) DO_BOND_AMT, -- 도래채권
+               ROUND(V.AK_BOND_AMT/1000000) AK_BOND_AMT  -- 악성채권
+          FROM (
+                SELECT V.CUSTCD, V.DO_BOND_AMT, V.AK_BOND_AMT, V.DO_AK_BOND_AMT, ROWNUM TOP_NUM
+                  FROM (
+                        SELECT DECODE(V.CUSTCD, NULL, V.UPJANG, V.CUSTCD) CUSTCD,
+                               NVL(SUM(V.DO_BOND_AMT), 0) DO_BOND_AMT,
+                               NVL(SUM(V.AK_BOND_AMT), 0) AK_BOND_AMT,
+                               NVL(SUM(V.DO_BOND_AMT), 0) + NVL(SUM(V.AK_BOND_AMT), 0) DO_AK_BOND_AMT
+                          FROM MAS_DD_BOND V
+                        WHERE (V.BOND_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'))
+                        AND   (NVL(V.DO_BOND_AMT, 0) + NVL(V.AK_BOND_AMT, 0) <> 0)
+                        GROUP BY DECODE(V.CUSTCD, NULL, V.UPJANG, V.CUSTCD)
+                        HAVING NVL(SUM(V.DO_BOND_AMT), 0) + NVL(SUM(V.AK_BOND_AMT), 0) <> 0
+                       ) V
+                ORDER BY V.DO_AK_BOND_AMT DESC
+               ) V
+        WHERE (V.DO_AK_BOND_AMT <> 0)
+       ) V
+WHERE ROWNUM <= 5
+	]]></statement>
+	<input default-name="ds_in">
+	</input>
+	<output default-name="ds_5bond">
+	</output>
+</query>

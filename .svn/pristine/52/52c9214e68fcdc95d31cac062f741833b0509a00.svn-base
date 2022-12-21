@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>insert</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>-1</result-count>
+	<statement>
+
+
+INSERT INTO MAS_CLOSE_MGMT(UPJANG, CLOSE_DATE, CLOSE_GUBUN, CUSER, CDATE)
+                SELECT UPJANG, CLOSE_DATE, CLOSE_GUBUN, #g_EmpNo# CUSER, SYSDATE
+                  FROM (
+                         SELECT C.TM_CD,
+                                C.UPJANG,
+                                MM||DD CLOSE_DATE,
+                                D.CODE CLOSE_GUBUN
+                          FROM
+                                (SELECT SUBSTR(#CLOSE_DATEFR#, 1, 6) MM
+                                   FROM DUAL) A,
+                                (SELECT LPAD(ROWNUM,2,'0') DD
+                                FROM DICT
+                                WHERE ROWNUM &lt;= 31) B,
+                                (SELECT TM_NM, TM_CD, UPJANG, UPJANGNM, CLOSE_DATE
+                                 FROM SCO_UPJANG_MST_V
+                                 WHERE FICS_YN = 'N'
+                                 AND   FS_UPJANG = 'Y'
+                                 AND   CLOSE_DATE IS NULL
+                                 ) C,
+                                (SELECT CODE
+                                 FROM SCC_COMMON_CODE
+                                 WHERE GROUP_CODE = 'MA0035'
+                                 AND   CODE       = #CLOSE_GUBUN#) D
+                        WHERE A.MM||B.DD BETWEEN #CLOSE_DATEFR# AND #CLOSE_DATETO#
+                       )
+                WHERE (1 = 1)
+                <isNotNull col="TM_CD">  
+                AND   (TM_CD  = #TM_CD#)
+                </isNotNull>  
+                <isNotNull col="UPJANG">  
+                AND   (UPJANG  = #UPJANG#)
+                </isNotNull>                   
+</statement>
+	<input default-name="ds_cond">
+		<col name="TM_CD" size="256" type="VARCHAR" description="" />  	
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="CLOSE_GUBUN" size="256" type="VARCHAR" description="" />  
+		<col name="CLOSE_DATEFR" size="256" type="VARCHAR" description="" />  		
+		<col name="CLOSE_DATETO" size="256" type="VARCHAR" description="" />  				
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

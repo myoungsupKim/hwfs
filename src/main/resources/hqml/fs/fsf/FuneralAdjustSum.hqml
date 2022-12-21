@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fs.fsf.funeralAdjustSumDAO">
+	<desc>정산집계관리 HQML Query</desc>
+
+	<!-- 정산집계관리 목록을 조회한다. -->
+	<statement name="selectFuneralAdjustSumList" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralAdjustSumDAO.selectFuneralAdjustSumList */
+		<![CDATA[
+		SELECT CC.UPJANG_CD, CC.MU_CD,  SUM(NVL(CC.ADJUST_AMT, 0)) AS ADJUST_AMT, SUM(NVL(CC.ADJUST_MONEY_AMT, 0)) AS ADJUST_MONEY_AMT,
+				 SUM(NVL(CC.ADJUST_CARD_AMT, 0)) AS ADJUST_CARD_AMT, SUM(NVL(CC.ADJUST_TOT_AMT, 0)) AS ADJUST_TOT_AMT,
+				  <#if sumType=="01">
+				  		SUBSTR(CC.SALE_DATE, 1, 8) AS SALE_DATE, CC.GUEST_NUM,  CC.THE_DEAD_NM,
+				  </#if>		
+				  <#if sumType=="02">
+				  		SUBSTR(CC.SALE_DATE, 1, 6) AS SALE_DATE,
+				  </#if>
+				  <#if sumType=="03">
+				  		SUBSTR(CC.SALE_DATE, 1, 4) AS SALE_DATE,
+				  </#if>
+				   CC.FUNERAL_PARLOR_NM
+				  FROM
+		(
+					SELECT XX.UPJANG_CD, XX.MU_CD, XX.EVIDENCE_4 AS GUEST_NUM, SUM(NVL(YY.AMT_001, 0) - NVL(YY.AMT_002, 0)) AS ADJUST_AMT,  /*매출액*/
+					                                              NVL(XX.AMT_01, 0) AS ADJUST_MONEY_AMT, /*현금*/
+					                                              NVL(XX.AMT_02, 0) AS ADJUST_CARD_AMT, /*카드*/
+					                                              SUM(NVL(XX.AMT_01, 0) + NVL(XX.AMT_02, 0)) AS ADJUST_TOT_AMT,      /*정산금액*/
+					                                              XX.OCCUR_DATE  AS SALE_DATE,						/* 정산 일자 */
+					                                              YY.FUNERAL_PARLOR_NM,																/* 빈소이름 */
+			                                   			          YY.FUNERAL_PARLOR, 																	/* 빈소번호 */
+			                                   			          YY.THE_DEAD_NM																			/* 고인명 */
+					  FROM (
+					              SELECT AA.UPJANG_CD, AA.MU_CD, AA.EVIDENCE_4, SUM(AA.AMT_01) AS AMT_01,    -- 현금
+					                                                            SUM(AA.AMT_02) AS AMT_02,     -- 카드
+					                                                            AA.OCCUR_DATE
+					                FROM (
+					                           SELECT UPJANG_CD, MU_CD, EVIDENCE_4, OCCUR_DATE,
+					                                  CASE WHEN PAY_CD = '1' THEN AMT END AS AMT_01,
+					                                  CASE WHEN PAY_CD = '2' THEN AMT END AS AMT_02
+					                             FROM SLA_IF_UPJANG_PAYMENT
+					                            WHERE SYS_CLASS = '16'
+					                              AND PAY_CD IN  ('1', '2')
+					                              AND EVIDENCE_4 IS NOT NULL
+					                     ) AA
+					              GROUP BY AA.UPJANG_CD, AA.MU_CD, AA.EVIDENCE_4, AA.OCCUR_DATE
+					        ) XX ,
+					        (
+					              SELECT BB.GUEST_NUM, BB.FUNERAL_HALL_CD, SUM(BB.AMT_001) AS AMT_001, SUM(BB.AMT_002) AS AMT_002
+					              				,BB.FUNERAL_PARLOR_NM, BB.FUNERAL_PARLOR, BB.THE_DEAD_NM
+					                FROM (
+					                          SELECT BB.GUEST_NUM, BB.FUNERAL_HALL_CD,
+					                                   CASE WHEN BB.SALE_CLASS = '001' THEN BB.AMT END AS AMT_001,  --판매
+					                                   CASE WHEN BB.SALE_CLASS = '002' THEN BB.AMT END AS AMT_002,   -- 반품
+					                                   (
+					                                  SELECT CODE_NAME
+					                                    FROM SCC_COMMON_CODE
+					                                   WHERE CODE = CC.FUNERAL_PARLOR
+					                                     AND GROUP_CODE = 'FUNERAL_PARLOR_TYPE'
+					                               ) FUNERAL_PARLOR_NM,
+			                                         FUNERAL_PARLOR,
+			                                         CC.THE_DEAD_NM
+					                            FROM FSF_SALE_ORDER BB,
+					                           			FSF_FUNERAL_MASTER CC
+					                           WHERE (KIND_TYPE <> 'S' OR KIND_TYPE IS NULL)
+					                           	 AND BB.ORDER_STATUS = '002'
+					                             AND SALE_CLASS IN ('001', '002')
+					                             AND BB.FUNERAL_HALL_CD = CC.FUNERAL_HALL_CD
+			                        		     AND BB.GUEST_NUM = CC.GUEST_NUM
+					                      ) BB
+					               GROUP BY BB.GUEST_NUM, BB.FUNERAL_HALL_CD,  BB.FUNERAL_PARLOR_NM, BB.FUNERAL_PARLOR, BB.THE_DEAD_NM
+					        ) YY
+					 WHERE XX.UPJANG_CD = YY.FUNERAL_HALL_CD
+					   AND XX.EVIDENCE_4 = TO_CHAR(YY.GUEST_NUM)
+					   AND YY.FUNERAL_HALL_CD = :upjangCd
+					   <#if sumType=="01">								/*  일별 조건 */
+					   		<#if adjsutFrom?has_content>   
+			    				<#if adjsutTo?has_content>
+					   				AND XX.OCCUR_DATE BETWEEN  :adjsutFrom AND :adjsutTo
+					   			</#if>
+		    				</#if>
+					   </#if>
+					   <#if sumType=="02">								/*  월별 조건 */
+					   		<#if adjsutFrom?has_content>   
+			    				<#if adjsutTo?has_content>
+					   				AND TO_CHAR(TO_DATE(XX.OCCUR_DATE,'YYYYMMDD'),'YYYYMM') BETWEEN SUBSTR(:adjsutFrom, 0, 6) AND SUBSTR(:adjsutTo, 0, 6)
+					   			</#if>
+		    				</#if>
+					   </#if>
+					   <#if sumType=="03">								/*  년별 조건 */
+					   		<#if adjsutFrom?has_content>   
+			    				<#if adjsutTo?has_content>
+					   				AND TO_CHAR(TO_DATE(XX.OCCUR_DATE,'YYYYMMDD'),'YYYY') BETWEEN SUBSTR(:adjsutFrom, 0, 4) AND SUBSTR(:adjsutTo, 0, 4)
+					   			</#if>
+		    				</#if>
+					   </#if>
+					 GROUP BY XX.UPJANG_CD, XX.MU_CD, XX.EVIDENCE_4, XX.AMT_01, XX.AMT_02, XX.OCCUR_DATE, YY.FUNERAL_PARLOR_NM, YY.FUNERAL_PARLOR, YY.THE_DEAD_NM
+		 )CC
+		  GROUP BY CC.UPJANG_CD, CC.MU_CD, SUBSTR(CC.SALE_DATE, 1, 6), CC.FUNERAL_PARLOR_NM 
+		<#if sumType=="01"> 
+		  	,SUBSTR(CC.SALE_DATE, 1, 8), CC.GUEST_NUM, CC.THE_DEAD_NM 
+		</#if>
+		<#if sumType=="02">	
+			,SUBSTR(CC.SALE_DATE, 1, 6) 
+		</#if>  
+		<#if sumType=="03"> 
+			,SUBSTR(CC.SALE_DATE, 1, 4) 
+		</#if> 
+		  ORDER BY CC.FUNERAL_PARLOR_NM
+		]]>
+	</statement>	
+</hqml>

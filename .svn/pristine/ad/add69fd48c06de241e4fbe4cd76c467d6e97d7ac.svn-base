@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="ls.lcm.testArticleMgmtDAO">
+	<desc>시험항목을 관리한다.</desc>
+
+	<!-- 시험항목 DATA를 조회한다. -->
+	<statement name="selectTestArticleList" type="select"><![CDATA[
+/* 시험항목 조회 */
+SELECT /*+ INDEX_SS(A) */
+       A.ARTICLE_CD,
+       A.ARTICLE_NM,
+       A.INSPT_FLD,
+       A.TAKE_TERM,
+       A.NOT_FIT_CLSFI,
+       A.COMM_1,
+       A.COMM_2,
+       A.COMM_3,
+       A.COMM_4,
+       A.COMM_5,
+       A.COMM_CALC,
+       A.BASIS_STAND,
+       A.CUSER,
+       A.CDATE,
+       A.UUSER,
+       A.UDATE,
+       A.TEST_MTOD,
+       --검사자 정보 세팅  20160817 처리자:맹수영 요청자:최준열  (CH201608_00315)
+       A.MANAGE_SABUN,
+       (SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = A.MANAGE_SABUN ) MANAGE_NM,
+       INSPT_METHOD
+  FROM LCM_TEST_ARTICLE A
+ WHERE 1 = 1
+<#if insptFld?has_content> AND A.INSPT_FLD = :insptFld </#if>
+<#if articleNm?has_content> AND A.ARTICLE_NM LIKE '%' || :articleNm || '%' </#if>
+ ORDER BY A.ARTICLE_CD, A.ARTICLE_NM
+        ]]></statement>
+
+	<!-- 시험항목번호를 채번 한다. -->
+	<statement name="selectTestArticleCd" type="select">
+		/*+ com.hwfs.ls.lcm.dao.TestArticleMgmtDAO.selectTestArticleCd
+		*/
+		<![CDATA[
+/* 시험항목번호 채번 */
+SELECT 'T'||LPAD(TO_NUMBER(NVL(MAX(SUBSTR(ARTICLE_CD,2,9)),0)) + 1, 9, '0') AS ARTICLE_CD
+  FROM LCM_TEST_ARTICLE
+        ]]>
+	</statement>
+
+	<!-- 시험항목을 생성한다. -->
+	<statement name="insertTestArticleList" type="insert"><![CDATA[
+/* 시험항목 생성 */
+INSERT INTO LCM_TEST_ARTICLE
+(
+ ARTICLE_CD,
+ ARTICLE_NM,
+ INSPT_FLD,
+ TAKE_TERM,
+ NOT_FIT_CLSFI,
+ COMM_1,
+ COMM_2,
+ COMM_3,
+ COMM_4,
+ COMM_5,
+ COMM_CALC,
+ BASIS_STAND,
+ TEST_MTOD,
+ MANAGE_SABUN,
+ INSPT_METHOD,
+ CUSER,
+ CDATE,
+ UUSER,
+ UDATE
+) VALUES (
+ :articleCd,
+<#if articleNm?exists> :articleNm, <#else> null, </#if>
+<#if insptFld?exists> :insptFld, <#else> null, </#if>
+<#if takeTerm?exists> :takeTerm, <#else> null, </#if>
+<#if notFitClsfi?exists> :notFitClsfi, <#else> null, </#if>
+<#if comm1?exists> :comm1, <#else> null, </#if>
+<#if comm2?exists> :comm2, <#else> null, </#if>
+<#if comm3?exists> :comm3, <#else> null, </#if>
+<#if comm4?exists> :comm4, <#else> null, </#if>
+<#if comm5?exists> :comm5, <#else> null, </#if>
+<#if commCalc?exists> :commCalc, <#else> null, </#if>
+<#if basisStand?exists> :basisStand, <#else> null, </#if>
+<#if testMtod?exists> :testMtod, <#else> null, </#if>
+<#if manageSabun?exists> :manageSabun, <#else> null, </#if>
+<#if insptMethod?exists> :insptMethod,  <#else> null, </#if>
+ :loginSabun,
+ SYSDATE,
+ :loginSabun,
+ SYSDATE
+)
+        ]]></statement>
+
+	<!-- 시험항목을 수정한다. -->
+	<statement name="updateTestArticleList" type="update"><![CDATA[
+/* 시험항목 저장 */
+UPDATE LCM_TEST_ARTICLE SET
+<#if articleNm?exists> ARTICLE_NM = :articleNm, </#if>
+<#if insptFld?exists> INSPT_FLD = :insptFld, </#if>
+<#if takeTerm?exists> TAKE_TERM = :takeTerm, </#if>
+<#if notFitClsfi?exists> NOT_FIT_CLSFI = :notFitClsfi, <#else> null, </#if>
+<#if comm1?exists> COMM_1 = :comm1, </#if>
+<#if comm2?exists> COMM_2 = :comm2, </#if>
+<#if comm3?exists> COMM_3 = :comm3, </#if>
+<#if comm4?exists> COMM_4 = :comm4, </#if>
+<#if comm5?exists> COMM_5 = :comm5, </#if>
+<#if commCalc?exists> COMM_CALC = :commCalc, </#if>
+<#if basisStand?exists> BASIS_STAND = :basisStand, </#if>
+<#if testMtod?exists> TEST_MTOD = :testMtod, </#if>
+<#if manageSabun?exists> MANAGE_SABUN = :manageSabun, </#if>
+<#if insptMethod?exists> INSPT_METHOD = :insptMethod, </#if>
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+WHERE  ARTICLE_CD = :articleCd
+        ]]></statement>
+
+	<!-- 시험항목을 삭제한다. -->
+	<statement name="deleteTestArticleList" type="delete">
+		/*+ com.hwfs.ls.lcm.dao.TestArticleMgmtDAO.deleteTestArticleList
+		*/
+		<![CDATA[
+/* 시험항목 삭제 */
+DELETE FROM LCM_TEST_ARTICLE
+WHERE  ARTICLE_CD = :articleCd
+        ]]>
+	</statement>
+
+	<!-- 전체 생성 -->
+	<statement name="insertTestArticleAllList" type="insert"><![CDATA[
+/* 시험항목 생성 */
+INSERT INTO LCM_TEST_ARTICLE
+(
+ ARTICLE_CD,
+ ARTICLE_NM,
+ INSPT_FLD,
+ TAKE_TERM,
+ NOT_FIT_CLSFI,
+ COMM_1,
+ COMM_2,
+ COMM_3,
+ COMM_4,
+ COMM_5,
+ COMM_CALC,
+ BASIS_STAND,
+ TEST_MTOD,
+ MANAGE_SABUN,
+ INSPT_METHOD,
+ CUSER,
+ CDATE,
+ UUSER,
+ UDATE
+) VALUES (
+ :articleCd,
+<#if articleNm?exists> :articleNm, <#else> null, </#if>
+<#if insptFld?exists> DECODE(:insptFld,'미생물','101','102'), <#else> null, </#if>
+<#if takeTerm?exists> :takeTerm, <#else> null, </#if>
+<#if notFitClsfi?exists> CASE WHEN :notFitClsfi = '주의' THEN '101'
+                              WHEN :notFitClsfi = '경결함' THEN '102'
+                         ELSE '103'
+                         END,
+<#else> null,
+</#if>
+<#if comm1?exists> :comm1, <#else> null, </#if>
+<#if comm2?exists> :comm2, <#else> null, </#if>
+<#if comm3?exists> :comm3, <#else> null, </#if>
+<#if comm4?exists> :comm4, <#else> null, </#if>
+<#if comm5?exists> :comm5, <#else> null, </#if>
+<#if commCalc?exists> :commCalc, <#else> null, </#if>
+<#if basisStand?exists> :basisStand, <#else> null, </#if>
+<#if testMtod?exists> :testMtod, <#else> null, </#if>
+<#if manageSabun?exists> :manageSabun, <#else> null, </#if>
+<#if insptMethod?exists> :insptMethod,  <#else> null, </#if>
+ :loginSabun,
+ SYSDATE,
+ :loginSabun,
+ SYSDATE
+)
+        ]]></statement>
+
+	<!-- 전체 삭제 -->
+	<statement name="deleteAllList" type="delete">
+		/*+ com.hwfs.ls.lcm.dao.TestArticleMgmtDAO.deleteAllList */
+		<![CDATA[
+/* 시험항목 전체 삭제 */
+DELETE FROM LCM_TEST_ARTICLE
+        ]]>
+	</statement>
+
+</hqml>

@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.roa.helperSummaryReportDAO">
+	<desc>Helper 지원현황 집계 HQML Query</desc>
+
+	<!-- Helper 지원현황 집계를 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.rc.roa.dao.HelperSummaryReportDAO.selectList */
+		<![CDATA[
+            SELECT  A.MUCD
+                    ,(
+                    SELECT  TM_CD
+                    FROM    HLDC_SC_DEPT_V X
+                    WHERE   X.CC_CD IN (
+                                        SELECT  XX.CC_CD
+                                        FROM    ST_UPJANG XX
+                                        WHERE   XX.UPJANG = A.UPJANG
+                                        )
+                    ) TM_CD
+                    ,(
+                    SELECT  TM_NM
+                    FROM    HLDC_SC_DEPT_V X
+                    WHERE   X.CC_CD IN (
+                                        SELECT  XX.CC_CD
+                                        FROM    ST_UPJANG XX
+                                        WHERE   XX.UPJANG = A.UPJANG
+                                        )
+                    ) TM_NM
+                    ,A.UPJANG
+                    ,(
+                    SELECT  Y.UPJANGNM
+                    FROM    ST_UPJANG Y
+                    WHERE   Y.UPJANG = A.UPJANG
+                    ) UPJANG_NM
+                    ,A.SUP_TIME TIME
+                    ,A.SUP_AMT AMT
+                    ,(
+                    SELECT  TM_CD
+                    FROM    HLDC_SC_DEPT_V X
+                    WHERE   X.CC_CD IN (
+                                        SELECT  XX.CC_CD
+                                        FROM    ST_UPJANG XX
+                                        WHERE   XX.UPJANG = B.SUP_UPJANG
+                                        )
+                    ) SUP_TM_CD
+                    ,(
+                    SELECT  TM_NM
+                    FROM    HLDC_SC_DEPT_V X
+                    WHERE   X.CC_CD IN (
+                                        SELECT  XX.CC_CD
+                                        FROM    ST_UPJANG XX
+                                        WHERE   XX.UPJANG = B.SUP_UPJANG
+                                        )
+                    ) SUP_TM_NM
+                    ,B.SUP_UPJANG
+                    ,(
+                    SELECT  Y.UPJANGNM
+                    FROM    ST_UPJANG Y
+                    WHERE   Y.UPJANG = B.SUP_UPJANG
+                    ) SUP_UPJANG_NM
+                    ,B.SUP_TIME
+                    ,B.SUP_AMT
+                    ,B.SLIP_CREATION_YN
+                <#if helperGradeYn?has_content && helperGradeYn == '1'>
+                    ,A.HELPER_GRADE_CD
+                    ,(
+                    SELECT  Z.HELPER_GRADE_CD_NM
+                    FROM    RSS_HELPER_GRADE_INFO Z
+                    WHERE   Z.HELPER_GRADE_CD = A.HELPER_GRADE_CD
+                    ) HELPER_GRADE_CD_NM
+                    ,(
+                    SELECT  Z.SUP_AMT
+                    FROM    RSS_HELPER_GRADE_INFO Z
+                    WHERE   Z.HELPER_GRADE_CD = A.HELPER_GRADE_CD
+                    ) HELPER_AMT
+                    ,B.HELPER_GRADE_CD SUP_HELPER_GRADE_CD
+                    ,(
+                    SELECT  Z.HELPER_GRADE_CD_NM
+                    FROM    RSS_HELPER_GRADE_INFO Z
+                    WHERE   Z.HELPER_GRADE_CD = B.HELPER_GRADE_CD
+                    ) SUP_HELPER_GRADE_CD_NM
+                    ,(
+                    SELECT  Z.SUP_AMT
+                    FROM    RSS_HELPER_GRADE_INFO Z
+                    WHERE   Z.HELPER_GRADE_CD = B.HELPER_GRADE_CD
+                    ) SUP_HELPER_AMT
+                </#if>
+            FROM    (
+                    SELECT  A.MUCD
+                            ,A.UPJANG
+                            ,NULL SUP_UPJANG
+                        <#if helperGradeYn?has_content && helperGradeYn == '1'>
+                            ,A.HELPER_GRADE_CD
+                        </#if>
+                            ,SUM(A.SUP_TIME) SUP_TIME
+                            ,SUM(A.SUP_AMT) SUP_AMT
+                    FROM    RSS_HELPER_SUP_INFO A
+                    WHERE   SUBSTR(A.OCCUR_DATE,0,6) BETWEEN :occurDateFr AND :occurDateTo
+                <#if tmCd?has_content>
+                    AND     A.UPJANG IN (
+                                        SELECT  U.UPJANG
+                                        FROM    ST_UPJANG U
+                                        WHERE   U.CC_CD IN (
+                                                            SELECT  T.CC_CD
+                                                            FROM    HLDC_SC_DEPT_V T
+                                                            WHERE   T.TM_CD = :tmCd
+                                                            )
+                                        )
+                </#if>
+                <#if upjang?has_content>
+                    AND     A.UPJANG = :upjang
+                </#if>
+                    GROUP BY A.MUCD
+                            ,A.UPJANG
+                        <#if helperGradeYn?has_content && helperGradeYn == '1'>
+                            ,A.HELPER_GRADE_CD
+                        </#if>
+                    ) A
+                    ,(
+                    SELECT  A.MUCD
+                            ,A.UPJANG
+                            ,A.SUP_UPJANG
+                            ,NVL(A.SLIP_CREATION_YN,'N') SLIP_CREATION_YN
+                        <#if helperGradeYn?has_content && helperGradeYn == '1'>
+                            ,A.HELPER_GRADE_CD
+                        </#if>
+                            ,SUM(A.SUP_TIME) SUP_TIME
+                            ,SUM(A.SUP_AMT) SUP_AMT
+                    FROM    RSS_HELPER_SUP_INFO A
+                    WHERE   SUBSTR(A.OCCUR_DATE,0,6) BETWEEN :occurDateFr AND :occurDateTo
+                <#if tmCd?has_content>
+                    AND     A.UPJANG IN (
+                                        SELECT  U.UPJANG
+                                        FROM    ST_UPJANG U
+                                        WHERE   U.CC_CD IN (
+                                                            SELECT  T.CC_CD
+                                                            FROM    HLDC_SC_DEPT_V T
+                                                            WHERE   T.TM_CD = :tmCd
+                                                            )
+                                        )
+                </#if>
+                <#if upjang?has_content>
+                    AND     A.UPJANG = :upjang
+                </#if>                    
+                    GROUP BY A.MUCD
+                            ,A.UPJANG
+                            ,A.SUP_UPJANG
+                            ,A.SLIP_CREATION_YN
+                        <#if helperGradeYn?has_content && helperGradeYn == '1'>
+                            ,A.HELPER_GRADE_CD
+                        </#if>
+                    ) B
+            WHERE   A.MUCD              = B.MUCD (+)
+            AND     A.UPJANG            = B.UPJANG (+)
+        <#if helperGradeYn?has_content && helperGradeYn == '1'>
+            AND     A.HELPER_GRADE_CD   = B.HELPER_GRADE_CD (+)
+        </#if>
+            ORDER BY MUCD
+                    ,UPJANG
+                <#if helperGradeYn?has_content && helperGradeYn == '1'>
+                    ,HELPER_GRADE_CD
+                </#if>
+                    ,SUP_UPJANG NULLS FIRST
+		]]>
+	</statement>
+
+</hqml>

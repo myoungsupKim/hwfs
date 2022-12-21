@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT T.MU_CD
+     , T.MU_NM
+     , T.TM_CD
+     , T.TM_NM
+     , T.CENTER_CODE
+     , T.CUSTCD
+     , T.ITEM_CODE
+     , T.START_DATE
+     , T.AVG_MEAL_QTY
+     , D.CDATE
+     , NVL(D.DUTY_QTY, 0) AS DUTY_QTY
+     , NVL(D.NEED_QTY, 0) AS NEED_QTY
+     , #KG_CONVERT_RATE# AS KG_CONVERT_RATE
+     , NVL((
+           SELECT ROUND(SUM(TRANS_QTY), 0)
+             FROM FSI_DUTY_DAILY_SUM
+            WHERE CENTER_CODE = D.CENTER_CODE
+              AND START_DATE = D.START_DATE
+              AND ITEM_CODE = D.ITEM_CODE
+              AND TM_CD = T.TM_CD 
+              AND DUTY_YN = 'Y'
+          ), 0) AS REAL_USE_QTY     
+  FROM (SELECT #CENTER_CODE# AS CENTER_CODE
+             , #CUSTCD# AS CUSTCD
+             , #ITEM_CODE# AS ITEM_CODE
+             , #START_DATE# AS START_DATE
+             , A.MU_CD
+             , A.MU_NAME AS MU_NM
+             , A.TM_CD
+             , A.TM_NAME AS TM_NM
+             , NVL(SUM(AVG_MEAL_QTY), 0) AS AVG_MEAL_QTY
+          FROM MAC_UPJANG_V A
+             ,(SELECT UPJANG
+                    , SUM(AVG_MEAL_QTY) AVG_MEAL_QTY
+                 FROM FSA_HALL_DTL
+                WHERE MEAL = '002' /* 끼니 (중식) 현업요청에 의해 중식만 포함 */
+                  AND USE_YN = 'Y'
+                GROUP BY UPJANG) B
+         WHERE A.SAUP_TYPE &lt; '004'
+           AND A.UPJANG = B.UPJANG(+)
+           AND A.CLOSE_DATE IS NULL /* 폐점업장 제외 */
+         GROUP BY A.MU_CD, A.MU_NAME, A.TM_CD, A.TM_NAME) T
+      , FSI_DUTY_SET D
+      , (
+         SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE 
+          WHERE GROUP_CODE = 'MA0045' AND USE_YN = 'Y' 
+        ) E 
+  WHERE T.TM_CD = D.TM_CD(+)
+    AND T.CENTER_CODE = D.CENTER_CODE(+)
+    AND T.CUSTCD = D.CUSTCD(+)
+    AND T.ITEM_CODE = D.ITEM_CODE(+)
+    AND T.START_DATE = D.START_DATE(+)
+    AND T.TM_CD = E.CODE
+<isNotNull col="MU_CD">
+    AND T.MU_CD  = #MU_CD#
+</isNotNull>
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_dutyList">
+	</output>
+</query>

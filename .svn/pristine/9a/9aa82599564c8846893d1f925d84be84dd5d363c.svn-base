@@ -1,0 +1,628 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Script type="xscript4.0"><![CDATA[/**
+ * Login, Login_FICS, Login_SPOON Form 공통 JS 스크립트
+ * @ClassName Login.xjs
+ * @Description Login javascript 
+ * @Modification-Information
+ *    수정일      수정자         수정내용
+ *  ----------   ----------   -------------------------------
+ *  2015.04.28    kksoo       3개 로그인폼 스크립트를 통합
+ *
+ * @author FC종합전산구축 : AA kksoo
+ * @since 2015.04.28.
+ * @version 1.0
+ * @see 
+ * 
+ *  Copyright (C) 2014 by HANWHA S&C CO.,LTD. All right reserved.
+ */
+
+/************************************************************************************************
+ * FORM 변수 선언 영역 (필수)
+************************************************************************************************/
+var fv_isLogin = false;		//로그인 여부
+
+/************************************************************************************************
+ * FORM EVENT 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Form Load (필수)
+ *---------------------------------------------------------------------------------------------*/
+function Login_onload(obj:Form, e:LoadEventInfo) 
+{
+	//공통변수 초기화
+	gv_menuId = "";
+	gv_progrmId = "";
+	
+	// 윈도우 최상 레벨로 로그인화면을 보여준다.
+	var expObj = new ExtCommon();
+	expObj.SetTopWindow(1);
+	
+    var strUserId = application.getPrivateProfile("userId", false);
+    
+    if (g_AppId == "HWFS") {
+		g_SystemId = gfn_isNull(getPrivateProfile("LastSysType")) ? g_SystemId : getPrivateProfile("LastSysType");
+		
+		// for bizWell GW
+		fn_setMSIE();
+	}
+	
+	gds_menu.clearData();
+	gds_leftMenu.clearData();
+    gds_mainMenu.clearData();     
+    
+    if ( !gfn_isNull(strUserId) ) 
+    {
+        edt_userId.value = strUserId;
+        chk_idSave.value = true;
+        edt_pswd.setFocus();
+    } 
+    else {
+        edt_userId.setFocus();
+    }
+}
+
+
+/************************************************************************************************
+ * 공통기능 FUNCTION 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 로그인 처리 
+ *---------------------------------------------------------------------------------------------*/
+function fn_logIn() 
+{
+
+	mfn_GetSystemWorkCheck("SYS");
+	if (ds_common.getColumn(0, 0) == "Y" && gv_blockMode != "backdoor" )
+	{
+		var strMsg;
+		strMsg = "시스템 작업 중이라 다음 시간 동안 사용할 수 없습니다. \n"
+		       + "(사용불가시간 => " + ds_common.getColumn(0, 1) + " ~ " + ds_common.getColumn(0, 2) + ")\n\n"
+		       + "시스템 개선사항 반영을 위해 시스템 종료하오니 상기 작업 시간 이후 재접속을 부탁드립니다.";
+		       
+		g_Message("EE", strMsg);
+		application.exit();
+		return false; 
+	}			
+	
+    if(gfn_isNull(edt_userId.value)) 
+    {
+        gfn_alert("msg.noinput", "사용자ID");	// $1 을(를) 입력해 주십시요.
+        edt_userId.setFocus();
+        return;
+    }
+     
+    if(gfn_isNull(edt_pswd.value)) 
+    {
+        gfn_alert("msg.noinput", "패스워드");	// $1 을(를) 입력해 주십시요.
+        edt_pswd.setFocus();
+        return;
+    }
+    
+    if ( g_AppId == "HWFS" && (application.getPrivateProfile("userId", false) != edt_userId.value) ) {
+		g_SystemId = "IFIS";
+    }
+    
+// 	// 권한 조회 후 처리_test용 임시
+// 	fn_setAuthProcess();
+// 	
+// 	// 개인정보취급방침 확인_test용 임시
+// 	var sRtn = fn_popupPersonData("check");
+// 	if(sRtn != "OK")
+// 	{
+// 		gfn_alert("개인정보취급방침 수락 후 시스템 사용이 가능합니다.");
+// 		return;
+// 	}
+// 	else {
+// 		this.close("OK");
+// 	}
+	    
+    var strSvcID    = "login";
+    var strURL      = "sc/cmn/login.xdo?" + gfn_getGlobalVariableUrl();	//세션 생성 전이므로 여기에 공통 파라미터 설정
+    var strInDs     = "";
+    var strOutDs    = "gds_userInfo=gdsUserInfo";
+    var strArg      = "id=" + wrapQuote(edt_userId.value)
+					+  " pwd=" + wrapQuote(edt_pswd.value);
+    var strCallback = "fn_callBack";
+    var bAsync      = true;
+    
+    gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+}
+
+
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 전체 메뉴 조회
+ *---------------------------------------------------------------------------------------------*/
+function fn_getMenu() 
+{
+    var strSvcID    = "getMenu";
+    var strURL      = "sc/cmn/selectMenu.xdo";
+    var strInDs     = "";
+    var strOutDs    = "gds_menu=gdsMenu";
+    var strArg      = "";
+    var strCallback = "fn_callBack";
+    var bAsync      = true;
+    
+    gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+}
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 트랜잭션 콜백 함수 (필수)
+ *---------------------------------------------------------------------------------------------*/
+function fn_callBack(strSvcID, nErrorCode, strErrorMsg)
+{	
+	// 에러시 gfn_callBack에서 메시지 제공, 화면별 특정 에러 발생시에만 사용하세요.
+	if (nErrorCode < 0) 
+	{
+		/*
+		//오픈초기에만 초기비밀번호 공지를 위함 --> 나중에 제거
+		if (gv_runMode == "S" && strSvcID == "login" && (g_AppId == "FICS" || g_AppId == "SPOON") && edt_pswd.value != "1234" &&
+			strErrorMsg.indexOf("비밀번호 오류") != -1) {			
+			gfn_alert ("시스템 오픈과 함께 비밀번호가 1234로 초기화 되었습니다. 로그인 후 비밀번호를 변경하시기 바랍니다."); 
+		}*/
+		
+		return;
+	}
+	
+    switch(strSvcID)
+    {
+		// 로그인
+        case "login" :
+			//서버에서 전송한 메시지가 있는 경우 표시
+			if (nErrorCode <> 0)
+				gfn_alert (strErrorMsg);
+				
+			fv_isLogin = true;	//로그인된 상태
+			
+			//trace(gds_userInfo.saveXML());
+            // 조회 건수 확인  
+            if (gds_userInfo.getRowCount() == 0) 
+            {
+                gfn_alert("msg.login.error");	//해당하는 사용자 정보가 없습니다.
+                return;
+            }
+                      
+			// 아이지저장 체크 시 아이디 저장
+			if ( chk_idSave.isChecked() ) {
+				application.setPrivateProfile("userId", edt_userId.value, false);
+			}else{
+				application.setPrivateProfile("userId", "", false);
+			}			
+			
+			//외식사업부 제외 추가(김영욱요청)
+			if (gds_userInfo.getColumn(gds_userInfo.rowposition, "muCd") != "2003") {
+			
+				if (gds_userInfo.getColumn(gds_userInfo.rowposition, "userType") == "내부") {
+				
+					//근태 복수개로 표시하기 위해 변경 20190225 김호석 
+					if (!gfn_isNull(gds_userInfo.getColumn(gds_userInfo.rowposition, "gntCd"))) {
+					//if (gds_userInfo.getColumn(gds_userInfo.rowposition, "gntCd") != "N") {
+						var gntNm = gds_userInfo.getColumn(gds_userInfo.rowposition, "gntNm").replace("-",",");					
+					}			
+					if (!gfn_isNull(gds_userInfo.getColumn(gds_userInfo.rowposition, "nGntCd"))) {
+					//if (gds_userInfo.getColumn(gds_userInfo.rowposition, "nGntCd") != "N") {
+						var nGntNm = gds_userInfo.getColumn(gds_userInfo.rowposition, "nGntNm").replace("-",",");
+					}
+					// 오늘또는내일 근태인 경우 노무수령 거부의사 팝업 확인여부 체크			
+					//if ( ((gds_userInfo.getColumn(gds_userInfo.rowposition, "gntCd") != "N") || 
+					//	 (gds_userInfo.getColumn(gds_userInfo.rowposition, "nGntCd") != "N")  ) &&
+					/*
+					if (( (!gfn_isNull(gds_userInfo.getColumn(gds_userInfo.rowposition, "gntCd"))) || 
+						 (!gfn_isNull(gds_userInfo.getColumn(gds_userInfo.rowposition, "nGntCd")))  ) &&				
+						 (gds_userInfo.getColumn(gds_userInfo.rowposition, "gntYn") != "Y") ) {
+						
+						var sRtn = fn_popupHR(gntNm, nGntNm);
+						
+						if(sRtn != "Y")
+						{
+							gfn_alert("노무수령 거부 메시지 미확인 시 시스템 사용이 불가합니다."); 
+							return;
+						}
+					}
+					*/
+				}
+			}
+			
+            // 내부사용자가 아니면서 개인정보취급방침에 동의를 하지 않은 경우
+            if (gds_userInfo.getColumn(gds_userInfo.rowposition, "userType") != "내부" &&
+				gds_userInfo.getColumn(gds_userInfo.rowposition, "persInfoAgreeYn") != "Y") {
+				gfn_alert("msg.pers.info.agree"); //시스템 사용을 위해서는 개인정보취급방침에 동의하셔야 합니다.
+				var sRtn = fn_popupPersonData("check");
+				
+				if(sRtn != "Y")
+				{
+					gfn_alert("msg.pers.info.not.agree"); //개인정보취급방침에 동의하지 않아 시스템을 사용할 수 없습니다.
+					return;
+				}
+			}
+			
+			//비밀번호 변경주기가 된 경우 또는 미사용으로 잠긴 경우
+			//alert(gds_userInfo.getColumn(gds_userInfo.rowposition, "acctStatus") + "," + gds_userInfo.getColumn(gds_userInfo.rowposition, "acctLkReasonCd"));
+			//alert(gds_userInfo.getColumn(gds_userInfo.rowposition, "pwdChgYn") + "," + gds_userInfo.getColumn(gds_userInfo.rowposition, "pwdChgDate"));
+			if (gds_userInfo.getColumn(gds_userInfo.rowposition, "pwdChgYn") == "Y") {
+				var msgId;
+				var pwdChgDate = gds_userInfo.getColumn(gds_userInfo.rowposition, "pwdChgDate");
+				//비밀번호가 초기화된 상태
+				if (!gfn_isNull(pwdChgDate) && pwdChgDate == '19000101')
+					msgId = "msg.pwd.must.change.by.init";
+				//계정이 잠긴 상태
+				else if (gds_userInfo.getColumn(gds_userInfo.rowposition, "acctStatus") == "LOCK")
+					msgId = "msg.pwd.must.change.in.lock";
+				else	//계정이 정상 및 그외 상태
+					msgId = "msg.pwd.must.change";
+					
+				gfn_alert(msgId);
+				var sRtn = fn_popupPwdChange ("", "");
+
+				if(sRtn != "OK")
+				{
+					gfn_alert(msgId); //비밀번호를 변경해야 시스템을 사용할 수 있습니다.
+					return;
+				}
+			}
+			
+			//필수개인정보가 수집되지 않은 경우
+			if (gfn_isNull(gds_userInfo.getColumn(gds_userInfo.rowposition, "hpNo")) || 
+				gfn_isNull(gds_userInfo.getColumn(gds_userInfo.rowposition, "emailAddr"))) {
+				
+				gfn_alert("msg.pers.must.change");	//시스템에서 발송하는 중요 메시지를 전달받으려면 개인정보취급방침에서 동의한 필수 항목을 입력하셔야 합니다.
+				var sRtn = fn_popupPersChange ();
+				if(sRtn != "OK")
+				{
+					gfn_alert("msg.pers.no.input"); //개인정보취급방침에서 동의한 필수 항목을 입력하시지 않았습니다. 초기화면에서 개인정보를 변경하실 수 있습니다.
+				}
+			}
+
+			// 메뉴 조회
+			fn_getMenu();
+			break;
+
+		// 메뉴 조회
+        case "getMenu" :                         
+			// 메뉴 조회 후 처리
+			fn_setAuthProcess();            
+            break;
+               
+        
+    }
+}
+
+
+/************************************************************************************************
+ * 사용자 FUNCTION 영역 (필수)
+************************************************************************************************/
+/*-----------------------------------------------------------------------
+ * 설명    : 권한 조회 후 처리
+ *-----------------------------------------------------------------------*/
+function fn_setAuthProcess() 
+{	
+	// Global Value 설정(ds_roll 대신 gds_userInfo의 칼럼 정보로 data 설정 필요)
+	g_AuthLevel         = gds_userInfo.getColumn(gds_userInfo.rowposition, "authLevel"); // ds_roll.getColumn(ds_roll.rowposition,"g_AuthLevel");
+	g_Cc_Cd             = gds_userInfo.getColumn(gds_userInfo.rowposition, "ccCd"); // ds_roll.getColumn(ds_roll.rowposition,"g_Cc_Cd");
+	g_Cc_Nm             = gds_userInfo.getColumn(gds_userInfo.rowposition, "ccNm"); // ds_roll.getColumn(ds_roll.rowposition,"g_Cc_Nm");
+	g_CustCd            = gds_userInfo.getColumn(gds_userInfo.rowposition, "custCd"); // ds_roll.getColumn(ds_roll.rowposition,"g_CustCd");
+	g_CustNm            = gds_userInfo.getColumn(gds_userInfo.rowposition, "custNm"); // ds_roll.getColumn(ds_roll.rowposition,"g_CustNm");
+	g_Deptid            = gds_userInfo.getColumn(gds_userInfo.rowposition, "deptId"); // ds_roll.getColumn(ds_roll.rowposition,"g_Deptid");
+	g_DeptNm            = gds_userInfo.getColumn(gds_userInfo.rowposition, "deptNm"); // ds_roll.getColumn(ds_roll.rowposition,"g_DeptNm");
+	g_EmpNo             = gds_userInfo.getColumn(gds_userInfo.rowposition, "sabun"); // ds_roll.getColumn(ds_roll.rowposition,"g_EmpNo");
+	g_Main_Upjang       = gds_userInfo.getColumn(gds_userInfo.rowposition, "mainUpjang"); // ds_roll.getColumn(ds_roll.rowposition,"g_Main_Upjang");
+	g_Main_UpjangNm     = gds_userInfo.getColumn(gds_userInfo.rowposition, "mainUpjangNm"); // ds_roll.getColumn(ds_roll.rowposition,"g_Main_UpjangNm");
+	g_Mu_Cd             = gds_userInfo.getColumn(gds_userInfo.rowposition, "muCd"); // ds_roll.getColumn(ds_roll.rowposition,"g_Mu_Cd");
+	g_Mu_Nm             = gds_userInfo.getColumn(gds_userInfo.rowposition, "muNm"); // ds_roll.getColumn(ds_roll.rowposition,"g_Mu_Nm");
+	g_Name              = gds_userInfo.getColumn(gds_userInfo.rowposition, "nmKor"); // ds_roll.getColumn(ds_roll.rowposition,"g_Name");
+	g_OtCustCd          = gds_userInfo.getColumn(gds_userInfo.rowposition, "otCustCd"); // ds_roll.getColumn(ds_roll.rowposition,"g_OtCustCd");
+	g_OtCustNm          = gds_userInfo.getColumn(gds_userInfo.rowposition, "otCustNm"); //ds_roll.getColumn(ds_roll.rowposition,"g_OtCustNm");
+	g_Sc_Cd             = gds_userInfo.getColumn(gds_userInfo.rowposition, "scCd"); // ds_roll.getColumn(ds_roll.rowposition,"g_Sc_Cd");
+	g_Sc_Nm             = gds_userInfo.getColumn(gds_userInfo.rowposition, "scNm"); // ds_roll.getColumn(ds_roll.rowposition,"g_Sc_Nm");
+	g_Tm_Cd             = gds_userInfo.getColumn(gds_userInfo.rowposition, "tmCd"); // ds_roll.getColumn(ds_roll.rowposition,"g_Tm_Cd");
+	g_Tm_Nm             = gds_userInfo.getColumn(gds_userInfo.rowposition, "tmNm"); // ds_roll.getColumn(ds_roll.rowposition,"g_Tm_Nm");
+	g_Upjang            = gds_userInfo.getColumn(gds_userInfo.rowposition, "upjang"); // ds_roll.getColumn(ds_roll.rowposition,"g_Upjang");
+	g_UpjangGroup       = gds_userInfo.getColumn(gds_userInfo.rowposition, "upjangGroup"); // ds_roll.getColumn(ds_roll.rowposition,"g_UpjangGroup");
+	g_UpjangNm          = gds_userInfo.getColumn(gds_userInfo.rowposition, "upjangNm"); // ds_roll.getColumn(ds_roll.rowposition,"g_UpjangNm");
+	g_UserGroup         = gds_userInfo.getColumn(gds_userInfo.rowposition, "userGroup"); // ds_roll.getColumn(ds_roll.rowposition,"g_UserGroup");
+	g_UserKind          = gds_userInfo.getColumn(gds_userInfo.rowposition, "userKind"); // ds_roll.getColumn(ds_roll.rowposition,"g_UserKind");
+	g_Simple_Po_Yn      = gds_userInfo.getColumn(gds_userInfo.rowposition, "simplePoYn");
+	g_Board_Mst		    = gds_userInfo.getColumn(gds_userInfo.rowposition, "boardMst");
+	g_System_Mst		= gds_userInfo.getColumn(gds_userInfo.rowposition, "systemMst");
+	g_CtiUseYn          = gds_userInfo.getColumn(gds_userInfo.rowposition, "ctiUseYn"); //CTI 사용여부
+	g_CtiUserId         = gds_userInfo.getColumn(gds_userInfo.rowposition, "ctiUserId"); //CTI 사용자 ID
+	g_PersInfoAgreeYn   = gds_userInfo.getColumn(gds_userInfo.rowposition, "persInfoAgreeYn"); // 개인정보 동의여부
+	g_PersInfoMask      = gds_userInfo.getColumn(gds_userInfo.rowposition, "persInfoMask"); // 개인정보 마스킹 여부
+	g_PersInfoProcLevel = gds_userInfo.getColumn(gds_userInfo.rowposition, "persInfoProcLevel"); // 개인정보 처리 레벨
+	g_UserType          = gds_userInfo.getColumn(gds_userInfo.rowposition, "userType"); // 내부.외부구분
+	g_TempSabunManageSabun=gds_userInfo.getColumn(gds_userInfo.rowposition, "tempSabunManageSabun"); // 임시사번 관리사번
+	gv_AuthLevels       = gds_userInfo.getColumn(gds_userInfo.rowposition, "authLevels"); // 사용자 권한들(콤마(,)로 구분되어짐.)
+	g_IntroPage         = gds_userInfo.getColumn(gds_userInfo.rowposition, "introPage"); //초기 IntroFrame 유형
+	gv_MainUpjangImg    = gds_userInfo.getColumn(gds_userInfo.rowposition, "mainUpjangImg"); //메인 업장에 대한 CI이미지
+	gv_manageAllowIp    = gds_userInfo.getColumn(gds_userInfo.rowposition, "manageAllowIp"); //관리자인 경우에 대하여 접속가능한 PC의 IP주소
+	gv_userRoles        = gds_userInfo.getColumn(gds_userInfo.rowposition, "userRoles"); //사용자에게 부여된 권한집합(,로 구분되어짐)
+	gv_applyAuthYn      = gds_userInfo.getColumn(gds_userInfo.rowposition, "applyAuthYn"); //권한 적용여부를 판별한다.
+	
+	gv_PtCd             = gds_userInfo.getColumn(gds_userInfo.rowposition, "ptCd"); //특정조직(FC호남영업소의 파트조직 코드을 강제로 변경한 값... 그외는 NO_PT로 설정됨.)
+	gv_PtNm             = gds_userInfo.getColumn(gds_userInfo.rowposition, "ptNm"); //특정조직(FC호남영업소의 파트조직 명을   강제로 변경한 값... 그외는 NO_PT로 설정됨.)
+	
+	gv_upjang           = g_Upjang;        //최초 로그인시에 업장코드
+	gv_upjangnm         = g_UpjangNm;      //최초 로그인시에 업장명
+	gv_mainUpjang       = g_Main_Upjang;   //최초 로그인시에 메인업장코드
+	gv_mainUpjangNm     = g_Main_UpjangNm; //최초 로그인시에 메인어방명
+	gv_UserChngSrcSabun = g_EmpNo;         //최초 로그인시에 사번(사용자 변경시 원래사용자의 값을 유지하기 위해서 로그인시에만 반영된다.)
+	
+	gv_slipSabun        = gds_userInfo.getColumn(gds_userInfo.rowposition, "slipSabun"); //전표처리를 위한 사번(가사번인 경우에는 가사번관리자의 사번을 그외는 사번으로)
+	
+    // 전역변수 셋팅
+    gv_ipAddr = gfn_getIpAddr();
+
+    // Left 메뉴 Dataset Copy
+    gds_leftMenu.copyData(gds_menu);
+
+    // Top 메뉴 Dataset Copy
+    gds_mainMenu.copyData(gds_menu); 
+    
+	if (g_SystemId == "SPOON" || g_SystemId == "FICS")
+	{	
+		application.loadStyle("SPOON.css", false);
+	}
+	else {
+		application.loadStyle("HWFS.css", false);
+	}
+
+    // 메인프레임의 호출형태를 Modeless로 변경되어(윈도우 tray icon표시 때문에)
+    // 로그인 관련 function를 호출한다. by jshoon
+	this.opener.fn_loginAction("OK", this);
+	
+	//메인프레임으로 이동 by kksoo
+	//this.close("OK");
+}
+
+
+/************************************************************************************************
+ * 각 COMPONENT 별 EVENT 영역 (필수)
+************************************************************************************************/
+/*-----------------------------------------------------------------------
+ * 설명            : Log In
+ *-----------------------------------------------------------------------*/
+function edit_onkeydown(obj:Edit, e:KeyEventInfo) 
+{
+    if( e.keycode == 13 ) {
+        fn_logIn();
+    } else if ( e.keycode == 20 && obj.name == "edt_pswd" ) {
+		stc_capsLock.visible = fn_isOnCapsLock();
+    }
+}
+
+/*-----------------------------------------------------------------------
+ * 설명            :  로그인 버튼 클릭시 
+ *-----------------------------------------------------------------------*/
+function btn_login_onclick(obj:Button,  e:ClickEventInfo) 
+{
+    fn_logIn();
+}
+
+/*-----------------------------------------------------------------------
+ * 설명            : 닫기버튼 클릭 시
+ *-----------------------------------------------------------------------*/
+function btn_close_onclick(obj:Button,  e:ClickEventInfo) 
+{
+    av_close = 'LOGIN_CLOSE';
+    //로그인상태이면 로그아웃 시킨다.
+    if (fv_isLogin) {
+		var strSvcID    = "logout";
+		var strURL      = "sc/cmn/logout.xdo";
+		var strInDs     = "";
+		var strOutDs    = "";
+		var strArg      = "";
+		var strCallback = "";
+		var bAsync      = false;	//Sync로 처리
+    
+		gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+    }
+    //프로그램 종료
+    exit();
+}
+
+/*-----------------------------------------------------------------------
+ * 설명            : 개인정보취급방침 버튼 클릭 시
+ *-----------------------------------------------------------------------*/
+function btn_personData_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_popupPersonData("view");
+}
+
+/*-----------------------------------------------------------------------
+ * 설명            : 개인정보취급방침 팝업 호출
+ *-----------------------------------------------------------------------*/
+function fn_popupPersonData(sGubn)
+{
+	var strId       = "PersInfoProcPolicy";
+	var strURL      = "cmn::PersInfoProcPolicy.xfdl";
+	var objArgument = {aGubun:sGubn};
+	var nWidth      = -1;
+	var nHeight     = -1;
+	var strStyle    = "";	
+	var nLeft       = -1;
+	var nTop        = -1;
+	var isModeless  = false;
+	var bShowTitle  = true;
+	var strAlign    = "-1";
+
+	// 팝업 호출
+	var sRtn = gfn_dialog(strId, strURL, objArgument, nWidth, nHeight, strStyle, nLeft, nTop, isModeless, bShowTitle, strAlign);
+	
+	return sRtn;
+}
+
+
+/*-----------------------------------------------------------------------
+ * 설명            : 노무수령 거부의사 팝업 호출
+ *-----------------------------------------------------------------------*/
+function fn_popupHR(sGubun, sGubun2)
+{
+	var strId       = "HRProcPolicy";
+	var strURL      = "cmn::HRProcPolicy.xfdl";
+	var objArgument = {sGubun:sGubun, sGubun2:sGubun2};
+	var nWidth      = -1;
+	var nHeight     = -1;
+	var strStyle    = "";	
+	var nLeft       = -1;
+	var nTop        = -1;
+	var isModeless  = false;
+	var bShowTitle  = true;
+	var strAlign    = "-1";
+
+	// 팝업 호출
+	var sRtn = gfn_dialog(strId, strURL, objArgument, nWidth, nHeight, strStyle, nLeft, nTop, isModeless, bShowTitle, strAlign);
+	
+	return sRtn;
+}
+
+/*-----------------------------------------------------------------------
+ * 설명            : 비밀번호 변경 팝업 호출
+ *-----------------------------------------------------------------------*/
+function fn_popupPwdChange(sGubun, sUserid)
+{
+	//비밀번호 변경  팝업 호출
+	var strId       = "PwdChgPop";
+	var strURL      = "cmn::PwdChgPop.xfdl";
+	var objArgument = {argType:sGubun, argUserid:sUserid};
+	var nWidth      = -1;
+	var nHeight     = -1;
+	var strStyle    = "";	
+	var nLeft       = -1;
+	var nTop        = -1;
+	var isModeless  = false;
+	var bShowTitle  = true;
+	var strAlign    = "-1";
+
+	// 팝업 호출
+	var sRtn = gfn_dialog(strId, strURL, objArgument, nWidth, nHeight, strStyle, nLeft, nTop, isModeless, bShowTitle, strAlign);
+	return sRtn;
+}
+
+/*-----------------------------------------------------------------------
+ * 설명            : 개앤정보 변경 팝업 호출
+ *-----------------------------------------------------------------------*/
+function fn_popupPersChange()
+{
+	//개인정보 변경  팝업 호출
+	var strId       = "PersChgPop";
+	var strURL      = "cmn::PersChgPop.xfdl";
+	var objArgument = "";
+	var nWidth      = -1;
+	var nHeight     = -1;
+	var strStyle    = "";	
+	var nLeft       = -1;
+	var nTop        = -1;
+	var isModeless  = false;
+	var bShowTitle  = true;
+	var strAlign    = "-1";
+
+	// 팝업 호출
+	var sRtn = gfn_dialog(strId, strURL, objArgument, nWidth, nHeight, strStyle, nLeft, nTop, isModeless, bShowTitle, strAlign);
+	return sRtn;
+}
+
+/*-----------------------------------------------------------------------
+ * 설명            : 비밀번호 재설정 팝업 호출
+ *-----------------------------------------------------------------------*/
+function btn_pwdReset_onclick(obj:Button,  e:ClickEventInfo)
+{
+	//본인인증 팝업 호출
+	var strId       = "OwnCertPop";
+	var strURL      = "cmn::OwnCertPop.xfdl";
+	var objArgument = {argMsg:'비밀번호 재설정을 위한 본인인증 처리입니다.'};
+	var nWidth      = -1;
+	var nHeight     = -1;
+	var strStyle    = "";	
+	var nLeft       = -1;
+	var nTop        = -1;
+	var isModeless  = false;
+	var bShowTitle  = true;
+	var strAlign    = "-1";
+
+	// 팝업 호출
+	var arrRtn = gfn_dialog(strId, strURL, objArgument, nWidth, nHeight, strStyle, nLeft, nTop, isModeless, bShowTitle, strAlign);
+
+	//인증이 성공한 경우 비밀번호재설정 팝업 호출
+	if (arrRtn["rtn"] == "OK") {
+		sRtn = fn_popupPwdChange ('RESET', arrRtn["userid"]);
+	}
+	
+	return arrRtn["rtn"];
+}
+
+function edt_pswd_onsetfocus(obj:Edit, e:SetFocusEventInfo) {
+	stc_capsLock.visible = fn_isOnCapsLock();
+}
+
+function fn_isOnCapsLock() {
+	var oExt = new ExtCommon();
+	return (oExt.keyCheck("CAPSLOCK") == 1);
+}
+
+function fn_checkOS() {
+	var OS;
+	var oExt = new ExtCommon();
+	var rtn = oExt.regGetValue("HKEY_LOCAL_MACHINE", "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "BuildLabEx", "S" ,  true );	
+	
+	if ( rtn.indexOf("x86fre") != -1 ) {
+		OS = "32";
+	} else if ( rtn.indexOf("amd64fre") != -1 )	{
+		OS = "64";
+	} else {
+		var identi = oExt.regGetValue("HKEY_LOCAL_MACHINE", "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", "Identifier", "S" ,  true );
+		trace("CentralProcessor PROCESS TYPE : " + identi);
+		
+		if ( identi.indexOf("Intel64") > -1 ) {
+			OS = "CentralProcessor Process type 64bit";
+		} else if ( identi.indexOf("x86") > -1 ) {
+			OS = "CentralProcessor Process type 32bit";
+		} else {
+			OS = "CentralProcessor Process type load Fail";
+		}
+	}
+	return OS;
+}
+
+function fn_setMSIE() {
+	var oExt = new ExtCommon();	
+	var rtn = oExt.regGetValue("HKEY_LOCAL_MACHINE", "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "CurrentVersion", "S" );
+	trace(rtn);
+	/*
+	if ( rtn == "6.1" ) {
+		trace("Windows 7");
+	}
+	*/
+	var bOSVER = fn_checkOS();
+	//trace("32bit / 64bit : " +bOSVER); 
+	
+	var gwWeb;
+	var ret;
+	/*
+		11001 : IE11
+		10001 : IE10
+	*/
+	if ( bOSVER === 0 ) { // 32bit windows
+		//opos ver : 190
+		gwWeb = oExt.regGetValue("HKEY_LOCAL_MACHINE", "SOFTWARE\\Microsoft\\Internet Explorer\\MAIN\\FeatureControl\\FEATURE_BROWSER_EMULATION", "XPlatform.exe", "I"  );
+		if ( gwWeb < 11001 ) {
+			
+			var strKey = "HKEY_LOCAL_MACHINE";
+			var strPath = "SOFTWARE\\Microsoft\\Internet Explorer\\MAIN\\FeatureControl\\FEATURE_BROWSER_EMULATION";
+			var strName = "XPlatform.exe";
+			var strValue = 11001;
+			ret = oExt._ext_setRegValue(strKey, strPath, strName, strValue, "DWORD");
+			
+		}
+	} else { //64bit windows
+		gwWeb = oExt.regGetValue("HKEY_LOCAL_MACHINE", "SOFTWARE\\Wow6432Node\\Microsoft\\Internet Explorer\\MAIN\\FeatureControl\\FEATURE_BROWSER_EMULATION", "XPlatform.exe", "I"  );
+		
+		if( (gwWeb == 0) || (gwWeb <= 11001) ) {
+			var strKey = "HKEY_LOCAL_MACHINE";
+			var strPath = "SOFTWARE\\Wow6432Node\\Microsoft\\Internet Explorer\\MAIN\\FeatureControl\\FEATURE_BROWSER_EMULATION";
+			var strName = "XPlatform.exe";
+			var strValue = 11001;
+			ret = oExt.regSetValue(strKey, strPath, strName, strValue, "DWORD");
+			
+		}
+	}
+	trace("OS Ver="+ bOSVER + " / gwWeb=" + gwWeb + " / ret="+ret);
+}]]></Script>

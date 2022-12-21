@@ -1,0 +1,241 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="CmmnZipSearchPop" classname="address" left="0" top="0" width="500" height="791" titletext="주소검색" onload="CmmnZipSearchPop_onload" ontimer="CmmnZipSearchPop_ontimer">
+    <Layouts>
+      <Layout>
+        <Static id="staFormSize" taborder="15" cssclass="sta_POP_Bg" left="0" top="0" width="500" height="791"/>
+        <Static id="staShregNm" taborder="5" cssclass="sta_WFSA_LabelBg" left="10" top="80" height="59" right="10"/>
+        <Static id="staShregNm00" taborder="12" cssclass="sta_WFSA_LabelBg" left="10" top="138" height="59" right="10"/>
+        <Static id="staTitle" taborder="0" text="주소 찾기" cssclass="sta_POP_TitleBg" left="0" top="0" height="70" right="0"/>
+        <Grid id="grdAddress" taborder="3" useinputpanel="false" left="10" top="207" height="507" binddataset="ds_address" oncellclick="grdAddress_oncellclick" scrollbars="autovert" right="10" autofittype="col">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="150"/>
+                <Column size="330"/>
+              </Columns>
+              <Rows>
+                <Row size="55" band="head"/>
+                <Row size="50"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="우편번호"/>
+                <Cell col="1" text="주소"/>
+              </Band>
+              <Band id="body">
+                <Cell text="bind:ZIP_FORM"/>
+                <Cell col="1" text="bind:FULL_ADDR" wordwrap="true"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="staShregNmT" taborder="4" text="도로명" cssclass="sta_WF_Label02" left="10" top="80" width="124" height="59"/>
+        <Edit id="edtRoad" taborder="6" left="149" top="86" height="47" displaynulltext="도로명 입력" right="10"/>
+        <Button id="btnComplete" taborder="8" text="확인" onclick="btnComplete_onclick" cssclass="btn_WF_Function" top="724" width="65" height="47" right="80"/>
+        <Button id="btnCancel" taborder="9" text="취소" onclick="btnClose_onclick" cssclass="btn_WF_Function" top="724" height="47" right="10" width="65"/>
+        <Static id="staBtnClose" taborder="10" onclick="staBtnClose_onclick" top="0" height="70" width="70" right="0"/>
+        <Button id="btnClose" taborder="1" onclick="btnClose_onclick" cssclass="btn_POP_XBtn" top="0" width="70" height="70" right="0"/>
+        <Static id="staShregNmT00" taborder="11" text="건물번호" cssclass="sta_WF_Label02" left="10" top="138" width="124" height="59"/>
+        <Edit id="edtRoad00" taborder="13" displaynulltext="건물번호 입력" left="149" top="144" height="47" right="10"/>
+        <Button id="btnSearch" taborder="14" onclick="btnSearch_onclick" cssclass="btn_WF_EdtSearch" top="144" width="47" height="47" right="10"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_address" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="SEQ" size="22" type="STRING"/>
+          <Column id="ZIP" size="6" type="STRING"/>
+          <Column id="ADDR_NM1" size="20" type="STRING"/>
+          <Column id="ADDR_NM2" size="24" type="STRING"/>
+          <Column id="ADDR_NM4" size="40" type="STRING"/>
+          <Column id="ADDR" size="40" type="STRING"/>
+          <Column id="ZIP_FORM" size="7" type="STRING"/>
+          <Column id="FULL_ADDR" size="127" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_cond" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="ADDR_NM4" size="255" type="STRING"/>
+          <Column id="ADDR" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Bind>
+      <BindItem id="item3" compid="edtRoad" propid="value" datasetid="dsOrderReg" columnid="USR_TYPE"/>
+      <BindItem id="item0" compid="edtRoad00" propid="value" datasetid="dsOrderReg" columnid="USR_TYPE"/>
+    </Bind>
+    <Script type="xscript5.0"><![CDATA[//########################################################
+// [프로젝트]		FC종합전산 모바일시스템 구축
+// [시스템명]		주소검색 폼
+// [부시스템명]	주소검색- 조회
+// [설명]
+// 		주소검색을 조회하기
+// [작성자명] 		투비소프트
+// [작성일자]		2014.08.27
+// -----------------[수정이력]--------------------------
+// 수정일자 : 수정자 : 수정내용
+// 2014.04.01 : 홍길동 : 수정이 필요하여 수정함.
+//########################################################
+include "lib::sz_fsp_xp.xjs";
+/*================================================================================
+ * 1. 변수 선언
+ *===============================================================================*/
+this.f_arrZipAdd = new Array();		// 선택된 주소 저장
+/*================================================================================
+ * 2. Form관련 Script
+ *===============================================================================*/
+/** 
+ * Form의 모든 컴포넌트가 생성되고, 모든 Object가 Load 되었을 때에 발생하는 Event
+ * @param
+	obj : Event가 발생한 Object
+	e : Event Object
+ * @return : 없음
+ */
+this.CmmnZipSearchPop_onload = function(obj:Form, e:nexacro.LoadEventInfo)
+{
+//	application.goMain.gfn_POP_resize(this);	
+	this.fsp_init();	
+	this.fn_init();
+}
+/** 
+ * 화면셋팅
+ * @param  : 없음
+ * @return : 없음
+ */
+this.fn_init = function ()
+{
+	//안드로이드4.3TODO
+	this.setTimer(100,100);
+}
+/*==========================================================================
+ * 3. DataSet관련 Script
+*========================================================================*/
+/** 
+ * 테이터셋셋팅
+ * @param  
+	value  : 셋팅값
+ * @return : 없음
+ */
+
+/*==========================================================================
+ * 4. Component관련 Script
+*========================================================================*/
+/** 
+ * 검색버튼클릭 - 신청부서 검색 버튼
+ * @param  
+	obj, e
+ * @return : 없음
+ */
+this.btnClose_onclick = function(obj:Button,  e:nexacro.ClickEventInfo)
+{
+	application.goMain.gfn_POP_close(this, "CLOSEONLY");
+}
+
+this.staBtnClose_onclick = function(obj:Static,  e:nexacro.ClickEventInfo)
+{
+	application.goMain.gfn_POP_close(this, "CLOSEONLY");
+}
+
+this.btnSearch_onclick = function(obj:Button,  e:nexacro.ClickEventInfo)
+{
+	this.ds_cond.clearData();	
+	this.ds_cond.addRow();
+	
+	if( !application.gfn_IsNull(this.edtRoad.value) )
+	{
+		this.ds_cond.setColumn( 0, "ADDR_NM4", this.edtRoad.value );
+		this.ds_cond.setColumn( 0, "ADDR", this.edtRoad00.value );
+	
+		this.fn_addresssearch();
+	}
+	else
+	{
+		var msg;		
+		msg = "도로명을 입력하세요.";
+		this.messageBox(msg);
+		return;
+	}
+}
+this.grdAddress_oncellclick = function(obj:Grid, e:nexacro.GridClickEventInfo)
+{
+	this.f_arrZipAdd[0] = this.ds_address.getColumn(e.row, "ZIP_FORM");
+	this.f_arrZipAdd[1] = this.ds_address.getColumn(e.row, "FULL_ADDR");
+}
+this.btnComplete_onclick = function(obj:Button,  e:nexacro.ClickEventInfo)
+{
+	application.goMain.gfn_POP_close(this, this.f_arrZipAdd);
+}
+
+/*================================================================================
+ * 5. UserFunction관련 Script
+ *===============================================================================*/
+/** 
+ * 사용자정의 함수
+ * @param  : 없음
+ * @return : true, false
+ */
+this.messageBox = function(msg)
+{
+	application.goMain.gfn_Msg("FAILE", "메시지", msg, "OK", true, this);
+}
+/** Message callback 함수
+ * @param
+	id : id
+	rtn : type이 "OK" 일 때는 none
+	type이 "YN" 일 때는 "Y" or "N"
+ * @return : 없음
+ * @note : Alert 이나 Confirm 메시지의 콜백 함수
+ *         gfn_Msg(...) 함수를 사용하여 띄운 창을 닫을 때 호출된다.
+ */
+this.msg_callback = function (id, rtn)
+{	
+
+}
+/*================================================================================
+ * 6. FSP 함수 관련 Script
+ *===============================================================================*/
+ /*******************************************************************************
+* 기      능   :  주소검색 조회
+* 설      명   :  
+********************************************************************************/
+this.fn_addresssearch = function()
+{
+	this.fsp_clear();
+	this.fsp_addSearch("cmmn:CmmnZipSearchPop_S1", false);
+	// connect the server 
+	this.fsp_callService
+	(
+		""
+		,""
+		,"ds_cond=ds_cond"	// inDs
+		,"ds_address=ds_list"	// outDs
+		,""	// args 
+		,"fn_aftersAddressSearch"
+		,true
+	);
+}
+
+/*******************************************************************************
+* 기      능   : 주소검색 조회 callback
+********************************************************************************/
+this.fn_aftersAddressSearch = function(ErrorCode, ErrorMsg)
+{
+	if(ErrorCode != "0") // 실패
+	{
+		application.goMain.gfn_Msg("ALERT_0", "오류", "["+ErrorCode+"] "+ErrorMsg, "OK", true, this);
+		return;
+	}
+	
+	this.f_arrZipAdd[0] = this.ds_address.getColumn(0, "ZIP_FORM");
+	this.f_arrZipAdd[1] = this.ds_address.getColumn(0, "FULL_ADDR");
+}
+
+this.CmmnZipSearchPop_ontimer = function(obj:Form, e:nexacro.TimerEventInfo)
+{
+	this.killTimer(e.timerid);
+	application.goMain.gfn_POP_resize(this);
+}
+]]></Script>
+  </Form>
+</FDL>

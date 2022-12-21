@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="ls.lcm.specmTypeTestArticleMappMgmtDAO">
+	<desc>검체유형 시험항목매핑을 관리한다.</desc>
+
+	<!-- 검체유형 시험항목매핑 DATA를 조회한다. -->
+	<statement name="selectList" type="select"><![CDATA[
+/* 검체유형 시험항목매핑 조회 */ 
+SELECT /*+ INDEX_SS(A) */
+       --CASE WHEN EXISTS (SELECT 1
+       --                    FROM LCM_SPECM_TEST_MAPPING X
+       --                   WHERE 1 = 1
+       --                     AND X.SPECM_TYPE = B.SPECM_TYPE
+       --                     AND X.MGRP_CD = B.MGRP_CD
+       --                     AND X.MCALSS_CD = B.MCALSS_CD
+       --                     AND X.SCLASS_CD = B.SCLASS_CD
+       --                     AND X.INSPT_PURP = B.INSPT_PURP
+       --                     AND X.ARTICLE_CD = A.ARTICLE_CD) THEN '1' ELSE '0' END AS CHK,
+       CASE WHEN B.SPECM_TYPE IS NOT NULL THEN '1' ELSE '0' END AS CHK,
+       A.ARTICLE_CD,
+       A.ARTICLE_NM,
+       DECODE(B.LEGAL_BASIS,'Y','1','0') AS LEGAL_BASIS,
+       DECODE(B.INSIDE_BASIS,'Y','1','0') AS INSIDE_BASIS,
+       A.INSPT_FLD,
+       A.TAKE_TERM,
+       A.NOT_FIT_CLSFI,
+       DECODE(B.BASIS_STAND,NULL,A.BASIS_STAND,B.BASIS_STAND) AS BASIS_STAND,
+       A.COMM_1,
+       A.COMM_2,
+       A.COMM_3,
+       A.COMM_4,
+       A.COMM_5,
+       A.COMM_CALC,
+       B.REMARK
+  FROM LCM_TEST_ARTICLE A
+     , (SELECT Y.SPECM_TYPE
+             , Y.MGRP_CD
+             , Y.MCALSS_CD
+             , Y.SCLASS_CD
+             , Y.INSPT_PURP
+             , Y.ARTICLE_CD
+             , Y.LEGAL_BASIS
+             , Y.INSIDE_BASIS
+             , Y.BASIS_STAND
+             , Y.REMARK
+          FROM LCM_SPECM_TEST_MAPPING Y
+         WHERE Y.SPECM_TYPE = :specmType
+           AND Y.MGRP_CD = :mgrpCd
+           AND Y.MCALSS_CD = :mcalssCd
+           AND Y.SCLASS_CD = :sclassCd
+           AND Y.INSPT_PURP = :insptPurp
+       ) B
+ WHERE A.ARTICLE_CD = B.ARTICLE_CD(+)
+ <#if edtSearchSub?has_content> AND A.ARTICLE_NM LIKE '%' || :edtSearchSub || '%' </#if>
+ <#if insptFld?has_content> AND A.INSPT_FLD = :insptFld </#if>
+ ORDER BY 1 DESC
+        , A.ARTICLE_CD
+        , A.ARTICLE_NM
+        ]]></statement>
+
+	<!-- 검체유형 시험항목매핑을 생성한다. -->
+	<statement name="insertList" type="insert">
+		/*+
+		com.hwfs.ls.lcm.dao.SpecmTypeTestArticleMappMgmtDAO.insertList
+		*/
+		<![CDATA[
+/* 검체유형 시험항목매핑 저장 */
+MERGE INTO LCM_SPECM_TEST_MAPPING A
+USING DUAL
+ON
+(
+    A.SPECM_TYPE = :specmType
+    AND A.MGRP_CD = :mgrpCd
+    AND A.MCALSS_CD = :mcalssCd
+    AND A.SCLASS_CD = :sclassCd
+    AND A.INSPT_PURP = :insptPurp
+    AND A.ARTICLE_CD = :articleCd
+)
+WHEN MATCHED THEN
+    UPDATE SET
+        A.LEGAL_BASIS   = <#if legalBasis?exists> DECODE(:legalBasis,'1','Y','N') <#else> null </#if>
+      , A.INSIDE_BASIS  = <#if insideBasis?exists> DECODE(:insideBasis,'1','Y','N') <#else> null </#if>
+      , A.BASIS_STAND   = <#if basisStand?exists> :basisStand <#else> null </#if>
+      , A.REMARK        = <#if remark?exists> :remark <#else> null </#if>
+      , A.UUSER         = :loginSabun
+      , A.UDATE         = SYSDATE
+WHEN NOT MATCHED THEN
+    INSERT (
+     SPECM_TYPE,
+     MGRP_CD,
+     MCALSS_CD,
+     SCLASS_CD,
+     INSPT_PURP,
+     ARTICLE_CD,
+     LEGAL_BASIS,
+     INSIDE_BASIS,
+     BASIS_STAND,
+     REMARK,
+     CUSER,
+     CDATE,
+     UUSER,
+     UDATE
+    ) VALUES (
+     :specmType,
+     :mgrpCd,
+     :mcalssCd,
+     :sclassCd,
+     :insptPurp,
+     :articleCd,
+    <#if legalBasis?exists> DECODE(:legalBasis,'1','Y','N'), <#else> null, </#if>
+    <#if insideBasis?exists> DECODE(:insideBasis,'1','Y','N'), <#else> null, </#if>
+    <#if basisStand?exists> :basisStand, <#else> null, </#if>
+    <#if remark?exists> :remark, <#else> null, </#if>
+     :loginSabun,
+     SYSDATE,
+     :loginSabun,
+     SYSDATE
+    )
+        ]]>
+	</statement>
+
+	<!-- 검체유형 시험항목매핑을 삭제한다. -->
+	<statement name="deleteList" type="delete">
+		/*+
+		com.hwfs.ls.lcm.dao.SpecmTypeTestArticleMappMgmtDAO.deleteList
+		*/
+		<![CDATA[
+/* 검체유형 시험항목매핑 삭제 */
+DELETE
+FROM   LCM_SPECM_TEST_MAPPING
+WHERE  SPECM_TYPE = :specmType
+AND    MGRP_CD = :mgrpCd
+AND    MCALSS_CD = :mcalssCd
+AND    SCLASS_CD = :sclassCd
+AND    INSPT_PURP = :insptPurp
+AND    ARTICLE_CD = :articleCd
+        ]]>
+	</statement>
+
+	<!-- 전체 삭제 -->
+	<statement name="deleteAllList" type="delete">
+		/*+
+		com.hwfs.ls.lcm.dao.SpecmTypeTestArticleMappMgmtDAO.deleteAllList
+		*/
+		<![CDATA[
+/* 검체유형 시험항목매핑 전체 삭제 */
+DELETE
+FROM   LCM_SPECM_TEST_MAPPING
+WHERE  SPECM_TYPE = :specmType
+<#if mgrpCd?exists> AND    MGRP_CD = :mgrpCd </#if>
+<#if mcalssCd?exists> AND    MCALSS_CD = :mcalssCd </#if>
+<#if sclassCd?exists> AND    SCLASS_CD = :sclassCd </#if>
+AND    INSPT_PURP = :insptPurp
+        ]]>
+	</statement>
+
+	<statement name="selectSpecmType"><![CDATA[SELECT A.SPECM_TYPE
+  FROM LCM_SPECM_TYPE_MGRP A
+     , LCM_SPECM_TYPE_MCALSS B
+     , LCM_SPECM_TYPE_SCLASS C
+ WHERE A.MGRP_CD = :mgrpCd
+   AND A.MGRP_CD = B.MGRP_CD
+   AND A.MGRP_CD = C.MGRP_CD
+   AND B.MCALSS_CD = C.MCALSS_CD
+   AND A.SPECM_TYPE = B.SPECM_TYPE
+   AND A.SPECM_TYPE = C.SPECM_TYPE
+   AND B.MCALSS_CD = :mcalssCd
+   AND C.SCLASS_CD = :sclassCd
+   AND A.USE_YN = 'Y'
+   AND B.USE_YN = 'Y'
+   AND C.USE_YN = 'Y']]></statement>
+	<statement name="insertExlList"><![CDATA[
+/* 엑셀업로드 검체유형 시험항목매핑 저장 */
+MERGE INTO LCM_SPECM_TEST_MAPPING A
+USING DUAL
+ON
+(
+    A.SPECM_TYPE = :specmType
+    AND A.MGRP_CD = :mgrpCd
+    AND A.MCALSS_CD = :mcalssCd
+    AND A.SCLASS_CD = :sclassCd
+    AND A.INSPT_PURP = :insptPurp
+    AND A.ARTICLE_CD = :articleCd
+)
+WHEN MATCHED THEN
+    UPDATE SET
+        A.LEGAL_BASIS   = :legalBasis
+      , A.INSIDE_BASIS  = :insideBasis
+      , A.BASIS_STAND   = :basisStand
+      , A.REMARK        = :remark
+      , A.UUSER         = :loginSabun
+      , A.UDATE         = SYSDATE
+WHEN NOT MATCHED THEN
+    INSERT (
+     SPECM_TYPE,
+     MGRP_CD,
+     MCALSS_CD,
+     SCLASS_CD,
+     INSPT_PURP,
+     ARTICLE_CD,
+     LEGAL_BASIS,
+     INSIDE_BASIS,
+     BASIS_STAND,
+     REMARK,
+     CUSER,
+     CDATE,
+     UUSER,
+     UDATE
+    ) VALUES (
+     :specmType,
+     :mgrpCd,
+     :mcalssCd,
+     :sclassCd,
+     :insptPurp,
+     :articleCd,
+     :legalBasis,
+     :insideBasis,
+     :basisStand,
+     :remark,
+     :loginSabun,
+     SYSDATE,
+     :loginSabun,
+     SYSDATE
+    )
+        ]]></statement>
+	<statement name="selectMappingList"><![CDATA[SELECT MGRP_CD,
+       MAX(MGRP_NM) AS MGRP_NM,
+       MCALSS_CD,
+       MAX(MCALSS_NM) AS MCALSS_NM,
+       SCLASS_CD,
+       MAX(SCLASS_NM) AS SCLASS_NM,
+       ARTICLE_CD,
+       MAX(ARTICLE_NM) AS ARTICLE_NM,
+       MAX(USE_YN_101) AS USE_YN_101,
+       MAX(LEGAL_BASIS_101) AS LEGAL_BASIS_101,
+       MAX(INSIDE_BASIS_101) AS INSIDE_BASIS_101,
+       MAX(BASIS_STAND_101) AS BASIS_STAND_101,
+       MAX(REMARK_101) AS REMARK_101,
+       MAX(USE_YN_102) AS USE_YN_102,
+       MAX(LEGAL_BASIS_102) AS LEGAL_BASIS_102,
+       MAX(INSIDE_BASIS_102) AS INSIDE_BASIS_102,
+       MAX(BASIS_STAND_102) AS BASIS_STAND_102,
+       MAX(REMARK_102) AS REMARK_102,
+       MAX(USE_YN_103) AS USE_YN_103,
+       MAX(LEGAL_BASIS_103) AS LEGAL_BASIS_103,
+       MAX(INSIDE_BASIS_103) AS INSIDE_BASIS_103,
+       MAX(BASIS_STAND_103) AS BASIS_STAND_103,
+       MAX(REMARK_103) AS REMARK_103,
+       MAX(USE_YN_104) AS USE_YN_104,
+       MAX(LEGAL_BASIS_104) AS LEGAL_BASIS_104,
+       MAX(INSIDE_BASIS_104) AS INSIDE_BASIS_104,
+       MAX(BASIS_STAND_104) AS BASIS_STAND_104,
+       MAX(REMARK_104) AS REMARK_104
+  FROM (
+SELECT T1.MGRP_CD,
+       T2.MGRP_NM,
+       T1.MCALSS_CD,
+       T3.MCALSS_NM,
+       T1.SCLASS_CD,
+       T4.SCLASS_NM,
+       T1.ARTICLE_CD,
+       T5.ARTICLE_NM,
+       DECODE(T1.INSPT_PURP,'101','Y','') AS USE_YN_101,
+       DECODE(T1.INSPT_PURP,'101',T1.LEGAL_BASIS,'') AS LEGAL_BASIS_101,
+       DECODE(T1.INSPT_PURP,'101',T1.INSIDE_BASIS,'') AS INSIDE_BASIS_101,
+       DECODE(T1.INSPT_PURP,'101',T1.BASIS_STAND,'') AS BASIS_STAND_101,
+       DECODE(T1.INSPT_PURP,'101',T1.REMARK,'') AS REMARK_101,
+       DECODE(T1.INSPT_PURP,'102','Y','') AS USE_YN_102,
+       DECODE(T1.INSPT_PURP,'102',T1.LEGAL_BASIS,'') AS LEGAL_BASIS_102,
+       DECODE(T1.INSPT_PURP,'102',T1.INSIDE_BASIS,'') AS INSIDE_BASIS_102,
+       DECODE(T1.INSPT_PURP,'102',T1.BASIS_STAND,'') AS BASIS_STAND_102,
+       DECODE(T1.INSPT_PURP,'102',T1.REMARK,'') AS REMARK_102,
+       DECODE(T1.INSPT_PURP,'103','Y','') AS USE_YN_103,
+       DECODE(T1.INSPT_PURP,'103',T1.LEGAL_BASIS,'') AS LEGAL_BASIS_103,
+       DECODE(T1.INSPT_PURP,'103',T1.INSIDE_BASIS,'') AS INSIDE_BASIS_103,
+       DECODE(T1.INSPT_PURP,'103',T1.BASIS_STAND,'') AS BASIS_STAND_103,
+       DECODE(T1.INSPT_PURP,'103',T1.REMARK,'') AS REMARK_103,
+       DECODE(T1.INSPT_PURP,'104','Y','') AS USE_YN_104,
+       DECODE(T1.INSPT_PURP,'104',T1.LEGAL_BASIS,'') AS LEGAL_BASIS_104,
+       DECODE(T1.INSPT_PURP,'104',T1.INSIDE_BASIS,'') AS INSIDE_BASIS_104,
+       DECODE(T1.INSPT_PURP,'104',T1.BASIS_STAND,'') AS BASIS_STAND_104,
+       DECODE(T1.INSPT_PURP,'104',T1.REMARK,'') AS REMARK_104
+  FROM LCM_SPECM_TEST_MAPPING T1,
+       LCM_SPECM_TYPE_MGRP T2,
+       LCM_SPECM_TYPE_MCALSS T3,
+       LCM_SPECM_TYPE_SCLASS T4,
+       LCM_TEST_ARTICLE T5
+ WHERE T1.SPECM_TYPE = :specmType
+   AND T1.SPECM_TYPE = T2.SPECM_TYPE
+   AND T1.SPECM_TYPE = T3.SPECM_TYPE
+   AND T1.SPECM_TYPE = T4.SPECM_TYPE
+   AND T1.MGRP_CD = T2.MGRP_CD
+   AND T1.MGRP_CD = T3.MGRP_CD
+   AND T1.MCALSS_CD = T3.MCALSS_CD
+   AND T1.MGRP_CD = T4.MGRP_CD
+   AND T1.MCALSS_CD = T4.MCALSS_CD
+   AND T1.SCLASS_CD = T4.SCLASS_CD
+   AND T2.USE_YN = 'Y'
+   AND T3.USE_YN = 'Y'
+   AND T4.USE_YN = 'Y'
+   AND T1.ARTICLE_CD = T5.ARTICLE_CD
+<#if edtMclassSearch?has_content> AND T3.MCALSS_NM LIKE '%' || :edtMclassSearch || '%' </#if>
+<#if edtSearch?has_content> AND T4.SCLASS_NM LIKE '%' || :edtSearch || '%' </#if>
+<#if edtSearchSub?has_content> AND T5.ARTICLE_NM LIKE '%' || :edtSearchSub || '%' </#if>
+<#if insptFld?has_content> AND T5.INSPT_FLD = :insptFld </#if>
+)
+GROUP BY MGRP_CD, MCALSS_CD, SCLASS_CD, ARTICLE_CD
+ORDER BY MGRP_CD, MCALSS_CD, SCLASS_CD, ARTICLE_CD]]></statement>
+</hqml>

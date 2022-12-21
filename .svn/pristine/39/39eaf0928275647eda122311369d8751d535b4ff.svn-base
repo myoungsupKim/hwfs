@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT TRX_ID   ORG_ID,
+       TRX_DATE ORG_DATE,
+       TYPE_NAME,
+       SUBINV_NAME,
+       CUSTNM,
+       TRX_DESC ORG_DESC,
+       ((AMT + LINE_AMT) - ALT_AMT) AMT,
+       0 SUBSTAMT,
+       '0' CHK
+  FROM (
+        SELECT A.TRX_ID,
+               A.TRX_DATE,
+               B.TYPE_NAME,
+               C.SUBINV_NAME,
+               D.CUSTNM,
+               A.TRX_DESC,
+               NVL(A.AMT, 0) AMT,
+               NVL(A.ALT_AMT, 0) ALT_AMT,
+  <isNotNull col="SUBST_ID">
+               NVL((SELECT SUM(AMT) FROM MAS_TRX_SUBST_LINE WHERE SUBST_ID = #SUBST_ID# AND ORG_TRX_ID = A.TRX_ID), 0) LINE_AMT
+  </isNotNull>      
+  <isNull col="SUBST_ID">          
+              0 LINE_AMT  
+  </isNull>      
+          FROM MAS_TRX A,
+               MAS_TYPE B,
+               HLDC_PO_SUBINVENTORY C,
+               HLDC_ST_CUST D
+        WHERE (A.TRX_TYPE    = B.TYPE_CD)
+        AND   (A.SUBINV_CODE = C.SUBINV_CODE(+))
+        AND   (A.CUSTCD      = D.CUSTCD(+))
+        AND   (A.UPJANG      =  #UPJANG#)
+        AND   (A.TRX_DATE    BETWEEN '19000101' AND #ADJ_DATE#)
+        
+           
+  <isNotNull col="CMP_TYPE">
+               AND    (A.TRX_TYPE   =  #CMP_TYPE#)
+  </isNotNull>              
+  <isNotNull col="CMP_ACCTCD">
+               AND    (A.DR_ACCTCD  =  #CMP_ACCTCD#)
+  </isNotNull>             
+   
+  <isEqual col="ALL_YN_CUSTCD" value="NY">
+  
+               AND    (A.CUSTCD   =  #CUSTCD#)
+  </isEqual>                                       
+  
+  <isEqual col="ALL_YN_CUSTCD" value="NN">
+  
+               AND    (A.CUSTCD   IS NULL)
+  </isEqual>                                       
+
+  <isEqual col="ALL_YN_SUBINV_CODE" value="NY">
+  
+               AND    (A.SUBINV_CODE   =  #SUBINV_CODE#)
+  </isEqual>                                       
+  
+  <isEqual col="ALL_YN_SUBINV_CODE" value="NN">
+  
+               AND    (A.SUBINV_CODE   IS NULL)
+  </isEqual>                  
+       )
+WHERE ((AMT + LINE_AMT) - ALT_AMT) > 0
+ORDER BY TRX_DATE, TRX_ID
+</statement>
+	<input default-name="ds_cond">
+		<col name="SUBST_ID" size="" type="NUMERIC" description="" /> 
+		<col name="UPJANG" size="" type="NUMERIC" description="" /> 
+		<col name="ADJ_DATE" size="255" type="VARCHAR" description="" /> 
+		<col name="CMP_TYPE" size="255" type="VARCHAR" description="" /> 
+		<col name="CMP_ACCTCD" size="255" type="VARCHAR" description="" /> 
+		<col name="ALL_YN_CUSTCD" size="255" type="VARCHAR" description="" /> 
+		<col name="CUSTCD" size="" type="NUMERIC" description="" /> 
+		<col name="ALL_YN_SUBINV_CODE" size="255" type="VARCHAR" description="" /> 
+		<col name="SUBINV_CODE" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="ORG_ID" size="" type="NUMERIC" description="" /> 
+		<col name="ORG_DATE" size="255" type="VARCHAR" description="" /> 
+		<col name="TYPE_NAME" size="255" type="VARCHAR" description="" /> 
+		<col name="SUBINV_NAME" size="255" type="VARCHAR" description="" /> 
+		<col name="CUSTNM" size="255" type="VARCHAR" description="" /> 
+		<col name="ORG_DESC" size="255" type="VARCHAR" description="" /> 
+		<col name="AMT" size="" type="NUMERIC" description="" /> 
+		<col name="SUBSTAMT" size="" type="NUMERIC" description="" /> 
+		<col name="CHK" size="255" type="VARCHAR" description="" /> 							
+	</output>
+</query>

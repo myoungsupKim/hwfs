@@ -1,0 +1,428 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FSM00064P" onload="form_onload" titletext="주요영양소 평가" position="absolute 0 0 603 418" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <ActiveX progid="ShockwaveFlash.ShockwaveFlash.10" id="fu_ct01" position="absolute 10 10 593 408"/>
+        <Static id="Static70" text="W10" visible="false" position="absolute 0 0 603 10" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static72" text="W15" visible="false" position="absolute 0 0 10 418" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static64" text="W30" visible="false" position="absolute 593 0 603 418" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static00" text="W10" visible="false" position="absolute 0 408 603 418" style="background:#ff000055;align:center middle;"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_Chart">
+        <ColumnInfo>
+          <Column id="NM" size="256" type="STRING"/>
+          <Column id="RATE1" size="256" type="STRING"/>
+          <Column id="RATE2" size="256" type="STRING"/>
+          <Column id="TOOLTIP" size="256" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_NutStd"/>
+      <Dataset id="ds_Input">
+        <ColumnInfo>
+          <Column id="UPJANG" size="256" type="INT"/>
+          <Column id="HALL_CD" size="256" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 메뉴관리 > 식단관리 > 식단등록 > 영양평가
+ * 프로그램명   : FSM00170V.XML
+ * 기      능   : 기준대비 섭취율 그래프 팝업
+ * 작  성  자   : 손창덕
+ * 작성  일자   : 2008-01-08
+ * 비      고   : 
+ *		- ds_Chart				: [Main DS] 그래프
+ *		- ds_NutStd				: [DS] 기준 영양소
+ *		- ds_Input				: [DS] 검색 조건
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "LIB::sc_comon.js";			// 시스템공통 함수
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js";
+//@@컨버터에서 주석처리 #include "LIB::tit_comm_0001.js";		// X-Framework Lib
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+var f_UPJANG, f_HALL_CD, f_GUBUN;
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	// 부모창에서 받아올 Args
+	f_UPJANG  = UPJANG;
+	f_HALL_CD = HALL_CD;
+	f_GUBUN   = GUBUN;
+	
+	// Test Data
+	//f_UPJANG  = 100771;
+	//f_HALL_CD = "00101";
+	//f_GUBUN   = "1";
+	
+	// Default Data Check
+	if( gfn_length(gfn_trim(f_UPJANG))== 0 || gfn_trim(f_UPJANG)== null ) {
+		g_Message("EE", "업장코드가 존재하지 않습니다.\n창을 닫습니다.");
+		this.close();
+	}
+	if( gfn_length(gfn_trim(f_HALL_CD))== 0 || gfn_trim(f_HALL_CD)== null ) {
+		g_Message("EE", "식당코드가 존재하지 않습니다.\n창을 닫습니다.");
+		this.close();
+	}
+	
+	// X-Framework : Action 정보 생성 
+	fsp_init(this);
+	
+	// 영양소 기준 파라미터 셋팅
+	ds_Input.clearData();
+	ds_Input.addRow();
+	ds_Input.setColumn(0, "UPJANG",  f_UPJANG );
+	ds_Input.setColumn(0, "HALL_CD", f_HALL_CD);
+	
+	// 영양소 기준 : 필요 Args - UPJANG, HALL_CD
+	fsp_clear(this);
+	ds_NutStd.clearData();
+	fsp_addSearch(this,"fs/fsm:FSM00170V_S003");
+	fsp_callService(this,"","","ds_Input=ds_Input","ds_NutStd=ds_NutStd","","fn_callBack","",true);
+}
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_callBack(errCode, errMsg)
+ * 입      력   : errCode 	= 에러코드
+				  errMsg	= 에러메세지
+ * 반      환   : 없음
+ * 기      능   : 영양소 기준 데이터 검색 후 콜백 함수
+ * 작  성  자   : 손창덕
+ * 작성  일자   : 2008-01-10
+ ******************************************************************************************
+ */
+function fn_callBack(errCode, errMsg)
+{
+	if( errCode != 0 ) {
+		return;
+	} else {
+		// Fusion Chart Display
+		fn_DisplayChart();
+	}
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_DisplayChart()
+ * 입      력   : errCode 	= 에러코드
+				  errMsg	= 에러메세지
+ * 반      환   : 없음
+ * 기      능   : 영양소 기준 데이터 검색 후 콜백 함수
+ * 작  성  자   : 손창덕
+ * 작성  일자   : 2008-01-10
+ ******************************************************************************************
+ */
+function fn_DisplayChart()
+{
+	// Temp Varialbes
+	var v_TempIndex   = 0;
+	var v_TempValue1  = 0;
+	var v_TempValue2  = 0;
+	var v_Tooltip     = "";
+	var v_TempTooltip = 0;
+	
+	// Fusion Chart Data Setting - "S_" : 폐기율 미적용 영양소 체크, "SS_" : 폐기율 미적용 영양소 미체크
+	//ds_Chart.clearData();
+	
+	// 에너지
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "에너지");
+	v_TempValue1 = Math.round(((opener.ds_menuList.getSum("S_KCAL") / ds_NutStd.getColumn(0, "CAL_QTY")) * 100), 1);
+	v_TempValue2 = Math.round(((opener.ds_menuList.getSum("SS_KCAL") / ds_NutStd.getColumn(0, "CAL_QTY")) * 100), 1);
+	if( ds_NutStd.getColumn(0, "CAL_QTY") == 0 ) {
+		v_Tooltip = "0kcal";
+	} else {
+		if( f_GUBUN == "1" ) {
+			v_TempTooltip = opener.ds_menuList.getSum("S_KCAL") - ds_NutStd.getColumn(0, "CAL_QTY");
+		} else {
+			v_TempTooltip = opener.ds_menuList.getSum("SS_KCAL") - ds_NutStd.getColumn(0, "CAL_QTY");
+		}
+		if( v_TempTooltip >= 0 ) {
+			v_Tooltip = "+" + numFormat(Math.round(v_TempTooltip, 1), 1)+ "g" ;
+		} else {
+			v_Tooltip = numFormat(Math.round(v_TempTooltip, 1), 1)+ "g" ;
+		}
+	}
+	ds_Chart.setColumn(v_TempIndex, "RATE1",   v_TempValue1);
+	ds_Chart.setColumn(v_TempIndex, "RATE2",   v_TempValue2);
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip   );
+	
+	// 당질
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "당질");
+	v_TempValue1 = Math.round(((opener.ds_menuList.getSum("S_CARBO") / ds_NutStd.getColumn(0, "CARBO_RCMD_QTY")) * 100), 1);
+	v_TempValue2 = Math.round(((opener.ds_menuList.getSum("SS_CARBO") / ds_NutStd.getColumn(0, "CARBO_RCMD_QTY")) * 100), 1);
+	if( ds_NutStd.getColumn(0, "CARBO_RCMD_QTY") == 0 ) {
+		v_Tooltip = "0g";
+	} else {
+		if( f_GUBUN == "1" ) {
+			v_TempTooltip = opener.ds_menuList.getSum("S_CARBO") - ds_NutStd.getColumn(0, "CARBO_RCMD_QTY");
+		} else {
+			v_TempTooltip = opener.ds_menuList.getSum("SS_CARBO") - ds_NutStd.getColumn(0, "CARBO_RCMD_QTY");
+		}
+		if( v_TempTooltip >= 0 ) {
+			v_Tooltip = "+" + numFormat(Math.round(v_TempTooltip, 1), 1)+ "g" ;
+		} else {
+			v_Tooltip = numFormat(Math.round(v_TempTooltip, 1), 1)+ "g" ;
+		}
+	}
+	ds_Chart.setColumn(v_TempIndex, "RATE1",   v_TempValue1);
+	ds_Chart.setColumn(v_TempIndex, "RATE2",   v_TempValue2);
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip   );
+	
+	// 단백질
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "단백질");
+	v_TempValue1 = Math.round(((opener.ds_menuList.getSum("S_PROT") / ds_NutStd.getColumn(0, "PROT_QTY")) * 100), 1);
+	v_TempValue2 = Math.round(((opener.ds_menuList.getSum("SS_PROT") / ds_NutStd.getColumn(0, "PROT_QTY")) * 100), 1);
+	
+	if( ds_NutStd.getColumn(0, "PROT_QTY") == 0 ) {
+		v_Tooltip = "0g";
+	} else {
+		if( f_GUBUN == "1" ) {
+			v_TempTooltip = opener.ds_menuList.getSum("S_PROT") - ds_NutStd.getColumn(0, "PROT_QTY");
+		} else {
+			v_TempTooltip = opener.ds_menuList.getSum("SS_PROT") - ds_NutStd.getColumn(0, "PROT_QTY");
+		}
+		if( v_TempTooltip >= 0 ) {
+			v_Tooltip = "+" + numFormat(Math.round(v_TempTooltip, 1), 1)+ "g" ;
+		} else {
+			v_Tooltip = numFormat(Math.round(v_TempTooltip, 1), 1)+ "g" ;
+		}
+	}
+	ds_Chart.setColumn(v_TempIndex, "RATE1",   v_TempValue1);
+	ds_Chart.setColumn(v_TempIndex, "RATE2",   v_TempValue2);
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip   );
+	
+	// 지질
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "지질");
+	v_TempValue1 = Math.round(((opener.ds_menuList.getSum("S_FAT") / ds_NutStd.getColumn(0, "FAT_RCMD_QTY")) * 100), 1);
+	v_TempValue2 = Math.round(((opener.ds_menuList.getSum("SS_FAT") / ds_NutStd.getColumn(0, "FAT_RCMD_QTY")) * 100), 1);
+	if( ds_NutStd.getColumn(0, "FAT_RCMD_QTY") == 0 ) {
+		v_Tooltip = "0g";
+	} else {
+		if( f_GUBUN == "1" ) {
+			v_TempTooltip = opener.ds_menuList.getSum("S_FAT") - ds_NutStd.getColumn(0, "FAT_RCMD_QTY");
+		} else {
+			v_TempTooltip = opener.ds_menuList.getSum("SS_FAT") - ds_NutStd.getColumn(0, "FAT_RCMD_QTY");
+		}
+		if( v_TempTooltip >= 0 ) {
+			v_Tooltip = "+" + numFormat(Math.round(v_TempTooltip, 1), 1)+ "g" ;
+		} else {
+			v_Tooltip = numFormat(Math.round(v_TempTooltip, 1), 1)+ "g" ;
+		}
+	}
+	ds_Chart.setColumn(v_TempIndex, "RATE1",   v_TempValue1);
+	ds_Chart.setColumn(v_TempIndex, "RATE2",   v_TempValue2);
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip   );
+	
+	// 비타민A
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "비타민A");
+	v_TempValue1 = Math.round(((opener.ds_menuList.getSum("S_VITA") / ds_NutStd.getColumn(0, "VITA_RCMD_QTY")) * 100), 1);
+	v_TempValue2 = Math.round(((opener.ds_menuList.getSum("SS_VITA") / ds_NutStd.getColumn(0, "VITA_RCMD_QTY")) * 100), 1);
+	if( ds_NutStd.getColumn(0, "VITA_RCMD_QTY") == 0 ) {
+		v_Tooltip = "0R.E";
+	} else {
+		if( f_GUBUN == "1" ) {
+			v_TempTooltip = opener.ds_menuList.getSum("S_VITA") - ds_NutStd.getColumn(0, "VITA_RCMD_QTY");
+		} else {
+			v_TempTooltip = opener.ds_menuList.getSum("SS_VITA") - ds_NutStd.getColumn(0, "VITA_RCMD_QTY");
+		}
+		if( v_TempTooltip >= 0 ) {
+			v_Tooltip = "+" + numFormat(Math.round(v_TempTooltip, 1), 1)+ "g" ;
+		} else {
+			v_Tooltip = numFormat(Math.round(v_TempTooltip, 1), 1)+ "g" ;
+		}
+	}
+	ds_Chart.setColumn(v_TempIndex, "RATE1",   v_TempValue1);
+	ds_Chart.setColumn(v_TempIndex, "RATE2",   v_TempValue2);
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip   );
+	
+	// 비타민B1
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "비타민B1");
+	v_TempValue1 = Math.round(((opener.ds_menuList.getSum("S_THIA") / ds_NutStd.getColumn(0, "THIA_RCMD_QTY")) * 100), 1);
+	v_TempValue2 = Math.round(((opener.ds_menuList.getSum("SS_THIA") / ds_NutStd.getColumn(0, "THIA_RCMD_QTY")) * 100), 1);
+	if( ds_NutStd.getColumn(0, "THIA_RCMD_QTY") == 0 ) {
+		v_Tooltip = "0mg";
+	} else {
+		if( f_GUBUN == "1" ) {
+			v_TempTooltip = opener.ds_menuList.getSum("S_THIA") - ds_NutStd.getColumn(0, "THIA_RCMD_QTY");
+		} else {
+			v_TempTooltip = opener.ds_menuList.getSum("SS_THIA") - ds_NutStd.getColumn(0, "THIA_RCMD_QTY");
+		}
+		if( v_TempTooltip >= 0 ) {
+			v_Tooltip = "+" + numFormat(Math.round(v_TempTooltip, 1), 1)+ "g" ;
+		} else {
+			v_Tooltip = numFormat(Math.round(v_TempTooltip, 1), 1)+ "g" ;
+		}
+	}
+	ds_Chart.setColumn(v_TempIndex, "RATE1",   v_TempValue1);
+	ds_Chart.setColumn(v_TempIndex, "RATE2",   v_TempValue2);
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip   );
+	
+	// 비타민B2
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "비타민B2");
+	v_TempValue1 = Math.round(((opener.ds_menuList.getSum("S_RIBO") / ds_NutStd.getColumn(0, "RIBO_RCMD_QTY")) * 100), 1);
+	v_TempValue2 = Math.round(((opener.ds_menuList.getSum("SS_RIBO") / ds_NutStd.getColumn(0, "RIBO_RCMD_QTY")) * 100), 1);
+	if( ds_NutStd.getColumn(0, "RIBO_RCMD_QTY") == 0 ) {
+		v_Tooltip = "0mg";
+	} else {
+		if( f_GUBUN == "1" ) {
+			v_TempTooltip = opener.ds_menuList.getSum("S_RIBO") - ds_NutStd.getColumn(0, "RIBO_RCMD_QTY");
+		} else {
+			v_TempTooltip = opener.ds_menuList.getSum("SS_RIBO") - ds_NutStd.getColumn(0, "RIBO_RCMD_QTY");
+		}
+		if( v_TempTooltip >= 0 ) {
+			v_Tooltip = "+" + numFormat(Math.round(v_TempTooltip, 1), 1)+ "g" ;
+		} else {
+			v_Tooltip = numFormat(Math.round(v_TempTooltip, 1), 1)+ "g" ;
+		}
+	}
+	ds_Chart.setColumn(v_TempIndex, "RATE1",   v_TempValue1);
+	ds_Chart.setColumn(v_TempIndex, "RATE2",   v_TempValue2);
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip   );
+	
+	// 비타민C
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "비타민C");
+	v_TempValue1 = Math.round(((opener.ds_menuList.getSum("S_VITA_C") / ds_NutStd.getColumn(0, "VITAC_RCMD_QTY")) * 100), 1);
+	v_TempValue2 = Math.round(((opener.ds_menuList.getSum("SS_VITA_C") / ds_NutStd.getColumn(0, "VITAC_RCMD_QTY")) * 100), 1);
+	if( ds_NutStd.getColumn(0, "VITAC_RCMD_QTY") == 0 ) {
+		v_Tooltip = "0mg";
+	} else {
+		if( f_GUBUN == "1" ) {
+			v_TempTooltip = opener.ds_menuList.getSum("S_VITA_C") - ds_NutStd.getColumn(0, "VITAC_RCMD_QTY");
+		} else {
+			v_TempTooltip = opener.ds_menuList.getSum("SS_VITA_C") - ds_NutStd.getColumn(0, "VITAC_RCMD_QTY");
+		}
+		if( v_TempTooltip >= 0 ) {
+			v_Tooltip = "+" + numFormat(Math.round(v_TempTooltip, 1), 1)+ "g" ;
+		} else {
+			v_Tooltip = numFormat(Math.round(v_TempTooltip, 1), 1)+ "g" ;
+		}
+	}
+	ds_Chart.setColumn(v_TempIndex, "RATE1",   v_TempValue1);
+	ds_Chart.setColumn(v_TempIndex, "RATE2",   v_TempValue2);
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip   );
+	
+	// 칼슘
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "칼슘");
+	v_TempValue1 = Math.round(((opener.ds_menuList.getSum("S_CA") / ds_NutStd.getColumn(0, "CA_RCMD_QTY")) * 100), 1);
+	v_TempValue2 = Math.round(((opener.ds_menuList.getSum("SS_CA") / ds_NutStd.getColumn(0, "CA_RCMD_QTY")) * 100), 1);
+	if( ds_NutStd.getColumn(0, "CA_RCMD_QTY") == 0 ) {
+		v_Tooltip = "0mg";
+	} else {
+		if( f_GUBUN == "1" ) {
+			v_TempTooltip = opener.ds_menuList.getSum("S_CA") - ds_NutStd.getColumn(0, "CA_RCMD_QTY");
+		} else {
+			v_TempTooltip = opener.ds_menuList.getSum("SS_CA") - ds_NutStd.getColumn(0, "CA_RCMD_QTY");
+		}
+		if( v_TempTooltip >= 0 ) {
+			v_Tooltip = "+" + numFormat(Math.round(v_TempTooltip, 1), 1)+ "g" ;
+		} else {
+			v_Tooltip = numFormat(Math.round(v_TempTooltip, 1), 1)+ "g" ;
+		}
+	}
+	ds_Chart.setColumn(v_TempIndex, "RATE1",   v_TempValue1);
+	ds_Chart.setColumn(v_TempIndex, "RATE2",   v_TempValue2);
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip   );
+	
+	// 철
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "철");
+	v_TempValue1 = Math.round(((opener.ds_menuList.getSum("S_FE") / ds_NutStd.getColumn(0, "FE_RCMD_QTY")) * 100), 1);
+	v_TempValue2 = Math.round(((opener.ds_menuList.getSum("SS_FE") / ds_NutStd.getColumn(0, "FE_RCMD_QTY")) * 100), 1);
+	if( ds_NutStd.getColumn(0, "FE_RCMD_QTY") == 0 ) {
+		v_Tooltip = "0mg";
+	} else {
+		if( f_GUBUN == "1" ) {
+			v_TempTooltip = opener.ds_menuList.getSum("S_FE") - ds_NutStd.getColumn(0, "FE_RCMD_QTY");
+		} else {
+			v_TempTooltip = opener.ds_menuList.getSum("SS_FE") - ds_NutStd.getColumn(0, "FE_RCMD_QTY");
+		}
+		if( v_TempTooltip >= 0 ) {
+			v_Tooltip = "+" + numFormat(Math.round(v_TempTooltip, 1), 1)+ "g" ;
+		} else {
+			v_Tooltip = numFormat(Math.round(v_TempTooltip, 1), 1)+ "g" ;
+		}
+	}
+	ds_Chart.setColumn(v_TempIndex, "RATE1",   v_TempValue1);
+	ds_Chart.setColumn(v_TempIndex, "RATE2",   v_TempValue2);
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip   );
+	
+	// chart셋팅
+//	fu_ct01.Clear();
+	
+	// FusionChart XML Create
+	var v_ChartXML = "\n<chart formatNumberScale='0' numberSuffix='%' showNames='1' useRoundEdges='1' baseFontSize ='11' setAdaptiveYMin='1' yAxisMaxValue='110'>";
+	var v_RateGubun = "RATE1";
+	if( f_GUBUN == "0" ) v_RateGubun = "RATE2";
+	
+	for( var i=0; i<ds_Chart.getRowCount(); i++ ) {
+		v_ChartXML += "\n	<set label='" + ds_Chart.getColumn(i, "NM") + "' value='" + ds_Chart.getColumn(i, v_RateGubun) + "' toolText='" + ds_Chart.getColumn(i, "TOOLTIP") + "'/> ";
+	}
+	v_ChartXML += "\n<trendLines>";
+	v_ChartXML += "\n	<line startValue='100' thickness ='3' color='009933' displayvalue='100%' showOnTop='1'/>";
+	v_ChartXML += "\n</trendLines>";
+	v_ChartXML += "\n</chart>";
+	
+	// Chart Component Setting
+// 	var strDir = AliasToRealPath("%COMPONENT%");
+// 	fu_ct01.Movie = strDir + "\\F_Chart\\Bar2D.swf";
+// 	
+
+	fu_ct01.Movie = gv_chartPath + "Column2D.swf";
+	
+	fu_ct01.SetVariable('dataXML',     v_ChartXML    );
+	fu_ct01.SetVariable('chartWidth',  fu_ct01.position.width );	// chart size 지정
+	fu_ct01.SetVariable('chartHeight', fu_ct01.position.height);	// chart size 지정
+	//fu_ct01.SetVariable('debugMode',   "0"           );	// 디버그모드
+	
+	fu_ct01.Rewind();
+	fu_ct01.Play();
+}
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+]]></Script>
+  </Form>
+</FDL>

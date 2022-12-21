@@ -1,0 +1,676 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="rc.rrm.smlRecipeDetailedMgntDAO">
+	<desc>가상레시피 상세 HQML Query</desc>
+
+	<!-- 가상레시피 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.rc.rrm.dao.SmlRecipeDetailedMgntDAO.selectList	*/
+		<![CDATA[
+		SELECT A.UPJANG_TYPE
+		     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'UPJANG_TYPE' AND CODE = A.UPJANG_TYPE) AS UPJANG_TYPE_NM
+		     , A.STD_RECIPE_CD
+		     , A.MU_CD
+		     , (SELECT MU_NM FROM SCC_MU WHERE MU_CD = A.MU_CD) AS MU_NM
+		     , A.RECIPE_NM
+		     , A.RECIPE_NM_ENGLISH
+		     , A.RECIPE_NM_BYNM
+		     , A.STAND
+		     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'STAND_TYPE' AND CODE = A.STAND) AS STAND_NM
+		     , A.ORIGIN
+		     , A.UNIT_CD
+		     , A.OFFER_UNIT
+		     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'OFER_UNIT' AND CODE = A.OFER_UNIT) AS OFER_UNIT_NM
+		     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'OFFER_UNIT' AND CODE = A.OFFER_UNIT) AS OFFER_UNIT_NM
+		     , A.COOK_UNIT
+		     , A.OFER_NO
+		     , A.OFER_UNIT
+		     , A.GOAL_CSTRAT
+		     , A.CSTRAT_DRCT_INPUT_YN
+		     , A.DRCT_INPUT_CST_RATE
+		     , A.STD_RECIPE_APPLY_BASIS
+		     , A.MCALSS_CD
+		     , A.SCLASS_CD
+		     , A.SALE_PRICE
+		     , A.RECIPE_DVLP_BY
+		     , A.REMARK
+		     , A.REG_DATE
+		     , A.REF_SEQ
+		     , A.APPEND_SEQ
+		     , E.REL_PATH
+		     , E.SAVE_FILE_NM
+		     , E.ORGNL_FILE_NM
+		     , A.USE_YN
+		     , A.CUSER
+		     , A.CDATE
+		     , A.UUSER
+		     , A.UDATE
+		     , (SELECT COUNT(*)
+		          FROM RSS_STD_RECIPE_CD_DETAIL Z
+		         WHERE Z.UPJANG_TYPE = A.UPJANG_TYPE
+		           AND Z.STD_RECIPE_CD = A.STD_RECIPE_CD
+		           AND :stdDate BETWEEN Z.SDATE AND Z.EDATE) AS SUB_COUNT
+		     , A.SET_RECIPE_CD
+		     , A.SET_RECIPE_CD AS OLD_SET_RECIPE_CD
+		     , DECODE((SELECT COUNT(*) FROM RSS_STD_RECIPE_CUISINE WHERE STD_RECIPE_CD = A.STD_RECIPE_CD), 0, 'N', 'Y') AS CUSINE_CNT
+		  FROM RSS_STD_RECIPE_CD_MST A
+		     , SCC_APPEND_FILE E
+		 WHERE  1=1
+		   AND A.REF_SEQ = E.REF_SEQ(+)
+		   AND A.APPEND_SEQ = E.APPEND_SEQ(+)
+		<#if muCd?has_content>
+		   AND A.MU_CD = :muCd
+		</#if>
+		<#if upjangType?has_content>
+		   AND A.UPJANG_TYPE = :upjangType
+		</#if>
+		<#if mcalssCd?has_content>
+		   AND A.MCALSS_CD = :mcalssCd
+		</#if>
+		<#if sclassCd?has_content>
+		   AND A.SCLASS_CD = :sclassCd
+		</#if>
+		<#if recipeNm?has_content>
+		   AND UPPER(A.RECIPE_NM) LIKE '%' || UPPER(:recipeNm) || '%'
+		</#if>
+		<#if smlUpjang?has_content>
+		   --AND A.SML_UPJANG = :smlUpjang
+		</#if>
+		   AND NVL(A.SML_YN, 'N') = 'Y'
+		 ORDER BY A.STD_RECIPE_CD ASC
+
+		]]>
+	</statement>
+
+	<!-- 가상레시피 상세 목록을 조회한다. -->
+	<statement name="selectDtlList" type="select">
+		/*+ com.hwfs.rc.rrm.dao.SmlRecipeDetailedMgntDAO.selectDtlList	*/
+		<![CDATA[
+		SELECT '0' AS CHK
+		     , X.MU_CD
+		     , (SELECT MU_NM FROM SCC_MU WHERE MU_CD = X.MU_CD) AS MU_NM
+		     , X.UPJANG_TYPE
+		     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'UPJANG_TYPE' AND CODE = X.UPJANG_TYPE) AS UPJANG_TYPE_NM
+		     , X.STD_RECIPE_CD
+		     , X.RECIPE_NM
+		     , X.RECIPE_NM_BYNM
+		     , X.COOK_UNIT
+		     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'STAND_TYPE' AND CODE = X.STAND) STAND_NM
+		     , X.MATERIAL_CD
+		     , X.MATERIAL_CD_NM
+		     , DECODE(X.SEMI_GOODS_YN, 'Y', ROUND(G_PRICE, 2), ROUND(X.CONTRACT_PRICE / X.KG_CONVERT_RATE / 1000, 2)) AS GRAM_PRICE  --g단가
+		     , CASE WHEN  (:stdDate BETWEEN X.SDATE AND X.EDATE) THEN
+			       CASE WHEN X.SEMI_GOODS_YN = 'Y'
+			            THEN CASE WHEN X.LOSS_RATE > 100
+			                      THEN ROUND((X.NEED_QTY * (X.LOSS_RATE / 100)) * G_PRICE, 0)
+			                      ELSE ROUND((X.NEED_QTY *(X.LOSS_RATE / 100)) * G_PRICE, 0)
+			                  END
+			            ELSE NVL(ROUND(X.NEED_QTY * (X.CONTRACT_PRICE / X.KG_CONVERT_RATE / 1000), 0), 0)
+			        END 
+			    ELSE 0 END AS INVEST_AMT	--투입재료비
+		     , X.SDATE
+		     , X.EDATE
+		     , CASE WHEN  (:stdDate BETWEEN X.SDATE AND X.EDATE) THEN 
+				      	X.NEED_QTY
+		        ELSE 
+		          0
+		        END AS NEED_QTY
+		     , CASE WHEN  (:stdDate BETWEEN X.SDATE AND X.EDATE) THEN
+			        CASE WHEN X.LOSS_RATE > 100
+			            THEN ROUND(X.NEED_QTY * (X.LOSS_RATE / 100), 0)
+			            ELSE ROUND(X.NEED_QTY * (X.LOSS_RATE / 100), 0)
+			        END
+			     ELSE 
+	           		 0 
+	             END AS SUM_NEED_QTY
+		     , X.ITEM_SIZE
+		     , X.MAKER
+		     , X.ORIGIN_TYPE
+		     , X.COOK_UNIT_ITEM
+		     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'OFFER_UNIT' AND CODE = X.OFFER_UNIT_ITEM) AS OFFER_UNIT_NM
+		     , X.BASIS_UNIT_CD
+		     , X.PO_UNIT
+		     , X.RECIPE_APPLY_UNIT
+		     , X.LOSS_RATE
+		     , X.YIELD
+		     , X.SEMI_GOODS_YN
+		     , X.PRVS_MATERIAL_CD
+		     , X.SORT_ORDER
+		     , X.REMARK
+		     , X.ITEM_UPJANG
+		     , X.REL_PATH
+		     , X.SAVE_FILE_NM
+		     , X.CUSER
+		     , X.CDATE
+		     , X.UUSER
+		     , X.UDATE
+		     , X.CONTRACT_START
+		     , X.CONTRACT_END
+		     , X.REF_SEQ
+		     , X.APPEND_SEQ
+		     , X.STD_SEQ
+             --투입재료량, 실제사용량, 투입재료비 현재 사용중인것만 합계내기 위한 구분값
+             , CASE WHEN  (:stdDate BETWEEN X.SDATE AND X.EDATE) THEN 1 ELSE 0 END AS USE_YN
+		  FROM (
+		        SELECT /*+ PUSH_PRED(D) */ A.MU_CD
+		             , A.UPJANG_TYPE
+		             , A.STD_RECIPE_CD
+		             , B.RECIPE_NM
+		             , B.RECIPE_NM_BYNM
+		             , B.COOK_UNIT
+		             , B.STAND
+		             , A.MATERIAL_CD
+		             , DECODE(A.SEMI_GOODS_YN, 'Y', E.RECIPE_NM, C.ITEM_NAME) AS MATERIAL_CD_NM
+		             , A.SDATE
+		             , A.EDATE
+		             , A.CST_AMT
+		             , NVL(A.NEED_QTY, 0) AS NEED_QTY
+		             , NVL(D.CONTRACT_PRICE, 0) AS CONTRACT_PRICE
+		             , DECODE(C.KG_CONVERT_RATE, 0, 1, C.KG_CONVERT_RATE) AS KG_CONVERT_RATE
+		             , C.ITEM_SIZE
+		             , C.MAKER
+		             , C.ORIGIN_TYPE
+		             , E.COOK_UNIT COOK_UNIT_ITEM
+		             , E.OFFER_UNIT OFFER_UNIT_ITEM
+		             , A.BASIS_UNIT_CD
+		             , A.PO_UNIT
+		             , A.RECIPE_APPLY_UNIT
+		             , A.LOSS_RATE
+		             , A.YIELD
+		             , SEMI_GOODS_YN
+		             , A.PRVS_MATERIAL_CD
+		             , A.SORT_ORDER
+		             , A.REMARK
+		             , A.ITEM_UPJANG
+		             , F.REL_PATH
+		             , F.SAVE_FILE_NM
+		             , A.CUSER
+		             , A.CDATE
+		             , A.UUSER
+		             , A.UDATE
+		             , D.CONTRACT_START
+		             , D.CONTRACT_END
+		             , B.REF_SEQ
+		             , B.APPEND_SEQ
+		             , A.STD_SEQ
+		             , DECODE(A.SEMI_GOODS_YN, 'Y', FN_RECIPE_AMT_FUN('', A.MATERIAL_CD, :stdDate, '2'), 0) AS G_PRICE
+		          FROM RSS_STD_RECIPE_CD_DETAIL A
+		             , RSS_STD_RECIPE_CD_MST B
+		             , HLDC_PO_ITEM_MST C
+		             , (
+		                SELECT 
+		                       ITEM_CODE
+		                     , MAX(CONTRACT_START) AS CONTRACT_START
+		                     , MAX(CONTRACT_END) AS CONTRACT_END
+		                     , AVG(CONTRACT_PRICE) AS CONTRACT_PRICE
+		                  --FROM HLDC_PO_CONTRACT_F A
+		                  FROM	EPROCUSR.VO_CONTRACT_F_RCP A -- 논리적 분사이후 단가불러오는 뷰 변경 20200309
+		                 WHERE 1 = 1
+                   			 AND UPJANG = '217840' --FC 외식 메뉴개발실 단가 연결  2017.10.31 이다미 요청
+		                     AND :stdDate BETWEEN CONTRACT_START AND CONTRACT_END
+		                 GROUP BY ITEM_CODE) D
+		             , RSS_STD_RECIPE_CD_MST E
+		             , SCC_APPEND_FILE F
+		         WHERE A.STD_RECIPE_CD = B.STD_RECIPE_CD(+)
+		           AND A.MATERIAL_CD = C.ITEM_CODE(+)
+		           AND A.MATERIAL_CD = D.ITEM_CODE(+)
+		           AND A.MATERIAL_CD = E.STD_RECIPE_CD(+)
+		           AND E.REF_SEQ = F.REF_SEQ(+)
+		           AND E.APPEND_SEQ = F.APPEND_SEQ(+)
+		           AND A.MU_CD = :muCd
+		           AND A.UPJANG_TYPE = :upjangType
+		           AND A.STD_RECIPE_CD = :stdRecipeCd
+		        <#if materialCd?has_content>
+		           AND A.MATERIAL_CD = :materialCd
+		        </#if>
+				--레시피 상세 식자재/레시피가 키가 되면서 아래 조건이 없어야함
+				--2017.04.17 CH201703_00534 김호석 상세에서는 기간제한 업이 조회 가능하도록 수정
+		        <#if sdate?has_content>
+		           --AND A.SDATE = :sdate
+		        </#if>
+		        <#if stdDate?has_content>
+		          -- AND A.SDATE <= :stdDate
+		          -- AND A.EDATE >= :stdDate
+		        </#if>
+		       ) X
+		 ORDER BY X.EDATE DESC, X.SDATE DESC,X.STD_RECIPE_CD ASC, X.SORT_ORDER ASC
+
+		]]>
+	</statement>
+
+    <!-- 레서피 상세 중복 카운트 들고오기 -->
+	<statement name="selectPkCnt" type="select">
+		/*+ com.hwfs.rc.rrm.dao.SmlRecipeDetailedMgntDAO.selectPkCnt */
+		<![CDATA[
+		SELECT COUNT(*)
+		  FROM RSS_STD_RECIPE_CD_DETAIL
+		 WHERE UPJANG_TYPE = :upjangType
+		   AND STD_RECIPE_CD = :stdRecipeCd
+		   AND MATERIAL_CD = :materialCd
+		   AND :sdate BETWEEN SDATE AND EDATE
+
+		]]>
+	</statement>
+
+	<!-- 가상레시피 상세 코드 순번을 조회한다. -->
+	<statement name="selectSeq" type="select">
+		/*+ com.hwfs.rc.rrm.dao.SmlRecipeDetailedMgntDAO.selectSeq */
+		<![CDATA[
+		SELECT NVL(MAX(STD_SEQ) + 1, 1)
+		  FROM RSS_STD_RECIPE_CD_DETAIL
+		 WHERE UPJANG_TYPE = :upjangType
+		   AND STD_RECIPE_CD = :stdRecipeCd
+		   AND MATERIAL_CD = :materialCd
+
+		]]>
+	</statement>
+
+	<!-- 가상레시피 상세를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.rc.rrm.dao.SmlRecipeDetailedMgntDAO.insert */
+		<![CDATA[
+		INSERT INTO RSS_STD_RECIPE_CD_DETAIL
+		(
+		   MU_CD
+		 , UPJANG_TYPE
+		 , STD_RECIPE_CD
+		 , MATERIAL_CD
+		 , STD_SEQ
+		 , SDATE
+		 , EDATE
+		 , NEED_QTY
+		 , CST_AMT
+		 , BASIS_UNIT_CD
+		 , PO_UNIT
+		 , RECIPE_APPLY_UNIT
+		 , LOSS_RATE
+		 , YIELD
+		 , SEMI_GOODS_YN
+		 , PRVS_MATERIAL_CD
+		 , SORT_ORDER
+		 , REMARK
+		 , ITEM_UPJANG
+		 , CUSER
+		 , CDATE
+		 , UUSER
+		 , UDATE
+		)
+		VALUES
+		(
+		   :muCd
+		 , :upjangType
+		 , :stdRecipeCd
+		 , :materialCd
+		 , :stdSeq
+		 , :sdate
+		<#if edate?exists> , :edate<#else> , null</#if>
+		<#if needQty?exists> , :needQty<#else> , null</#if>
+		<#if cstAmt?exists> , :cstAmt<#else> , null</#if>
+		<#if basisUnitCd?exists> , :basisUnitCd<#else> , null</#if>
+		<#if poUnit?exists> , :poUnit<#else> , null</#if>
+		<#if recipeApplyUnit?exists> , :recipeApplyUnit<#else> , null</#if>
+		<#if lossRate?exists> , :lossRate<#else> , null</#if>
+		<#if yield?exists> , :yield<#else> , null</#if>
+		<#if semiGoodsYn?exists> , :semiGoodsYn<#else> , null</#if>
+		<#if prvsMaterialCd?exists> , :prvsMaterialCd<#else> , null</#if>
+		<#if sortOrder?exists> , :sortOrder<#else> , null</#if>
+		<#if remark?exists> , :remark<#else> , null</#if>
+		<#if itemUpjang?exists> , :itemUpjang<#else> , null</#if>
+		 , :loginSabun
+		 , SYSDATE
+		 , :loginSabun
+		 , SYSDATE
+		)
+
+		]]>
+	</statement>
+
+	<!-- 표준레시피 상세 시작일자를 수정한다.(식자재코드를 제외한 그 외 컬럼 포함) -->
+	<statement name="updateSdate" type="update">
+		/*+
+		com.hwfs.rc.rrm.dao.SmlRecipeDetailedMgntDAO.updateSdate */
+		<![CDATA[
+		UPDATE RSS_STD_RECIPE_CD_DETAIL
+		   SET <#if sdate?exists> SDATE = :sdate</#if>
+		<#if edate?exists>     , EDATE = :edate</#if>
+		<#if needQty?exists>     , NEED_QTY = :needQty</#if>
+		<#if cstAmt?exists>     , CST_AMT = :cstAmt</#if>
+		<#if basisUnitCd?exists>     , BASIS_UNIT_CD = :basisUnitCd</#if>
+		<#if poUnit?exists>     , PO_UNIT = :poUnit</#if>
+		<#if recipeApplyUnit?exists>     , RECIPE_APPLY_UNIT = :recipeApplyUnit</#if>
+		<#if lossRate?exists>     , LOSS_RATE = :lossRate</#if>
+		<#if yield?exists>     , YIELD = :yield</#if>
+		<#if semiGoodsYn?exists>     , SEMI_GOODS_YN = :semiGoodsYn</#if>
+		<#if sortOrder?exists>     , SORT_ORDER = :sortOrder</#if>
+		<#if remark?exists>     , REMARK = :remark</#if>
+		<#if itemUpjang?exists>     , ITEM_UPJANG = :itemUpjang</#if>
+		     , UUSER = :loginSabun
+		     , UDATE = SYSDATE
+		 WHERE MU_CD = :muCd
+		   AND UPJANG_TYPE = :upjangType
+		   AND STD_RECIPE_CD = :stdRecipeCd
+		   AND MATERIAL_CD = :materialCd
+		   AND SDATE = :orgSdate	--시작일자를 수정하기 때문에 기존 등록되어 있는 시작일의 데이터를 수정
+		   AND STD_SEQ = :stdSeq
+
+		]]>
+	</statement>
+
+	<!-- 표준레시피 상세 종료일자를 수정한다.
+		(이전 식자재코드가 있는 식자재의 시작일자를 변경했을 경우 ) -->
+	<statement name="updateEdatePrvsMaterial" type="update">
+		/*+	com.hwfs.rc.rrm.dao.SmlRecipeDetailedMgntDAO.updateEdatePrvsMaterial */
+		<![CDATA[
+		UPDATE RSS_STD_RECIPE_CD_DETAIL
+		   SET EDATE = TO_CHAR(TO_DATE(:sdate, 'YYYYMMDD') - 1, 'YYYYMMDD')
+		 WHERE MU_CD = :muCd
+		   AND UPJANG_TYPE = :upjangType
+		   AND STD_RECIPE_CD = :stdRecipeCd
+		   AND MATERIAL_CD = :prvsMaterialCd
+		   AND STD_SEQ = :stdSeq
+
+		]]>
+	</statement>
+
+	<!-- 표준레시피 상세 종료일자를 수정한다.
+		(품목이 새로 등록이 될 경우) -->
+	<statement name="updateEdate" type="update">
+		/*+ com.hwfs.rc.rrm.dao.SmlRecipeDetailedMgntDAO.updateEdate */
+		<![CDATA[
+		UPDATE RSS_STD_RECIPE_CD_DETAIL
+		   SET EDATE = TO_CHAR(TO_DATE(:sdate, 'YYYYMMDD') - 1, 'YYYYMMDD')
+		 WHERE MU_CD = :muCd
+		   AND UPJANG_TYPE = :upjangType
+		   AND STD_RECIPE_CD = :stdRecipeCd
+		   AND MATERIAL_CD = :orgMaterialCd
+		   AND SDATE = :orgSdate
+
+		]]>
+	</statement>
+
+	<!-- 표준레시피 상세 식자재를 수정한다.(그 외 컬럼 포함) -->
+	<statement name="updateMaterialCd" type="update">
+		/*+	com.hwfs.rc.rrm.dao.SmlRecipeDetailedMgntDAO.updateSdate */
+		<![CDATA[
+		UPDATE RSS_STD_RECIPE_CD_DETAIL
+		   SET MATERIAL_CD = :materialCd
+		<#if sdate?exists>     , SDATE = :sdate</#if>
+		<#if edate?exists>     , EDATE = :edate</#if>
+		<#if needQty?exists>     , NEED_QTY = :needQty</#if>
+		<#if cstAmt?exists>     , CST_AMT = :cstAmt</#if>
+		<#if basisUnitCd?exists>     , BASIS_UNIT_CD = :basisUnitCd</#if>
+		<#if poUnit?exists>     , PO_UNIT = :poUnit</#if>
+		<#if recipeApplyUnit?exists>     , RECIPE_APPLY_UNIT = :recipeApplyUnit</#if>
+		<#if lossRate?exists>     , LOSS_RATE = :lossRate</#if>
+		<#if yield?exists>     , YIELD = :yield</#if>
+		<#if semiGoodsYn?exists>     , SEMI_GOODS_YN = :semiGoodsYn</#if>
+		<#if sortOrder?exists>     , SORT_ORDER = :sortOrder</#if>
+		<#if remark?exists>     , REMARK = :remark</#if>
+		<#if itemUpjang?exists>     , ITEM_UPJANG = :itemUpjang</#if>
+		     , UUSER = :loginSabun
+		     , UDATE = SYSDATE
+		 WHERE MU_CD = :muCd
+		   AND UPJANG_TYPE = :upjangType
+		   AND STD_RECIPE_CD = :stdRecipeCd
+		   AND MATERIAL_CD = :orgMaterialCd		--식자재를 변경하기 때문에 기존 등록되어 있는 식자재코드의 데이터를 수정
+		   AND SDATE = :sdate
+		   AND STD_SEQ = :stdSeq
+
+		]]>
+	</statement>
+
+	<!-- 표준레시피 상세(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.rc.rrm.dao.SmlRecipeDetailedMgntDAO.update */
+		<![CDATA[
+		UPDATE RSS_STD_RECIPE_CD_DETAIL
+		   SET <#if edate?exists> EDATE = :edate</#if>
+		<#if needQty?exists>     , NEED_QTY = :needQty</#if>
+		<#if cstAmt?exists>     , CST_AMT = :cstAmt</#if>
+		<#if basisUnitCd?exists>     , BASIS_UNIT_CD = :basisUnitCd</#if>
+		<#if poUnit?exists>     , PO_UNIT = :poUnit</#if>
+		<#if recipeApplyUnit?exists>     , RECIPE_APPLY_UNIT = :recipeApplyUnit</#if>
+		<#if lossRate?exists>     , LOSS_RATE = :lossRate</#if>
+		<#if yield?exists>     , YIELD = :yield</#if>
+		<#if sortOrder?exists>     , SORT_ORDER = :sortOrder</#if>
+		<#if remark?exists>     , REMARK = :remark</#if>
+		<#if itemUpjang?exists>     , ITEM_UPJANG = :itemUpjang</#if>
+		     , UUSER = :loginSabun
+		     , UDATE = SYSDATE
+		 WHERE MU_CD = :muCd
+		   AND UPJANG_TYPE = :upjangType
+		   AND STD_RECIPE_CD = :stdRecipeCd
+		   AND MATERIAL_CD = :materialCd
+		   AND SDATE = :sdate
+		   AND STD_SEQ = :stdSeq
+
+		]]>
+	</statement>
+
+	<!-- 표준레시피 상세(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.rc.rrm.dao.SmlRecipeDetailedMgntDAO.delete */
+		<![CDATA[
+		DELETE
+		  FROM RSS_STD_RECIPE_CD_DETAIL
+		 WHERE MU_CD = :muCd
+		   AND UPJANG_TYPE = :upjangType
+		   AND STD_RECIPE_CD = :stdRecipeCd
+		   AND MATERIAL_CD = :materialCd
+		   AND SDATE = :sdate
+		   AND STD_SEQ = :stdSeq
+
+		]]>
+	</statement>
+
+	<!-- 가상레시피 상세수를 수정한다. -->
+	<statement name="saveRecipeMstCnt" type="update">
+		/*+ com.hwfs.rc.rrm.dao.SmlRecipeDetailedMgntDAO.saveRecipeMstCnt */
+		<![CDATA[
+		UPDATE RSS_STD_RECIPE_CD_MST
+		   SET DETAIL_COUNT = ( SELECT COUNT(*) AS DETAIL_COUNT
+	      						  FROM RSS_STD_RECIPE_CD_DETAIL A
+			                     WHERE A.MU_CD = :muCd
+								   AND A.UPJANG_TYPE = :upjangType
+			                       AND A.STD_RECIPE_CD = :stdRecipeCd )
+		 WHERE MU_CD = :muCd
+	       AND UPJANG_TYPE = :upjangType
+		   AND STD_RECIPE_CD = :stdRecipeCd
+
+		]]>
+	</statement>
+
+	<!-- 레시피 조리법을 삭제한다. -->
+	<statement name="deleteStdRecipeCuisine" type="delete">
+		/*+ com.hwfs.rc.rrm.dao.SmlRecipeDetailedMgntDAO.deleteStdRecipeCuisine */
+		<![CDATA[
+		DELETE
+		  FROM RSS_STD_RECIPE_CUISINE
+		 WHERE UPJANG_TYPE = :upjangType
+		   AND STD_RECIPE_CD = :stdRecipeCd
+		]]>
+	</statement>
+
+	<!-- 레시피 조리법을 저장한다. -->
+	<statement name="saveStdRecipeCuisine" type="insert">
+		/*+ com.hwfs.rc.rrm.dao.SmlRecipeDetailedMgntDAO.saveStdRecipeCuisine */
+		<![CDATA[
+		INSERT INTO RSS_STD_RECIPE_CUISINE
+		(
+		   UPJANG_TYPE
+		 , STD_RECIPE_CD
+		 , SRLNUM
+		 , MU_CD
+		 , CUISINE
+		 , REF_SEQ
+		 , APPEND_SEQ
+		 , COOK_SEQ
+		 , CUSER
+		 , CDATE
+		 , UUSER
+		 , UDATE
+		)
+		<#if saveType == "A">
+		SELECT :upjangType
+		     , :stdRecipeCd
+		     , SRLNUM
+		     , :muCd
+		     , CUISINE
+		     , REF_SEQ
+		     , APPEND_SEQ
+		     , COOK_SEQ
+		     , :loginSabun
+		     , SYSDATE
+		     , :loginSabun
+		     , SYSDATE
+		  FROM RSS_STD_RECIPE_CUISINE
+		 WHERE UPJANG_TYPE = :orgUpjangType
+		   AND STD_RECIPE_CD = :orgStdRecipeCd
+		<#else>
+		SELECT :upjangType
+		     , :stdRecipeCd
+		     , SRLNUM
+		     , :muCd
+		     , CUISINE
+		     , REF_SEQ
+		     , APPEND_SEQ
+		     , COOK_SEQ
+		     , :loginSabun
+		     , SYSDATE
+		     , :loginSabun
+		     , SYSDATE
+		  FROM RSS_UPJANG_RECIPE_CUISINE
+		 WHERE UPJANG_CD = :orgUpjangCd
+		   AND STD_RECIPE_CD = :orgStdRecipeCd
+		</#if>
+		]]>
+	</statement>
+
+	<!-- 사진을 복사한다. -->
+	<statement name="saveStdRecipePic" type="update">
+		/*+ com.hwfs.rc.rrm.dao.SmlRecipeDetailedMgntDAO.saveStdRecipePic */
+		<![CDATA[
+		UPDATE RSS_STD_RECIPE_CD_MST
+		<#if saveType == "A">
+		   SET REF_SEQ = (SELECT REF_SEQ FROM RSS_STD_RECIPE_CD_MST WHERE UPJANG_TYPE = :orgUpjangType AND STD_RECIPE_CD = :orgStdRecipeCd)
+		     , APPEND_SEQ = (SELECT APPEND_SEQ FROM RSS_STD_RECIPE_CD_MST WHERE UPJANG_TYPE = :orgUpjangType AND STD_RECIPE_CD = :orgStdRecipeCd)
+		<#else>
+		   SET REF_SEQ = (SELECT REF_SEQ FROM RSS_UPJANG_RECIPE_CD_MST WHERE UPJANG_CD = :orgUpjangCd AND STD_RECIPE_CD = :orgStdRecipeCd)
+		     , APPEND_SEQ = (SELECT APPEND_SEQ FROM RSS_UPJANG_RECIPE_CD_MST WHERE UPJANG_CD = :orgUpjangCd AND STD_RECIPE_CD = :orgStdRecipeCd)
+		</#if>
+		     , UUSER = :loginSabun
+		     , UDATE = SYSDATE
+		 WHERE UPJANG_TYPE = :upjangType
+		   AND STD_RECIPE_CD = :stdRecipeCd
+		]]>
+	</statement>
+
+	<!-- 반찬세트와 사진SEQ를 수정한다. -->
+	<statement name="updateMst" type="update">
+		/*+ com.hwfs.rc.rrm.dao.SmlRecipeDetailedMgntDAO.updateMst */
+		<![CDATA[
+		UPDATE RSS_STD_RECIPE_CD_MST
+		   SET <#if refSeq?exists> REF_SEQ = :refSeq,</#if>
+		<#if appendSeq?exists> APPEND_SEQ = :appendSeq,</#if>
+		<#if setRecipeCd?exists> SET_RECIPE_CD = :setRecipeCd,</#if>
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		 WHERE UPJANG_TYPE = :upjangType
+		   AND STD_RECIPE_CD = :stdRecipeCd
+		   AND MU_CD = :muCd
+
+		]]>
+	</statement>
+
+	<!-- 가상레시피 반찬세트를 저장한다. -->
+	<statement name="setRecipeUpdateMst" type="insert">
+		/*+ com.hwfs.rc.rrm.dao.SmlRecipeDetailedMgntDAO.setRecipeUpdateMst */
+		<![CDATA[
+		INSERT INTO RSS_STD_RECIPE_CD_DETAIL
+		(
+		   UPJANG_TYPE
+		 , STD_RECIPE_CD
+		 , MATERIAL_CD
+		 , SDATE
+		 , MU_CD
+		 , EDATE
+		 , NEED_QTY
+		 , CST_AMT
+		 , BASIS_UNIT_CD
+		 , PO_UNIT
+		 , RECIPE_APPLY_UNIT
+		 , LOSS_RATE
+		 , YIELD
+		 , SEMI_GOODS_YN
+		 , PRVS_MATERIAL_CD
+		 , SORT_ORDER
+		 , REMARK
+		 , ITEM_UPJANG
+		 , CUSER
+		 , CDATE
+		 , UUSER
+		 , UDATE
+		 , STD_SEQ
+		 , SET_RECIPE_CD
+		)
+		SELECT A.UPJANG_TYPE
+		     , :stdRecipeCd STD_RECIPE_CD
+		     , A.MATERIAL_CD
+		     , A.SDATE
+		     , A.MU_CD
+		     , A.EDATE
+		     , A.NEED_QTY
+		     , A.CST_AMT
+		     , A.BASIS_UNIT_CD
+		     , A.PO_UNIT
+		     , A.RECIPE_APPLY_UNIT
+		     , A.LOSS_RATE
+		     , A.YIELD
+		     , A.SEMI_GOODS_YN
+		     , A.PRVS_MATERIAL_CD
+		     , NULL SORT_ORDER
+		     , A.REMARK
+		     , A.ITEM_UPJANG
+		     , :loginSabun CUSER
+		     , SYSDATE CDATE
+		     , :loginSabun UUSER
+		     , SYSDATE UDATE
+		     , (SELECT NVL(MAX(STD_SEQ)+1,1) FROM RSS_STD_RECIPE_CD_DETAIL WHERE UPJANG_TYPE = A.UPJANG_TYPE AND MATERIAL_CD = A.MATERIAL_CD AND STD_RECIPE_CD = :stdRecipeCd) STD_SEQ
+		     , :setRecipeCd AS SET_RECIPE_CD
+		  FROM RSS_STD_RECIPE_CD_DETAIL A
+		 WHERE STD_RECIPE_CD = :setRecipeCd
+
+		]]>
+	</statement>
+
+<!--  표준레시피 반찬세트를 삭제 한다.-->
+	<statement name="setRecipeDelMst" type="delete">
+		/*+ com.hwfs.rc.rrm.dao.SmlRecipeDetailedMgntDAO.setRecipeDelMst */
+		<![CDATA[
+		DELETE 
+		  FROM RSS_STD_RECIPE_CD_DETAIL
+		 WHERE SET_RECIPE_CD = :oldSetRecipeCd
+		   AND STD_RECIPE_CD = :stdRecipeCd
+
+		]]>
+	</statement>
+
+	<!-- 가상레시피 여부를 체크한다. -->
+	<statement name="smlRecipeYn" type="select">
+		/*+ com.hwfs.rc.rrm.smlRecipeMasterMgntDAO.smlRecipeYn	*/
+		<![CDATA[
+		SELECT TO_CHAR(STD_RECIPE_CD) AS STD_RECIPE_CD
+		     , RECIPE_NM
+		     , NVL(SML_YN, 'N') AS SML_RECIPE_YN
+		  FROM RSS_STD_RECIPE_CD_MST
+		 WHERE UPJANG_TYPE = :upjangType
+		   AND STD_RECIPE_CD = :stdRecipeCd
+		 UNION ALL
+		SELECT '' AS STD_RECIPE_CD
+		     , '' AS  RECIPE_NM
+		     , 'D' AS SML_RECIPE_YN
+		  FROM DUAL
+
+		]]>
+	</statement>
+</hqml>

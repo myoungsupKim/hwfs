@@ -1,0 +1,147 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="CmmnCalendarPop" classname="frmCalendar" inheritanceid="" position="absolute" titletext="캘린더" onload="CmmnCalendarPop_onload" left="0" top="0" width="520" height="670" scrollbars="none" ontimer="CmmnCalendarPop_ontimer" enable="true">
+    <Layouts>
+      <Layout>
+        <Static id="staFormSize" position="absolute" left="0" top="0" width="520" height="670" cssclass="sta_POP_Bg"/>
+        <Calendar id="calCalendar" taborder="0" position="absolute" type="monthonly" ondayclick="calCalendar_ondayclick" onchanged="calCalendar_onchanged" left="10" top="80" width="500" height="580" style="bordertype:normal 0 0 ;" value="null" dateformat="yyyy-MM-dd"/>
+        <Static id="Static00" taborder="7" left="0" top="0" height="70" cssclass="sta_POP_TitleBg" width="520" text="Calendar"/>
+        <Button id="btnClose" taborder="6" onclick="btnClose_onclick" cssclass="btn_POP_XBtn" top="0" height="70" width="70" right="0"/>
+        <Static id="Static01" taborder="8" text="h10" left="442" top="70" width="102" height="10" cssclass="sta_GUIDE_Area" visible="false" style="align:right middle;"/>
+        <Static id="Static02" taborder="9" text="h10" cssclass="sta_GUIDE_Area" visible="false" left="442" top="660" width="102" height="10" style="align:right middle;"/>
+        <Static id="Static03" taborder="10" text="w10" cssclass="sta_GUIDE_Area" visible="false" left="0" top="588" width="10" height="100" style="align:left bottom;"/>
+        <Static id="Static04" taborder="11" text="w10" cssclass="sta_GUIDE_Area" visible="false" left="510" top="588" width="10" height="100" style="align:left bottom;"/>
+        <Static id="Static05" taborder="12" left="29.23%" top="80" right="26.92%" height="84" onclick="Static05_onclick"/>
+      </Layout>
+    </Layouts>
+    <Script type="xscript5.0"><![CDATA[// 1. Calender컴포넌트는 컴포넌트의 위치에 따라 달력이 팝업되기때문에 화면에서 짤리거나 치우치는 문제가 있어
+// 화면 정중앙에 팝업하기 위해 달력화면을 만듬
+// 2. 년월 부분을 선택하면 Spin으로 년월을 변경할 수 있도록 되어 있는 기능을 막기 위해 static컴포넌트를 언저 막음
+
+include "lib::lib_Date.xjs"
+
+/*======================================================
+ 전역변수
+ ======================================================*/
+this.preDate = undefined;
+this.arg = undefined;
+/*======================================================
+ Form 관련 함수
+ ======================================================*/
+this.CmmnCalendarPop_onload = function(obj:Form, e:nexacro.LoadEventInfo)
+{
+// 	if(nexacro.Browser == "MobileSafari")
+// 	{
+// 		this.calCalendar._on_focus = function () {};
+// 	};
+	//trace(" this.preDate >>>>>" +this.preDate);
+	this.fnFormInit();
+}
+
+this.calCalendar_onchanged = function (obj:Calendar, e:ChangeEventInfo)
+{
+	this.preDate = application.goMain.gfn_POP_getArg();	
+	application.goMain.gfn_POP_close(this, obj.value);
+}
+
+this.calCalendar_ondayclick = function (obj:Calendar, e:CalendarDayClickEventInfo)
+{
+	this.preDate = obj.value;	
+	
+	if (this.preDate == e.date) 
+	{
+		application.goMain.gfn_POP_close(this, obj.value);
+	}
+}
+// coolmind 2012.11.30 - 자주사용하고 화면팝업 속도가 느린 화면을 Main화면에 미리 올려놓고 visible만 변경하는 형태로 팝업(POPDivx) 하려고 하는 화면에서는 반드시 구현해야 하는 함수
+this.fnFormInit = function ()
+{
+	this.arg = application.goMain.gfn_POP_getArg();
+	
+	this.preDate = application.goMain.gfn_POP_getArg();	
+	
+	if (application.gfn_IsNull(this.preDate)) 
+	{
+		this.preDate = this.gfn_Today();
+	}
+	this.calCalendar.set_value(this.preDate);
+	
+	this.calCalendar.set_dateformat("yyyyMMdd");
+	
+	//안드로이드4.3TODO
+	//this.setTimer(1,100);
+	application.goMain.gfn_POP_resize(this);
+}
+
+//년월선택 시 20141020 추가사항 월력 호출
+this.btnTitle_onclick = function(obj:Button,  e:nexacro.ClickEventInfo)
+{
+	var arg = this.calCalendar.value;
+	application.goMain.gfn_POP_create("PopMonthCal", "cmmn::CmmnCalMonthPop.xfdl", "fn_callbackPOP", this, arg , "POPx", application.goMain.divBase);
+	return false;
+}
+
+
+//하단 x 버튼 클릭 시
+this.btnClose_onclick = function(obj:Button,  e:nexacro.ClickEventInfo)
+{
+	var getDate = application.goMain.gfn_POP_getArg();
+	
+	application.goMain.gfn_POP_close(this, "CLOSEONLY");
+}
+
+this.CmmnCalendarPop_ontimer = function(obj:Form, e:nexacro.TimerEventInfo)
+{
+	this.killTimer(1);
+	application.goMain.gfn_POP_resize(this);
+}
+
+/** 
+ * 팝업 callBack
+ * @param  : popname - 팝업을 구분짓는 id
+ rtn : 팝업이 닫히면서 전달된 값
+ * @return : 없음
+ */
+this.fn_callbackPOP = function (popname, rtn)
+{
+	switch (popname)
+	{		
+		//월력팝업
+		case "PopMonthCal":
+			var sMonth = rtn+"";
+			if(sMonth.length < 8)
+			{
+				sMonth += "01";
+			}
+			this.preDate = sMonth
+			this.calCalendar.set_value(sMonth);
+			break;			
+	}
+}
+
+//이전
+this.btnPrev_onclick = function(obj:Button,  e:nexacro.ClickEventInfo)
+{
+	var sMonth = this.gfn_AddMonth(this.preDate, -1);
+	this.preDate = sMonth;
+	this.calCalendar.set_value(this.preDate);
+}
+
+//다음
+this.btnNext_onclick = function(obj:Button,  e:nexacro.ClickEventInfo)
+{
+	var sMonth = this.gfn_AddMonth(this.preDate, +1);
+	this.preDate = sMonth;
+	this.calCalendar.set_value(this.preDate);
+}
+
+this.Static05_onclick = function(obj:Static,  e:nexacro.ClickEventInfo)
+{
+	var arg = this.calCalendar.value;
+	application.goMain.gfn_POP_create("PopMonthCal", "cmmn::CmmnCalMonthPop.xfdl", "fn_callbackPOP", this, arg , "POPx", application.goMain.divBase);
+	return false;
+}
+]]></Script>
+  </Form>
+</FDL>

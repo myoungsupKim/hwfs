@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="ei.isa.fsspGoodsDAO">
+	<desc>특판상품 HQML Query</desc>
+
+	<!-- 특판상품 목록을 조회한다. -->
+	<statement name="selectGoods" type="select">
+		/*+ com.hwfs.ei.isa.dao.FsspGoodsDAO.selectGoods */
+		<![CDATA[
+SELECT CASE WHEN D.BAR_CD IS NULL THEN '0' ELSE NULL END AS CHK
+     , CASE WHEN D.BAR_CD IS NULL THEN 'N' ELSE 'Y' END AS CREATE_YN
+     , C.BARCODE AS BAR_CD
+     , :locCd AS LOC_CD
+     , :locNm AS LOC_NM
+     , :brchCd AS BRCH_CD
+     , :brchNm AS BRCH_NM
+     , SUBSTR(C.ITEM_NAME, 1, 60) AS ITEM_NAME_SHRT
+     , C.ITEM_CODE AS ITEM_CD
+     , C.ITEM_CLASS1 AS GUN_CLSF
+     , (SELECT CLASS_NAME FROM HLDC_PO_ITEM_CLASS WHERE CLASS_TYPE = 'L' AND CLASS_CODE = C.ITEM_CLASS1) AS ITEM_CLASS_NAME1
+     , C.ITEM_CLASS2 AS LARG_CLSF
+     , (SELECT CLASS_NAME FROM HLDC_PO_ITEM_CLASS WHERE CLASS_TYPE = 'M' AND CLASS_CODE = C.ITEM_CLASS2) AS ITEM_CLASS_NAME2
+     , C.ITEM_CLASS3 AS MIDD_CLSF
+     , (SELECT CLASS_NAME FROM HLDC_PO_ITEM_CLASS WHERE CLASS_TYPE = 'S' AND CLASS_CODE = C.ITEM_CLASS3) AS ITEM_CLASS_NAME3
+     , C.ITEM_CLASS4 AS SMLL_CLSF
+     , (SELECT CLASS_NAME FROM HLDC_PO_ITEM_CLASS WHERE CLASS_TYPE = 'D' AND CLASS_CODE = C.ITEM_CLASS4) AS ITEM_CLASS_NAME4
+     , C.UOM_CODE AS SALE_UNIT
+     , 1.0 AS CNVR
+     , 1.0 AS SALE_UNIT_QTY
+     , D.SELL_TYPE
+     , '1' AS BAR_PRNT_YN
+     , '0' AS PRTN_YN
+     , '0' AS BOTL_MNGM_YN
+     , D.CMIS_YN
+     , '1' AS SALE_YN
+     , CASE WHEN NVL(B.QTY_DC_STD, 0) > 0 AND NVL(B.AMT_DC_STD, 0) > 0 THEN '1' ELSE '0' END AS DSCN_YN
+     , '0' AS RPRS_YN
+     , '0' AS SRVC_YN
+     , '1' AS MEMB_DIV
+     , 'I' AS REC_STAT
+     , :sabun AS CRAT_USER
+     , '0' AS JAGO_YN
+     , D.DRCT_CMIS_CD
+     , '' AS BTN_DRCT_CMIS_CD
+     , D.DRCT_CMIS_NAME 
+     , '0' AS ORD_PRT_YN
+     , '1' AS SPCL_YN
+     , '0' AS MAIN_YN
+     , '0' AS BUFFET_YN
+     , '0' AS ATTR01
+     , DECODE(C.TAX_CODE, '100', '과세', '210', '면세', '영세') AS TAX_CODE
+     , B.SALE_PRICE
+     , CASE WHEN C.TAX_CODE = '100' THEN ROUND(B.SALE_PRICE / 1.1, 0) ELSE B.SALE_PRICE END AS UNIT_PRICE
+     , CASE WHEN C.TAX_CODE = '100' THEN TRUNC(B.SALE_PRICE - (B.SALE_PRICE / 1.1), 0) ELSE 0 END AS VAT
+  FROM FSP_PO_SEASON_LIST A
+     , FSP_PO_SPECIAL_ITEM B
+     , HLDC_PO_ITEM_MST C
+     , FSP_PO_IRIS_LOC_ITEM D
+ WHERE B.SEASON_NUM = A.SID
+   AND B.ITEM_CODE = C.ITEM_CODE
+   AND D.BAR_CD(+) = C.BARCODE
+   AND C.USE_YN = 'Y'
+   AND A.SID = :seasonNum
+   AND D.BRCH_CD(+) = :brchCd
+   AND D.LOC_CD(+) = :locCd
+ 		]]>
+	</statement>
+
+	<!-- 특판상품(을)를 등록한다. -->
+	<statement name="insertGoods" type="insert">
+		/*+ com.hwfs.ei.isa.dao.FsspGoodsDAO.insertGoods */
+		<![CDATA[
+INSERT INTO FSP_PO_IRIS_LOC_ITEM
+(
+ BAR_CD,
+ LOC_CD,
+ LOC_NM,
+ BRCH_CD,
+ BRCH_NM,
+ ITEM_NAME_SHRT,
+ ITEM_CD,
+ GUN_CLSF,
+ LARG_CLSF,
+ MIDD_CLSF,
+ SMLL_CLSF,
+ CRNR_CD,
+ SALE_UNIT,
+ CNVR,
+ SALE_UNIT_QTY,
+ OPTM_QTY,
+ SELL_TYPE,
+ RECP_YN,
+ WEIG_YN,
+ BAR_PRNT_YN,
+ PRTN_YN,
+ BOTL_MNGM_YN,
+ CMIS_YN,
+ SALE_YN,
+ DSCN_YN,
+ RPRS_YN,
+ SRVC_YN,
+ ROOM_TYPE,
+ MEMB_DIV,
+ SVC_PER,
+ VAT_PER,
+ CPON_DIV,
+ CPON_NAME,
+ REC_STAT,
+ JAGO_YN,
+ DRCT_CMIS_CD,
+ ORD_PRT_YN,
+ GUARANTEE,
+ PCNT_YN,
+ CUST_NO,
+ PART_DIV,
+ SPCL_YN,
+ MAIN_YN,
+ BUFFET_YN,
+ ATTR01,
+ ATTR02,
+ ATTR03,
+ ATTR04,
+ ATTR05,
+ ORD_PRNT_IP,
+ INVT_CD,
+ ITEM_CD_OLD,
+ DRCT_CMIS_NAME,
+ CRAT_USER,
+ CRAT_DATE,
+ UPDT_USER,
+ UPDT_DATE
+) VALUES (
+ :barCd,
+ :locCd,
+ :locNm,
+ :brchCd,
+ :brchNm,
+ :itemNameShrt,
+ :itemCd,
+<#if gunClsf?has_content> :gunClsf, <#else> NULL, </#if>
+<#if largClsf?has_content> :largClsf, <#else> NULL, </#if>
+<#if middClsf?has_content> :middClsf, <#else> NULL, </#if>
+<#if smllClsf?has_content> :smllClsf, <#else> NULL, </#if>
+<#if crnrCd?has_content> :crnrCd, <#else> NULL, </#if>
+<#if saleUnit?has_content> :saleUnit, <#else> NULL, </#if>
+<#if cnvr?has_content> :cnvr, <#else> NULL, </#if>
+<#if saleUnitQty?has_content> :saleUnitQty, <#else> NULL, </#if>
+<#if optmQty?has_content> :optmQty, <#else> NULL, </#if>
+<#if sellType?has_content> :sellType, <#else> NULL, </#if>
+<#if recpYn?has_content> :recpYn, <#else> NULL, </#if>
+<#if weigYn?has_content> :weigYn, <#else> NULL, </#if>
+<#if barPrntYn?has_content> :barPrntYn, <#else> NULL, </#if>
+<#if prtnYn?has_content> :prtnYn, <#else> NULL, </#if>
+<#if botlMngmYn?has_content> :botlMngmYn, <#else> NULL, </#if>
+<#if cmisYn?has_content> :cmisYn, <#else> NULL, </#if>
+<#if saleYn?has_content> :saleYn, <#else> NULL, </#if>
+<#if dscnYn?has_content> :dscnYn, <#else> NULL, </#if>
+<#if rprsYn?has_content> :rprsYn, <#else> NULL, </#if>
+<#if srvcYn?has_content> :srvcYn, <#else> NULL, </#if>
+<#if roomType?has_content> :roomType, <#else> NULL, </#if>
+<#if membDiv?has_content> :membDiv, <#else> NULL, </#if>
+<#if svcPer?has_content> :svcPer, <#else> NULL, </#if>
+<#if vatPer?has_content> :vatPer, <#else> NULL, </#if>
+<#if cponDiv?has_content> :cponDiv, <#else> NULL, </#if>
+<#if cponName?has_content> :cponName, <#else> NULL, </#if>
+ 'I',
+<#if jagoYn?has_content> :jagoYn, <#else> NULL, </#if>
+<#if drctCmisCd?has_content> :drctCmisCd, <#else> NULL, </#if>
+<#if ordPrtYn?has_content> :ordPrtYn, <#else> NULL, </#if>
+<#if guarantee?has_content> :guarantee, <#else> NULL, </#if>
+<#if pcntYn?has_content> :pcntYn, <#else> NULL, </#if>
+<#if custNo?has_content> :custNo, <#else> NULL, </#if>
+<#if partDiv?has_content> :partDiv, <#else> NULL, </#if>
+<#if spclYn?has_content> :spclYn, <#else> NULL, </#if>
+<#if mainYn?has_content> :mainYn, <#else> NULL, </#if>
+<#if buffetYn?has_content> :buffetYn, <#else> NULL, </#if>
+<#if attr01?has_content> :attr01, <#else> NULL, </#if>
+<#if attr02?has_content> :attr02, <#else> NULL, </#if>
+<#if attr03?has_content> :attr03, <#else> NULL, </#if>
+<#if attr04?has_content> :attr04, <#else> NULL, </#if>
+<#if attr05?has_content> :attr05, <#else> NULL, </#if>
+<#if ordPrntIp?has_content> :ordPrntIp, <#else> NULL, </#if>
+<#if invtCd?has_content> :invtCd, <#else> NULL, </#if>
+<#if itemCdOld?has_content> :itemCdOld, <#else> NULL, </#if>
+<#if drctCmisName?has_content> :drctCmisName, <#else> NULL, </#if>
+ :sabun,
+ SYSDATE,
+ :sabun,
+ SYSDATE
+)
+		]]>
+	</statement>
+	
+	<!-- 특판상품(을)를 수정한다. -->
+	<statement name="updateGoods" type="update">
+		/*+ com.hwfs.ei.isa.dao.FsspGoodsDAO.updateGoods */
+		<![CDATA[
+UPDATE FSP_PO_IRIS_LOC_ITEM SET
+       ITEM_NAME_SHRT = :itemNameShrt,
+       ITEM_CD = :itemCd,
+       GUN_CLSF =<#if gunClsf?has_content> :gunClsf,<#else> NULL, </#if>
+       LARG_CLSF =<#if largClsf?has_content> :largClsf,<#else> NULL, </#if>
+       MIDD_CLSF =<#if middClsf?has_content> :middClsf,<#else> NULL, </#if>
+       SMLL_CLSF =<#if smllClsf?has_content> :smllClsf,<#else> NULL, </#if>
+       CRNR_CD =<#if crnrCd?has_content> :crnrCd,<#else> NULL, </#if>
+       SALE_UNIT =<#if saleUnit?has_content> :saleUnit,<#else> NULL, </#if>
+       CNVR =<#if cnvr?has_content> :cnvr,<#else> NULL, </#if>
+       SALE_UNIT_QTY =<#if saleUnitQty?has_content> :saleUnitQty,<#else> NULL, </#if>
+       OPTM_QTY =<#if optmQty?has_content> :optmQty,<#else> NULL, </#if>
+       SELL_TYPE =<#if sellType?has_content> :sellType,<#else> NULL, </#if>
+       RECP_YN =<#if recpYn?has_content> :recpYn,<#else> NULL, </#if>
+       WEIG_YN =<#if weigYn?has_content> :weigYn,<#else> NULL, </#if>
+       BAR_PRNT_YN =<#if barPrntYn?has_content> :barPrntYn,<#else> NULL, </#if>
+       PRTN_YN =<#if prtnYn?has_content> :prtnYn,<#else> NULL, </#if>
+       BOTL_MNGM_YN =<#if botlMngmYn?has_content> :botlMngmYn,<#else> NULL, </#if>
+       CMIS_YN =<#if cmisYn?has_content> :cmisYn,<#else> NULL, </#if>
+       SALE_YN =<#if saleYn?has_content> :saleYn,<#else> NULL, </#if>
+       DSCN_YN =<#if dscnYn?has_content> :dscnYn,<#else> NULL, </#if>
+       RPRS_YN =<#if rprsYn?has_content> :rprsYn,<#else> NULL, </#if>
+       SRVC_YN =<#if srvcYn?has_content> :srvcYn,<#else> NULL, </#if>
+       ROOM_TYPE =<#if roomType?has_content> :roomType,<#else> NULL, </#if>
+       MEMB_DIV =<#if membDiv?has_content> :membDiv,<#else> NULL, </#if>
+       SVC_PER =<#if svcPer?has_content> :svcPer,<#else> NULL, </#if>
+       VAT_PER =<#if vatPer?has_content> :vatPer,<#else> NULL, </#if>
+       CPON_DIV =<#if cponDiv?has_content> :cponDiv,<#else> NULL, </#if>
+       CPON_NAME =<#if cponName?has_content> :cponName,<#else> NULL, </#if>
+       REC_STAT = 'U',
+       JAGO_YN =<#if jagoYn?has_content> :jagoYn,<#else> NULL, </#if>
+       DRCT_CMIS_CD =<#if drctCmisCd?has_content> :drctCmisCd,<#else> NULL, </#if>
+       ORD_PRT_YN =<#if ordPrtYn?has_content> :ordPrtYn,<#else> NULL, </#if>
+       GUARANTEE =<#if guarantee?has_content> :guarantee,<#else> NULL, </#if>
+       PCNT_YN =<#if pcntYn?has_content> :pcntYn,<#else> NULL, </#if>
+       CUST_NO =<#if custNo?has_content> :custNo,<#else> NULL, </#if>
+       PART_DIV =<#if partDiv?has_content> :partDiv,<#else> NULL, </#if>
+       SPCL_YN =<#if spclYn?has_content> :spclYn,<#else> NULL, </#if>
+       MAIN_YN =<#if mainYn?has_content> :mainYn,<#else> NULL, </#if>
+       BUFFET_YN =<#if buffetYn?has_content> :buffetYn,<#else> NULL, </#if>
+       ATTR01 =<#if attr01?has_content> :attr01,<#else> NULL, </#if>
+       ATTR02 =<#if attr02?has_content> :attr02,<#else> NULL, </#if>
+       ATTR03 =<#if attr03?has_content> :attr03,<#else> NULL, </#if>
+       ATTR04 =<#if attr04?has_content> :attr04,<#else> NULL, </#if>
+       ATTR05 =<#if attr05?has_content> :attr05,<#else> NULL, </#if>
+       ORD_PRNT_IP =<#if ordPrntIp?has_content> :ordPrntIp,<#else> NULL, </#if>
+       INVT_CD =<#if invtCd?has_content> :invtCd,<#else> NULL, </#if>
+       ITEM_CD_OLD =<#if itemCdOld?has_content> :itemCdOld,<#else> NULL, </#if>
+       DRCT_CMIS_NAME =<#if drctCmisName?has_content> :drctCmisName,<#else> NULL, </#if>
+       BRCH_NM = <#if brchNm?has_content> :brchNm,<#else> NULL, </#if>
+       LOC_NM = <#if locNm?has_content> :locNm,<#else> NULL, </#if>
+       UPDT_USER = :sabun,
+       UPDT_DATE = SYSDATE
+WHERE  BAR_CD = :barCd
+AND    LOC_CD = :locCd
+AND    BRCH_CD = :brchCd
+		]]>
+	</statement>
+
+	<!-- 특판상품 가격정보 생성 -->
+	<statement name="insertPrice" type="insert">
+		/*+ com.hwfs.ei.isa.dao.FsspGoodsDAO.insertPrice */
+		<![CDATA[
+INSERT INTO FSP_PO_IRIS_PRIC_PLAN
+(
+ BAR_CD,
+ CHG_DATE,
+ LOC_CD,
+ SESN_CD,
+ BRCH_CD,
+ PHYS_TRIN_FUND,
+ SPEC_INCM_TAX,
+ EDUC_TAX,
+ REGI_TAX,
+ SVC,
+ VAT,
+ UNIT_PRIC,
+ REC_STAT,
+ CRAT_USER,
+ CRAT_DATE,
+ UPDT_USER,
+ UPDT_DATE
+) VALUES (
+ :barCd,
+ TO_CHAR(SYSDATE, 'YYYYMMDD'),
+ :locCd,
+ '001',
+ :brchCd,
+<#if physTrinFund?has_content> :physTrinFund, <#else> NULL, </#if>
+<#if specIncmTax?has_content> :specIncmTax, <#else> NULL, </#if>
+<#if educTax?has_content> :educTax, <#else> NULL, </#if>
+<#if regiTax?has_content> :regiTax, <#else> NULL, </#if>
+<#if svc?has_content> :svc, <#else> NULL, </#if>
+<#if vat?has_content> :vat, <#else> NULL, </#if>
+<#if unitPrice?has_content> :unitPrice, <#else> NULL, </#if>
+ 'I',
+ :sabun,
+ SYSDATE,
+ :sabun,
+ SYSDATE
+)
+		]]>
+	</statement>
+
+	<!-- 특판상품 가격정보 수정 -->
+	<statement name="updatePrice" type="update">
+		/*+ com.hwfs.ei.isa.dao.FsspGoodsDAO.updatePrice */
+		<![CDATA[
+UPDATE FSP_PO_IRIS_PRIC_PLAN SET
+       PHYS_TRIN_FUND =<#if physTrinFund?has_content> :physTrinFund,<#else> NULL, </#if>
+       SPEC_INCM_TAX =<#if specIncmTax?has_content> :specIncmTax,<#else> NULL, </#if>
+       EDUC_TAX =<#if educTax?has_content> :educTax,<#else> NULL, </#if>
+       REGI_TAX =<#if regiTax?has_content> :regiTax,<#else> NULL, </#if>
+       SVC =<#if svc?has_content> :svc,<#else> NULL, </#if>
+       VAT =<#if vat?has_content> :vat,<#else> NULL, </#if>
+       UNIT_PRIC =<#if unitPrice?has_content> :unitPrice,<#else> NULL, </#if>
+       REC_STAT = 'U',
+       CRAT_USER = :sabun,
+       CRAT_DATE = SYSDATE,
+       UPDT_USER = :sabun,
+       UPDT_DATE = SYSDATE
+WHERE  BAR_CD = :barCd
+AND    LOC_CD = :locCd
+AND    BRCH_CD = :brchCd
+AND    SESN_CD = '001'
+		]]>
+	</statement>
+
+</hqml>

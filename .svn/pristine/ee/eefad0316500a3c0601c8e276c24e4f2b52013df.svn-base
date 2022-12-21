@@ -1,0 +1,143 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\..\..\default_typedef.xml"/>
+  <Form id="CnslCsListPop" classname="COMP_GUIDE_13" inheritanceid="" position="absolute 0 0 365 557" titletext="CS 사원목록" scrollbars="autoboth" onload="form_onload">
+    <Layouts>
+      <Layout>
+        <Grid id="grd_list" taborder="7" useinputpanel="false" position="absolute 15 31 349 537" anchor="all" oncelldblclick="grd_list_oncelldblclick" binddataset="ds_list" autofittype="col">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="100"/>
+                <Column size="140"/>
+                <Column size="150"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="사번"/>
+                <Cell col="1" text="성명"/>
+                <Cell col="2" text="내선번호"/>
+              </Band>
+              <Band id="body">
+                <Cell style="align:center middle;" text="bind:sabun"/>
+                <Cell col="1" style="align:left;padding:0 0 0 4;" text="bind:nmKor"/>
+                <Cell col="2" style="align:center middle;" text="bind:telNo"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="sta_title" text="CS 사원 목록" onclick="sta_title_onclick" class="sta_WF_Title" position="absolute 14 6 154 25"/>
+      </Layout>
+    </Layouts>
+    <Bind/>
+    <Objects>
+      <Dataset id="ds_list" firefirstcount="0" firenextcount="0" useclientlayout="true" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="sabun" type="STRING" size="256"/>
+          <Column id="nmKor" type="STRING" size="256"/>
+          <Column id="telNo" type="STRING" size="255"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_search" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="search" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row/>
+        </Rows>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : CnslCsListPop
+  파 일 명 : CnslCsListPop.xfdl
+  기    능 : 
+
+    수정일    수정자                  수정내용
+  ----------   -------  --------------------------------------------------
+  2017.10.01   kihoon   최초 생성
+*/
+
+include "lib::lib_com.xjs";
+
+function form_onload(obj:Form, e:LoadEventInfo){	
+	gfn_formOnLoad(this);
+	fn_init();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 초기값 셋팅
+ *---------------------------------------------------------------------------------------------*/
+function fn_init(){
+	fn_search();
+}
+
+function fn_close(){
+
+}
+
+function fn_search(){
+
+    gfn_transaction(this
+					,"searchCs"
+					,"cs/ccs/cnslMgnt/selectCSList.xdo" 
+					,"ds_search=ds_search:A"
+					,"ds_list=ds_list"
+					,""
+					,"fn_callBack"
+					,true);
+}
+
+/************************************************************************************************
+ * TRANSACTION 및 CallBack 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 트랜잭션 콜백 함수 (필수)
+ *---------------------------------------------------------------------------------------------*/
+function fn_callBack(strSvcID, nErrorCode, strErrorMsg){
+    switch(strSvcID){
+		// 조회
+        case "searchCs" :
+			grd_list.setFocus();
+            break;
+    }
+}
+
+/************************************************************************************************
+ * 사용자 FUNCTION 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Return할 Array 생성 및 창 닫기
+ *---------------------------------------------------------------------------------------------*/
+function fn_return(){
+ 	var arr = {};
+ 	for(var i=0; i<ds_list.getColCount(); i++){
+ 		arr[ds_list.getColID(i)] = ds_list.getColumn(ds_list.rowposition, i);
+ 	}
+ 	this.close(arr);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 그리드 더블 클릭 이벤트
+ *---------------------------------------------------------------------------------------------*/
+function grd_list_oncelldblclick(obj:Grid, e:GridClickEventInfo){
+	fn_return();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 그리드 키 다운 이벤트
+ *---------------------------------------------------------------------------------------------*/
+function grd_list_onkeydown(obj:Grid, e:KeyEventInfo){
+	if(e.keycode == 13) fn_return();	
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 취소버튼 클릭 이벤트
+ *---------------------------------------------------------------------------------------------*/
+function btn_cancel_onclick(obj:Button,  e:ClickEventInfo){
+	this.close();
+}]]></Script>
+  </Form>
+</FDL>

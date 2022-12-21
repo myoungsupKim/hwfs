@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT DECODE(A.UPJANG,NVL(#UPJANG#,(SELECT UPJANG FROM SCC_USERINFO WHERE SABUN = #SABUN#)),'1',NVL(B.CHK,'0')) AS CHK --본인 소속업장은 기본 선택
+     , A.UPJANG
+     , DECODE(A.UPJANG,NVL(#UPJANG#,(SELECT UPJANG FROM SCC_USERINFO WHERE SABUN = #SABUN#)),'☞ ')||A.UPJANGNM_DISP AS UPJANGNM_DISP
+     , #SABUN# AS SABUN
+  FROM FMS_UPJANG A
+     ,(SELECT '1' AS CHK, A.UPJANG FROM FMS_USER_UPJANG A
+        WHERE A.SABUN = #SABUN# AND A.USE_YN = 'Y') B 
+ WHERE A.UPJANG = B.UPJANG(+)
+   AND A.MAIN_UPJANG = (SELECT MAIN_UPJANG FROM FMS_UPJANG WHERE UPJANG = NVL(#UPJANG#,(SELECT UPJANG FROM SCC_USERINFO WHERE SABUN = #SABUN#)))
+   AND A.USE_YN = 'Y'
+ ORDER BY A.UPJANG	]]></statement>
+	<input default-name="ds_UpjangI">
+		<col name="SABUN" size="9" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+	</input>
+	<output default-name="ds_UpjangO">
+		<col name="CHK" size="1" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="UPJANGNM_DISP" size="100" type="VARCHAR" description="" /> 
+		<col name="SABUN" size="9" type="VARCHAR" description="" /> 
+	</output>
+</query>

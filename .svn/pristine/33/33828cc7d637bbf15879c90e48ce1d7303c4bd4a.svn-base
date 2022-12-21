@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+SELECT ST.UPJANGNM
+     , SUM(ROUND(PODT.BUY_PRICE * MGDT.GR_PURC_QTY)) AS GR_BUY_AMT
+     , SUM(ROUND(PODT.BUY_PRICE * ( (NVL(PODT.PURC_ADD_RATE, 0) / 100 )) * MGDT.GR_PURC_QTY)) AS ADD_INC_AMT
+     , SUM(ROUND(PODT.BUY_PRICE * ( (NVL(PODT.PURC_CATE_RATE, 0) / 100 )) * MGDT.GR_PURC_QTY)) AS CATE_AMT
+     , TRUNC(SUM(ROUND(PODT.BUY_PRICE * ( (NVL(PODT.PURC_CATE_RATE, 0) / 100 ) + (NVL(PODT.PURC_ADD_RATE, 0) / 100 ) ) * MGDT.GR_PURC_QTY))) AS MGT_AMT
+     , TRUNC(SUM(ROUND(PODT.BUY_PRICE * ( (NVL(PODT.PURC_ADD_RATE, 0) / 100 )) * MGDT.GR_PURC_QTY)) / SUM(ROUND(PODT.BUY_PRICE * MGDT.GR_PURC_QTY))* 100)  AS ADD_INC_RATE
+     , TRUNC(SUM(ROUND(PODT.BUY_PRICE * ( (NVL(PODT.PURC_CATE_RATE, 0) / 100 )) * MGDT.GR_PURC_QTY)) / SUM(ROUND(PODT.BUY_PRICE * MGDT.GR_PURC_QTY))* 100)  AS CATE_AMT_RATE
+     , TRUNC(SUM(ROUND(PODT.BUY_PRICE * ( (NVL(PODT.PURC_CATE_RATE, 0) / 100 ) + (NVL(PODT.PURC_ADD_RATE, 0) / 100 ) ) * MGDT.GR_PURC_QTY)) / SUM(ROUND(PODT.BUY_PRICE * MGDT.GR_PURC_QTY)) * 100)  AS MGT_AMT_RATE
+  FROM EPROCUSR.ESIMGDT MGDT
+    INNER JOIN EPROCUSR.ESPPODT PODT
+        ON PODT.SYS_ID = MGDT.SYS_ID
+        AND PODT.COMP_CD = MGDT.COMP_CD
+        AND PODT.PO_NO = MGDT.PO_NO
+        AND PODT.PO_LNO = MGDT.PO_LNO
+        AND PODT.WH_CD = MGDT.WH_CD
+        AND PODT.SYS_ID = '100'
+        AND PODT.COMP_CD = 'HFC'
+    INNER JOIN EPROCUSR.ESPPOHD POHD    
+        ON POHD.SYS_ID = PODT.SYS_ID
+        AND POHD.COMP_CD= PODT.COMP_CD
+        AND POHD.PO_NO = PODT.PO_NO
+        AND POHD.SYS_ID = '100'
+        AND POHD.COMP_CD = 'HFC'
+    INNER JOIN EPROCUSR.ESPSSHPORG ORG
+        ON ORG.SYS_ID = MGDT.SYS_ID
+        AND ORG.COMP_CD = MGDT.COMP_CD
+        AND ORG.SHOP_CD = PODT.SHOP_CD
+        AND ORG.SYS_ID = '100'
+        AND ORG.COMP_CD = 'HFC'
+    INNER JOIN EPROCUSR.ESPSSGP SGP
+        ON SGP.SYS_ID = MGDT.SYS_ID
+        AND SGP.COMP_CD = MGDT.COMP_CD
+        AND SGP.SHOP_GRP_CD = ORG.SHOP_GRP_CD
+        AND SGP.SYS_ID = '100'
+        AND SGP.COMP_CD = 'HFC'
+    /*팀코드 조건 걸기 위해서.......*/
+    INNER JOIN ST_UPJANG ST
+        ON PODT.SHOP_CD = ST.UPJANG
+    INNER JOIN HLDC_SC_DEPT_V DEPT
+        ON ST.DEPT_ID = DEPT.DEPT_ID
+ WHERE MGDT.SYS_ID = '100'
+   AND MGDT.COMP_CD = 'HFC'
+   AND ST.SHOP_TYP_CD = '01'
+   AND PODT.BU_CD = '2000'
+   AND SUBSTR(MGDT.ITEM_CD, 0, 1) = 'F'
+   AND POHD.REQ_SYS_CD = 'FR'
+   AND MGDT.MG_DATE BETWEEN #FR_DATE#  AND #TO_DATE#
+   AND MGDT.STS &lt;&gt; 'D'
+   AND MGDT.WH_CD NOT LIKE 'E%'
+<isNotNull col = "MU_CD">
+   AND DEPT.MU_CD = #MU_CD#
+</isNotNull>
+<isNotNull col = "UPJANG_CD">
+   AND ST.UPJANG = #UPJANG_CD#
+</isNotNull>
+<isNotNull col = "TM_CD">
+   AND DEPT.TM_CD = #TM_CD#
+</isNotNull>
+<isEqual col = "ADD_INC" value = "Y">
+   AND NVL(PODT.PURC_ADD_RATE, 0) &lt;&gt; 0  --조정출하율적용자재만 계산    
+</isEqual>
+ GROUP BY ST.UPJANGNM
+
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">   
+	</output>
+</query>

@@ -1,0 +1,662 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fs.fsf.funeralSingleGoodsOutReturnDAO">
+	<desc>개별 판매품목 출고/반품관리 HQML Query</desc>
+
+	<!-- 상품구분 목록을 조회한다. -->
+	<statement name="selectSetCd" type="select">
+		/*+ com.hwfs.fs.fsf.dao.funeralSingleGoodsOutReturnDAO.selectSetCd */
+		<![CDATA[
+		  	SELECT 
+		            SET_CD
+		          , SET_NM 
+			FROM FSF_MCLASS_GOODS_MASTER
+			WHERE USE_YN = 'Y'
+			AND FUNERAL_HALL_CD = :funeralHallCd 
+			ORDER BY SET_CD
+		]]>
+	</statement>
+
+	<!-- 상품분류 목록을 조회한다. -->
+	<statement name="selectGoodsType" type="select">
+		/*+ com.hwfs.fs.fsf.dao.funeralSingleGoodsOutReturnDAO.selectGoodsType */
+		<![CDATA[
+		  SELECT GOODS_CLASS_CD AS CODE
+		        ,GOODS_CLASS_NM AS CODE_NAME
+		    FROM FSF_MCLASS_GOODS_MASTER
+		   WHERE 1=1
+		ORDER BY SORT_ORDER
+		]]>
+	</statement>
+	
+	<!-- 상세상품 목록을 조회한다. -->
+	<statement name="selectDetailGoods" type="select">
+		/*+ com.hwfs.fs.fsf.dao.funeralSingleGoodsOutReturnDAO.selectDetailGoods */
+		<![CDATA[
+		    SELECT GOODS_CLASS_CD  UPPER_CODE   /* 상품군코드(공통코드 GOODS_TYPE) */
+		          ,DETAIL_GOODS_CD CODE         /* 상세상품코드 */
+		          ,DETAIL_GOODS_NM CODE_NAME    /* 상세상품명 */
+		          ,UNIT                         /* 단위 */
+		          ,EA                           /* 개수 */
+		          ,LAST_UPRICE                  /* 최종 단가 */
+		      FROM FSF_SCLASS_GOODS_MASTER      /* 판매 상품군의 상세상품 관리 테이블 */
+		     WHERE 1=1
+		  ORDER BY GOODS_CLASS_CD, DETAIL_GOODS_CD
+		]]>
+	</statement>
+	
+	<!-- 상품분류, 상세상품 코드리스트를 조회한다. -->
+	<statement name="selectCodeList1" type="select">
+		/*+ com.hwfs.fs.fsf.dao.funeralSingleGoodsOutReturnDAO.selectCodeList1 */
+		<![CDATA[
+		  SELECT * FROM 
+			(
+				SELECT 
+				            A.SET_CD 
+				           ,B.SET_NM
+				           ,C.GOODS_CLASS_CD
+				           ,C.GOODS_CLASS_NM
+				           ,A.DETAIL_GOODS_CD
+				           ,A.DETAIL_GOODS_NM
+				           ,A.UNIT
+				           ,A.EA AS REMAINING_EA
+				           ,A.LAST_UPRICE 
+				FROM FSF_SCLASS_GOODS_MASTER A
+				    ,FSF_MCLASS_GOODS_MASTER B
+				    ,FSF_FUNERAL_GOODS C
+				WHERE A.FUNERAL_HALL_CD = B.FUNERAL_HALL_CD
+				AND A.FUNERAL_HALL_CD = C.FUNERAL_HALL_CD
+				AND A.DETAIL_GOODS_CD = C.DETAIL_GOODS_CD
+                AND A.DETAIL_GOODS_NM = C.DETAIL_GOODS_NM
+				AND A.SET_CD = B.SET_CD        
+				AND A.USE_YN = 'Y'
+				AND A.EA > 0
+				AND A.LAST_UPRICE > 0
+				AND A.FUNERAL_HALL_CD = :funeralHallCd
+				UNION ALL
+				SELECT 
+				            'A' AS SET_CD
+				           ,'개별상품' AS SET_NM
+				           ,GOODS_CLASS_CD
+				           ,GOODS_CLASS_NM
+				           ,DETAIL_GOODS_CD
+				           ,DETAIL_GOODS_NM
+				           ,UNIT
+				           ,EA AS REMAINING_EA
+				           ,LAST_UPRICE
+				FROM FSF_FUNERAL_GOODS 
+				WHERE USE_YN = 'Y'
+			--	AND GOODS_CLASS_CD <> '002'
+				AND FUNERAL_HALL_CD = :funeralHallCd      
+			)   
+	     WHERE 1=1	     
+	     <#if setCd?has_content>
+	       AND SET_CD = :setCd
+	     </#if>    
+	     <#if goodsClassCd?has_content>
+	       AND GOODS_CLASS_CD = :goodsClassCd
+	     </#if>    
+		 <#if detailGoodsNm?has_content>
+       	   AND DETAIL_GOODS_NM LIKE '%'||:detailGoodsNm||'%'
+       	 </#if>
+	  	 ORDER BY SET_NM, GOODS_CLASS_NM
+		]]>
+	</statement>
+	
+	<!-- 상품분류, 상세상품 코드리스트를 조회한다. -->
+	<statement name="selectCodeList2" type="select">
+		/*+ com.hwfs.fs.fsf.dao.funeralSingleGoodsOutReturnDAO.selectCodeList2 */
+		<![CDATA[
+		  SELECT   '0' CHK
+		          ,B1.FUNERAL_HALL_CD
+			      ,B1.SET_CD
+                  ,B1.SET_NM   
+			      ,B1.GOODS_CLASS_CD 
+			      ,B1.GOODS_CLASS_NM
+			      ,B1.DETAIL_GOODS_CD
+			      ,B1.DETAIL_GOODS_NM
+			      ,B1.UNIT
+			      ,A1.REMAINING_EA
+			      ,B1.LAST_UPRICE
+			FROM  (
+		                   SELECT  FUNERAL_HALL_CD
+		                          ,GUEST_NUM 
+		                          ,CLASS_TYPE
+		                          ,GOODS_CLASS_CD
+		                          ,DETAIL_GOODS_CD
+		                          ,SUM(EA) AS REMAINING_EA
+		                          ,SUM(LAST_UPRICE) LAST_UPRICE
+		                          ,KIND_TYPE
+			                 FROM(              
+	                              	SELECT  FUNERAL_HALL_CD
+	                                       ,GUEST_NUM 
+	                                       ,CLASS_TYPE
+	                                       ,GOODS_CLASS_CD
+	                                       ,DETAIL_GOODS_CD
+	                                       ,SUM(EA)  EA
+	                                       ,SUM(AMT) LAST_UPRICE
+	                                       ,KIND_TYPE
+		                              FROM  FSF_SALE_ORDER 
+		                             WHERE  FUNERAL_HALL_CD = :funeralHallCd
+		                               AND  GUEST_NUM = :guestNum
+		                               AND  SALE_CLASS = '001'
+		                               AND  ORDER_STATUS = '002'
+	                              GROUP BY  FUNERAL_HALL_CD,GUEST_NUM,CLASS_TYPE,GOODS_CLASS_CD,DETAIL_GOODS_CD,LAST_UPRICE,KIND_TYPE
+	                             UNION ALL
+	                                SELECT  FUNERAL_HALL_CD
+	                                       ,GUEST_NUM 
+	                                       ,CLASS_TYPE
+	                                       ,GOODS_CLASS_CD
+	                                       ,DETAIL_GOODS_CD
+	                                       ,-SUM(EA)  EA
+	                                       ,-SUM(AMT) LAST_UPRICE
+	                                       ,KIND_TYPE
+		                              FROM  FSF_SALE_ORDER 
+		                             WHERE  FUNERAL_HALL_CD = :funeralHallCd
+		                               AND  GUEST_NUM = :guestNum
+		                               AND  SALE_CLASS = '002'
+	                              GROUP BY  FUNERAL_HALL_CD,GUEST_NUM,CLASS_TYPE,GOODS_CLASS_CD,DETAIL_GOODS_CD,LAST_UPRICE,KIND_TYPE
+			                	 )              
+		               	  GROUP BY  FUNERAL_HALL_CD,GUEST_NUM,CLASS_TYPE,GOODS_CLASS_CD,DETAIL_GOODS_CD,KIND_TYPE
+		            ) A1,
+		            (
+		                 SELECT  A.FUNERAL_HALL_CD 
+                                ,A.SET_CD 
+                                ,B.SET_NM
+                                ,C.GOODS_CLASS_CD
+                                ,C.GOODS_CLASS_NM
+                                ,A.DETAIL_GOODS_CD
+                                ,A.DETAIL_GOODS_NM
+                                ,A.UNIT
+                                ,A.EA
+                                ,A.LAST_UPRICE 
+		                   FROM  FSF_SCLASS_GOODS_MASTER A
+		                        ,FSF_MCLASS_GOODS_MASTER B
+		                        ,FSF_FUNERAL_GOODS C
+		                  WHERE  A.FUNERAL_HALL_CD = B.FUNERAL_HALL_CD
+                            AND  A.FUNERAL_HALL_CD = C.FUNERAL_HALL_CD
+                            AND  A.SET_CD = B.SET_CD     
+                            AND  A.DETAIL_GOODS_CD = C.DETAIL_GOODS_CD   
+                            AND  A.DETAIL_GOODS_NM = C.DETAIL_GOODS_NM
+                            AND  A.USE_YN = 'Y'
+		                	AND  A.FUNERAL_HALL_CD = :funeralHallCd
+		              UNION ALL
+		                 SELECT  FUNERAL_HALL_CD
+                                ,'A' AS SET_CD
+                                ,'개별상품' AS SET_NM
+                                ,GOODS_CLASS_CD
+                                ,GOODS_CLASS_NM
+                                ,DETAIL_GOODS_CD
+                                ,DETAIL_GOODS_NM
+                                ,UNIT
+                                ,EA
+                                ,LAST_UPRICE
+		                   FROM  FSF_FUNERAL_GOODS 
+		                  WHERE  USE_YN = 'Y'
+		                	AND  FUNERAL_HALL_CD = :funeralHallCd    
+		            ) B1  
+		      WHERE A1.FUNERAL_HALL_CD = B1.FUNERAL_HALL_CD
+		        AND A1.GOODS_CLASS_CD  = B1.GOODS_CLASS_CD
+		        AND A1.DETAIL_GOODS_CD = B1.DETAIL_GOODS_CD
+		        AND A1.CLASS_TYPE = B1.SET_CD
+		     <#if kindType?has_content>
+			    AND A1.KIND_TYPE = 'S'
+			 <#else>
+			    AND (A1.KIND_TYPE IS NULL OR A1.KIND_TYPE <> 'S')  
+			 </#if>    
+		        AND A1.FUNERAL_HALL_CD = :funeralHallCd
+		        AND A1.GUEST_NUM  = :guestNum
+			 <#if setCd?has_content>
+			    AND B1.SET_CD = :setCd
+			 </#if> 	         	     
+			 <#if goodsClassCd?has_content>
+			    AND B1.GOODS_CLASS_CD  = :goodsClassCd
+			 </#if>    
+			 <#if detailGoodsNm?has_content>
+		       	AND B1.DETAIL_GOODS_NM LIKE '%'||:detailGoodsNm||'%'
+		     </#if>
+		       	AND A1.REMAINING_EA > 0
+                AND B1.LAST_UPRICE > 0
+	  	   ORDER BY SET_NM, GOODS_CLASS_NM
+		]]>
+	</statement>
+	
+		<!-- 상품분류, 상세상품 코드리스트를 조회한다. -->
+	<statement name="selectCodeList3" type="select">
+		/*+ com.hwfs.fs.fsf.dao.funeralSingleGoodsOutReturnDAO.selectCodeList3 */
+		<![CDATA[
+		 SELECT * 
+		   FROM (
+					 SELECT '0' CHK
+					       ,A.SET_CD 
+				           ,B.SET_NM
+				           ,C.GOODS_CLASS_CD
+				           ,C.GOODS_CLASS_NM
+				           ,A.DETAIL_GOODS_CD
+				           ,A.DETAIL_GOODS_NM
+				           ,A.UNIT
+				           ,A.EA AS REMAINING_EA
+				           ,A.LAST_UPRICE 
+						FROM FSF_SCLASS_GOODS_MASTER A
+						    ,FSF_MCLASS_GOODS_MASTER B
+						    ,FSF_FUNERAL_GOODS C
+						WHERE A.FUNERAL_HALL_CD = B.FUNERAL_HALL_CD
+						AND A.FUNERAL_HALL_CD = C.FUNERAL_HALL_CD
+						AND A.DETAIL_GOODS_CD = C.DETAIL_GOODS_CD
+		                AND A.DETAIL_GOODS_NM = C.DETAIL_GOODS_NM
+						AND A.SET_CD = B.SET_CD        
+						AND A.USE_YN = 'Y'
+						AND A.EA > 0
+						AND A.LAST_UPRICE > 0
+						AND A.FUNERAL_HALL_CD = :funeralHallCd
+				 UNION ALL
+					SELECT  '0' CHK
+				           ,'A' AS SET_CD
+				           ,'개별상품' AS SET_NM
+				           ,GOODS_CLASS_CD
+				           ,GOODS_CLASS_NM
+				           ,DETAIL_GOODS_CD
+				           ,DETAIL_GOODS_NM
+				           ,UNIT
+				           ,EA AS REMAINING_EA
+				           ,LAST_UPRICE
+						FROM FSF_FUNERAL_GOODS 
+						WHERE USE_YN = 'Y'
+					--	AND GOODS_CLASS_CD <> '002'
+						AND FUNERAL_HALL_CD = :funeralHallCd      
+				)   
+		  WHERE 1=1	     
+	     <#if setCd?has_content>
+	       AND SET_CD = :setCd
+	     </#if>    
+	     <#if goodsClassCd?has_content>
+	       AND GOODS_CLASS_CD = :goodsClassCd
+	     </#if>    
+		 <#if detailGoodsNm?has_content>
+       	   AND DETAIL_GOODS_NM LIKE '%'||:detailGoodsNm||'%'
+       	 </#if>
+	  	 ORDER BY SET_NM, GOODS_CLASS_NM
+		]]>
+	</statement>
+	
+	<!-- 반품대상 상품의 총 판매잔량을 조회한다.(입력시, 반품 수량 실시간 체크) -->
+	<statement name="searchSaleCount" type="select">
+		/*+ com.hwfs.fs.fsf.dao.funeralSingleGoodsOutReturnDAO.searchSaleCount */
+		<![CDATA[
+			SELECT NVL((SALE_EA - RETURN_EA),0) REMAINING_EA
+			  FROM (  
+					  SELECT (
+					  		  SELECT NVL(SUM(A.EA),0)
+					         	FROM FSF_SALE_ORDER A 
+					           WHERE A.FUNERAL_HALL_CD = :funeralHallCd
+					             AND A.GUEST_NUM	   = :guestNum		
+					             AND A.GOODS_CLASS_CD  = :goodsClassCd
+			             		 AND A.DETAIL_GOODS_CD = :detailGoodsCd
+					             AND A.CLASS_TYPE 	   = :classType /* 단품상품 - A,세트상품- S */ 
+					         	 AND A.SALE_CLASS  	   =  '001'		/* 판매된건 */
+					         <#if kindType?has_content>	 
+					         	 AND KIND_TYPE   	   = 'S'		/* 개별 */
+					         <#else>
+					         	 AND (KIND_TYPE IS NULL OR KIND_TYPE <> 'S')	/* 고인별 */
+					         </#if>
+					         ) SALE_EA
+					        ,(
+					          SELECT NVL(SUM(A.EA),0)
+					         	FROM FSF_SALE_ORDER A 
+					           WHERE A.FUNERAL_HALL_CD = :funeralHallCd
+					             AND A.GUEST_NUM	   = :guestNum		
+					             AND A.GOODS_CLASS_CD  = :goodsClassCd
+			             		 AND A.DETAIL_GOODS_CD = :detailGoodsCd
+					             AND A.CLASS_TYPE 	   = :classType /* 단품상품 - A,세트상품- S */ 
+					         	 AND A.SALE_CLASS  	   =  '002'		/* 반품된건 */
+					         <#if kindType?has_content>	 
+					         	 AND KIND_TYPE   	   = 'S'		/* 개별 */
+					         <#else>
+					         	 AND (KIND_TYPE IS NULL OR KIND_TYPE <> 'S')	/* 고인별 */
+					         </#if>
+					         ) RETURN_EA
+					    FROM DUAL
+				   )
+		]]>
+	</statement>
+	
+	<!-- 고인 목록을 조회한다. -->
+	<statement name="selectDeadGuestList" type="select">
+		/*+ com.hwfs.fs.fsf.dao.funeralSingleGoodsOutReturnDAO.selectDeadGuestList */
+		<![CDATA[
+		     SELECT FUNERAL_HALL_CD /* 장례식장코드 */
+			       ,GUEST_NUM       /* 고객번호 */
+			       ,FUNERAL_PARLOR  /* 빈소 */
+			       ,THE_DEAD_NM     /* 고인명 */
+			       ,BORNE_OUT_DATE  /* 발인일자 */
+			       ,ENSHRINE_DATE   /* 안치일자 */
+			       ,CASKET_DATE     /* 입관일자 */
+			   FROM FSF_FUNERAL_MASTER  /* 고인을 관리하는 테이블이다 */
+			  WHERE FUNERAL_HALL_CD   = :funeralHallCd
+			<#if guestNum?has_content>    
+			    AND GUEST_NUM       = :guestNum
+			</#if>    
+			<#if theDeadNm?has_content>    
+			    AND THE_DEAD_NM     = :theDeadNm
+			</#if>    
+			<#if casketFrom?has_content>   
+			    AND TO_CHAR(CASKET_DATE,'YYYYMMDD') BETWEEN :casketFrom 
+			    <#if casketTo?has_content>
+			   		AND :casketTo
+			    </#if>
+		    </#if>    
+		    <#if borneOutFrom?has_content>   
+			    AND TO_CHAR(BORNE_OUT_DATE,'YYYYMMDD') BETWEEN :borneOutFrom 
+			    <#if borneOutTo?has_content>
+			   		AND :borneOutTo
+			    </#if>
+		    </#if>
+			ORDER BY GUEST_NUM
+		]]>
+	</statement>
+	
+	<!-- 개별 총액산출내역을 조회한다. -->
+	<statement name="selectAdjustAmt" type="select">
+		/*+ com.hwfs.fs.fsf.dao.funeralSingleGoodsOutReturnDAO.selectAdjustAmt */
+		<![CDATA[
+		     SELECT NVL(MAX(A1.SALEOUT_AMT),0) SALEOUT_AMT  /* 판매총액 */
+			       ,NVL(MAX(A1.RETURN_AMT),0) RETURN_AMT    /* 반품총액 */         
+			       ,(NVL(MAX(A1.SALEOUT_AMT),0) - NVL(MAX(A1.RETURN_AMT),0))  ADJUST_AMT  /* 정산금액 */
+			       ,NVL(MAX(B1.PAY_ADJUST_AMT), 0) PAY_ADJUST_AMT	/* 매출정산액 */
+			   FROM (   
+			            SELECT CASE WHEN COUNT(B.FUNERAL_HALL_CD)= 0 THEN TO_NUMBER(:funeralHallCd) 
+                                    ELSE B.FUNERAL_HALL_CD    
+                               END FUNERAL_HALL_CD  /*** 장례식장코드 */
+                              ,CASE WHEN COUNT(B.GUEST_NUM)=0 THEN TO_NUMBER(:guestNum)
+                                    ELSE B.GUEST_NUM
+                               END GUEST_NUM    /*** 고객번호 */
+                              ,CASE B.SALE_CLASS WHEN '001' THEN SUM(B.AMT) ELSE 0 END SALEOUT_AMT
+                              ,CASE B.SALE_CLASS WHEN '002' THEN SUM(B.AMT) ELSE 0 END RETURN_AMT
+			              FROM (
+                                SELECT 
+                                            A.FUNERAL_HALL_CD
+                                           ,A.SET_CD
+                                           ,B.SET_NM
+                                           ,A.GOODS_CLASS_CD
+                                           ,C.GOODS_CLASS_NM
+                                           ,A.DETAIL_GOODS_CD
+                                           ,A.DETAIL_GOODS_NM
+                                           ,A.UNIT
+                                           ,A.EA
+                                           ,A.LAST_UPRICE 
+                                FROM FSF_SCLASS_GOODS_MASTER A
+                                    ,FSF_MCLASS_GOODS_MASTER B
+                                    ,FSF_FUNERAL_GOODS C
+                                WHERE A.FUNERAL_HALL_CD = B.FUNERAL_HALL_CD
+                                   AND A.FUNERAL_HALL_CD = C.FUNERAL_HALL_CD
+                                   AND A.GOODS_CLASS_CD = C.GOODS_CLASS_CD
+                                   AND A.DETAIL_GOODS_CD = C.DETAIL_GOODS_CD
+                                   AND A.DETAIL_GOODS_NM = C.DETAIL_GOODS_NM
+                                   AND A.SET_CD = B.SET_CD        
+                                   AND A.USE_YN = 'Y'
+                                AND A.FUNERAL_HALL_CD = :funeralHallCd
+                                UNION ALL
+                                SELECT 
+                                            FUNERAL_HALL_CD
+                                           ,'A' AS SET_CD
+                                           ,'개별상품' AS SET_NM
+                                           ,GOODS_CLASS_CD
+                                           ,GOODS_CLASS_NM
+                                           ,DETAIL_GOODS_CD
+                                           ,DETAIL_GOODS_NM
+                                           ,UNIT
+                                           ,EA
+                                           ,LAST_UPRICE
+                                FROM FSF_FUNERAL_GOODS 
+                                WHERE USE_YN = 'Y'
+                                AND FUNERAL_HALL_CD = :funeralHallCd      
+                               ) A
+			                  ,FSF_SALE_ORDER B         /* 장례식장별 고인별 판매 및 반품 관리 상세 */
+			             WHERE B.FUNERAL_HALL_CD = A.FUNERAL_HALL_CD
+                           AND B.GOODS_CLASS_CD  = A.GOODS_CLASS_CD
+                           AND B.DETAIL_GOODS_CD = A.DETAIL_GOODS_CD
+                           AND B.CLASS_TYPE      = A.SET_CD
+			               AND B.KIND_TYPE = 'S'
+			               AND B.FUNERAL_HALL_CD = :funeralHallCd
+			           	<#if guestNum?has_content>    
+						    AND B.GUEST_NUM      = :guestNum
+						</#if>
+						    AND B.ORDER_STATUS <> '001'  /* 접수 아닌건(판매인건) */
+					<#if saleOutReturnFrom?has_content>
+						<#if saleOutReturnTo?has_content> 
+						    AND TO_CHAR(B.SALE_DATE, 'YYYYMMDD') BETWEEN  :saleOutReturnFrom AND :saleOutReturnTo					  
+			        	</#if>
+			        </#if> 
+			          GROUP BY B.FUNERAL_HALL_CD, B.GUEST_NUM, B.SALE_CLASS
+			        ) A1
+			       ,(
+		               SELECT CASE WHEN MAX(C.UPJANG_CD) IS NULL THEN TO_NUMBER(:funeralHallCd)
+                                   ELSE MAX(C.UPJANG_CD)
+                              END UPJANG_CD
+                             ,SUM(C.AMT) PAY_ADJUST_AMT  /* 정산잔액 */    
+		                 FROM SLA_IF_UPJANG_PAYMENT C
+		                WHERE C.UPJANG_CD   = :funeralHallCd
+		                  AND C.EVIDENCE_4  = TO_CHAR(:funeralHallCd)
+		                  AND C.RECD_STATUS <> 'D'
+		                  AND C.SYS_CLASS   = '16'
+		                  AND C.OCCUR_DATE BETWEEN  :saleOutReturnFrom AND :saleOutReturnTo 
+			        ) B1
+			 WHERE  A1.FUNERAL_HALL_CD(+) = B1.UPJANG_CD
+		]]>
+	</statement>
+	
+	<!-- 고인별 판매품목 판매/반품 목록을 조회한다. -->
+	<statement name="selectGoodsSaleoutReturn" type="select">
+		/*+ com.hwfs.fs.fsf.dao.funeralSingleGoodsOutReturnDAO.selectGoodsSaleoutReturn */
+		<![CDATA[
+		     SELECT  A1.FUNERAL_HALL_CD    /* 장례식장코드 */
+			        ,A1.GUEST_NUM          /* 고객번호 */
+			        ,SUBSTR(TO_CHAR(A1.SALE_DATE,'YYYYMMDDHH24MISS'), 0, 14) SALE_DATE
+			        ,SUBSTR(TO_CHAR(A1.ORDER_DATE,'YYYYMMDDHH24MISS'), 0, 14) ORDER_DATE	/* 주문일자 */
+			        ,A1.CUST_CD         	/* 거래처코드가 있으면 삭제하지 않기 위해 추가함 */
+			        ,A1.SEQ
+			        ,A1.SALE_CLASS          /* 001 - 판매 002 - 반품        *판매구분 */
+			        ,A1.ORDER_STATUS     	/* 001 - 접수 주문상태 */
+			        ,A1.ORDER_STATUS AS ORG_ORDER_STATUS    /* 삭제시 체크용(접수만 삭제가능,판매는 삭제불가) */
+			        ,A1.CLASS_TYPE        
+			        ,B1.SET_NM	
+			        ,A1.GOODS_CLASS_CD     /* 판매상품군Master 테이블 참조   장례식장별 판매상품Master 테이블 참조 */
+			        ,B1.GOODS_CLASS_NM
+			        ,A1.DETAIL_GOODS_CD    /* 장례식장별 판매상품Master 테이블 참조 */
+			        ,B1.DETAIL_GOODS_NM
+			        ,(
+	                      SELECT NVL(SUM(EA), 0) 
+	                        FROM FSF_SALE_ORDER 
+	                       WHERE FUNERAL_HALL_CD    = A1.FUNERAL_HALL_CD 
+	                         AND GUEST_NUM          = A1.GUEST_NUM 
+	                         AND GOODS_CLASS_CD  = A1.GOODS_CLASS_CD
+	                         AND DETAIL_GOODS_CD = A1.DETAIL_GOODS_CD
+	                         AND CLASS_TYPE = A1.CLASS_TYPE
+	                         AND SALE_CLASS='001'
+                     ) REMAINING_EA     /* 비교 판매 갯수 */
+			        ,A1.EA                  /* 개수 */
+			        ,A1.UNIT             	/* 단위 */
+			        ,A1.LAST_UPRICE     	/* 최종단가 */
+			        ,A1.AMT             	/* 금액 */
+			        ,A1.REMARK              /* 비고 */
+			        ,'0' CHK				/* 출력여부 */
+			        ,'Y' REG_YN				/* 등록여부(저장된 SALE_DATE 일자는 수정불가 처리) */
+			        ,A1.KIND_TYPE
+			    FROM FSF_SALE_ORDER A1  /* 장례식장별 고인별 판매 및 반품 관리 상세 */
+			        ,(SELECT * FROM 
+                                   (
+	                                   SELECT 
+	                                               A.FUNERAL_HALL_CD
+	                                              ,A.SET_CD
+	                                              ,B.SET_NM
+	                                              ,A.GOODS_CLASS_CD
+	                                              ,C.GOODS_CLASS_NM
+	                                              ,A.DETAIL_GOODS_CD
+	                                              ,A.DETAIL_GOODS_NM
+	                                              ,A.UNIT
+	                                              ,A.EA
+	                                              ,A.LAST_UPRICE 
+	                                   FROM FSF_SCLASS_GOODS_MASTER A
+	                                       ,FSF_MCLASS_GOODS_MASTER B
+	                                       ,FSF_FUNERAL_GOODS C
+	                                   WHERE A.FUNERAL_HALL_CD = B.FUNERAL_HALL_CD
+                                       AND A.FUNERAL_HALL_CD = C.FUNERAL_HALL_CD
+                                       AND A.GOODS_CLASS_CD = C.GOODS_CLASS_CD
+                                       AND A.DETAIL_GOODS_CD = C.DETAIL_GOODS_CD
+                                       AND A.DETAIL_GOODS_NM = C.DETAIL_GOODS_NM
+                                       AND A.SET_CD = B.SET_CD        
+                                       AND A.USE_YN = 'Y'
+	                                   AND A.FUNERAL_HALL_CD = :funeralHallCd
+	                                   UNION ALL
+	                                   SELECT 
+	                                               FUNERAL_HALL_CD
+	                                              ,'A' AS SET_CD
+	                                              ,'개별상품' AS SET_NM
+	                                              ,GOODS_CLASS_CD
+	                                              ,GOODS_CLASS_NM
+	                                              ,DETAIL_GOODS_CD
+	                                              ,DETAIL_GOODS_NM
+	                                              ,UNIT
+	                                              ,EA
+	                                              ,LAST_UPRICE
+	                                   FROM FSF_FUNERAL_GOODS 
+	                                   WHERE USE_YN = 'Y'
+	                                   AND FUNERAL_HALL_CD = :funeralHallCd      
+                                   ) ) B1
+			   WHERE A1.FUNERAL_HALL_CD = B1.FUNERAL_HALL_CD
+	             AND A1.GOODS_CLASS_CD  = B1.GOODS_CLASS_CD
+	             AND A1.DETAIL_GOODS_CD = B1.DETAIL_GOODS_CD
+	             AND A1.CLASS_TYPE = B1.SET_CD
+	         <#if kindType?has_content>
+	             AND A1.KIND_TYPE = 'S' 
+	         <#else>
+	             AND (A1.KIND_TYPE IS NULL OR A1.KIND_TYPE <> 'S')
+	         </#if>
+                 AND A1.FUNERAL_HALL_CD = :funeralHallCd
+			     AND A1.GUEST_NUM  = :guestNum
+			     AND A1.SALE_CLASS = :saleClass        /* 001 - 판매 002 - 반품 */			     
+			 <#if saleOutReturnFrom?has_content>
+			 	<#if saleOutReturnTo?has_content>
+			     AND (TO_CHAR(A1.ORDER_DATE,'YYYYMMDD') BETWEEN :saleOutReturnFrom AND :saleOutReturnTo
+			     OR TO_CHAR(A1.SALE_DATE,'YYYYMMDD') BETWEEN :saleOutReturnFrom AND :saleOutReturnTo)
+			    </#if> 
+			 </#if>
+			ORDER BY A1.SALE_DATE,B1.SET_NM,A1.GOODS_CLASS_CD
+		]]>
+	</statement>
+	
+	<!-- 반품건 적합성여부 내역을 조회한다.(반품은 판매에 한해서 가능하며, 마이너스 반품은 불가) -->
+	<statement name="selectSaleReturnCheck" type="select">
+		/*+ com.hwfs.fs.fsf.dao.funeralSingleGoodsOutReturnDAO.selectSaleReturnCheck */
+		<![CDATA[
+		     SELECT TO_CHAR(COUNT('1')) CNT
+		      FROM (
+		            SELECT NVL(SUM(AMT), 0) AMT         
+		              FROM FSF_SALE_ORDER 
+		             WHERE FUNERAL_HALL_CD = :funeralHallCd
+		               AND GUEST_NUM       = :guestNum
+		               AND GOODS_CLASS_CD  = :goodsClassCd
+		               AND DETAIL_GOODS_CD = :detailGoodsCd
+		               AND SALE_CLASS      = '001'   /* 판매 */
+		           )
+		     WHERE 1=1
+		       AND AMT < <#if amt?has_content> TO_NUMBER(:amt) <#else> 0 </#if>
+		]]>
+	</statement>
+
+	<!-- 고인별 판매품목 출고/반품관리(을)를 등록한다. -->
+	<statement name="insertGoodsSale" type="insert">
+		/*+ com.hwfs.fs.fsf.dao.funeralSingleGoodsOutReturnDAO.insertGoodsSale */
+		<![CDATA[
+		INSERT INTO FSF_SALE_ORDER
+		(
+			 FUNERAL_HALL_CD /* 장례식장코드 */
+			,GUEST_NUM		 /* 고객번호 */
+			,SALE_DATE		 /* 년-월-일 시:분:초 */
+			,ORDER_DATE		 /* 년-월-일 시:분:초 */
+	--		,CUST_CD		 /* 거래처코드가 있으면 삭제하지 않기 위해 추가함 */
+	        ,SEQ
+			,SALE_CLASS		 /* 001 - 판매 002 - 반품		*판매구분 */
+			,ORDER_STATUS	 /* 001 - 접수 주문상태 */
+			,CLASS_TYPE			
+			,GOODS_CLASS_CD		/* 판매상품군Master 테이블 참조   장례식장별 판매상품Master 테이블 참조 */
+			,DETAIL_GOODS_CD	/* 장례식장별 판매상품Master 테이블 참조 */
+			,EA				 /* 개수 */
+			,UNIT			 /* 단위 */
+			,LAST_UPRICE	 /* 최종단가 */
+			,AMT			 /* 금액 */
+			,REMARK			 /* 비고 */
+			,CUSER			 /* 생성자 사번 */
+			,CDATE			 /* 생성일시 */
+			,KIND_TYPE
+		)
+		VALUES
+		(
+			 :funeralHallCd /* 장례식장코드 */
+			,:guestNum		 /* 고객번호 */
+			,<#if saleDate?has_content>TO_DATE(SUBSTR(:saleDate, 0,14),'YYYYMMDD HH24MISS') <#else> null </#if>
+			,<#if orderDate?has_content>TO_DATE(SUBSTR(:orderDate, 0,14),'YYYYMMDD HH24MISS') <#else> null </#if>
+			,(SELECT NVL(MAX(SEQ), 0)+1 FROM FSF_SALE_ORDER WHERE FUNERAL_HALL_CD = :funeralHallCd AND GUEST_NUM = :guestNum)
+	--		,:custCd		 /* 거래처코드가 있으면 삭제하지 않기 위해 추가함 */
+			,<#if saleClass?has_content>:saleClass <#else> null </#if>		 /* 001 - 판매 002 - 반품		*판매구분 */
+			,<#if orderStatus?has_content>:orderStatus <#else> null </#if>	 /* 001 - 접수 주문상태 */
+			,<#if classType?has_content>:classType <#else> null </#if>		 
+			,<#if goodsClassCd?has_content>:goodsClassCd <#else> null </#if> /* 판매상품군master 테이블 참조   장례식장별 판매상품master 테이블 참조 */
+			,<#if detailGoodsCd?has_content>:detailGoodsCd <#else> null </#if>	 /* 장례식장별 판매상품master 테이블 참조 */
+			,<#if ea?has_content>:ea <#else> null </#if>			 /* 개수 */
+			,<#if unit?has_content>:unit <#else> null </#if>		 /* 단위 */
+			,<#if lastUprice?has_content>:lastUprice <#else> null </#if>	 /* 최종단가 */
+			,<#if amt?has_content>:amt <#else> null </#if>			 /* 금액 */
+			,<#if remark?has_content>:remark <#else> null </#if>	 /* 비고 */
+			,:loginSabun 	 /* 생성자 사번 */
+			,SYSDATE 		 /* 생성일시 */
+			,<#if kindType?has_content>:kindType <#else> null </#if>
+		)
+		]]>
+	</statement>
+	
+	<!-- 고인별 판매품목 출고/반품관리(을)를 수정한다. -->
+	<statement name="updateGoodsSale" type="update">
+		/*+ com.hwfs.fs.fsf.dao.funeralSingleGoodsOutReturnDAO.updateGoodsSale */
+		<![CDATA[
+		UPDATE FSF_SALE_ORDER
+		   SET SALE_CLASS	  = <#if saleClass?has_content>:saleClass <#else> null </#if>
+	--		  ,CUST_CD		  = :custCd
+			  ,ORDER_STATUS	  = <#if orderStatus?has_content>:orderStatus <#else> null </#if>
+			  ,CLASS_TYPE	  = <#if classType?has_content>:classType <#else> null </#if>
+			  ,GOODS_CLASS_CD = <#if goodsClassCd?has_content>:goodsClassCd <#else> null </#if>
+			  ,DETAIL_GOODS_CD= <#if detailGoodsCd?has_content>:detailGoodsCd <#else> null </#if>
+			  ,EA			  = <#if ea?has_content>:ea <#else> null </#if>
+			  ,UNIT			  = <#if unit?has_content>:unit <#else> null </#if>
+			  ,LAST_UPRICE	  = <#if lastUprice?has_content>:lastUprice <#else> null </#if>
+			  ,AMT			  = <#if amt?has_content>:amt <#else> null </#if>
+			  ,REMARK		  = <#if remark?has_content>:remark <#else> null </#if>
+			  <#if saleDate?has_content>
+			  ,SALE_DATE = TO_DATE(SUBSTR(:saleDate, 0,14),'YYYYMMDD HH24MISS')
+			 </#if>
+			 <#if orderDate?has_content>
+			  ,ORDER_DATE = TO_DATE(SUBSTR(:orderDate, 0,14),'YYYYMMDD HH24MISS') 
+			 </#if>
+			  ,UUSER		 =	:loginSabun		/* 수정자 사번 */
+			  ,UDATE		 =	SYSDATE			/* 수정일시 */
+			  ,KIND_TYPE	= 	<#if kindType?has_content>:kindType <#else> null </#if>
+		 WHERE FUNERAL_HALL_CD = :funeralHallCd
+		   AND GUEST_NUM	   = :guestNum
+		   --AND TO_DATE(SUBSTR(TO_CHAR(SALE_DATE,'YYYYMMDD HH24MISS'), 0, 15), 'YYYYMMDD HH24MISS') = TO_DATE(SUBSTR(:saleDate, 0,14),'YYYYMMDD HH24MISS')
+		   AND SEQ            = :seq
+		]]>
+	</statement>
+
+	<!-- 고인별 판매품목 출고/반품관리(을)를 삭제한다. -->
+	<statement name="deleteGoodsSale" type="delete">
+		/*+ com.hwfs.fs.fsf.dao.funeralSingleGoodsOutReturnDAO.deleteGoodsSale */
+		<![CDATA[
+		DELETE 
+		  FROM FSF_SALE_ORDER
+		 WHERE FUNERAL_HALL_CD = :funeralHallCd
+		   AND GUEST_NUM	   = :guestNum
+		   --AND TO_DATE(SUBSTR(TO_CHAR(SALE_DATE,'YYYYMMDD HH24MISS'), 0, 15), 'YYYYMMDD HH24MISS') = TO_DATE(SUBSTR(:saleDate, 0,14),'YYYYMMDD HH24MISS')
+		   AND SEQ = :seq
+		]]>
+	</statement>
+
+</hqml>

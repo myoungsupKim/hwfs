@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.bms.weeklyListDAO">
+	<desc>주간 예약조회</desc>
+
+	<!-- DATA를 조회한다. -->
+	
+	<!-- 날자를 구한다. 달력에 표시할 첫번재 요일과 해당월의 처음일자 마지막일자 
+	     조건 : monthly = yyyymmdd 로 들어와야 함.
+	-->
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.rc.bms.weeklyListDAO.selectList */
+	
+		<![CDATA[
+		   
+			
+		   
+			WITH TTB_SD_ED AS (
+			  SELECT 
+			          TO_DATE(:searchDt, 'YYYYMMDD') - (TO_NUMBER(TO_CHAR(TO_DATE(:searchDt, 'YYYYMMDD'), 'D')) -1)  STR_DT
+			         ,TO_DATE(:searchDt, 'YYYYMMDD') + (7 - TO_NUMBER(TO_CHAR(TO_DATE(:searchDt, 'YYYYMMDD'), 'D'))) END_DT
+			  FROM DUAL)
+			, TTB_TIMES AS (SELECT CODE_NAME AS TIMES FROM  SCC_COMMON_CODE WHERE GROUP_CODE = 'BMS_0015'		)
+			, TTB_LAST AS (
+            
+            	SELECT 
+				       MAST.RESERV_NUM
+                	 , MAST.RESERV_NM
+				     , SCC_CRYPTO.MASKAUTH_FUN(MAST.RSVN_NM,12,:loginPersMask,:maskAuth) AS RSVN_NM
+				     , MAST.AM_CD
+                      
+                     , MENU.STR_DATE
+				     , MENU.END_DATE
+				     , MENU.STR_TIME
+				     , MENU.END_TIME
+                      
+                     , TTIM.CODE_NAME AS TIMES
+				     , MDAY.CDAY      AS DIARY_DATE 
+			         , BANQ.CATERCHF_NM ||':' || MAST.RESERV_NM || '(' || STIM.CODE_NAME || '~' || ETIM.CODE_NAME  || ')' AS SCHEDULE_TITLE
+				     , TO_NUMBER(TO_CHAR(TO_DATE(MDAY.CDAY,'YYYYMMDD'), 'D')) WEEK
+                      
+                     , OUTLET.OUTLET_NM AS OUTLET_NM        --영업장명 
+				     , SANG.CODE_NAME AS RESERV_STATUS_NM	--행사상태
+				     , CODE.CODE_NAME AS RESERV_CD_NM	    --행사형태명
+				     , KIND.CODE_NAME AS KIND_CD_NM		    --행사종류명
+			         , STIM.CODE_NAME AS STR_TIME_NM        --시작시간명
+                     , ETIM.CODE_NAME AS END_TIME_NM        --종료시간명
+                     , BANQ.CATERCHF_NM AS BANQ_NM          --연회장명
+                     
+				FROM   TTB_SD_ED TSE , BMS_RESERV_MST MAST
+                
+                	 INNER JOIN BMS_RESERV_MENU  MENU ON MENU.FNB_CLASS ='R'  AND MENU.RESERV_NUM = MAST.RESERV_NUM       --연회룸예약현황
+                     INNER JOIN BMS_CATERCHF_MST BANQ ON BANQ.CLASS_CD  ='10' AND BANQ.OUTLET_CD = MENU.OUTLET_CD  
+                                                                              AND BANQ.CATERCHF_CD = MENU.MENU_CD          --연회룸예약현황
+
+                	 INNER JOIN (SELECT TO_CHAR((TO_DATE(:searchDt, 'YYYYMMDD') + (7 - TO_NUMBER(TO_CHAR(TO_DATE(:searchDt, 'YYYYMMDD'), 'D')))) - ROWNUM + 1, 'YYYYMMDD') AS CDAY
+                                  FROM DUAL A
+                                  CONNECT BY LEVEL <= (TO_DATE(:searchDt, 'YYYYMMDD') + (7 - TO_NUMBER(TO_CHAR(TO_DATE(:searchDt, 'YYYYMMDD'), 'D')))) 
+                                                    - (TO_DATE(:searchDt, 'YYYYMMDD') - (TO_NUMBER(TO_CHAR(TO_DATE(:searchDt, 'YYYYMMDD'), 'D')) -1)) + 1
+                                ) MDAY ON MDAY.CDAY BETWEEN MENU.STR_DATE AND MENU.END_DATE
+                     INNER JOIN SCC_COMMON_CODE TTIM ON TTIM.GROUP_CODE = 'BMS_0015' AND TTIM.CODE BETWEEN MENU.STR_TIME AND MENU.END_TIME
+					 INNER JOIN (SELECT MST.OUTLET_CD, MST.OUTLET_TYPE, MST.OUTLET_NM 
+			                       FROM   SLE_OUTLET_MST MST
+			                          INNER JOIN  SCO_UPJANG_V   UPJANG ON  UPJANG.UPJANG = TO_NUMBER(MST.OUTLET_CD) 
+			                                     <#if muCd?has_content> AND  UPJANG.MU_CD = :muCd </#if>
+			                                     <#if tmCd?has_content> AND  UPJANG.TM_CD = :tmCd </#if>
+			          			 ) OUTLET ON OUTLET.OUTLET_CD =  MAST.OUTLET_CD 
+				     
+                     INNER JOIN BMS_AM_MST      SMGR ON SMGR.AM_CD = MAST.AM_CD
+				     INNER JOIN SCC_COMMON_CODE CODE ON CODE.GROUP_CODE = 'BMS_0005' AND CODE.CODE = MAST.RESERV_CD	    --행사형태
+				     INNER JOIN SCC_COMMON_CODE SANG ON SANG.GROUP_CODE = 'BMS_0001' AND SANG.CODE = MAST.RESERV_STATUS	--예약상태
+				     INNER JOIN SCC_COMMON_CODE KIND ON KIND.GROUP_CODE = 'BMS_0002' AND KIND.CODE = MAST.KIND_CD       --예약종류
+                     INNER JOIN SCC_COMMON_CODE STIM ON STIM.GROUP_CODE = 'BMS_0015' AND STIM.CODE = MENU.STR_TIME      --시작시간
+					 INNER JOIN SCC_COMMON_CODE ETIM ON ETIM.GROUP_CODE = 'BMS_0015' AND ETIM.CODE = MENU.END_TIME      --종료시간
+ 					
+				WHERE MAST.USE_YN = 'Y'
+                AND (   ( MAST.STR_DATE BETWEEN TO_CHAR(TSE.STR_DT,'YYYYMMDD')    AND  TO_CHAR(TSE.END_DT,'YYYYMMDD')     
+                            OR MAST.END_DATE BETWEEN  TO_CHAR(TSE.STR_DT,'YYYYMMDD')  AND  TO_CHAR(TSE.END_DT,'YYYYMMDD') )
+                     OR (  TO_CHAR(TSE.STR_DT,'YYYYMMDD')    BETWEEN MAST.STR_DATE AND MAST.END_DATE  OR  TO_CHAR(TSE.END_DT,'YYYYMMDD')    BETWEEN MAST.STR_DATE AND MAST.END_DATE ))
+                     
+				<#if amCd?has_content >         AND MAST.AM_CD      = :amCd      </#if>  --am
+				<#if kindCd?has_content >       AND MAST.KIND_CD    = :kindCd    </#if>  --예약종류 (1:연회,2:외딩,3:케이터링)
+				<#if outletCd?has_content >     AND MAST.OUTLET_CD  = :outletCd  </#if>  --사업장 
+				<#if reservStatus?has_content > AND :reservStatus   LIKE '%' || MAST.RESERV_STATUS || '%' </#if> --예약상태(1:예약,2:확정,3:종료,4:취소)
+                
+			)  
+			SELECT   TT.TIMES
+			        ,NVL(MAX(DECODE(WEEK,1,SCHEDULE_TITLE)), ' ') "SUN"
+			        ,NVL(MAX(DECODE(WEEK,2,SCHEDULE_TITLE)), ' ') "MON"
+			        ,NVL(MAX(DECODE(WEEK,3,SCHEDULE_TITLE)), ' ') "TUE"
+			        ,NVL(MAX(DECODE(WEEK,4,SCHEDULE_TITLE)), ' ') "WED"
+			        ,NVL(MAX(DECODE(WEEK,5,SCHEDULE_TITLE)), ' ') "THU"
+			        ,NVL(MAX(DECODE(WEEK,6,SCHEDULE_TITLE)), ' ') "FRI"
+			        ,NVL(MAX(DECODE(WEEK,7,SCHEDULE_TITLE)), ' ') "SAT"
+			FROM     TTB_LAST  TL,
+			         TTB_TIMES TT
+			WHERE    TT.TIMES = TL.TIMES(+)
+			GROUP BY TT.TIMES
+			ORDER BY TT.TIMES
+		
+		]]>
+	</statement>
+
+	<statement name="selectDtList" type="select">
+	/*+ com.hwfs.rc.bms.weeklyListDAO.selectDtList */
+		<![CDATA[
+		  SELECT	
+		        TO_CHAR(START_DT +0,'YYYY-MM-DD') ||'(일)' DT01,
+				TO_CHAR(START_DT +1,'YYYY-MM-DD') ||'(월)' DT02,
+				TO_CHAR(START_DT +2,'YYYY-MM-DD') ||'(화)' DT03,
+				TO_CHAR(START_DT +3,'YYYY-MM-DD') ||'(수)' DT04,
+				TO_CHAR(START_DT +4,'YYYY-MM-DD') ||'(목)' DT05,
+				TO_CHAR(START_DT +5,'YYYY-MM-DD') ||'(금)' DT06,
+				TO_CHAR(START_DT +6,'YYYY-MM-DD') ||'(토)' DT07
+		 FROM	(
+				SELECT TO_DATE(:searchDt, 'YYYYMMDD') - (TO_NUMBER(TO_CHAR(TO_DATE(:searchDt, 'YYYYMMDD'), 'D')) -1) START_DT
+				FROM DUAL
+			 	)
+		]]>
+	</statement>
+	
+
+
+</hqml>
+		

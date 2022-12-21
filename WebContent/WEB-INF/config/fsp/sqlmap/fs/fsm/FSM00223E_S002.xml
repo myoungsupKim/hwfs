@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[식단목표율
+SELECT]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.MENU_DATE AS MENU_DATE ,
+       A.UPJANG AS UPJANG ,
+       A.HALL_CD AS HALL_CD ,
+       B.GOAL_COST_RATE AS GOAL_COST_RATE,
+       DECODE(B.GOAL_COST_RATE ,NULL,'I','S') AS FLAG,
+       '1' AS START_DATE,
+       '1' AS END_DATE
+  FROM
+       (
+       SELECT #UPJANG#   AS UPJANG
+       		  ,#HALL_CD# AS HALL_CD
+       		  ,YMD       AS MENU_DATE       		
+         FROM SCC_COPY_YMD
+        WHERE YMD BETWEEN #START_DATE# AND #END_DATE# 
+       ) A ,
+       (
+       SELECT UPJANG AS UPJANG ,
+              HALL_CD AS HALL_CD ,
+              MENU_DATE AS MENU_DATE ,
+              GOAL_COST_RATE AS GOAL_COST_RATE
+         FROM FSM_GOAL_COST_RATE
+        WHERE	UPJANG = #UPJANG# 
+          AND HALL_CD = #HALL_CD#
+          AND MENU_DATE BETWEEN #START_DATE# AND #END_DATE# 
+       ) B
+ WHERE A.MENU_DATE = B.MENU_DATE(+)
+ AND   A.UPJANG    = B.UPJANG(+)
+ AND   A.HALL_CD   = B.HALL_CD(+)
+ 	]]></statement>
+	<input default-name="ds_in">
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="HALL_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="MENU_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="START_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="END_DATE" size="8" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_GOAL_COST_RATE">
+		<col name="MENU_DATE" size="10" type="VARCHAR" description="" /> 
+		<col name="START_DATE" size="8" type="VARCHAR" description="" />
+		<col name="END_DATE" size="8" type="VARCHAR" description="" />		
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="HALL_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="GOAL_COST_RATE" size="22" type="NUMERIC" description="" /> 
+		<col name="FLAG" size="1" type="VARCHAR" description="" /> 
+	</output>
+</query>

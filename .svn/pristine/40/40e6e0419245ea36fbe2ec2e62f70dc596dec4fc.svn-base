@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.scc.HnrFicsOrderInterfaceSqlDAO">
+	<desc>리조트픽스 주문내용 Interface HQML Query</desc>
+
+	<!-- 리조트픽스 주문내용 스케쥴러 인터페이스 대상 및 결과 리스트를 조회한다. (당일입고분) -->
+	<statement name="selectBatchOrderList">
+	<![CDATA[
+		SELECT
+			TO_CHAR(A.CREATE_DATE, 'YYYYMMDD') AS CREATE_DATE-- 발주일
+			, A.NEED_DATE --입고일
+			, ITEM.HNR_ITEMCODE -- 리조트자재코드
+			, SUBINV.HNR_SUBINV_CODE -- 리조트창고코드
+			, A.ITEM_CODE -- 자재코드
+			, PO.SUBINV_CODE -- 창고코드
+			, A.RC_UPJANG AS UPJANG --업장코드
+			, NVL2(PO.WMS_GI_QTY, PO.WMS_GI_QTY,
+			CASE WHEN PO.LINE_STATUS IN ('GC', 'IV')
+				THEN (NVL(PO.DELIVERED_QTY, 0) - NVL(PO.RETURNED_QTY, 0))
+				ELSE (NVL(PO.CENTER_DELI_QTY, 0) + NVL(PO.DIRECT_DELI_QTY, 0))
+			END) AS TRANS_QTY -- 수량2
+			
+			--, ROUND(DECODE(PO.TAX_CODE, 100, PO.SAL_OPER_PRICE*1.1, PO.SAL_OPER_PRICE)) AS SAL_PRICE -- 판매단가
+			, PO.SAL_OPER_PRICE AS SAL_PRICE -- 판매단가
+			
+			
+			--, (ROUND(DECODE(PO.TAX_CODE, 100, PO.SAL_OPER_PRICE*1.1, PO.SAL_OPER_PRICE)) *
+			, ( PO.SAL_OPER_PRICE *
+			
+			NVL2(PO.WMS_GI_QTY, PO.WMS_GI_QTY,
+			CASE WHEN PO.LINE_STATUS IN ('GC', 'IV')
+				THEN (NVL(PO.DELIVERED_QTY, 0) - NVL(PO.RETURNED_QTY, 0))
+				ELSE (NVL(PO.CENTER_DELI_QTY, 0) + NVL(PO.DIRECT_DELI_QTY, 0))
+			END)) AS PRICE -- 수량판가
+			, A.PR_NUM
+			, A.PR_ID
+
+		FROM (SELECT A.*, B.ITEM_CLASS4, B.ORIGIN_TYPE FROM SO_PR A, HLDC_PO_ITEM_MST B WHERE A.ITEM_CODE = B.ITEM_CODE) A
+			, HLDC_PO_PO PO
+			, FMS_UPJANG UJ
+			, HNR_ITEMCODE_MAP ITEM
+			, HNR_SUBINV_MAP SUBINV
+			, HNR_IF_SO_PR IF
+		WHERE
+			A.RC_UPJANG IN (SELECT UPJANG FROM FMS_UPJANG WHERE MAIN_UPJANG IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'API_HNR_CUST_INFO' AND USE_YN='Y') AND USE_YN='Y')
+			AND A.NEED_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD') -- 당일입고분
+			
+			-- 7월 입고분부터 인터페이스 가능하도록 조건 추가 
+			AND A.NEED_DATE > '20220630'
+			
+			AND A.PR_QTY > 0
+			AND A.LINE_STATUS NOT IN ('003','005','999')
+			AND A.PR_NUM = PO.PO_NUM AND A.PR_ID = PO.PO_ID
+			AND A.RC_UPJANG = UJ.UPJANG
+			
+			-- 입고완료상태
+			AND PO.LINE_STATUS IN ('GC') 
+			
+			-- 센터출고수량 0 이상인 조건 , 직송의 경우 NULL인경우도 무조건 전송 
+			--AND PO.WMS_GI_QTY > 0 
+			AND ( (PO.CENTER_FLAG='VC' AND PO.WMS_GI_QTY IS NULL) OR (PO.CENTER_FLAG!='VC' AND PO.WMS_GI_QTY > 0) )
+			
+			--AND A.ITEM_CODE = ITEM.FD_ITEMCODE(+)
+		    AND A.ITEM_CODE = ITEM.FD_ITEMCODE -- 매핑정보 없으면 대상에서 제외
+			--AND A.SUBINV_CODE = SUBINV.FD_SUBINV_CODE(+)
+		    AND A.SUBINV_CODE = SUBINV.FD_SUBINV_CODE -- 매핑정보 없으면 대상에서 제외
+			AND A.PR_ID = IF.PR_ID(+)
+			AND (IF.RESULT_CODE != 'Y' OR IF.RESULT_CODE IS NULL) -- 이미 IF 된 항목은 대상에서 제외
+ 	]]>
+	</statement>
+
+
+	<!-- 리조트픽스 주문내용 인터페이스 결과 업데이트 - 전체성공Y -->
+	<statement name="updateInterfaceOrderListAllY">
+	<![CDATA[
+		MERGE INTO HNR_IF_SO_PR  A
+			USING (SELECT :prNum AS PR_NUM
+						, :prId AS PR_ID
+			            , NVL(:rstYN,'Y') AS RESULT_CODE /* Y:정상 */
+						, :rstMSG AS RESULT_MSG
+						, 'SYSTEM_IF' AS CUSER
+		                , SYSDATE AS CDATE
+		                , 'SYSTEM_IF' AS UUSER
+		                , SYSDATE AS UDATE
+			      FROM   DUAL B
+		      	) B
+		   ON (A.PR_NUM=B.PR_NUM AND A.PR_ID=B.PR_ID)
+		  WHEN MATCHED THEN
+		      UPDATE
+		      SET RESULT_CODE  = B.RESULT_CODE
+		        , RESULT_MSG   = B.RESULT_MSG
+		        , UUSER        = B.UUSER
+		        , UDATE        = SYSDATE
+		  WHEN NOT MATCHED THEN
+		      INSERT
+		               (
+		                  PR_NUM
+                        , PR_ID
+                        , RESULT_CODE
+                        , RESULT_MSG
+						, CUSER
+						, CDATE
+						, UUSER
+						, UDATE
+
+		               )
+		      VALUES
+				       (  B.PR_NUM
+						, B.PR_ID
+						, B.RESULT_CODE
+						, B.RESULT_MSG
+						, B.CUSER
+						, B.CDATE
+						, B.UUSER
+						, B.UDATE
+						       )	               
+
+				       
+	]]>
+	</statement>
+	
+	
+	<!-- 리조트픽스 주문내용 인터페이스 결과 업데이트 - 전체성공N -->
+	<statement name="updateInterfaceOrderListAllN">
+	<![CDATA[
+		MERGE INTO HNR_IF_SO_PR  A
+			USING (SELECT :prNum AS PR_NUM
+						, :prId AS PR_ID
+			            , DECODE(:rstYN, 'Y', 'N', 'N', 'E', 'N') AS RESULT_CODE /* Y일경우 N(미처리), N일경우 E(에러)로 세팅 */
+						, :rstMSG AS RESULT_MSG
+						, 'SYSTEM_IF' AS CUSER
+		                , SYSDATE AS CDATE
+		                , 'SYSTEM_IF' AS UUSER
+		                , SYSDATE AS UDATE
+			      FROM   DUAL B
+		      	) B
+		   ON (A.PR_NUM=B.PR_NUM AND A.PR_ID=B.PR_ID)
+		  WHEN MATCHED THEN
+		      UPDATE
+		      SET RESULT_CODE  = B.RESULT_CODE
+		        , RESULT_MSG   = B.RESULT_MSG
+		        , UUSER        = B.UUSER
+		        , UDATE        = SYSDATE
+		  WHEN NOT MATCHED THEN
+		      INSERT
+		               (
+		                  PR_NUM
+                        , PR_ID
+                        , RESULT_CODE
+                        , RESULT_MSG
+						, CUSER
+						, CDATE
+						, UUSER
+						, UDATE
+
+		               )
+		      VALUES
+				       (  B.PR_NUM
+						, B.PR_ID
+						, B.RESULT_CODE
+						, B.RESULT_MSG
+						, B.CUSER
+						, B.CDATE
+						, B.UUSER
+						, B.UDATE
+						       )	               
+
+				       
+	]]>
+	</statement>
+				
+  
+</hqml>
+

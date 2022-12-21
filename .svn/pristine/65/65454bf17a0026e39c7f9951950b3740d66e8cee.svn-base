@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="sc.app.creditOverDAO">
+	<desc>FC POS 마스터 외부 인터페이스 HQML</desc>
+
+
+
+
+
+
+
+
+
+	<statement name="selectTest"><![CDATA[SELECT '1' AS CHECK_NUM
+  FROM DUAL]]></statement>
+	<statement name="logInsert"><![CDATA[INSERT INTO APP_INTERFACE_LOG(
+INSDT,
+TXID,
+TXDIV,
+TXHEADER,
+TXDATA,
+TXRESULT)
+VALUES(
+TO_CHAR(SYSDATE,'YYYY-MM-DD HH24:MI:SS'),
+<#if txId?has_content >:txId,<#else>null,</#if> 
+<#if txDiv?has_content >:txDiv,<#else>null,</#if> 
+<#if tHeader?has_content >:tHeader,<#else>null,</#if> 
+<#if tData?has_content >:tData,<#else>null,</#if> 
+<#if tResult?has_content >:tResult<#else>null</#if> 
+)]]></statement>
+
+	<statement name="selectCreditOverReqYn"><![CDATA[
+SELECT   A.CREDIT_ID
+ FROM    FMS_CREDIT_MOBILE A
+ WHERE   1=1
+ AND     A.UPJANG = :upjangCd
+ AND     A.APPR_YN = 'N'
+ AND     ROWNUM <= 1
+]]></statement>
+
+<statement name="saveCreditOver"><![CDATA[
+INSERT INTO FMS_CREDIT_MOBILE 
+   (
+         CREDIT_ID,
+         UPJANG,
+         REQ_DATE,
+         REQ_SABUN,
+         APPR_YN,
+         CREDIT_OVER_AMOUNT,
+         CREDIT_OVER_END,
+         REMARK,
+         USE_YN,
+         CUSER,
+         CDATE
+  )
+  VALUES
+  (
+         FMS_CREDIT_MOBILE_S.NEXTVAL,
+         :upjangCd,
+         TO_CHAR(SYSDATE,'YYYYMMDD'),
+         :sabun,
+         'N',
+         <#if creditOverAmount?has_content> :creditOverAmount, <#else> 0, </#if>
+         <#if creditOverEnd?has_content> :creditOverEnd, <#else> null, </#if>
+         <#if remark?has_content> :remark, <#else> null, </#if>
+         'Y',
+         :sabun,
+         SYSDATE
+  )
+]]></statement>
+
+	<statement name="selectCreditOverApprvYn"><![CDATA[
+SELECT  APPR_YN                      
+  FROM    FMS_CREDIT_MOBILE 
+ WHERE   1=1
+   AND     UPJANG = :upjangCd
+   AND     CREDIT_ID   = :creditId
+]]></statement>
+
+<statement name="saveCreditOverApprv1"><![CDATA[
+ UPDATE FMS_UPJANG SET    
+        <#if creditOverAmount?has_content> CREDIT_OVER_AMOUNT          = :creditOverAmount, </#if>
+        <#if creditOverEnd?has_content> CREDIT_OVER_END        = :creditOverEnd, </#if>
+        <#if approveRemark?has_content> ATTR04        = :approveRemark, </#if>
+        UUSER         = :sabun,
+        UDATE         = SYSDATE
+ WHERE  UPJANG        = :upjangCd
+]]></statement>
+
+<statement name="saveCreditOverApprv2"><![CDATA[
+UPDATE FMS_CREDIT_MOBILE SET    
+       <#if creditOverAmount?has_content> CREDIT_OVER_AMOUNT          = :creditOverAmount, </#if>
+       <#if creditOverEnd?has_content> CREDIT_OVER_END        = :creditOverEnd, </#if>
+       <#if approveRemark?has_content> ATTR01        = :approveRemark, </#if>
+       APPR_YN       = 'Y',
+       APPR_DATE     = TO_CHAR(SYSDATE,'YYYYMMDD'),
+       APPR_SABUN    = :sabun,
+       UUSER         = :sabun,
+       UDATE         = SYSDATE
+WHERE  UPJANG      = :upjangCd
+AND	   CREDIT_ID   = :creditId
+]]></statement>
+
+<statement name="saveCreditOverReject"><![CDATA[
+UPDATE FMS_CREDIT_MOBILE SET    
+       APPR_YN       = 'C',
+       APPR_DATE     = TO_CHAR(SYSDATE,'YYYYMMDD'),
+       APPR_SABUN    = :sabun,
+       <#if approveRemark?has_content> ATTR01        = :approveRemark, </#if>
+       UUSER         = :sabun,
+       UDATE         = SYSDATE
+WHERE  UPJANG      = :upjangCd
+AND	   CREDIT_ID   = :creditId
+]]></statement>
+
+	<statement name="selectCreditOverHist"><![CDATA[
+SELECT    A.UPJANG                                  AS UPJANG
+        , B.UPJANGNM_DISP                           AS UPJANGNM
+        , A.CREDIT_ID								AS CREDIT_ID
+	    , A.REQ_DATE                                AS REQ_DATE
+        , (SELECT Z.NM_KOR
+          FROM    HLDC_HR_PERSONAL Z
+          WHERE   Z.SABUN = A.REQ_SABUN
+          )                                         AS REQ_USER  
+        , A.CREDIT_OVER_AMOUNT                      AS CREDIT_OVER_AMOUNT
+--        , A.CREDIT_BEF_AMOUNT                       AS CREDIT_BEF_AMOUNT
+--        , A.CREDIT_ADD_AMOUNT                       AS CREDIT_ADD_AMOUNT
+        , A.CREDIT_OVER_END                         AS CREDIT_OVER_END
+--        , A.CREDIT_BEF_END                          AS CREDIT_BEF_END
+        , A.APPR_YN                                 AS APPR_YN
+        , (SELECT Z.NM_KOR
+          FROM    HLDC_HR_PERSONAL Z
+          WHERE   Z.SABUN = A.APPR_SABUN
+          )                                         AS APPR_USER  
+        , A.REMARK                                  AS REMARK
+        , A.ATTR01									AS APPROVE_REMARK
+        , B.HEAD_CREDIT_YN                          AS HEAD_CREDIT_YN
+ FROM     FMS_CREDIT_MOBILE A
+        , FMS_UPJANG B
+ WHERE   (
+              1=1
+         )
+ AND    A.UPJANG = B.UPJANG
+ <#if mainUpjangCd?has_content>
+ AND    B.MAIN_UPJANG = :mainUpjangCd
+ </#if>
+ <#if upjangCd?has_content>
+ AND    A.UPJANG = :upjangCd
+ </#if>
+ <#if apprGubun?has_content>
+ AND    A.APPR_YN = :apprGubun
+ </#if>
+ <#if startDt?has_content>
+ AND    A.REQ_DATE BETWEEN :startDt AND :endDt
+ </#if>
+ ORDER BY A.CREDIT_ID DESC, A.UPJANG
+]]></statement>
+
+</hqml>

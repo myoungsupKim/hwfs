@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.roa.partTimebyUpjangDAO">
+	<desc>업장별 용역 발생 내역 HQML Query</desc>
+
+	<!-- 업장별 용역 발생 내역 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.rc.roa.dao.PartTimebyUpjangDAO.selectList */
+		<![CDATA[
+		SELECT D.MU_CD,
+			   D.TM_CD,
+               D.TM_NM,
+               A.UPJANG,
+               D.UPJANGNM AS UPJANG_NM,
+			   SUM(A.TOTAL_DUTY_TIME) TOTAL_DUTY_TIME,
+			   SUM(A.DEDUC_TIME) DEDUC_TIME,
+			   SUM(A.DUTY_TIME) DUTY_TIME,
+			   SUM(A.NGHT_DUTY_TIME) NGHT_DUTY_TIME,
+			   SUM(A.EXTENSION_DUTY_TIME) EXTENSION_DUTY_TIME,
+			   SUM(A.DUTY_AMT)+SUM(A.NGHT_ADD_AMT)+SUM(A.EXTENSION_ADD_AMT) AS TOTAL_DUTY_AMT,
+			   SUM(A.DUTY_AMT) DUTY_AMT,
+			   SUM(A.NGHT_ADD_AMT) NGHT_ADD_AMT,
+			   SUM(A.EXTENSION_ADD_AMT) EXTENSION_ADD_AMT,
+			   NVL(DECODE(A.UPJANG,137024, AMT_E.SUM_SELL_AMT, 114359, AMT_E.SUM_SELL_AMT, AMT.SUM_SELL_AMT),0) SUM_SELL_AMT,
+			   DECODE(A.UPJANG, 137024, DECODE(AMT_E.SUM_SELL_AMT,0,0, ROUND((((SUM(A.DUTY_AMT)+SUM(A.NGHT_ADD_AMT)+SUM(A.EXTENSION_ADD_AMT)) / AMT_E.SUM_SELL_AMT)*100),1))
+                              , 114359, DECODE(AMT_E.SUM_SELL_AMT,0,0, ROUND((((SUM(A.DUTY_AMT)+SUM(A.NGHT_ADD_AMT)+SUM(A.EXTENSION_ADD_AMT)) / AMT_E.SUM_SELL_AMT)*100),1))
+                              , ROUND((((SUM(A.DUTY_AMT)+SUM(A.NGHT_ADD_AMT)+SUM(A.EXTENSION_ADD_AMT)) / AMT.SUM_SELL_AMT)*100),1)
+               
+                     ) AS SUM_SELL_RT
+			   
+			   --NVL(AMT.SUM_SELL_AMT,0) SUM_SELL_AMT,
+               --DECODE(AMT.SUM_SELL_AMT,'',0, ROUND((((SUM(A.DUTY_AMT)+SUM(A.NGHT_ADD_AMT)+SUM(A.EXTENSION_ADD_AMT)) / AMT.SUM_SELL_AMT)*100),1)) AS SUM_SELL_RT
+		FROM   RSS_PART_TIME_INFO A,
+			   RSS_PART_TIME_TRGLST_INFO B,
+			   SCO_UPJANG_MST_V D,
+			   
+			   (
+			   		SELECT OUTLET_CD , OUTLET_NM
+			 	 		 , SUM(TAMT) + SUM(MAMT) + SUM(OAMT) AS SUM_SELL_AMT
+			        
+			 FROM (
+			     SELECT   INFO.OUTLET_CD,  MAX(ITEM.OUTLET_NM) AS OUTLET_NM, INFO.SALES_DATE, INFO.RECEIPT_NUM
+			     		--조중석
+			     		, NVL(SUM(CASE WHEN (INFO.OPEN_TIME >= '050000' AND INFO.OPEN_TIME <= '235959') THEN NVL(NET_AMT, 0) END),0) AS TAMT
+	                   
+			            --야식
+			            , DECODE(INFO.MEAL_CLASS,'00004',NVL(SUM(NET_AMT), 0),0) AS MAMT 
+			            
+			            --기타(미지정)
+			            , DECODE(NVL(INFO.MEAL_CLASS,'00000'),'00000',NVL(SUM(NET_AMT), 0),0) AS OAMT   
+			            
+			      FROM  SLE_SALS_INFO INFO 
+			      INNER JOIN ( 
+				                SELECT  GOODS.OUTLET_CD       AS OUTLET_CD
+				                      , MAX(OUTLET.OUTLET_NM) AS OUTLET_NM
+				                	  , GOODS.SALES_DATE      AS SALES_DATE
+				                	  , GOODS.RECEIPT_NUM     AS RECEIPT_NUM
+				                      , SUM(GOODS.NET_AMT)    AS NET_AMT
+				                FROM SLE_SALS_GOODS GOODS
+				                INNER JOIN (SELECT MST.OUTLET_CD, MST.OUTLET_NM 
+					                           FROM   SLE_OUTLET_MST MST
+					                              INNER JOIN  SCO_UPJANG_V   UPJANG ON  UPJANG.UPJANG = TO_NUMBER(MST.OUTLET_CD) 
+					                                         <#if muCd?has_content> AND  UPJANG.MU_CD = :muCd </#if>
+					                                         <#if tmCd?has_content> AND  UPJANG.TM_CD = :tmCd </#if>
+					                            <#if upjang?has_content > WHERE MST.OUTLET_CD   = :upjang </#if>
+					              			 ) OUTLET ON OUTLET.OUTLET_CD =  GOODS.OUTLET_CD
+	                          
+	                           INNER JOIN (
+											SELECT INFO.OUTLET_CD, INFO.SALES_DATE, INFO.RECEIPT_NUM 
+											FROM SLE_SALS_INFO INFO
+											LEFT OUTER JOIN (
+											      SELECT OUTLET_CD, POS_NUM, CODE_NAME FROM SLE_POS_SET POS
+											      INNER JOIN SCC_COMMON_CODE GRP ON GRP.GROUP_CODE = 'SLE_0111' AND GRP.CODE = POS.OUTLET_SUB_CD
+											      ORDER BY  OUTLET_CD, POS_NUM
+											) POS ON POS.OUTLET_CD = INFO.OUTLET_CD AND POS.POS_NUM = INFO.POS_NUM
+											WHERE INFO.SALS_CLASS     = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+											  AND INFO.MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+											  AND INFO.RECEIPT_STATUS IN ('Q','R','E') --영수증 상태 Q:정상 R:반품(-)
+											  AND INFO.SALES_DATE BETWEEN :occurDateFrom AND :occurDateTo
+											ORDER BY    INFO.OUTLET_CD, INFO.SALES_DATE, INFO.RECEIPT_NUM
+					    				)  INFO ON INFO.OUTLET_CD = GOODS.OUTLET_CD 
+					    				       AND INFO.SALES_DATE = GOODS.SALES_DATE
+					    				       AND INFO.RECEIPT_NUM = GOODS.RECEIPT_NUM	
+	                          
+	                          WHERE 1=1
+							    AND GOODS.SELL_YN  = DECODE(GOODS.RECEIPT_STATUS ,'E','N','Y')				--매출 여부
+	                            AND GOODS.DATA_CLASS     = '1'  -- 1:메뉴 3:주문사항 
+	                            AND GOODS.SALS_CLASS     = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+	                            AND GOODS.MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+	                            AND GOODS.RECEIPT_STATUS IN ('Q','R','E')  --영수증 상태 Q:정상 R:반품(-)
+	                            AND GOODS.SALES_DATE BETWEEN :occurDateFrom AND :occurDateTo
+	                            <#if upjang?has_content > AND GOODS.OUTLET_CD   = :upjang </#if>  --사업장(업장)
+	                         GROUP BY GOODS.OUTLET_CD, GOODS.SALES_DATE, GOODS.RECEIPT_NUM 
+			                
+			                ) ITEM   ON INFO.OUTLET_CD   = ITEM.OUTLET_CD 
+			                        AND INFO.SALES_DATE  = ITEM.SALES_DATE 
+			                        AND INFO.RECEIPT_NUM = ITEM.RECEIPT_NUM
+			                        
+			       WHERE INFO.SALS_CLASS     = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+			         AND INFO.MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+			         AND INFO.RECEIPT_STATUS IN ('Q','R','E')   --영수증 상태 Q:정상 R:반품(-)			         
+			         AND INFO.SALES_DATE BETWEEN :occurDateFrom AND :occurDateTo				--검색기간
+			       <#if upjang?has_content > AND INFO.OUTLET_CD   = :upjang </#if>  --사업장(업장)
+			       GROUP BY INFO.OUTLET_CD, INFO.SALES_DATE, INFO.RECEIPT_NUM, INFO.MEAL_CLASS
+			   ) DUAL 
+			   GROUP BY OUTLET_CD, OUTLET_NM
+			   
+			   ) AMT,
+               (
+                SELECT UPJANG_CD, SUM(SELL_AMT) SUM_SELL_AMT
+                  FROM (
+                        SELECT UPJANG_CD, 
+                               NVL(DECODE(VAT_CLASS,'20', SUM((CASE WHEN SALS_CLASS IN ('1204','1205') THEN NET_AMT ELSE 0 END)) 
+                                                        + SUM((CASE WHEN SALS_CLASS IN ('1201','1202','1203','1209') THEN NET_AMT ELSE 0 END))
+                                                        + SUM((CASE WHEN SALS_CLASS IN ('1206') THEN NET_AMT ELSE 0 END))
+                                                        , SUM((CASE WHEN SALS_CLASS IN ('1204','1205') THEN SAL_AMT ELSE 0 END))
+                                                        + SUM((CASE WHEN SALS_CLASS IN ('1201','1202','1203','1209') THEN SAL_AMT ELSE 0 END))
+                                                        + SUM((CASE WHEN SALS_CLASS IN ('1206') THEN SAL_AMT ELSE 0 END))
+                                          ), 0) SELL_AMT
+                          FROM SLA_IF_UPJANG_SALS_DETAIL
+                         WHERE SYS_CLASS IN (12,19,20,21) 
+                           AND DDDD_CLOSE_YN = 'Y' 
+                           AND OCCUR_DATE   BETWEEN :occurDateFrom AND :occurDateTo
+                           AND UPJANG_CD  IN (137024, 114359)
+                         GROUP BY UPJANG_CD, OCCUR_DATE, VAT_CLASS
+                     ) AA
+                  GROUP BY UPJANG_CD
+               ) AMT_E
+		WHERE  A.PART_TIME_EMP_SABUN = B.PART_TIME_EMP_SABUN(+)
+		AND	   A.UPJANG = D.UPJANG(+)
+		AND    A.UPJANG   = AMT.OUTLET_CD(+) 
+        AND    A.UPJANG = AMT_E.UPJANG_CD(+) 
+		<#if muCd?has_content>
+		AND	   D.MU_CD = :muCd
+		</#if>
+		<#if tmCd?has_content>
+		AND	   D.TM_CD = :tmCd
+		</#if>
+		<#if occurDateFrom?has_content>
+		AND    A.OCCUR_DATE >= :occurDateFrom
+		</#if>
+		<#if occurDateTo?has_content>
+		AND    A.OCCUR_DATE <= :occurDateTo
+		</#if>
+		<#if upjang?has_content>
+		AND    A.UPJANG = :upjang
+		</#if>
+		GROUP BY D.MU_CD, D.TM_CD, D.TM_NM, A.UPJANG, D.UPJANGNM, AMT.SUM_SELL_AMT, AMT_E.SUM_SELL_AMT
+		ORDER BY D.MU_CD, D.TM_CD, A.UPJANG
+		]]>
+	</statement>
+
+</hqml>

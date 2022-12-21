@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[표준식단 레시피 검색]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT 
+	   A.*
+	   , B.CODE_NAME AS RECIPE_CLASS_NM
+	   , C.CODE_NAME AS RECIPE_TYPE_NM
+	   , D.CODE_NAME AS CUISINE_TYPE_NM
+	   , '' AS CHK
+FROM ( 	 
+	SELECT  B.SINGLE_MENU_CD
+	      , D.RECIPE_CLASS
+	      , B.RECIPE_CD
+	      , D.RECIPE_NAME
+	      , SUM(ROUND( (E.NEED_QTY * B.ITEM_RATE / 100) * (NVL(F.MARGIN_PRICE,0) / G.KG_CONVERT_RATE / 1000) ) ) AS MENU_COST  -- 표준원가
+		  , D.CUISINE_TYPE
+		  , D.RECIPE_TYPE
+	FROM FSM_SINGLE_MENU_RECIPE B
+	 --   ,FSM_SINGLE_MENU_ITEM_RATE C
+	      ,FSR_STD_RECIPE_MST D
+	      ,FSR_STD_RECIPE_ITEM E
+	      ,FSI_STD_PRICE F
+	      ,(
+	       SELECT ITEM_CODE,
+	              KG_CONVERT_RATE
+	         FROM HLDC_PO_ITEM_MST
+	        WHERE ITEM_CLASS1 = 'F'
+	       ) G
+	 WHERE 1=1  
+    -- B.SINGLE_MENU_CD = C.SINGLE_MENU_CD
+	-- AND B.RECIPE_CD = C.RECIPE_CD
+	   AND B.RECIPE_CD = D.RECIPE_CD
+	   AND B.RECIPE_CD = E.RECIPE_CD
+	-- AND C.ITEM_CODE = E.ITEM_CODE
+	   AND E.ITEM_CODE = F.ITEM_CODE(+)
+	   AND E.ITEM_CODE = G.ITEM_CODE
+	   AND B.SINGLE_MENU_CD = #SINGLE_MENU_CD#
+	 GROUP BY B.SINGLE_MENU_CD
+	         , B.RECIPE_CD
+	         , D.RECIPE_NAME
+	         , D.RECIPE_CLASS
+			 , D.RECIPE_TYPE
+			 , D.CUISINE_TYPE
+) A, SCC_COMMON_CODE B, SCC_COMMON_CODE C ,SCC_COMMON_CODE D
+WHERE 
+	  B.GROUP_CODE = 'FS0001' --레시피분류
+	  AND B.CODE = A.RECIPE_CLASS
+	  AND C.GROUP_CODE = 'FS0002' 
+	  AND C.CODE = A.RECIPE_TYPE --레시피유형
+	  AND D.GROUP_CODE = 'FS0003' 
+	  AND D.CODE = A.CUISINE_TYPE 	--조리법유형	]]></statement>
+	<input default-name="ds_cond">
+		<col name="SINGLE_MENU_CD" size="20" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_recipeList">
+		<col name="SINGLE_MENU_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="RECIPE_CLASS" size="20" type="VARCHAR" description="" /> 
+		<col name="RECIPE_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="RECIPE_NAME" size="50" type="VARCHAR" description="" /> 
+		<col name="MENU_COST" size="22" type="NUMERIC" description="" /> 
+		<col name="CUISINE_TYPE" size="20" type="VARCHAR" description="" /> 
+		<col name="RECIPE_TYPE" size="20" type="VARCHAR" description="" /> 
+		<col name="RECIPE_CLASS_NM" size="100" type="VARCHAR" description="" /> 
+		<col name="RECIPE_TYPE_NM" size="100" type="VARCHAR" description="" /> 
+		<col name="CUISINE_TYPE_NM" size="100" type="VARCHAR" description="" /> 
+		<col name="CHK" size="1" type="VARCHAR" description="" /> 
+	</output>
+</query>

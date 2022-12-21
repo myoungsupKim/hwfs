@@ -1,0 +1,140 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\..\..\default_typedef.xml"/>
+  <Form id="TestResultItemSendGwPop" classname="COMP_GUIDE_13" inheritanceid="" position="absolute 0 0 546 148" titletext="전자결재 검사목적 해재사유 등록" scrollbars="autoboth" onload="form_onload" ontimer="SpecmAcceptListInqueryPop_ontimer">
+    <Layouts>
+      <Layout>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 531 10"/>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 -120 15 147"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 531 -120 546 101"/>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 15 133 531 148"/>
+        <Static id="Static00" text="h06" class="Guide01_AreaRed" visible="false" position="absolute 15 10 215 16"/>
+        <Static id="Static04" text="h05" class="Guide01_AreaRed" visible="false" position="absolute 284 51 531 56"/>
+        <Button id="btn_cancel" taborder="3" text="닫기" onclick="btn_cancel_onclick" class="btn_WF_CRUD" anchor="top right" position="absolute 486 10 531 35" positiontype="position"/>
+        <Static id="Static05" text="아이콘기준 h08" class="Guide01_AreaRed" visible="false" position="absolute 15 48 215 56"/>
+        <Static id="Static20" text="W102" visible="false" position="absolute 484 10 486 35" anchor="top right" style="background:#ff000055;align:center middle;"/>
+        <Static id="sta_reqNo" text="의뢰번호 : " position="absolute 17 17 196 31" style="font:굴림,10,bold;"/>
+        <Button id="btn_draft" taborder="2" text="결재상신" class="btn_WF_CRUD" position="absolute 415 10 484 35" anchor="top right" onclick="btn_draft_onclick"/>
+        <Static id="Static34" class="sta_WFDA_Labelbg" position="absolute 15 56 531 83" anchor="top right"/>
+        <Static id="Static33" text="검사목적" class="sta_WFDA_Label01" position="absolute 15 56 109 83" anchor="top right"/>
+        <Edit id="edt_insptPurp" taborder="0" readonly="false" position="absolute 111 59 528 80" anchor="top right" class="edt_WF_Essential"/>
+        <Static id="Static07" class="sta_WFDA_Labelbg" position="absolute 15 82 531 109" anchor="top right"/>
+        <Static id="Static08" text="해재사유" class="sta_WFDA_Label01" position="absolute 15 82 109 109" anchor="top right"/>
+        <Edit id="edt_insptMtod" taborder="1" readonly="false" position="absolute 111 85 528 106" anchor="top right"/>
+        <Static id="sta_acceptNm" text="접 수  명 : " position="absolute 17 33 531 47" style="font:굴림,10,bold;"/>
+        <Static id="Static18" text="[해재사유]는 Q-Pass인 경우에만 입력하십시오!" class="sta_WF_DiscInfo" position="absolute 15 119 475 134" anchor="left bottom"/>
+        <Static id="Static17" text="글자기준간격 h05" class="Guide01_AreaRed" visible="false" position="absolute 0 109 541 119"/>
+      </Layout>
+    </Layouts>
+    <Bind>
+      <BindItem id="item2" compid="edt_insptPurp" propid="value" datasetid="ds_search" columnid="insptPurp"/>
+      <BindItem id="item0" compid="edt_insptMtod" propid="value" datasetid="ds_search" columnid="insptMtod"/>
+    </Bind>
+    <Objects>
+      <Dataset id="ds_search" firefirstcount="0" firenextcount="0" useclientlayout="true" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="reqNum" type="STRING" size="256"/>
+          <Column id="insptPurp" type="STRING" size="256"/>
+          <Column id="insptMtod" type="STRING" size="256"/>
+          <Column id="acceptnm" type="STRING" size="256"/>
+          <Column id="svrFileName" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row/>
+        </Rows>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : TestResultItemSendGwPop
+  파 일 명 : TestResultItemSendGwPop.xfdl
+  기    능 : 전자결재 검사목적 및 해재사유 등록 LayerPopup
+
+    수정일    수정자                  수정내용
+  ----------   -------  --------------------------------------------------
+  2015.08.21   jshoon   최초 생성
+*/
+
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+************************************************************************************************/
+include "lib::lib_com.xjs";
+include "lib::LimsUtil.xjs";
+
+/****************************************************************************************
+ * FORM 변수 선언 영역
+****************************************************************************************/
+var fv_iProcessCnt = 0;  	// 저장건수를 저장한다.(Controller Class에서만 할당함.)
+var objArgs;
+
+/************************************************************************************************
+ * FORM EVENT 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Form Load (필수)
+ *---------------------------------------------------------------------------------------------*/
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+    // Form Load 시 공통 기능 처리(obj:Form, bCreateEvent:이벤트 생성 여부)
+    gfn_formOnLoad(this);		// 검체유형 GRID에는 공통 이벤트 제외
+    
+    objArgs = this.getOwnerFrame().fv_Contents;
+    //trace(objArgs);
+    
+    // 초기값 셋팅
+	fn_init();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 초기값 셋팅
+ *---------------------------------------------------------------------------------------------*/
+function fn_init()
+{
+	sta_reqNo.text = "의뢰번호 : " + objArgs[0];
+	sta_acceptNm.text = "접 수  명 : " + objArgs[1];
+	
+	if (objArgs[2] == "P") {	// 해제인경우
+		edt_insptMtod.class = "edt_WF_Essential";
+	}
+}
+
+/************************************************************************************************
+ * TRANSACTION 및 CallBack 영역 (필수)
+************************************************************************************************/
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 취소버튼 클릭 시
+ *---------------------------------------------------------------------------------------------*/
+function btn_cancel_onclick(obj:Button,  e:ClickEventInfo)
+{
+	this.close();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 결재 상신버튼 클릭 시
+ *---------------------------------------------------------------------------------------------*/
+function btn_draft_onclick(obj:Button,  e:ClickEventInfo)
+{
+	if (gfn_isNull(edt_insptPurp.value)) {
+		gfn_alert("검사목적을 입력하여 주십시오.");
+		edt_insptPurp.setFocus();
+		return;
+	}
+	
+	if (objArgs[2] == "P") {	// 해제인경우
+		if (gfn_isNull(edt_insptMtod.value)) {
+			gfn_alert("해재사유를 입력하여 주십시오.");
+			edt_insptMtod.setFocus();
+			return;
+		}
+	}
+	
+	var objParam = {
+		insptPurp : edt_insptPurp.value,
+		insptMtod : edt_insptMtod.value
+	}
+	
+	this.close(objParam);
+}
+]]></Script>
+  </Form>
+</FDL>

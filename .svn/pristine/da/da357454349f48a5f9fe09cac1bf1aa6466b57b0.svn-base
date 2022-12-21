@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT RCP_ID,
+       RCP_DATE,
+       TYPE_NAME,
+       (SELECT SUBINV_NAME FROM  HLDC_PO_SUBINVENTORY WHERE  SUBINV_CODE = V.SUBINV_CODE) SUBINV_NAME,
+       (SELECT CUSTNM      FROM  HLDC_ST_CUST         WHERE  CUSTCD      = V.CUSTCD)      CUSTNM,  
+       RCP_DESC,
+       ((AMT + LINE_AMT) - ALT_AMT) AMT,
+       0 RMTAMT,
+       '0' CHK
+  FROM (
+        SELECT A.RCP_ID,
+               A.RCP_DATE,
+               B.TYPE_NAME,
+               A.SUBINV_CODE,
+               A.CUSTCD,   
+               A.RCP_DESC,
+               NVL(A.AMT, 0) AMT,
+               (SELECT NVL(SUM(AMT), 0) FROM MAS_RMT_LINE WHERE RCP_ID = A.RCP_ID) ALT_AMT,
+  <isNotNull col="RMT_ID">
+               NVL((SELECT NVL(SUM(AMT), 0) FROM MAS_RMT_LINE WHERE RMT_ID = #RMT_ID# AND RCP_ID = A.RCP_ID), 0) LINE_AMT
+  </isNotNull>      
+  <isNull col="RMT_ID">          
+              0 LINE_AMT  
+  </isNull>      
+          FROM MAS_RCP A,
+               MAS_TYPE B
+        WHERE (A.RCP_TYPE    = B.TYPE_CD)
+        AND   (A.UPJANG      =  #UPJANG#)
+        AND   (A.RCP_DATE    BETWEEN '19000101' AND #RCP_DATE#) 
+        AND   (A.DR_ACCTCD   = #DR_ACCTCD#)        
+       ) V
+WHERE ((AMT + LINE_AMT) - ALT_AMT) > 0
+ORDER BY RCP_DATE, RCP_ID
+</statement>
+	<input default-name="ds_cond">
+		<col name="RMT_ID" size="" type="NUMERIC" description="" /> 
+		<col name="UPJANG" size="" type="NUMERIC" description="" /> 
+		<col name="RCP_DATE" size="255" type="VARCHAR" description="" /> 
+		<col name="DR_ACCTCD" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="RCP_ID" size="" type="NUMERIC" description="" /> 
+		<col name="RCP_DATE" size="255" type="VARCHAR" description="" /> 
+		<col name="TYPE_NAME" size="255" type="VARCHAR" description="" /> 
+		<col name="SUBINV_NAME" size="255" type="VARCHAR" description="" /> 
+		<col name="CUSTNM" size="255" type="VARCHAR" description="" /> 
+		<col name="RCP_DESC" size="255" type="VARCHAR" description="" /> 
+		<col name="AMT" size="" type="NUMERIC" description="" /> 
+		<col name="RMTAMT" size="" type="NUMERIC" description="" /> 
+		<col name="CHK" size="255" type="VARCHAR" description="" /> 							
+	</output>
+</query>

@@ -1,0 +1,357 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sm.spm.advanceAlterPopDAO">
+	<desc>선수금대체처리 HQML Query</desc>
+
+	<!-- 선수금 대체번호에 따른 선수금대체정보(조회조건)를 조회한다. -->
+	<statement name="getAdvanceAltMst" type="select">
+		/*+ com.hwfs.sm.spm.dao.AdvanceAlterPopDAO.getAdvanceAltMst */
+		<![CDATA[
+            SELECT  M.ALT_NUM                       -- 선수금 대체 번호
+                    ,M.ALT_DATE                     -- 대체일자
+                    ,M.ADVANCE_ALT_OCCUR_CLASS      -- 선수금 대체 발생 구분
+                    ,M.ALT_TYPE_CD                  -- 선수금 대체 유형 코드
+                    ,M.SYS_CLASS                    -- 시스템 구분
+                    ,M.MU_CD    MU_CD_ORG           -- MU 코드
+                    ,M.CC_CD    CC_CD_ORG           -- CC 코드
+                    ,M.ACCT_CD                      -- 계정 코드
+                    ,M.ALT_AMT                      -- 대체 금액
+                    ,M.ADJUST_AMT                   -- 정산금액
+                    ,M.EXC_AMT                      -- 제외금액
+                    ,M.PAY_GRP                      -- 지불그룹
+                    ,M.PAY_TYPE                     -- 지불유형
+                    ,M.PAY_SCHD_DATE                -- 지불 예정일
+                    ,M.REMARK                       -- 비고
+                    ,M.BATCH_ID                     -- BATCH ID
+                    ,M.UPJANG_CD UPJANG_CD_ORG      -- 업장 코드
+                    ,M.POS_NUM                      -- POS번호
+                    ,M.RECEIPT_NUM                  -- 영수증 번호
+                    ,M.COUPON_NUM                   -- 쿠폰번호
+                    ,M.CUST_CD  CUST_CD_ORG         -- 거래처 코드
+                    ,M.CUST_NM  CUST_NM_ORG         -- 거래처 명
+                    ,M.RESERV_NUM                   -- 예약 번호
+                    ,M.JOURNALZ_YN                  -- 분개여부
+                    ,M.JOURNALZ_NUM                 -- 분개번호
+                    ,M.RESERV_DATE                  -- 예약 일자
+                    ,M.INQUERY_START_DATE       OCCUR_DATE_FROM -- 조회 시작 일자
+                    ,M.INQUERY_END_DATE         OCCUR_DATE_TO   -- 조회 종료 일자
+                    ,M.INQUERY_START_DATE       FISCAL_DATE_FROM -- 조회 시작 일자
+                    ,M.INQUERY_END_DATE         FISCAL_DATE_TO   -- 조회 종료 일자
+                    ,M.INQUERY_MU_CD            MU_CD           -- 조회 MU 코드
+                    ,(SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE M.INQUERY_MU_CD = MU.MU_CD) MU_NM
+                    ,M.INQUERY_TM_CD            TM_CD           -- 조회 TM 코드
+                    ,(SELECT DISTINCT TM.TM_NM FROM HLDC_SC_DEPT_V TM WHERE M.INQUERY_TM_CD = TM.TM_CD) TM_NM
+                    ,M.INQUERY_CC_CD            CC_CD           -- 조회 CC 코드
+                    ,(SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE M.INQUERY_CC_CD = CC.CC_CD) CC_NM
+                    ,M.INQUERY_UPJANG_CD		UPJANG_CD		-- 조회 업장 코드
+                    ,M.INQUERY_CUST_CD          CUST_CD         -- 조회 거래처 코드
+                    ,(SELECT CUST.CUSTNM FROM ST_CUST CUST WHERE M.INQUERY_CUST_CD = CUST.CUSTCD) CUST_NM
+                    ,M.INQUERY_ADVANCE_TYPE_CD  ADVANCE_TYPE_CD -- 조회 선수금 유형 코드
+                    ,M.INQUERY_ADVANCE_NUM      ADVANCE_NUM     -- 조회 선수금 번호
+                    ,M.RECD_STATUS                  -- 레코드 상태
+                    ,'Y' BALANCE_YN
+                    ,M.ALT_DATE                 FISCAL_DATE
+                    ,M.ALT_TYPE_CD              TRANS_TYPE_CD
+                    ,M.TRANS_CUST_CD
+                    ,(SELECT CUST.CUSTNM FROM ST_CUST CUST WHERE M.TRANS_CUST_CD = CUST.CUSTCD) TRANS_CUST_NM
+                    ,M.TRANS_CC_CD
+                    ,(SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE M.TRANS_CC_CD = CC.CC_CD) TRANS_CC_NM
+            FROM    SLA_ADVANCE_ALT_MST M           -- 선수금 대체 마스터
+            WHERE   M.RECD_STATUS = 'L'
+            AND     M.ALT_NUM = :altNum
+		]]>
+	</statement>
+	
+	<!-- 선수금 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sm.spm.dao.AdvanceAlterPopDAO.selectList */
+		<![CDATA[
+            WITH ALT_MST AS (
+                SELECT  M.ALT_NUM                       -- 선수금 대체 번호
+                        ,M.ALT_DATE                     -- 대체일자
+                        ,M.ADVANCE_ALT_OCCUR_CLASS      -- 선수금 대체 발생 구분
+                        ,M.ALT_TYPE_CD                  -- 선수금 대체 유형 코드
+                        ,M.SYS_CLASS                    -- 시스템 구분
+                        ,M.MU_CD                        -- MU 코드
+                        ,M.CC_CD                        -- CC 코드
+                        ,M.ACCT_CD                      -- 계정 코드
+                        ,M.ALT_AMT                      -- 대체 금액
+                        ,M.ADJUST_AMT                   -- 정산금액
+                        ,M.EXC_AMT                      -- 제외금액
+                        ,M.PAY_GRP                      -- 지불그룹
+                        ,M.PAY_TYPE                     -- 지불유형
+                        ,M.PAY_SCHD_DATE                -- 지불 예정일
+                        ,M.REMARK                       -- 비고
+                        ,M.BATCH_ID                     -- BATCH ID
+                        ,M.UPJANG_CD                    -- 업장 코드
+                        ,M.POS_NUM                      -- POS번호
+                        ,M.RECEIPT_NUM                  -- 영수증 번호
+                        ,M.COUPON_NUM                   -- 쿠폰번호
+                        ,M.CUST_CD                      -- 거래처 코드
+                        ,M.CUST_NM                      -- 거래처 명
+                        ,M.RESERV_NUM                   -- 예약 번호
+                        ,M.JOURNALZ_YN                  -- 분개여부
+                        ,M.JOURNALZ_NUM                 -- 분개번호
+                        ,M.RESERV_DATE                  -- 예약 일자
+                        ,M.INQUERY_START_DATE           -- 조회 시작 일자
+                        ,M.INQUERY_END_DATE             -- 조회 종료 일자
+                        ,M.INQUERY_MU_CD                -- 조회 MU 코드
+                        ,M.INQUERY_TM_CD                -- 조회 TM 코드
+                        ,M.INQUERY_CC_CD                -- 조회 CC 코드
+                        ,M.INQUERY_CUST_CD              -- 조회 거래처 코드
+                        ,M.INQUERY_ADVANCE_TYPE_CD      -- 조회 선수금 유형 코드
+                        ,M.INQUERY_ADVANCE_NUM          -- 조회 선수금 번호
+                        ,M.RECD_STATUS                  -- 레코드 상태
+                FROM    SLA_ADVANCE_ALT_MST M           -- 선수금 대체 마스터
+                WHERE   M.RECD_STATUS = 'L'
+            )
+            ,ALT_DETAIL AS (
+                SELECT  D.ADVANCE_ALT_NUM               -- 순번
+                        ,D.ALT_DATE                     -- 대체 일자
+                        ,D.ADVANCE_NUM                  -- 선수금 번호
+                        ,D.ALT_NUM                      -- 선수금 대체 번호
+                        ,D.RECEIVE_NUM                  -- 입금번호
+                        ,D.COUPON_PROC_NUM              -- 쿠폰 처리 번호
+                        ,D.OCCUR_DATE                   -- 발생일자
+                        ,D.CUST_CD                      -- 거래처 코드
+                        ,D.MU_CD                        -- MU 코드
+                        ,D.CC_CD                        -- CC 코드
+                        ,D.ACCT_CD                      -- 계정 코드
+                        ,D.VAT_CD                       -- 부가세 코드
+                        ,D.OCCUR_AMT                    -- 발생금액
+                        ,D.APPLY_AMT                    -- 적용금액
+                        ,D.ALT_SUPPLY_AMT               -- 대체 공급가액
+                        ,D.ALT_VAT_AMT                  -- 대체 부가세 금액
+                        ,D.REMARK                       -- 비고
+                        ,D.BATCH_ID                     -- BATCH ID
+                        ,D.RECD_STATUS                  -- 레코드 상태
+                        ,NVL(D.JOURNALZ_YN,'N') JOURNALZ_YN -- 분개여부
+                        ,D.JOURNALZ_NUM                 -- 분개번호
+                FROM    SLA_ADVANCE_ALT_DETAIL D        -- 선수금 대체내역
+                WHERE   D.RECD_STATUS = 'L'
+            )
+            SELECT  ADVANCE_NUM
+                    ,SEQ
+                    ,OCCUR_DATE
+                    ,FISCAL_DATE
+                    ,ADVANCE_OCCUR_CLASS
+                    ,ADVANCE_TYPE_CD
+                    ,CUST_CD
+                    ,SYS_CLASS
+                    ,MU_CD
+                    ,CC_CD
+                    ,ACCT_CD
+                    ,BATCH_ID
+                    ,OCCUR_AMT_ORG
+                    ,APPLY_AMT_ORG
+                    ,OCCUR_SUPPLY_AMT
+                    ,OCCUR_VAT_AMT
+                    ,APPLY_SUPPLY_AMT
+                    ,APPLY_VAT_AMT
+                    ,VAT_CD
+                    ,NEWHGHT_UPJANG
+                    ,RESERV_NUM
+                    ,RESERV_DATE
+                    ,CUST_NM
+                    ,GUEST_TEL_NUM
+                    ,JOURNALZ_YN
+                    ,JOURNALZ_NUM
+                    ,UPJANG_CD
+                    ,RECEIPT_NUM
+                    ,MNGMV_ADVANCE_NUM
+                    ,COUPON_PROC_NUM
+                    ,RECD_STATUS
+                    ,ALT_NUM
+                    ,ALT_DATE
+                    ,ADVANCE_ALT_OCCUR_CLASS
+                    ,ALT_TYPE_CD
+                    ,REMARK
+                    ,ALT_AMT
+                    ,ADJUST_AMT
+                    ,EXC_AMT
+                    ,PAY_GRP
+                    ,PAY_TYPE
+                    ,PAY_SCHD_DATE
+                    ,POS_NUM
+                    ,INQUERY_START_DATE
+                    ,INQUERY_END_DATE
+                    ,INQUERY_MU_CD
+                    ,INQUERY_TM_CD
+                    ,INQUERY_CC_CD
+                    ,INQUERY_CUST_CD
+                    ,INQUERY_ADVANCE_TYPE_CD
+                    ,INQUERY_ADVANCE_NUM
+                    ,ADVANCE_ALT_NUM
+                    ,RECEIVE_NUM
+                    ,OCCUR_AMT
+                    ,APPLY_AMT
+                    ,BAL_AMT
+                    ,ROW_STATUS
+                    ,APPLY_AMT_SUM
+                    ,ALT_SUPPLY_AMT
+                    ,ALT_VAT_AMT
+                    ,ADVANCE_OCCUR_CLASS_NM
+                    ,ADVANCE_TYPE_CD_NM
+                    ,SYS_CLASS_NM
+                    ,MU_NM
+                    ,CC_NM
+                    ,ACCT_NM
+            FROM    (
+                    SELECT  M1.ADVANCE_NUM                  -- 선수금 번호
+                            ,M1.SEQ                         -- 순번
+                            ,M1.OCCUR_DATE                  -- 발생 일자
+                            ,M1.FISCAL_DATE                 -- 회계일자
+                            ,M1.ADVANCE_OCCUR_CLASS         -- 선수금 발생 구분
+                            ,M1.ADVANCE_TYPE_CD             -- 선수금 유형 코드
+                            ,M1.CUST_CD                     -- 거래처 코드
+                            ,M1.SYS_CLASS                   -- 시스템 구분
+                            ,M1.MU_CD                       -- MU 코드
+                            ,M1.CC_CD                       -- CC 코드
+                            ,M1.ACCT_CD                     -- 계정 코드
+                            ,M1.BATCH_ID                    -- BATCH ID
+                            ,M1.OCCUR_AMT OCCUR_AMT_ORG
+                            ,M1.APPLY_AMT APPLY_AMT_ORG
+                            ,M1.OCCUR_SUPPLY_AMT            -- 빌생 공급가액
+                            ,M1.OCCUR_VAT_AMT               -- 발생 부가세 금액
+                            ,M1.APPLY_SUPPLY_AMT            -- 적용 공급가액
+                            ,M1.APPLY_VAT_AMT               -- 적용 부가세 금액
+                            ,M1.VAT_CD                      -- 부가세 코드
+                            ,M1.NEWHGHT_UPJANG              -- 신고 사업장
+                            ,M1.RESERV_NUM                  -- 예약번호
+                            ,M1.RESERV_DATE                 -- 예약 일자
+                            ,M1.CUST_NM                     -- 거래처 명
+                            ,M1.GUEST_TEL_NUM               -- 고객 전화 번호
+                            ,D1.JOURNALZ_YN                 -- 분개여부
+                            ,D1.JOURNALZ_NUM                -- 분개번호
+                            ,M1.UPJANG_CD                   -- 업장코드
+                            ,M1.RECEIPT_NUM                 -- 영수증 번호
+                            ,M1.MNGMV_ADVANCE_NUM           -- 이관 선수금 번호
+                            ,M1.COUPON_PROC_NUM             -- 쿠폰 처리 번호
+                            ,M1.RECD_STATUS                 -- 레코드 상태
+                            ,M2.ALT_NUM                     -- 선수금 대체 번호
+                            ,M2.ALT_DATE                    -- 대체일자
+                            ,M2.ADVANCE_ALT_OCCUR_CLASS     -- 선수금 대체 발생 구분
+                            ,M2.ALT_TYPE_CD                 -- 선수금 대체 유형 코드
+                            ,M2.REMARK                      -- 비고
+                            ,M2.ALT_AMT                     -- 대체 금액
+                            ,M2.ADJUST_AMT                  -- 정산금액
+                            ,M2.EXC_AMT                     -- 제외금액
+                            ,M2.PAY_GRP                     -- 지불그룹
+                            ,M2.PAY_TYPE                    -- 지불유형
+                            ,M2.PAY_SCHD_DATE               -- 지불 예정일
+                            ,M2.POS_NUM                     -- POS번호
+                            ,M2.INQUERY_START_DATE          -- 조회 시작 일자
+                            ,M2.INQUERY_END_DATE            -- 조회 종료 일자
+                            ,M2.INQUERY_MU_CD               -- 조회 MU 코드
+                            ,M2.INQUERY_TM_CD               -- 조회 TM 코드
+                            ,M2.INQUERY_CC_CD               -- 조회 CC 코드
+                            ,M2.INQUERY_CUST_CD             -- 조회 거래처 코드
+                            ,M2.INQUERY_ADVANCE_TYPE_CD     -- 조회 선수금 유형 코드
+                            ,M2.INQUERY_ADVANCE_NUM         -- 조회 선수금 번호
+                            ,D1.ADVANCE_ALT_NUM
+                            ,D1.RECEIVE_NUM
+                        <#if altNum?has_content>
+                            ,NVL(D1.OCCUR_AMT, M1.OCCUR_AMT) OCCUR_AMT
+                            ,NVL(D1.APPLY_AMT, M1.APPLY_AMT) APPLY_AMT
+                            ,NVL(D1.OCCUR_AMT, M1.OCCUR_AMT) - NVL(D1.APPLY_AMT, M1.APPLY_AMT) BAL_AMT
+                            ,'UPDATE' ROW_STATUS
+                        <#else>
+                            ,(
+                            SELECT  MM.OCCUR_AMT -
+                                    (
+                                    SELECT  NVL(SUM(DD.APPLY_AMT),0)
+                                    FROM    SLA_ADVANCE_ALT_DETAIL DD
+                                    WHERE   DD.RECD_STATUS = 'L'
+                                    AND     DD.ALT_NUM NOT IN (D1.ALT_NUM)
+                                    AND     DD.ADVANCE_NUM = M1.ADVANCE_NUM
+                                    ) APPLY_AMT
+                            FROM    SLA_ADVANCE_MST MM
+                            WHERE   MM.ADVANCE_NUM = M1.ADVANCE_NUM
+                            ) OCCUR_AMT
+                            ,0 APPLY_AMT
+                            ,(
+                            SELECT  MM.OCCUR_AMT -
+                                    (
+                                    SELECT  NVL(SUM(DD.APPLY_AMT),0)
+                                    FROM    SLA_ADVANCE_ALT_DETAIL DD
+                                    WHERE   DD.RECD_STATUS = 'L'
+                                    AND     DD.ALT_NUM NOT IN (D1.ALT_NUM)
+                                    AND     DD.ADVANCE_NUM = M1.ADVANCE_NUM
+                                    ) APPLY_AMT
+                            FROM    SLA_ADVANCE_MST MM
+                            WHERE   MM.ADVANCE_NUM = M1.ADVANCE_NUM
+                            ) BAL_AMT
+                            ,'INSERT' ROW_STATUS
+                        </#if>
+                            ,(
+                            SELECT  NVL(SUM(DDD.APPLY_AMT),0) APPLY_AMT
+                            FROM    SLA_ADVANCE_ALT_DETAIL DDD
+                            WHERE   DDD.RECD_STATUS = 'L'
+                            AND     DDD.ADVANCE_NUM = M1.ADVANCE_NUM
+                            ) APPLY_AMT_SUM
+                            ,NVL(D1.ALT_SUPPLY_AMT, M1.APPLY_SUPPLY_AMT) ALT_SUPPLY_AMT
+                            ,NVL(D1.ALT_VAT_AMT, M1.APPLY_VAT_AMT) ALT_VAT_AMT
+                            ,SCC_COMMON_CODE_NAME_FUN('ADVANCE_OCCUR_CLASS',M1.ADVANCE_OCCUR_CLASS) ADVANCE_OCCUR_CLASS_NM
+                            ,(SELECT TP.TYPE_NM FROM SLA_TYPE_CD_MST TP WHERE TP.TYPE_GRP_CD = '006' AND TP.TYPE_CD = M1.ADVANCE_TYPE_CD) ADVANCE_TYPE_CD_NM
+                            ,SCC_COMMON_CODE_NAME_FUN('SYS_CLASS',M1.SYS_CLASS) SYS_CLASS_NM
+                            ,(SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE M1.MU_CD = MU.MU_CD) MU_NM
+                            ,(SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE M1.CC_CD = CC.CC_CD) CC_NM
+                            ,(SELECT ACCT.ACCTNM FROM HLDC_ST_ACCOUNT_V ACCT WHERE M1.ACCT_CD = ACCT.ACCTCD) ACCT_NM
+                    FROM    SLA_ADVANCE_MST M1      -- 선수금 마스터
+                            ,ALT_MST M2             -- 선수금 대체 마스터(RECD_STATUS = 'L')
+                            ,ALT_DETAIL D1          -- 선수금 대체 디테일(RECD_STATUS = 'L')
+                    WHERE   M1.ADVANCE_NUM = D1.ADVANCE_NUM (+)
+                    AND     D1.ALT_NUM = M2.ALT_NUM (+)
+                    AND     M1.RECD_STATUS = 'L'
+                    )
+            WHERE   1=1
+    <#if altNum?has_content>
+            AND     ALT_NUM = :altNum
+    <#else>
+        <#if occurDateFrom?has_content>
+            AND     OCCUR_DATE BETWEEN :occurDateFrom AND :occurDateTo
+        </#if>
+        <#if custCd?has_content>
+            AND     CUST_CD = :custCd
+        </#if>
+        <#if advanceNum?has_content>
+            AND     ADVANCE_NUM LIKE '%'||:advanceNum||'%'
+        </#if>
+        <#if muCd?has_content>
+            AND     MU_CD = :muCd
+        </#if>
+        <#if tmCd?has_content>
+			AND     CC_CD IN (
+			                SELECT  A.CC_CD
+			                FROM    SCC_CC A
+			                        ,HLDC_SC_DEPT_V B
+			                WHERE   B.CC_CD = A.CC_CD
+			                AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+			                AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+			                AND     B.TM_CD = :tmCd
+			                )
+        </#if>
+        <#if ccCd?has_content>
+            AND     CC_CD = :ccCd
+        </#if>
+		<#if balanceYn?has_content>
+        <#if balanceYn != "Y">
+            AND     OCCUR_AMT <> 0
+        </#if>
+        </#if>
+        <#if fiscalDateFrom?has_content>
+            AND     FISCAL_DATE BETWEEN :fiscalDateFrom AND :fiscalDateTo
+        </#if>
+        <#if advanceOccurClass?has_content>
+            AND     ADVANCE_OCCUR_CLASS = :advanceOccurClass
+        </#if>
+        <#if advanceTypeCd?has_content>
+            AND     ADVANCE_TYPE_CD = :advanceTypeCd
+        </#if>
+    </#if>
+            ORDER BY ADVANCE_NUM
+                    ,ALT_NUM
+                    ,ADVANCE_ALT_NUM
+		]]>
+	</statement>
+    
+</hqml>

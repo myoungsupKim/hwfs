@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.scz.addrMgmtScoUpjangMstDAO">
+	<desc>사업장 주소 HQML Query</desc>
+
+	<!-- 사업장 주소 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sc.scz.dao.AddrMgmtScoUpjangMstDAO.selectList */
+		<![CDATA[
+SELECT A.UPJANG AS CD
+     , A.UPJANGNM AS NM
+     , C.TM_NM || '-(' || C.CC_NM || ')' AS DEPT
+     , B.ADDR_KEY
+     , B.ADDR_CLASS
+     , B.CONFIRM_YN
+     , B.ZIP_CODE1
+     , B.BASE_ADDR1
+     , SCC_CRYPTO.DEC_FUN(B.DETAIL_ADDR_ENC1) AS DETAIL_ADDR_ENC1
+     , B.LON1
+     , B.LAT1
+     , B.ZIP_CODE2
+     , B.BASE_ADDR2
+     , SCC_CRYPTO.DEC_FUN(B.DETAIL_ADDR_ENC2) AS DETAIL_ADDR_ENC2
+     , B.BUILDING_MGMT_NUM
+     , B.LON2
+     , B.LAT2
+     , B.ETC_ADDR
+  FROM ST_UPJANG A
+     , SCC_ADDR_INFO B
+     , HLDC_SC_DEPT_V C
+     , SCO_UPJANG_MST D
+ WHERE D.UPJANG = A.UPJANG
+   AND B.ADDR_KEY = D.ADDR_KEY
+   AND C.CC_CD = A.CC_CD
+<#if muCd?has_content>
+   AND C.MU_CD = :muCd
+</#if>
+<#if tmCd?has_content>
+   AND C.TM_CD = :tmCd
+</#if>
+<#if nm?has_content>
+   AND A.UPJANGNM LIKE '%' || :nm || '%'
+</#if>
+<#if confirmYn?has_content>
+   AND B.CONFIRM_YN = :confirmYn
+</#if>
+ ORDER BY A.UPJANG
+		]]>
+	</statement>
+
+	<!-- 주소 보정(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sc.scz.dao.AddressRevisionDAO.update */
+		<![CDATA[
+UPDATE SCC_ADDR_INFO
+   SET ADDR_CLASS = <#if addrClass?has_content>:addrClass<#else>NULL</#if>
+     , CONFIRM_YN = <#if confirmYn?has_content>:confirmYn<#else>NULL</#if>
+     , ZIP_CODE1 = <#if zipCode1?has_content>:zipCode1<#else>NULL</#if>
+     , BASE_ADDR1 = <#if baseAddr1?has_content>:baseAddr1<#else>NULL</#if>
+     , DETAIL_ADDR_ENC1 = <#if detailAddrEnc1?has_content>SCC_CRYPTO.ENC_FUN(:detailAddrEnc1)<#else>NULL</#if>
+     , ZIP_CODE2 = <#if zipCode2?has_content>:zipCode2<#else>NULL</#if>
+     , BASE_ADDR2 = <#if baseAddr2?has_content>:baseAddr2<#else>NULL</#if>
+     , DETAIL_ADDR_ENC2 = <#if detailAddrEnc2?has_content>SCC_CRYPTO.ENC_FUN(:detailAddrEnc2)<#else>NULL</#if>
+     , LON1 = <#if lon1?has_content>:lon1<#else>NULL</#if>
+     , LAT1 = <#if lat1?has_content>:lat1<#else>NULL</#if>
+     , LON2 = <#if lon2?has_content>:lon2<#else>NULL</#if>
+     , LAT2 = <#if lat2?has_content>:lat2<#else>NULL</#if>
+     , ETC_ADDR = <#if etcAddr?has_content>:etcAddr<#else>NULL</#if>
+     , BUILDING_MGMT_NUM = <#if buildingMgmtNum?has_content>:buildingMgmtNum<#else>NULL</#if>
+     , UUSER = :loginSabun
+     , UDATE = SYSDATE
+ WHERE ADDR_KEY = :addrKey
+		]]>
+	</statement>
+
+</hqml>

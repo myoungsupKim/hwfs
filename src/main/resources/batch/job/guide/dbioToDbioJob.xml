@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+		http://www.springframework.org/schema/batch http://www.springframework.org/schema/batch/spring-batch-2.1.xsd">
+
+	<import resource="../abstractBase/batchBase.xml" />
+	<!--*****************************************************************************
+			Job에 대한 상세한 설명을 여기에 표현한다. (주요 처리 내용)
+		*****************************************************************************-->
+
+	<job id="dbioToDbioJob" parent="batchBaseJob"
+		xmlns="http://www.springframework.org/schema/batch">
+		<description>HONE DBIO를 이용하여 DB에서 데이터를 읽어 처리 후 DB에 저장한다.</description>
+		<step id="dbioToDbioStep" parent="batchBaseStep">
+			<tasklet>
+				<chunk reader="dbioToDbioJob.dbioToDbioStep.dbioItemReader"
+					processor="dbioToDbioJob.dbioToDbioStep.itemProcessor"
+					writer="dbioToDbioJob.dbioToDbioStep.dbioItemWriter"
+					commit-interval="10" />
+			</tasklet>
+		</step>
+	</job>
+
+	<!-- DBIO Cursor 기반 ItemReader -->
+	<bean id="dbioToDbioJob.dbioToDbioStep.dbioItemReader" 
+		class="hone.batch.runtime.item.database.DbioCursorItemReader">
+		<property name="dataSource" ref="batchDataSource"/>
+		<property name="statementId" value="batch.guide.sample.customerDAO.getCustomerCreditsPart"/>
+		<property name="parameterValues">
+      		<map>
+         		<entry key="fromId" value="1"/>
+         		<entry key="toId" value="5"/>
+      		</map>
+   		</property>
+		<property name="rowMapper">
+	    	<bean class="com.hwfs.batch.guide.sample.CustomerCreditRowMapper"/>
+		</property>
+	</bean>
+	
+	<!-- DBIO 기반 ItemWriter -->
+	<bean id="dbioToDbioJob.dbioToDbioStep.dbioItemWriter"
+		class="hone.batch.runtime.item.database.DbioBatchItemWriter" scope="step">
+		<property name="assertUpdates" value="true" />
+		<property name="itemSqlParameterSourceProvider">
+			<bean class="org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider" />
+		</property>
+		<property name="dataSource" ref="batchDataSource"/>
+		<property name="statementId" value="batch.guide.sample.customerDAO.incrementCustomerCredits"/>
+	</bean>
+
+	<bean id="dbioToDbioJob.dbioToDbioStep.itemProcessor"
+		class="com.hwfs.batch.guide.sample.CustomerCreditProcessor" />
+
+</beans>

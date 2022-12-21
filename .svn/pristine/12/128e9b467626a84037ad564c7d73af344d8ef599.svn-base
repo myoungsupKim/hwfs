@@ -1,0 +1,1154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="cs.ccs.cnslMgntDAO">
+    <desc>상담관리를 조회 HQML Query</desc>
+
+    <!-- 상담이력 목록을 조회한다. -->
+    <statement name="selectCnslLogList" type="select">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.selectCnslLogList */
+        <![CDATA[
+        SELECT 		TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD HH24:MI:SS') AS CNSL_START_DATE,
+                    TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD') AS CNSL_START_DATE_T1,
+                    TO_CHAR(A.CNSL_START_DATE, 'HH24:MI:SS') AS CNSL_START_DATE_T2,
+                    (SELECT	NM_KOR	FROM	SCC_USERINFO WHERE SABUN = A.ACCEPT_USER) AS ACCEPT_USER,
+                    A.ACCEPT_USER AS ACCEPT_USER_SABUN,
+                    A.CALL_END_DATE,
+                    A.CALL_TIME,
+                    CASE WHEN ((TRUNC(MOD((	SELECT SUM(CALL_TIME)
+                                             FROM CCS_CNSL_LOG
+                                             WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                             AND    CNSL_START_DATE = A.CNSL_START_DATE)/60/60,24)) < 10) AND
+                              (TRUNC(MOD((	SELECT SUM(CALL_TIME)
+                                             FROM CCS_CNSL_LOG
+                                             WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                             AND    CNSL_START_DATE = A.CNSL_START_DATE)/60/60,24)) >= 0))
+                     THEN '0' || TRUNC(MOD((		SELECT SUM(CALL_TIME)
+                                                 FROM  CCS_CNSL_LOG
+                                                 WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                                 AND    CNSL_START_DATE = A.CNSL_START_DATE)/60/60, 24))
+                     ELSE '' || TRUNC(MOD((		SELECT SUM(CALL_TIME)
+                                                 FROM  CCS_CNSL_LOG
+                                                 WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                                 AND    CNSL_START_DATE = A.CNSL_START_DATE)/60/60, 24)) END	         || ':' ||
+
+                     CASE WHEN ((TRUNC(MOD((	SELECT SUM(CALL_TIME)
+                                             FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                             AND    CNSL_START_DATE = A.CNSL_START_DATE)/60, 60)) < 10) AND
+                               (TRUNC(MOD((	SELECT SUM(CALL_TIME)
+                                             FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                             AND    CNSL_START_DATE = A.CNSL_START_DATE)/60, 60)) >= 0))
+                     THEN '0' || TRUNC(MOD((		SELECT SUM(CALL_TIME)
+                                                 FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                                 AND    CNSL_START_DATE = A.CNSL_START_DATE)/60, 60))
+                     ELSE '' || TRUNC(MOD((		SELECT SUM(CALL_TIME)
+                                                 FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                                 AND    CNSL_START_DATE = A.CNSL_START_DATE)/60, 60)) END	         || ':' ||
+
+                     CASE WHEN ((MOD((		SELECT SUM(CALL_TIME)
+                                         FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                         AND    CNSL_START_DATE = A.CNSL_START_DATE), 60) < 10) AND
+                               (MOD((		SELECT SUM(CALL_TIME)
+                                         FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                         AND    CNSL_START_DATE = A.CNSL_START_DATE), 60) >= 0))
+                     THEN '0' || MOD((	SELECT SUM(CALL_TIME)
+                                         FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                         AND    CNSL_START_DATE = A.CNSL_START_DATE), 60)
+                     ELSE '' || MOD((	SELECT SUM(CALL_TIME)
+                                         FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                         AND    CNSL_START_DATE = A.CNSL_START_DATE), 60) END		AS CALL_TIME_HHMISS,
+                    A.CNSL_END_DATE,
+                    A.CNSL_TIME,
+                    SCC_CODE_NM('CNSL_TYPE_CD', A.CNSL_TYPE_CD) AS CNSL_TYPE_CD,
+                    SCC_CODE_NM('CUST_RESPONSE_CD', A.CUST_RESPONSE_CD) AS CUST_RESPONSE_CD,
+                    SCC_CODE_NM('CALL_RESULT_CD', A.CALL_RESULT_CD) AS CALL_RESULT_CD,
+                    SCC_CODE_NM('CNSL_PROC_TYPE_CD', A.CNSL_PROC_TYPE_CD) AS CNSL_PROC_TYPE_CD,
+                    SCC_CODE_NM('CALL_TYPE_CD', A.CALL_TYPE_CD) AS CALL_TYPE_CD,
+                    (SELECT	NM_KOR	FROM	SCC_USERINFO WHERE SABUN = A.PROC_USER) AS PROC_USER,
+                    A.PROC_USER AS PROC_USER_SABUN,
+                    TO_CHAR(A.PROC_DATE, 'YYYY-MM-DD') AS PROC_DATE_T1,
+                    TO_CHAR(A.PROC_DATE, 'HH24:MI:SS') AS PROC_DATE_T2,
+                    DECODE(A.UPJANG_REG_YN, 'Y', 1, 0) AS UPJANG_REG_YN,
+                    A.UPJANG_CD,
+                    A.MAIN_CONTENTS,
+                    A.CNSL_CONTENTS,
+                    A.CALL_ID,
+                    A.TELNO,
+                    A.DNID,
+                    DECODE(A.CALL_TRANS_YN, 'Y', 1, 0) AS CALL_TRANS_YN,
+                    A.CALL_TRANS_ID,
+                    A.CALL_TRANS_TELNO,
+                    A.CALL_TRANS_UPJANGCD,
+                    A.CUSER,
+                    A.CDATE,
+                    A.UUSER,
+                    A.UDATE
+        FROM   		CCS_CNSL_LOG A
+        WHERE  		1=1
+        <#if upjangCd?has_content>
+        AND	   		A.UPJANG_CD = :upjangCd
+        </#if>
+        AND	   		TO_CHAR(A.CNSL_START_DATE, 'YYYYMMDD') BETWEEN TO_CHAR(SYSDATE-90, 'YYYYMMDD') AND	TO_CHAR(SYSDATE, 'YYYYMMDD')
+        ORDER  		BY A.CNSL_START_DATE DESC
+]]></statement>
+
+    <!-- 상담현황 목록 건 수 조회한다. 접수자(ACCEPT_USER) = 로그인한 사용자, 상담시작일 = 당일 -->
+    <statement name="selectCnslTodayLogListCnt">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.selectCnslTodayLogListCnt */
+        <![CDATA[
+        SELECT 		COUNT(*) AS CNSL_CNT
+        FROM   		CCS_CNSL_LOG A
+        WHERE  		1=1
+        AND	   		A.ACCEPT_USER = :userSabun
+        AND	   		TO_CHAR(CNSL_START_DATE, 'YYYYMMDD') = TO_CHAR(SYSDATE, 'YYYYMMDD')
+        ORDER  		BY A.CNSL_START_DATE DESC
+]]></statement>
+
+    <!-- 상담현황 목록을 조회한다. 접수자(ACCEPT_USER) = 로그인한 사용자, 상담시작일 = 당일 -->
+    <statement name="selectCnslTodayLogList">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.selectCnslTodayLogList */
+        <![CDATA[
+        SELECT 		TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD HH24:MI:SS') AS CNSL_START_DATE,
+                    TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD') AS CNSL_START_DATE_T1,
+                    TO_CHAR(A.CNSL_START_DATE, 'HH24:MI:SS') AS CNSL_START_DATE_T2,
+                    (SELECT	NM_KOR	FROM	SCC_USERINFO WHERE SABUN = A.ACCEPT_USER) AS ACCEPT_USER,
+                    A.CALL_END_DATE,
+                    A.CALL_TIME,
+                    CASE WHEN ((TRUNC(MOD((	SELECT SUM(CALL_TIME)
+                                             FROM CCS_CNSL_LOG
+                                             WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                             AND    CNSL_START_DATE = A.CNSL_START_DATE)/60/60,24)) < 10) AND
+                              (TRUNC(MOD((	SELECT SUM(CALL_TIME)
+                                             FROM CCS_CNSL_LOG
+                                             WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                             AND    CNSL_START_DATE = A.CNSL_START_DATE)/60/60,24)) >= 0))
+                     THEN '0' || TRUNC(MOD((		SELECT SUM(CALL_TIME)
+                                                 FROM  CCS_CNSL_LOG
+                                                 WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                                 AND    CNSL_START_DATE = A.CNSL_START_DATE)/60/60, 24))
+                     ELSE '' || TRUNC(MOD((		SELECT SUM(CALL_TIME)
+                                                 FROM  CCS_CNSL_LOG
+                                                 WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                                 AND    CNSL_START_DATE = A.CNSL_START_DATE)/60/60, 24)) END	         || ':' ||
+
+                     CASE WHEN ((TRUNC(MOD((	SELECT SUM(CALL_TIME)
+                                             FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                             AND    CNSL_START_DATE = A.CNSL_START_DATE)/60, 60)) < 10) AND
+                               (TRUNC(MOD((	SELECT SUM(CALL_TIME)
+                                             FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                             AND    CNSL_START_DATE = A.CNSL_START_DATE)/60, 60)) >= 0))
+                     THEN '0' || TRUNC(MOD((		SELECT SUM(CALL_TIME)
+                                                 FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                                 AND    CNSL_START_DATE = A.CNSL_START_DATE)/60, 60))
+                     ELSE '' || TRUNC(MOD((		SELECT SUM(CALL_TIME)
+                                                 FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                                 AND    CNSL_START_DATE = A.CNSL_START_DATE)/60, 60)) END	         || ':' ||
+
+                     CASE WHEN ((MOD((		SELECT SUM(CALL_TIME)
+                                         FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                         AND    CNSL_START_DATE = A.CNSL_START_DATE), 60) < 10) AND
+                               (MOD((		SELECT SUM(CALL_TIME)
+                                         FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                         AND    CNSL_START_DATE = A.CNSL_START_DATE), 60) >= 0))
+                     THEN '0' || MOD((	SELECT SUM(CALL_TIME)
+                                         FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                         AND    CNSL_START_DATE = A.CNSL_START_DATE), 60)
+                     ELSE '' || MOD((	SELECT SUM(CALL_TIME)
+                                         FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                         AND    CNSL_START_DATE = A.CNSL_START_DATE), 60) END		AS CALL_TIME_HHMISS,
+
+                    A.CNSL_END_DATE,
+                    A.CNSL_TIME,
+                    SCC_CODE_NM('CNSL_TYPE_CD', A.CNSL_TYPE_CD) AS CNSL_TYPE_CD,
+                    SCC_CODE_NM('CUST_RESPONSE_CD', A.CUST_RESPONSE_CD) AS CUST_RESPONSE_CD,
+                    SCC_CODE_NM('CALL_RESULT_CD', A.CALL_RESULT_CD) AS CALL_RESULT_CD,
+                    SCC_CODE_NM('CNSL_PROC_TYPE_CD', A.CNSL_PROC_TYPE_CD) AS CNSL_PROC_TYPE_CD,
+                    A.CALL_TYPE_CD,
+                    SCC_CODE_NM('CALL_TYPE_CD', A.CALL_TYPE_CD) AS CALL_TYPE_NM,
+                    A.CNTC_TELNO,
+                    (SELECT	NM_KOR	FROM	SCC_USERINFO WHERE SABUN = A.PROC_USER) AS PROC_USER,
+                    TO_CHAR(A.PROC_DATE, 'YYYY-MM-DD') AS PROC_DATE_T1,
+                    TO_CHAR(A.PROC_DATE, 'HH24:MI:SS') AS PROC_DATE_T2,
+                    DECODE(A.UPJANG_REG_YN, 'Y', 1, 0) AS UPJANG_REG_YN,
+                    A.UPJANG_CD,
+                    (SELECT	UPJANGNM_DISP  FROM FMS_UPJANG	B	WHERE A.UPJANG_CD = B.UPJANG) AS UPJANGNM_DISP,
+                    A.MAIN_CONTENTS,
+                    A.CNSL_CONTENTS,
+                    A.CALL_ID,
+                    A.TELNO,
+                    A.DNID,
+                    DECODE(A.CALL_TRANS_YN, 'Y', 1, 0) AS CALL_TRANS_YN,
+                    A.CALL_TRANS_ID,
+                    A.CALL_TRANS_TELNO,
+                    A.CALL_TRANS_UPJANGCD,
+                    A.CUSER,
+                    A.CDATE,
+                    A.UUSER,
+                    A.UDATE
+        FROM   		CCS_CNSL_LOG A
+        WHERE  		1=1
+        <#if loginSabun?has_content>AND	   A.ACCEPT_USER = :loginSabun</#if>
+        AND	   		TO_CHAR(CNSL_START_DATE, 'YYYYMMDD') = TO_CHAR(SYSDATE, 'YYYYMMDD')
+        ORDER  		BY A.CNSL_START_DATE DESC
+]]></statement>
+
+    <!-- 미처리현황 목록을 조회한다. 처리자(PROC_USER) = 로그인한 사용자, 처리일 = 최근1주일, 상담처리유형코드 = 처리중 -->
+    <statement name="selectCnslUntreatLogList">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.selectCnslUntreatLogList */
+        <![CDATA[
+        SELECT 		TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD HH24:MI:SS') AS CNSL_START_DATE,
+                    TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD') AS CNSL_START_DATE_T1,
+                    TO_CHAR(A.CNSL_START_DATE, 'HH24:MI:SS') AS CNSL_START_DATE_T2,
+                    (SELECT	NM_KOR	FROM	SCC_USERINFO WHERE SABUN = A.ACCEPT_USER) AS ACCEPT_USER,
+                    A.CALL_END_DATE,
+                    A.CALL_TIME,
+                    CASE WHEN ((TRUNC(MOD((	SELECT SUM(CALL_TIME)
+                                             FROM CCS_CNSL_LOG
+                                             WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                             AND    CNSL_START_DATE = A.CNSL_START_DATE)/60/60,24)) < 10) AND
+                              (TRUNC(MOD((	SELECT SUM(CALL_TIME)
+                                             FROM CCS_CNSL_LOG
+                                             WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                             AND    CNSL_START_DATE = A.CNSL_START_DATE)/60/60,24)) >= 0))
+                     THEN '0' || TRUNC(MOD((		SELECT SUM(CALL_TIME)
+                                                 FROM  CCS_CNSL_LOG
+                                                 WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                                 AND    CNSL_START_DATE = A.CNSL_START_DATE)/60/60, 24))
+                     ELSE '' || TRUNC(MOD((		SELECT SUM(CALL_TIME)
+                                                 FROM  CCS_CNSL_LOG
+                                                 WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                                 AND    CNSL_START_DATE = A.CNSL_START_DATE)/60/60, 24)) END	         || ':' ||
+
+                     CASE WHEN ((TRUNC(MOD((	SELECT SUM(CALL_TIME)
+                                             FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                             AND    CNSL_START_DATE = A.CNSL_START_DATE)/60, 60)) < 10) AND
+                               (TRUNC(MOD((	SELECT SUM(CALL_TIME)
+                                             FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                             AND    CNSL_START_DATE = A.CNSL_START_DATE)/60, 60)) >= 0))
+                     THEN '0' || TRUNC(MOD((		SELECT SUM(CALL_TIME)
+                                                 FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                                 AND    CNSL_START_DATE = A.CNSL_START_DATE)/60, 60))
+                     ELSE '' || TRUNC(MOD((		SELECT SUM(CALL_TIME)
+                                                 FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                                 AND    CNSL_START_DATE = A.CNSL_START_DATE)/60, 60)) END	         || ':' ||
+
+                     CASE WHEN ((MOD((		SELECT SUM(CALL_TIME)
+                                         FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                         AND    CNSL_START_DATE = A.CNSL_START_DATE), 60) < 10) AND
+                               (MOD((		SELECT SUM(CALL_TIME)
+                                         FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                         AND    CNSL_START_DATE = A.CNSL_START_DATE), 60) >= 0))
+                     THEN '0' || MOD((	SELECT SUM(CALL_TIME)
+                                         FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                         AND    CNSL_START_DATE = A.CNSL_START_DATE), 60)
+                     ELSE '' || MOD((	SELECT SUM(CALL_TIME)
+                                         FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                         AND    CNSL_START_DATE = A.CNSL_START_DATE), 60) END		AS CALL_TIME_HHMISS,
+                    A.CNSL_END_DATE,
+                    A.CNSL_TIME,
+                    SCC_CODE_NM('CNSL_TYPE_CD', A.CNSL_TYPE_CD) AS CNSL_TYPE_CD,
+                    SCC_CODE_NM('CUST_RESPONSE_CD', A.CUST_RESPONSE_CD) AS CUST_RESPONSE_CD,
+                    SCC_CODE_NM('CALL_RESULT_CD', A.CALL_RESULT_CD) AS CALL_RESULT_CD,
+                    SCC_CODE_NM('CNSL_PROC_TYPE_CD', A.CNSL_PROC_TYPE_CD) AS CNSL_PROC_TYPE_CD,
+                    SCC_CODE_NM('CALL_TYPE_CD', A.CALL_TYPE_CD) AS CALL_TYPE_CD,
+                    A.CNTC_TELNO,
+                    (SELECT	NM_KOR	FROM	SCC_USERINFO WHERE SABUN = A.PROC_USER) AS PROC_USER,
+                    TO_CHAR(A.PROC_DATE, 'YYYY-MM-DD') AS PROC_DATE_T1,
+                    TO_CHAR(A.PROC_DATE, 'HH24:MI:SS') AS PROC_DATE_T2,
+                    DECODE(A.UPJANG_REG_YN, 'Y', 1, 0) AS UPJANG_REG_YN,
+                    A.UPJANG_CD,
+                    (SELECT	UPJANGNM_DISP  FROM FMS_UPJANG	B	WHERE A.UPJANG_CD = B.UPJANG) AS UPJANGNM_DISP,
+                    A.MAIN_CONTENTS,
+                    A.CNSL_CONTENTS,
+                    A.CALL_ID,
+                    A.TELNO,
+                    A.DNID,
+                    DECODE(A.CALL_TRANS_YN, 'Y', 1, 0) AS CALL_TRANS_YN,
+                    A.CALL_TRANS_ID,
+                    A.CALL_TRANS_TELNO,
+                    A.CALL_TRANS_UPJANGCD,
+                    A.CUSER,
+                    A.CDATE,
+                    A.UUSER,
+                    A.UDATE,
+                    '' AS CHK
+        FROM   		CCS_CNSL_LOG A
+        WHERE  		1=1
+        <#if loginSabun?has_content>AND	   A.PROC_USER = :loginSabun</#if>
+        AND	   		TO_CHAR(A.CNSL_START_DATE, 'YYYYMMDD') BETWEEN TO_CHAR(SYSDATE-7, 'YYYYMMDD') AND	TO_CHAR(SYSDATE, 'YYYYMMDD')
+        AND	   		A.CNSL_PROC_TYPE_CD = '10'
+        ORDER  		BY A.CNSL_START_DATE DESC
+]]></statement>
+
+    <!-- 미처리현황 목록 건 수 조회한다. 처리자(PROC_USER) = 로그인한 사용자, 처리일 = 최근1주일, 상담처리유형코드 = 처리중 -->
+    <statement name="selectCnslUntreatLogCnt">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.selectCnslUntreatLogCnt */
+        <![CDATA[
+        SELECT 		COUNT(*) AS CNSL_CNT
+        FROM   		CCS_CNSL_LOG A
+        WHERE  		1=1
+        AND	   		A.PROC_USER = :userSabun
+        AND	   		TO_CHAR(A.CNSL_START_DATE, 'YYYYMMDD') BETWEEN TO_CHAR(SYSDATE-7, 'YYYYMMDD') AND	TO_CHAR(SYSDATE, 'YYYYMMDD')
+        AND	   		A.CNSL_PROC_TYPE_CD = '10'
+        ORDER  		BY A.CNSL_START_DATE DESC
+]]></statement>
+
+    <!-- 상담이력 목록(팝업)을 조회한다. -->
+    <statement name="selectCnslLogMgmtList">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.selectCnslLogMgmtList */
+        <![CDATA[
+        SELECT 		TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD HH24:MI:SS') AS CNSL_START_DATE,
+                    TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD') AS CNSL_START_DATE_T1,
+                    TO_CHAR(A.CNSL_START_DATE, 'HH24:MI:SS') AS CNSL_START_DATE_T2,
+                    (SELECT	NM_KOR	FROM	SCC_USERINFO WHERE SABUN = A.ACCEPT_USER) AS ACCEPT_USER,
+                    A.ACCEPT_USER AS ACCEPT_USER_SABUN,
+                    A.CALL_END_DATE,
+                    A.CALL_TIME,
+                    CASE WHEN ((TRUNC(MOD((	SELECT SUM(CALL_TIME)
+                                             FROM CCS_CNSL_LOG
+                                             WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                             AND    CNSL_START_DATE = A.CNSL_START_DATE)/60/60,24)) < 10) AND
+                              (TRUNC(MOD((	SELECT SUM(CALL_TIME)
+                                             FROM CCS_CNSL_LOG
+                                             WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                             AND    CNSL_START_DATE = A.CNSL_START_DATE)/60/60,24)) >= 0))
+                     THEN '0' || TRUNC(MOD((		SELECT SUM(CALL_TIME)
+                                                 FROM  CCS_CNSL_LOG
+                                                 WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                                 AND    CNSL_START_DATE = A.CNSL_START_DATE)/60/60, 24))
+                     ELSE '' || TRUNC(MOD((		SELECT SUM(CALL_TIME)
+                                                 FROM  CCS_CNSL_LOG
+                                                 WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                                 AND    CNSL_START_DATE = A.CNSL_START_DATE)/60/60, 24)) END	         || ':' ||
+
+                     CASE WHEN ((TRUNC(MOD((	SELECT SUM(CALL_TIME)
+                                             FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                             AND    CNSL_START_DATE = A.CNSL_START_DATE)/60, 60)) < 10) AND
+                               (TRUNC(MOD((	SELECT SUM(CALL_TIME)
+                                             FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                             AND    CNSL_START_DATE = A.CNSL_START_DATE)/60, 60)) >= 0))
+                     THEN '0' || TRUNC(MOD((		SELECT SUM(CALL_TIME)
+                                                 FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                                 AND    CNSL_START_DATE = A.CNSL_START_DATE)/60, 60))
+                     ELSE '' || TRUNC(MOD((		SELECT SUM(CALL_TIME)
+                                                 FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                                 AND    CNSL_START_DATE = A.CNSL_START_DATE)/60, 60)) END	         || ':' ||
+
+                     CASE WHEN ((MOD((		SELECT SUM(CALL_TIME)
+                                         FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                         AND    CNSL_START_DATE = A.CNSL_START_DATE), 60) < 10) AND
+                               (MOD((		SELECT SUM(CALL_TIME)
+                                         FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                         AND    CNSL_START_DATE = A.CNSL_START_DATE), 60) >= 0))
+                     THEN '0' || MOD((	SELECT SUM(CALL_TIME)
+                                         FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                         AND    CNSL_START_DATE = A.CNSL_START_DATE), 60)
+                     ELSE '' || MOD((	SELECT SUM(CALL_TIME)
+                                         FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                         AND    CNSL_START_DATE = A.CNSL_START_DATE), 60) END		AS CALL_TIME_HHMISS,
+                    A.CNSL_END_DATE,
+                    A.CNSL_TIME,
+                    SCC_CODE_NM('CNSL_TYPE_CD', A.CNSL_TYPE_CD) AS CNSL_TYPE_CD,
+                    SCC_CODE_NM('CUST_RESPONSE_CD', A.CUST_RESPONSE_CD) AS CUST_RESPONSE_CD,
+                    SCC_CODE_NM('CALL_RESULT_CD', A.CALL_RESULT_CD) AS CALL_RESULT_CD,
+                    SCC_CODE_NM('CNSL_PROC_TYPE_CD', A.CNSL_PROC_TYPE_CD) AS CNSL_PROC_TYPE_CD,
+                    SCC_CODE_NM('CALL_TYPE_CD', A.CALL_TYPE_CD) AS CALL_TYPE_CD,
+                    A.CNTC_TELNO,
+                    (SELECT	NM_KOR	FROM	SCC_USERINFO WHERE SABUN = A.PROC_USER) AS PROC_USER,
+                    A.PROC_USER AS PROC_USER_SABUN,
+                    TO_CHAR(A.PROC_DATE, 'YYYY-MM-DD') AS PROC_DATE_T1,
+                    TO_CHAR(A.PROC_DATE, 'HH24:MI:SS') AS PROC_DATE_T2,
+                    DECODE(A.UPJANG_REG_YN, 'Y', 1, 0) AS UPJANG_REG_YN,
+                    A.UPJANG_CD,
+                    (SELECT	UPJANGNM_DISP  FROM FMS_UPJANG	B	WHERE A.UPJANG_CD = B.UPJANG) AS UPJANGNM_DISP,
+                    A.MAIN_CONTENTS,
+                    A.CNSL_CONTENTS,
+                    A.CALL_ID,
+                    A.TELNO,
+                    A.DNID,
+                    DECODE(A.CALL_TRANS_YN, 'Y', 1, 0) AS CALL_TRANS_YN,
+                    A.CALL_TRANS_ID,
+                    A.CALL_TRANS_TELNO,
+                    A.CALL_TRANS_UPJANGCD,
+                    A.RECORD_PATH, 
+                    A.CUSER,
+                    A.CDATE,
+                    A.UUSER,
+                    A.UDATE,
+                    '▶' AS RECORD_STATUS
+        FROM   		CCS_CNSL_LOG A
+        WHERE  		1=1
+        <#if upjangCd?has_content>
+        AND    		A.UPJANG_CD = :upjangCd
+        </#if>
+        <#if cnslProcTypeCd?has_content>
+        AND    		A.CNSL_PROC_TYPE_CD = :cnslProcTypeCd
+        </#if>
+        <#if acceptUser?has_content>
+        AND    		A.ACCEPT_USER = :acceptUser
+        </#if>
+        <#if procUser?has_content>
+        AND    		A.PROC_USER = :procUser
+        </#if>
+         AND        (
+                      ( A.PROC_USER = :userSabun OR  A.ACCEPT_USER = :userSabun ) OR
+                      (CASE WHEN EXISTS (
+                                         SELECT 1
+                                           FROM SCC_COMMON_CODE
+                                          WHERE GROUP_CODE = 'CS_MASTER_USER'
+                                            AND CODE = :userSabun
+                                        ) THEN 1
+                       ELSE 0
+                       END) = 1
+                    )
+        AND	   		TO_CHAR(A.CNSL_START_DATE,'YYYYMMDD') BETWEEN :cal_fromDay  AND :cal_toDay
+        ORDER  		BY A.CNSL_START_DATE DESC
+]]></statement>
+
+    <!-- 미처리된 항목 중 처리상태가 처리중 -> 처리완료 수정한다. -->
+    <statement name="updateProcessComplete">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.updateProcessComplete */
+        <![CDATA[
+        UPDATE CCS_CNSL_LOG
+        SET    CNSL_PROC_TYPE_CD         = '20',                            /* 처리상태  */
+               PROC_USER = :loginSabun,
+               PROC_DATE = SYSDATE
+        WHERE  TO_CHAR(CNSL_START_DATE, 'YYYYMMDDHH24MISS') = TO_CHAR(TO_DATE(:cnslStartDate, 'YYYY-MM-DD HH24:MI:SS'), 'YYYYMMDDHH24MISS')
+        --AND    PROC_USER     = :loginSabun
+]]></statement>
+
+    <!-- 상담저장을 한다. -->
+    <statement name="insertCnslSave">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.insertCnslSave */
+        <![CDATA[
+        INSERT INTO CCS_CNSL_LOG
+        (
+             CNSL_START_DATE,	/*	상담(통화) 시작일시	*/
+             ACCEPT_USER,
+             CALL_END_DATE,		/*	통화종료일시(Hangup)	*/
+             CALL_TIME,			/*	통화시간 (통화종료일시 - 상담(통화)시작일시), 초단위	*/
+             CNSL_END_DATE,		/*	상담 종료일시 (실제 상담종료 시각) - 상담저장	*/
+             CNSL_TIME,			/*	상담시간 (상담종료일시 - 상담(통화)시작일시), 초단위	*/
+             CNSL_TYPE_CD,
+             CUST_RESPONSE_CD,
+             CALL_RESULT_CD,
+             CNTC_TELNO,
+             CNSL_PROC_TYPE_CD,
+             PROC_USER,
+             PROC_DATE,
+             UPJANG_REG_YN,
+             UPJANG_CD,
+             MAIN_CONTENTS,
+             CNSL_CONTENTS,
+             CALL_ID,
+             CALL_TYPE_CD,
+             TELNO,
+             DNID,
+             CALL_TRANS_YN,
+             CALL_TRANS_ID,
+             CALL_TRANS_TELNO,
+             CALL_TRANS_UPJANGCD,
+             RECORD_PATH,
+             CUSER,
+             CDATE,
+             UUSER,
+             UDATE
+        ) VALUES (
+            <#if cnslStartDate?has_content> TO_DATE(:cnslStartDate, 'YYYY-MM-DD HH24:MI:SS'),<#else> SYSDATE, </#if>			/*	상담(통화) 시작일시	*/
+             :loginSabun,		/*	접수자 사번		*/
+            <#if callEndDate?has_content> TO_DATE(:callEndDate, 'YYYY-MM-DD HH24:MI:SS'),<#else> SYSDATE, </#if>				/*	통화종료일시(Hangup)	*/
+            <#if callEndDate?has_content> ROUND((TO_DATE(:callEndDate, 'YYYY-MM-DD HH24:MI:SS') <#else> ROUND((SYSDATE </#if> - <#if cnslStartDate?has_content> TO_DATE(:cnslStartDate, 'YYYY-MM-DD HH24:MI:SS')) * 24 * 60 * 60) <#else> SYSDATE) * 24 * 60 * 60) </#if>,/*	통화시간 (통화종료일시 - 상담(통화)시작일시), 초단위	*/
+            <#if cnslEndDate?has_content> TO_DATE(:cnslEndDate, 'YYYY-MM-DD HH24:MI:SS'),<#else> SYSDATE, </#if>				/*	상담 종료일시 (실제 상담종료 시각) - 상담저장	*/
+            <#if cnslEndDate?has_content> ROUND((TO_DATE(:cnslEndDate, 'YYYY-MM-DD HH24:MI:SS') <#else> ROUND((SYSDATE </#if> - <#if cnslStartDate?has_content> TO_DATE(:cnslStartDate, 'YYYY-MM-DD HH24:MI:SS')) * 24 * 60 * 60) <#else> SYSDATE) * 24 * 60 * 60) </#if>,/*	상담시간 (상담종료일시 - 상담(통화)시작일시), 초단위	*/
+            <#if cnslTypeCd?has_content> :cnslTypeCd, <#else> null, </#if>		/*	상담유형코드	*/
+            <#if custResponseCd?has_content> :custResponseCd, <#else> null, </#if>	/*	고객반응코드	*/
+            <#if callResultCd?has_content> :callResultCd, <#else> null, </#if>		/*	통화결과코드	*/
+            <#if cntcTelno?has_content> :cntcTelno, <#else> null, </#if>	/*	연락번호	*/
+            <#if cnslProcTypeCd?has_content> :cnslProcTypeCd,<#else> null, </#if>	/*	상담처리코드	*/
+            <#if procUser?has_content> :procUser,<#else> :loginSabun, </#if>			/*	처리자	*/
+            DECODE(:cnslProcTypeCd, 20, SYSDATE, ''),			/*	처리일자	*/
+            <#if upjangRegYn?has_content> DECODE(:upjangRegYn, 1, 'Y', 'N'), <#else> 'N',</#if>/*사업장등록여부*/
+            <#if upjangCd?has_content> :upjangCd, <#else> null, </#if>/*	사업장코드	*/
+            <#if mainContents?has_content> :mainContents, <#else> null, </#if>				/*	주요내용	*/
+            <#if cnslContents?has_content> :cnslContents, <#else> null, </#if>				/*	상담내용	*/
+            <#if callId?has_content> :callId, <#else> null, </#if>							/*	Cid	*/
+            <#if callTypeCd?has_content> :callTypeCd, <#else> null, </#if>					/*	통화유형코드	*/
+            <#if telno?has_content> :telno, <#else> null, </#if>							/*	전화번호	*/
+            <#if dnid?has_content> :dnid, <#else> null, </#if>								/*	인입그룹번호	*/
+            <#if callTransYn?has_content> DECODE(:callTransYn, '1', 'Y', 'N'), <#else> 'N', </#if>	/*	호전환여부	*/
+            <#if callTransId?has_content> :callTransId, <#else> null, </#if>				/*	호전환대상자	*/
+            <#if callTransTelno?has_content> :callTransTelno, <#else> null, </#if>			/*	호전환전화번호	*/
+            <#if callTransUpjangcd?has_content> :callTransUpjangcd, <#else> null, </#if>	/*	호전환사업장코드	*/
+            <#if recordPath?has_content> :recordPath, <#else> null, </#if>					/*	녹취파일주소	*/
+             :loginSabun,	/*	생성자	*/
+             SYSDATE,		/*	생성일	*/
+             :loginSabun,	/*	수정자	*/
+             SYSDATE		/*	수정일	*/
+        )
+]]></statement>
+
+    <!-- 사업장목록(팝업)을 조회한다. -->
+    <statement name="selectCnslMgmtCustInQueryList">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.selectCnslMgmtCustInQueryList */
+        <![CDATA[
+            SELECT /*+ INDEX_SS(A) */ DECODE(A.UPJANG, A.MAIN_UPJANG, '본사', '사업장') AS UPJANG_GUBUN,
+                   A.UPJANG,
+                   A.MAIN_UPJANG,
+                   (SELECT UPJANGNM_DISP FROM  FMS_UPJANG  WHERE UPJANG = A.MAIN_UPJANG) AS MAIN_UPJANGNM_DISP,
+                   A.UPJANGNM_DISP,
+                   --A.ZIP_CD,
+                   SCC_GET_ADDR_FUN('ZIP', A.ADDR_KEY, :loginPersMask, '0') AS ZIP_CD,
+                   A.ADDR,
+                   A.PART_NAME,
+                   A.PART_TEL_NO,
+                   A.PART_HP_NO,
+                   A.PART_FAX_NO,
+                   A.PART_EMAIL,
+                   A.FST_REG_DATE,
+                   A.LST_DEAL_DATE,
+                   A.CONTRACT_TERM,
+                   A.CONTRACT_EDATE,
+                   A.CENTER_FLAG,
+                   A.CUST_TYPE,
+                   A.BIZ_GROUP,
+                   A.SALE_RATE,
+                   DECODE(A.OP_RATE_YN, 'Y', 1, 0) AS OP_RATE_YN,
+                   DECODE(A.OTCUST_OP_RATE_YN, 'Y', 1, 0) AS OTCUST_OP_RATE_YN,
+                   DECODE(A.CONSUM_OP_RATE_YN, 'Y', 1, 0) AS CONSUM_OP_RATE_YN,
+                   DECODE(A.SM_RATE_YN, 'Y', 1, 0) AS SM_RATE_YN,
+                   DECODE(A.OTCUST_SM_RATE_YN, 'Y', 1, 0) AS OTCUST_SM_RATE_YN,
+                   DECODE(A.CONSUM_SM_RATE_YN, 'Y', 1, 0) AS CONSUM_SM_RATE_YN,
+                   A.OTCUST_PRICE_UPJANG,
+                   DECODE(A.QTY_CONTROL_YN, 'Y', 1, 0) AS QTY_CONTROL_YN,
+                   A.D_DAYS,
+                   A.D_TIMES,
+                   A.D_OVER_DAYS,
+                   A.SIGN1,
+                   A.SIGN2,
+                   A.SIGN3,
+                   A.SIGN4,
+                   DECODE(A.PWD_CHG_YN, 'Y', 1, 0) AS PWD_CHG_YN,
+                   A.PWD_CHG_CYCLE,
+                   (SELECT	NM_KOR	FROM	SCC_USERINFO	WHERE SABUN = A.CONT_SALES_SABUN) AS CONT_SALES_SABUN,
+                   (SELECT	NM_KOR	FROM	SCC_USERINFO	WHERE SABUN = A.PART_SALES_SABUN) AS PART_SALES_SABUN,
+                   A.PART_SALES_TEL_NO,
+                   (SELECT	NM_KOR	FROM	SCC_USERINFO	WHERE SABUN = A.CS_SABUN) AS CS_SABUN_NAME,
+                   A.CS_SABUN,
+                   A.CS_TEL_NO,
+                   A.EMPLOYEE_CNT,
+                   A.SPECIAL_FACT,
+                   A.CREDIT_GRADE,
+                   A.CAPITAL,
+                   A.FINANCIAL_STATUS,
+                   A.RCV_TYPE,
+                   A.RCV_EXP_DATE,
+                   A.BANK_CD,
+                   A.ACNTCD,
+                   A.BANK_DRNM,
+                   DECODE(A.HEAD_CREDIT_YN, 'Y', 1, 0) AS HEAD_CREDIT_YN,
+                   A.CREDIT_TURN_DAYS,
+                   DECODE(A.CREDIT_TURN_CONTROL_YN, 'Y', 1, 0) AS CREDIT_TURN_CONTROL_YN,
+                   A.CREDIT_AMOUNT,
+                   A.CREDIT_OVER_AMOUNT,
+                   DECODE(A.CREDIT_AMOUNT_CONTROL_YN, 'Y', 1, 0) AS CREDIT_AMOUNT_CONTROL_YN,
+                   A.CREDIT_START,
+                   A.CREDIT_END,
+                   DECODE(A.CREDIT_CONTROL_YN, 'Y', 1, 0) AS CREDIT_CONTROL_YN,
+                   A.GUAR_INSUR_INFO,
+                   A.MORTGAGE_INFO,
+                   A.CLASS_CNT,
+                   A.FREE_CNT,
+                   A.CLASS1_CNT,
+                   A.CLASS2_CNT,
+                   A.CLASS3_CNT,
+                   A.CLASS4_CNT,
+                   A.CLASS5_CNT,
+                   A.CLASS6_CNT,
+                   A.REMARK,
+                   DECODE(A.USE_YN, 'Y', 1, 0) AS USE_YN,
+                   A.ATTR01,
+                   A.ATTR02,
+                   A.ATTR03,
+                   A.ATTR04,
+                   A.ATTR05,
+                   A.ATTR06,
+                   A.ATTR07,
+                   A.ATTR08,
+                   A.ATTR09,
+                   A.ATTR10,
+                   A.CUSER,
+                   A.CDATE,
+                   A.UUSER,
+                   A.UDATE,
+                   A.UPJANGNM_DISP2,
+                   A.MAIN_UPJANG_IMG,
+                   A.STAMP_IMG,
+                   A.SAUPNO,
+                   A.DRNAME,
+                   A.ADDR2,
+                   A.CREDIT_OVER_END,
+                   A.DELIVERY_DETAIL,
+                   DECODE(A.EXCEL_EXPORT_YN, 'Y', 1, 0) AS EXCEL_EXPORT_YN,
+                   A.CTPRT_FLAG,
+                   A.CTPRT_PRICEGB,
+                   A.CTPRT_TYPE,
+                   A.PART_CODE,
+                   A.BIZ_KIND,
+                   A.BIZ_DETAIL,
+                   A.DRNAME2,
+                   A.SPECIAL_NOTE,
+                   DECODE(A.HOLIDAY_CHK_YN, 'Y', 1, 0) AS HOLIDAY_CHK_YN,
+                   A.CTPRT_CRDGB,
+                   A.CTPRT_ALLGB,
+                   A.ACNTCD_ENC,
+                   --SCC_CRYPTO.DEC_FUN ( A.ADDR_ENC , '6') AS ADDR_ENC,
+                   SCC_GET_ADDR_FUN('BASE', A.ADDR_KEY, :loginPersMask, '0') || ' ' || SCC_GET_ADDR_FUN('DETAIL', A.ADDR_KEY, :loginPersMask, '0') AS ADDR_ENC,
+                   A.ADDR2_ENC,
+                   A.PART_EMAIL_ENC,
+                   A.PART_FAX_NO_ENC,
+                   A.PART_TEL_NO_ENC,
+                   A.PART_HP_NO_ENC,
+                   A.ADDR_GUBUN,
+                   A.JIBUN_ZIP_CD_BAK,
+                   A.JIBUN_ADDR_BAK,
+                   A.SALE_PRICE_AUTO_JEN_ID,
+                   A.SALE_PRICE_AUTO_JEN_DATE,
+                   A.SAFE_KEY,
+                   A.DOCU_FILE1,
+                   A.DOCU_FILE2,
+                   A.DOCU_FILE3,
+                   A.DOCU_FILE4,
+                   A.DOCU_FILE5,
+                   A.SDOCU_FILE1,
+                   A.SDOCU_FILE2,
+                   A.SDOCU_FILE3,
+                   A.SDOCU_FILE4,
+                   A.SDOCU_FILE5,
+                   A.SDOCU_FILE_SIZE1,
+                   A.SDOCU_FILE_SIZE2,
+                   A.SDOCU_FILE_SIZE3,
+                   A.SDOCU_FILE_SIZE4,
+                   A.SDOCU_FILE_SIZE5,
+                   DECODE(A.ACNT_PROC, 'Y', 1, 0) AS ACNT_PROC_YN,
+                   A.LOCAL1,
+                   A.LOCAL2,
+                   A.DEPT_ID,
+                   SCC_CRYPTO.DEC_FUN (A.PART_SALES_TEL_NO_ENC) AS PART_SALES_TEL_NO_DEC	,
+                   SCC_CRYPTO.DEC_FUN (A.CS_TEL_NO_ENC) AS CS_TEL_NO_DEC				    ,
+                   SCC_CRYPTO.DEC_FUN (A.PART_TEL_NO_ENC) AS PART_TEL_NO_DEC,
+                   SCC_CRYPTO.DEC_FUN (A.PART_HP_NO_ENC) AS PART_HP_NO_DEC
+            FROM   FMS_UPJANG A
+            WHERE  1=1
+            <#if upjang?has_content>
+                AND A.UPJANG = :upjang
+            </#if>
+            <#if upjangnmDisp?has_content>
+                AND A.UPJANGNM_DISP LIKE '%' || :upjangnmDisp || '%'
+            </#if>
+            <#if partTelNo?has_content>
+            	AND (
+            	     REPLACE(SCC_CRYPTO.DEC_FUN(A.PART_TEL_NO_ENC), '-', '') = REPLACE(:partTelNo, '-', '') OR  
+                     REPLACE(SCC_CRYPTO.DEC_FUN(A.PART_HP_NO_ENC), '-', '') = REPLACE(:partTelNo, '-', '') OR  
+                     REPLACE(SCC_CRYPTO.DEC_FUN(A.PART_FAX_NO_ENC), '-', '') = REPLACE(:partTelNo, '-', '') 
+                     )
+                     
+            </#if>
+            AND		A.USE_YN = 'Y'
+            ORDER	BY UPJANG
+]]></statement>
+
+<!-- 사업장목록(팝업)을 조회한다. -->
+    <statement name="selectCnslMgmtCustInQueryList2">
+        <![CDATA[
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.selectCnslMgmtCustInQueryList2 */	
+         SELECT C.PART_NAME, C.UPJANGNM_DISP, C.BLACK_YN, C.UPJANG
+		 FROM   ( SELECT A.PART_NAME,
+		                B.UPJANGNM_DISP,
+		                A.BLACK_YN,
+		                B.UPJANG
+		        FROM    FMS_UPJANG_CUST A,
+		                FMS_UPJANG B
+		        WHERE   A.UPJANG = B.UPJANG
+		        AND		B.USE_YN = 'Y'
+		        AND     A.CUST_HP_NO_ENC IS NOT NULL
+		        AND     REPLACE(SCC_CRYPTO.DEC_FUN(A.CUST_HP_NO_ENC), '-', '') = REPLACE(:partTelNo, '-', '')
+		        
+		        UNION ALL
+		        
+		        SELECT A.PART_NAME,
+		               B.UPJANGNM_DISP,
+		               A.BLACK_YN,
+		               B.UPJANG
+		        FROM   FMS_UPJANG_CUST A,
+		               FMS_UPJANG B
+		        WHERE  A.UPJANG = B.UPJANG
+		        AND	   B.USE_YN = 'Y'
+		        AND    A.CUST_TEL_NO_ENC IS NOT NULL
+		        AND    REPLACE(SCC_CRYPTO.DEC_FUN(A.CUST_TEL_NO_ENC), '-', '') = REPLACE(:partTelNo, '-', '')
+		        ) C
+		 WHERE  ROWNUM = 1
+]]></statement>
+        
+    <!-- 상담평가이력 목록(팝업)을 조회한다. -->
+    <statement name="selectCnslAllLogList">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.selectCnslAllLogList */
+        <![CDATA[
+            SELECT  TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD HH24:MI:SS') AS CNSL_START_DATE,
+                    TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD') AS CNSL_START_DATE_T1,
+                    TO_CHAR(A.CNSL_START_DATE, 'HH24:MI:SS') AS CNSL_START_DATE_T2,
+                    (SELECT	NM_KOR	FROM	SCC_USERINFO WHERE SABUN = A.ACCEPT_USER) AS ACCEPT_USER,
+                    A.ACCEPT_USER AS ACCEPT_USER_SABUN,
+                    A.CALL_END_DATE,
+                    A.CALL_TIME,
+                    CASE WHEN ((TRUNC(MOD((	SELECT SUM(CALL_TIME)
+                                        FROM CCS_CNSL_LOG
+                                        WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                        AND    CNSL_START_DATE = A.CNSL_START_DATE)/60/60,24)) < 10) AND
+                         (TRUNC(MOD((	SELECT SUM(CALL_TIME)
+                                        FROM CCS_CNSL_LOG
+                                        WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                        AND    CNSL_START_DATE = A.CNSL_START_DATE)/60/60,24)) >= 0))
+                    THEN '0' || TRUNC(MOD((		SELECT SUM(CALL_TIME)
+                                                FROM  CCS_CNSL_LOG
+                                                WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                                AND    CNSL_START_DATE = A.CNSL_START_DATE)/60/60, 24))
+                    ELSE '' || TRUNC(MOD((		SELECT SUM(CALL_TIME)
+                                                FROM  CCS_CNSL_LOG
+                                                WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                                AND    CNSL_START_DATE = A.CNSL_START_DATE)/60/60, 24)) END	         || ':' ||
+
+                    CASE WHEN ((TRUNC(MOD((	SELECT SUM(CALL_TIME)
+                                            FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                            AND    CNSL_START_DATE = A.CNSL_START_DATE)/60, 60)) < 10) AND
+                              (TRUNC(MOD((	SELECT SUM(CALL_TIME)
+                                            FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                            AND    CNSL_START_DATE = A.CNSL_START_DATE)/60, 60)) >= 0))
+                    THEN '0' || TRUNC(MOD((		SELECT SUM(CALL_TIME)
+                                                FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                                AND    CNSL_START_DATE = A.CNSL_START_DATE)/60, 60))
+                    ELSE '' || TRUNC(MOD((		SELECT SUM(CALL_TIME)
+                                                FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                                AND    CNSL_START_DATE = A.CNSL_START_DATE)/60, 60)) END	         || ':' ||
+
+                    CASE WHEN ((MOD((		SELECT SUM(CALL_TIME)
+                                        FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                        AND    CNSL_START_DATE = A.CNSL_START_DATE), 60) < 10) AND
+                              (MOD((		SELECT SUM(CALL_TIME)
+                                        FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                        AND    CNSL_START_DATE = A.CNSL_START_DATE), 60) >= 0))
+                    THEN '0' || MOD((	SELECT SUM(CALL_TIME)
+                                        FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                        AND    CNSL_START_DATE = A.CNSL_START_DATE), 60)
+                    ELSE '' || MOD((	SELECT SUM(CALL_TIME)
+                                        FROM  CCS_CNSL_LOG WHERE TO_CHAR(CNSL_START_DATE, 'YYYY-MM-DD') = TO_CHAR(A.CNSL_START_DATE, 'YYYY-MM-DD')
+                                        AND    CNSL_START_DATE = A.CNSL_START_DATE), 60) END		AS CALL_TIME_HHMISS,
+                    A.CNSL_END_DATE,
+                    A.CNSL_TIME,
+                    SCC_CODE_NM('CNSL_TYPE_CD', A.CNSL_TYPE_CD) AS CNSL_TYPE_CD,
+                    SCC_CODE_NM('CUST_RESPONSE_CD', A.CUST_RESPONSE_CD) AS CUST_RESPONSE_CD,
+                    SCC_CODE_NM('CALL_RESULT_CD', A.CALL_RESULT_CD) AS CALL_RESULT_CD,
+                    SCC_CODE_NM('CNSL_PROC_TYPE_CD', A.CNSL_PROC_TYPE_CD) AS CNSL_PROC_TYPE_CD,
+                    SCC_CODE_NM('CALL_TYPE_CD', A.CALL_TYPE_CD) AS CALL_TYPE_CD,
+                    A.CNTC_TELNO,
+                    (SELECT	NM_KOR	FROM	SCC_USERINFO WHERE SABUN = A.PROC_USER) AS PROC_USER,
+                    A.PROC_USER AS PROC_USER_SABUN,
+                    TO_CHAR(A.PROC_DATE, 'YYYY-MM-DD') AS PROC_DATE_T1,
+                    TO_CHAR(A.PROC_DATE, 'HH24:MI:SS') AS PROC_DATE_T2,
+                    DECODE(A.UPJANG_REG_YN, 'Y', 1, 0) AS UPJANG_REG_YN,
+                    A.UPJANG_CD,
+                    (SELECT UPJANGNM_DISP FROM  FMS_UPJANG  WHERE UPJANG = A.UPJANG_CD) AS UPJANGNM_DISP,
+                    A.MAIN_CONTENTS,
+                    A.CNSL_CONTENTS,
+                    A.CALL_ID,
+                    A.TELNO,
+                    A.DNID,
+                    DECODE(A.CALL_TRANS_YN, 'Y', 1, 0) AS CALL_TRANS_YN,
+                    A.CALL_TRANS_ID,
+                    A.CALL_TRANS_TELNO,
+                    A.CALL_TRANS_UPJANGCD,
+                    A.CUSER,
+                    A.CDATE,
+                    A.UUSER,
+                    A.UDATE,
+                    TO_CHAR(B.CNSL_START_DATE, 'YYYY-MM-DD HH24:MI:SS') AS EVAL_CNSL_START_DATE,
+                    B.EVAL_USER,
+                    NVL(B.EVAL_SCORE, 0) AS EVAL_SCORE,
+                    NVL(B.EVAL_SCORE, 0) AS EVAL_SCORE_TMP,
+                    B.EVAL_CONTENTS,
+                    B.CUSER AS EVAL_CUSER,
+                    B.CDATE AS EVAL_CDATE,
+                    B.UUSER AS EVAL_UUSER,
+                    TO_CHAR(B.UDATE, 'YYYY-MM-DD HH24:MI:SS') AS EVAL_UDATE,
+                    A.RECORD_PATH,
+                    '▶' AS RECORD_STATUS
+            FROM    CCS_CNSL_LOG A,
+                    CCS_CNSL_EVAL_LOG B
+            WHERE   1=1
+            AND     A.CNSL_START_DATE = B.CNSL_START_DATE(+)
+            AND     A.ACCEPT_USER = B.ACCEPT_USER(+)
+            <#if upjangCd?has_content>
+            AND    A.UPJANG_CD = :upjangCd
+            </#if>
+            <#if cnslProcTypeCd?has_content>
+            AND    A.CNSL_PROC_TYPE_CD = :cnslProcTypeCd
+            </#if>
+            <#if acceptUser?has_content>
+            AND    A.ACCEPT_USER = :acceptUser
+            </#if>
+            
+            <#if procUser?has_content>
+            AND    A.PROC_USER = :procUser
+            </#if>
+             
+            <#if callTypeCd?has_content>
+            AND    A.CALL_TYPE_CD = :callTypeCd
+            </#if>
+            
+            AND        (
+                    ( A.PROC_USER = :userSabun OR  A.ACCEPT_USER = :userSabun ) OR
+                    (CASE WHEN EXISTS (
+                                       SELECT 1
+                                         FROM SCC_COMMON_CODE
+                                        WHERE GROUP_CODE = 'CS_MASTER_USER'
+                                          AND CODE = :userSabun
+                                      ) THEN 1
+                     ELSE 0
+                     END) = 1
+                   )
+            AND	   TO_CHAR(A.CNSL_START_DATE,'YYYYMMDD') BETWEEN :cal_fromDay  AND :cal_toDay
+            ORDER  BY A.CNSL_START_DATE DESC
+
+]]></statement>
+
+    <!-- 상담평가이력의 평가내용, 평가점수를(을) 등록 한다. -->
+    <statement name="insertCnslEval">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.insertCnslEval */
+        <![CDATA[
+        INSERT INTO CCS_CNSL_EVAL_LOG
+        (
+             CNSL_START_DATE,
+             ACCEPT_USER,
+             EVAL_USER,
+             EVAL_SCORE,
+             EVAL_CONTENTS,
+             CUSER,
+             CDATE,
+             UUSER,
+             UDATE
+        ) VALUES (
+              <#if cnslStartDate?has_content>TO_DATE(:cnslStartDate, 'YYYY-MM-DD HH24:MI:SS'),<#else> SYSDATE, </#if>
+             <#if acceptUser?has_content> :acceptUser,<#else> :loginSabun, </#if>
+             <#if evalUser?has_content> :evalUser,<#else> :loginSabun, </#if>
+             <#if evalScore?has_content> :evalScore,<#else> 0, </#if>
+             <#if evalContents?has_content>  :evalContents,<#else> '', </#if>
+             :loginSabun,
+             SYSDATE,
+             :loginSabun,
+             SYSDATE
+        )
+]]></statement>
+
+    <!-- 상담평가이력의 평가내용, 평가점수를(을) 수정 한다. -->
+    <statement name="updateCnslEval">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.updateCnslEval */
+        <![CDATA[
+        UPDATE CCS_CNSL_EVAL_LOG
+        SET    EVAL_SCORE = <#if evalScore?has_content> :evalScore,<#else> 0, </#if>
+               EVAL_CONTENTS = <#if evalContents?has_content>  :evalContents, <#else> '', </#if>
+               UDATE = SYSDATE
+        WHERE  CNSL_START_DATE = TO_DATE(:cnslStartDate, 'YYYY-MM-DD HH24:MI:SS')
+        /*AND    ACCEPT_USER = :acceptUser*/
+]]></statement>
+
+    <!-- 상담평가이력의 평가내용, 평가점수를(을) 삭제 한다. -->
+    <statement name="deleteCnslEval">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.deleteCnslEval */
+        <![CDATA[
+        DELETE
+        FROM   CCS_CNSL_EVAL_LOG
+        WHERE  CNSL_START_DATE = TO_DATE(:cnslStartDate, 'YYYY-MM-DD HH24:MI:SS')
+        AND    ACCEPT_USER = :acceptUser
+]]></statement>
+
+    <!-- 고객 발신번호에 의한 건 수 조회한다. -->
+    <statement name="searchUpjangCnt">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.searchUpjangCnt */
+        <![CDATA[
+        SELECT COUNT(*) AS CUST_CNT
+        FROM   FMS_UPJANG A
+        WHERE  1=1
+        <#if upjang?has_content>
+            AND UPJANG LIKE '%' || :upjang || '%'
+        </#if>
+        <#if partTelNo?has_content>
+            AND PART_TEL_NO_ENC = SCC_CRYPTO.ENC_FUN(:partTelNo)
+            OR	PART_HP_NO_ENC = SCC_CRYPTO.ENC_FUN(:partTelNo)
+            OR	PART_FAX_NO_ENC = SCC_CRYPTO.ENC_FUN(:partTelNo)
+        </#if>
+        <#if upjangnmDisp?has_content>
+            AND UPJANGNM_DISP LIKE '%' || :upjangnmDisp || '%'
+        </#if>
+]]></statement>
+
+    <!-- 업장에 속해있는 담당자/영양사 목록을 조회한다. -->
+    <statement name="selectFmsUpjangCust">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.selectFmsUpjangCust */
+        <![CDATA[
+        SELECT UPJANG,
+               UPJANG_NO,
+               GUBUN,
+               PART_NAME,
+               DEPT_ID,
+               CONT_SALES_SABUN,
+               PART_SALES_SABUN,
+               CS_SABUN,
+               NVL(SCC_CRYPTO.DEC_FUN(CUST_TEL_NO_ENC),SCC_CRYPTO.DEC_FUN(CUST_HP_NO_ENC))  AS CUST_TEL_NO,
+               NVL(SCC_CRYPTO.DEC_FUN(CUST_HP_NO_ENC),SCC_CRYPTO.DEC_FUN(CUST_TEL_NO_ENC))  AS CUST_HP_NO,
+               SCC_CRYPTO.DEC_FUN(CUST_FAX_NO_ENC) AS CUST_FAX_NO,
+               SCC_CRYPTO.DEC_FUN(CUST_EMAIL_ENC) AS CUST_EMAIL,
+               SCC_CRYPTO.DEC_FUN(PART_SALES_TEL_NO_ENC) AS PART_SALES_TEL_NO,
+               SCC_CRYPTO.DEC_FUN(CS_TEL_NO_ENC) AS CS_TEL_NO,
+               CUSER,
+               CDATE,
+               UUSER,
+               UDATE,
+               DECODE(MAIN_YN, 'Y', 1, 0) AS MAIN_YN
+        FROM   FMS_UPJANG_CUST
+        WHERE  UPJANG = :upjang
+        ORDER  BY UPJANG, UPJANG_NO
+]]></statement>
+
+    <!-- 내부사용자 목록 조회 한다. -->
+    <statement name="selectjikWonList">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.selectjikWonList */
+        <![CDATA[
+        SELECT       DISTINCT
+                     C.CC_NM AS UPJANGNM_DISP
+                    ,A.SABUN
+                    ,A.NM_KOR /*성명*/
+                    ,REPLACE(SCC_CRYPTO.DEC_FUN(A.TEL_NO_ENC), '--', '') AS TEL_NO/*전화번호*/
+                    ,REPLACE(SCC_CRYPTO.DEC_FUN(A.HP_NO_ENC), '--', '') AS HP_NO/*핸드폰*/
+        FROM         SCC_USERINFO A,
+                     HR_PERSONAL B,
+                     SCC_CC C
+        WHERE        1=1
+        AND          A.SABUN = B.SABUN
+        AND          B.CC_CD = C.CC_CD
+        AND          B.GB_JAEJIK = 'AA'
+        <#if nmKor?has_content>
+        AND			 A.NM_KOR = :nmKor
+        </#if>
+        ORDER        BY CC_NM, NM_KOR
+]]></statement>
+
+	<!--CS 목록 조회 한다. -->
+    <statement name="selectCSList">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.selectCSList */
+        <![CDATA[
+        SELECT SABUN, NM_KOR, SUBSTR(SCC_CRYPTO.DEC_FUN(TEL_NO_ENC), -4) AS TEL_NO  
+				FROM SCC_USERINFO 
+        WHERE UPJANG = 110309 
+        AND USE_YN = 'Y' 
+        ORDER BY NM_KOR
+]]></statement>
+
+    <!-- 상담이력 통계 현황 목록 조회 한다. -->
+    <statement name="selectCnslHistoryStcsList">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.selectCnslHistoryStcsList */
+        <![CDATA[
+            SELECT  (SELECT	NM_KOR	FROM	SCC_USERINFO WHERE SABUN = A.ACCEPT_USER) AS ACCEPT_USER	/*접수자*/
+                   ,(SELECT	COUNT(*) FROM	CCS_CNSL_LOG WHERE ACCEPT_USER = A.ACCEPT_USER AND CALL_TYPE_CD = '10' AND  TO_CHAR(CNSL_START_DATE,'YYYYMMDD') BETWEEN :cal_fromDay  AND :cal_toDay) AS CALL_TYPE_CD_INBD /*인바운드*/
+                   ,(SELECT	COUNT(*) FROM	CCS_CNSL_LOG WHERE ACCEPT_USER = A.ACCEPT_USER AND CALL_TYPE_CD = '20' AND  TO_CHAR(CNSL_START_DATE,'YYYYMMDD') BETWEEN :cal_fromDay  AND :cal_toDay) AS CALL_TYPE_CD_OUTBD /*아웃바운드*/
+                   ,CASE WHEN (TRUNC(SUM(A.CALL_TIME)/60/60) < 10 AND TRUNC(SUM(A.CALL_TIME)/60/60) >= 0)
+                            THEN '0' || TRUNC(SUM(A.CALL_TIME)/60/60)
+                              ELSE '' || TRUNC(SUM(A.CALL_TIME)/60/60) END || ':' ||
+                    CASE WHEN (TRUNC(MOD(SUM(A.CALL_TIME)/60,60)) < 10 AND TRUNC(MOD(SUM(A.CALL_TIME)/60,60)) >= 0)
+                            THEN '0' || TRUNC(MOD(SUM(A.CALL_TIME)/60,60))
+                              ELSE '' || TRUNC(MOD(SUM(A.CALL_TIME)/60,60)) END || ':' ||
+                    CASE WHEN (TRUNC(MOD(SUM(A.CALL_TIME),60)) < 10 AND TRUNC(MOD(SUM(A.CALL_TIME),60)) >= 0)
+                            THEN '0' ||   TRUNC(MOD(SUM(A.CALL_TIME),60))
+                              ELSE '' || TRUNC(MOD(SUM(A.CALL_TIME),60)) END AS CALL_TIME_HHMISS /*총통화시간*/
+                   ,(SELECT	COUNT(*) FROM	CCS_CNSL_LOG WHERE ACCEPT_USER = A.ACCEPT_USER AND  TO_CHAR(CNSL_START_DATE,'YYYYMMDD') BETWEEN :cal_fromDay  AND :cal_toDay) AS ACCEPT_USER_CNT /*접수*/
+                   ,(SELECT	COUNT(*) FROM	CCS_CNSL_LOG WHERE PROC_USER = A.ACCEPT_USER AND CNSL_PROC_TYPE_CD = '20' AND  TO_CHAR(CNSL_START_DATE,'YYYYMMDD') BETWEEN :cal_fromDay  AND :cal_toDay) AS PROC_USER_CNT /*처리완료*/
+                   ,(SELECT	COUNT(*) FROM	CCS_CNSL_LOG WHERE ACCEPT_USER = A.ACCEPT_USER AND CUST_RESPONSE_CD = '10' AND  TO_CHAR(CNSL_START_DATE,'YYYYMMDD') BETWEEN :cal_fromDay  AND :cal_toDay) AS CUST_RESPONSE_CD_T1_CNT /*반응(보통)*/
+                   ,(SELECT	COUNT(*) FROM	CCS_CNSL_LOG WHERE ACCEPT_USER = A.ACCEPT_USER AND CUST_RESPONSE_CD = '20' AND  TO_CHAR(CNSL_START_DATE,'YYYYMMDD') BETWEEN :cal_fromDay  AND :cal_toDay) AS CUST_RESPONSE_CD_T2_CNT /*반응(불만)*/
+                   ,(SELECT	COUNT(*) FROM	CCS_CNSL_LOG WHERE ACCEPT_USER = A.ACCEPT_USER AND CUST_RESPONSE_CD = '30' AND  TO_CHAR(CNSL_START_DATE,'YYYYMMDD') BETWEEN :cal_fromDay  AND :cal_toDay) AS CUST_RESPONSE_CD_T3_CNT /*반응(칭찬)*/
+
+                   ,(SELECT	COUNT(*) FROM	CCS_CNSL_LOG WHERE ACCEPT_USER = A.ACCEPT_USER AND CNSL_TYPE_CD = '10' AND  TO_CHAR(CNSL_START_DATE,'YYYYMMDD') BETWEEN :cal_fromDay  AND :cal_toDay) AS CNSL_TYPE_CD_T1_CNT /*유형(상품문의)*/
+                   ,(SELECT	COUNT(*) FROM	CCS_CNSL_LOG WHERE ACCEPT_USER = A.ACCEPT_USER AND CNSL_TYPE_CD = '20' AND  TO_CHAR(CNSL_START_DATE,'YYYYMMDD') BETWEEN :cal_fromDay  AND :cal_toDay) AS CNSL_TYPE_CD_T2_CNT /*유형(단가)*/
+                   ,(SELECT	COUNT(*) FROM	CCS_CNSL_LOG WHERE ACCEPT_USER = A.ACCEPT_USER AND CNSL_TYPE_CD = '30' AND  TO_CHAR(CNSL_START_DATE,'YYYYMMDD') BETWEEN :cal_fromDay  AND :cal_toDay) AS CNSL_TYPE_CD_T3_CNT /*유형(클레임)*/
+                   ,(SELECT	COUNT(*) FROM	CCS_CNSL_LOG WHERE ACCEPT_USER = A.ACCEPT_USER AND CNSL_TYPE_CD = '40' AND  TO_CHAR(CNSL_START_DATE,'YYYYMMDD') BETWEEN :cal_fromDay  AND :cal_toDay) AS CNSL_TYPE_CD_T4_CNT /*유형(주문)*/
+                   ,(SELECT	COUNT(*) FROM	CCS_CNSL_LOG WHERE ACCEPT_USER = A.ACCEPT_USER AND CNSL_TYPE_CD = '50' AND  TO_CHAR(CNSL_START_DATE,'YYYYMMDD') BETWEEN :cal_fromDay  AND :cal_toDay) AS CNSL_TYPE_CD_T5_CNT /*유형(해피콜)*/
+                   ,(SELECT	COUNT(*) FROM	CCS_CNSL_LOG WHERE ACCEPT_USER = A.ACCEPT_USER AND CNSL_TYPE_CD = '60' AND  TO_CHAR(CNSL_START_DATE,'YYYYMMDD') BETWEEN :cal_fromDay  AND :cal_toDay) AS CNSL_TYPE_CD_T7_CNT /*유형(통화실패)*/
+                   ,(SELECT	COUNT(*) FROM	CCS_CNSL_LOG WHERE ACCEPT_USER = A.ACCEPT_USER AND CNSL_TYPE_CD = '70' AND  TO_CHAR(CNSL_START_DATE,'YYYYMMDD') BETWEEN :cal_fromDay  AND :cal_toDay) AS CNSL_TYPE_CD_T8_CNT /*유형(전산문의)*/
+                   ,(SELECT	COUNT(*) FROM	CCS_CNSL_LOG WHERE ACCEPT_USER = A.ACCEPT_USER AND CNSL_TYPE_CD = '80' AND  TO_CHAR(CNSL_START_DATE,'YYYYMMDD') BETWEEN :cal_fromDay  AND :cal_toDay) AS CNSL_TYPE_CD_T9_CNT /*유형(전환)*/
+                   ,(SELECT	COUNT(*) FROM	CCS_CNSL_LOG WHERE ACCEPT_USER = A.ACCEPT_USER AND CNSL_TYPE_CD = '99' AND  TO_CHAR(CNSL_START_DATE,'YYYYMMDD') BETWEEN :cal_fromDay  AND :cal_toDay) AS CNSL_TYPE_CD_T6_CNT /*유형(기타)*/
+                   
+				   ,(SELECT  CASE WHEN (TRUNC(SUM(CALL_TIME)/60/60) < 10)
+                            THEN '0' || TRUNC(SUM(CALL_TIME)/60/60)
+                              ELSE '' || TRUNC(SUM(CALL_TIME)/60/60) END || ':' ||
+                    CASE WHEN (TRUNC(MOD(SUM(CALL_TIME)/60,60)) < 10)
+                            THEN '0' || TRUNC(MOD(SUM(CALL_TIME)/60,60))
+                              ELSE '' || TRUNC(MOD(SUM(CALL_TIME)/60,60)) END || ':' ||
+                    CASE WHEN (TRUNC(MOD(SUM(CALL_TIME),60)) < 10)
+                            THEN '0' ||   TRUNC(MOD(SUM(CALL_TIME),60))
+                              ELSE '' || TRUNC(MOD(SUM(CALL_TIME),60)) END AS CALL_TIME_HHMISS FROM CCS_CNSL_LOG WHERE 1=1 AND  TO_CHAR(CNSL_START_DATE,'YYYYMMDD') BETWEEN :cal_fromDay  AND :cal_toDay)  AS ALL_CALL_TIME
+              FROM  CCS_CNSL_LOG  A
+             WHERE  1=1
+             <#if acceptUser?has_content>
+               AND	A.ACCEPT_USER = :acceptUser
+             </#if>
+               AND  A.ACCEPT_USER IN (SELECT	SABUN	FROM	SCC_USERINFO WHERE SABUN = A.ACCEPT_USER)
+               AND  TO_CHAR(A.CNSL_START_DATE,'YYYYMMDD') BETWEEN :cal_fromDay  AND :cal_toDay
+             GROUP  BY A.ACCEPT_USER
+             ORDER BY ACCEPT_USER
+]]></statement>
+
+    <!-- SMS 이력 목록 조회 한다. -->
+    <statement name="selectSmsLogList">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.selectSmsLogList */
+        <![CDATA[
+        SELECT   A.TR_NUM
+                ,TO_CHAR(A.TR_SENDDATE, 'YYYY-MM-DD') AS TR_SENDDATE_T1
+                ,TO_CHAR(A.TR_SENDDATE, 'HH24:MI:SS') AS TR_SENDDATE_T2
+                ,A.TR_SENDDATE
+                ,A.TR_ID
+                ,A.TR_SENDSTAT
+                ,SCC_CODE_NM('SMS_RESULT_CD',A.TR_RSLTSTAT) AS TR_RSLTSTAT
+                ,A.TR_MSGTYPE
+                ,A.TR_PHONE
+                ,A.TR_CALLBACK
+                ,A.TR_RSLTDATE
+                ,A.TR_MODIFIED
+                ,A.TR_MSG
+                ,A.TR_NET
+                ,A.TR_SYS_ID
+                ,A.TR_DEPT_ID
+                ,A.TR_USER_ID
+                ,A.TR_DM_NO
+                ,(SELECT	UPJANGNM_DISP  FROM FMS_UPJANG	B	WHERE A.TR_CUST_NO = B.UPJANG) AS TR_CUST_NO
+                ,A.TR_ETC1
+                ,A.TR_ETC2
+                ,A.TR_ETC3
+                ,A.TR_ETC4
+                ,A.TR_ETC5
+                ,A.TR_ETC6
+                ,A.TR_REALSENDDATE
+                ,A.TR_ROUTEID
+        FROM     SC_TRAN@FCUS_EMSMAIL_IMAIL A
+        WHERE    1=1
+        AND	     TO_CHAR(A.TR_SENDDATE, 'YYYYMMDD') BETWEEN TO_CHAR(SYSDATE-90, 'YYYYMMDD') AND	TO_CHAR(SYSDATE, 'YYYYMMDD')
+        AND  	 TR_CUST_NO = :upjangCd
+        ORDER	 BY A.TR_SENDDATE DESC
+]]></statement>
+
+    <!-- 협력업체 목록 조회 한다. -->
+    <statement name="selectVendor">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.selectVendor */
+        <![CDATA[
+         SELECT  A.VD_CD,
+                 A.VD_NM,
+                 DECODE(C.CUSTCD, A.VD_CD, 'O', 'X') AS VENDOR_CD
+         FROM    EPROCUSR.VO_FC_VENDOR A,
+                 EPROCUSR.VO_FC_VENDOR_CHR B
+                 , (
+                    SELECT DISTINCT CUSTCD
+                      FROM HLDC_PO_CONTRACT_F
+                      --FROM HLDC_PO_CONTRACT_FSALE
+                     WHERE TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN CONTRACT_START AND CONTRACT_END
+                   ) C
+         WHERE   1=1
+         AND   A.VD_CD = B.ERP_VD_CD
+         AND   B.ERP_VD_CD = C.CUSTCD(+)
+         AND   C.CUSTCD = A.VD_CD(+)
+         <#if vdNm?has_content>AND	 A.VD_NM LIKE '%' || :vdNm || '%'</#if>
+         <#if chrTelNo?has_content>AND	( REPLACE(B.CHR_PHONE_NO, '-', '') = :chrTelNo	OR	 REPLACE(SCC_CRYPTO.DEC_FUN(B.CHR_MOBILE), '-', '') = :chrTelNo)</#if>
+         ORDER	 BY A.VD_NM
+]]></statement>
+    <!-- 협력업체 목록 조회 한다. -->
+    <statement name="selectVendor2">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.selectVendor */
+        <![CDATA[
+         SELECT A.*
+			FROM   ( SELECT DISTINCT VDGL.VD_CD    AS VD_CD,
+			                        VDGL.VD_NM_LOC AS VD_NM,
+			                        VDGL.VD_SN     AS VD_SN,
+			                        DECODE(INFO.VD_CD, NULL,
+			                               'X',
+			                               'O') AS VENDOR_CD
+			       FROM             EPROCUSR.ESMVDGL VDGL
+			                        INNER JOIN EPROCUSR.ESMVDOG VDOG
+			                        ON               VDGL.SYS_ID = VDOG.SYS_ID
+			                        AND              VDGL.VD_SN  = VDOG.VD_SN
+			                        LEFT OUTER JOIN EPROCUSR.ESPINFO INFO
+			                        ON               INFO.SYS_ID  = '100'
+			                        AND              INFO.COMP_CD = 'HFC'
+			                        AND              VDGL.VD_CD   = INFO.VD_CD
+			                        AND              INFO.STS    <> 'D'
+			                        AND              TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN INFO.APPLY_SD AND              INFO.APPLY_ED
+			       WHERE            VDGL.SYS_ID      = '100'
+			       AND              VDOG.OPER_ORG_SN = '414'
+			       AND              VDOG.TRADSTS     = 'Y'
+			       AND              VDOG.REG_TYP     = 'C'
+			       AND              VDOG.STS        <> 'D'
+			       AND              VDGL.CARD_VD_YN  = 'N'
+			       
+			       UNION
+			       
+			       SELECT DISTINCT VDGL.VD_CD     AS VD_CD,
+			                       VDGL.VD_NM_LOC AS VD_NM,
+			                       VDGL.VD_SN     AS VD_SN,
+			                       DECODE(INFO.VD_CD, NULL,
+			                              'X',
+			                              'O') AS VENDOR_CD
+			       FROM            EPROCUSR.ESMVDGL VDGL
+			                       LEFT OUTER JOIN EPROCUSR.ESPINFO INFO
+			                       ON              INFO.SYS_ID  = '100'
+			                       AND             INFO.COMP_CD = 'HFC'
+			                       AND             VDGL.VD_CD   = INFO.VD_CD
+			                       AND             INFO.STS    <> 'D'
+			                       AND             TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN INFO.APPLY_SD AND             INFO.APPLY_ED
+			       WHERE           VDGL.SYS_ID     = '100'
+			       AND             VDGL.CARD_VD_YN = 'N'
+			       AND             VDGL.VD_STS     = 'D'
+			       ) A,
+			       EPROCUSR.VO_FC_VENDOR_CHR B
+			       WHERE 1=1
+						 AND A.VD_SN = B.VD_SN
+         <#if vdNm?has_content>AND	 A.VD_NM LIKE '%' || :vdNm || '%'</#if>
+         <#if chrTelNo?has_content>AND	( REPLACE(SCC_CRYPTO.DEC_FUN(B.CHR_PHONE_NO), '-', '') = :chrTelNo	OR	 REPLACE(SCC_CRYPTO.DEC_FUN(B.CHR_MOBILE), '-', '') = :chrTelNo)</#if>
+         ORDER	 BY A.VD_NM
+]]></statement>
+
+    <!-- 협력업체에 등록된 담당자 목록 조회 한다. -->
+    <statement name="selectVendorMgmt">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.selectVendorMgmt */
+        <![CDATA[
+         SELECT  ERP_VD_CD AS VD_CD,
+                 CHR_NM,
+                 CHR_JOB,
+                 SCC_CRYPTO.DEC_FUN(CHR_PHONE_NO) AS CHR_PHONE_NO,
+                 SCC_CRYPTO.DEC_FUN(CHR_MOBILE) AS CHR_MOBILE,
+                 SCC_CRYPTO.DEC_FUN(CHR_FAX) AS CHR_FAX
+         FROM    EPROCUSR.VO_FC_VENDOR_CHR
+         WHERE   1=1
+         <#if vdSn?has_content>AND	 VD_SN = :vdSn</#if>
+         ORDER	 BY CHR_NM
+]]></statement>
+
+    <!-- 주요내용 또는 상담내용을 수정한다. -->
+    <statement name="updateContents">
+        /*+ com.hwfs.cs.ccs.dao.CnslMgntDAO.updateContents */
+        <![CDATA[
+         UPDATE  CCS_CNSL_LOG
+         SET	 <#if mainContents?has_content>
+                     MAIN_CONTENTS = :mainContents,
+                  </#if>
+                  <#if cnslContents?has_content>
+                      CNSL_CONTENTS = :cnslContents,
+                  </#if>
+                  UDATE = SYSDATE
+         WHERE   1=1
+         <#if cnslStartDate?has_content>AND TO_CHAR(CNSL_START_DATE, 'YYYYMMDDHH24MISS') = TO_CHAR(TO_DATE(:cnslStartDate, 'YYYY-MM-DD HH24:MI:SS'), 'YYYYMMDDHH24MISS')</#if>
+         AND	 PROC_USER = :loginSabun
+]]></statement>
+
+</hqml>

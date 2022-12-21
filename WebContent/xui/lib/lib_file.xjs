@@ -1,0 +1,341 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Script type="xscript4.0"><![CDATA[/**
+ * @fileOverview
+ * File UpDown 관련 공통 함수 모음
+ */
+
+/**
+ * @class File Dialog 에서 사용되는 확장자 Filter String을 반환한다.
+ * @param sFilterFlag - 확장자
+ * @return Filter String
+ */
+function gfn_getExtFilterString(sFilterFlag) 
+{
+    switch(sFilterFlag) 
+    {
+        case "XLS" :
+            return "Excel 통합문서 (*.xlsx)|*.xlsx|Excel 97 - 2003 통합문서 (*.xls)|*.xls";
+        case "DOC" :
+            return "Word 통합문서 (*.docx)|*.docx|Word 97 - 2003 통합문서 (*.doc)|*.doc";
+        case "PPT" :
+            return "PowerPoint 통합문서 (*.pptx)|*.pptx|PowerPoint 97 - 2003 통합문서 (*.ppt)|*.ppt";
+        case "IMAGE" :
+            return "이미지파일 (*.bmp;*.jpg;*.jpeg;*.gif;*.png;*.tif)|*.bmp;*.jpg;*.jpeg;*.gif;*.png;*.tif";
+        default :
+            return "All (*.*)|*.*";
+    }
+}
+
+ /**
+ * @class  파일경로에서 파일명을 제외한 파일경로를 가져온다.
+ * @param sPath - 파일경로
+ * @return String 파일명을 제외한 파일경로
+ */  
+function gfn_getFilePath(sPath)
+{
+	var filename;
+
+	if (this.gfn_isNull(sPath)) 
+	{
+		return "";
+	}
+
+	filename = this.gfn_getFileName(sPath, true);
+	if (filename == null) 
+	{
+		return null;
+	}
+
+	return sPath.substr(0, sPath.length - filename.length);
+}
+
+ /**
+ * @class  파일 경로에서 파일명만 가져온다.
+ * @param strFilePath - 파일경로
+ * @return String 파일명
+ */   
+function gfn_getFileName(strFilePath)
+{
+	var strFileName = "";
+
+	strFilePath = this.gfn_toString(strFilePath);
+	for (var i = 0; i < strFilePath.length; i++) 
+	{
+		if (this.gfn_right(strFilePath, i + 1).indexOf("\\") > -1) 
+		{
+			break;
+		}
+		if (this.gfn_right(strFilePath, i + 1).indexOf("\/") > -1) 
+		{
+			break;
+		}
+		strFileName = this.gfn_right(strFilePath, i + 1);
+	}
+
+	return strFileName;
+}
+
+ /**
+ * @class  파일명에서 파일 확장자를 가져온다.
+ * @param sFileNm - 파일명
+ * @return String 확장자
+ */   
+function gfn_getFileExt(sFileNm)
+{
+	var sFileExt = sFileNm.substring(sFileNm.lastIndexOf('.')+1, sFileNm.length)
+	
+	return gfn_trim(sFileExt);
+}
+
+/*------------------------------------------------------------------------------
+ * 기   능 : 허용하지 않는 확장자인지 여부 확인
+ * 인   수 : sFileNm - 파일명
+ * 리   턴 : boolean - 여부(true:거부, false:허용)
+ * 이   력 : 확장자 정리 및 개선 2015-04-29 by kksoo 
+ *----------------------------------------------------------------------------*/
+//김재섭 :: 전자세금계산서는 XML을 갖는다. 하여 xml은 File Filter에서 제거함.
+var fv_UPLOAD_PROHIBITED_FILE_EXTENTION = "jsp php asp exe bat cmd c cc com css js cgi jar java class lib log bak php3 phtml py reg vbs xfdl xjs xadl sql";	//업로드 제한 확장자 
+function gfn_isAttachDeniedExt(sFileNm)
+{
+	var strFileExt  = gfn_getFileExt(sFileNm).toLowerCase(); 	//확장자, 일괄 소문자로 변경
+	
+	if (fv_UPLOAD_PROHIBITED_FILE_EXTENTION.indexOf(strFileExt) >= 0) {
+		gfn_alert("msg.err.noExtentionFile", "abcd");	// 첨부할 수 없는 형식의 파일입니다.
+		return false;
+	}
+	return true;
+}
+
+/**
+ * @class 첨부파일 다운로드
+ * @param v_sAtchFileId      - 첨부 파일 ID
+ * @param v_sAtchFileSeqNo   - 파일일련번호
+ * @param v_sFileName        - 파일명
+ * @param v_bWebDown         - 웹방식 다운로드 여부
+ * @param v_bWebRepoYn       - 첨부파일 저장소를 webapp아래로 할지 여부
+ * @return 없음
+ */
+var fv_fullpath = "";
+var gv_httpObj;
+var gv_temp;
+function gfn_downloadFile(v_sAtchFileId, v_sAtchFileSeqNo, v_sFileName, v_bWebDown, v_bWebRepoYn) 
+{    
+    if (gfn_isNull(v_sAtchFileId) || gfn_isNull(v_sAtchFileSeqNo)) 
+    {        
+        gfn_alert("msg.file.needFileId");	// 첨부파일 참조일련번호가 필요합니다.
+        return;
+    }
+    //appId, sysType, prgId 등 공통변수 추가 by kksoo
+	var strUrl = gv_webRoot  + "sc/cmn/downloadFileDB.do?refSeq=" + v_sAtchFileId + "&appendSeq=" + v_sAtchFileSeqNo + gfn_getGlobalVariableUrl();
+	if (!gfn_isNull(v_bWebRepoYn))
+		strUrl += "&webRepoYn=" + v_bWebRepoYn;
+	
+	
+	// 웹브라우져 Down일 경우
+	if (!gfn_isNull(v_bWebDown) && v_bWebDown) 
+	{
+		system.execBrowser(strUrl);
+	} 
+	// 일반 다운로드일 경우
+	else {
+		var vFileDown = new VirtualFile;
+		var HttpObject_Common = new HttpObject();
+		HttpObject_Common.onload.addHandler(gfn_httpObject_onload);
+
+		//File 전송상태 Popup에 global변수로 HttpObject 객체를 넘긴다.
+		gv_httpObj = HttpObject_Common;
+			
+		// 내문서 밑 hwfs 폴더에 파일 생성하여 바로 열기
+		vFileDown.createDirectory("hwfs");
+
+		// 파일명을 별도로 생성하기 위해
+		var sTodayTime =  gfn_trim(gfn_todayTime());
+		sTodayTime = String(sTodayTime).replace(":", "").replace(" ", "");
+				
+		// 첨부파일을 볼때 첨부파일을 시간별로 별도로 생성
+		vFileDown.open("%MyDocument%"+"\\" + "hwfs\\View_" + sTodayTime + "_" + v_sFileName, VirtualFile.openWrite|VirtualFile.openBinary);
+
+		// 첨부파일을 볼때 기존 첨부파일을 그대로 덥어써서 생성
+		//vFileDown.open("%MyDocument%"+"\\hwfs\\" + v_sFileName, VirtualFile.openWrite|VirtualFile.openBinary);						
+		fv_fullpath = vFileDown.fullpath;
+		
+		HttpObject_Common.download(strUrl, vFileDown, true);
+	}
+}
+
+/**
+ * @class 첨부파일 다운로드 CallBack
+ * @return 
+ */
+function gfn_httpObject_onload(obj:HttpObject, e:HttpObjLoadEventInfo) 
+{
+    if (e.errorcode == 0) {
+		// 스페이스가 포함된 경우 각각의 파라메터로 인식하는 문제때문에 " 로 싸 줌
+        system.execShell("\"" + fv_fullpath + "\"");
+    }
+    else {
+		gfn_alert("msg.err.downloadfail");	// 파일 다운로드가 실패하였습니다.
+    }
+}
+
+/**
+ * @class 첨부파일 Multi 다운로드
+ * @param v_sAtchFileId      - 첨부 파일 ID
+ * @param v_sAtchFileSeqNo   - 파일일련번호
+ * @param HttpObject_Multi   - 
+ * @param v_sFileDownDir     - 
+ * @param v_bWebRepoYn       - 첨부파일 저장소를 webapp아래로 할지 여부
+ * @return 없음
+ */
+function gfn_downloadFileMulti(v_sAtchFileId, v_sAtchFileSeqNo, v_sFileName, HttpObject_Multi, v_sFileDownDir, v_bWebRepoYn) 
+{
+    if (gfn_isNull(v_sAtchFileId)) 
+    {        
+        gfn_alert("msg.file.needFileId");	// 첨부파일 참조일련번호가 필요합니다.
+        return;
+    }
+	//VirtualFile 생성
+	var v_virFile = new VirtualFile();
+
+	v_sFileName = v_sFileDownDir + "/" + v_sFileName;
+	
+	// File 중복 체크
+	var extComm = new ExtCommon();
+	var bSucc = extComm.IsFileExist(v_sFileName);
+	
+	// File이 중복되었으면
+	if(bSucc) {
+		var bRtn = gfn_confirm("msg.err.filePomptExistFile");	// 해당 폴더에 파일이 존재합니다. 해당 파일을 덮어 쓰시겠습니까?
+		if(!bRtn) {
+			return false;
+		}
+	}
+
+	var v_FileDown = v_virFile.open(v_sFileName, VirtualFile.openWrite);
+
+    //sysType, prgId 등 공통변수 추가 by kksoo
+	var strUrl = gv_webRoot  + "sc/cmn/downloadFileDB.do?refSeq=" + v_sAtchFileId + "&appendSeq=" + v_sAtchFileSeqNo + gfn_getGlobalVariableUrl();
+	if (!gfn_isNull(v_bWebRepoYn))
+		strUrl += "&webRepoYn=" + v_bWebRepoYn;
+	
+	var v_isDownOk = HttpObject_Multi.download(strUrl, v_virFile, false);
+	
+	if(!v_isDownOk) 
+	{
+		return false;
+	}
+	else {
+		return true;
+	}
+}
+
+/**
+ * @class HttpObject Download 객체 onload 이벤트 handler
+ * @param obj - HttpObject
+ * @param e   - HttpObjLoadEventInfo
+ * @return 없음
+ */
+function gfn_httpObjectDownload_onload(obj:HttpObject, e:HttpObjLoadEventInfo) 
+{  
+    if ( e.errorcode == 0 ) {
+        // 파일다운로드가 완료되었습니다.
+        stc_title.text = gfn_getMsg("msg.file.fileDownloadComplete");
+    } else {
+        gfn_alert(e.errormsg);
+        var objPopup = application.popupframes["fileDownload"];
+        
+        if ( !gfn_isNull(objPopup) ) {
+            objPopup.form.close();
+        }
+    }
+}
+
+/**
+ * @class HttpObject Download 객체 onstatus 이벤트 handler
+ * @param obj - HttpObject
+ * @param e   - HttpObjStatusEventInfo
+ * @return 없음
+ */
+function gfn_httpObjectDownload_onstatus(obj:HttpObject, e:HttpObjStatusEventInfo) 
+{
+    ProgressBar00.pos = e.status;
+}
+
+/**
+ * @class HttpObject Multi Download 객체 onstatus 이벤트 handler
+ * @param obj - HttpObject
+ * @param e   - HttpObjStatusEventInfo
+ * @return 없음
+ */
+function gfn_httpObjectMultiDownload_onstatus(obj:HttpObject, e:HttpObjStatusEventInfo)
+{
+    ProgressBarM02.pos = 0;
+    this.updateWindow();
+    
+    ProgressBarM02.pos = e.status;
+    this.updateWindow();
+}
+
+/**
+ * @class 파일에 해당 내용을 추가
+ * @param sPath       - 파일을 생성할 폴더명
+ * @param sFileName   - 파일명
+ * @param sContent    - 파일에 넣을 내용
+ * @return 없음
+ */
+function gfn_makeLogFile(sPath, sFileName, sContent)
+{
+	if(gfn_isNull(sPath))
+	{
+		gfn_alert("폴더 정보를 넣어주세요.");
+		return;
+	}
+	
+	if(gfn_isNull(sFileName))
+	{
+		gfn_alert("파일명 정보를 넣어주세요.");
+		return;
+	}
+
+	if(gfn_isNull(sContent))
+	{
+		gfn_alert("log 파일에 등록할 정보를 넣어주세요.");
+		return;
+	}	
+	
+	// 폴더가 있는지 확인하고 없으면 폴더 생성
+	gfn_chkDirectory(sPath);
+	
+	var buf = new Buffer();
+	buf.clear();
+
+	buf.appendUTF8( String.fromCharCode(13)+String.fromCharCode(10) );
+	buf.appendUTF8( sContent );
+	buf.appendUTF8( String.fromCharCode(13)+String.fromCharCode(10) );
+
+	var vfile = new VirtualFile( sPath + "\\" + sFileName, VirtualFile.openAppend  ); 	// 파일 생성
+	var rtn = vfile.write( buf.getUTF8(0), "utf-8");            				 		// buffer에 들어있는 정보 file에 저장
+
+	vfile.close();	 
+	buf.clear();
+	
+	return true;
+}
+
+/**
+ * @class 폴더가 있는지 확인 후 폴더 생성
+ * @param sPath - 파일을 생성할 폴더명
+ * @return 없음
+ */
+function gfn_chkDirectory(sPath)
+{
+	var objChkDir  = new ExtCommon();
+	
+	var chkPath = "";
+	var chkValue = objChkDir.checkDirectory(gfn_trim(sPath) ,1);
+	
+	if (chkValue != 1) {	
+		var vfile = new VirtualFile(); // 폴더 생성
+	    vfile.createDirectory(sPath,true);
+	}
+}]]></Script>

@@ -1,0 +1,522 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sm.sar.arReportByValidDateDAO">
+	<desc>AR잔액조회(유효일자별) HQML Query</desc>
+
+	<!-- AR잔액조회(유효일자별) 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sm.sar.dao.ArReportByValidDateDAO.selectList */
+		<![CDATA[
+		SELECT A.AR_NUM,
+		       A.OCCUR_DATE,
+		       A.FISCAL_DATE,
+		       A.AR_OCCUR_CLASS,
+		       A.AR_TYPE_CD,
+		       B.TYPE_NM AR_TYPE_NM,
+		       B.TYPE_CLSFI AR_CLASS_CD,
+		       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'TYPE_CLSFI' AND CODE = B.TYPE_CLSFI) AR_CLASS_NM,
+		       A.ACCT_CD,
+		       A.SYS_CLASS,
+               A.MU_CD,
+               (SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE A.MU_CD = MU.MU_CD) MU_NM,
+               SCC_GET_TM_BY_CC('CODE', A.CC_CD) TM_CD,
+               SCC_GET_TM_BY_CC('NAME', A.CC_CD) TM_NM,
+               A.CC_CD,
+               (SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE A.CC_CD = CC.CC_CD) CC_NM,
+		       A.CUST_CD,
+		       A.CUST_NM, 
+           	   (SELECT NVL(SC.SAUPNO,'') FROM ST_CUST SC WHERE SC.CUSTCD = A.CUST_CD) AS SAUPNO,
+		       NVL(A.AR_AMT, 0) AR_AMT,
+		       NVL((SELECT SUM(RECEIVE_AMT) FROM SLA_AR_RECEIVE_DETAIL RD WHERE RD.AR_NUM=A.AR_NUM AND RD.RECEIVE_DATE <= :fiscalDate AND RD.RECD_STATUS='L'),0) RECEIVE_AMT,
+		       (NVL(A.AR_AMT,0) - NVL((SELECT SUM(RECEIVE_AMT) FROM SLA_AR_RECEIVE_DETAIL RD WHERE RD.AR_NUM=A.AR_NUM AND RD.RECEIVE_DATE <= :fiscalDate AND RD.RECD_STATUS='L'),0)) AS AR_BAL_AMT,
+		       DECODE(TAX_SHET_PUBLISH_YN, 'Y', 1, 0) AS TAX_SHET_PUBLISH_YN,
+		       A.BATCH_ID,
+		       A.RESERV_TYPE_CD,
+		       A.RESERV_NUM,
+		       A.CONTRACT_TYPE_CD,
+		       A.CONTRACT_NUM,
+		       A.PAY_CLASS_CD,
+		       DECODE(BILLING_PUBLISH_YN, 'Y', 1, 0) AS BILLING_PUBLISH_YN,
+		       CASE WHEN (A.WITHDRAW_SCHD_DATE IS NOT NULL AND LENGTH(A.WITHDRAW_SCHD_DATE) = 8) THEN 
+	           	  SUBSTR(A.WITHDRAW_SCHD_DATE,0,4) || '-' || SUBSTR(A.WITHDRAW_SCHD_DATE,5,2) || '-' || SUBSTR(A.WITHDRAW_SCHD_DATE,7,2)
+	           ELSE 
+			       		A.WITHDRAW_SCHD_DATE
+	           END WITHDRAW_SCHD_DATE,
+		       A.RECEIVE_END_DATE,
+		       A.AR_INCHARGE,
+		       A.REMARK,
+		       A.RECEIPT_NUM,
+		       A.REF_NUM,
+		       DECODE(A.JOURNALZ_YN, 'Y', 1, 0) AS JOURNALZ_YN,
+		       A.JOURNALZ_NUM,
+		       A.RECD_STATUS,
+		       A.UPJANG_CD,
+		       (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = A.UPJANG_CD) AS UPJANG_NM  ,
+               D.APPRV_NUM,
+               (SELECT DECODE(H.NM_KOR, null,'', H.NM_KOR || '(' || D.CUSER || ')') FROM SCC_USERINFO H WHERE H.SABUN = D.CUSER) AS CUSER
+		FROM   SLA_AR_MST A,
+			   SLA_TYPE_CD_MST B,
+			   HLDC_SC_DEPT_V C,
+               SLA_AR_RECEIVE_WAY D
+		WHERE  A.AR_TYPE_CD = B.TYPE_CD(+)
+        AND    A.AR_NUM = D.AR_NUM(+)
+		AND	   B.TYPE_GRP_CD = '001'
+		AND    A.AR_TYPE_CD != 'A04' --타사상품권제외
+		AND	   A.CC_CD = C.CC_CD(+)
+		AND    A.RECD_STATUS = 'L'
+		<#if muCd?has_content>
+		AND    A.MU_CD = :muCd
+		</#if>
+		<#if tmCd?has_content>
+		AND    (SCC_GET_TM_BY_CC('CODE', A.CC_CD) = :tmCd OR SCC_GET_PT_BY_CC('CODE', A.CC_CD) = :tmCd)
+		</#if>
+		<#if ccCd?has_content>
+		AND    A.CC_CD = :ccCd
+		</#if>
+		<#if upjangCd?has_content>
+		AND A.CC_CD = (
+						SELECT CC_CD FROM SCO_UPJANG_MST_V
+               			    WHERE UPJANG = :upjangCd
+               			  )
+		</#if>
+		<#if fiscalDate?has_content>
+		AND    A.OCCUR_DATE <= :fiscalDate
+		AND    A.FISCAL_DATE <= :fiscalDate  --채권이관 데이타 잘못보이는 문제 해결 20180903 김호석
+		</#if>
+		<#if arTypeCd?has_content>
+		AND    A.AR_TYPE_CD = :arTypeCd
+		</#if>
+		<#if arClassCd?has_content>
+		AND    B.TYPE_CLSFI = :arClassCd
+		</#if>
+		<#if custCd?has_content>
+		AND    A.CUST_CD = :custCd
+		</#if>
+		<#if zeroIncludeYn?has_content && zeroIncludeYn == 'N'>
+		AND NVL(A.AR_AMT,0) - NVL((SELECT SUM(RECEIVE_AMT) FROM SLA_AR_RECEIVE_DETAIL D WHERE D.AR_NUM = A.AR_NUM AND D.RECEIVE_DATE <= :fiscalDate AND D.RECD_STATUS='L') ,0) <> 0
+		</#if>
+		
+		--외식 타사상품권 채권 추가
+		UNION ALL
+		
+		SELECT A.AR_NUM,
+		       A.OCCUR_DATE,
+		       A.FISCAL_DATE,
+		       A.AR_OCCUR_CLASS,
+		       A.AR_TYPE_CD,
+		       B.TYPE_NM AR_TYPE_NM,
+		       B.TYPE_CLSFI AR_CLASS_CD,
+		       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'TYPE_CLSFI' AND CODE = B.TYPE_CLSFI) AR_CLASS_NM,
+		       A.ACCT_CD,
+		       A.SYS_CLASS,
+               A.MU_CD,
+               (SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE A.MU_CD = MU.MU_CD) MU_NM,
+               SCC_GET_TM_BY_CC('CODE', A.CC_CD) TM_CD,
+               SCC_GET_TM_BY_CC('NAME', A.CC_CD) TM_NM,
+               A.CC_CD,
+               (SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE A.CC_CD = CC.CC_CD) CC_NM,
+		       A.CUST_CD,
+		       A.CUST_NM, 
+           	   (SELECT NVL(SC.SAUPNO,'') FROM ST_CUST SC WHERE SC.CUSTCD = A.CUST_CD) AS SAUPNO,
+		       NVL(A.AR_AMT, 0) AR_AMT,
+		       --NVL((SELECT SUM(RECEIVE_AMT) FROM SLA_AR_RECEIVE_DETAIL RD WHERE RD.AR_NUM=A.AR_NUM AND RD.RECEIVE_DATE <= :fiscalDate AND RD.RECD_STATUS='L'),0) RECEIVE_AMT,
+		       --(NVL(A.AR_AMT,0) - NVL((SELECT SUM(RECEIVE_AMT) FROM SLA_AR_RECEIVE_DETAIL RD WHERE RD.AR_NUM=A.AR_NUM AND RD.RECEIVE_DATE <= :fiscalDate AND RD.RECD_STATUS='L'),0)) AS AR_BAL_AMT,
+		       DECODE(NVL(D.GIFT_BILLING_YN,'N'),'N',0,NVL(A.AR_AMT, 0)) RECEIVE_AMT,
+		       (NVL(A.AR_AMT,0) - DECODE(NVL(D.GIFT_BILLING_YN,'N'),'N',0,NVL(A.AR_AMT, 0))) AS AR_BAL_AMT,
+		       DECODE(TAX_SHET_PUBLISH_YN, 'Y', 1, 0) AS TAX_SHET_PUBLISH_YN,
+		       A.BATCH_ID,
+		       A.RESERV_TYPE_CD,
+		       A.RESERV_NUM,
+		       A.CONTRACT_TYPE_CD,
+		       A.CONTRACT_NUM,
+		       A.PAY_CLASS_CD,
+		       DECODE(BILLING_PUBLISH_YN, 'Y', 1, 0) AS BILLING_PUBLISH_YN,
+		       CASE WHEN (A.WITHDRAW_SCHD_DATE IS NOT NULL AND LENGTH(A.WITHDRAW_SCHD_DATE) = 8) THEN 
+	           	  SUBSTR(A.WITHDRAW_SCHD_DATE,0,4) || '-' || SUBSTR(A.WITHDRAW_SCHD_DATE,5,2) || '-' || SUBSTR(A.WITHDRAW_SCHD_DATE,7,2)
+	           ELSE 
+			       		A.WITHDRAW_SCHD_DATE
+	           END WITHDRAW_SCHD_DATE,
+		       A.RECEIVE_END_DATE,
+		       A.AR_INCHARGE,
+		       A.REMARK,
+		       A.RECEIPT_NUM,
+		       A.REF_NUM,
+		       DECODE(A.JOURNALZ_YN, 'Y', 1, 0) AS JOURNALZ_YN,
+		       A.JOURNALZ_NUM,
+		       A.RECD_STATUS,
+		       A.UPJANG_CD,
+		       (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = A.UPJANG_CD) AS UPJANG_NM  ,
+               null,
+               null
+		FROM   SLA_AR_MST A,
+			   SLA_TYPE_CD_MST B,
+			   HLDC_SC_DEPT_V C,
+               SLA_GIFT_WITHDRAW_INFO D
+		WHERE  A.AR_TYPE_CD = B.TYPE_CD(+)
+		AND	   B.TYPE_GRP_CD = '001'
+		AND    A.AR_TYPE_CD = 'A04'
+		AND	   A.CC_CD = C.CC_CD(+)
+        AND	   A.AR_NUM = D.AR_NUM(+)
+		AND    A.RECD_STATUS = 'L'
+        AND    D.RECD_STATUS = 'L'
+		<#if muCd?has_content>
+		AND    A.MU_CD = :muCd
+		</#if>
+		<#if tmCd?has_content>
+		AND    (SCC_GET_TM_BY_CC('CODE', A.CC_CD) = :tmCd OR SCC_GET_PT_BY_CC('CODE', A.CC_CD) = :tmCd)
+		</#if>
+		<#if ccCd?has_content>
+		AND    A.CC_CD = :ccCd
+		</#if>
+		<#if upjangCd?has_content>
+		AND A.CC_CD = (
+						SELECT CC_CD FROM SCO_UPJANG_MST_V
+               			    WHERE UPJANG = :upjangCd
+               			  )
+		</#if>
+		<#if fiscalDate?has_content>
+		AND    A.OCCUR_DATE <= :fiscalDate
+		AND    A.FISCAL_DATE <= :fiscalDate  --채권이관 데이타 잘못보이는 문제 해결 20180903 김호석
+		</#if>
+		<#if arTypeCd?has_content>
+		AND    A.AR_TYPE_CD = :arTypeCd
+		</#if>
+		<#if arClassCd?has_content>
+		AND    B.TYPE_CLSFI = :arClassCd
+		</#if>
+		<#if custCd?has_content>
+		AND    A.CUST_CD = :custCd
+		</#if>
+		<#if zeroIncludeYn?has_content && zeroIncludeYn == 'N'>
+		AND	   NVL(D.GIFT_BILLING_YN,'N') = 'N'		
+		</#if>
+		
+		--외식 타사상품권 채권 추가(기준일 이후 청구처리한 타사상품권 추가)
+		UNION ALL
+		
+		SELECT A.AR_NUM,
+		       A.OCCUR_DATE,
+		       A.FISCAL_DATE,
+		       A.AR_OCCUR_CLASS,
+		       A.AR_TYPE_CD,
+		       B.TYPE_NM AR_TYPE_NM,
+		       B.TYPE_CLSFI AR_CLASS_CD,
+		       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'TYPE_CLSFI' AND CODE = B.TYPE_CLSFI) AR_CLASS_NM,
+		       A.ACCT_CD,
+		       A.SYS_CLASS,
+               A.MU_CD,
+               (SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE A.MU_CD = MU.MU_CD) MU_NM,
+               SCC_GET_TM_BY_CC('CODE', A.CC_CD) TM_CD,
+               SCC_GET_TM_BY_CC('NAME', A.CC_CD) TM_NM,
+               A.CC_CD,
+               (SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE A.CC_CD = CC.CC_CD) CC_NM,
+		       A.CUST_CD,
+		       A.CUST_NM, 
+           	   (SELECT NVL(SC.SAUPNO,'') FROM ST_CUST SC WHERE SC.CUSTCD = A.CUST_CD) AS SAUPNO,
+		       NVL(A.AR_AMT, 0) AR_AMT,
+		       --NVL((SELECT SUM(RECEIVE_AMT) FROM SLA_AR_RECEIVE_DETAIL RD WHERE RD.AR_NUM=A.AR_NUM AND RD.RECEIVE_DATE <= :fiscalDate AND RD.RECD_STATUS='L'),0) RECEIVE_AMT,
+		       --(NVL(A.AR_AMT,0) - NVL((SELECT SUM(RECEIVE_AMT) FROM SLA_AR_RECEIVE_DETAIL RD WHERE RD.AR_NUM=A.AR_NUM AND RD.RECEIVE_DATE <= :fiscalDate AND RD.RECD_STATUS='L'),0)) AS AR_BAL_AMT,
+		       0 AS RECEIVE_AMT,
+		       NVL(A.AR_AMT, 0) AS AR_BAL_AMT,
+		       DECODE(TAX_SHET_PUBLISH_YN, 'Y', 1, 0) AS TAX_SHET_PUBLISH_YN,
+		       A.BATCH_ID,
+		       A.RESERV_TYPE_CD,
+		       A.RESERV_NUM,
+		       A.CONTRACT_TYPE_CD,
+		       A.CONTRACT_NUM,
+		       A.PAY_CLASS_CD,
+		       DECODE(BILLING_PUBLISH_YN, 'Y', 1, 0) AS BILLING_PUBLISH_YN,
+		       CASE WHEN (A.WITHDRAW_SCHD_DATE IS NOT NULL AND LENGTH(A.WITHDRAW_SCHD_DATE) = 8) THEN 
+	           	  SUBSTR(A.WITHDRAW_SCHD_DATE,0,4) || '-' || SUBSTR(A.WITHDRAW_SCHD_DATE,5,2) || '-' || SUBSTR(A.WITHDRAW_SCHD_DATE,7,2)
+	           ELSE 
+			       		A.WITHDRAW_SCHD_DATE
+	           END WITHDRAW_SCHD_DATE,
+		       A.RECEIVE_END_DATE,
+		       A.AR_INCHARGE,
+		       A.REMARK,
+		       A.RECEIPT_NUM,
+		       A.REF_NUM,
+		       DECODE(A.JOURNALZ_YN, 'Y', 1, 0) AS JOURNALZ_YN,
+		       A.JOURNALZ_NUM,
+		       A.RECD_STATUS,
+		       A.UPJANG_CD,
+		       (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = A.UPJANG_CD) AS UPJANG_NM  ,
+               null,
+               null
+		FROM   SLA_AR_MST A,
+			   SLA_TYPE_CD_MST B,
+			   HLDC_SC_DEPT_V C,
+               SLA_GIFT_WITHDRAW_INFO D,
+               SLA_GIFT_BILLING_MST E
+		WHERE  A.AR_TYPE_CD = B.TYPE_CD(+)
+		AND	   B.TYPE_GRP_CD = '001'
+		AND    A.AR_TYPE_CD = 'A04'
+		AND	   A.CC_CD = C.CC_CD(+)
+        AND	   A.AR_NUM = D.AR_NUM(+)
+        AND	   D.GIFT_BILLING_NUM = E.GIFT_BILLING_NUM
+		AND    A.RECD_STATUS = 'L'
+        AND    D.RECD_STATUS = 'L'
+        AND    E.RECD_STATUS = 'L'
+		<#if muCd?has_content>
+		AND    A.MU_CD = :muCd
+		</#if>
+		<#if tmCd?has_content>
+		AND    (SCC_GET_TM_BY_CC('CODE', A.CC_CD) = :tmCd OR SCC_GET_PT_BY_CC('CODE', A.CC_CD) = :tmCd)
+		</#if>
+		<#if ccCd?has_content>
+		AND    A.CC_CD = :ccCd
+		</#if>
+		<#if upjangCd?has_content>
+		AND A.CC_CD = (
+						SELECT CC_CD FROM SCO_UPJANG_MST_V
+               			    WHERE UPJANG = :upjangCd
+               			  )
+		</#if>
+		<#if fiscalDate?has_content>
+		AND    A.OCCUR_DATE <= :fiscalDate
+		AND    A.FISCAL_DATE <= :fiscalDate  --채권이관 데이타 잘못보이는 문제 해결 20180903 김호석
+		</#if>
+		<#if arTypeCd?has_content>
+		AND    A.AR_TYPE_CD = :arTypeCd
+		</#if>
+		<#if arClassCd?has_content>
+		AND    B.TYPE_CLSFI = :arClassCd
+		</#if>
+		<#if custCd?has_content>
+		AND    A.CUST_CD = :custCd
+		</#if>
+		
+		AND    NVL(D.GIFT_BILLING_YN,'N') = 'Y' 
+       	AND    E.OCCUR_DATE > :fiscalDate 	
+
+		ORDER BY MU_CD, CC_CD, OCCUR_DATE DESC
+		]]>
+	</statement> 
+	
+	<!-- AR잔액조회(유효일자별) 목록을 조회한다. -->
+	<statement name="selectListSimple" type="select">
+		/*+ com.hwfs.sm.sar.dao.ArReportByValidDateDAO.selectListSimple */
+		<![CDATA[
+
+		SELECT A.AR_NUM,
+		       A.OCCUR_DATE,
+		       A.FISCAL_DATE,
+		       A.AR_OCCUR_CLASS,
+		       A.AR_TYPE_CD,
+		       B.TYPE_NM AR_TYPE_NM,
+		       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'TYPE_CLSFI' AND CODE = B.TYPE_CLSFI) AR_CLASS_NM,
+		       A.SYS_CLASS,
+               A.MU_CD,
+               (SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE A.MU_CD = MU.MU_CD) MU_NM,
+               E.ORG_LEVEL_NM3 BONBU,
+               SCC_GET_TM_BY_CC('CODE', A.CC_CD) TM_CD,
+               SCC_GET_TM_BY_CC('NAME', A.CC_CD) TM_NM,
+               A.CC_CD,
+               (SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE A.CC_CD = CC.CC_CD) CC_NM,
+		       A.CUST_CD,
+		       A.CUST_NM,
+           	   (SELECT NVL(SC.SAUPNO,'') FROM ST_CUST SC WHERE SC.CUSTCD = A.CUST_CD) AS SAUPNO,
+		       NVL(A.AR_AMT, 0) AR_AMT,
+		       NVL((SELECT SUM(RECEIVE_AMT) FROM SLA_AR_RECEIVE_DETAIL RD WHERE RD.AR_NUM=A.AR_NUM AND RD.RECEIVE_DATE <= :receiveDate AND RD.RECD_STATUS='L'),0) RECEIVE_AMT,
+		       (NVL(A.AR_AMT,0) - NVL((SELECT SUM(RECEIVE_AMT) FROM SLA_AR_RECEIVE_DETAIL RD WHERE RD.AR_NUM=A.AR_NUM AND RD.RECEIVE_DATE <= :receiveDate AND RD.RECD_STATUS='L'),0)) AS AR_BAL_AMT,
+		       DECODE(TAX_SHET_PUBLISH_YN, 'Y', 1, 0) AS TAX_SHET_PUBLISH_YN,
+	  		   --A.OCCUR_DATE,
+           	   --D.CODE_NAME,
+           	   --D.PAY_DATE, 
+			   D.CODE_NAME || D.PAY_DATE|| DECODE(D.PAY_DATE,NULL,'','일') AS PAY_GUBUN,		     
+           	   --DECODE(D.PAY_GUBUN_CD, '999',
+               --  TO_CHAR(LAST_DAY(TO_DATE(A.OCCUR_DATE, 'YYYYMMDD')),'YYYYMMDD'),
+               --  TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(A.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(NVL(D.PAY_GUBUN_CD,'001'))), 'YYYYMM')
+               --          || LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(A.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(NVL(D.PAY_GUBUN_CD,'001'))), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(D.PAY_DATE, 2, '0')) ) AS W_DAY,
+				
+				 CASE D.PAY_GUBUN_CD WHEN '999'
+         		 THEN TO_CHAR(TO_DATE(A.OCCUR_DATE,'YYYYMMDD'),'YYYY-MM-')||SUBSTR('0' || DECODE(D.PAY_DATE, '0', TO_CHAR(TO_DATE(A.OCCUR_DATE,'YYYYMMDD'),'DD'), D.PAY_DATE), -2)
+                 ELSE
+                 	--대금결재일이 30,31일인 경우 해당월의 마지막날로 설정
+                 	CASE WHEN (SUBSTR('0' || D.PAY_DATE, -2) = '30' OR SUBSTR('0' || D.PAY_DATE, -2) = '31')
+                    	THEN
+                     			TO_CHAR(LAST_DAY(TO_DATE(ADD_MONTHS(TO_DATE(A.OCCUR_DATE,'YYYYMMDD'), D.SET1))),'YYYY-MM-DD')
+                   	    ELSE
+	                        --대금결재일이 29일 경우
+	                        CASE WHEN (SUBSTR('0' || D.PAY_DATE, -2) = '29')
+	                        	THEN
+		                        	--대금결재일이 29일인데 2월인 경우
+		                          CASE WHEN (TO_CHAR(ADD_MONTHS(TO_DATE(A.OCCUR_DATE,'YYYYMMDD'), D.SET1),'MM') = '02')
+		                          THEN
+		                          	--2월은 말일자로
+		                          	TO_CHAR(LAST_DAY(TO_DATE(ADD_MONTHS(TO_DATE(A.OCCUR_DATE,'YYYYMMDD'), D.SET1))),'YYYY-MM-DD')
+		                          ELSE
+		               								TO_CHAR(ADD_MONTHS(TO_DATE(A.OCCUR_DATE,'YYYYMMDD'), D.SET1),'YYYY-MM-')||SUBSTR('0' || D.PAY_DATE, -2)
+		                          END
+	                     	   ELSE
+	               							TO_CHAR(ADD_MONTHS(TO_DATE(A.OCCUR_DATE,'YYYYMMDD'), D.SET1),'YYYY-MM-')||SUBSTR('0' || D.PAY_DATE, -2)
+							   END
+                    END 
+               END AS WITHDRAW_SCHD_DATE,
+               (TO_DATE(TO_CHAR(DECODE(:fiscalDate, NULL,SYSDATE, :fiscalDate),'YYYYMMDD')) - TO_DATE(A.OCCUR_DATE)) AS FT_DAY,
+               -- || '일' AS FT_DAY,
+               (TO_DATE(TO_CHAR(DECODE(:fiscalDate, NULL,SYSDATE, :fiscalDate),'YYYYMMDD')) - TO_DATE(CASE D.PAY_GUBUN_CD WHEN '999'
+         		 THEN TO_CHAR(TO_DATE(A.OCCUR_DATE,'YYYYMMDD'),'YYYYMM')||SUBSTR('0' || DECODE(D.PAY_DATE, '0', TO_CHAR(TO_DATE(A.OCCUR_DATE,'YYYYMMDD'),'DD'), D.PAY_DATE), -2)
+                 ELSE
+                 	--대금결재일이 30,31일인 경우 해당월의 마지막날로 설정
+                 	CASE WHEN (SUBSTR('0' || D.PAY_DATE, -2) = '30' OR SUBSTR('0' || D.PAY_DATE, -2) = '31')
+                    	THEN
+                     			TO_CHAR(LAST_DAY(TO_DATE(ADD_MONTHS(TO_DATE(A.OCCUR_DATE,'YYYYMMDD'), D.SET1))),'YYYYMMDD')
+                   	    ELSE
+	                        --대금결재일이 29일 경우
+	                        CASE WHEN (SUBSTR('0' || D.PAY_DATE, -2) = '29')
+	                        	THEN
+		                        	--대금결재일이 29일인데 2월인 경우
+		                          CASE WHEN (TO_CHAR(ADD_MONTHS(TO_DATE(A.OCCUR_DATE,'YYYYMMDD'), D.SET1),'MM') = '02')
+		                          THEN
+		                          	--2월은 말일자로
+		                          	TO_CHAR(LAST_DAY(TO_DATE(ADD_MONTHS(TO_DATE(A.OCCUR_DATE,'YYYYMMDD'), D.SET1))),'YYYYMMDD')
+		                          ELSE
+		               								TO_CHAR(ADD_MONTHS(TO_DATE(A.OCCUR_DATE,'YYYYMMDD'), D.SET1),'YYYYMM')||SUBSTR('0' || D.PAY_DATE, -2)
+		                          END
+	                     	   ELSE
+	               							TO_CHAR(ADD_MONTHS(TO_DATE(A.OCCUR_DATE,'YYYYMMDD'), D.SET1),'YYYYMM')||SUBSTR('0' || D.PAY_DATE, -2)
+													END
+                    END
+               END )) AS FT_DAY2,
+               --|| DECODE(D.PAY_DATE,NULL,'','일') AS FT_DAY2,
+		       A.REMARK,
+		       DECODE(A.JOURNALZ_YN, 'Y', 1, 0) AS JOURNALZ_YN,
+		       A.JOURNALZ_NUM,
+		       A.RECD_STATUS,
+		       A.UPJANG_CD,
+		       (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = A.UPJANG_CD) AS UPJANG_NM  
+		FROM   SLA_AR_MST A,
+			   SLA_TYPE_CD_MST B,
+			   HLDC_SC_DEPT_V C,
+         	   (SELECT  A.UPJANG, --거래처 약정결제일 기준
+              		    A.CUSTCD ,
+                  		A.PAY_GUBUN_CD ,
+                  		A.PAY_DATE,
+                  		B.SET1,
+                  		B.CODE_NAME,
+         		        DECODE(A.USE_YN,'Y',
+                        '예',
+         	            '아니요') AS USE_YN
+        		  FROM  SCO_UPJANG_CUST A,
+		 		    	SCC_COMMON_CODE B
+         		  WHERE CUSTCD NOT IN
+            		      (SELECT CUST_CD
+           		       		FROM    SLA_BUY_CPNY_MGMT
+           		       		)
+						AND A.PAY_GUBUN_CD = B.CODE
+						AND B.GROUP_CODE = 'MA0015'
+						
+         		UNION ALL
+				--카드사 약정결제일 기준
+     		    SELECT   A.UPJANG_CD AS UPJANG ,
+      		             A.CUST_CD   AS CUSTCD ,
+        		         '999' PAY_GUBUN_CD ,
+        		         0 PAY_DATE,  --즉시0일
+       		             '0' SET1,
+      		             '즉시' AS CODE_NAME,
+      		             '예' USE_YN
+   		       	 FROM   SLA_AR_MST A ,
+   		                SLA_BUY_CPNY_MGMT B
+     		     WHERE  A.CUST_CD = B.CUST_CD
+     	     			AND    A.MU_CD = '2002'
+						<#if ccCd?has_content>
+							AND    A.CC_CD = :ccCd
+						</#if>
+    		      GROUP BY A.UPJANG_CD ,
+    		               A.CUST_CD
+    		      )
+  		        D,
+   		      	SCC_CC E,
+   		      	MAC_UPJANG_V F
+		WHERE  A.AR_TYPE_CD = B.TYPE_CD(+)
+		AND	   B.TYPE_GRP_CD = '001'
+		AND	   A.CC_CD = C.CC_CD(+)
+		AND    A.CC_CD = F.CC_CD
+		AND    A.UPJANG_CD = D.UPJANG(+)
+    	AND    A.CUST_CD = D.CUSTCD(+)
+    	AND    A.CC_CD = E.CC_CD
+		AND    A.RECD_STATUS = 'L'
+
+		<#if muCd?has_content>
+		AND    A.MU_CD = :muCd
+		</#if>
+		<#if tmCd?has_content>
+		   --AND    (SCC_GET_TM_BY_CC('CODE', A.CC_CD) = :tmCd OR SCC_GET_PT_BY_CC('CODE', A.CC_CD) = :tmCd)
+		   --본부조회 조건		 
+	       AND (F.TM_CD LIKE '%' || :tmCd || '%' OR F.PT_CD LIKE '%' || :tmCd || '%')  	        
+	     
+		
+		</#if>
+		<#if ccCd?has_content>
+		AND    A.CC_CD = :ccCd
+		</#if>
+		<#if upjangCd?has_content>
+		AND A.CC_CD = (
+						SELECT CC_CD FROM SCO_UPJANG_MST_V
+               			    WHERE UPJANG = :upjangCd
+               			  )
+		</#if>
+		<#if fiscalDate?has_content> 
+		AND    A.OCCUR_DATE <= :fiscalDate
+		AND    A.FISCAL_DATE <= :fiscalDate  --채권이관 데이타 잘못보이는 문제 해결 20180903 김호석
+		</#if>
+		<#if arTypeCd?has_content>
+		AND    A.AR_TYPE_CD = :arTypeCd
+		</#if>
+		<#if arClassCd?has_content>
+		AND    B.TYPE_CLSFI = :arClassCd
+		</#if>
+		<#if custCd?has_content>
+		AND    A.CUST_CD = :custCd
+		</#if>
+		<#if zeroIncludeYn?has_content && zeroIncludeYn == 'N'>
+		AND NVL(A.AR_AMT,0) - NVL((SELECT SUM(RECEIVE_AMT) FROM SLA_AR_RECEIVE_DETAIL D WHERE D.AR_NUM = A.AR_NUM AND D.RECEIVE_DATE <= :receiveDate AND D.RECD_STATUS='L') ,0) <> 0
+		</#if>
+		ORDER BY A.MU_CD, A.CC_CD, A.OCCUR_DATE DESC
+		]]>
+	</statement>
+
+	<!-- AR잔액조회(유효일자별)(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sm.sar.dao.ArReportByValidDateDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- AR잔액조회(유효일자별)(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sm.sar.dao.ArReportByValidDateDAO.update */
+		<![CDATA[
+		UPDATE SLA_AR_MST 
+		SET    AR_INCHARGE = :arIncharge,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  AR_NUM = :arNum
+		]]>
+	</statement>
+
+	<!-- AR잔액조회(유효일자별)(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.sm.sar.dao.ArReportByValidDateDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>

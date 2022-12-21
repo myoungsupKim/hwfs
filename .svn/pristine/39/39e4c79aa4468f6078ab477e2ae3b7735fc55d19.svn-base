@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.cmn.faxDAO">
+	<desc>FAX 전송 HQML Query</desc>
+
+	<!-- FAX 전송 목록을 조회한다. (테스트용) -->
+	<statement name="selectListTest" type="select">
+		/*+ com.hwfs.sc.cmn.dao.FaxDAO.selectList */
+		<![CDATA[
+		SELECT MSGID,
+		       RECIPIENT,
+		       FAXNO,
+		       FILENAME,
+		       ERRCODE,
+		       TO_CHAR(INSTIME, 'YYYY-MM-DD HH24:MI:SS') AS INSTIME,
+		       TO_CHAR(RSVTIME, 'YYYY-MM-DD HH24:MI:SS') AS RSVTIME,
+		       TO_CHAR(SENDTIME, 'YYYY-MM-DD HH24:MI:SS') AS SENDTIME,
+		       TO_CHAR(ENDTIME, 'YYYY-MM-DD HH24:MI:SS') AS ENDTIME,
+		       CHARGE_SECONDS,
+		       SCC_COMMON_CODE_NAME_FUN('FAX_ERROR',ERRCODE,'SCC_COMMON_CODE') AS ERRMSG,
+		       CHARGE,
+		       CUSER,
+		       TO_CHAR(CDATE, 'YYYY-MM-DD HH24:MI:SS') AS CDATE,
+		       UUSER,
+		       TO_CHAR(UDATE, 'YYYY-MM-DD HH24:MI:SS') AS UDATE
+		FROM   TEST_B2BFAXMSG
+		WHERE  1 = 1
+	<#if msgid?has_content>
+		AND    MSGID = :msgid
+	</#if>
+	<#if fromDate?has_content>
+		AND    INSTIME >= TO_DATE (:fromDate, 'YYYYMMDD')
+	</#if>
+	<#if toDate?has_content>
+		AND    INSTIME < TO_DATE (:toDate, 'YYYYMMDD') + 1
+	</#if>
+	<#if recipient?has_content>
+		AND    RECIPIENT LIKE ('%' || :recipient || '%')
+	</#if>
+	<#if status?has_content>
+		<#if status == 'SUC'>
+		AND    ERRCODE ='0000'
+		<#elseif status == 'ING'>
+		AND    ERRCODE IN ('QSTS','QPND','QRDY')
+		<#elseif status == 'ERR'>
+		AND    ERRCODE NOT IN ('0000','QSTS','QPND','QRDY')
+		</#if>
+	</#if>
+		ORDER BY INSTIME ASC
+		]]>
+	</statement>
+
+	<!-- FAX 전송 목록을 조회한다. (실제) -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sc.cmn.dao.FaxDAO.selectList */
+		<![CDATA[
+		SELECT MSGID,
+		       RECIPIENT,
+		       FAXNO,
+		       FILENAME,
+		       ERRCODE,
+		       TO_CHAR(INSTIME, 'YYYY-MM-DD HH24:MI:SS') AS INSTIME,
+		       TO_CHAR(RSVTIME, 'YYYY-MM-DD HH24:MI:SS') AS RSVTIME,
+		       TO_CHAR(SENDTIME, 'YYYY-MM-DD HH24:MI:SS') AS SENDTIME,
+		       TO_CHAR(ENDTIME, 'YYYY-MM-DD HH24:MI:SS') AS ENDTIME,
+		       CHARGE_SECONDS,
+		       '' AS ERRMSG,
+		       CHARGE,
+		       CUSER,
+		       TO_CHAR(CDATE, 'YYYY-MM-DD HH24:MI:SS') AS CDATE,
+		       UUSER,
+		       TO_CHAR(UDATE, 'YYYY-MM-DD HH24:MI:SS') AS UDATE
+		FROM   B2BFAXMSG
+		WHERE  1 = 1
+	<#if msgid?has_content>
+		AND    MSGID = :msgid
+	</#if>
+	<#if fromDate?has_content>
+		AND    INSTIME >= TO_DATE (:fromDate, 'YYYYMMDD')
+	</#if>
+	<#if toDate?has_content>
+		AND    INSTIME < TO_DATE (:toDate, 'YYYYMMDD') + 1
+	</#if>
+	<#if recipient?has_content>
+		AND    RECIPIENT LIKE ('%' || :recipient || '%')
+	</#if>
+	<#if status?has_content>
+		<#if status == 'SUC'>
+		AND    ERRCODE ='0000'
+		<#elseif status == 'ING'>
+		AND    ERRCODE IN ('QSTS','QPND','QRDY')
+		<#elseif status == 'ERR'>
+		AND    ERRCODE NOT IN ('0000','QSTS','QPND','QRDY')
+		</#if>
+	</#if>
+		ORDER BY INSTIME ASC
+		]]>
+	</statement>
+
+	<!-- FAX 전송(을)를 등록한다. (테스트용) -->
+	<statement name="insertTest" type="insert">
+		/*+ com.hwfs.sc.cmn.dao.FaxDAO.insert */
+		<![CDATA[
+		INSERT INTO TEST_B2BFAXMSG
+		(
+		 MSGID,
+		 USERID,
+		 USERPW,
+		 RECIPIENT,
+		 FAXNO,
+		 FILENAME,
+		 ERRCODE,
+		 INSTIME,
+		 RSVTIME,
+		 SENDTIME,
+		 ENDTIME,
+		 CHARGE_SECONDS,
+		 CHARGE,
+		 CUSER,
+		 CDATE
+		) VALUES (
+		 TEST_B2BFAXMSG_SEQ.NEXTVAL,
+		 :userid,
+		 :userpw,
+		 :recipient,
+		 :faxno,
+		 :filename,
+		 'QRDY',
+		 SYSDATE,
+		 SYSDATE,
+		<#if sendtime?exists> :sendtime, <#else> null, </#if>
+		<#if endtime?exists> :endtime, <#else> null, </#if>
+		<#if chargeSeconds?exists> :chargeSeconds, <#else> null, </#if>
+		<#if charge?exists> :charge, <#else> null, </#if>
+		 :loginSabun,
+		 SYSDATE
+		)
+		]]>
+	</statement>
+
+	<!-- FAX 전송(을)를 등록한다. (실제) -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sc.cmn.dao.FaxDAO.insert */
+		<![CDATA[
+		INSERT INTO B2BFAXMSG
+		(
+		 MSGID,
+		 USERID,
+		 USERPW,
+		 RECIPIENT,
+		 FAXNO,
+		 FILENAME,
+		 ERRCODE,
+		 INSTIME,
+		 RSVTIME,
+		 SENDTIME,
+		 ENDTIME,
+		 CHARGE_SECONDS,
+		 CHARGE,
+		 CUSER,
+		 CDATE
+		) VALUES (
+		 B2BFAXMSG_SEQ.NEXTVAL,
+		 :userid,
+		 :userpw,
+		 :recipient,
+		 :faxno,
+		 :filename,
+		 'QRDY',
+		 SYSDATE,
+		 SYSDATE,
+		<#if sendtime?exists> :sendtime, <#else> null, </#if>
+		<#if endtime?exists> :endtime, <#else> null, </#if>
+		<#if chargeSeconds?exists> :chargeSeconds, <#else> null, </#if>
+		<#if charge?exists> :charge, <#else> null, </#if>
+		 :loginSabun,
+		 SYSDATE
+		)
+		]]>
+	</statement>
+	
+</hqml>

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+ SELECT V.UPJANG,
+        V.ITEM_TYPE,
+        (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0122' AND CODE = V.ITEM_TYPE) ITEM_TYPENM,
+        V.ITEM_CODE,
+        (SELECT ITEM_NAME FROM HLDC_PO_ITEM_MST WHERE ITEM_CODE = V.ITEM_CODE) ITEM_CODENM,
+        (
+        SELECT NVL(SUM(DECODE(B.SET1, 'I', A.QTY, 0)), 0) - NVL(SUM(DECODE(B.SET1, 'O', A.QTY, 0)), 0)
+          FROM MAS_TICKET_MST A,
+               MAS_TICKET_CODE B
+        WHERE (A.TRANS_TYPE  = B.TRANS_TYPE)
+        AND   (A.TRANS_GUBUN = B.TRANS_GUBUN)
+        AND   (A.UPJANG      = V.UPJANG)
+        AND   (A.ITEM_TYPE   = V.ITEM_TYPE)
+        AND   (A.ITEM_CODE   = V.ITEM_CODE)
+        AND   (A.TRANS_DD    BETWEEN '200712'||'01' AND TO_CHAR(LAST_DAY(ADD_MONTHS(TO_DATE(#TRANS_DD#||'01', 'YYYYMMDD'),-1)), 'YYYYMMDD'))
+        AND   (A.SUBUL_YN    = 'Y')
+        AND   (A.CONGUBN     = 'Y')         
+       ) ST_QTY,
+       SUM(DECODE(A.TRANS_GUBUN, 'II', A.QTY, 0)) II_QTY,
+       SUM(DECODE(A.TRANS_GUBUN, 'OO', A.QTY, 0)) OO_QTY,
+       SUM(DECODE(A.TRANS_GUBUN, 'WW', A.QTY, 0)) WW_QTY,
+       SUM(DECODE(A.TRANS_GUBUN, 'WR', A.QTY, 0)) WR_QTY,
+       SUM(DECODE(A.TRANS_GUBUN, 'XO', A.QTY, 0)) XO_QTY,
+       SUM(DECODE(A.TRANS_GUBUN, 'XL', A.QTY, 0)) XL_QTY,
+       SUM(DECODE(A.TRANS_GUBUN, 'XW', A.QTY, 0)) XW_QTY,
+       SUM(DECODE(A.TRANS_GUBUN, 'XR', A.QTY, 0)) XR_QTY
+FROM MAS_TICKET_STD V,
+     (SELECT * FROM MAS_TICKET_MST WHERE UPJANG = #UPJANG# AND TRANS_DD BETWEEN #TRANS_DD#||'01' AND #TRANS_DD#||'31' AND SUBUL_YN = 'Y' AND CONGUBN     = 'Y') A
+WHERE (V.UPJANG      = A.UPJANG(+))
+AND   (V.ITEM_TYPE   = A.ITEM_TYPE(+))
+AND   (V.ITEM_CODE   = A.ITEM_CODE(+))
+AND   (V.UPJANG      = #UPJANG#)
+GROUP BY V.UPJANG, V.ITEM_TYPE, V.ITEM_CODE
+</statement>
+	<input default-name="ds_cond">
+		<col name="UPJANG" size="" type="NUMERIC" description="" /> 
+		<col name="TRANS_DD" size="255" type="VARCHAR" description="" /> 		
+		<col name="TRX_ID" size="" type="NUMERIC" description="" /> 		
+		<col name="SUBST_ID" size="" type="NUMERIC" description="" /> 		
+	</input>
+	<output default-name="ds_list">
+		<col name="UPJANG" size="" type="NUMERIC" description="" /> 
+    <col name="ITEM_TYPE" size="255" type="VARCHAR" description="" />
+    <col name="ITEM_TYPENM" size="255" type="VARCHAR" description="" />
+    <col name="ITEM_CODE" size="255" type="VARCHAR" description="" />
+    <col name="ITEM_CODENM" size="255" type="VARCHAR" description="" />   
+    <col name="ST_QTY" size="" type="NUMERIC" description="" />
+    <col name="II_QTY" size="" type="NUMERIC" description="" />
+    <col name="OO_QTY" size="" type="NUMERIC" description="" />   
+    <col name="WW_QTY" size="" type="NUMERIC" description="" />    
+    <col name="WR_QTY" size="" type="NUMERIC" description="" />
+    <col name="XO_QTY" size="" type="NUMERIC" description="" />
+		<col name="XL_QTY" size="" type="NUMERIC" description="" />
+		<col name="XW_QTY" size="" type="NUMERIC" description="" />
+		<col name="XR_QTY" size="" type="NUMERIC" description="" />		
+	</output>
+</query>

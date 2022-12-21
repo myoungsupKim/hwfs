@@ -1,0 +1,267 @@
+package com.hwfs.sm.sar.web;
+
+import hone.core.util.record.RecordSet;
+import hone.online.web.bind.anno.Bind;
+import hone.online.xplatform.map.DataSetMap;
+import hone.online.xplatform.map.XplatformMapDTO;
+
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.servlet.ModelAndView;
+
+import com.hwfs.cmn.defaults.DefaultConsts;
+import com.hwfs.cmn.defaults.DefaultController;
+import com.hwfs.sm.sar.service.ReceiveMgntPopService;
+
+
+ /**
+ * 입금처리하는 ReceiveMgntPop Controller
+ * 
+ * @ClassName ReceiveMgntPopController.java
+ * @Description ReceiveMgntPopController Class 
+ * @Modification-Information
+ * <pre>
+ *    수정일       수정자              수정내용
+ *  ----------   ----------   -------------------------------
+ *  2015.04.16    김명호        최초생성
+ * </pre>
+ * @author FC종합전산구축 :  통합영업 김명호
+ * @since 2015.04.16
+ * @version 1.0
+ * @see 
+ * <pre>
+ *  Copyright (C) 2014 by HANWHA S&C CO.,LTD. All right reserved.
+ * </pre>
+ */
+@Controller
+@RequestMapping("/sm/sar/receiveMgntPop/")
+public class ReceiveMgntPopController extends DefaultController {
+	
+	/** LogService */
+//	private final Logger logger = LoggerFactory.getLogger (this.getClass());
+
+	/** ReceiveMgntPopService Bean 생성 */
+	@Resource(name = "/sm/sar/receiveMgntPopService")
+	private ReceiveMgntPopService receiveMgntPopService;
+	
+	/**
+	 * 입금처리 목록을 조회한다.
+	 * <pre>
+	 * - 메소드 상세설명 작성(생략 가능)-->생략 시 이 부분 삭제할 것
+	 * </pre>
+	 *
+	 * @param xpDto
+	 *            XplatformMapDTO XPLATFORM에서 전달된 Map
+	 * @return
+	 *            ModelAndView XPLATFORM에 결과로 전달되는 조회 목록
+	 * @throws Exception
+	 */
+	@RequestMapping("selectList.xdo")
+	public ModelAndView selectList(
+			@Bind(id = "", type = XplatformMapDTO.class) XplatformMapDTO xpDTO) throws Exception {
+
+		//XPLATFORM에 결과를 전달할 객체 생성
+		ModelAndView mav = super.createModelAndView();
+
+		//XPlatform에서 넘어온 Variable Parameter을 추출한다.
+		Map <String, Object> inVar = xpDTO.getInVariableMap();
+		
+		//입금처리 을(를) 조회한다.
+		RecordSet rs = receiveMgntPopService.selectList(inVar);
+
+		//XPlatform으로 넘겨줄 Dataset을 설정한다.
+		super.addOutDataSet(mav, "ds_receiveData", rs);
+
+
+		//공제사항 을(를) 조회한다.
+		RecordSet rsDeduc = receiveMgntPopService.selectDeduc(inVar);
+
+		//XPlatform으로 넘겨줄 Dataset을 설정한다.
+		super.addOutDataSet(mav, "ds_listDeduc", rsDeduc);
+
+
+		//전달할 결과 ResultSet에 설정 : 메시지는 업무에 따라 필요하면 설정
+		return super.setResultSet(mav, DefaultConsts.OK_CODE, "");
+	}
+
+	/**
+	 * 입금처리 목록을 조회한다.
+	 * <pre>
+	 * - 메소드 상세설명 작성(생략 가능)-->생략 시 이 부분 삭제할 것
+	 * </pre>
+	 *
+	 * @param xpDto
+	 *            XplatformMapDTO XPLATFORM에서 전달된 Map
+	 * @return
+	 *            ModelAndView XPLATFORM에 결과로 전달되는 조회 목록
+	 * @throws Exception
+	 */
+	@RequestMapping("selectDetail.xdo")
+	public ModelAndView selectDetail(
+			@Bind(id = "", type = XplatformMapDTO.class) XplatformMapDTO xpDTO) throws Exception {
+
+		//XPLATFORM에 결과를 전달할 객체 생성
+		ModelAndView mav = super.createModelAndView();
+
+		//XPlatform에서 넘어온 Variable Parameter을 추출한다.
+		Map<String, DataSetMap> parameter = xpDTO.getInDataSetMap();
+		
+		//입금처리 상세 을(를) 조회한다.
+		RecordSet rsDetail = receiveMgntPopService.selectDetail(parameter.get("ds_search").get(0));
+
+		//XPlatform으로 넘겨줄 Dataset을 설정한다.
+		super.addOutDataSet(mav, "ds_listAr", rsDetail);
+
+		//전달할 결과 ResultSet에 설정 : 메시지는 업무에 따라 필요하면 설정
+		return super.setResultSet(mav, DefaultConsts.OK_CODE, "");
+	}
+	
+	/**
+	 * 입금수단을 조회한다.
+	 * <pre>
+	 * - 메소드 상세설명 작성(생략 가능)-->생략 시 이 부분 삭제할 것
+	 * </pre>
+	 *
+	 * @param xpDto
+	 *            XplatformMapDTO XPLATFORM에서 전달된 Map
+	 * @return
+	 *            ModelAndView XPLATFORM에 결과로 전달되는 조회 목록
+	 * @throws Exception
+	 */
+	@RequestMapping("selectReceiveWayList.xdo")
+	public ModelAndView selectReceiveWayList(
+			@Bind(id = "", type = XplatformMapDTO.class) XplatformMapDTO xpDTO) throws Exception {
+
+		//XPLATFORM에 결과를 전달할 객체 생성
+		ModelAndView mav = super.createModelAndView();
+
+		//XPlatform에서 넘어온 Variable Parameter을 추출한다.
+		Map<String, DataSetMap> parameter = xpDTO.getInDataSetMap();
+		
+		//입금처리 상세 을(를) 조회한다.
+		RecordSet rsDetail = receiveMgntPopService.selectReceiveWayList(parameter.get("ds_search").get(0));
+
+		//XPlatform으로 넘겨줄 Dataset을 설정한다.
+		super.addOutDataSet(mav, "ds_view", rsDetail);
+
+		//전달할 결과 ResultSet에 설정 : 메시지는 업무에 따라 필요하면 설정
+		return super.setResultSet(mav, DefaultConsts.OK_CODE, "");
+	}
+
+	/**
+	 * 입금처리(을)를 Insert/Update/Delete 처리한다.
+	 * <pre>
+	 * - 메소드 상세설명 작성(생략 가능)-->생략 시 이 부분 삭제할 것
+	 * </pre>
+	 *
+	 * @param xpDto
+	 *            XplatformMapDTO XPLATFORM에서 전달된 Map
+	 * @return
+	 *            ModelAndView XPLATFORM에 처리결과를 전달
+	 * @throws Exception
+	 */
+	@RequestMapping("saveList.xdo")
+	public ModelAndView saveList(
+			@Bind(id = "", type = XplatformMapDTO.class) XplatformMapDTO xpDTO) throws Exception {
+
+		//XPLATFORM에 결과를 전달할 객체 생성
+		ModelAndView mav = super.createModelAndView();
+
+		//XPlatform에서 넘어온 Dataset Parameter를 추출한다.
+		Map<String, DataSetMap> param = xpDTO.getInDataSetMap();
+		DataSetMap parameter            = param.get("ds_listAr");
+		DataSetMap parameterData        = param.get("ds_receiveData");
+		DataSetMap parameterDeduc       = param.get("ds_listDeduc");
+		DataSetMap parameterSuspense    = param.get("ds_listSuspense");
+		DataSetMap parameterListAdvance = param.get("ds_listAdvance");
+		DataSetMap parameterAdvanceData = param.get("ds_advanceData");
+		DataSetMap parameterCard        = param.get("ds_view");
+
+		//입금처리을(를) 등록, 수정, 삭제 처리한다.
+		int processCnt = receiveMgntPopService.saveList(parameter, parameterData, parameterDeduc, parameterSuspense, parameterListAdvance, parameterAdvanceData, parameterCard);
+
+		//처리건수를 OutVariable에 설정한다.
+		super.addOutVariable(mav, "fv_processCnt", processCnt);
+
+		//전달할 결과 ResultSet에 설정 : 메시지는 업무에 따라 필요하면 설정
+		return super.setResultSet(mav, DefaultConsts.OK_CODE, "");
+	}
+	
+	/**
+	 * 입금처리를 취소 처리한다.
+	 * <pre>
+	 * - 메소드 상세설명 작성(생략 가능)-->생략 시 이 부분 삭제할 것
+	 * </pre>
+	 *
+	 * @param xpDto
+	 *            XplatformMapDTO XPLATFORM에서 전달된 Map
+	 * @return
+	 *            ModelAndView XPLATFORM에 처리결과를 전달
+	 * @throws Exception
+	 */
+	@RequestMapping("cancleList.xdo")
+	public ModelAndView cancleList(
+			@Bind(id = "", type = XplatformMapDTO.class) XplatformMapDTO xpDTO) throws Exception {
+
+		//XPLATFORM에 결과를 전달할 객체 생성
+		ModelAndView mav = super.createModelAndView();
+
+		//XPlatform에서 넘어온 Dataset Parameter를 추출한다.
+		Map<String, DataSetMap> param = xpDTO.getInDataSetMap();
+		DataSetMap parameter = param.get("ds_listAr");
+		DataSetMap parameterData = param.get("ds_receiveData");
+		DataSetMap parameterDeduc = param.get("ds_listDeduc");
+		DataSetMap parameterSuspense = param.get("ds_listSuspense");
+		DataSetMap parameterAdvance = param.get("ds_listAdvance");
+		DataSetMap parameterAdvanceData = param.get("ds_advanceData");
+		DataSetMap parameterCardData = param.get("ds_view");
+
+		//입금처리을(를) 등록, 수정, 삭제 처리한다.
+		int processCnt = receiveMgntPopService.cancleList(parameter, parameterData, parameterDeduc, parameterSuspense, parameterAdvance, parameterAdvanceData, parameterCardData);
+
+		//처리건수를 OutVariable에 설정한다.
+		super.addOutVariable(mav, "fv_processCnt", processCnt);
+
+		//전달할 결과 ResultSet에 설정 : 메시지는 업무에 따라 필요하면 설정
+		return super.setResultSet(mav, DefaultConsts.OK_CODE, "");
+	}
+	
+	/**
+	 * 수수료 금액을 가지고 온다.
+	 * <pre>
+	 * 
+	 * </pre>
+	 *
+	 * @param xpDto
+	 *            XplatformMapDTO XPLATFORM에서 전달된 Map
+	 * @return
+	 *            ModelAndView XPLATFORM에 결과로 전달되는 조회 목록
+	 * @throws Exception
+	 */
+	@RequestMapping("selectCharge.xdo")
+	public ModelAndView selectCharge(
+			@Bind(id = "", type = XplatformMapDTO.class) XplatformMapDTO xpDTO) throws Exception {
+
+		//XPLATFORM에 결과를 전달할 객체 생성
+		ModelAndView mav = super.createModelAndView();
+
+		//XPlatform에서 넘어온 Variable Parameter을 추출한다.
+		Map <String, DataSetMap> param = xpDTO.getInDataSetMap();
+		DataSetMap data = param.get("ds_charge");
+		
+		
+		//입금처리 을(를) 조회한다.
+		RecordSet rs = receiveMgntPopService.selectCharge(data);
+
+		//XPlatform으로 넘겨줄 Dataset을 설정한다.
+		super.addOutDataSet(mav, "ds_charge", rs);
+
+		//전달할 결과 ResultSet에 설정 : 메시지는 업무에 따라 필요하면 설정
+		return super.setResultSet(mav, DefaultConsts.OK_CODE, "");
+	}
+	
+}

@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sm.sar.arDebitOffsetClearDAO">
+	<desc>채권채무상계 처리 HQML Query</desc>
+
+	<!-- 채권채무상계 처리 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sm.sar.dao.ArDebitOffsetClearDAO.selectList */
+		<![CDATA[
+			SELECT A.RECEIVE_NUM,
+			       A.RECEIVE_DATE,
+			       A.RECEIVE_OCCUR_CLASS,
+			       A.RECEIVE_TYPE_CD,
+			       A.SYS_CLASS,
+			       A.MU_CD,
+			       (SELECT DISTINCT MU_NM FROM   HLDC_SC_DEPT_V WHERE MU_CD = A.MU_CD)  AS MU_NM,
+			       A.CC_CD,
+			       (SELECT  CC_NM FROM SCC_CC WHERE CC_CD = A.CC_CD) AS CC_NM,
+			       A.CUST_CD,
+			       (SELECT CUSTNM FROM ST_CUST WHERE  CUSTCD=A.CUST_CD AND CUSTGUBUN = '002') AS CUST_NM,
+			       A.RECEIVE_AMT,
+			       A.DEDUC_AMT,
+			       A.AR_WITHDRAW_AMT,
+			       A.ADVANCE_OCCUR,
+			       A.ADVANCE_ALT,
+			       A.REF_NUM,
+			       A.BATCH_ID,
+			       A.REMARK,
+			       A.INQUERY_START_DATE,
+			       A.INQUERY_END_DATE,
+			       A.INQUERY_MU_CD,
+			       A.INQUERY_TM_CD,
+			       A.INQUERY_CC_CD,
+			       A.INQUERY_CUST_CD,
+			       A.INQUERY_AR_TYPE_CD,
+			       A.INQUERY_AR_NUM,
+			       A.RECD_STATUS,
+			       (SELECT DISTINCT ALT_NUM FROM SLA_ADVANCE_ALT_DETAIL D WHERE D.RECEIVE_NUM = A.RECEIVE_NUM AND D.RECD_STATUS='L') AS ALT_NUM
+			FROM   SLA_AR_RECEIVE_MST A
+			WHERE  1=1 AND A.RECD_STATUS='L' AND    A.RECEIVE_TYPE_CD = 'B09'
+			<#if receiveNum?has_content>		AND    A.RECEIVE_NUM = :receiveNum</#if>
+			<#if receiveDate?has_content>		AND    A.RECEIVE_DATE = :receiveDate</#if>
+			<#if receiveOccurClass?has_content>	AND    A.RECEIVE_OCCUR_CLASS = :receiveOccurClass</#if>
+			<#if muCd?has_content>				AND    A.MU_CD = :muCd</#if>
+			<#if ccCd?has_content>				AND    A.CC_CD = :ccCd</#if>
+			<#if tmCd?has_content>
+	            AND     A.CC_CD IN (
+	                            SELECT  A.CC_CD
+	                            FROM    SCC_CC A
+	                                    ,HLDC_SC_DEPT_V B
+	                            WHERE   B.CC_CD = A.CC_CD
+	                            AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+	                            AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+	                            AND     B.TM_CD = :tmCd
+	                            )
+	        </#if>
+			<#if custCd?has_content>			AND    A.CUST_CD = :custCd</#if>
+		]]>
+	</statement>
+
+	<!-- 채권채무상계 처리(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sm.sar.dao.ArDebitOffsetClearDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 채권채무상계 처리(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sm.sar.dao.ArDebitOffsetClearDAO.update */
+		<![CDATA[
+		UPDATE TABLE_NAME 
+		SET    COLUMN_NAME1 = :columnName1,
+		       COLUMN_NAME2 = :columnName2,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+	<!-- 채권채무상계 처리(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.sm.sar.dao.ArDebitOffsetClearDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[본부CS(최근일주일 클레임내역)]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.PART_NAME||' '||SC_CRYPTO_FUN('DEC', A.PART_TEL_NO_ENC, '4')||' '||SC_CRYPTO_FUN('DEC', A.PART_HP_NO_ENC, '4') AS UPJANG_TELNO
+     , A.SPECIAL_NOTE
+     , B.*
+  FROM FMS_UPJANG A
+     , (
+        SELECT A.UPJANG
+             , C.CUSTNM
+             , SC_CRYPTO_FUN('DEC',C.TEL_NO_ENC ,4) AS TEL_NO
+             , B.SALE_PRICE
+             , D.ITEM_SIZE
+          FROM HLDC_PO_TREAT_UPJANG A
+             , HLDC_PO_CONTRACT_FSALE B
+             , HLDC_ST_CUST C
+             , HLDC_PO_ITEM_MST D
+         WHERE A.CENTER_CODE = B.CENTER_CODE
+           AND A.UPJANG      = B.UPJANG
+           AND A.ITEM_CODE   = B.ITEM_CODE
+           AND A.CUSTCD      = C.CUSTCD
+           AND A.ITEM_CODE   = D.ITEM_CODE
+           AND A.UPJANG      = #UPJANG#
+           AND A.ITEM_CODE   = #ITEM_CODE#
+           AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN B.CONTRACT_START AND NVL(B.CONTRACT_END,'99991231')
+       ) B
+ WHERE A.UPJANG = B.UPJANG(+)
+   AND A.UPJANG = #UPJANG#
+]]></statement>
+	<input default-name="ds_in">
+	</input>
+	<output default-name="ds_infor">
+	</output>
+</query>

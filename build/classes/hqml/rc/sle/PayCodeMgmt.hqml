@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.sle.payCodeMgmtDAO">
+	<desc>지불수단 코드 등록 관리</desc>
+ 
+	
+	
+	<!--  GRP DATA를 조회한다.사용하지 않는다 현재까지 2015.04.13 현재 -->
+	<statement name="selectGrpList" type="select">
+	/*+ com.hwfs.rc.sle.dao.payCodeMgmtDAO.selectGrpList */
+	<![CDATA[
+		SELECT GROUP_CODE,
+		       CODE,
+		       CODE_NAME,
+		       CONTENTS,
+		       SORT_SEQ,
+		       DECODE(NVL(SYSTEM_YN, '0'), 'Y', '1', '0') AS SYSTEM_YN,
+		       SET1,
+		       SET2,
+		       SET3,
+		       SET4,
+		       SET5,
+		       DECODE(NVL(USE_YN, '0'), 'Y', '1', '0') AS USE_YN,
+		       ATTR01,
+		       ATTR02,
+		       ATTR03,
+		       ATTR04,
+		       ATTR05,
+		       ATTR06,
+		       ATTR07,
+		       ATTR08,
+		       ATTR09,
+		       ATTR10,
+		       DECODE(NVL(POS_YN, '0'), 'Y', '1', '0') AS POS_YN
+		FROM   SCC_COMMON_CODE
+		WHERE  GROUP_CODE = 'SLE_0017'
+		AND    ATTR01 IS NULL
+		AND    USE_YN = 'Y'
+		ORDER BY SORT_SEQ, CODE
+
+	]]>
+	</statement>
+	
+	<!--  GRP SUB DATA를 조회한다.전체가 필요한 경우 ATTR01의 값을 가지고 전체 필요 여부 처리함 -->
+	<statement name="selectGrpSubList" type="select">
+	/*+ com.hwfs.rc.sle.dao.payCodeMgmtDAO.selectGrpSubList */
+	<![CDATA[
+		SELECT GROUP_CODE,
+		       CODE,
+		       CODE_NAME,
+		       CONTENTS,
+		       SORT_SEQ,
+		       DECODE(NVL(SYSTEM_YN, '0'), 'Y', '1', '0') AS SYSTEM_YN,
+		       SET1,
+		       SET2,
+		       SET3,
+		       SET4,
+		       SET5,
+		       DECODE(NVL(USE_YN, '0'), 'Y', '1', '0') AS USE_YN,
+		       ATTR01,
+		       ATTR02,
+		       ATTR03,
+		       ATTR04,
+		       ATTR05,
+		       ATTR06,
+		       ATTR07,
+		       ATTR08,
+		       ATTR09,
+		       ATTR10,
+		       DECODE(NVL(POS_YN, '0'), 'Y', '1', '0') AS POS_YN
+		FROM   SCC_COMMON_CODE
+		WHERE  GROUP_CODE = :groupCode
+		AND    USE_YN = 'Y'
+		<#if attr01?has_content>  	AND   ATTR01 = :attr01  </#if>
+		ORDER BY SORT_SEQ, CODE
+
+	]]>
+	</statement>
+	
+ 
+	<!--  DATA를 조회한다. -->
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.rc.sle.dao.payCodeMgmtDAO.selectList */
+	<![CDATA[
+ 
+		SELECT MST.OUTLET_CD, SHOP.OUTLET_NM AS OUTLET_NM,
+		       MST.PAY_CD,
+		       MST.PAY_DETAIL_CD,
+		       MST.PAY_NM,
+		       MST.PIC_PLACE,
+		       MST.CONN_CD,
+		       DECODE(MST.CHANGE_AMT_YN, 'Y', 1, 0)		AS CHANGE_AMT_YN , 
+		       DECODE(MST.CASH_RECEIPT_YN, 'Y', 1, 0) AS CASH_RECEIPT_YN,
+		       DECODE(MST.VOID_POSS_YN, 'Y', 1, 0) AS VOID_POSS_YN, 
+		       DECODE(MST.NOTAX_YN, 'Y', 1, 0) AS NOTAX_YN, 
+		       DECODE(MST.NOSVC_YN, 'Y', 1, 0) AS NOSVC_YN, 
+		       DECODE(MST.CASH_BOX_YN, 'Y', 1, 0) AS CASH_BOX_YN,
+			   MST.DISCNT_RAT,
+		       DECODE(MST.DETAIL_CD_YN, 'Y', 1, 0) AS DETAIL_CD_YN,
+		       DECODE(MST.USE_YN, 'Y', 1, 0) AS USE_YN,
+			   MST.CUSER,
+			   MST.CDATE,
+			   MST.UUSER,
+			   MST.UDATE
+		     
+		FROM        SLE_PAY_MST 	    MST
+		INNER  JOIN SLE_OUTLET_MST      SHOP   ON SHOP.OUTLET_CD   = MST.OUTLET_CD  -- 업장 코드
+		 
+		WHERE  1 = 1
+		
+		<#if outletCd?has_content>  	AND   MST.OUTLET_CD = :outletCd  </#if>
+		<#if useYn?has_content>  		AND   MST.USE_YN  	= DECODE(:useYn, '1', 'Y', MST.USE_YN)  </#if>
+		<#if payCd?has_content>  		AND   MST.PAY_CD  	    = :payCd      </#if>
+		<#if payDetailCd?has_content>  	AND   MST.PAY_DETAIL_CD = :payDetailCd </#if>
+		
+			 	 
+		ORDER BY MST.OUTLET_CD, MST.PAY_CD, MST.PAY_DETAIL_CD
+
+	]]>
+	</statement>
+	 
+	<!--  DATA를 저장한다. -->
+	<statement name="insertData" type="insert">
+	/*+ com.hwfs.rc.sle.dao.payCodeMgmtDAO.insertData */
+		<![CDATA[
+	 	INSERT INTO SLE_PAY_MST
+			(
+				 OUTLET_CD,
+				 PAY_CD,
+				 PAY_DETAIL_CD,
+				 PAY_NM,
+				 PIC_PLACE,
+				 CONN_CD,
+				 
+				 CHANGE_AMT_YN,
+				 CASH_RECEIPT_YN,
+				 VOID_POSS_YN,
+				 NOTAX_YN,
+				 NOSVC_YN,
+				 DETAIL_CD_YN,
+				 CASH_BOX_YN,
+				 
+				 DISCNT_RAT,
+				 USE_YN,
+				 CUSER,
+				 CDATE,
+				 UUSER,
+				 UDATE
+				  
+				 
+			) VALUES (
+				 :outletCd,
+				 :payCd,
+				 :payDetailCd,
+				 
+				<#if payNm?exists> 			:payNm, 				<#else> null, </#if>
+				<#if picPlace?exists> 		:picPlace, 				<#else> null, </#if>
+				<#if connCd?exists> 		:connCd, 				<#else> null, </#if>
+				
+				<#if changeAmtYn?exists> 	DECODE(:changeAmtYn, '1', 'Y', 'N'), 	<#else> null, </#if>
+				<#if cashReceiptYn?exists> 	DECODE(:cashReceiptYn, '1', 'Y', 'N'), 	<#else> null, </#if>
+				<#if voidPossYn?exists> 	DECODE(:voidPossYn, '1', 'Y', 'N'), 	<#else> null, </#if>
+				<#if notaxYn?exists> 		DECODE(:notaxYn, '1', 'Y', 'N'), 		<#else> null, </#if>
+				<#if nosvcYn?exists> 		DECODE(:nosvcYn, '1', 'Y', 'N'), 		<#else> null, </#if>
+				<#if detailCdYn?exists> 	DECODE(:detailCdYn, '1', 'Y', 'N'), 	<#else> null, </#if>
+				<#if cashBoxYn?exists> 		DECODE(:cashBoxYn, '1', 'Y', 'N'), 		<#else> null, </#if>
+				
+				<#if discntRat?exists> 		:discntRat, 			<#else> null, </#if>
+				
+				<#if useYn?exists>   DECODE(:useYn, '1', 'Y', 'N'), <#else> null, </#if>
+				 :loginSabun,
+				 SYSDATE,
+				 :loginSabun,
+				 SYSDATE
+			)
+
+				 
+		
+		]]>
+	</statement>
+	
+	 
+	
+	 <!--  DATA를 수정한다. -->
+	<statement name="updateData" type="update">
+	/*+ com.hwfs.rc.sle.dao.payCodeMgmtDAO.updateData */
+		<![CDATA[
+	  	UPDATE SLE_PAY_MST SET
+			<#if payNm?exists> 			PAY_NM 			= :payNm, 						 </#if>
+			<#if picPlace?exists> 		PIC_PLACE 		= :picPlace, 					 </#if>
+			<#if connCd?exists> 		CONN_CD 		= :connCd,  					 </#if>
+			
+			<#if changeAmtYn?exists> 	CHANGE_AMT_YN 	= DECODE(:changeAmtYn, '1', 'Y', 'N'), 	 </#if>
+			<#if cashReceiptYn?exists> 	CASH_RECEIPT_YN = DECODE(:cashReceiptYn, '1', 'Y', 'N'), </#if>
+			<#if voidPossYn?exists> 	VOID_POSS_YN 	= DECODE(:voidPossYn, '1', 'Y', 'N'), 	 </#if>
+			<#if notaxYn?exists> 		NOTAX_YN 		= DECODE(:notaxYn, '1', 'Y', 'N'), 		 </#if>
+			<#if nosvcYn?exists> 		NOSVC_YN 	 	= DECODE(:nosvcYn, '1', 'Y', 'N'), 		 </#if>
+			<#if cashBoxYn?exists> 		CASH_BOX_YN 	= DECODE(:cashBoxYn, '1', 'Y', 'N'), 	 </#if>
+			<#if detailCdYn?exists> 	DETAIL_CD_YN 	= DECODE(:detailCdYn, '1', 'Y', 'N'),  	 </#if>
+			
+			<#if discntRat?exists> 		DISCNT_RAT 		= :discntRat, 					 </#if>
+			
+			<#if useYn?exists> 			USE_YN 		 	= DECODE(:useYn, '1', 'Y', 'N'), </#if>
+			       UUSER = :loginSabun,
+			       UDATE = SYSDATE
+			       
+			WHERE  OUTLET_CD 	 = :outletCd
+			AND    PAY_CD 		 = :payCd
+			<#if payDetailCd?has_content> 			
+				AND    PAY_DETAIL_CD = :payDetailCd				
+			<#else> 
+				AND    PAY_DETAIL_CD is null 
+			</#if>
+
+ 
+		]]>
+	</statement>
+	
+	 
+	 
+</hqml>	

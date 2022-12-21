@@ -1,0 +1,2520 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="ft.ftp.poOrderMstDAO">
+	<desc>구매 주문에 대한 내역. HQML Query</desc>
+
+	<!-- 구매 주문에 대한 내역. 목록을 조회한다. -->
+	<statement name="selectList" type="select"><![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.selectList */
+        SELECT
+               A.PO_TYPE,
+               CASE WHEN A.PROPOSAL_CLASS = 'B' THEN --그룹웨어 상신
+                    'COMPLETE'
+               ELSE
+                   SCC_SIGN_STATUS_FUN(A.SIGN_INSTANCE_ID)
+               END  AS SIGN_PROGRESS_STATUS,
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'PO_TYPE' AND CODE = A.PO_TYPE ) AS PO_TYPE_NM ,         /* 구매형태명 */
+               B.SALE_TYPE,                                                                  /* 판매 유형            */
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE
+               WHERE  GROUP_CODE = 'SALE_TYPE' AND CODE = B.SALE_TYPE ) AS SALE_TYPE_NM ,    /* 판매유형명 */
+               B.ATTACH_DEPT,                                                                /* 귀속 부서            */
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'ATTACH_DEPT'
+                AND CODE = B.ATTACH_DEPT ) AS ATTACH_DEPT_NM ,                               /* 귀속부서명 */
+               B.PO_ORDER_STATUS,                                                            /* 구매 주문 상태       */
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'PO_ORDER_STATUS'
+                AND CODE = B.PO_ORDER_STATUS ) AS PO_ORDER_STATUS_NM ,                       /* 구매주문상태명 */
+               B.PO_ORDER_NUM,                                                               /* 구매 주문 번호       */
+               B.LC_NUM,                                                                     /* LC 번호              */
+
+               CASE WHEN A.PO_TYPE = '10' THEN --수입
+                   B.BL_NUM
+               ELSE
+                 (SELECT LISTAGG (ITEM_BL_NUM, ',') WITHIN GROUP (ORDER BY ITEM_SEQ ) AS ITEM_BL_NUM
+                  FROM PO_ORDER_ITEM_DETAIL T WHERE T.PO_ORDER_NUM = B.PO_ORDER_NUM )
+               END BL_NUM,                                                                        /* BL 번호              */
+
+               B.PO_PROPOSAL_NUM,                                                            /* 구매 품의 번호       */
+               A.PROPOSAL_WRITE_DATE,                                                        /* 품의작성일자*/
+               B.PO_ORDER_DATE,                                                              /* 구매 주문일          */
+               B.LC_ISSUING_DATE,                                                            /* LC 개설 일자         */
+               B.LSHIP_DATE,                                                                 /* 선적 일자            */
+               B.STARTING_DATE,                                                              /* 출발 일자            */
+               B.ARRIV_DATE,                                                                 /* 도착 일자            */
+               B.SALE_EDATE,                                                                 /* 판매 종료일          */
+               B.SPLR_CD,                                                                    /* 매입처 코드          */
+               B.SPLR_NM,                                                                    /* 매입처 명            */
+               (
+                  SELECT  A.BIZ_REG_NO
+                  FROM EPROCUSR.ESMVDFW A
+                  WHERE 1 = 1
+                  AND A.VD_CD = B.SPLR_CD
+                  AND A.CUS_VD_CLS IN ('10','20','30')
+                  AND A.VD_STS = 'C'
+               ) AS BIZ_REG_NO,
+
+               B.SALSPLCE_CD,                                                                /* 매출처 코드          */
+               B.SALSPLCE_NM,                                                                /* 매출처 명            */
+               (
+                  SELECT  A.SAUPNO
+                  FROM ST_CUST A
+                  WHERE A.CUSTCD=B.SALSPLCE_CD
+                  AND A.USE_YN='Y'
+               ) AS SAUPNO,
+
+               A.DRAFTER_ID,                                                                 /* 품의기안자           */
+               --'' PROPOSAL_APPRV_DATE,           											 /* 품의승인일자         */
+               (SELECT APPROV_DATE FROM SCC_SIGN_INFO WHERE SIGN_INSTANCE_ID = A.SIGN_INSTANCE_ID ) PROPOSAL_APPRV_DATE,   /* 품의승인일자         */
+               (SELECT T.NM_KOR FROM   HR_PERSONAL T, SCC_CC T2
+                WHERE  T2.CC_CD = T.CC_CD AND A.DRAFTER_ID =T.SABUN ) DRAFTER_NM,            /* 품의기안자명         */
+               B.INCOTERMS,                                                                  /* 운송 대금 지급 방법  */
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'INCOTERMS' AND CODE = B.INCOTERMS ) AS INCOTERMS_NM ,   /* 운송 대금 지급 방법명 */
+               (SELECT LISTAGG (PAY_COND_CD, ',') WITHIN GROUP (ORDER BY PAY_COND_SEQ ) AS PAY_COND_CD
+                FROM PO_ORDER_PAY_COND WHERE PO_ORDER_NUM = B.PO_ORDER_NUM ) PAY_COND_CD,    /* 지불조건             */
+
+
+               C.TOT_WONWTR_AMT,                                                             /* 품의금액             */
+               C.TOT_QUANTITY,                                                               /* 총수량             */
+               C.TOT_WGT,                                                                    /* 총중량             */
+               B.AMOUNT_UNIT,                                                                /* 화폐 단위            */
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'AMOUNT_UNIT'
+                AND CODE = B.AMOUNT_UNIT ) AS AMOUNT_UNIT_NM ,                               /* 화폐 단위명 */
+               B.EXCHANGE_RATE,                                                              /* 환률                 */
+               --C.TOT_WONWTR_AMT * B.EXCHANGE_RATE AMOUNT_KRW,           					 /* 금액(KRW) = 구매주문품목상세 (원물금액*환율)의 합 */
+               C.WONWTR_AMT_KRW AS AMOUNT_KRW,												 /* 금액(KRW) = 구매주문품목상세 (원물금액*환율)의 합 */
+               C.TOT_WONWTR_AMT AMOUNT_USD,                              					 /*금액(USD) = 구매주문품목상세 원물금액의 합 */
+               B.LSHIP_NATION_CD,                                                            /* 선적 국가 코드       */
+                (SELECT T2.CODE_NAME FROM PORT_AIRPORT_MGMT_PORT T, SCC_COMMON_CODE T2
+                  WHERE GROUP_CODE = 'NATION_CD'
+                  AND T.NATION_CD = T2.CODE
+                  AND T.PORT_CD = B.LSHIP_PORT_PORT_CD     ) LSHIP_NATION_NM,
+
+
+
+               B.ARRIV_PORT_PORT_CD,                                                         /* 도착 항구/공항 코드  */
+               (SELECT PORT_NM_ENGLISH FROM PORT_AIRPORT_MGMT_PORT WHERE B.ARRIV_PORT_PORT_CD = PORT_CD ) ARRIV_PORT_PORT_NM,
+
+               D.PORT_NM_HANGUL,                                                             /* 도착 항구/공항 코드명  */
+               B.ORIGIN_NATION_CD,                                                           /* 원산지 국가 코드     */
+                (SELECT CODE_NAME FROM SCC_COMMON_CODE
+               WHERE  GROUP_CODE = 'NATION_CD' AND CODE = B.ORIGIN_NATION_CD ) AS ORIGIN_NATION_NM, /* 원산지 국가 코드명       */
+              (SELECT  LISTAGG (ITEM_NM, ',') WITHIN GROUP (ORDER BY ITEM_NM ) AS ITEM_NM
+              FROM PO_ORDER_ITEM_DETAIL T WHERE B.PO_ORDER_NUM = T.PO_ORDER_NUM ) ITEM_NM,   /*품목명*/
+               B.PO_PROGRESS_STATUS,                                                         /* PO 진행 상태         */
+               B.EXCHANGE_RATE_DATE,                                                         /* 환률 일자            */
+               B.LSHIP_PORT_PORT_CD,                                                         /* 선적 항구/공항 코드  */
+               B.ARRIV_NATION_CD,                                                            /* 도착 국가 코드       */
+               B.BL_ACCEPT_DATE,                                                             /* BL 접수 일자         */
+               B.SHIPPER,                                                                    /* Shipper              */
+               (SELECT VD_NM_LOC FROM EPROCUSR.ESMVDFW WHERE B.SHIPPER = VD_CD AND CUS_VD_CLS = '20'  AND VD_STS = 'C') SHIPPER_NM,
+               B.TRANSPORT_TYPE,                                                             /* 운송 타입            */
+               DECODE(B.LG_YN, 'Y', 1, 0) AS LG_YN,                                          /* LG 여부              */
+               B.LC_ISSUING_AMT,                                                             /* LC 개설 금액         */
+               DECODE(B.DIVIDE_LSHIP_ALLOW_YN, 'Y', 1, 0) AS DIVIDE_LSHIP_ALLOW_YN,          /* 분할 선적 허용 여부  */
+               DECODE(B.TRANSHIPMENT_ALLOW_YN, 'Y', 1, 0) AS TRANSHIPMENT_ALLOW_YN,          /* 환적 허용 여부       */
+               B.PRTG_PAYAMT_METHOD,                                                         /* 운임의 지급 방법     */
+               B.REMARK,                                                                     /* REMARK               */
+               B.PO_AFTERSTATUS,                                                             /* PO 후상태            */
+               DECODE(B.DEL_YN, 'Y', 1, 0) AS DEL_YN,                                        /* 삭제 여부            */
+               B.INSC_NUM,                                                                   /* 보험증권 번호        */
+               B.INSUR_ENT_DATE,                                                             /* 보험 가입 일자       */
+               B.INSUR_ENT_AMT,                                                              /* 보험 가입 금액       */
+               (SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = B.CUSER) AS CUSER,     /* 생성자               */
+               B.CDATE,                                                                      /* 생성일               */
+               (SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = B.UUSER) AS UUSER,     /* 수정자               */
+               B.UDATE,                                                                       /* 수정일               */
+               FT_PO_ORDER_DELYN_FUN(B.PO_ORDER_NUM) AS DELPYN                                /* PO삭제가능여부*/
+        FROM   PO_PROPOSAL_MST A
+               ,PO_ORDER_MST B
+               ,(SELECT PO_ORDER_NUM, SUM(WONWTR_AMT) TOT_WONWTR_AMT, SUM(QUANTITY) TOT_QUANTITY, SUM( WGT) TOT_WGT, SUM(WONWTR_AMT_KRW) AS WONWTR_AMT_KRW FROM PO_ORDER_ITEM_DETAIL GROUP BY PO_ORDER_NUM ) C
+               ,(
+                SELECT A.NATION_CD,A.PORT_CD,B.CODE_NAME NATION_HANGUL,A.PORT_NM_HANGUL
+                FROM   PORT_AIRPORT_MGMT_PORT A,
+                       (
+                          SELECT *
+                          FROM   SCC_COMMON_CODE
+                          WHERE  GROUP_CODE = 'NATION_CD'
+                          AND    USE_YN = 'Y'
+                       ) B
+                WHERE A.NATION_CD = B.CODE
+               ) D,
+               (
+                  SELECT *
+                  FROM EPROCUSR.ESMVDFW A
+                  WHERE A.CUS_VD_CLS = '20'
+                  AND A.VD_STS = 'C'
+               ) E
+        WHERE A.PO_PROPOSAL_NUM = B.PO_PROPOSAL_NUM
+        AND B.PO_ORDER_NUM = C.PO_ORDER_NUM(+)
+        AND B.ARRIV_NATION_CD = D.NATION_CD(+)
+        AND B.ARRIV_PORT_PORT_CD = D.PORT_CD(+)
+        AND B.SHIPPER = E.VD_CD(+)
+        <#if term?has_content>
+            <#if term == "A">	/* 구매주문일 */
+                AND B.PO_ORDER_DATE BETWEEN :startTerm AND :endTerm
+            <#elseif term == "B">	/* 판매종료일자 */
+                AND B.SALE_EDATE BETWEEN :startTerm AND :endTerm
+            </#if>
+        </#if>
+        <#if poOrderStatus?has_content>
+            /* 상태 */
+            AND B.PO_ORDER_STATUS = :poOrderStatus
+        </#if>
+        <#if poType?has_content>
+            /* 구매형태 */
+            AND A.PO_TYPE = :poType
+        </#if>
+        <#if search?has_content>
+            /* 검색 */
+            <#if search == "A">	/* P/O No */
+                <#if searchContents?has_content>
+                    AND B.PO_ORDER_NUM LIKE '%'||:searchContents||'%'
+                </#if>
+            <#elseif search == "B">	/* L/C No */
+                <#if searchContents?has_content>
+                    AND B.LC_NUM LIKE '%'||:searchContents||'%'
+                </#if>
+            <#elseif search == "C">	/* 품명 리스트 형태인데  */
+                <#if searchContents?has_content>
+                    AND EXISTS (
+                        SELECT 1 FROM PO_ORDER_ITEM_DETAIL WHERE PO_ORDER_NUM = B.PO_ORDER_NUM
+                        AND ITEM_NM LIKE '%'||:searchContents||'%'
+                    )
+                </#if>
+            <#elseif search == "D">	/* B/L NO */
+                <#if searchContents?has_content>
+                    AND B.BL_NUM LIKE '%'||:searchContents||'%'
+                </#if>
+            </#if>
+        </#if>
+        <#if shipper?has_content>
+            /* 판매처 */
+            AND B.SALSPLCE_NM LIKE '%'||:shipper||'%'
+        </#if>
+        <#if attachDept?has_content>
+            /* 귀속부서 */
+            AND B.ATTACH_DEPT = :attachDept
+        </#if>
+        AND NVL(B.DEL_YN,'') <> 'Y'
+        ORDER BY B.CDATE DESC ,B.PO_ORDER_NUM DESC
+        ]]></statement>
+
+	<!-- 구매 주문에 대한 내역.(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.insert */
+        INSERT INTO PO_ORDER_MST
+        (
+         PO_ORDER_NUM,
+         PO_PROPOSAL_NUM,
+         PO_ORDER_STATUS,
+         PO_PROGRESS_STATUS,
+         ATTACH_DEPT,
+         SPLR_CD,
+         SPLR_NM,
+         SALSPLCE_CD,
+         SALSPLCE_NM,
+         SALE_TYPE,
+         PO_ORDER_DATE,
+         SALE_EDATE,
+         LSHIP_DATE,
+         ARRIV_DATE,
+         STARTING_DATE,
+         LC_ISSUING_DATE,
+         AMOUNT_UNIT,
+         EXCHANGE_RATE_DATE,
+         EXCHANGE_RATE,
+         LSHIP_NATION_CD,
+         LSHIP_PORT_PORT_CD,
+         ARRIV_NATION_CD,
+         ARRIV_PORT_PORT_CD,
+         ORIGIN_NATION_CD,
+         INCOTERMS,
+         BL_NUM,
+         BL_ACCEPT_DATE,
+         SHIPPER,
+         TRANSPORT_TYPE,
+         LG_YN,
+         LC_NUM,
+         LC_ISSUING_AMT,
+         DIVIDE_LSHIP_ALLOW_YN,
+         TRANSHIPMENT_ALLOW_YN,
+         PRTG_PAYAMT_METHOD,
+         REMARK,
+         PO_AFTERSTATUS,
+         DEL_YN,
+         INSC_NUM,
+         INSUR_ENT_DATE,
+         INSUR_ENT_AMT,
+         FILE_REF_SRL_NUM,
+         ENTRY_SCHD_DATE,
+         CUSER,
+         CDATE,
+         UUSER,
+         UDATE
+        ) VALUES (
+         :poOrderNum,
+         :poProposalNum,
+        <#if poOrderStatus?exists> :poOrderStatus, <#else> null, </#if>
+        '10',			/* PO 진행 상태:PO등록 */
+        <#if attachDept?exists> :attachDept, <#else> null, </#if>
+        <#if splrCd?exists> :splrCd, <#else> null, </#if>
+        <#if splrNm?exists> :splrNm, <#else> null, </#if>
+        <#if salsplceCd?exists> :salsplceCd, <#else> null, </#if>
+        <#if salsplceNm?exists> :salsplceNm, <#else> null, </#if>
+        <#if saleType?exists> :saleType, <#else> null, </#if>
+        <#if poOrderDate?exists> :poOrderDate, <#else> null, </#if>
+        <#if saleEdate?exists> :saleEdate, <#else> null, </#if>
+        <#if lshipDate?exists> :lshipDate, <#else> null, </#if>
+        <#if arrivDate?exists> :arrivDate, <#else> null, </#if>
+        <#if startingDate?exists> :startingDate, <#else> null, </#if>
+        <#if lcIssuingDate?exists> :lcIssuingDate, <#else> null, </#if>
+        <#if amountUnit?exists> :amountUnit, <#else> null, </#if>
+        <#if exchangeRateDate?exists> :exchangeRateDate, <#else> null, </#if>
+        <#if exchangeRate?exists> :exchangeRate, <#else> null, </#if>
+        <#if lshipNationCd?exists> :lshipNationCd, <#else> null, </#if>
+        <#if lshipPortPortCd?exists> :lshipPortPortCd, <#else> null, </#if>
+        <#if arrivNationCd?exists> :arrivNationCd, <#else> null, </#if>
+        <#if arrivPortPortCd?exists> :arrivPortPortCd, <#else> null, </#if>
+        <#if originNationCd?exists> :originNationCd, <#else> null, </#if>
+        <#if incoterms?exists> :incoterms, <#else> null, </#if>
+        <#if blNum?exists> :blNum, <#else> null, </#if>
+        <#if blAcceptDate?exists> :blAcceptDate, <#else> null, </#if>
+        <#if shipper?exists> :shipper, <#else> null, </#if>
+        <#if transportType?exists> :transportType, <#else> null, </#if>
+        <#if lgYn?exists> :lgYn, <#else> null, </#if>
+        <#if lcNum?exists> :lcNum, <#else> null, </#if>
+        <#if lcIssuingAmt?exists> :lcIssuingAmt, <#else> null, </#if>
+        <#if divideLshipAllowYn?exists> DECODE(:divideLshipAllowYn, '1', 'Y', 'N'), <#else> null, </#if>
+        <#if transhipmentAllowYn?exists> DECODE(:transhipmentAllowYn, '1', 'Y', 'N'), <#else> null, </#if>
+        <#if prtgPayamtMethod?exists> :prtgPayamtMethod, <#else> null, </#if>
+        <#if remark?exists> :remark, <#else> null, </#if>
+        <#if poAfterstatus?exists> :poAfterstatus, <#else> null, </#if>
+        <#if delYn?exists> DECODE(:delYn, '1', 'Y', 'N'), <#else> 'N', </#if>
+        <#if inscNum?exists> :inscNum, <#else> null, </#if>
+        <#if insurEntDate?exists> :insurEntDate, <#else> null, </#if>
+        <#if insurEntAmt?exists> :insurEntAmt, <#else> null, </#if>
+         :fileRefSrlNum,
+        <#if entrySchdDate?exists> :entrySchdDate, <#else> null, </#if>
+         :loginSabun,
+         SYSDATE,
+         :loginSabun,
+         SYSDATE
+        )
+
+        ]]>
+	</statement>
+
+	<!-- 구매 주문에 대한 내역.(을)를 수정한다. -->
+	<statement name="update" type="update">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.update */
+        UPDATE PO_ORDER_MST SET
+               PO_PROPOSAL_NUM = :poProposalNum,
+        <#if poOrderStatus?exists> PO_ORDER_STATUS = :poOrderStatus, </#if>
+        <#if poProgressStatus?exists> PO_PROGRESS_STATUS = :poProgressStatus, </#if>
+        <#if attachDept?exists> ATTACH_DEPT = :attachDept, </#if>
+        <#if splrCd?exists> SPLR_CD = :splrCd, </#if>
+        <#if splrNm?exists> SPLR_NM = :splrNm, </#if>
+        <#if salsplceCd?exists> SALSPLCE_CD = :salsplceCd, </#if>
+        <#if salsplceNm?exists> SALSPLCE_NM = :salsplceNm, </#if>
+        <#if saleType?exists> SALE_TYPE = :saleType, </#if>
+        <#if poOrderDate?exists> PO_ORDER_DATE = :poOrderDate, </#if>
+        <#if saleEdate?exists> SALE_EDATE = :saleEdate, </#if>
+        <#if lshipDate?exists> LSHIP_DATE = :lshipDate, </#if>
+        <#if arrivDate?exists> ARRIV_DATE = :arrivDate, </#if>
+        <#if startingDate?exists> STARTING_DATE = :startingDate, </#if>
+        <#if lcIssuingDate?exists> LC_ISSUING_DATE = :lcIssuingDate, </#if>
+        <#if amountUnit?exists> AMOUNT_UNIT = :amountUnit, </#if>
+        <#if exchangeRateDate?exists> EXCHANGE_RATE_DATE = :exchangeRateDate, </#if>
+        <#if exchangeRate?exists> EXCHANGE_RATE = :exchangeRate, </#if>
+        <#if lshipNationCd?exists> LSHIP_NATION_CD = :lshipNationCd, </#if>
+        <#if lshipPortPortCd?exists> LSHIP_PORT_PORT_CD = :lshipPortPortCd, </#if>
+        <#if arrivNationCd?exists> ARRIV_NATION_CD = :arrivNationCd, </#if>
+        <#if arrivPortPortCd?exists> ARRIV_PORT_PORT_CD = :arrivPortPortCd, </#if>
+        <#if originNationCd?exists> ORIGIN_NATION_CD = :originNationCd, </#if>
+        <#if incoterms?exists> INCOTERMS = :incoterms, </#if>
+        <#if blNum?exists> BL_NUM = :blNum, </#if>
+        <#if blAcceptDate?exists> BL_ACCEPT_DATE = :blAcceptDate, </#if>
+        <#if shipper?exists> SHIPPER = :shipper, </#if>
+        <#if transportType?exists> TRANSPORT_TYPE = :transportType, </#if>
+        <#if lgYn?exists> LG_YN = :lgYn, </#if>
+        <#if lcNum?exists> LC_NUM = :lcNum, </#if>
+        <#if lcIssuingAmt?exists> LC_ISSUING_AMT = :lcIssuingAmt, </#if>
+        <#if divideLshipAllowYn?exists> DIVIDE_LSHIP_ALLOW_YN = :divideLshipAllowYn , </#if>
+        <#if transhipmentAllowYn?exists> TRANSHIPMENT_ALLOW_YN = :transhipmentAllowYn, </#if>
+        <#if prtgPayamtMethod?exists> PRTG_PAYAMT_METHOD = :prtgPayamtMethod, </#if>
+        <#if remark?exists> REMARK = :remark, </#if>
+        <#if poAfterstatus?exists> PO_AFTERSTATUS = :poAfterstatus, </#if>
+        <#if delYn?exists> DEL_YN = DECODE(:delYn, '1', 'Y', 'N'), </#if>
+        <#if inscNum?exists> INSC_NUM = :inscNum, </#if>
+        <#if insurEntDate?exists> INSUR_ENT_DATE = :insurEntDate, </#if>
+        <#if insurEntAmt?exists> INSUR_ENT_AMT = :insurEntAmt, </#if>
+        <#if fileRefSrlNum?exists> FILE_REF_SRL_NUM = :fileRefSrlNum, </#if>
+        <#if entrySchdDate?exists> ENTRY_SCHD_DATE = :entrySchdDate, </#if>
+               UUSER = :loginSabun,
+               UDATE = SYSDATE
+        WHERE  PO_ORDER_NUM = :poOrderNum
+
+        ]]>
+	</statement>
+
+
+	<!-- 구매 주문에 대한 내역.(을)를 수정한다. -->
+	<statement name="updateSaleType" type="update">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.update */
+        UPDATE PO_ORDER_MST SET
+        	   SALE_TYPE = :saleType, 
+               UUSER = :loginSabun,
+               UDATE = SYSDATE
+        WHERE  PO_ORDER_NUM = :poOrderNum
+
+        ]]>
+	</statement>
+
+
+	<!-- 구매 주문에 대한 내역.(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.delete */
+        DELETE
+        FROM   PO_ORDER_MST
+        WHERE  PO_ORDER_NUM = :poOrderNum
+
+        ]]>
+	</statement>
+
+
+	<!-- 구매 품의 삭제한다. -->
+	<statement name="deletePoOrderMst" type="update">
+		<![CDATA[
+            /*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.deletePoOrderMst */
+            UPDATE PO_ORDER_MST SET
+                 DEL_YN          			 = :delYn
+                ,UUSER                       = :uuser
+                ,UDATE                       = SYSDATE
+            WHERE PO_ORDER_NUM = :poOrderNum
+        ]]>
+	</statement>
+
+	<!-- 구매주문 확정,취소한다.. -->
+	<statement name="updatePoOrderStatus" type="update">
+		<![CDATA[
+            /*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.updatePoOrderConfirm */
+            UPDATE PO_ORDER_MST SET
+                 PO_ORDER_STATUS             = :poOrderStatus
+                ,UUSER                       = :uuser
+                ,UDATE                       = SYSDATE
+            WHERE PO_ORDER_NUM = :poOrderNum
+        ]]>
+	</statement>
+
+	<!-- 확정취소는 구매형태가 수입은 매입전표 발행전까지 가능하고, 내수는 품목탭에 창고코드가 한 품목도 없을 때 가능 체크. -->
+	<statement name="chkGdspaymCnt" type="select">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.chkGdspaymMst */
+            SELECT COUNT(PO_ORDER_NUM) CNT FROM GDSPAYM_MST
+            WHERE PO_ORDER_NUM=:poOrderNum
+        ]]>
+	</statement>
+
+	<!-- 확정취소는 구매형태가 수입은 매입전표 발행전까지 가능하고, 내수는 품목탭에 창고코드가 한 품목도 없을 때 가능 체크. -->
+	<statement name="chkWhCdCnt" type="select">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.chkWhCdCnt */
+            SELECT COUNT(WH_CD) CNT FROM PO_ORDER_ITEM_DETAIL
+            WHERE PO_ORDER_NUM=:poOrderNum
+              AND WH_CD IS NOT NULL
+        ]]>
+	</statement>
+
+	<!-- 확정취소는 PO후상태가 확정이면 취소 불가 -->
+	<statement name="selectPoAfterstatus" type="select">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.selectPoAfterstatus */
+            SELECT SCC_SIGN_STATUS_FUN(A.SIGN_INSTANCE_ID) STATUS_NM FROM PO_PROPOSAL_MST A
+            WHERE A.PO_PROPOSAL_NUM=:poProposalNum
+        ]]>
+	</statement>
+
+
+	<!-- 구매 주문에 대한 내역. 목록을 조회한다. -->
+	<statement name="selectPoOrderDtl" type="select">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.selectPoOrderDtl */
+        SELECT
+               B.PO_ORDER_NUM,                                                               /* 구매 주문 번호       */
+               A.INT_RATE,
+               B.PO_PROPOSAL_NUM,                                                            /* 구매 품의 번호       */
+               B.PO_ORDER_STATUS,                                                            /* 구매 주문 상태       */
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'PO_ORDER_STATUS'
+                AND CODE = B.PO_ORDER_STATUS ) AS PO_ORDER_STATUS_NM ,                       /* 구매주문상태명 */
+               B.PO_PROGRESS_STATUS,                                                         /* PO 진행 상태         */
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE
+               WHERE  GROUP_CODE = 'PO_PROGRESS_STATUS' AND CODE = B.PO_PROGRESS_STATUS ) AS PO_PROGRESS_STATUS_NM, /* PO 진행 상태명       */
+               A.PROPOSAL_TITLE,
+               (SELECT TO_CHAR(T.APPROV_DATE,'YYYYMMDD') FROM SCC_SIGN_INFO T WHERE T.SIGN_INSTANCE_ID =A.SIGN_INSTANCE_ID AND T.SIGN_PROGRESS_STATUS='COMPLETE' ) AS PROPOSAL_APPRV_DATE,  /* 품의승인일자         */
+               B.PO_ORDER_DATE,                                                              /* 구매 주문일          */
+               A.PO_TYPE,
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'PO_TYPE' AND CODE = A.PO_TYPE ) AS PO_TYPE_NM ,         /* 구매형태명 */
+                  A.DRAFTER_ID,                                                                 /* 품의기안자           */
+                 (SELECT T.NM_KOR FROM   HR_PERSONAL T, SCC_CC T2
+                  WHERE  T2.CC_CD = T.CC_CD AND A.DRAFTER_ID =T.SABUN ) DRAFTER_NM,            /* 품의기안자명         */
+                 (SELECT LISTAGG (T2.CODE_NAME, ',') WITHIN GROUP (ORDER BY PAY_COND_SEQ ) AS PAY_COND_CD
+                    FROM PO_ORDER_PAY_COND T,
+                         SCC_COMMON_CODE T2
+                    WHERE T.PAY_COND_CD = T2.CODE
+                    AND T2.GROUP_CODE = 'PAY_TERMS_CD'
+                    AND PO_ORDER_NUM = B.PO_ORDER_NUM
+                 ) PAY_COND_CD,
+
+               B.SALSPLCE_CD,                                                                /* 매출처 코드          */
+               B.SALSPLCE_NM,                                                                /* 매출처 명            */
+               (
+                  SELECT  A.SAUPNO
+                  FROM ST_CUST A
+                  WHERE A.CUSTCD=B.SALSPLCE_CD
+                  AND A.USE_YN='Y'
+               ) AS SAUPNO,
+               B.SALE_EDATE,                                                                 /* 판매 종료일          */
+               A.INCOME_TYPE,                                                                /* 수입유형             */
+               B.SPLR_CD,                                                                    /* 매입처 코드          */
+               B.SPLR_NM,                                                                    /* 매입처 명            */
+               (
+                  SELECT  A.BIZ_REG_NO
+                  FROM EPROCUSR.ESMVDFW A
+                  WHERE 1 = 1
+                  AND A.VD_CD = B.SPLR_CD
+                  AND A.CUS_VD_CLS IN ('10','20','30')
+                  AND A.VD_STS = 'C'
+               ) AS BIZ_REG_NO,
+               B.SALE_TYPE,                                                                  /* 판매 유형            */
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE
+               WHERE  GROUP_CODE = 'SALE_TYPE' AND CODE = B.SALE_TYPE ) AS SALE_TYPE_NM ,    /* 판매유형명 */
+               B.INCOTERMS,                                                                  /* 운송 대금 지급 방법  */
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'INCOTERMS' AND CODE = B.INCOTERMS ) AS INCOTERMS_NM ,   /* 운송 대금 지급 방법명 */
+               B.ATTACH_DEPT,                                                                /* 귀속 부서            */
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'ATTACH_DEPT'
+                AND CODE = B.ATTACH_DEPT ) AS ATTACH_DEPT_NM ,                               /* 귀속부서명 */
+               C.TOT_WONWTR_AMT,                                                             /* 품의금액             */
+               C.TOT_QUANTITY,                                                               /* 총수량             */
+               C.TOT_WGT,                                                                    /* 총중량             */
+               B.AMOUNT_UNIT,                                                                /* 화폐 단위            */
+                   B.BL_NUM,                                                                     /* BL 번호              */
+               B.BL_ACCEPT_DATE,                                                             /* BL 접수 일자         */
+               B.EXCHANGE_RATE_DATE,                                                         /* 환률 일자            */
+               B.EXCHANGE_RATE,                                                              /* 환률                 */
+               B.SHIPPER,                                                                    /* Shipper              */
+               (SELECT VD_NM_LOC FROM EPROCUSR.ESMVDFW WHERE B.SHIPPER = VD_CD AND CUS_VD_CLS = '20'  AND VD_STS = 'C') SHIPPER_NM,
+               B.TRANSPORT_TYPE,                                                             /* 운송 타입            */
+               NVL(B.LG_YN,'N') LG_YN,                                                         /* LG 여부              */
+               B.LSHIP_DATE,                                                                 /* 선적 일자            */
+               B.STARTING_DATE,                                                              /* 출발 일자            */
+               B.ARRIV_DATE,                                                                 /* 도착 일자            */
+               B.ORIGIN_NATION_CD,                                                           /* 원산지 국가 코드     */
+                (SELECT CODE_NAME FROM SCC_COMMON_CODE
+               WHERE  GROUP_CODE = 'NATION_CD' AND CODE = B.ORIGIN_NATION_CD ) AS ORIGIN_NATION_NM, /* 원산지 국가 코드명       */
+               B.LSHIP_NATION_CD,                                                            /* 선적 국가 코드       */
+                (SELECT T2.CODE_NAME FROM PORT_AIRPORT_MGMT_PORT T, SCC_COMMON_CODE T2
+                  WHERE GROUP_CODE = 'NATION_CD'
+                  AND T.NATION_CD = T2.CODE
+                  AND T.PORT_CD = B.LSHIP_PORT_PORT_CD     ) LSHIP_NATION_NM,
+
+
+
+               B.LSHIP_PORT_PORT_CD,                                                         /* 선적 항구/공항 코드  */
+               --(SELECT PORT_NM_HANGUL FROM PORT_AIRPORT_MGMT_PORT WHERE B.LSHIP_PORT_PORT_CD = PORT_CD ) LSHIP_PORT_PORT_NM,
+               (SELECT PORT_NM_HANGUL FROM PORT_AIRPORT_MGMT_PORT WHERE b.LSHIP_NATION_CD = PORT_CD ) LSHIP_PORT_PORT_NM,
+
+               B.ARRIV_NATION_CD,                                                            /* 도착 국가 코드       */
+                (SELECT T2.CODE_NAME FROM PORT_AIRPORT_MGMT_PORT T, SCC_COMMON_CODE T2
+                  WHERE GROUP_CODE = 'NATION_CD'
+                  AND T.NATION_CD = T2.CODE
+                  AND T.PORT_CD = B.ARRIV_PORT_PORT_CD     ) ARRIV_NATION_NM,
+               B.ARRIV_PORT_PORT_CD,                                                         /* 도착 항구/공항 코드  */
+               (SELECT PORT_NM_ENGLISH FROM PORT_AIRPORT_MGMT_PORT WHERE B.ARRIV_PORT_PORT_CD = PORT_CD ) ARRIV_PORT_PORT_NM,
+
+               B.INSC_NUM,                                                                   /* 보험증권 번호        */
+               B.INSUR_ENT_DATE,                                                             /* 보험 가입 일자       */
+               B.INSUR_ENT_AMT,                                                              /* 보험 가입 금액       */
+               NVL((SELECT NVL(B.INSUR_ENT_AMT,0)- NVL(SUM(COMM_AMT),0) FROM PO_ORDER_OTHER_AMT
+               WHERE PO_ORDER_NUM =B.PO_ORDER_NUM AND COMM_CLASS='A-27'),0) INSUR_ENT_BAL_AMT,  /* 보험 가입 잔액         */
+               B.LC_NUM,                                                                     /* LC 번호              */
+               NVL(B.DIVIDE_LSHIP_ALLOW_YN,'Y') DIVIDE_LSHIP_ALLOW_YN,                                 /* 분할 선적 허용 여부  */
+               B.LC_ISSUING_DATE,                                                            /* LC 개설 일자         */
+               NVL(B.TRANSHIPMENT_ALLOW_YN, 'Y') TRANSHIPMENT_ALLOW_YN ,                                 /* 환적 허용 여부       */
+               B.LC_ISSUING_AMT,                                                             /* LC 개설 금액         */
+               NVL((SELECT NVL(B.LC_ISSUING_AMT,0)- NVL(SUM(COMM_AMT),0) FROM PO_ORDER_OTHER_AMT
+               WHERE PO_ORDER_NUM =B.PO_ORDER_NUM AND COMM_CLASS IN ('B-01')),0) LC_ISSUING_BAL_AMT, /* LC 개설 잔액         */
+               B.PRTG_PAYAMT_METHOD,                                                         /* 운임의 지급 방법     */
+               B.REMARK,                                                                     /* REMARK               */
+
+               A.PROPOSAL_WRITE_DATE,                                                        /* 품의작성일자*/
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'AMOUNT_UNIT'
+                AND CODE = B.AMOUNT_UNIT ) AS AMOUNT_UNIT_NM ,                               /* 화폐 단위명 */
+               C.TOT_WONWTR_AMT * B.EXCHANGE_RATE AMOUNT_KRW,                                /* 금액(KRW) = 구매주문품목상세 (원물금액*환율)의 합 */
+               C.TOT_WONWTR_AMT AMOUNT_USD,                                                  /*금액(USD) = 구매주문품목상세 원물금액의 합 */
+
+               B.PO_AFTERSTATUS,                                                             /* PO 후상태            */
+               DECODE(B.DEL_YN, 'Y', 1, 0) AS DEL_YN,                                        /* 삭제 여부            */
+               B.FILE_REF_SRL_NUM,															 /* 파일 참조 일련 번호            */
+               (SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = B.CUSER) AS CUSER,     /* 생성자               */
+               B.CDATE,                                                                      /* 생성일               */
+               (SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = B.UUSER) AS UUSER,     /* 수정자               */
+               B.UDATE,                                                                      /* 수정일               */
+               A.PO_KIND,    /* 구매종류 */
+               C.TOT_WONWTR_AMT TOT_USD_WONWTR_AMT,
+               CASE WHEN A.PO_TYPE = '10' THEN --수입
+                    --C.TOT_WONWTR_AMT * B.EXCHANGE_RATE
+                    ROUND(C.WONWTR_AMT_KRW)
+               ELSE
+                    C.TOT_WONWTR_AMT
+               END TOT_KRW_WONWTR_AMT,
+
+                (SELECT LISTAGG (ITEM_NM, ',') WITHIN GROUP (ORDER BY ITEM_NM) AS ITEM_CD
+                                      FROM PO_ORDER_ITEM_DETAIL WHERE PO_ORDER_NUM = B.PO_ORDER_NUM ) REMARKS2,  /*적요2*/
+
+               (SELECT SET1 FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'ATTACH_DEPT'
+                AND CODE = A.ATTACH_DEPT ) AS ATTACH_DEPT_SAP,   /*귀속부서명*/
+               B.ENTRY_SCHD_DATE,
+               TO_CHAR(ADD_MONTHS(A.ENTRY_SCHD_DATE,3),'YYYYMMDD') EXPIRE_CAL_BASIS_DATE,
+               (SELECT COUNT(T2.SLIP_NUM)	--물품대금 전표승인건수
+                FROM GDSPAYM_MST T
+                     ,FT_SAP_INTERFACE T2
+                WHERE T.PO_ORDER_NUM = B.PO_ORDER_NUM
+                AND T.SLIP_NUM = T2.SLIP_NUM
+                AND T2.SLIP_STATUS IN ('V','P')
+                ) SLIP_APPR_CNT
+        FROM   PO_PROPOSAL_MST A
+               ,PO_ORDER_MST B
+               ,(SELECT PO_ORDER_NUM, SUM(WONWTR_AMT) TOT_WONWTR_AMT,SUM(WONWTR_AMT_KRW) AS WONWTR_AMT_KRW, SUM(QUANTITY) TOT_QUANTITY, SUM( WGT) TOT_WGT FROM PO_ORDER_ITEM_DETAIL GROUP BY PO_ORDER_NUM ) C
+        WHERE A.PO_PROPOSAL_NUM = B.PO_PROPOSAL_NUM
+        AND B.PO_ORDER_NUM = C.PO_ORDER_NUM(+)
+
+        AND NVL(B.DEL_YN,'') <> 'Y'
+        AND B.PO_ORDER_NUM = :poOrderNum
+        ]]>
+	</statement>
+
+
+	<!-- 구매 주문 품목 상세를 조회한다. -->
+	<statement name="selectPoOrderItemDetail" type="select">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.selectPoOrderItemDetail */
+        SELECT
+               A.PO_PROPOSAL_NUM,
+               B.PO_ORDER_NUM,
+               B.ITEM_SEQ,
+               B.ITEM_CD,
+               C.ITEM_NAME||' '||C.ITEM_SIZE AS ITEM_NM,
+               B.UNIT,
+               B.QUANTITY,
+               B.UPRICE,
+               B.WONWTR_AMT,
+               B.WGT,
+               B.TAX_YN,
+               B.HS_CD,
+               B.ITEM_BL_NUM,
+               B.INCOME_DTR_DSCT_NUM,
+               B.EST_NO,
+               NVL(B.WH_CD,E.DELIVER_WH_CD) WH_CD,
+               (SELECT T.VD_NM_LOC FROM EPROCUSR.ESMVDFW T WHERE T.VD_CD = NVL(B.WH_CD,E.DELIVER_WH_CD) AND T.VD_STS = 'C' AND ROWNUM=1
+               			/* 구매주문 작성시 창고명이 조회되지 않아 rollback
+               			AND T.CUS_VD_CLS IN ('10', '50')  AND T.VD_STS = 'C' 
+               			AND EXISTS (SELECT 1 FROM EPROCUSR.ESMVDOG A
+                        					WHERE A.SYS_ID = T.SYS_ID
+                          					AND A.VD_SN = T.VD_SN
+                          					AND A.OPER_ORG_SN = '414' --FC부문 협력업체만
+                          			)
+                         */
+               )  WH_NM,  /*창고명 */
+               B.ORIGIN,
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'NATION_CD' AND CODE = B.ORIGIN ) AS ORIGIN_NM,
+               B.REMARK,
+               B.ENTRY_END_QUANTITY,
+               (SELECT COUNT(*) FROM INVENTORY_MGMT_DELIVER WHERE A.PO_ORDER_NUM = PO_ORDER_NUM AND DELIVER_STATUS='20') DELIVER_CNT,	  /* 통관된 입고내역건*/
+               (SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = B.CUSER) AS CUSER,
+               B.CDATE,
+               (SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = B.UUSER) AS UUSER,
+               B.UDATE,
+               C.KG_CONVERT_RATE,
+               B.CHARG_COST,
+               B.IOUT_COST,
+               B.UPRICE_KRW,
+               ROUND(B.WONWTR_AMT_KRW) AS WONWTR_AMT_KRW,
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'ITEM_UNIT' AND CODE = B.UNIT ) AS SET1,
+               /*
+               D.FIRST_DELIVER_DATE,
+               D.CURRENT_WH_DELIVER_DATE
+               */
+               D.FIRST_DELIVER_DATE,
+               D.CURRENT_WH_DELIVER_DATE
+
+        FROM   PO_ORDER_MST A
+              ,PO_ORDER_ITEM_DETAIL B
+              ,HLDC_PO_ITEM_MST C
+              ,(SELECT T.PO_ORDER_NUM, T.ITEM_CD, T.ITEM_SEQ, MAX(FIRST_DELIVER_DATE) AS FIRST_DELIVER_DATE, MAX(CURRENT_WH_DELIVER_DATE) AS CURRENT_WH_DELIVER_DATE FROM INVENTORY_MGMT_DELIVER T
+                GROUP BY T.PO_ORDER_NUM, T.ITEM_CD, T.ITEM_SEQ
+                ) D
+              ,PO_PROPOSAL_MST E
+        WHERE  A.PO_ORDER_NUM = B.PO_ORDER_NUM
+        AND B.ITEM_CD = C.ITEM_CODE(+)
+        AND B.PO_ORDER_NUM = D.PO_ORDER_NUM(+)
+        AND B.ITEM_CD = D.ITEM_CD(+)
+        AND B.ITEM_SEQ = D.ITEM_SEQ(+)
+        AND A.PO_PROPOSAL_NUM = E.PO_PROPOSAL_NUM
+        AND    B.PO_ORDER_NUM = :poOrderNum
+        ORDER BY B.ITEM_SEQ
+        ]]>
+	</statement>
+
+	<!-- 구매 주문 지불 조건를 조회한다. -->
+	<statement name="selectPoOrderPayCond" type="select">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.selectPoOrderPayCond */
+        SELECT A.PO_ORDER_NUM,
+               A.PAY_COND_CLASS,
+               A.PAY_COND_SEQ,
+               A.PAY_COND_CD,
+               A.PAY_AMT,
+               (SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.CUSER) AS CUSER,
+               A.CDATE,
+               (SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.UUSER) AS UUSER,
+               A.UDATE
+        FROM   PO_ORDER_PAY_COND A
+        WHERE  A.PO_ORDER_NUM = :poOrderNum
+        ]]>
+	</statement>
+
+	<!-- 구매주문 INVOICE를 조회한다. -->
+	<statement name="selectPoOrderInvoice" type="select">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.selectPoOrderInvoice */
+        SELECT A.PO_ORDER_NUM,
+               A.INVOICE_SEQ,
+               A.INVOICE_NUM,
+               A.INVOICE_PUBLISH_DATE,
+               (SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.CUSER) AS CUSER,
+               A.CDATE,
+               (SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.UUSER) AS UUSER,
+               A.UDATE
+        FROM   PO_ORDER_INVOICE A
+        WHERE  A.PO_ORDER_NUM = :poOrderNum
+        ]]>
+	</statement>
+
+	<!--구매주문 첨부문서를 조회한다.-->
+	<statement name="selectPoOrderAppenddoc" type="select">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.selectPoOrderAppenddoc */
+        SELECT
+               PO_ORDER_NUM,   APPEND_DOC_SEQ,  ORGNL_FILE_NM, SAVE_FILE_NM, REL_PATH
+             , FILE_SIZE, FILE_EXT, FILE_DESC
+        FROM   PO_ORDER_APPENDDOC
+        WHERE  PO_ORDER_NUM = :poOrderNum
+        ORDER BY APPEND_DOC_SEQ ASC
+        ]]>
+	</statement>
+
+	<!--구매주문 부대비를 조회한다.-->
+	<statement name="selectPoOrderOtherAmt" type="select">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.selectPoOrderOtherAmt */
+        SELECT A.PO_ORDER_NUM,
+               A.OTHER_AMT_SEQ,
+               A.COMM_CLASS,
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'COMM_CLASS' AND CODE = A.COMM_CLASS ) AS COMM_CLASS_NM,
+               A.COMM_TYPE,
+               A.SLIP_PUBLISH_DATE,
+               A.PAY_SCHD_DATE,
+               A.REAL_PAYMENT_PLCE,
+               --(SELECT VD_NM_LOC FROM EPROCUSR.ESMVDFW WHERE A.REAL_PAYMENT_PLCE = VD_CD  AND VD_STS = 'C' ) REAL_PAYMENT_PLCE_NM,
+               CASE WHEN SUBSTR(A.REAL_PAYMENT_PLCE, 0, 1) = '7' THEN
+           				--(SELECT CUSTNM FROM ST_CUST WHERE USE_YN = 'Y' AND SAP_CUST_CD = A.REAL_PAYMENT_PLCE)
+           				(SELECT MAX(X.CUSTNM) AS CUSTNM FROM ST_CUST X, SAP_IF.SAP_IFC_PSNL_MST Y WHERE X.SABUN = Y.SABUN AND X.USE_YN = 'Y' AND (X.SAP_CUST_CD = A.REAL_PAYMENT_PLCE OR Y.SAP_VNDR_CD = '000'||A.REAL_PAYMENT_PLCE))
+           			ELSE
+           				(SELECT MAX(VD_NM_LOC) FROM EPROCUSR.ESMVDFW WHERE A.REAL_PAYMENT_PLCE = VD_CD  AND VD_STS = 'C' )
+           	   END REAL_PAYMENT_PLCE_NM,
+               (SELECT REAL_PAYMENT_PLCE FROM ETC_PREPAYAMT_ADJUST T WHERE  PO_ORDER_NUM= A.PO_ORDER_NUM AND T.ADJUST_SEQ=A.ADJUST_SEQ  AND A.ORG_FISCAL_SLIP_NUM = SLIP_NUM ) ETC_REAL_PAYMENT_PLCE,
+               A.BASI_KIND,
+               A.BASI_NUM,
+               A.COMM_AMT,
+               A.DIV_ACCUM_AMT,
+               /*
+               CASE WHEN A.BASI_KIND = 'BL' THEN
+                    (NVL(A.COMM_AMT,0) - NVL(A.DIV_ACCUM_AMT,0))
+               ELSE
+                    NULL
+               END DIV_ACCUM_BAL_AMT,
+               */
+               (NVL(A.COMM_AMT,0) - NVL(A.DIV_ACCUM_AMT,0)) as DIV_ACCUM_BAL_AMT,
+                (SELECT SUM(T.SLIP_CURRENCY_AMT) FROM SAP_IF.SAP_IFC_SLIP_DTL T WHERE A.SLIP_NUM = T.SLIP_NUM AND T.DR_CR_CLASS =2) AS ETC_SLIP_CURRENCY_AMT,   --선급금 잔액 VIEW
+               A.ATTACH_DEPT,
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'ATTACH_DEPT'
+                AND CODE = A.ATTACH_DEPT ) AS ATTACH_DEPT_NM ,                               /* 귀속부서명 */
+               A.TAX_BILL_NUM,
+               A.TAX_BILL_NUM AS ORG_TAX_BILL_NUM,
+               A.TAX_SHET_ITEMNM,
+               A.JOURNALZ_ACCT,
+               B.ACCT_NM JOURNALZ_ACCT_NM,
+               B.SLIP_CLASS_CD,
+               F.FISCAL_SLIP_NUM,
+               A.SUSPENSE_NUM,
+               --A.FISCAL_SLIPC_DATE,
+               A.ORG_FISCAL_SLIP_NUM,
+--               NVL(G.SLIP_STATUS, F.SLIP_STATUS) SLIP_STATUS,
+               F.PROC_DATE FISCAL_SLIPC_DATE,
+
+               G.SLIP_STATUS,
+               (SELECT
+                      CODE_NAME
+                  FROM SCC_COMMON_CODE
+                  WHERE  GROUP_CODE = 'SLIP_STATUS' AND CODE = G.SLIP_STATUS ) AS SLIP_STATUS_NM,
+
+               DECODE(A.NONARRIV_SLIP_CREATION_YN, 'Y', 1, 0) AS NONARRIV_SLIP_CREATION_YN,
+               A.ETC_PREPAYAMT_MGMT_NUM,
+               DECODE(A.JOURNALZ_ACCT,'HFIM01', C.ADJUST_AMT, NULL) ETC_PREPAYAMT_SUM,       /*기타선급금일 경우 합계 표시*/
+
+                A.REMARKS           ,    --적요
+                A.VAT_NEWHGHT_UPJANG,    --부가세 신고 업장
+                A.ELCTN_TAX_BILL_YN ,    --전자 세금 계산서 여부
+                NVL(A.SLIP_PUBLISHER, :loginSabun) SLIP_PUBLISHER,
+                (SELECT T.NM_KOR FROM   HR_PERSONAL T, SCC_CC T2
+                 WHERE  T2.CC_CD = T.CC_CD
+                 AND NVL(A.SLIP_PUBLISHER,:loginSabun) =T.SABUN ) SLIP_PUBLISHER_NM,                            /* 전표발행인*/
+                A.SUPPLY_PRICE      ,    --공급 가액
+                A.VAT_AMT           ,    --부가세 금액
+                A.TAX_CD            ,    --과세 코드
+                G.SLIP_NUM          ,    --외부 문서 번호
+                F.BU_CD             ,    --회사 코드
+                F.FISCAL_YEAR       ,    --회계 년도
+                F.PROC_DATE         ,    --처리 일자
+                F.RESULT_MSG        ,    --결과 MSG
+
+
+                (SELECT LISTAGG (ITEM_NM, ',') WITHIN GROUP (ORDER BY ITEM_NM) AS ITEM_CD
+                                      FROM PO_ORDER_ITEM_DETAIL WHERE PO_ORDER_NUM = A.PO_ORDER_NUM ) REMARKS2,  /*적요2*/
+                D.AMOUNT_UNIT,
+                D.EXCHANGE_RATE,
+                D.LC_NUM,
+               (SELECT SET1 FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'ATTACH_DEPT'
+                AND CODE = D.ATTACH_DEPT ) AS ATTACH_DEPT_SAP,   /*귀속부서명*/
+                D.BL_NUM,
+                D.LSHIP_DATE,
+                D.SPLR_CD,
+                D.SPLR_NM,
+                TO_CHAR(ADD_MONTHS(D.ENTRY_SCHD_DATE,3),'YYYYMMDD') EXPIRE_CAL_BASIS_DATE,
+
+                E.CC_CD  EMP_DEPT,
+                E.MU_CD  EMP_MU_CD,
+
+               NVL((
+                SELECT T2.SUB_UPJANG_NUM
+                  FROM SCC_COMMON_CODE T, SCC_CC T2
+                 WHERE T.SET1= T2.CC_CD
+                 AND GROUP_CODE = 'ATTACH_DEPT'
+                   AND CODE = A.ATTACH_DEPT
+               ),'0000') SUB_UPJANG_NUM,   --종사업자번호
+
+               B.DR_ACCT_CD,              --차변
+               B.CR_ACCT_CD,              --대변
+               A.BILL_PUBLISHDD,
+
+               CASE WHEN G.SLIP_STATUS IN ('R','C') THEN                   --역분개, 임시전표취소
+                   NULL
+               ELSE
+                   A.SIGN_INSTANCE_ID
+               END AS SIGN_INSTANCE_ID,
+
+               CASE WHEN G.SLIP_STATUS IN ('R','C') THEN                   --역분개, 임시전표취소
+                   NULL
+               ELSE
+                   NVL(SCC_SIGN_STATUS_FUN(SIGN_INSTANCE_ID),'')
+               END AS SIGN_PROGRESS_STATUS,
+
+               CASE WHEN G.SLIP_STATUS IN ('R','C') THEN                   --역분개, 임시전표취소
+                   NULL
+               ELSE
+                   CASE SCC_SIGN_STATUS_FUN(SIGN_INSTANCE_ID)
+                   WHEN 'COMPLETE' THEN
+                       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND  CODE='30' )
+                   WHEN 'REJECT' THEN
+                       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND  CODE='40' )
+                   WHEN 'CANCEL' THEN
+                       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND  CODE='50' )
+                   WHEN 'DRAFT' THEN
+                       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND  CODE='20' )
+                   ELSE
+                       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND CODE = G.SLIP_STATUS )
+                   END
+               END AS SIGN_PROGRESS_STATUS_NM,
+
+
+               (SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.CUSER) AS CUSER,
+               A.CDATE,
+               (SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.UUSER) AS UUSER,
+               A.UDATE,
+               A.ADJUST_SEQ,
+               A.PREPAY_PO_ORDER_NUM,
+               A.ALT_SLIP_CLASS,
+               SCC_CRYPTO.MASKAUTH_FUN(A.BANK_ACCT_NO, 6, 'YYYYNNNNNNNNNNN', '0') AS BANK_ACCT_NO,            /* 계좌번호 */
+               --SCC_CRYPTO.ENC_FUN(REPLACE(SCC_CRYPTO.DEC_FUN(A.BANK_ACCT_NO), '-', '')) AS BANK_ACCT_NO_ENC,   /* 계좌번호 - 암호화 */
+               A.BANK_ACCT_NO AS BANK_ACCT_NO_ENC,   /* 계좌번호 - 암호화 */
+               --SCC_CRYPTO.MASKAUTH_FUN(A.BANK_ACCT_OWNR, 12, :loginPersMask, :maskAuth) AS BANK_ACCT_OWNR,       /* 예금주 */
+               A.BANK_ACCT_OWNR,                                                             /* 예금주 */
+               A.BANK_CD,                                                                   /* 은행코드 */
+               SCC_CODE_NM('FM0005', A.BANK_CD) AS BANK_NM,                                 /* 은행명 */
+               A.BANK_TYPE,                                                                   /* 은행타입 */
+               DECODE(A.SNGLFOOTLST_NM_YN, 'Y', '1', '0') AS SNGLFOOTLST_NM_YN,              /* 불공제여부 */
+               (SELECT DISTINCT(T.BIZ_REG_NO) FROM EPROCUSR.ESMVDFW T WHERE T.VD_CD = A.REAL_PAYMENT_PLCE  AND T.VD_STS = 'C'  ) AS BIZ_REG_NO,
+               A.ALT_SEQ,
+               '' AS BANK_ACCT_TYPE
+        FROM   PO_ORDER_OTHER_AMT A, ACCT_MGMT B,
+               (SELECT PO_ORDER_NUM,1 OTHER_AMT_SEQ,0 ADJUST_AMT FROM ETC_PREPAYAMT_ADJUST GROUP BY PO_ORDER_NUM ) C,
+               PO_ORDER_MST D,
+               (
+                   SELECT  A.SABUN, B.BU_CD, B.MU_CD, B.TM_CD, B.CC_CD
+                   FROM   HR_PERSONAL A,
+                          HLDC_SC_DEPT_V B
+                   WHERE B.CC_CD = A.CC_CD
+               ) E,
+               SAP_IF.SAP_IFC_SLIP_STATUS F,
+               FT_SAP_INTERFACE G
+        WHERE  A.JOURNALZ_ACCT = B.ACCT_CD(+)
+        AND A.PO_ORDER_NUM = C.PO_ORDER_NUM(+)
+        AND A.OTHER_AMT_SEQ = C.OTHER_AMT_SEQ(+)
+        AND A.PO_ORDER_NUM = D.PO_ORDER_NUM
+        AND A.SLIP_NUM = F.SLIP_NUM(+)
+        AND A.SLIP_NUM = G.SLIP_NUM(+)
+        AND NVL(A.SLIP_PUBLISHER,:loginSabun) = E.SABUN(+)
+        AND A.PO_ORDER_NUM = :poOrderNum
+        ORDER BY A.OTHER_AMT_SEQ,A.COMM_CLASS
+        ]]>
+	</statement>
+
+	<!--기타 선급금 정산를 조회한다.-->
+	<statement name="selectEtcPrepayamtAdjust" type="select">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.selectEtcPrepayamtAdjust */
+        SELECT
+           0 CHK,
+           A.PO_ORDER_NUM,
+           A.ADJUST_SEQ,
+           C.SLIP_STATUS,
+           (SELECT CODE_NAME FROM SCC_COMMON_CODE
+            WHERE  GROUP_CODE = 'SLIP_STATUS' AND CODE = C.SLIP_STATUS ) AS SLIP_STATUS_NM ,
+           A.PREPAYAMT_CLASS,
+          (SELECT CODE_NAME FROM SCC_COMMON_CODE
+           WHERE  GROUP_CODE = 'PREPAYAMT_CLASS' AND CODE = A.PREPAYAMT_CLASS ) AS PREPAYAMT_CLASS_NM ,
+           A.ACCUM_ALT_AMT,
+           A.TEMP_ACCUM_ALT_AMT,
+           A.PREPAYAMT_AMT,
+           A.JOURNALZ_ACCT,
+           B.ACCT_NM JOURNALZ_ACCT_NM,
+           A.PAY_SCHD_DATE,
+           A.SLIP_PUBLISH_DATE,  --전표발행일 추가
+           A.REAL_PAYMENT_PLCE,
+           --(SELECT VD_NM_LOC FROM EPROCUSR.ESMVDFW WHERE A.REAL_PAYMENT_PLCE = VD_CD  AND VD_STS = 'C' ) REAL_PAYMENT_PLCE_NM,
+           CASE WHEN SUBSTR(A.REAL_PAYMENT_PLCE, 0, 1) = '7' THEN
+           	--(SELECT CUSTNM FROM ST_CUST WHERE USE_YN = 'Y' AND SAP_CUST_CD = A.REAL_PAYMENT_PLCE)
+           	(SELECT MAX(X.CUSTNM) AS CUSTNM FROM ST_CUST X, SAP_IF.SAP_IFC_PSNL_MST Y WHERE '000'||X.SAP_CUST_CD = Y.SAP_CUST_CD AND X.USE_YN = 'Y' AND (X.SAP_CUST_CD = A.REAL_PAYMENT_PLCE OR Y.SAP_VNDR_CD = '000'||A.REAL_PAYMENT_PLCE))
+           ELSE
+           (SELECT MAX(VD_NM_LOC) FROM EPROCUSR.ESMVDFW WHERE A.REAL_PAYMENT_PLCE = VD_CD  AND VD_STS = 'C' )
+           END REAL_PAYMENT_PLCE_NM,
+           D.ATTACH_DEPT,
+
+
+           CASE WHEN A.PREPAYAMT_CLASS = 'A-01' THEN
+                  (SELECT CODE_NAME FROM SCC_COMMON_CODE
+                   WHERE  GROUP_CODE = 'ATTACH_DEPT' AND CODE = D.ATTACH_DEPT )
+              ELSE
+                (SELECT T2.UPJANGNM FROM SCC_COMMON_CODE T, ST_UPJANG T2 WHERE  GROUP_CODE = 'PREPAYAMT_CLASS' AND CODE = A.PREPAYAMT_CLASS AND T.ATTR03 = T2.CC_CD )
+           END ATTACH_DEPT_NM,      /*SAP귀속부서*/
+
+            CASE WHEN A.PREPAYAMT_CLASS = 'A-01' THEN
+                (SELECT SET1 FROM SCC_COMMON_CODE
+                            WHERE  GROUP_CODE = 'ATTACH_DEPT'
+                            AND CODE = D.ATTACH_DEPT )
+            ELSE
+                (SELECT T.ATTR03 FROM SCC_COMMON_CODE T WHERE  GROUP_CODE = 'PREPAYAMT_CLASS' AND CODE = A.PREPAYAMT_CLASS )
+            END ATTACH_DEPT_SAP,      /*SAP귀속부서명*/
+
+
+
+           A.REMARKS,
+           A.SLIP_NUM,
+           NVL(C.REVERSE_SLIP_NUM,C.FISCAL_SLIP_NUM) FISCAL_SLIP_NUM,
+           C.FISCAL_YEAR,
+           B.DR_ACCT_CD,              --차변
+           B.CR_ACCT_CD,              --대변
+           C.PROC_DATE,
+
+
+
+           CASE WHEN C.SLIP_STATUS IN ('R','C') THEN                   --역분개, 임시전표취소
+               NULL
+           ELSE
+               A.SIGN_INSTANCE_ID
+           END AS SIGN_INSTANCE_ID,
+
+           CASE WHEN C.SLIP_STATUS IN ('R','C') THEN                   --역분개, 임시전표취소
+               NULL
+           ELSE
+               NVL(SCC_SIGN_STATUS_FUN(SIGN_INSTANCE_ID),'')
+           END AS SIGN_PROGRESS_STATUS,
+
+           CASE WHEN C.SLIP_STATUS IN ('R','C') THEN                   --역분개, 임시전표취소
+               NULL
+           ELSE
+               CASE SCC_SIGN_STATUS_FUN(SIGN_INSTANCE_ID)
+               WHEN 'COMPLETE' THEN
+                   (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND  CODE='30' )
+               WHEN 'REJECT' THEN
+                   (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND  CODE='40' )
+               WHEN 'CANCEL' THEN
+                   (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND  CODE='50' )
+               WHEN 'DRAFT' THEN
+                   (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND  CODE='20' )
+               ELSE
+                   (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND CODE = C.SLIP_STATUS )
+               END
+           END AS SIGN_PROGRESS_STATUS_NM,
+
+
+
+           (SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.CUSER) AS CUSER,
+           A.CDATE,
+           (SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.UUSER) AS UUSER,
+           A.UDATE,
+
+           SCC_CRYPTO.MASKAUTH_FUN(A.BANK_ACCT_NO, 6, 'YYYYNNNNNNNNNNN', '0') AS BANK_ACCT_NO,            /* 계좌번호 */
+           --SCC_CRYPTO.ENC_FUN(REPLACE(SCC_CRYPTO.DEC_FUN(D.BANK_ACCT_NO), '-', '')) AS BANK_ACCT_NO_ENC,   /* 계좌번호 - 암호화 */
+           A.BANK_ACCT_NO AS BANK_ACCT_NO_ENC,   /* 계좌번호 - 암호화 */
+           --SCC_CRYPTO.MASKAUTH_FUN(A.BANK_ACCT_OWNR, 12, :loginPersMask, :maskAuth) AS BANK_ACCT_OWNR,       /* 예금주 */
+           A.BANK_ACCT_OWNR  ,                                                           /* 예금주 */
+           A.BANK_CD,                                                                   /* 은행코드 */
+           SCC_CODE_NM('FM0005', A.BANK_CD) AS BANK_NM,                                 /* 은행명 */
+           A.BANK_TYPE,                                                                   /* 은행타입 */
+           DECODE(A.SNGLFOOTLST_NM_YN, 'Y', '1', '0') AS SNGLFOOTLST_NM_YN,              /* 불공제여부 */
+           (SELECT DISTINCT(T.BIZ_REG_NO) FROM EPROCUSR.ESMVDFW T WHERE T.VD_CD = A.REAL_PAYMENT_PLCE  AND T.VD_STS = 'C'  ) AS BIZ_REG_NO,
+           C.RESULT_MSG
+        FROM   ETC_PREPAYAMT_ADJUST A
+             , ACCT_MGMT B
+             , FT_SAP_INTERFACE C
+             , PO_ORDER_MST D
+             , SAP_IF.SAP_IFC_SLIP_STATUS E
+        WHERE  A.JOURNALZ_ACCT = B.ACCT_CD(+)
+        AND A.SLIP_NUM = C.SLIP_NUM(+)
+        AND A.PO_ORDER_NUM = D.PO_ORDER_NUM
+        AND C.SLIP_NUM = E.SLIP_NUM(+)
+        AND A.PO_ORDER_NUM = :poOrderNum
+        <#if otherAmtSeq?has_content>
+            AND    A.OTHER_AMT_SEQ = :otherAmtSeq
+        </#if>
+        ORDER BY A.ADJUST_SEQ
+        ]]>
+	</statement>
+
+
+	<!-- 구매 주문 마스터 시퀀스 조회 한다. -->
+	<statement name="getPoOrderMstSeq" type="select">
+		<![CDATA[
+            --select LPAD(PO_ORDER_MST_S.NEXTVAL,4,'0000') AS PO_ORDER_NUM FROM DUAL
+            SELECT LPAD(NVL(MAX(SUBSTR(A.PO_ORDER_NUM,13,4)),0) +1,4,'0000') AS PO_ORDER_NUM  FROM PO_ORDER_MST A
+            WHERE TO_CHAR(SYSDATE,'YYMM') = SUBSTR(A.PO_ORDER_NUM,8,4)
+        ]]>
+	</statement>
+
+
+	<!-- 품의서번호로 생성된 BL의 품목별 원물금액을 SUM -->
+	<statement name="getWonwtrAmtSum" type="select">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.getWonwtrAmtSum */
+          SELECT NVL(SUM(B.WONWTR_AMT), 0) WONWTR_AMT
+          FROM  PO_ORDER_MST A, PO_ORDER_ITEM_DETAIL B
+          WHERE A.PO_ORDER_NUM= B.PO_ORDER_NUM
+          AND  A.PO_PROPOSAL_NUM = :poProposalNum
+          <#if flag?has_content>
+                  <#if flag == "ORG">
+                AND B.PO_ORDER_NUM <> :poOrderNum
+              </#if>
+          </#if>
+          union all
+          SELECT SUM(A.WONWTR_AMT) FROM PO_PROPOSAL_ITEM_DTL A
+          WHERE A.PO_PROPOSAL_NUM = :poProposalNum
+        ]]>
+	</statement>
+
+	<!-- PO 후상태 업데이트. -->
+	<statement name="updatePoAfterstatus" type="update">
+		<![CDATA[
+            /*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.updatePoAfterstatus */
+            UPDATE PO_ORDER_MST SET
+                 PO_AFTERSTATUS             = :poAfterstatus
+                ,UUSER                       = :loginSabun
+                ,UDATE                       = SYSDATE
+            WHERE PO_ORDER_NUM = :poOrderNum
+        ]]>
+	</statement>
+
+	<!--  통관 수입면허번호 조회한다.-->
+	<statement name="selectbasiNumList" type="select">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.selectbasiNumList */
+         SELECT
+            A.INCOME_LIC_NUM CODE,
+            A.INCOME_LIC_NUM CODE_NAME
+         FROM ENTRY_MST a
+         WHERE A.PO_ORDER_NUM=:poOrderNum
+         AND INSTR(A.INCOME_LIC_NUM,'-') >0
+         ORDER BY A.INCOME_LIC_NUM DESC
+        ]]>
+	</statement>
+
+	<!--매출수수료를 조회한다.-->
+	<statement name="selectCommSalsList" type="select">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.selectCommSalsList */
+       SELECT
+               0 CHK,
+               A.PO_ORDER_NUM,
+               A.SEQ,
+               A.JOURNALZ_ACCT,
+               B.ACCT_NM JOURNALZ_ACCT_NM,
+               A.CUST,
+               C.CUSTNM CUST_NM,
+               A.UPRICE,
+               A.SUPPLY_AMT,
+               A.TAX,
+               A.WITHDRAW_SCHD_DATE,
+               A.OCCUR_DATE,
+               A.RESERV_INFO,
+               A.OCCUR_TYPE,
+               A.STATUS,
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'COMM_SALS_STATUS' AND CODE = A.STATUS ) AS STATUS_NM ,         /* 구매형태명 */
+               A.REMARK,
+               E.SET1 CC_CD,
+               C.CUSTCD AS CUST_CD,
+               F.MU_CD,
+               F.UPJANG,
+               ( SELECT SUM(QUANTITY) TOT_QUANTITY FROM PO_ORDER_ITEM_DETAIL T WHERE D.PO_ORDER_NUM = T.PO_ORDER_NUM ) AS TOT_QUANTITY,
+               A.RECEIPT_NUM,
+               (
+                  SELECT DDDD_CLOSE_YN
+                    FROM SLA_IF_UPJANG_SALS_MST
+                   WHERE OCCUR_DATE = A.RECEIPT_DATE
+                     AND SYS_CLASS = '14'
+                     AND UPJANG_CD = F.UPJANG
+                     AND RECEIPT_NUM = A.RECEIPT_NUM
+               ) AS DDDD_CLOSE_YN,
+               A.CUSER,
+               A.CDATE,
+               A.UUSER,
+               A.UDATE,
+               D.PO_PROPOSAL_NUM	-- 품의서번호 추가
+
+        FROM   PO_ORDER_COMM_SALS A
+             , ACCT_MGMT B
+             ,(
+                SELECT A.CUSTCD,
+                       C.UPJANGNM AS CUSTNM,
+                       A.SAUPNO
+                FROM   ST_CUST A,
+                       ST_UPJANG B,
+                       FMS_UPJANG_V C
+                WHERE  B.CUSTCD = A.CUSTCD
+                AND    C.UPJANG = B.UPJANG
+                AND B.CC_CD IN (
+                  SELECT A.SET1
+                  FROM   SCC_COMMON_CODE A
+                  WHERE  A.GROUP_CODE = 'ATTACH_DEPT'
+                  AND    A.USE_YN = 'Y'
+                )
+             ) C
+             , PO_ORDER_MST D
+            ,( SELECT *
+              FROM   SCC_COMMON_CODE A
+              WHERE  A.GROUP_CODE = 'ATTACH_DEPT'
+              AND    A.USE_YN = 'Y'
+            ) E
+            ,(
+            SELECT Y.MU_CD,
+                   Y.CC_CD,
+                   X.UPJANG,
+                   X.UPJANGNM
+              FROM ST_UPJANG X,
+                   (SELECT A.MU_CD,
+                           A.CC_CD
+                      FROM SCC_CC A
+                         , HLDC_SC_DEPT_V B
+                     WHERE B.CC_CD = A.CC_CD
+                       AND A.CC_CD IN(
+                        SELECT A.SET1
+                        FROM   SCC_COMMON_CODE A
+                        WHERE  A.GROUP_CODE = 'ATTACH_DEPT'
+                        AND    A.USE_YN = 'Y'
+                      )
+                       AND A.START_DATE <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+                       AND A.END_DATE > TO_CHAR(SYSDATE, 'YYYYMMDD')) Y
+             WHERE X.CC_CD = Y.CC_CD
+             AND   X.SHOP_TYP_CD = '01'
+            ) F
+
+        WHERE  A.JOURNALZ_ACCT = B.ACCT_CD(+)
+        AND A.CUST = C.CUSTCD(+)
+
+        AND A.PO_ORDER_NUM = D.PO_ORDER_NUM
+        AND D.ATTACH_DEPT = E.CODE
+
+        AND E.SET1 = F.CC_CD
+        AND  A.PO_ORDER_NUM = :poOrderNum
+        ]]>
+	</statement>
+
+	<!--매출수수료를 마감 조회한다.-->
+	<statement name="selectSalsRegs" type="select"><![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.selectSalsRegs */
+SELECT
+     A.PO_ORDER_NUM
+    ,A.UPRICE
+    ,A.SUPPLY_AMT
+    ,A.TAX
+    ,C.CUSTCD AS CUST_CD
+    ,D.SET1 CC_CD
+    ,E.MU_CD
+    ,E.UPJANG
+    ,( SELECT SUM(QUANTITY) TOT_QUANTITY FROM PO_ORDER_ITEM_DETAIL T WHERE B.PO_ORDER_NUM = T.PO_ORDER_NUM ) AS TOT_QUANTITY
+    ,A.RECEIPT_NUM
+    ,A.OCCUR_DATE
+    ,A.SEQ
+    ,B.PO_PROPOSAL_NUM
+FROM
+(
+    <#if closeFlag == "Y">	/*마감 */
+        SELECT
+             A.PO_ORDER_NUM
+            ,A.CUST
+            ,SUM(A.UPRICE) UPRICE
+            ,SUM(A.SUPPLY_AMT) SUPPLY_AMT
+            ,SUM(A.TAX) TAX
+            ,MAX(A.RECEIPT_NUM) RECEIPT_NUM
+            ,MAX(A.SEQ) SEQ
+            ,MAX(A.OCCUR_DATE) OCCUR_DATE
+        FROM   PO_ORDER_COMM_SALS A
+        WHERE 1=1
+        AND  A.PO_ORDER_NUM = :poOrderNum
+        AND A.SEQ IN (${seqs})
+        GROUP BY A.PO_ORDER_NUM,A.CUST
+    <#elseif closeFlag == "C">	/* 마감취소 */
+        SELECT
+              A.PO_ORDER_NUM
+            ,A.CUST
+            ,A.UPRICE
+            ,A.SUPPLY_AMT SUPPLY_AMT
+            ,A.TAX TAX
+            ,A.RECEIPT_NUM RECEIPT_NUM
+            ,A.SEQ SEQ
+            ,A.OCCUR_DATE AS OCCUR_DATE
+        FROM   PO_ORDER_COMM_SALS A
+        WHERE 1=1
+        AND  A.PO_ORDER_NUM = :poOrderNum
+        AND A.SEQ IN (${seqs})
+    </#if>
+) A
+, PO_ORDER_MST B
+,(
+    SELECT A.CUSTCD,
+           C.UPJANGNM AS CUSTNM,
+           A.SAUPNO
+    FROM   ST_CUST A,
+           ST_UPJANG B,
+           FMS_UPJANG_V C
+    WHERE  B.CUSTCD = A.CUSTCD
+    AND    C.UPJANG = B.UPJANG
+    AND    NVL(B.ATTR01, 'Y') <> 'N'
+    AND B.CC_CD IN (
+      SELECT A.SET1
+      FROM   SCC_COMMON_CODE A
+      WHERE  A.GROUP_CODE = 'ATTACH_DEPT'
+      AND    A.USE_YN = 'Y'
+    )
+) C
+,(
+    SELECT *
+    FROM   SCC_COMMON_CODE A
+    WHERE  A.GROUP_CODE = 'ATTACH_DEPT'
+    AND    A.USE_YN = 'Y'
+) D
+,(
+        SELECT Y.MU_CD,
+               Y.CC_CD,
+               X.UPJANG,
+               X.UPJANGNM,
+               X.CUSTCD
+          FROM ST_UPJANG X,
+               (SELECT A.MU_CD,
+                       A.CC_CD
+                  FROM SCC_CC A
+                     , HLDC_SC_DEPT_V B
+                 WHERE B.CC_CD = A.CC_CD
+                   AND A.START_DATE <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   AND A.END_DATE > TO_CHAR(SYSDATE, 'YYYYMMDD')) Y
+         WHERE X.CC_CD = Y.CC_CD
+         AND   NVL(X.ATTR01, 'Y') <> 'N'
+) E
+WHERE A.PO_ORDER_NUM = B.PO_ORDER_NUM
+AND A.CUST = E.CUSTCD(+)
+AND A.CUST = C.CUSTCD(+)
+AND B.ATTACH_DEPT = D.CODE
+--AND D.SET1 = E.CC_CD /* 판매유형변경에 따른 귀속부서 조건 변경 */
+        ]]></statement>
+	<!-- 외부문서번호  조회한다. -->
+	<statement name="selectSlipNum" type="select"><![CDATA[
+	/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.selectSlipNum */
+SELECT '8' || LPAD(FT_SLIP_NUM_S.NEXTVAL, 9, '0') AS SLIP_NUM FROM  DUAL
+--SELECT '8' || LPAD(NVL(MAX(TO_NUMBER(SUBSTR(SLIP_NUM, -9))),0)+1, 9, '0') SLIP_NUM FROM  FT_SAP_INTERFACE]]></statement>
+
+
+	<!-- 기타선급금 if 대상 목록을 조회한다. -->
+	<statement name="selectEtcPrepayamtList" type="select">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.selectEtcPrepayamtList */
+    SELECT
+               A.NUM
+              ,A.PO_ORDER_NUM
+              ,A.ADJUST_SEQ
+              ,A.REAL_PAYMENT_PLCE
+              ,A.JOURNALZ_ACCT
+              ,A.PREPAYAMT_AMT
+              ,A.DR_ACCT_CD
+              ,A.CR_ACCT_CD
+              ,A.DR_ACCT_CLASS
+              ,A.CR_ACCT_CLASS
+              ,A.PAY_SCHD_DATE  --추가
+              ,A.SLIP_PUBLISH_DATE	--추가
+              ,A.SLIP_CLASS_CD    --추가
+              ,A.REMARKS --추가
+              ,A.EXPIRE_CAL_BASIS_DATE --추가
+              ,A.ATTACH_DEPT_SAP       --관리부서 SAP
+              ,A.ATTACH_DEPT_SAP_JUN
+              ,A.PAYGRP_CD             --사유코드
+              ,A.ACCT_NM
+              ,A.PAY_COND_SAP
+              ,A.COMM_CLASS_NM
+              ,B.REAL_PAYMENT_PLCE AS CR_REAL_PAYMENT_PLCE
+              ,(SELECT MAX(VD_NM_LOC) FROM EPROCUSR.ESMVDFW WHERE B.REAL_PAYMENT_PLCE = VD_CD  AND VD_STS = 'C' ) REAL_PAYMENT_PLCE_NM
+              ,B.SUM_PREPAYAMT_AMT AS CR_PREPAYAMT_AMT
+              ,A.SLIP_NUM
+              ,A.SIGN_INSTANCE_ID
+              ,A.SIGN_PROGRESS_STATUS
+              ,A.BANK_ACCT_NO            /* 계좌번호 */
+              ,A.BANK_ACCT_NO_ENC   /* 계좌번호 - 암호화 */
+              ,A.BANK_ACCT_OWNR                                                             /* 예금주 */
+              ,A.BANK_CD                                                                   /* 은행코드 */
+              ,A.BANK_NM                                 /* 은행명 */
+              ,A.BANK_TYPE
+              ,A.SNGLFOOTLST_NM_YN              /* 불공제여부 */
+              ,A.BIZ_REG_NO
+              ,A.SLIP_STATUS
+    FROM
+    (
+        SELECT
+               ROW_NUMBER() OVER(PARTITION BY A.REAL_PAYMENT_PLCE ORDER BY A.ADJUST_SEQ DESC) NUM
+              ,'1' ORDER_FLAG
+              ,A.PO_ORDER_NUM
+              ,A.ADJUST_SEQ
+              ,A.REAL_PAYMENT_PLCE
+              ,A.JOURNALZ_ACCT
+              ,A.PREPAYAMT_AMT
+              ,B.DR_ACCT_CD
+              ,B.CR_ACCT_CD
+              ,B.DR_ACCT_CLASS
+              ,B.CR_ACCT_CLASS
+              ,A.PREPAYAMT_CLASS
+              ,(SELECT CODE_NAME FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'PREPAYAMT_CLASS'
+                AND CODE = A.PREPAYAMT_CLASS ) AS COMM_CLASS_NM
+              ,A.PAY_SCHD_DATE
+              ,A.SLIP_PUBLISH_DATE  --전표발행일 추가
+              ,B.SLIP_CLASS_CD
+              ,A.REMARKS
+              ,TO_CHAR(ADD_MONTHS(C.ENTRY_SCHD_DATE,3),'YYYYMMDD') EXPIRE_CAL_BASIS_DATE
+
+              ,(SELECT SET1 FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'ATTACH_DEPT'
+                AND CODE = C.ATTACH_DEPT ) AS ATTACH_DEPT_SAP_JUN   --전도금 사업장 아닐때 귀속부서
+
+
+                ,CASE WHEN A.PREPAYAMT_CLASS = 'A-01' THEN
+                    (SELECT SET1 FROM SCC_COMMON_CODE
+                                WHERE  GROUP_CODE = 'ATTACH_DEPT'
+                                AND CODE = C.ATTACH_DEPT )
+                ELSE
+                    (SELECT T.ATTR03 FROM SCC_COMMON_CODE T WHERE  GROUP_CODE = 'PREPAYAMT_CLASS' AND CODE = A.PREPAYAMT_CLASS )
+                END ATTACH_DEPT_SAP      /*전도금 사업장 구분 SAP귀속부서*/
+
+              ,(SELECT SET1 FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'PAY_TERMS_CD'
+                AND ROWNUM=1 ) AS PAY_COND_SAP   /*지급조건 SAP*/
+              ,B.PAYGRP_CD
+              ,B.ACCT_NM
+              ,A.SLIP_NUM
+              ,A.SIGN_INSTANCE_ID
+              ,NVL(SCC_SIGN_STATUS_FUN(A.SIGN_INSTANCE_ID),'') AS SIGN_PROGRESS_STATUS
+
+              ,SCC_CRYPTO.MASKAUTH_FUN(A.BANK_ACCT_NO, 6, 'YYYYNNNNNNNNNNN', '0') AS BANK_ACCT_NO            /* 계좌번호 */
+              ,A.BANK_ACCT_NO AS BANK_ACCT_NO_ENC   /* 계좌번호 - 암호화 */
+              ,A.BANK_ACCT_OWNR                                                             /* 예금주 */
+              ,A.BANK_CD                                                                   /* 은행코드 */
+              ,A.BANK_TYPE																   /* 계좌구분코드(Bank type) */
+              ,SCC_CODE_NM('FM0005', A.BANK_CD) AS BANK_NM                                 /* 은행명 */
+              ,DECODE(A.SNGLFOOTLST_NM_YN, 'Y', '1', '0') AS SNGLFOOTLST_NM_YN              /* 불공제여부 */
+              ,(SELECT DISTINCT(T.BIZ_REG_NO) FROM EPROCUSR.ESMVDFW T WHERE T.VD_CD = A.REAL_PAYMENT_PLCE  AND T.VD_STS = 'C'  ) AS BIZ_REG_NO
+              ,D.SLIP_STATUS
+        FROM ETC_PREPAYAMT_ADJUST A
+           , ACCT_MGMT B
+           , PO_ORDER_MST C
+           , FT_SAP_INTERFACE D
+        WHERE 1=1
+        AND A.JOURNALZ_ACCT = B.ACCT_CD
+        AND A.PO_ORDER_NUM = C.PO_ORDER_NUM
+        AND A.SLIP_NUM = D.SLIP_NUM(+)
+        AND A.PO_ORDER_NUM = :poOrderNum
+        AND A.ADJUST_SEQ IN (${adjustSeqs})
+        ORDER BY A.ADJUST_SEQ
+    ) A,
+    (
+  --대변
+        SELECT
+            --ROW_NUMBER() OVER(ORDER BY A.REAL_PAYMENT_PLCE) NUM
+             1 NUM
+            ,'2' ORDER_FLAG
+            ,MAX(A.REAL_PAYMENT_PLCE) REAL_PAYMENT_PLCE
+            , SUM(A.PREPAYAMT_AMT) SUM_PREPAYAMT_AMT
+        FROM ETC_PREPAYAMT_ADJUST A
+        WHERE A.PO_ORDER_NUM = :poOrderNum
+        AND A.ADJUST_SEQ IN (${adjustSeqs})
+        --GROUP BY A.REAL_PAYMENT_PLCE
+    ) B
+    WHERE A.NUM = B.NUM(+)
+    AND A.REAL_PAYMENT_PLCE = B.REAL_PAYMENT_PLCE(+)
+    ORDER BY A.REAL_PAYMENT_PLCE ,A.ORDER_FLAG,B.ORDER_FLAG DESC
+        ]]>
+	</statement>
+
+
+	<!-- 원시전표 불러오기 조회한다. -->
+	<statement name="selectSlipCallPop" type="select">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.selectSlipCallPop */
+        SELECT
+           0 CHK,
+           A.PO_ORDER_NUM,
+           A.ADJUST_SEQ,
+           C.SLIP_STATUS,
+           (SELECT CODE_NAME FROM SCC_COMMON_CODE
+            WHERE  GROUP_CODE = 'SLIP_STATUS' AND CODE = C.SLIP_STATUS ) AS SLIP_STATUS_NM ,
+           A.PREPAYAMT_CLASS,
+          (SELECT CODE_NAME FROM SCC_COMMON_CODE
+           WHERE  GROUP_CODE = 'PREPAYAMT_CLASS' AND CODE = A.PREPAYAMT_CLASS ) AS PREPAYAMT_CLASS_NM ,
+           A.ACCUM_ALT_AMT,
+           A.TEMP_ACCUM_ALT_AMT,
+           A.PREPAYAMT_AMT,
+           (NVL(A.PREPAYAMT_AMT,0) - NVL(A.ACCUM_ALT_AMT,0)) BAL_AMT,
+           A.JOURNALZ_ACCT,
+           B.ACCT_NM JOURNALZ_ACCT_NM,
+           A.PAY_SCHD_DATE,
+           A.REAL_PAYMENT_PLCE,
+           (SELECT MAX(VD_NM_LOC) FROM EPROCUSR.ESMVDFW WHERE A.REAL_PAYMENT_PLCE = VD_CD  AND VD_STS = 'C' ) REAL_PAYMENT_PLCE_NM,
+           D.ATTACH_DEPT,
+          (SELECT CODE_NAME FROM SCC_COMMON_CODE
+           WHERE  GROUP_CODE = 'ATTACH_DEPT' AND CODE = D.ATTACH_DEPT ) AS ATTACH_DEPT_NM ,
+           (SELECT SET1 FROM SCC_COMMON_CODE
+            WHERE  GROUP_CODE = 'ATTACH_DEPT'
+            AND CODE = D.ATTACH_DEPT ) AS ATTACH_DEPT_SAP,   /*SAP귀속부서*/
+           A.REMARKS,
+           A.SLIP_NUM,
+           NVL(C.REVERSE_SLIP_NUM,C.FISCAL_SLIP_NUM) FISCAL_SLIP_NUM,
+           C.FISCAL_YEAR,
+           B.DR_ACCT_CD,              --차변
+           B.CR_ACCT_CD,              --대변
+           (SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.CUSER) AS CUSER,
+           A.CDATE,
+           (SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.UUSER) AS UUSER,
+           A.UDATE
+        FROM   ETC_PREPAYAMT_ADJUST A
+             , ACCT_MGMT B
+             , FT_SAP_INTERFACE C
+             , PO_ORDER_MST D
+        WHERE  A.JOURNALZ_ACCT = B.ACCT_CD(+)
+        AND A.SLIP_NUM = C.SLIP_NUM(+)
+        AND A.PO_ORDER_NUM = D.PO_ORDER_NUM
+        AND A.SLIP_NUM IS NOT NULL
+        AND C.SLIP_STATUS IN ('V', 'P')     --전표확정
+        <#if search?has_content>
+            /* 검색 */
+            <#if search == "A">	/* P/O No */
+                <#if searchContents?has_content>
+                    AND a.PO_ORDER_NUM LIKE '%'||:searchContents||'%'
+                </#if>
+            </#if>
+        </#if>
+        ORDER BY A.CDATE DESC, A.PO_ORDER_NUM, A.ADJUST_SEQ
+        ]]>
+	</statement>
+
+	<!-- 원시전표 불러오기 조회한다. -->
+	<statement name="selectSuspenseCallPop" type="select">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.selectSlipCallPop */
+        SELECT
+            A.BU_CD
+            ,A.BU_NM
+            ,A.SAP_SUSPENSE_NUM
+            ,A.RECEIVE_DATE
+            ,A.ALT_DATE
+            ,A.CC_CD
+            ,A.CC_NM
+            ,A.MU_CD
+            ,A.MU_NM
+            ,A.SAP_SLIP_NUM
+            ,A.CLASS_CD
+            ,A.RECD_STATUS
+            ,A.RECEIVE_AMT
+            ,A.APPLY_AMT
+            ,A.ALT_NUM
+            --,B.ACCT_CD 
+            --,B.ACCT_NM
+            ,A.SUSPENSE_ALT_TYPE
+            ,A.SUSPENSE_ALT_TYPE_NM
+            ,A.ALT_TYPE
+            ,A.REMARK
+            ,A.JOURNALZ_YN
+            ,A.JOURNALZ_NUM
+            ,A.FT_ACCUM_AMT AS ACCUM_ALT_AMT
+            ,(NVL(A.APPLY_AMT,0) - NVL(A.FT_ACCUM_AMT,0)) BAL_AMT  --잔액 차후 영업회계의 누적금액을 감한다.
+            ,A.ALT_SEQ
+            ,C.BANK_ACCT_NO
+            ,C.BANK_ACCT_TYPE
+        FROM --SLA_ACCT_SUSPENSE_SEARCH_V A
+        	(
+        		SELECT  M.BU_CD
+                            ,(SELECT DISTINCT BU.BU_NM FROM HLDC_SC_DEPT_V BU WHERE BU.BU_CD = M.BU_CD) BU_NM
+                            ,M.SAP_SUSPENSE_NUM	
+                            ,M.RECEIVE_DATE
+                            ,D.ALT_DATE
+                            ,M.CC_CD
+                            ,(SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE M.CC_CD = CC.CC_CD) CC_NM
+                            ,M.MU_CD
+                            ,(SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE M.MU_CD = MU.MU_CD) MU_NM
+                            ,M.SAP_SLIP_NUM
+                            ,M.CLASS CLASS_CD
+                            ,M.RECD_STATUS
+                            ,NVL(M.RECEIVE_AMT,0) AS RECEIVE_AMT
+                            ,NVL((
+                                SELECT  NVL(DD.ALT_AMT,0)
+                                FROM    SLA_SAP_SUSPENSE_ALT_DETAIL DD
+                                WHERE   DD.RECD_STATUS = 'L'
+                                AND     DD.BU_CD = M.BU_CD
+                                AND     DD.SAP_SUSPENSE_NUM = M.SAP_SUSPENSE_NUM
+                                AND     DD.ALT_NUM = D.ALT_NUM
+                                AND     DD.ALT_SEQ = D.ALT_SEQ
+                            ),0) APPLY_AMT
+                            ,D.ALT_NUM
+                            ,D.ACCT_CD
+                            ,D.SUSPENSE_ALT_TYPE
+                            ,(SELECT TYPE.TYPE_NM FROM SLA_TYPE_CD_MST TYPE WHERE TYPE.TYPE_GRP_CD = '014' AND TYPE.TYPE_CD = D.SUSPENSE_ALT_TYPE) SUSPENSE_ALT_TYPE_NM
+                            ,D.ALT_TYPE
+                            ,D.REMARK
+                            ,NVL(D.JOURNALZ_YN,'N') JOURNALZ_YN
+                            ,JOURNALZ_NUM
+                            ,D.ALT_SEQ
+                            ,D.FT_ACCUM_AMT
+                            ,M.BANK_ACCT_NO
+                    FROM    SLA_SAP_SUSPENSE_INFO M
+                            ,SLA_SAP_SUSPENSE_ALT_DETAIL D
+                    WHERE   M.RECD_STATUS = 'L'
+                    AND     M.SAP_SUSPENSE_NUM = D.SAP_SUSPENSE_NUM
+                    AND     M.BU_CD = D.BU_CD
+                    AND     D.RECD_STATUS = 'L'
+                    AND     D.SUSPENSE_ALT_TYPE = 'L08'
+        
+        	) A
+            --,ACCT_MGMT B
+            ,SLA_SAP_BANK_ACCT_NO C
+        WHERE 1=1
+        AND A.BANK_ACCT_NO = C.BANK_ACCT_NO
+        --AND B.ACCT_CD='FTIS06-05'
+        
+        <#if searchContents?has_content>
+            AND A.SAP_SUSPENSE_NUM LIKE '%'||:searchContents||'%'
+        </#if>
+        ORDER BY A.ALT_DATE DESC
+        ]]>
+	</statement>
+
+	<!-- 수수료 미착 if 대상 목록을 조회한다. -->
+	<statement name="selectOtherAmtIfList" type="select">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.selectOtherAmtIfList */
+        --미착생성
+        SELECT
+               D.LVL
+              ,A.PO_ORDER_NUM
+              ,A.COMM_CLASS
+              ,(SELECT CODE_NAME FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'COMM_CLASS'
+                AND CODE = A.COMM_CLASS ) AS COMM_CLASS_NM
+              ,A.OTHER_AMT_SEQ
+              ,A.REAL_PAYMENT_PLCE
+              ,A.JOURNALZ_ACCT
+              ,A.COMM_AMT
+              ,D.SET1 ACCT_CD
+              ,D.DR_CR_FLAG
+
+              --,A.SUPPLY_PRICE
+              --,A.VAT_AMT
+
+               ,CASE WHEN D.SET1 IN ('11503000', '90007010') THEN   --매입부가세
+                   CASE WHEN D.DR_CR_FLAG = 1 THEN --차변
+                       A.VAT_AMT
+                   ELSE
+                     A.SUPPLY_PRICE
+                   END
+               WHEN D.SET1 = '11404000' THEN    --미착
+
+                   CASE WHEN D.DR_CR_FLAG = 1 THEN --차변
+                       A.COMM_AMT
+                   END
+               ELSE
+                   CASE WHEN E.TAX_CNT > 0 THEN
+                        A.SUPPLY_PRICE +A.VAT_AMT
+                   ELSE
+                     CASE WHEN D.DR_CR_FLAG = 1 THEN --차변
+                         A.SUPPLY_PRICE
+                     ELSE
+                         A.COMM_AMT
+                     END
+                   END
+               END AS SLIP_CURRENCY_AMT
+
+              ,CASE WHEN D.SET1 IN ('11503000', '90007010') THEN   --매입부가세
+                    A.SUPPLY_PRICE
+               ELSE
+                    --A.SUPPLY_PRICE
+                    CASE WHEN E.TAX_CNT = 0 AND A.TAX_CD IN ('70','75') THEN --면세,불공제
+                        A.SUPPLY_PRICE
+                    ELSE --과세
+                        0
+                    END
+               END SUPPLY_PRICE
+
+              ,CASE WHEN D.SET1 IN ('11503000', '90007010') THEN   --매입부가세
+                    A.VAT_AMT
+               ELSE
+                    CASE WHEN E.TAX_CNT = 0 AND A.TAX_CD IN ('70','75') THEN --면세,불공제
+                        A.VAT_AMT
+                    ELSE
+                        0
+                    END
+               END VAT_AMT
+
+              ,A.TAX_BILL_NUM
+              ,A.TAX_CD
+
+              ,NVL((
+                    SELECT T2.SUB_UPJANG_NUM
+                      FROM SCC_COMMON_CODE T, SCC_CC T2
+                     WHERE T.SET1= T2.CC_CD
+                     AND GROUP_CODE = 'ATTACH_DEPT'
+                       AND CODE = A.ATTACH_DEPT
+               ),'0000') SUB_UPJANG_NUM   --종사업자번호
+
+              ,C.LC_NUM
+              ,C.BL_NUM
+              ,C.LSHIP_DATE
+              ,A.SLIP_NUM
+
+              ,B.DR_ACCT_CD
+              ,B.CR_ACCT_CD
+              ,B.DR_ACCT_CLASS
+              ,B.CR_ACCT_CLASS
+
+              ,A.PAY_SCHD_DATE
+              ,B.SLIP_CLASS_CD
+              ,A.REMARKS
+              ,TO_CHAR(ADD_MONTHS(C.ENTRY_SCHD_DATE,3),'YYYYMMDD') EXPIRE_CAL_BASIS_DATE
+              ,(SELECT SET1 FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'ATTACH_DEPT'
+                AND CODE = C.ATTACH_DEPT ) AS ATTACH_DEPT_SAP   /*SAP귀속부서*/
+              ,(SELECT SET1 FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'PAY_TERMS_CD'
+                AND ROWNUM=1 ) AS PAY_COND_SAP   /*지급조건 SAP*/
+              ,B.PAYGRP_CD
+              ,B.ACCT_NM
+              ,CASE WHEN E.TAX_CNT > 0 THEN
+                    'Y'
+               ELSE
+                    'N'
+               END AS TAX_YN
+        FROM PO_ORDER_OTHER_AMT A
+           , ACCT_MGMT B
+           , PO_ORDER_MST C
+           ,(
+              SELECT
+                     B.LVL,
+                     A.CODE,
+                     DECODE(B.LVL, 1,A.SET1, 2,A.SET2, 3,A.SET3) SET1,
+                     DECODE(B.LVL, 1,'1', 2,'1', 3,'2') DR_CR_FLAG
+              FROM   SCC_COMMON_CODE A,
+                    (
+                    SELECT
+                         LEVEL LVL,
+                         '' SET1
+                    FROM DUAL
+                    CONNECT BY LEVEL <= 3
+                    ) B
+              WHERE  A.GROUP_CODE = 'COMM_CLASS'
+              AND    A.USE_YN = 'Y'
+           ) D
+           , (SELECT PO_ORDER_NUM, COUNT(DECODE(TAX_YN,'Y',1)) TAX_CNT FROM PO_ORDER_ITEM_DETAIL GROUP BY PO_ORDER_NUM) E
+        WHERE 1=1
+        AND A.JOURNALZ_ACCT = B.ACCT_CD
+        AND A.PO_ORDER_NUM = C.PO_ORDER_NUM
+        AND A.COMM_CLASS = D.CODE
+        AND A.PO_ORDER_NUM = E.PO_ORDER_NUM
+        AND A.PO_ORDER_NUM = :poOrderNum
+        AND A.OTHER_AMT_SEQ IN (${otherAmtSeqs})
+        AND D.SET1 IS NOT NULL
+        ORDER BY A.OTHER_AMT_SEQ,A.COMM_CLASS,D.LVL
+        ]]>
+	</statement>
+
+	<!-- 수수료 지불 if 대상 목록을 조회한다. -->
+	<statement name="selectOtherAmtIfList2" type="select">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.selectOtherAmtIfList2 */
+           --지불
+          SELECT
+               A.LVL
+              ,A.PO_ORDER_NUM
+              ,A.REAL_PAYMENT_PLCE
+              ,A.REAL_PAYMENT_PLCE_NM
+
+              ,A.SUPPLY_PRICE
+              ,A.VAT_AMT
+
+              ,B.SUM_COMM_AMT
+              ,B.SUM_SUPPLY_PRICE
+              ,B.SUM_VAT_AMT
+
+              ,A.COMM_CLASS
+              ,A.COMM_CLASS_NM
+              ,A.OTHER_AMT_SEQ
+              ,A.JOURNALZ_ACCT
+              ,A.COMM_AMT
+              ,A.ACCT_CD
+              ,A.DR_CR_FLAG
+
+
+              ,A.TAX_BILL_NUM
+              ,A.LC_NUM
+              ,A.BL_NUM
+              ,A.LSHIP_DATE
+              ,A.SLIP_NUM
+              ,A.REMARKS
+              ,A.SUB_UPJANG_NUM   --종사업자번호
+
+              ,A.DR_ACCT_CD
+              ,A.CR_ACCT_CD
+              ,A.DR_ACCT_CLASS
+              ,A.CR_ACCT_CLASS
+              ,A.TAX_CD
+
+              ,A.PAY_SCHD_DATE
+              ,A.SLIP_CLASS_CD
+              ,A.EXPIRE_CAL_BASIS_DATE
+              ,A.ATTACH_DEPT_SAP   /*SAP귀속부서*/
+              ,A.PAY_COND_SAP   /*지급조건 SAP*/
+              ,A.PAYGRP_CD
+              ,A.ACCT_NM
+          FROM
+          (
+                SELECT
+                     ROW_NUMBER() OVER(PARTITION BY A.REAL_PAYMENT_PLCE ORDER BY A.OTHER_AMT_SEQ DESC) NUM
+                      ,D.LVL
+                      ,A.PO_ORDER_NUM
+                      ,A.COMM_CLASS
+                      ,(SELECT CODE_NAME FROM SCC_COMMON_CODE
+                        WHERE  GROUP_CODE = 'COMM_CLASS'
+                        AND CODE = A.COMM_CLASS ) AS COMM_CLASS_NM
+                      ,A.OTHER_AMT_SEQ
+                      ,A.REAL_PAYMENT_PLCE
+                      ,(SELECT VD_NM_LOC FROM EPROCUSR.ESMVDFW WHERE A.REAL_PAYMENT_PLCE = VD_CD AND CUS_VD_CLS = '10' AND VD_STS = 'C' ) REAL_PAYMENT_PLCE_NM
+                      ,A.JOURNALZ_ACCT
+                      ,A.COMM_AMT
+                      ,D.SET1 ACCT_CD
+                      ,D.DR_CR_FLAG
+                      ,A.SUPPLY_PRICE
+                      ,A.VAT_AMT
+                      ,A.TAX_BILL_NUM
+                      ,C.LC_NUM
+                      ,C.BL_NUM
+                      ,C.LSHIP_DATE
+
+                      ,A.SLIP_NUM
+
+                      ,NVL((
+                        SELECT T2.SUB_UPJANG_NUM
+                          FROM SCC_COMMON_CODE T, SCC_CC T2
+                         WHERE T.SET1= T2.CC_CD
+                         AND GROUP_CODE = 'ATTACH_DEPT'
+                           AND CODE = A.ATTACH_DEPT
+                       ),'0000') SUB_UPJANG_NUM   --종사업자번호
+
+                      ,B.DR_ACCT_CD
+                      ,B.CR_ACCT_CD
+                      ,B.DR_ACCT_CLASS
+                      ,B.CR_ACCT_CLASS
+                      ,A.TAX_CD
+
+                      ,A.PAY_SCHD_DATE
+                      ,B.SLIP_CLASS_CD
+                      ,A.REMARKS
+                      ,TO_CHAR(ADD_MONTHS(C.ENTRY_SCHD_DATE,3),'YYYYMMDD') EXPIRE_CAL_BASIS_DATE
+                      ,(SELECT SET1 FROM SCC_COMMON_CODE
+                        WHERE  GROUP_CODE = 'ATTACH_DEPT'
+                        AND CODE = C.ATTACH_DEPT ) AS ATTACH_DEPT_SAP   /*SAP귀속부서*/
+                      ,(SELECT SET1 FROM SCC_COMMON_CODE
+                        WHERE  GROUP_CODE = 'PAY_TERMS_CD'
+                        AND ROWNUM=1 ) AS PAY_COND_SAP   /*지급조건 SAP*/
+                      ,B.PAYGRP_CD
+                      ,B.ACCT_NM
+                FROM PO_ORDER_OTHER_AMT A
+                   , ACCT_MGMT B
+                   , PO_ORDER_MST C
+                   ,(
+                      SELECT
+                             B.LVL,
+                             A.CODE,
+                             DECODE(B.LVL, 1,A.SET1, 2,A.SET2, 3,A.SET3) SET1,
+                             DECODE(B.LVL, 1,'1', 2,'1', 3,'2') DR_CR_FLAG
+                      FROM   SCC_COMMON_CODE A,
+                            (
+                            SELECT
+                                 LEVEL LVL,
+                                 '' SET1
+                            FROM DUAL
+                            CONNECT BY LEVEL <= 3
+                            ) B
+                      WHERE  A.GROUP_CODE = 'COMM_CLASS'
+                      AND    A.USE_YN = 'Y'
+                     -- AND    A.CODE='A-05'
+                   ) D
+                WHERE 1=1
+                AND A.JOURNALZ_ACCT = B.ACCT_CD
+                AND A.PO_ORDER_NUM = C.PO_ORDER_NUM
+                AND A.COMM_CLASS = D.CODE
+                AND A.PO_ORDER_NUM = :poOrderNum
+                AND A.OTHER_AMT_SEQ IN (${otherAmtSeqs})
+                ORDER BY A.OTHER_AMT_SEQ,A.COMM_CLASS,D.LVL
+            ) A,
+            (
+                  SELECT
+                     ROW_NUMBER() OVER(ORDER BY A.REAL_PAYMENT_PLCE) NUM
+                    ,A.COMM_CLASS
+                    ,3 DR_CR_FLAG
+                    ,A.REAL_PAYMENT_PLCE
+                    , SUM(A.COMM_AMT) SUM_COMM_AMT
+                    , SUM(A.SUPPLY_PRICE) SUM_SUPPLY_PRICE
+                    , SUM(A.VAT_AMT) SUM_VAT_AMT
+                FROM PO_ORDER_OTHER_AMT A
+                WHERE A.PO_ORDER_NUM = :poOrderNum
+                AND A.OTHER_AMT_SEQ IN (${otherAmtSeqs})
+                GROUP BY A.COMM_CLASS,  A.REAL_PAYMENT_PLCE
+            ) B
+            WHERE 1=1
+            AND A.LVL = B.DR_CR_FLAG(+)
+            AND A.COMM_CLASS = B.COMM_CLASS(+)
+            AND A.REAL_PAYMENT_PLCE = B.REAL_PAYMENT_PLCE(+)
+            ORDER BY A.OTHER_AMT_SEQ,A.COMM_CLASS,A.LVL
+    ]]>
+	</statement>
+
+	<!-- 수수료 환급if 대상 목록을 조회한다. -->
+	<statement name="selectOtherAmtIfList3" type="select">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.selectOtherAmtIfList3 */
+           --지불
+          SELECT
+               A.LVL
+              ,A.PO_ORDER_NUM
+              ,A.REAL_PAYMENT_PLCE
+              ,A.REAL_PAYMENT_PLCE_NM
+
+              ,A.SUPPLY_PRICE
+              ,A.VAT_AMT
+
+              ,B.SUM_COMM_AMT
+              ,B.SUM_SUPPLY_PRICE
+              ,B.SUM_VAT_AMT
+
+              ,A.COMM_CLASS
+              ,A.COMM_CLASS_NM
+              ,A.OTHER_AMT_SEQ
+              ,A.JOURNALZ_ACCT
+              ,A.COMM_AMT
+              ,A.ACCT_CD
+              ,A.DR_CR_FLAG
+
+
+              ,A.TAX_BILL_NUM
+              ,A.LC_NUM
+              ,A.BL_NUM
+              ,A.LSHIP_DATE
+              ,A.SLIP_NUM
+              ,A.REMARKS
+              ,A.SUB_UPJANG_NUM   --종사업자번호
+
+              ,A.DR_ACCT_CD
+              ,A.CR_ACCT_CD
+              ,A.DR_ACCT_CLASS
+              ,A.CR_ACCT_CLASS
+              ,A.TAX_CD
+
+              ,A.PAY_SCHD_DATE
+              ,A.SLIP_CLASS_CD
+              ,A.EXPIRE_CAL_BASIS_DATE
+              ,A.ATTACH_DEPT_SAP   /*SAP귀속부서*/
+              ,A.PAY_COND_SAP   /*지급조건 SAP*/
+              ,A.PAYGRP_CD
+              ,A.ACCT_NM
+          FROM
+          (
+                SELECT
+                     ROW_NUMBER() OVER(PARTITION BY A.REAL_PAYMENT_PLCE ORDER BY A.OTHER_AMT_SEQ DESC) NUM
+                      ,D.LVL
+                      ,A.PO_ORDER_NUM
+                      ,A.COMM_CLASS
+                      ,(SELECT CODE_NAME FROM SCC_COMMON_CODE
+                        WHERE  GROUP_CODE = 'COMM_CLASS'
+                        AND CODE = A.COMM_CLASS ) AS COMM_CLASS_NM
+                      ,A.OTHER_AMT_SEQ
+                      ,A.REAL_PAYMENT_PLCE
+                      ,(SELECT VD_NM_LOC FROM EPROCUSR.ESMVDFW WHERE A.REAL_PAYMENT_PLCE = VD_CD AND CUS_VD_CLS = '10' AND VD_STS = 'C' ) REAL_PAYMENT_PLCE_NM
+                      ,A.JOURNALZ_ACCT
+                      ,A.COMM_AMT
+                      ,D.SET1 ACCT_CD
+                      ,D.DR_CR_FLAG
+                      ,A.SUPPLY_PRICE
+                      ,A.VAT_AMT
+                      ,A.TAX_BILL_NUM
+                      ,C.LC_NUM
+                      ,C.BL_NUM
+                      ,C.LSHIP_DATE
+
+                      ,A.SLIP_NUM
+
+                      ,NVL((
+                        SELECT T2.SUB_UPJANG_NUM
+                          FROM SCC_COMMON_CODE T, SCC_CC T2
+                         WHERE T.SET1= T2.CC_CD
+                         AND GROUP_CODE = 'ATTACH_DEPT'
+                           AND CODE = A.ATTACH_DEPT
+                       ),'0000') SUB_UPJANG_NUM   --종사업자번호
+
+
+                      ,B.DR_ACCT_CD
+                      ,B.CR_ACCT_CD
+                      ,B.DR_ACCT_CLASS
+                      ,B.CR_ACCT_CLASS
+                      ,A.TAX_CD
+
+                      ,A.PAY_SCHD_DATE
+                      ,B.SLIP_CLASS_CD
+                      ,A.REMARKS
+                      ,TO_CHAR(ADD_MONTHS(C.ENTRY_SCHD_DATE,3),'YYYYMMDD') EXPIRE_CAL_BASIS_DATE
+                      ,(SELECT SET1 FROM SCC_COMMON_CODE
+                        WHERE  GROUP_CODE = 'ATTACH_DEPT'
+                        AND CODE = C.ATTACH_DEPT ) AS ATTACH_DEPT_SAP   /*SAP귀속부서*/
+                      ,(SELECT SET1 FROM SCC_COMMON_CODE
+                        WHERE  GROUP_CODE = 'PAY_TERMS_CD'
+                        AND ROWNUM=1 ) AS PAY_COND_SAP   /*지급조건 SAP*/
+                      ,B.PAYGRP_CD
+                      ,B.ACCT_NM
+                FROM PO_ORDER_OTHER_AMT A
+                   , ACCT_MGMT B
+                   , PO_ORDER_MST C
+                   ,(
+                      SELECT
+                             B.LVL,
+                             A.CODE,
+                             DECODE(B.LVL, 1,A.SET1, 2,A.SET3) SET1,
+                             DECODE(B.LVL, 1,'1', 2,'2') DR_CR_FLAG
+                      FROM   SCC_COMMON_CODE A,
+                            (
+                            SELECT
+                                 LEVEL LVL,
+                                 '' SET1
+                            FROM DUAL
+                            CONNECT BY LEVEL <= 2
+                            ) B
+                      WHERE  A.GROUP_CODE = 'COMM_CLASS'
+                      AND    A.USE_YN = 'Y'
+                     -- AND    A.CODE='A-05'
+                   ) D
+                WHERE 1=1
+                AND A.JOURNALZ_ACCT = B.ACCT_CD
+                AND A.PO_ORDER_NUM = C.PO_ORDER_NUM
+                AND A.COMM_CLASS = D.CODE
+                AND A.PO_ORDER_NUM = :poOrderNum
+                AND A.OTHER_AMT_SEQ =:otherAmtSeq
+                ORDER BY A.OTHER_AMT_SEQ,A.COMM_CLASS,D.LVL
+            ) A,
+            (
+                  SELECT
+                     ROW_NUMBER() OVER(ORDER BY A.REAL_PAYMENT_PLCE) NUM
+                    ,A.COMM_CLASS
+                    ,3 DR_CR_FLAG
+                    ,A.REAL_PAYMENT_PLCE
+                    , SUM(A.COMM_AMT) SUM_COMM_AMT
+                    , SUM(A.SUPPLY_PRICE) SUM_SUPPLY_PRICE
+                    , SUM(A.VAT_AMT) SUM_VAT_AMT
+                FROM PO_ORDER_OTHER_AMT A
+                WHERE A.PO_ORDER_NUM = :poOrderNum
+                AND A.OTHER_AMT_SEQ =:otherAmtSeq
+                GROUP BY A.COMM_CLASS,  A.REAL_PAYMENT_PLCE
+            ) B
+            WHERE 1=1
+            AND A.LVL = B.DR_CR_FLAG(+)
+            AND A.COMM_CLASS = B.COMM_CLASS(+)
+            AND A.REAL_PAYMENT_PLCE = B.REAL_PAYMENT_PLCE(+)
+            ORDER BY A.OTHER_AMT_SEQ,A.COMM_CLASS,A.LVL
+    ]]>
+	</statement>
+
+
+
+	<!-- 수수료 미착 if 대상 목록을 조회한다. -->
+	<statement name="selectFocOtherAmtIfList" type="select"><![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.selectFocOtherAmtIfList */
+        --미착생성
+        SELECT
+               D.LVL
+              ,A.PO_ORDER_NUM
+              ,A.COMM_CLASS
+              ,(SELECT CODE_NAME FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'COMM_CLASS'
+                AND CODE = A.COMM_CLASS ) AS COMM_CLASS_NM
+              ,A.OTHER_AMT_SEQ
+              ,A.REAL_PAYMENT_PLCE
+              ,(SELECT REAL_PAYMENT_PLCE FROM ETC_PREPAYAMT_ADJUST T WHERE  PO_ORDER_NUM= A.PO_ORDER_NUM AND T.ADJUST_SEQ=A.ADJUST_SEQ  AND A.ORG_FISCAL_SLIP_NUM = SLIP_NUM ) ETC_REAL_PAYMENT_PLCE
+              ,A.JOURNALZ_ACCT
+              /*
+              ,CASE WHEN A.JOURNALZ_ACCT = 'FTIS06-05' THEN   --가수금
+                    B.DR_ACCT_CD
+               ELSE
+                 CASE WHEN D.SET1 IN ('11404000','90005020','21401110') THEN   --미착,채권채무가계정
+                      D.SET1
+                 ELSE
+                     CASE WHEN A.TAX_CD IN ('50','52') THEN   --전자일반매입,수기일반매입
+                         D.SET1
+                     ELSE
+                         '90007010'
+                     END
+                 END
+               END AS ACCT_CD
+               */
+              /*
+               ,  CASE WHEN D.SET1 IN ('11404000','90005020','21401110','46101000','45101000') THEN   --미착,채권채무가계정
+                      D.SET1
+                 ELSE
+                     CASE WHEN A.TAX_CD IN ('50','52') THEN   --전자일반매입,수기일반매입
+                         D.SET1
+                     ELSE
+                         '90007010'
+                     END
+                 END AS ACCT_CD
+              */
+              /*
+               , CASE WHEN A.PO_ORDER_NUM IN ('100-PO-1901-0027','100-PO-1812-0114') AND A.COMM_CLASS = 'D-01' THEN '21101010'
+                 ELSE
+                 CASE WHEN D.SET1 IN ('11404000','90005020','21401110','46101000','45101000') THEN   --미착,채권채무가계정
+                      D.SET1
+                 ELSE
+                     CASE WHEN A.TAX_CD IN ('50','52') THEN   --전자일반매입,수기일반매입
+                         D.SET1
+                     ELSE
+                         '90007010'
+                     END
+                 END END AS ACCT_CD
+              */
+               , CASE WHEN D.SET1 IN ('11404000','90005020','21401110','46101000','45101000') THEN   --미착,채권채무가계정
+                      D.SET1
+                 ELSE
+                     CASE WHEN A.TAX_CD IN ('50','52') THEN   --전자일반매입,수기일반매입
+                         D.SET1
+                     ELSE
+                         '90007010'
+                     END
+                 END AS ACCT_CD
+
+              ,D.DR_CR_FLAG
+
+              /*
+              ,CASE WHEN A.PO_ORDER_NUM IN ('100-PO-1901-0027','100-PO-1812-0114') AND A.COMM_CLASS = 'D-01' THEN A.COMM_AMT
+               ELSE
+               CASE WHEN A.TAX_CD IN ('50','52','70','75') THEN   --전자일반매입,수기일반매입,전자불공제 면세사업,수기불공제 면세사업
+                    CASE WHEN D.SET1 IN ('11404000','90005020','21401110') THEN   --미착,채권채무가계정 21401120
+                          A.COMM_AMT
+                    ELSE
+                       CASE WHEN A.TAX_CD IN ('50','52','70','75') THEN   --전자일반매입,수기일반매입
+                           A.VAT_AMT
+                       ELSE
+                           A.COMM_AMT
+                       END
+                    END
+               ELSE
+                    CASE WHEN D.SET1 IN ('11404000','90005020','21401110','46101000','45101000') THEN   --미착,채권채무가계정, 외환차손, 외환차익 21401120
+                          A.COMM_AMT
+                    ELSE
+                       CASE WHEN A.TAX_CD IN ('50','52') THEN   --전자일반매입,수기일반매입
+                           A.COMM_AMT
+                       ELSE
+                           0
+                       END
+                    END
+
+               END END AS SLIP_CURRENCY_AMT
+              */
+              ,CASE WHEN A.TAX_CD IN ('50','52','70','75') THEN   --전자일반매입,수기일반매입,전자불공제 면세사업,수기불공제 면세사업
+                    CASE WHEN D.SET1 IN ('11404000','90005020','21401110') THEN   --미착,채권채무가계정 21401120
+                          A.COMM_AMT
+                    ELSE
+                       CASE WHEN A.TAX_CD IN ('50','52','70','75') THEN   --전자일반매입,수기일반매입
+                           A.VAT_AMT
+                       ELSE
+                           A.COMM_AMT
+                       END
+                    END
+               ELSE
+                    --2019.11.05 김명섭 환급 전도금 증액
+                    --CASE WHEN D.SET1 IN ('11404000','90005020','21401110','46101000','45101000') THEN   --미착,채권채무가계정, 외환차손, 외환차익 21401120
+                    CASE WHEN D.SET1 IN ('11404000','90005020','21401110','46101000','45101000') OR B.ACCT_CD = 'FTIS20' THEN   --미착,채권채무가계정, 외환차손, 외환차익 21401120
+                          A.COMM_AMT
+                    ELSE
+                       CASE WHEN A.TAX_CD IN ('50','52') THEN   --전자일반매입,수기일반매입
+                           A.COMM_AMT
+                       ELSE
+                           0
+                       END
+                    END
+
+               END AS SLIP_CURRENCY_AMT
+
+              ,CASE WHEN A.TAX_CD IN ('50','52','70','75') THEN   --전자일반매입,수기일반매입,전자불공제 면세사업,수기불공제 면세사업
+                    CASE WHEN D.SET1 IN ('11503000', '90007010') THEN   --매입부가세
+                          A.SUPPLY_PRICE
+                    ELSE
+                        0
+                    END
+               ELSE
+                   --2019.11.05 김명섭 환급 전도금 증액
+                   --A.SUPPLY_PRICE
+                   CASE WHEN B.ACCT_CD = 'FTIS20' THEN 0 ELSE A.SUPPLY_PRICE END
+               END AS SUPPLY_PRICE
+
+              ,CASE WHEN D.SET1 IN ('11503000', '90007010') THEN   --매입계산서
+                   A.VAT_AMT
+               ELSE
+                   0
+               END VAT_AMT
+
+
+
+              ,CASE WHEN A.TAX_CD IN ('50','52','70','75') THEN   --전자일반매입,수기일반매입,전자불공제 면세사업,수기불공제 면세사업
+                    CASE WHEN D.SET1 IN ('11503000', '90007010') THEN   --매입부가세
+                          A.TAX_CD
+                    ELSE
+                        ''
+                    END
+               ELSE
+                   CASE WHEN D.SET1 IN ('11404000','90005020','21401110') THEN   --미착
+                     ''
+                   ELSE
+                     A.TAX_CD
+                   END
+               END AS TAX_CD
+
+              ,A.TAX_CD AS REAL_TAX_CD
+              ,A.TAX_BILL_NUM
+
+
+              ,NVL((
+                SELECT NVL(T2.SUB_UPJANG_NUM,'0000')
+                  FROM SCC_COMMON_CODE T, SCC_CC T2
+                 WHERE T.SET1= T2.CC_CD
+                 AND GROUP_CODE = 'ATTACH_DEPT'
+                   AND CODE = A.ATTACH_DEPT
+               ),'0000') SUB_UPJANG_NUM   --종사업자번호
+              ,A.ORG_FISCAL_SLIP_NUM
+              ,C.LC_NUM
+              ,C.BL_NUM
+              ,C.LSHIP_DATE
+              ,A.SLIP_NUM
+
+              ,B.DR_ACCT_CD
+              ,B.CR_ACCT_CD
+              ,B.DR_ACCT_CLASS
+              ,B.CR_ACCT_CLASS
+
+              ,A.PAY_SCHD_DATE
+              ,A.SLIP_PUBLISH_DATE
+              ,A.BILL_PUBLISHDD
+              ,B.SLIP_CLASS_CD
+              ,A.REMARKS
+              ,TO_CHAR(ADD_MONTHS(C.ENTRY_SCHD_DATE,3),'YYYYMMDD') EXPIRE_CAL_BASIS_DATE
+              ,(SELECT SET1 FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'ATTACH_DEPT'
+                AND CODE = C.ATTACH_DEPT ) AS ATTACH_DEPT_SAP   /*SAP귀속부서*/
+              ,(SELECT SET1 FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'PAY_TERMS_CD'
+                AND ROWNUM=1 ) AS PAY_COND_SAP   /*지급조건 SAP*/
+              ,B.PAYGRP_CD
+              ,B.ACCT_NM
+              ,CASE WHEN E.TAX_CNT > 0 THEN
+                    'Y'
+               ELSE
+                    'N'
+               END AS TAX_YN
+              ,A.SUSPENSE_NUM  --가수금번호
+        FROM PO_ORDER_OTHER_AMT A
+           , ACCT_MGMT B
+           , PO_ORDER_MST C
+           ,(
+              SELECT
+                     B.LVL,
+                     A.CODE,
+                    <#if viewRow == "2">	/* 구매주문일 */
+                         DECODE(B.LVL, 1,A.SET1, 2,A.SET2, 3,A.SET3) SET1,
+                         DECODE(B.LVL, 1,'1', 2,'2', 3,'2') DR_CR_FLAG
+                    <#elseif viewRow == "1">	/* 판매종료일자 */
+                         DECODE(A.CODE,'B-06',A.SET2,A.SET1) SET1,
+                         DECODE(B.LVL, 1,'1') DR_CR_FLAG
+                    </#if>
+
+              FROM   SCC_COMMON_CODE A,
+                    (
+                    SELECT
+                         LEVEL LVL,
+                         '' SET1
+                    FROM DUAL
+                    CONNECT BY LEVEL <= :viewRow
+                    ) B
+              WHERE  A.GROUP_CODE = 'COMM_CLASS'
+              AND    A.USE_YN = 'Y'
+           ) D
+           , (SELECT PO_ORDER_NUM, COUNT(DECODE(TAX_YN,'Y',1)) TAX_CNT FROM PO_ORDER_ITEM_DETAIL GROUP BY PO_ORDER_NUM) E
+        WHERE 1=1
+        AND A.JOURNALZ_ACCT = B.ACCT_CD
+        AND A.PO_ORDER_NUM = C.PO_ORDER_NUM
+        AND A.COMM_CLASS = D.CODE
+        AND A.PO_ORDER_NUM = E.PO_ORDER_NUM
+        AND A.PO_ORDER_NUM = :poOrderNum
+        AND A.OTHER_AMT_SEQ = :otherAmtSeq
+        --AND D.SET1 IS NOT NULL
+        ORDER BY A.OTHER_AMT_SEQ,A.COMM_CLASS,D.LVL
+        ]]></statement>
+
+	<!-- 계약이행 선수금용으로 작업 중인 쿼리 2016.01.06 -->
+	<statement name="selectFocOtherAmtIfList_back" type="select">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.selectFocOtherAmtIfList */
+        --미착생성
+        SELECT
+               D.LVL
+              ,A.PO_ORDER_NUM
+              ,A.COMM_CLASS
+              ,(SELECT CODE_NAME FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'COMM_CLASS'
+                AND CODE = A.COMM_CLASS ) AS COMM_CLASS_NM
+              ,A.OTHER_AMT_SEQ
+              ,A.REAL_PAYMENT_PLCE
+              ,(SELECT CUSTCD FROM ST_CUST X WHERE X.SAP_CUST_CD = A.REAL_PAYMENT_PLCE) FO_CUST_CD   -- 계약이행선납금 관리항목 추가 적용 2016.01.06
+              ,(SELECT CUSTNM FROM ST_CUST X WHERE X.SAP_CUST_CD = A.REAL_PAYMENT_PLCE) FO_CUST_NM   -- 계약이행선납금 관리항목 추가 적용 2016.01.06
+              ,(SELECT REAL_PAYMENT_PLCE FROM ETC_PREPAYAMT_ADJUST T WHERE  PO_ORDER_NUM= A.PO_ORDER_NUM AND T.ADJUST_SEQ=A.ADJUST_SEQ  AND A.ORG_FISCAL_SLIP_NUM = SLIP_NUM ) ETC_REAL_PAYMENT_PLCE
+              ,A.JOURNALZ_ACCT
+              /*
+              ,CASE WHEN A.JOURNALZ_ACCT = 'FTIS06-05' THEN   --가수금
+                    B.DR_ACCT_CD
+               ELSE
+                 CASE WHEN D.SET1 IN ('11404000','90005020','21401110','21401030') THEN   --미착,채권채무가계정
+                      D.SET1
+                 ELSE
+                     CASE WHEN A.TAX_CD IN ('50','52') THEN   --전자일반매입,수기일반매입
+                         D.SET1
+                     ELSE
+                         '90007010'
+                     END
+                 END
+               END AS ACCT_CD
+               */
+               ,  CASE WHEN D.SET1 IN ('11404000','90005020','21401110','21401030') THEN   --미착,채권채무가계정
+                      D.SET1
+                 ELSE
+                     CASE WHEN A.TAX_CD IN ('50','52') THEN   --전자일반매입,수기일반매입
+                         D.SET1
+                     ELSE
+                         '90007010'
+                     END
+                 END AS ACCT_CD
+
+
+              ,D.DR_CR_FLAG
+
+              ,CASE WHEN A.TAX_CD IN ('50','52','70','75') THEN   --전자일반매입,수기일반매입,전자불공제 면세사업,수기불공제 면세사업
+                    CASE WHEN D.SET1 IN ('11404000','90005020','21401110','21401030') THEN   --미착,채권채무가계정
+                          A.COMM_AMT
+                    ELSE
+                       CASE WHEN A.TAX_CD IN ('50','52','70','75') THEN   --전자일반매입,수기일반매입
+                           A.VAT_AMT
+                       ELSE
+                           A.COMM_AMT
+                       END
+                    END
+               ELSE
+                    CASE WHEN D.SET1 IN ('11404000','90005020','21401110','21401030') THEN   --미착,채권채무가계정
+                          A.COMM_AMT
+                    ELSE
+                       CASE WHEN A.TAX_CD IN ('50','52') THEN   --전자일반매입,수기일반매입
+                           A.COMM_AMT
+                       ELSE
+                           0
+                       END
+                    END
+
+               END AS SLIP_CURRENCY_AMT
+
+              ,CASE WHEN A.TAX_CD IN ('50','52','70','75') THEN   --전자일반매입,수기일반매입,전자불공제 면세사업,수기불공제 면세사업
+                    CASE WHEN D.SET1 IN ('11503000', '90007010') THEN   --매입부가세
+                          A.SUPPLY_PRICE
+                    ELSE
+                        0
+                    END
+               ELSE
+                   A.SUPPLY_PRICE
+               END AS SUPPLY_PRICE
+
+              ,CASE WHEN D.SET1 IN ('11503000', '90007010') THEN   --매입계산서
+                   A.VAT_AMT
+               ELSE
+                   0
+               END VAT_AMT
+
+
+
+              ,CASE WHEN A.TAX_CD IN ('50','52','70','75') THEN   --전자일반매입,수기일반매입,전자불공제 면세사업,수기불공제 면세사업
+                    CASE WHEN D.SET1 IN ('11503000', '90007010') THEN   --매입부가세
+                          A.TAX_CD
+                    ELSE
+                        ''
+                    END
+               ELSE
+                   CASE WHEN D.SET1 IN ('11404000','90005020','21401110','21401030') THEN   --미착
+                     ''
+                   ELSE
+                     A.TAX_CD
+                   END
+               END AS TAX_CD
+
+              ,A.TAX_CD AS REAL_TAX_CD
+              ,A.TAX_BILL_NUM
+
+
+              ,NVL((
+                SELECT NVL(T2.SUB_UPJANG_NUM,'0000')
+                  FROM SCC_COMMON_CODE T, SCC_CC T2
+                 WHERE T.SET1= T2.CC_CD
+                 AND GROUP_CODE = 'ATTACH_DEPT'
+                   AND CODE = A.ATTACH_DEPT
+               ),'0000') SUB_UPJANG_NUM   --종사업자번호
+              ,A.ORG_FISCAL_SLIP_NUM
+              ,C.LC_NUM
+              ,C.BL_NUM
+              ,C.LSHIP_DATE
+              ,A.SLIP_NUM
+
+              ,B.DR_ACCT_CD
+              ,B.CR_ACCT_CD
+              ,B.DR_ACCT_CLASS
+              ,B.CR_ACCT_CLASS
+
+              ,A.PAY_SCHD_DATE
+              ,A.SLIP_PUBLISH_DATE
+              ,A.BILL_PUBLISHDD
+              ,B.SLIP_CLASS_CD
+              ,A.REMARKS
+              ,TO_CHAR(ADD_MONTHS(C.ENTRY_SCHD_DATE,3),'YYYYMMDD') EXPIRE_CAL_BASIS_DATE
+              ,(SELECT SET1 FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'ATTACH_DEPT'
+                AND CODE = C.ATTACH_DEPT ) AS ATTACH_DEPT_SAP   /*SAP귀속부서*/
+              ,(SELECT SET1 FROM SCC_COMMON_CODE
+                WHERE  GROUP_CODE = 'PAY_TERMS_CD'
+                AND ROWNUM=1 ) AS PAY_COND_SAP   /*지급조건 SAP*/
+              ,B.PAYGRP_CD
+              ,B.ACCT_NM
+              ,CASE WHEN E.TAX_CNT > 0 THEN
+                    'Y'
+               ELSE
+                    'N'
+               END AS TAX_YN
+              ,A.SUSPENSE_NUM  --가수금번호
+        FROM PO_ORDER_OTHER_AMT A
+           , ACCT_MGMT B
+           , PO_ORDER_MST C
+           ,(
+              SELECT
+                     B.LVL,
+                     A.CODE,
+                    <#if viewRow == "2">	/* 구매주문일 */
+                         DECODE(B.LVL, 1,A.SET1, 2,A.SET2, 3,A.SET3) SET1,
+                         DECODE(B.LVL, 1,'1', 2,'2', 3,'2') DR_CR_FLAG
+                    <#elseif viewRow == "1">	/* 판매종료일자 */
+                         DECODE(A.CODE,'B-06',A.SET2,A.SET1) SET1,
+                         DECODE(B.LVL, 1,'1') DR_CR_FLAG
+                    </#if>
+
+              FROM   SCC_COMMON_CODE A,
+                    (
+                    SELECT
+                         LEVEL LVL,
+                         '' SET1
+                    FROM DUAL
+                    CONNECT BY LEVEL <= :viewRow
+                    ) B
+              WHERE  A.GROUP_CODE = 'COMM_CLASS'
+              AND    A.USE_YN = 'Y'
+           ) D
+           , (SELECT PO_ORDER_NUM, COUNT(DECODE(TAX_YN,'Y',1)) TAX_CNT FROM PO_ORDER_ITEM_DETAIL GROUP BY PO_ORDER_NUM) E
+        WHERE 1=1
+        AND A.JOURNALZ_ACCT = B.ACCT_CD
+        AND A.PO_ORDER_NUM = C.PO_ORDER_NUM
+        AND A.COMM_CLASS = D.CODE
+        AND A.PO_ORDER_NUM = E.PO_ORDER_NUM
+        AND A.PO_ORDER_NUM = :poOrderNum
+        AND A.OTHER_AMT_SEQ = :otherAmtSeq
+        --AND D.SET1 IS NOT NULL
+        ORDER BY A.OTHER_AMT_SEQ,A.COMM_CLASS,D.LVL
+        ]]>
+	</statement>
+
+	<!-- 구매 주문에 대한 통관환율,일자.(을)를 수정한다. -->
+	<statement name="updateExchangeInfo" type="update">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.updateExchangeInfo */
+        UPDATE PO_ORDER_MST SET
+        <#if exchangeRateDate?exists> EXCHANGE_RATE_DATE = :exchangeRateDate, </#if>
+        <#if exchangeRate?exists> EXCHANGE_RATE = :exchangeRate, </#if>
+               UUSER = :loginSabun,
+               UDATE = SYSDATE
+        WHERE  PO_ORDER_NUM = :poOrderNum
+        ]]>
+	</statement>
+
+	<!-- 구매 주문에 대한 통관환율,일자.(을)를 수정한다. -->
+	<statement name="updateIns" type="update">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.updateIns */
+        UPDATE PO_ORDER_MST SET
+               INSC_NUM = :inscNum,
+               INSUR_ENT_DATE = :insurEntDate,
+               INSUR_ENT_AMT = :insurEntAmt,
+               UUSER = :loginSabun,
+               UDATE = SYSDATE
+        WHERE  PO_ORDER_NUM = :poOrderNum
+        ]]>
+	</statement>
+
+	<!-- 영업회계 계약이행선납금/채권채무상계가계정 처리 원시전표를 조회한다. 2016.02.25 -->
+	<statement name="selectIfcSlipCallPop" type="select">
+
+		<![CDATA[
+		/*+ com.hwfs.ft.ftp.dao.PoOrderMstDAO.selectIfcSlipCallPop */
+          SELECT  '0' CHK
+                    ,M.SLIP_NUM
+                    ,M.SLIP_TYPE
+                    ,SCC_CODE_NM('SLIP_TYPE', M.SLIP_TYPE) SLIP_TYPE_NM
+                    ,M.SLIP_CREATION_MM
+                    ,M.SLIP_PERIOD_DATE
+                    ,M.SLIP_TEXT
+                    ,M.MU_CD
+                    ,(SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE M.MU_CD = MU.MU_CD) MU_NM
+                    ,SCC_GET_TM_BY_CC('CODE',M.CC_CD) TM_CD
+                    ,SCC_GET_TM_BY_CC('NAME',M.CC_CD) TM_NM
+                    ,M.CC_CD
+                    ,(SELECT DISTINCT MU.CC_NM FROM HLDC_SC_DEPT_V MU WHERE M.CC_CD = MU.CC_CD) CC_NM
+                    ,M.WRITE_EMP_SABUN
+                    ,(SELECT DISTINCT  NM_KOR FROM HR_PERSONAL WHERE SABUN=M.WRITE_EMP_SABUN) AS WRITE_EMP_SABUN_NM
+                    ,D1.GUEST_NUM
+                    ,D1.FO_CUST_NM
+                    ,NVL(SUM(D1.LCAL_AMT),0) D_AMT
+                    ,NVL(SUM(D2.LCAL_AMT),0) C_AMT
+            FROM    SLA_SAP_SLIP_MST M
+                  , SLA_SAP_SLIP_DTL D1
+                  , SLA_SAP_SLIP_DTL D2
+            WHERE   M.SLIP_NUM = D1.SLIP_NUM
+              AND   M.SLIP_NUM = D2.SLIP_NUM
+              AND   D1.DR_CR_CLASS = '1'
+              AND   D2.DR_CR_CLASS = '2'
+              --AND   D1.MASTER_ACCT = '21401030'  -- 선수금_계약이행선납금 
+              AND   D1.MASTER_ACCT IN ('21401030','21401070')  -- 선수금_계약이행선납금, 선수금_선매출
+              AND   D2.MASTER_ACCT = '90005020'  -- 채권채무상계가계정
+              AND   M.SLIP_STATUS IN ('P', 'V')
+              AND   M.MU_CD = '2004'
+            GROUP BY M.SLIP_NUM, M.SLIP_TYPE, M.MU_CD, M.CC_CD, D1.GUEST_NUM, D1.FO_CUST_NM,
+                     M.SLIP_PERIOD_DATE, M.SLIP_TEXT, M.WRITE_EMP_SABUN, M.SLIP_CREATION_MM
+        ]]>
+	</statement>
+
+</hqml>

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+		http://www.springframework.org/schema/batch http://www.springframework.org/schema/batch/spring-batch-2.1.xsd">
+
+	<import resource="../abstractBase/batchBase.xml" />
+	<!--*****************************************************************************
+			Job에 대한 상세한 설명을 여기에 표현한다. (주요 처리 내용)
+		*****************************************************************************-->
+
+	<!-- parallel 처리 예 : split로 정의된 ibatisToIbatisStep1와 ibatisToIbatisStep2는 병렬로 처리 됨. 
+	     데이터를 분할하여 처리하기 위해 ItemReader만 분리 함 -->
+	<job id="dbioToDbioParallelJob" parent="batchBaseJob"
+		xmlns="http://www.springframework.org/schema/batch">
+		<description>HONE DBIO로 DB에서 데이터를 읽어 처리 후 DB에 저장한다.(Parallel로 처리)</description>
+		<split id="split1" task-executor="taskExecutor">
+			<flow>
+				<step id="dbioToDbioStep1" parent="batchBaseStep">
+					<tasklet>
+						<chunk  reader="dbioToDbioParallelJob.dbioToDbioStep.dbioItemReader1" 
+								processor="dbioToDbioParallelJob.dbioToDbioStep.itemProcessor"
+								writer="dbioToDbioParallelJob.dbioToDbioStep.dbioItemWriter" 
+								commit-interval="2" />
+					</tasklet>
+				</step>
+			</flow>
+			<flow>
+				<step id="dbioToDbioStep2" parent="batchBaseStep">
+					<tasklet>
+						<chunk  reader="dbioToDbioParallelJob.dbioToDbioStep.dbioItemReader2" 
+								processor="dbioToDbioParallelJob.dbioToDbioStep.itemProcessor"
+								writer="dbioToDbioParallelJob.dbioToDbioStep.dbioItemWriter" 
+								commit-interval="2" />
+					</tasklet>
+				</step>
+			</flow>
+		</split>
+	</job>
+
+	<bean id="taskExecutor" class="org.springframework.core.task.SimpleAsyncTaskExecutor" />
+	
+	<!-- DBIO Cursor 기반 ItemReader Parallel 1 -->
+	<bean id="dbioToDbioParallelJob.dbioToDbioStep.dbioItemReader1" 
+		class="hone.batch.runtime.item.database.DbioCursorItemReader" scope="step">
+		<property name="dataSource" ref="batchDataSource"/>
+		<property name="statementId" value="batch.guide.sample.customerDAO.getCustomerCreditsPart"/>
+		<property name="parameterValues">
+      		<map>
+         		<entry key="fromId" value="1"/>
+         		<entry key="toId" value="5"/>
+      		</map>
+   		</property>
+		<property name="rowMapper">
+	    	<bean class="com.hwfs.batch.guide.sample.CustomerCreditRowMapper"/>
+		</property>
+	</bean>
+
+	<!-- DBIO Cursor 기반 ItemReader Parallel 2 -->
+	<bean id="dbioToDbioParallelJob.dbioToDbioStep.dbioItemReader2" 
+		class="hone.batch.runtime.item.database.DbioCursorItemReader" scope="step">
+		<property name="dataSource" ref="batchDataSource"/>
+		<property name="statementId" value="batch.guide.sample.customerDAO.getCustomerCreditsPart"/>
+		<property name="parameterValues">
+      		<map>
+         		<entry key="fromId" value="6"/>
+         		<entry key="toId" value="10"/>
+      		</map>
+   		</property>
+		<property name="rowMapper">
+	    	<bean class="com.hwfs.batch.guide.sample.CustomerCreditRowMapper"/>
+		</property>
+	</bean>
+	
+	<!-- DBIO 기반 ItemWriter -->
+	<bean id="dbioToDbioParallelJob.dbioToDbioStep.dbioItemWriter"
+		class="hone.batch.runtime.item.database.DbioBatchItemWriter" scope="step">
+		<property name="assertUpdates" value="true" />
+		<property name="itemSqlParameterSourceProvider">
+			<bean class="org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider" />
+		</property>
+		<property name="dataSource" ref="batchDataSource"/>
+		<property name="statementId" value="batch.guide.sample.customerDAO.incrementCustomerCredits"/>
+	</bean>
+
+	<bean id="dbioToDbioParallelJob.dbioToDbioStep.itemProcessor"
+		class="com.hwfs.batch.guide.sample.CustomerCreditProcessor" />
+
+</beans>

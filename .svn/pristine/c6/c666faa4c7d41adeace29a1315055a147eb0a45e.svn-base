@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="fs.fsb.upjangPackAuthMgntDAO">
+	<desc>업장 기준정보 권한 관리 HQML Query</desc>
+
+	<!-- 업장 기준정보 권한 목록 조회 -->
+	<statement name="selectUpjangPackAuthList" type="select">
+		<![CDATA[
+			/*+ com.hwfs.fs.fsb.dao.upjangPackAuthMgntDAO.selectUpjangPackAuthList */
+			SELECT
+            		(SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = A.UPJANG) AS UPJANG_NM
+                   , A.SABUN
+                   , A.UPJANG
+                   , A.NM_KOR
+                   , TO_CHAR(A.CDATE,'YYYYMMDD') AS FROM_DT
+                   , '21001231' AS TO_DT
+                   , A.USE_YN
+                   , A.UDATE
+			  FROM SCC_USERINFO A
+             WHERE 
+                  (
+                       A.CC_CD =
+                             (        
+                            SELECT TM_CC_CD
+                                FROM HLDC_SC_DEPT_V C, ST_UPJANG D
+                               WHERE BU_CD = '2000'
+                                 AND C.CC_CD = D.CC_CD
+                                 AND D.UPJANG = :upjang
+                               )      		
+                    OR A.UPJANG = :upjang
+                    OR A.SABUN IN (SELECT SABUN FROM FMS_USER_UPJANG WHERE UPJANG = :upjang)
+                    --OR A.SABUN = '201100570' --FS 사업기획팀 정재호 과장 추가(2019.07.03, 요청장 : FC정보기획 김영욱)
+                   )
+               AND A.ACCT_STATUS IN ( 'NORMAL', 'LOCK' )       
+			   AND A.USE_YN = 'Y' 
+			       
+             
+			 UNION
+
+             SELECT 
+          		   (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = B.UPJANG) AS UPJANG_NM
+                   , A.SABUN
+                   , TO_NUMBER(A.UPJANG)
+                   , B.NM_KOR
+                   , A.FROM_DT
+                   , A.TO_DT
+                   , A.USE_YN
+                   , A.UDATE
+              FROM SCO_UPJANG_AUTH A, SCC_USERINFO B
+             WHERE A.UPJANG = :upjang
+               AND A.SABUN = B.SABUN
+               AND B.ACCT_STATUS IN ( 'NORMAL', 'LOCK' )
+               AND B.USE_YN = 'Y' 
+            				      
+          			           
+		]]>
+	</statement>
+	
+	<!-- 업장 기준정보 권한 목록 조회 -->
+	<statement name="selectBtnAuthList" type="select">
+		<![CDATA[
+			/*+ com.hwfs.fs.fsb.dao.upjangPackAuthMgntDAO.selectBtnAuthList */
+			SELECT CODE
+			  FROM SCC_COMMON_CODE
+			 WHERE GROUP_CODE = 'FSUPDATE_LIST'
+			   AND USE_YN = 'Y'
+
+		]]>
+	</statement>
+
+
+	<!-- 업장 기준정보 권한 목록 추가 -->
+	<statement name="insertUpjangPackAuth" type="insert"><![CDATA[
+			/*+ com.hwfs.fs.fsb.dao.upjangPackAuthMgntDAO.insertUpjangPackAuth */
+	INSERT INTO SCO_UPJANG_AUTH 
+	( 
+		  			  SABUN
+		  			, UPJANG
+					, FROM_DT
+					, TO_DT
+					, USE_YN
+					, CUSER
+					, CDATE
+					, UUSER
+					, UDATE 
+	)
+			
+	     VALUES (
+		  			  :sabun
+		  			, :upjang  
+				    , :fromDt
+				    , :toDt
+				    , :useYn
+				    , :loginSabun
+				    , SYSDATE
+				    , :loginSabun
+				    , SYSDATE
+			  	)
+	]]></statement>
+
+	<!-- 업장 기준정보 권한 목록을 수정 -->
+	<statement name="updateUpjangPackAuth" type="update"><![CDATA[
+			/*+ com.hwfs.fs.fsb.dao.upjangPackAuthMgntDAO.updateUpjangPackAuth */
+		UPDATE SCO_UPJANG_AUTH
+   		   SET
+		       FROM_DT = :fromDt
+		       ,TO_DT = :toDt
+		       ,USE_YN = :useYn
+		       ,UUSER = :loginSabun
+		       ,UDATE = SYSDATE
+		 WHERE SABUN = :sabun
+		   AND UPJANG = :upjang
+		 ]]></statement>
+	
+
+	<!-- 업장 기준정보 권한 목록 삭제 -->
+	<statement name="deleteUpjangPackAuth" type="delete">
+		<![CDATA[
+			/*+ com.hwfs.fs.fsb.dao.upjangPackAuthMgntDAO.deleteUpjangPackAuth */
+			DELETE
+				FROM SCO_UPJANG_AUTH
+				WHERE SABUN = :sabun
+				  AND UPJANG = :upjang
+	]]>
+	</statement>
+
+</hqml>

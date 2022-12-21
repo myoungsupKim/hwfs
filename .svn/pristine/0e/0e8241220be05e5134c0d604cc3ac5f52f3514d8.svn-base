@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.rrm.standardRecipeInquirybyItemDAO">
+	<desc>표준 레시피 조회(By Item) HQML Query</desc>
+
+	<!-- 표준 레시피 조회(By Item) 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.rc.rrm.dao.StandardRecipeInquirybyItemDAO.selectList */
+		<![CDATA[
+
+		SELECT A.MATERIAL_CD
+		     , C.ITEM_NAME MATERIAL_NM
+		     , ROUND(NVL(A.ITEM_PRICE, 0)) AS PRE_ITEM_PRICE
+		     , ROUND(NVL(B.ITEM_PRICE, 0)) AS CONTRACT_PRICE
+		     , C.MAKER
+		     , C.ITEM_SIZE
+		     , C.UOM_CODE
+		     , C.PO_UOM
+		     , C.KG_CONVERT_RATE
+		     , C.ORIGIN_TYPE
+		     , C.ORIGIN_NAT
+		     , C.BARCODE
+		     , ROUND(NVL(A.CONTRACT_PRICE, 0) / C.KG_CONVERT_RATE / 1000, 2) STD_GRAM_PRICE
+		     , ROUND(NVL(B.CONTRACT_PRICE, 0) / C.KG_CONVERT_RATE / 1000, 2) GRAM_PRICE
+		     , NVL(A.ITEM_PRICE, 0) - NVL(B.ITEM_PRICE, 0) AS PRICE_DIF
+		     , DECODE(NVL(A.ITEM_PRICE, 0), 0, 0, ((NVL(B.ITEM_PRICE, 0)-NVL(A.ITEM_PRICE, 0)) / NVL(A.ITEM_PRICE, 1)) * 100) AS PRICE_RATE
+		  FROM (
+		        SELECT /*+ PUSH_PRED(B) */ A.MATERIAL_CD
+		             , B.CONTRACT_PRICE
+		             , B.ITEM_PRICE
+		          FROM (
+		                SELECT DISTINCT MATERIAL_CD
+		                  FROM RSS_STD_RECIPE_CD_DETAIL
+		                 WHERE SEMI_GOODS_YN = 'N'
+		                   AND MU_CD = :muCd
+		                   AND UPJANG_TYPE = :upjangType
+		                   AND SDATE <= :stdDate
+		                   AND EDATE >= :stdDate
+		               ) A
+		             , (
+		                SELECT /*+ LEADING(A.UP) INDEX(A.MR IX_ESPSSGPITM_03)  */ 
+		                       ITEM_CODE
+		                     , AVG(CONTRACT_PRICE) AS CONTRACT_PRICE
+		                     , AVG(DECODE(NVL(MARGIN_RATE, 0), 0, CONTRACT_PRICE, ( ROUND((CONTRACT_PRICE * (MARGIN_RATE+100) / 100) / 10) * 10 ))) AS ITEM_PRICE
+		                  --FROM HLDC_PO_CONTRACT_F
+		                  FROM	EPROCUSR.VO_CONTRACT_F_RCP -- 논리적 분사이후 단가불러오는 뷰 변경 20200309
+		                 WHERE 1 = 1		              
+                   			AND UPJANG = '217840' --FC 외식 메뉴개발실 단가 연결  2017.10.31 이다미 요청  
+       						--AND UPJANG IN ('114356')
+            				AND USE_YN = 'Y'
+		                   AND :stdDate BETWEEN CONTRACT_START AND CONTRACT_END
+		                 GROUP BY ITEM_CODE
+		               ) B
+		         WHERE A.MATERIAL_CD = B.ITEM_CODE(+)
+		       ) A
+		     , (
+		        SELECT /*+ PUSH_PRED(B) */ 
+		               A.MATERIAL_CD 
+		             , B.CONTRACT_PRICE
+		             , B.ITEM_PRICE
+		          FROM (
+		                SELECT DISTINCT MATERIAL_CD
+		                  FROM RSS_STD_RECIPE_CD_DETAIL
+		                 WHERE SEMI_GOODS_YN = 'N'
+		                   AND MU_CD = :muCd
+		                   AND UPJANG_TYPE = :upjangType
+		                   AND SDATE <= :stdDate
+		                   AND EDATE >= :stdDate
+		               ) A
+		             , (
+		                SELECT /*+ LEADING(A.UP) INDEX(A.MR IX_ESPSSGPITM_03)  */ 
+		                       ITEM_CODE
+		                     , AVG(CONTRACT_PRICE) AS CONTRACT_PRICE
+		                     , AVG(DECODE(NVL(MARGIN_RATE, 0), 0, CONTRACT_PRICE, ( ROUND((CONTRACT_PRICE * (MARGIN_RATE+100) / 100) / 10) * 10 ))) AS ITEM_PRICE
+		                  --FROM HLDC_PO_CONTRACT_F
+		                  FROM	EPROCUSR.VO_CONTRACT_F_RCP -- 논리적 분사이후 단가불러오는 뷰 변경 20200309
+		                 WHERE 1 = 1
+                   			AND UPJANG = '217840' --FC 외식 메뉴개발실 단가 연결  2017.10.31 이다미 요청
+       						--AND UPJANG IN ('114356')
+            				AND USE_YN = 'Y'
+		                   AND :comDate BETWEEN CONTRACT_START AND CONTRACT_END
+		                 GROUP BY ITEM_CODE
+		               ) B
+		         WHERE A.MATERIAL_CD = B.ITEM_CODE(+)
+		       ) B
+		     , HLDC_PO_ITEM_MST C
+		 WHERE A.MATERIAL_CD = B.MATERIAL_CD
+		   AND A.MATERIAL_CD = C.ITEM_CODE(+)
+        <#if materialNm?has_content>
+		   AND UPPER(C.ITEM_NAME) LIKE '%'|| UPPER(:materialNm) ||'%'
+		</#if>
+		 ORDER BY A.MATERIAL_CD ASC
+		]]>
+	</statement>
+	
+	
+	<!-- 표준 레시피 조회(By Item) 목록을 조회한다. -->
+	<statement name="selectListItem" type="select">
+		/*+ com.hwfs.rc.rrm.dao.StandardRecipeInquirybyItemDAO.selectListItem */
+		<![CDATA[
+		SELECT A.MATERIAL_CD,
+			   B.ITEM_NAME MATERIAL_NM,
+			   B.MAKER,
+			   B.ITEM_SIZE,
+			   B.UOM_CODE,
+			   B.PO_UOM,
+			   B.KG_CONVERT_RATE,
+			   B.ORIGIN_TYPE,
+			   B.ORIGIN_NAT,
+			   B.BARCODE,
+			   C.MARGIN_PRICE,
+			   ROUND(NVL(C.MARGIN_PRICE, 0) / B.KG_CONVERT_RATE / 1000, 2) GRAM_PRICE,
+			   B.REMARK
+		FROM ( SELECT DISTINCT MATERIAL_CD
+			   FROM   RSS_STD_RECIPE_CD_DETAIL
+			   WHERE  SEMI_GOODS_YN = 'N'
+			   AND	  MU_CD = :muCd
+			   AND	  UPJANG_TYPE = :upjangType
+			   AND    SDATE <= :stdDate
+			   AND	  EDATE >= :stdDate
+			   ) A,
+			   HLDC_PO_ITEM_MST B,
+			   FSI_STD_PRICE C
+		WHERE  A.MATERIAL_CD = B.ITEM_CODE(+)
+		AND	   A.MATERIAL_CD = C.ITEM_CODE(+)
+		<#if materialNm?has_content>
+		AND	   B.ITEM_NAME LIKE '%'|| :materialNm ||'%'
+		</#if>
+		ORDER BY A.MATERIAL_CD ASC
+		]]>
+	</statement>
+	
+</hqml>

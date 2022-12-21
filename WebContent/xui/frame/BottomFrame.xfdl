@@ -1,0 +1,440 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="BottomFrame" classname="Bottom" inheritanceid="" position="absolute 0 0 1278 10" scrollbars="none" onload="BottomFrame_onload" style="border:0 none #808080ff ;" titletext="Bottom Frame" class="frm_Bottom" ontimer="BottomFrame_ontimer">
+    <Layouts>
+      <Layout>
+        <Static id="Static00" position="absolute 0 0 1278 10" class="sta_BF_Bg" anchor="all"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="dsNotiCnt" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="newCount" type="BIGDECIMAL" size="16"/>
+        </ColumnInfo>
+      </Dataset>
+      <LastInput id="LastInput00" DelayInputTime="30" OnLastInputTime="LastInput00_OnLastInputTime"/>
+      <SQLConnection id="SQLConnection00" datasource="..\AppData\LocalLow\TOBESOFT\XPLATFORM\9.2\Cache\http1721611218091xuiFICSxadl_FICS.db" openflag="openReadWrite"/>
+      <SQLStatement id="SQLStatement00" sqlconnection="@SQLConnection00" query="SELECT * FROM sqlite_master WHERE type='table'"/>
+      <Dataset id="ds_cache" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="Id" type="STRING" size="255"/>
+          <Column id="SessionValue" type="INT" size="255"/>
+          <Column id="Version" type="STRING" size="255"/>
+          <Column id="Etag" type="STRING" size="255"/>
+          <Column id="CacheDate" type="STRING" size="255"/>
+          <Column id="CacheLevel" type="INT" size="255"/>
+          <Column id="ContentLen" type="INT" size="255"/>
+          <Column id="Content" type="BLOB" size="255" encript="base64"/>
+          <Column id="timeEnter" type="STRING" size="255"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_openPage" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="menuId" type="STRING" size="256"/>
+          <Column id="menuName" type="STRING" size="256"/>
+          <Column id="formId" type="STRING" size="256"/>
+          <Column id="isPopup" type="STRING" size="256"/>
+          <Column id="prgId" type="STRING" size="256"/>
+          <Column id="svcGroup" type="STRING" size="256"/>
+          <Column id="openTime" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : Bottom
+  파 일 명 : BottomFrame.xfdl
+  기    능 : BOTTOM FRAME 화면(기능 없음0
+
+    수정일    수정자                  수정내용
+  ----------   -------  --------------------------------------------------
+  2014.11.01   김윤기   최초 생성
+  2015.05.11   kksoo     잘못된 구성 재조정 (relogin 추가, SessionTime 처리 막음)
+*/
+
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+************************************************************************************************/
+include "lib::lib_com.xjs";
+//include "lib::SCCti.xjs";
+
+/************************************************************************************************
+ * FORM 변수 선언 영역 (필수)
+************************************************************************************************/
+var fv_iSessionTime       = 30 * 60;			//세션 만료 시간(설정값) : MIN * 60 SEC
+var fv_iRemainSessionTime = fv_iSessionTime; 	//현재 세션 잔여 시간 : SEC
+var fv_sRemainSessionTime = "";					//현재 세션 잔여 표시
+
+/************************************************************************************************
+ * FORM EVENT 영역 (필수)
+************************************************************************************************/
+/*-----------------------------------------------------------------------
+ * 설명            : Form Load
+ *-----------------------------------------------------------------------*/
+function BottomFrame_onload(obj:Form, e:LoadEventInfo) 
+{    
+	//세션시간 타이머 시작
+	//fn_setTimer(); 	
+	
+	// 공지 조회
+	//setTimer(102, 60000);	// 60초 마다 타이머 발생
+}
+
+/*-----------------------------------------------------------------------
+ * 설명    : 세션시간 타이머 설정
+ *-----------------------------------------------------------------------*/
+function fn_setTimer()
+{
+    setTimer(101, 1000);	// 1초 마다 타이머 발생
+}
+
+/*-----------------------------------------------------------------------
+ * 설명    : 세션 타임아웃시 로그인창 호출
+ *-----------------------------------------------------------------------*/
+function fn_reLogin()
+{
+	//로그인 팝업으로 재개발
+	var nMonitor    = system.getMonitorIndex(system.cursorx, system.cursory);
+	var rectScreen  = system.getScreenRect(nMonitor);
+	
+	var strId       = "relogin";
+	var strURL      = "cmn::LoginPop.xfdl";
+	var objArgument = "";
+	var nWidth      = -1;
+	var nHeight     = -1;
+	var strStyle    = "";	
+	var nLeft       = -1;
+	var nTop        = -1;
+	var isModeless  = false;
+	var bShowTitle  = true;
+	var strAlign    = "-1";
+
+	// 팝업 호출
+	var sRtn = gfn_dialog(strId, strURL, objArgument, nWidth, nHeight, strStyle, nLeft, nTop, isModeless, bShowTitle, strAlign);
+
+	return sRtn;
+	
+	/* 잘못된 구성으로 막음
+	//mainframe window를 활성화(앞으로 이동)
+	application.mainframe.openstatus = "normal";
+	application.mainframe.activate();
+
+	//팝업 투명도 처리
+	if(application.popupframes.length > 0)
+	{
+		for(var i=0; i<application.popupframes.length; i++)
+		{
+			application.popupframes[i].visible  = false;					
+		}
+	}
+		
+	//백그라운드 투명도 처리
+	afrm_MDI.visible = false;
+	afrm_Intro.form.style.opacity   = "0";
+	afrm_Top.form.style.opacity 	= "0";
+	afrm_Tab.form.style.opacity 	= "0";
+	afrm_Left.form.style.opacity 	= "0";
+	afrm_Bottom.form.style.opacity  = "0";
+
+	//로그인 호출
+	var bRtn = gfn_loginProcess();
+	if(bRtn == "OK") 
+	{		
+		//백그라운드 투명도 해제
+		afrm_MDI.visible = true;					
+		afrm_Intro.form.style.opacity   = "100";		
+		afrm_Top.form.style.opacity     = "100";
+		afrm_Tab.form.style.opacity 	= "100";
+		afrm_Left.form.style.opacity  	= "100";
+		afrm_Bottom.form.style.opacity  = "100";
+		
+		//팝업 투명도 해제
+		if(application.popupframes.length > 0)
+		{				
+			for(var i=0; i<application.popupframes.length; i++)
+			{
+				application.popupframes[i].visible  = true;							
+			}
+		}
+// 		// Application 타이틀바 설정(로그인정보, 로그아웃 등)
+// 		afrm_Top.form.gfn_setTitleBar();
+//    
+// 		// 메인 메뉴 생성
+// 		afrm_Top.form.fn_setMainMenu();
+	} else {
+		av_close = 'LOGIN_CLOSE';
+		application.exit();	
+	}
+	return;
+	*/
+}
+
+
+/*-----------------------------------------------------------------------
+ * 설명    : Form에 Timer가 설정된 경우 설정된 시간 간격으로 발생하는 Event 
+ *-----------------------------------------------------------------------*/
+function BottomFrame_ontimer(obj:Form, e:TimerEventInfo)
+{
+	// 세션시간 타이머인 경우
+	if (e.timerid == 101) {	
+	
+		// 세션타임 아웃시에도 타이머가 돌 수 있어 타이머를 종료
+		killTimer(101);
+		
+		//============== 1. 세션 타이머 처리 ================================//
+		
+		// 1-1 gfn_transaction 호출시 세션 초기화 변수 체크
+		if (gv_sessionInit == "Y") 
+		{
+			fv_iRemainSessionTime = fv_iSessionTime;		// 현재 세션 잔여 시간 초기화
+			gv_sessionInit = "N";							// 글로벌 변수 재설정
+		}
+
+		// 1-2 1초씩 감소(타이머 시간)
+		fv_iRemainSessionTime = toNumber(gfn_rPad(gfn_lPad(fv_iRemainSessionTime,"0",2),"0",2)) - 1;		
+
+		// 1-3.세션시간 표시형태 변경
+		fv_sRemainSessionTime = gfn_secToTime(fv_iRemainSessionTime).substr(2,2) + ":" + gfn_secToTime(fv_iRemainSessionTime).substr(4,2);			
+		//trace("fv_iRemainSessionTime : " + fv_iRemainSessionTime + " / fv_sRemainSessionTime : " + fv_sRemainSessionTime );
+		
+		
+		//============ 2. 세션시간 시간별 이벤트 시작 시작 =============================//
+		
+		// 2-1. 세션 만료 : 0초일 때
+		//if(fv_sRemainSessionTime == "29:50") {			//@Test : 테스트시 사용			
+		if(fv_sRemainSessionTime == "00:00") {
+
+			application.mainframe.activate();				//background에서 동작하는 mainframe window를 활성화(앞으로 이동)
+			
+			// 세션이 종료되었습니다. 다시 로그인해주세요.
+			gfn_alert("msg.session.timeout");
+			
+			av_close = 'TIMEOUT';
+			application.exit();
+		}
+		
+		//  2-3. 세션시간 타이머 재시작
+		fn_setTimer();
+	}
+	// 공지조회 타이머인 경우
+	else if (e.timerid == 102) {
+		fn_getNotice();
+	} else if ( e.timerid == 103 ) {
+		this.killTimer(e.timerid);
+		gfn_addPage(_fv_reOpen);
+		_fv_reOpen = "";
+	}
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 공지 조회
+ *---------------------------------------------------------------------------------------------*/
+function fn_getNotice() 
+{	
+    var strSvcID    = "getNotice";
+    var strURL      = "sc/cmn/selectNotice.xdo";
+    var strInDs     = "";
+    var strOutDs    = "ds_notice=dsNotice";
+    var strArg      = "";
+    var strCallback = "fn_callBack";
+    var bAsync      = true;
+    
+    gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 트랜잭션 콜백 함수 (필수)
+ *---------------------------------------------------------------------------------------------*/
+function fn_callBack(strSvcID, nErrorCode, strErrorMsg)
+{	
+	// 에러시 gfn_callBack에서 메시지 제공, 화면별 특정 에러 발생시에만 사용하세요.
+	if (nErrorCode < 0) 
+	{
+		return;
+	}
+	
+    switch(strSvcID)
+    {
+		// 공지 조회
+        case "getNotice" :
+			// 공지 있을때
+            if (ds_notice.getRowCount() > 0) 
+            {
+				//mainframe window를 활성화(앞으로 이동)
+				application.mainframe.openstatus = "normal";
+				application.mainframe.activate();
+				
+                gfn_alert("공지 건수 : " + ds_notice.getRowCount());
+                return;
+            }
+			break;
+			
+		case "getSvrFileInfo" :	
+			break;
+    }
+}
+
+// 자동 로그아웃처리
+function fn_setLastInput() {
+	/*
+	LastInput00.RunDelayInputTime(true);
+	LastInput00.DelayInputTime = 60 * 10 * 10; // 10분
+	*/
+}
+
+function fn_getCacheInfo( strFile ) {
+	if ( gv_runMode == "L" ) {
+		gv_webRoot = "http://172.16.1.121:8091"; // test
+	}
+	
+	// xui/mform/fm/fmp/FMP00080E.xfdl
+	var strID = strFile.substring(strFile.lastIndexOf("/")+1, strFile.length);
+	var nfRow = gds_openPage.findRow("prgId", strID);
+	if ( gds_openPage.findRow("prgId", strID) != -1 ) {
+		return gds_openPage.getColumn(nfRow, "openTime");
+	} else {
+		return -1;
+	}
+	
+	/**
+	var strID = gv_webRoot+strFile;
+	trace("strID=="+strID);
+	if ( ds_cache.rowcount == 0 || ds_cache.findRow("Id", strID) == -1 ) {
+		// ..\AppData\LocalLow\TOBESOFT\XPLATFORM\9.2\Cache\http1721611218091xuiFICSxadl_FICS.db
+		var dbName = "";
+		// http1721611218091xuiFICSxadl_FICS
+		// http1721611218091xuiHWFSxadl_HWFS_DEV.db
+		switch ( gv_runMode ) {
+			case "L" :
+			case "D" :
+				if ( g_AppId == "HWFS" ) {
+					dbName = "http1721611218091xuiHWFSxadl_HWFS_DEV.db";
+				} else if ( g_AppId == "FICS" ){
+					dbName = "http1721611218091xuiFICSxadl_FICS.db";
+				}	
+				break;
+				
+			case "P" :
+				if ( g_AppId == "HWFS" ) {
+					dbName = "httpshwfs.hanwhafoodistcokrxuiHWFSxadl_HWFS.db";
+				} else if ( g_AppId == "FICS" ){
+					dbName = "httpsnfics.hanwhafoodistcokrxuiFICSxadl_FICS.db";
+				}
+				break;
+		}
+		
+		SQLConnection00.datasource = application.cachedir+dbName;
+		trace(application.cachedir+dbName);
+		
+		SQLConnection00.commit();
+		
+		SQLConnection00.open();
+		SQLStatement00.query = "SELECT * FROM tbl_Cache";
+		SQLConnection00.begin();
+		
+		var oRs = SQLStatement00.executeQuery();
+		if ( oRs ) {
+			while ( oRs.next() ) {
+				oRs.applyToDataset(ds_cache, "append");
+			}		
+		}
+		
+		SQLStatement00.close();
+		SQLConnection00.close();
+	}
+	//trace(ds_cache.saveXML());
+	var cachedDt = ds_cache.lookup("Id", strID, "timeEnter");
+	var regExp = /[\{\}\[\]\/?.,;:|\)*~`!^\-_+<>@\#$%&\\\=\(\'\"\s*]/gi;
+	if ( gfn_isNull(cachedDt) ) {
+		return -1;
+	} else {
+		trace("@"+cachedDt.replace(regExp, ""));
+		return (cachedDt.replace(regExp, ""));	// YYYYMMDDHHMMSS
+	}
+	**/
+}
+
+var lstModDt;
+function fn_getSvrFileInfo( strFile ) {	
+	lstModDt = "";
+	
+	var strID = strFile.substring(strFile.lastIndexOf("/")+1, strFile.length);
+	ds_openPage.clearData();
+	var nRow = ds_openPage.addRow();
+	var targetRow = gds_openPage.findRowExpr("prgId == '"+strID+"'");
+	//ds_openPage.copyRow(nRow, gds_openPage, "prdId="+strID);
+	ds_openPage.copyRow(nRow, gds_openPage, (targetRow == -1 ? 0 : targetRow));
+	var strSvcID    = "getSvrFileInfo";
+    var strURL      = "hwfs_svc/sc/scc/SCC_FILE_CHECK_T002.jsp";
+    var strInDs     = "ds_openPage=ds_openPage:U";
+    var strOutDs    = "";
+    var strArg      = "PATH="+strFile;
+		strArg      += " USER_ID="+gfn_getUserInfo("userid");
+    var strCallback = "fn_callBack";
+    var bAsync      = false;
+    
+    gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+    
+    return (lstModDt.replace(" ", ""));	//sync transaction YYYYMMDDHHMMSS
+}
+
+function fn_isSameResource( strFile, option ) {
+	var isSame = false;
+	var client = fn_getCacheInfo(strFile);
+	var server = fn_getSvrFileInfo(strFile);
+	trace("client="+client+"||server="+server);
+	try {
+		if (client == -1 ) {
+			isSame = true;
+		} else {
+			isSame = ( client > server );		
+		}
+	} catch ( e ) {
+		trace("[error]fn_isSameResource");
+	} finally {
+		if ( option ) {
+			return {result:isSame, cdt:client, sdt:server};
+		} else {
+			return isSame;
+		}
+	}
+}
+
+function fn_resetCacheLevel( strPrefix ) {
+	application.deleteCacheDB();
+	SQLConnection00.commit();
+	ds_cache.clearData();
+	if ( !gfn_isNull(strPrefix) ) {
+		try {
+			application.services[strPrefix].cachelevel = "dynamic";
+		} catch (e) {
+			trace("[error]fn_resetCacheLevel");
+		} finally {
+		
+		}
+	}
+}
+
+var _fv_reOpen = "";
+function fn_reOpenMenu( strMenuId ) {
+	this.setTimer(103, 2000);	// 지연호출
+	_fv_reOpen = strMenuId;
+}
+
+function fn_disconnectCTI(objInfo) {
+	//WebPBX.DoAct();
+	//SCCti.actionPBX("Connect", "", {callid:nExtNm, passwd:sPwd, group:g_CtiUserId});
+	//SCCti.actionPBX("Connect", "", objInfo);
+/*	
+	WebPBX.AppServer = "172.25.5.186";							//애플리케이션 서버 주소 - 
+	WebPBX.Port = 8043;
+	WebPBX.AutoCallAfter = true;								//콜통화후 자동 후처리(true:자동처리, false:미처리)
+	WebPBX.PBXServer = "172.25.6.91";						//PBXServer IP 설정 - 172.25.6.91
+	WebPBX.Group = objInfo.group;								//그룹설정(외식:2000, 급식:3000)
+	WebPBX.DoLogon(objInfo.callid, objInfo.passwd);			//서버에 연결(콜아이디 , 콜비밀번호)
+*/
+}
+
+]]></Script>
+  </Form>
+</FDL>

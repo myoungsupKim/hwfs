@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT   MAX(SCH_ID) SCH_ID
+        ,COUNT(UPJANG) UPJANG_CNT
+        ,GROUP_CODE
+        ,REGI_SABUN
+        ,SYS_SABUN
+        ,SCH_TYPE
+        ,SCH_NAME
+        ,SCH_TYPE_ICO
+        ,SDATE
+        ,EDATE
+        ,ALRAM_YN
+        ,TITLE
+        ,MAX(CONTENTS) CONTENTS
+        ,MAX(SCH_CLASS) SCH_CLASS
+        ,MAX(CUSER) CUSER
+        ,MAX(CUSER_NAME) CUSER_NAME
+        ,MAX(UUSER) UUSER
+        ,MAX(UUSER_NAME) UUSER_NAME
+FROM    (
+        SELECT A.SCH_ID
+              ,A.UPJANG
+              ,A.GROUP_CODE
+              ,A.REGI_SABUN
+              ,#SYS_SABUN# SYS_SABUN
+              ,A.SCH_TYPE
+              ,NVL(B.CODE_NAME,'') SCH_NAME
+              ,NVL(B.SET2,'') SCH_TYPE_ICO
+              ,A.SDATE
+              ,A.EDATE
+              ,A.ALRAM_YN
+              ,A.TITLE
+              ,A.CONTENTS
+              ,A.SCH_CLASS
+              ,A.CUSER
+              ,(SELECT  NM_KOR FROM SCC_USERINFO WHERE SABUN = A.CUSER) CUSER_NAME
+              ,A.UUSER
+              ,(SELECT  NM_KOR FROM SCC_USERINFO WHERE SABUN = A.UUSER) UUSER_NAME
+      FROM    SCC_SCHEDULE A,
+              (    
+              SELECT  GROUP_CODE, CODE, CODE_NAME, SET1, SET2, SORT_SEQ
+              FROM    SCC_COMMON_CODE
+              WHERE   GROUP_CODE  = 'SC0140'
+              AND     USE_YN = 'Y'
+              AND     SET1  = #SYSTEMID#
+              ) B
+      WHERE   
+              A.REGI_SABUN = #SYS_SABUN#
+      AND     A.SYS_ID = #SYSTEMID#
+      AND     LENGTH(NVL(A.GROUP_CODE,'')) > 0        
+      AND     (            A.SDATE = #CURR_DATE#  -- 게시시작일
+                   OR      A.EDATE = #CURR_DATE# ) -- 게시종료일
+      AND     A.SCH_TYPE = B.CODE (+)	
+      ) A
+GROUP BY REGI_SABUN, SYS_SABUN, GROUP_CODE, SCH_TYPE, SCH_NAME, SCH_TYPE_ICO,
+         SDATE, EDATE, ALRAM_YN, TITLE	]]></statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

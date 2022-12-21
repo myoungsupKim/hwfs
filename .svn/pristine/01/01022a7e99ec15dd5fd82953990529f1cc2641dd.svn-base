@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[업장표준레시피팝업 자재조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.ITEM_CODE
+      ,C.ITEM_NAME
+      ,C.ITEM_SIZE
+      ,C.PO_UOM
+      ,A.NEED_QTY
+      ,NVL(ROUND((A.NEED_QTY * NVL((B.MARGIN_PRICE / C.KG_CONVERT_RATE / 1000),0))),0) UNIT_PRICE
+  FROM
+       FSR_UPJANG_RECIPE_ITEM A
+      ,(
+              SELECT A.ITEM_CODE,
+                     DECODE(C.MARGIN_RATE, 0, A.CONTRACT_PRICE,
+                            DECODE('N', 'Y', ( ROUND( (A.CONTRACT_PRICE * DECODE(D.TAX_CODE, '100', 1.1, 1) * (C.MARGIN_RATE+100) / 100 ) / 10) * 10 ),
+                                                                      ( ROUND( (A.CONTRACT_PRICE *       (C.MARGIN_RATE+100) / 100 ) / 10) * 10 )   ) ) MARGIN_PRICE
+              FROM
+                     (
+                     SELECT /*+ INDEX_ASC(HLDC_PO_CONTRACT_F PO_CONTRACT_F_PK) */ *
+                     FROM HLDC_PO_CONTRACT_F
+                     WHERE CENTER_CODE = (SELECT CENTER_CODE FROM HLDC_PO_UPJANG_CENTER WHERE UPJANG = #UPJANG#)
+                     AND (CENTER_CODE, CUSTCD, ITEM_CODE, CONTRACT_START) IN (
+                         SELECT /*+ INDEX_ASC(HLDC_PO_CONTRACT_F PO_CONTRACT_F_PK) */
+                                CENTER_CODE, CUSTCD, ITEM_CODE, MAX(CONTRACT_START) AS CONTRACT_START
+                         FROM   HLDC_PO_CONTRACT_F
+                         WHERE  CENTER_CODE     = (SELECT CENTER_CODE FROM HLDC_PO_UPJANG_CENTER WHERE UPJANG = #UPJANG#)
+                        AND    CONTRACT_START &lt;= TO_CHAR(SYSDATE,'YYYYMMDD')
+                         AND    USE_YN          = 'Y'
+                         GROUP BY CENTER_CODE, CUSTCD, ITEM_CODE
+                         )
+                     ) A,
+                     (
+                     SELECT /*+ INDEX_ASC(HLDC_PO_TREAT_UPJANG PO_TREAT_UPJANG_PK) */ *
+                      FROM   HLDC_PO_TREAT_UPJANG
+                      WHERE UPJANG =  (SELECT AP_UNITPRICE_UPJANG FROM HLDC_ST_UPJANG WHERE UPJANG = #UPJANG#)
+                     ) C,
+                     HLDC_PO_ITEM_MST D
+              WHERE A.CENTER_CODE    = C.CENTER_CODE
+              AND   A.CUSTCD         = C.CUSTCD
+              AND   A.ITEM_CODE      = C.ITEM_CODE
+              AND   A.ITEM_CODE      = D.ITEM_CODE
+              AND   A.USE_YN         = 'Y'
+              AND   C.USE_YN         = 'Y'
+       ) B
+      ,HLDC_PO_ITEM_MST C
+ WHERE A.ITEM_CODE = B.ITEM_CODE(+)
+   AND A.ITEM_CODE = C.ITEM_CODE(+)
+<isNotNull col="UPJANG">
+   AND A.UPJANG    = #UPJANG#
+</isNotNull>
+<isNotNull col="HALL_CLASS">
+   AND A.HALL_CLASS= #HALL_CLASS#
+</isNotNull>
+<isNotNull col="RECIPE_CD">
+   AND A.RECIPE_CD = #RECIPE_CD#
+</isNotNull>	</statement>
+	<input default-name="ds_ArgDS">
+		<col name="UPJANG" size="255" type="NUMERIC" description="" /> 
+		<col name="HALL_CLASS" size="255" type="VARCHAR" description="" /> 
+		<col name="RECIPE_CD" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_HallJajea">
+	</output>
+</query>

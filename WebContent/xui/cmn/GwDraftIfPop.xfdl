@@ -1,0 +1,234 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="form" classname="COMP_GUIDE_13" inheritanceid="" position="absolute 0 0 1070 900" titletext="그룹웨어 상신" scrollbars="autoboth" onload="form_onload" ontimer="form_ontimer">
+    <Layouts>
+      <Layout>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 915 10"/>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 570"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 785 0 800 584"/>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute -57 885 843 900"/>
+        <ActiveX id="gwIfBrowser" progid="Shell.Explorer" useautobitmapcache="1" taborder="19" NavigateError=" " DocumentComplete="gwIfBrowser_DocumentComplete" RegisterAsBrowser="0" usepersistdata="false" windowed="false" NewWindow2="gwIfBrowser_NewWindow2" position2="absolute l:0 r:0 t:0 b:0" positiontype="position2" NavigateComplete="gwIfBrowser_NavigateComplete" NavigateComplete2="gwIfBrowser_NavigateComplete2"/>
+        <Edit id="edt_dummy" taborder="20" position="absolute 593 8 787 30"/>
+      </Layout>
+    </Layouts>
+    <Bind/>
+    <Objects/>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : GwDraftIfPop
+  파 일 명 : GwDraftIfPop.xfdl
+  설    명 : 그룹웨어 상신 연결 팝업
+           
+  수정일       수정자   수정내용
+  ----------   -------  --------------------------------------------------
+  2015.06.10    kksoo    최초작성 : 그룹웨어 상신 내 페이지 호출 시 세션유지를 위해 개발
+  2015.07.06    kksoo    결재선지정 시 한글입력이 안되는 현상 해결를 위해 dummy Edit로 focus 
+*/
+ 
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+************************************************************************************************/
+include "lib::lib_com.xjs";
+
+/************************************************************************************************
+ * FORM 변수 선언 영역 (필수)
+************************************************************************************************/
+var fv_objNew;
+var fv_isIfPage;
+var fv_timerId = 999;
+
+/************************************************************************************************
+ * FORM EVENT 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Form Load (필수)
+ *---------------------------------------------------------------------------------------------*/
+function form_onload(obj:Form, e:LoadEventInfo)
+{	
+	// Form Load 시 공통 기능 처리(obj:Form, bCreateEvent:이벤트 생성 여부)
+	gfn_formOnLoad(this);
+	
+	// 초기값 셋팅
+	fn_init();
+	
+	//결재선지정 시 한글입력이 안되는 현상 해결를 위해 Edit로 focus 
+	edt_dummy.setFocus();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 초기값 셋팅
+ *---------------------------------------------------------------------------------------------*/
+function fn_init()
+{
+	//Child 팝업 생성
+	createPopup ();
+	
+	fv_isIfPage = true;
+
+	//상신 IF Page 호출 : 세션 전달을 위해 POST로 전달
+	// --> JSP에서 URL Rewriting하여 처리
+	//(결과)XP의 MSIE와 세션유지를 위한 설정은 그룹웨어 에이전트 단에서의 처리가 불가 : 본문 Body는 세션을 체크하지 않도록 설정하여 처리하도록 변경
+	var objBuffer = new Buffer;
+	objBuffer.appendText("JSESSIONID=" + JSESSIONID); //세션공유를 위해 세션값 넘김	
+	var sHeaders = "Content-Type: application/x-www-form-urlencoded";
+	var strURL = application.services.get_item("svc").url + "common/linkBizwellGwDraftIF.jsp";
+	gwIfBrowser.Navigate2(strURL, "", "_self", objBuffer.data, sHeaders);
+	
+	/*//상신 IF Page 호출 : 세션 전달을 위해 GET으로 전달 --> 전달 안됨
+	var strURL = application.services.get_item("svc").url + "common/linkGwDraftIF.jsp?" + "JSESSIONID=" + JSESSIONID;
+	gwIfBrowser.Navigate2(strURL);
+	*/
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 화면 닫기
+ *---------------------------------------------------------------------------------------------*/
+function fn_close()
+{
+	this.close();
+}
+
+/**
+ * 그룹웨어 IF 페이지 생성이 완료되면
+ * WebBrowser에 표시된 파라미터를 설정한다.
+ * @param obj WebBrowser
+ * @param e WebLoadCompEventInfo
+ * @return none
+ */
+function gwIfBrowser_DocumentComplete(obj:ActiveX, e)
+{
+	if (!fv_isIfPage) return;
+	fv_isIfPage = false;
+	sendDraftPop ();
+}
+
+function sendDraftPop () 
+{
+	var doc = gwIfBrowser.Document.all;		// Webbrowser dom document
+	trace(doc);
+	var objText = doc["txtService"];	// Service 객체
+	if(objText){
+		objText.value = arrParams[SCGw.GW_SERVICE_NAME];
+	}else {
+		gfn_alert("ServiceName element is not defined!@그룹웨어 연계를 실패했습니다. 계속해서 연계가 안 되는 경우는 프로그램 종료 후 다시 로그인 하신 후 처리하시기 바랍니다.");
+		return;
+	}
+	
+	objText = doc["txtBodyUrl"];		// Body Url 객체
+	if(objText){
+		objText.value = arrParams[SCGw.GW_BODY_URL];
+	}else {
+		gfn_alert("BodyUrl element is not defined!");
+		return;
+	}
+
+	objText = doc["txtTitle"];		// Body Ttile 객체
+	if(objText){
+		objText.value = arrParams[SCGw.GW_BODY_TITLE];
+	}else {
+		gfn_alert("BodyTitle element is not defined!");
+		return;
+	}
+
+	objText = doc["txtDocPortraitType"];		// Doc Portrait 객체
+	if(objText){
+		objText.value = arrParams[SCGw.GW_PORTRAIT];
+	}else {
+		gfn_alert("PortraitType element is not defined!");
+		return;
+	}
+
+	objText = doc["txtAttachList"];		// 첨부파일 목록 객체
+	if(objText){
+		if (arrParams[SCGw.GW_ATTACH_LIST] == undefined)
+			objText.value = "";
+		else
+			objText.value = arrParams[SCGw.GW_ATTACH_LIST];
+	}else {
+		gfn_alert("AttachList element is not defined!");
+		return;
+	}
+
+	objText = doc["txtClientId"];		// 결재 instance id와 연관되는 업무의 Client Id
+	if(objText){
+		if (arrParams[SCGw.GW_CLIENT_ID] == undefined)
+			objText.value = "";
+		else
+			objText.value = arrParams[SCGw.GW_CLIENT_ID];
+	}else {
+		gfn_alert("ClientId element is not defined!");
+		return;
+	}
+
+	var objCall = doc["btnCall"];		//IF 모듈 호출 객체
+	//alert ("IF Call 버튼 클릭 시작...");
+	objCall.click();	//WebBrowser 이벤트 호출 
+	//alert ("IF Call 버튼 클릭 종료");	//WebBrowser 이벤트 호출 후 발생함
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Chile Popup이 오픈될때 처리
+ *---------------------------------------------------------------------------------------------*/
+function gwIfBrowser_NewWindow2(obj:ActiveX, e)
+{
+	fv_objNew.visible = true;
+	fv_objNew.form.AxMSIE01.RegisterAsBrowser = true;
+	e.ppDisp = fv_objNew.form.AxMSIE01.Application;	
+	trace("e.ppDisp=>"+e.ppDisp + " ##### Application=>" + fv_objNew.form.AxMSIE01.Application);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Child Popup이 닫힐때 새롭게 팝업 ChildFrame을 생성
+ *---------------------------------------------------------------------------------------------*/
+ function fn_create()
+{
+	this.setTimer(fv_timerId,1000);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 전달 받은 instanceId를 부모 폼에 전달 
+ *---------------------------------------------------------------------------------------------*/
+function fn_setInstanceId (sInstanceId)
+{
+	//trace ("return instanceId=" + sInstanceId);
+	this.close(sInstanceId);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 팝업 ChildFrame을 새롭게 생성
+ *---------------------------------------------------------------------------------------------*/
+function form_ontimer(obj:Form, e:TimerEventInfo)
+{
+	this.killTimer(fv_timerId);
+	createPopup();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 팝업 ChildFrame을 생성
+ *---------------------------------------------------------------------------------------------*/
+function createPopup()
+{
+	fv_objNew = new ChildFrame();
+	fv_objNew.openalign.halign = "center";
+    fv_objNew.openalign.valign = "center";
+	fv_objNew.init("newPop", 0,0,100,100, "cmn::GwDraftIfSubPop.xfdl");
+	
+	fv_objNew.style.border = "2 solid #515d6f";
+    //fv_objNew.titlebar.style.background = "#696cc3";
+    fv_objNew.titlebar.style.border = "0 none, 0 none, 1 solid #5a5daf, 0 none";
+    
+	fv_objNew.visible = false;
+	fv_objNew.showModeless(this.getOwnerFrame());	
+}
+function gwIfBrowser_NavigateComplete(obj:ActiveX, e)
+{
+	//trace(1);
+}
+
+function gwIfBrowser_NavigateComplete2(obj:ActiveX, e)
+{
+	//trace(2);
+}
+]]></Script>
+  </Form>
+</FDL>

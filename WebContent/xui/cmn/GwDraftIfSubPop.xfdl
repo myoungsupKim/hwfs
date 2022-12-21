@@ -1,0 +1,67 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="form" classname="PSWMPL010101" inheritanceid="" position="absolute 0 0 1070 700" titletext="그룹웨어 팝업" onload="form_onload" class="trans" onclose="form_onclose">
+    <Layouts>
+      <Layout>
+        <ActiveX id="AxMSIE01" usepersistdata="false" progid="Shell.Explorer" popupstyle="false" position2="absolute l:0 r:0 t:0 b:0" positiontype="position2" TitleChange="AxMSIE01_TitleChange"/>
+        <Edit id="edt_dummy" taborder="1" position="absolute 593 8 787 30"/>
+      </Layout>
+    </Layouts>
+    <Objects/>
+    <Bind/>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : GwDraftIfSubPop
+  파 일 명 : GwDraftIfSubPop.xfdl
+  설    명 : 그룹웨어 상신 서브 팝업 (인쇄/미리보기 팝업과 세션을 연결하기 위해 사용)
+           
+  수정일       수정자   수정내용
+  ----------   -------  --------------------------------------------------
+  2015.06.10    kksoo    최초작성 : 그룹웨어 상신 내 페이지 호출 시 세션유지를 위해 개발
+  2015.07.06    kksoo    결재선지정 시 한글입력이 안되는 현상 해결를 위해 dummy Edit로 focus 
+*/
+
+var fv_instanceId;					//반환할 instanceId 
+var fv_find = "hwfs_instanceId=";	//instanceId 반환 플래그
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 화면 로드 시 페이지 초기화
+ *---------------------------------------------------------------------------------------------*/
+function form_onload(obj:Form, e:LoadEventInfo)
+{	
+	fv_instanceId = undefined;
+	AxMSIE01.Navigate("about:blank");
+
+	//결재선지정 시 한글입력이 안되는 현상 해결를 위해 Edit로 focus 
+	edt_dummy.setFocus();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 화면 닫을때 opener 호출
+ *---------------------------------------------------------------------------------------------*/
+function form_onclose(obj:Form, e:CloseEventInfo)
+{
+	if (fv_instanceId == undefined) {
+		opener.fn_create();
+	}
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : instanceId 전달을 검사하여 결과를 부모 화면에 전달
+ *---------------------------------------------------------------------------------------------*/
+function AxMSIE01_TitleChange(obj:ActiveX, e)
+{
+	//trace("textChange=" + e.Text);
+	if (fv_instanceId != undefined) return;
+	var sData = e.Text;
+	var nPos = sData.indexOf(fv_find);
+	if (nPos != -1) {
+		fv_instanceId = sData.substr (nPos + fv_find.length)
+		//결과를 부모화면에 전달
+		opener.fn_setInstanceId (fv_instanceId);
+		this.close();
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

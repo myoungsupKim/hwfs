@@ -1,0 +1,702 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fm.fms.estPaperWriteDAO">
+	<desc>견적서 작성 HQML Query</desc>
+
+	<!-- 식재영업 담당자를 검색한다. -->
+	<statement name="selectSabun" type="select">
+		/*+ com.hwfs.fm.fms.dao.EstPaperWriteDAO.selectSabun */
+		<![CDATA[
+		SELECT
+	  		   A.SABUN
+			,  A.NM_KOR
+		FROM HLDC_HR_PERSONAL A INNER JOIN HLDC_SC_DEPT_V B ON (1=1)
+																							 <#if schCond?has_content>
+																							 	<#if schCond == '1'>
+																							 	AND B.MU_CD IN ('1001', '2004')
+																							 	</#if>
+																							</#if>
+										     												  AND A.DEPT_ID = B.DEPT_ID
+		WHERE A.PER_DTD IS NULL		/* 퇴사자(일) 제외 */
+		<#if schCode?has_content>
+		 AND   A.SABUN LIKE '%' || :schCode || '%'
+		</#if>
+		<#if schName?has_content>
+		 AND   A.NM_KOR LIKE  '%' || :schName || '%'			
+		</#if>
+		ORDER BY 	2
+		]]>
+	</statement>
+
+	<!-- 자재분류 정보를 조회한다.(견적서용) -->
+	<statement name="selectClass" type="select">
+		/*+ com.hwfs.fm.fms.dao.EstPaperWriteDAO.selectClass */
+		<![CDATA[
+		SELECT
+	  		  B.SET1 CLASS_CODE 
+			, B.CODE AS CLASS_CODE2		/* 유사시뮬레이션 팝업 파라미터 대표코드 */
+			, B.CODE_NAME CLASS_NAME
+			, 0 AS SALE_RATE
+			, '' AS SIMU_GUBUN
+			, '0' AS CHK
+		FROM VO_ITEM_CLASS A INNER JOIN SCC_COMMON_CODE B ON B.GROUP_CODE = 'FM0034'	/* 식재 견적서 자재분류 */
+										     												AND A.CLASS_CODE = B.CODE
+		WHERE CLASS_TYPE = 'M'		/* 조건 : 중분류 */
+		ORDER BY B.SORT_SEQ
+		]]>
+	</statement>
+
+	<!-- 견적번호 목록을 조회한다. -->
+	<statement name="selectEsti" type="select">
+		/*+ com.hwfs.fm.fms.dao.EstPaperWriteDAO.selectEsti */
+		<![CDATA[
+		SELECT 
+			/*+ INDEX(FM_ESTI_SHEET FM_ESTI_SHEET_I1) */ 
+	  		  ESTI_ID
+			, ESTI_ID || ';' || REMARK  AS ESTI_NM
+			, CUSTOM
+			, REMARK
+			, CONFIRM_YN
+			, ESTI_START
+			, ESTI_END
+			, '1' AS ORDR
+		FROM FM_ESTI_SHEET 
+		WHERE MANAGER = :schManager
+		GROUP BY ESTI_ID, REMARK, CUSTOM, REMARK, CONFIRM_YN, ESTI_START, ESTI_END
+		UNION ALL
+		SELECT
+			 'NEW'
+			,'신규생성'
+			, ''
+			, ''
+			, ''
+			, ''
+			, ''
+			,'0'
+		FROM DUAL
+		ORDER BY ORDR ASC, ESTI_ID DESC
+		]]>
+	</statement>
+
+	<!-- 견적서를 조회한다.(신규작성용) -->
+	<statement name="selectList_old" type="select">
+		/*+ com.hwfs.fm.fms.dao.EstPaperWriteDAO.selectList_old */
+		<![CDATA[
+		SELECT 
+       		   A.UPJANG  
+			 , A.CUSTCD AS CUST_CD
+			 , C.VD_NM AS CUST_NM
+			 , B.ITEM_CLASS4 AS CLASS_CODE
+    		 , D.CLASS_NAME
+    		 , A.ITEM_CODE
+    		 , B.ITEM_NAME
+   			 , DECODE(B.TAX_CODE,'100','과)','면)') || B.ITEM_SIZE AS ITEM_SIZE
+    		 , B.PO_UOM AS ITEM_UNIT
+    		 , B.KEEPING_TYPE
+        	--, DECODE(C.PO_CENTER_YN,'Y','Y','N') AS CENTER_FLAG
+        	, K.CENTER_FLAG					/* PO_CONTRACT_F.PROC_TYP_CD의  값 참조 */
+   			 --, ROUND(K.CONTRACT_PRICE_S - (K.CONTRACT_PRICE_S * C.FM_DC_RATE / 100)) AS UNIT_PRICE    /* 매입단가 */
+    		, 0 AS ESTI_QTY
+    		, K.CONTRACT_PRICE_S AS UNIT_PRICE    /* 매입단가 */
+    		, 0 AS UNIT_AMT									/* 매입금액 */
+    		, 0 AS ESTI_PRICE									/* 판매단가 */
+    		, 0 AS ESTI_AMT									/* 판매금액 */								
+    		, 0 AS MARGIN_RATE
+    		--, 'D-' || TO_CHAR(NVL(P.D_DAYS,0) + 1) AS D_DAYS
+			--, 'D-' || TO_CHAR(NVL(FMS_PREORDER_FUN(A.CENTER_CODE, A.ITEM_CODE, 'D_DAYS'),0)+1) AS D_DAYS			/* PO_PREORDER_LIST */
+			, 'D-' || TO_CHAR(NVL(FMS_PREORDER_FUN(A.CENTER_CODE, A.ITEM_CODE, 'D_DAYS'),0)) AS D_DAYS			/* PO_PREORDER_LIST */
+    		, 'N' AS CONFIRM_YN
+    		, B.ITEM_CLASS2									/* 분류정보 */
+    		, '' AS ITEM_CLASS3								/* 분류구분 : 유사시뮬레이션 처리 용도 */
+    		, E.CLASS_NAME AS CLASS_NAME2		/* 분류정보 */
+    		, 'N' AS SIMU_YN									/* 시물레이션여부 */
+    		, '' AS SIMU_GUBUN								/* 시물레이션 구분(평균(0), 유사(1)) */
+    		, FMS_GETAVGSIMU_QTY_FUN(:schCenter, :schDate1, :schDate2, A.ITEM_CODE) AS AVG_QTY		/* 평균수량 = 총입고량 / 업장수 */
+    		, 0 AS SIM_QTY									/* 유사_수량 */
+    		, '' AS ESTI_ID										/* 견적번호 */
+    		, '' AS CUSTOM									/* 제출처 */
+    		, '' AS MANAGER									/* 담당자 */
+    		, '' AS MANAGER_NM							/* 담당자_명 */
+    		, '' AS REMARK									/* 비고 */
+    		, '' AS ESTI_START								/* 견적기간_시작일 */
+    		, '' AS ESTI_END								/* 견적기간_종료일 */
+		FROM PO_TREAT_UPJANG_V A INNER JOIN HLDC_PO_ITEM_MST B ON B.USE_YN = 'Y'
+                                        												--AND B.ITEM_CLASS2 IN (:schCond)            /*  조건 : 선택 분류코드 */
+                                        												--AND B.ITEM_CLASS2 IN ('F10','F12')
+																						<#if schCond?has_content>
+																							AND B.ITEM_CLASS2 IN ( 
+                                        													<#list schCond?split(",") as x>
+                                        													'${x}',
+																							</#list>  
+																							'DUMMY'
+																							)
+																						</#if>
+                                        												AND A.ITEM_CODE = B.ITEM_CODE
+                      							   --INNER JOIN  ST_CUST C ON A.CUSTCD = C.CUSTCD
+                      							   INNER JOIN VO_FC_VENDOR C ON A.CUSTCD = C.VD_CD
+                      							   INNER JOIN VO_ITEM_CLASS D ON B.ITEM_CLASS4 =  D.CLASS_CODE
+                      							   INNER JOIN VO_ITEM_CLASS E ON B.ITEM_CLASS2 =  E.CLASS_CODE
+                      							   --LEFT JOIN PO_PREORDER_LIST P ON A.CENTER_CODE = P.CENTER_CODE
+                                            	  --											 AND A.ITEM_CODE = P.ITEM_CODE
+												  /* 구매 매입단가 : PO_CONTRACT_F */
+                      							   INNER JOIN (
+                        												SELECT    A.CENTER_CODE
+                              														, A.UPJANG   
+                              														, A.CUSTCD
+                              														, A.ITEM_CODE
+                             	 													, A.CONTRACT_PRICE_M AS CONTRACT_PRICE_S
+                             	 													--, DECODE(A.PROC_TYP_CD, 'VC', 'N', 'Y') AS CENTER_FLAG
+                             	 													, A.PROC_TYP_CD AS CENTER_FLAG
+                        												FROM  PO_CONTRACT_F A
+                        												WHERE A.CENTER_CODE = :schCenter
+                        												AND    A.UPJANG = :schUpjang
+																		AND    SUBSTR(A.ITEM_CODE, 1, 1)  = 'F'	/* 조건 : 식자재 */
+                        												AND    :schDate1 BETWEEN A.CONTRACT_START AND NVL(A.CONTRACT_END,'99999999')
+                        												AND    A.USE_YN = 'Y'
+                        												AND    A.CONTRACT_PRICE_M > 0
+                      												) K ON A.CENTER_CODE = K.CENTER_CODE
+                         											   AND A.UPJANG = K.UPJANG
+                         											   AND A.CUSTCD = K.CUSTCD
+                         											   AND A.ITEM_CODE = K.ITEM_CODE
+ 		WHERE A.CENTER_CODE = :schCenter
+ 		AND   A.UPJANG = :schUpjang
+ 		ORDER BY A.ITEM_CODE
+		]]>
+	</statement>
+
+	<!-- 견적서를 조회한다.(신규작성용) -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.fm.fms.dao.EstPaperWriteDAO.selectList */
+		<![CDATA[
+		SELECT
+       		   X.UPJANG  
+			 , X.CUST_CD
+			 , X.CUST_NM
+			 , X.CLASS_CODE
+    		 , X.CLASS_NAME
+    		 , X.ITEM_CODE
+    		 , X.ITEM_NAME
+   			 , X.ITEM_SIZE
+    		 , X.ITEM_UNIT
+    		 , X.KEEPING_TYPE
+        	 , X.CENTER_FLAG								/* PO_CONTRACT_F.PROC_TYP_CD의  값 참조 */
+    		 , X.ESTI_QTY
+		 	<#if schChkPrice == '1'>
+    		 , DECODE(NVL(X.STRATEGY_PRICE, 0), 0, X.CONTRACT_PRICE_S, NVL(X.STRATEGY_PRICE, 0)) AS UNIT_PRICE    /* 매입단가 */
+			 <#else>
+    		 , X.CONTRACT_PRICE_S AS UNIT_PRICE    /* 매입단가 */
+			 </#if>
+    		 , X.UNIT_AMT								/* 매입금액 */
+    		 , X.ESTI_PRICE								/* 판매단가 */
+    		 , X.ESTI_AMT								/* 판매금액 */								
+    		 , X.MARGIN_RATE
+			 , X.D_DAYS								/* PO_PREORDER_LIST */
+    		 , X.CONFIRM_YN
+    		 , X.ITEM_CLASS2							/* 분류정보 */
+    		 , X.ITEM_CLASS3							/* 분류구분 : 유사시뮬레이션 처리 용도 */
+    		 , X.CLASS_NAME2						/* 분류정보 */
+    		 , X.SIMU_YN								/* 시물레이션여부 */
+    		 , X.SIMU_GUBUN							/* 시물레이션 구분(평균(0), 유사(1)) */
+    		 , X.AVG_QTY								/* 평균수량 */
+    		 , X.SIM_QTY								/* 유사_수량 */
+    		 , X.ESTI_ID									/* 견적번호 */
+    		 , X.CUSTOM								/* 제출처 */
+    		 , X.MANAGER								/* 담당자 */
+    		 , X.MANAGER_NM						/* 담당자_명 */
+    		 , X.REMARK								/* 비고 */
+    		 , X.ESTI_START							/* 견적기간_시작일 */
+    		 , X.ESTI_END								/* 견적기간_종료일 */
+			, X.STRATEGY_PRICE
+		FROM 
+		(
+		SELECT /*+ USE_HASH(A C) NO_MERGE(A) */
+       		   A.UPJANG  
+			 , A.CUSTCD AS CUST_CD
+			 , C.VD_NM AS CUST_NM
+			 , B.ITEM_CLASS4 AS CLASS_CODE
+    		 , (SELECT D.CLASS_NAME FROM VO_ITEM_CLASS D WHERE B.ITEM_CLASS4 = D.CLASS_CODE) AS CLASS_NAME
+    		 , A.ITEM_CODE
+    		 , B.ITEM_NAME
+   			 , DECODE(B.TAX_CODE,'100','과)','면)') || B.ITEM_SIZE AS ITEM_SIZE
+    		 , B.PO_UOM AS ITEM_UNIT
+    		 , B.KEEPING_TYPE
+        	 , A.CENTER_FLAG								/* PO_CONTRACT_F.PROC_TYP_CD의  값 참조 */
+    		 , 0 AS ESTI_QTY
+    		 , A.CONTRACT_PRICE_S
+    		 , 0 AS UNIT_AMT								/* 매입금액 */
+    		 , 0 AS ESTI_PRICE								/* 판매단가 */
+    		 , 0 AS ESTI_AMT									/* 판매금액 */								
+    		 , 0 AS MARGIN_RATE
+			 , 'D-' || TO_CHAR(NVL(FMS_PREORDER_FUN(A.CENTER_CODE, A.ITEM_CODE, 'D_DAYS'),0)) AS D_DAYS			/* PO_PREORDER_LIST */
+    		 , 'N' AS CONFIRM_YN
+    		 , B.ITEM_CLASS2									/* 분류정보 */
+    		 , '' AS ITEM_CLASS3							/* 분류구분 : 유사시뮬레이션 처리 용도 */
+    		 , (SELECT E.CLASS_NAME FROM VO_ITEM_CLASS E WHERE B.ITEM_CLASS2 = E.CLASS_CODE) AS CLASS_NAME2	/* 분류정보 */
+    		 , 'N' AS SIMU_YN								/* 시물레이션여부 */
+    		 , '' AS SIMU_GUBUN							/* 시물레이션 구분(평균(0), 유사(1)) */
+    		 , 0 AS AVG_QTY									/* 평균수량 */
+    		 , 0 AS SIM_QTY									/* 유사_수량 */
+    		 , '' AS ESTI_ID										/* 견적번호 */
+    		 , '' AS CUSTOM									/* 제출처 */
+    		 , '' AS MANAGER								/* 담당자 */
+    		 , '' AS MANAGER_NM							/* 담당자_명 */
+    		 , '' AS REMARK									/* 비고 */
+    		 , '' AS ESTI_START								/* 견적기간_시작일 */
+    		 , '' AS ESTI_END									/* 견적기간_종료일 */
+		 	<#if schChkPrice == '1'>
+			-- , NVL(FM.STRATEGY_PRICE, 0) AS   STRATEGY_PRICE		/* 전략단가  */
+			 , NVL((SELECT /*+ INDEX(F PO_CONTRACT_FSALE_PK) */
+                 	  NVL(F.STRATEGY_PRICE, 0)
+                     FROM PO_CONTRACT_FSALE F
+                     WHERE F.CENTER_CODE = A.CENTER_CODE
+                      AND   F.UPJANG = A.UPJANG     
+                      AND   :schDate1 BETWEEN F.CONTRACT_START AND F.CONTRACT_END
+                      AND   F.ITEM_CODE = A.ITEM_CODE
+                      AND   ROWNUM <= 1
+                      ),0) AS STRATEGY_PRICE
+			 <#else>
+			 , 0 AS  STRATEGY_PRICE						/* 전략단가  */
+			 </#if>
+    	FROM 
+    			(
+					SELECT    A.CENTER_CODE
+                    			, A.UPJANG   
+                    			, A.CUSTCD
+                    			, A.ITEM_CODE
+                    			, A.CONTRACT_PRICE_M AS CONTRACT_PRICE_S
+								, A.PROC_TYP_CD AS CENTER_FLAG
+					FROM  PO_CONTRACT_F A
+					WHERE A.CENTER_CODE = :schCenter
+					AND    A.UPJANG = :schUpjang
+					AND    SUBSTR(A.ITEM_CODE, 1, 1)  = 'F'	/* 조건 : 식자재 */
+					AND    :schDate1 BETWEEN A.CONTRACT_START AND NVL(A.CONTRACT_END,'99999999')
+				  <#if schCust?has_content>
+				    AND    A.CUSTCD = :schCust 
+				  </#if>			
+    				AND    A.USE_YN = 'Y'
+					AND    A.CONTRACT_PRICE_M > 0
+				) A   			
+												 INNER JOIN HLDC_PO_ITEM_MST B ON B.USE_YN = 'Y'
+																						<#if schCond?has_content>
+																							AND B.ITEM_CLASS2 IN ( 
+                                        													<#list schCond?split(",") as x>
+                                        													'${x}',
+																							</#list>  
+																							'DUMMY'
+																							)
+																						</#if>
+																						/* 자재소분류 기준(식재사업부(CK):F2612,(CK)소모품:F2720) 제외  */
+																						AND B.ITEM_CLASS3 NOT IN ('F2612','F2720')
+                                        												AND A.ITEM_CODE = B.ITEM_CODE
+                      							   INNER JOIN VO_FC_VENDOR C ON TO_CHAR(A.CUSTCD) = C.VD_CD
+                      							   --INNER JOIN VO_ITEM_CLASS D ON B.ITEM_CLASS4 =  D.CLASS_CODE
+                      							   --INNER JOIN VO_ITEM_CLASS E ON B.ITEM_CLASS2 =  E.CLASS_CODE
+		 										<#if schChkPrice == '1'>
+													/* 전략이익율 정보 FM_CONTRACT_PROFIT    */
+									 			--	LEFT JOIN FM_CONTRACT_PROFIT FM ON FM.CENTER_CODE = :schCenter        /* 조건 : 센터코드 */
+												--			   								  AND FM.PROFIT_DATE   = :schPdate					/* 조건 : 전략이익율 기준일자 */  
+												--			    							  AND A.ITEM_CODE = FM.ITEM_CODE       		 	/* 조건 : 자재코드         */
+												</#if>
+		) X												
+ 		ORDER BY X.CLASS_CODE, X.ITEM_CODE
+		]]>
+	</statement>
+
+
+
+	<!-- 견적서를 조회한다.(기존자료) -->
+	<statement name="selectList2" type="select">
+		/*+ com.hwfs.fm.fms.dao.EstPaperWriteDAO.selectList2 */
+		<![CDATA[
+		SELECT
+		 A.*
+		 FROM (
+		SELECT
+	   		  NULL AS UPJANG
+	 		, A.CUSTCD AS CUST_CD
+	 		--, C.VD_NM AS CUST_NM
+	 		,(SELECT /*+  USE_NL(C) PUSH_PRED(C.ATTH) PUSH_PRED(C.ACC)  */ CUSTCD FROM  FCUS.VO_FC_VENDOR C WHERE TO_CHAR(A.CUSTCD) = C.VD_CD) AS CUST_NM 
+	 		, B.ITEM_CLASS4 AS CLASS_CODE
+	 		--, D.CLASS_NAME
+	 		,(SELECT D.CLASS_NAME FROM  FCUS.VO_ITEM_CLASS D WHERE B.ITEM_CLASS4 =  D.CLASS_CODE) AS CLASS_NAME
+    	 	, A.ITEM_CODE
+    	 	, B.ITEM_NAME
+   	 		, DECODE(B.TAX_CODE,'100','과)','면)') || B.ITEM_SIZE AS ITEM_SIZE
+    	 	, B.PO_UOM AS ITEM_UNIT
+    		, B.KEEPING_TYPE
+        	, A.CENTER_FLAG								/* FM_ESTI_SHEET.CENTER_FLAG */
+	 		, A.ESTI_QTY
+	 		, A.UNIT_PRICE		/* 매입단가 */
+    	 	, A.UNIT_AMT		/* 매입금액 */
+    		, A.ESTI_PRICE		/* 판매단가 */
+    	 	, A.ESTI_AMT		/* 판매금액 */								
+    	 	, A.MARGIN_RATE
+			, 'D-' || TO_CHAR(NVL(FMS_PREORDER_FUN(:schCenter, A.ITEM_CODE, 'D_DAYS'),0)) AS D_DAYS			/* PO_PREORDER_LIST */
+	 		, A.CONFIRM_YN
+    	 	, B.ITEM_CLASS2			/* 분류정보 */
+            , (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FM0034' AND INSTR(SET1, B.ITEM_CLASS2) > 0 AND ROWNUM <= 1) AS ITEM_CLASS3		/* 대표분류정보 : 유사시뮬레이션 처리 용도 */ 
+    		--, E.CLASS_NAME AS CLASS_NAME2		/* 분류정보 */
+    		,(SELECT E.CLASS_NAME FROM FCUS.VO_ITEM_CLASS E WHERE B.ITEM_CLASS2 =  E.CLASS_CODE) AS CLASS_NAME2
+    	 	, A.SIMU_YN				/* 시물레이션여부 */
+    	 	, A.SIMU_GUBUN			/* 시물레이션 구분(평균(0), 유사(1)) */
+    		--, FMS_GETAVGSIMU_QTY_FUN(:schCenter, :schDate1, :schDate2, A.ITEM_CODE) AS AVG_QTY		/* 평균수량 = 총입고량 / 업장수 */
+    	    , 0 AS AVG_QTY									/* 평균수량 */
+    	 	, 0 AS SIM_QTY			/* 유사_수량 */
+    	 	, A.ESTI_ID					/* 견적번호 */
+    	 	, A.CUSTOM				/* 제출처 */
+    	 	, A.MANAGER				/* 담당자 */
+    	 	, '' AS MANAGER_NM			/* 담당자_명 */
+    	 	, A.REMARK				/* 비고 */
+    	 	, A.ESTI_START				/* 견적기간_시작일 */
+    	 	, A.ESTI_END				/* 견적기간_종료일 */
+			, 0 AS STRATEGY_PRICE		/* 전략단가  */
+		FROM FM_ESTI_SHEET A INNER JOIN HLDC_PO_ITEM_MST B ON B.USE_YN = 'Y'
+																				AND A.ITEM_CODE = B.ITEM_CODE
+                      					  --INNER JOIN VO_FC_VENDOR C ON TO_CHAR(A.CUSTCD) = C.VD_CD
+				  						  --INNER JOIN VO_ITEM_CLASS D ON B.ITEM_CLASS4 =  D.CLASS_CODE
+                      					  --INNER JOIN VO_ITEM_CLASS E ON B.ITEM_CLASS2 =  E.CLASS_CODE
+		WHERE A.ESTI_ID = :schEstiId
+		<#if schCust?has_content>
+	    AND    A.CUSTCD = :schCust
+	    </#if>
+		)A
+		WHERE A.CUST_NM IS NOT NULL
+	  
+		ORDER BY A.CLASS_NAME, A.ITEM_CODE	
+		]]>
+	</statement>
+
+
+
+	<!-- 견적서 ID를 조회한다 -->
+	<statement name="selectID" type="select">
+		/*+ com.hwfs.fm.fms.dao.EstPaperWriteDAO.selectID */
+		<![CDATA[
+		SELECT
+				:managerNm || '-' || :estiStart || '-' || LPAD(NVL(MAX(TO_NUMBER(SUBSTR(ESTI_ID, -3))),0)+1, 3, '0') AS ESTI_ID
+	   	FROM   FM_ESTI_SHEET
+	   	WHERE MANAGER  = :manager		/* 조건 : 담당자 */
+	   	AND    ESTI_START = :estiStart 	 	/* 조건 : 견적일자_시작일 */
+		]]>
+	</statement>
+
+
+	<!-- 예상시뮬레이션 목록을 조회한다. -->
+	<statement name="selectSimu" type="select">
+		/*+ com.hwfs.fm.fms.dao.EstPaperWriteDAO.selectSimu */
+		<![CDATA[
+		SELECT 
+ 	  		  A.UPJANG
+			, A.UPJANGNM_DISP || '(' ||  A.UPJANG || ')' AS UPJANG_NM 
+			, '0' AS CHK_F10
+			, NVL(X.CLASS_F10, 0) AS CLASS_F10
+			, '0' AS CHK_F12
+			, NVL(X.CLASS_F12, 0) AS CLASS_F12
+			, '0' AS CHK_F13
+			, NVL(X.CLASS_F13, 0) AS CLASS_F13
+			, '0' AS CHK_F14
+			, NVL(X.CLASS_F14, 0) AS CLASS_F14
+			, '0' AS CHK_F17
+			, NVL(X.CLASS_F17, 0) AS CLASS_F17
+			, '0' AS CHK_F21
+			, NVL(X.CLASS_F21, 0) AS CLASS_F21
+			, '0' AS CHK_F27
+			, NVL(X.CLASS_F27, 0) AS CLASS_F27
+		FROM  FMS_UPJANG A 
+										LEFT JOIN (
+										/* FMS_TRANSACTION_V 의 판매금액(SALE_AMOUNT) 기준 */ 
+										SELECT /*+ RULE */
+						 					  A.TRANS_UPJANG AS UPJANG
+											, SUM(CASE WHEN B.ITEM_CLASS2 = 'F10' THEN DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(A.SALE_PRICE * A.TRANS_QTY) ELSE 0 END) AS CLASS_F10		-- 판매금액(수량*판매단가)
+											, SUM(CASE WHEN B.ITEM_CLASS2 IN ('F11','F12') THEN DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(A.SALE_PRICE * A.TRANS_QTY) ELSE 0 END) AS CLASS_F12		-- 판매금액(수량*판매단가)
+											, SUM(CASE WHEN B.ITEM_CLASS2 = 'F13' THEN DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(A.SALE_PRICE * A.TRANS_QTY) ELSE 0 END) AS CLASS_F13		-- 판매금액(수량*판매단가)
+											, SUM(CASE WHEN B.ITEM_CLASS2 = 'F14' THEN DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(A.SALE_PRICE * A.TRANS_QTY) ELSE 0 END) AS CLASS_F14		-- 판매금액(수량*판매단가)
+											, SUM(CASE WHEN B.ITEM_CLASS2 = 'F17' THEN DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(A.SALE_PRICE * A.TRANS_QTY) ELSE 0 END) AS CLASS_F17		-- 판매금액(수량*판매단가)
+											, SUM(CASE WHEN B.ITEM_CLASS2 IN ('F15','F16','F18','F19','F20','F21','F22','F23','F24','F25','F26','F28','F80','F90','F99') THEN DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(A.SALE_PRICE * A.TRANS_QTY) ELSE 0 END) AS CLASS_F21		-- 판매금액(수량*판매단가)
+											, SUM(CASE WHEN B.ITEM_CLASS2 = 'F27' THEN DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(A.SALE_PRICE * A.TRANS_QTY) ELSE 0 END) AS CLASS_F27		-- 판매금액(수량*판매단가)
+		--									, SUM(CASE WHEN B.ITEM_CLASS2 = 'F10' THEN (A.SALE_AMOUNT * DECODE(SUBSTR(A.TRANS_TYPE,1,1), 'I', 1, -1)) ELSE 0 END) AS CLASS_F10		-- 판매금액(수량*판매단가)
+		--									, SUM(CASE WHEN B.ITEM_CLASS2 IN ('F11','F12') THEN (A.SALE_AMOUNT * DECODE(SUBSTR(A.TRANS_TYPE,1,1), 'I', 1, -1)) ELSE 0 END) AS CLASS_F12		-- 판매금액(수량*판매단가)
+		--									, SUM(CASE WHEN B.ITEM_CLASS2 = 'F13' THEN (A.SALE_AMOUNT * DECODE(SUBSTR(A.TRANS_TYPE,1,1), 'I', 1, -1)) ELSE 0 END) AS CLASS_F13		-- 판매금액(수량*판매단가)
+		--									, SUM(CASE WHEN B.ITEM_CLASS2 = 'F14' THEN (A.SALE_AMOUNT * DECODE(SUBSTR(A.TRANS_TYPE,1,1), 'I', 1, -1)) ELSE 0 END) AS CLASS_F14		-- 판매금액(수량*판매단가)
+		--									, SUM(CASE WHEN B.ITEM_CLASS2 = 'F17' THEN (A.SALE_AMOUNT * DECODE(SUBSTR(A.TRANS_TYPE,1,1), 'I', 1, -1)) ELSE 0 END) AS CLASS_F17		-- 판매금액(수량*판매단가)
+		--									, SUM(CASE WHEN B.ITEM_CLASS2 IN ('F15','F16','F18','F19','F20','F21','F22','F23','F24','F25','F26','F28','F80','F90','F99') THEN (A.SALE_AMOUNT * DECODE(SUBSTR(A.TRANS_TYPE,1,1), 'I', 1, -1)) ELSE 0 END) AS CLASS_F21		-- 판매금액(수량*판매단가)
+		--									, SUM(CASE WHEN B.ITEM_CLASS2 = 'F27' THEN (A.SALE_AMOUNT * DECODE(SUBSTR(A.TRANS_TYPE,1,1), 'I', 1, -1)) ELSE 0 END) AS CLASS_F27		-- 판매금액(수량*판매단가)
+										FROM   FMS_TRANSACTION_V A INNER JOIN HLDC_PO_ITEM_MST B ON B.ITEM_CLASS2 NOT IN ('F25','F26','F99')
+																															        AND A.ITEM_CODE = B.ITEM_CODE
+										WHERE A.TRANS_DATE BETWEEN :schDate1 AND :schDate2
+										AND   (A.TRANS_TYPE = 'I001' OR (A.TRANS_TYPE LIKE '_002' AND A.SOURCE_TYPE = 'PO')) 
+										--AND    A.SUBINV_CODE LIKE 'S10%'
+		   								AND  SUBSTR(A.SUBINV_CODE, 1, 2) = 'S1'
+										GROUP BY A.TRANS_UPJANG
+										) X ON A.UPJANG = X.UPJANG
+										INNER JOIN HLDC_PO_UPJANG_CENTER B ON B.CENTER_CODE = :schCenter
+																								AND 	A.UPJANG = B.UPJANG										
+		WHERE A.MAIN_UPJANG = A.UPJANG
+		AND   A.USE_YN = 'Y'
+		ORDER BY A.UPJANG ASC
+		]]>
+	</statement>
+
+
+	<!-- 예상시뮬레이션 수량을 조회한다. -->
+	<statement name="selectSimQty" type="select">
+		/*+ com.hwfs.fm.fms.dao.EstPaperWriteDAO.selectSimQty */
+		<![CDATA[
+		SELECT 
+			FMS_GETSIMSIMU_QTY_FUN(:schCenter, :schUpjang, :schDate1, :schDate2, :schItemCode) AS SIM_QTY		/* 시뮬레이션 수량 = 선택한 업장의 총 입고량 */
+		FROM  DUAL
+		]]>
+	</statement>
+
+	<!-- 평균시뮬레이션 수량을 조회한다. -->
+	<statement name="selectAvgQty" type="select">
+		/*+ com.hwfs.fm.fms.dao.EstPaperWriteDAO.selectAvgQty */
+		<![CDATA[
+		SELECT 
+    		FMS_GETAVGSIMU_QTY_FUN(:schCenter, :schDate1, :schDate2, :schItemCode) AS AVG_QTY		/* 평균수량 = 총입고량 / 업장수 */
+		FROM  DUAL
+		]]>
+	</statement>
+
+	<!-- 견적서를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.fm.fms.dao.EstPaperWriteDAO.insert */
+		<![CDATA[
+		INSERT INTO FM_ESTI_SHEET 
+		(
+    		  ESTI_ID
+  			, ITEM_CODE
+  			, CUSTOM
+  			, MANAGER
+  			, REMARK
+  			, ESTI_START
+  			, ESTI_END
+  			, CUSTCD
+  			, UNIT_PRICE
+  			, UNIT_AMT
+ 			, MARGIN_RATE
+  			, ESTI_PRICE
+  			, ESTI_AMT
+  			, USE_YN
+  			, ESTI_QTY
+  			, SIMU_YN
+  			, CONFIRM_YN
+  			, SIMU_GUBUN
+  			, CENTER_FLAG
+  			, CREATE_DATE
+  			, CREATE_BY
+  			, UPDATE_DATE
+  			, UPDATE_BY
+		)
+		SELECT
+     		  :estiId AS ESTI_ID
+   			, :itemCode AS ITEM_CODE
+  			, :custom AS CUSTOM
+   			, :manager AS MANAGER
+   			, :remark AS REMARK
+   			, :estiStart AS ESTI_START
+   			, :estiEnd AS ESTI_END
+   			, :custCd AS CUSTCD
+  			, :unitPrice AS UNIT_PRICE
+   			, :unitAmt AS UNIT_AMT
+  			, :marginRate AS MARGIN_RATE
+   			, :estiPrice AS ESTI_PRICE
+   			, :estiAmt AS ESTI_AMT
+   			, 'Y' AS USE_YN
+   			, :estiQty AS ESTI_QTY
+   			, :simuYn AS SIMU_YN
+   			, :confirmYn AS CONFIRM_YN
+   			, :simuGubun AS SIMU_GUBUN
+   			, :centerFlag AS CENTER_FLAG
+   			, SYSDATE AS CREATE_DATE
+   			, :loginSabun AS CREATE_BY
+  			, SYSDATE AS UPDATE_DATE
+   			, :loginSabun AS UPDATE_BY
+		FROM DUAL		
+		]]>
+	</statement>
+	
+	<!-- 견적서를 수정 처리한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.fm.fms.dao.EstPaperWriteDAO.update */
+		<![CDATA[
+		UPDATE FM_ESTI_SHEET 
+		SET  CUSTOM = :custom,
+			   MANAGER = :manager,
+			   REMARK = :remark,
+			   ESTI_START = :estiStart,
+			   ESTI_END = :estiEnd,
+			   CUSTCD = :custCd,
+			   UNIT_PRICE = :unitPrice,
+			   UNIT_AMT = :unitAmt,
+			   MARGIN_RATE = :marginRate,
+			   ESTI_PRICE = :estiPrice,
+			   ESTI_AMT = :estiAmt,
+			   USE_YN = 'Y',
+			   ESTI_QTY = :estiQty,
+			   SIMU_YN = :simuYn,
+			   CONFIRM_YN = :confirmYn,
+			   SIMU_GUBUN = :simuGubun,
+			   CENTER_FLAG = :centerFlag,
+		       UPDATE_BY = :loginSabun,
+		       UPDATE_DATE = SYSDATE
+		WHERE  ESTI_ID = :estiId
+		AND     ITEM_CODE = :itemCode
+		]]>
+	</statement>
+
+
+	<!-- 견적서를 등록한다. (MERGE)-->
+	<statement name="insert2" type="insert">
+		/*+ com.hwfs.fm.fms.dao.EstPaperWriteDAO.insert2 */
+		<![CDATA[
+		MERGE INTO FM_ESTI_SHEET A
+		USING DUAL
+		ON  (ESTI_ID = :estiId
+		AND ITEM_CODE = :itemCode)
+		WHEN MATCHED THEN 
+			UPDATE  SET
+			   CUSTOM = :custom,
+			   MANAGER = :manager,
+			   REMARK = :remark,
+			   ESTI_START = :estiStart,
+			   ESTI_END = :estiEnd,
+			   CUSTCD = :custCd,
+			   UNIT_PRICE = :unitPrice,
+			   UNIT_AMT = :unitAmt,
+			   MARGIN_RATE = :marginRate,
+			   ESTI_PRICE = :estiPrice,
+			   ESTI_AMT = :estiAmt,
+			   USE_YN = 'Y',
+			   ESTI_QTY = :estiQty,
+			   SIMU_YN = :simuYn,
+			   CONFIRM_YN = :confirmYn,
+			   SIMU_GUBUN = :simuGubun,
+			   CENTER_FLAG = :centerFlag,
+		       UPDATE_BY = :loginSabun,
+		       UPDATE_DATE = SYSDATE		
+		WHERE  ESTI_ID = :estiId
+		AND     ITEM_CODE = :itemCode
+		
+        WHEN NOT MATCHED THEN
+			INSERT  
+			(
+    		  ESTI_ID
+  			, ITEM_CODE
+  			, CUSTOM
+  			, MANAGER
+  			, REMARK
+  			, ESTI_START
+  			, ESTI_END
+  			, CUSTCD
+  			, UNIT_PRICE
+  			, UNIT_AMT
+ 			, MARGIN_RATE
+  			, ESTI_PRICE
+  			, ESTI_AMT
+  			, USE_YN
+  			, ESTI_QTY
+  			, SIMU_YN
+  			, CONFIRM_YN
+  			, SIMU_GUBUN
+  			, CENTER_FLAG
+  			, CREATE_DATE
+  			, CREATE_BY
+  			, UPDATE_DATE
+  			, UPDATE_BY
+			)
+			VALUES
+			(
+     		  :estiId
+   			, :itemCode
+  			, :custom
+   			, :manager
+   			, :remark
+   			, :estiStart
+   			, :estiEnd
+   			, :custCd
+  			, :unitPrice
+   			, :unitAmt
+  			, :marginRate
+   			, :estiPrice
+   			, :estiAmt
+   			, 'Y'
+   			, :estiQty
+   			, :simuYn
+   			, :confirmYn
+   			, :simuGubun
+   			, :centerFlag
+   			, SYSDATE
+   			, :loginSabun
+  			, SYSDATE
+   			, :loginSabun
+		   )		
+		]]>
+	</statement>
+
+
+
+	<!-- 견적서를 일괄 수정 처리한다 : 제출처, 비고, 단가시작일, 종료일-->
+	<statement name="updateAll" type="update">
+		/*+ com.hwfs.fm.fms.dao.EstPaperWriteDAO.updateAll */
+		<![CDATA[
+		UPDATE FM_ESTI_SHEET 
+		SET  CUSTOM = :custom,
+			   MANAGER = :manager,
+			   REMARK = :remark,
+			   ESTI_START = :estiStart,
+			   ESTI_END = :estiEnd,
+		       UPDATE_BY = :loginSabun,
+		       UPDATE_DATE = SYSDATE
+		WHERE  ESTI_ID = :estiId
+		]]>
+	</statement>
+
+	
+	
+	<!-- 견적서를 확인 처리한다. -->
+	<statement name="confirm" type="update">
+		/*+ com.hwfs.fm.fms.dao.EstPaperWriteDAO.confirm */
+		<![CDATA[
+		UPDATE FM_ESTI_SHEET 
+		SET  CONFIRM_YN = 'Y',
+		       UPDATE_BY = :loginSabun,
+		       UPDATE_DATE = SYSDATE
+		WHERE  ESTI_ID = :estiId
+		AND     ITEM_CODE = :itemCode
+		]]>
+	</statement>
+
+	<!-- 견적서를 일괄 삭제한다. -->
+	<statement name="deleteAll" type="delete">
+		/*+ com.hwfs.fm.fms.dao.EstPaperWriteDAO.deleteAll */
+		<![CDATA[
+		DELETE 
+		FROM   FM_ESTI_SHEET 
+		WHERE  ESTI_ID = :estiId
+		]]>
+	</statement>
+
+	<!-- 견적서의 선택한 자재를 삭제한다. -->
+	<statement name="deleteItem" type="delete">
+		/*+ com.hwfs.fm.fms.dao.EstPaperWriteDAO.deleteItem */
+		<![CDATA[
+		DELETE 
+		FROM   FM_ESTI_SHEET 
+		WHERE  ESTI_ID = :estiId
+		AND     ITEM_CODE     = :itemCode
+		]]>
+	</statement>
+
+
+	<!-- 견적서를 작성(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.fm.fms.dao.EstPaperWriteDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+
+</hqml>

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.scc.hnrSubinvMappingDAO">
+	<desc>HNR FICS사용 창고마스터 HQML Query</desc>
+
+	<!--창고매핑 목록을 조회한다. -->
+	<statement name="selectHnrSubinvMapping" type="select">
+		/*+ com.hwfs.sc.scc.dao.hnrSubinvMappingDAO.selectHnrSubinvMapping */
+		<![CDATA[
+			SELECT '0' AS CHK,
+					MAP.FD_SUBINV_CODE,
+					MAP.HNR_SUBINV_CODE,
+					SUB.SUBINV_NAME_DISP AS FD_SUBINV_NAME,
+					ST.UPJANG AS FD_UPJANG,
+					ST.UPJANGNM AS FD_UPJANG_NAME
+			FROM HNR_SUBINV_MAP MAP, 
+				 FMS_SUBINVENTORY SUB, 
+				 ST_UPJANG ST
+			WHERE MAP.FD_SUBINV_CODE = SUB.SUBINV_CODE(+)
+			  AND SUB.UPJANG = ST.UPJANG(+)
+			  --AND SUB.USE_YN(+) = 'Y'
+			  
+			  
+		<#if subinvType?has_content && subinvCode?has_content>
+			<#if subinvType == 'fd'>
+				AND MAP.FD_SUBINV_CODE LIKE '%'||UPPER(:subinvCode)||'%'
+			<#else>
+				AND MAP.HNR_SUBINV_CODE LIKE '%'||UPPER(:subinvCode)||'%'
+			</#if>
+		</#if>
+		
+		<#if subinvName?has_content>
+				AND SUB.SUBINV_NAME_DISP LIKE '%'||:subinvName||'%'
+		</#if>
+		
+		ORDER BY MAP.FD_SUBINV_CODE
+			
+		]]>
+	</statement>
+	
+	<!-- 창고코드 리스트 조회 -->
+	<statement name="selectSubinvCodeList">
+		/*+ com.hwfs.sc.scc.dao.hnrSubinvMappingDAO.selectSubinvCodeList */
+		<![CDATA[
+		SELECT NVL(LISTAGG(FD_SUBINV_CODE, ', ') WITHIN GROUP(ORDER BY FD_SUBINV_CODE), '-') AS FD_SUBINV_CODE_LIST
+      		 , NVL(LISTAGG(HNR_SUBINV_CODE, ', ') WITHIN GROUP(ORDER BY HNR_SUBINV_CODE), '-') AS HNR_SUBINV_CODE_LIST
+		FROM HNR_SUBINV_MAP
+		WHERE 1=1
+			<#if subinvType?has_content>
+				<#if subinvType == 'fd'>
+				AND FD_SUBINV_CODE IN (${subinvCode})
+				<#else>
+				AND HNR_SUBINV_CODE IN (${subinvCode})
+				</#if>
+			</#if>
+		]]>
+	</statement>
+	
+	<!-- 창고매핑을 등록한다. -->
+	<statement name="insertHnrSubinvMapping" type="insert">
+		/*+ com.hwfs.sc.scc.dao.hnrSubinvMappingDAO.insertHnrSubinvMapping */
+		<![CDATA[
+		INSERT INTO HNR_SUBINV_MAP ( 
+			FD_SUBINV_CODE, 
+			HNR_SUBINV_CODE, 
+			ATTR01, 
+			ATTR02, 
+			ATTR03, 
+			CUSER, 
+			CDATE, 
+			UUSER, 
+			UDATE)
+		VALUES ( 
+			REPLACE(:fdSubinvCode,' ',''), 
+			REPLACE(:hnrSubinvCode,' ',''), 
+			'',
+			'',
+			'',
+			:cuser, 
+			SYSDATE, 
+			:cuser, 
+			SYSDATE )
+		]]>
+	</statement>
+	
+</hqml>

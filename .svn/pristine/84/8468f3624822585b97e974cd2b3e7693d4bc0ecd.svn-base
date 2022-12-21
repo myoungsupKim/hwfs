@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+SELECT TO_CHAR(TO_DATE(AA.TRANS_DD),'MM/DD') TRANS_DD, AA.DD_DAY, AA.ITEM_TYPE_NM, AA.ITEM_CODENM, AA.UPRICE, aa.item_code,
+       ( SELECT NVL(MAX(Q.TICKET_STARTNUM),0)  FROM MAS_TICKET_MST Q WHERE Q.UPJANG = AA.UPJANG
+                                           AND Q.TRANS_TYPE = 'O'
+                                           AND Q.ITEM_TYPE  = AA.ITEM_TYPE
+                                           AND Q.ITEM_CODE  = AA.ITEM_CODE
+                                           AND Q.TRANS_DD = TO_CHAR(TO_DATE(AA.TRANS_DD,'YYYYMMDD')-1,'YYYYMMDD')) AS BEF_TICKET_STARTNUM,
+       ( SELECT NVL(MAX(Q.TICKET_ENDNUM),0)    FROM MAS_TICKET_MST Q WHERE Q.UPJANG = AA.UPJANG
+                                           AND Q.TRANS_TYPE = 'O'
+                                           AND Q.ITEM_TYPE  = AA.ITEM_TYPE
+                                           AND Q.ITEM_CODE  = AA.ITEM_CODE
+                                           AND Q.TRANS_DD = TO_CHAR(TO_DATE(AA.TRANS_DD,'YYYYMMDD')-1,'YYYYMMDD')) AS BEF_TICKET_ENDNUM,
+       AA.TICKET_STARTNUM, AA.TICKET_ENDNUM, AA.OUT_QTY/*판매*/, AA.IN_QTY/*입고*/, AA.JAN_QTY/*재고*/,
+       ROW_NUMBER() OVER (PARTITION BY AA.TRANS_DD  ORDER BY AA.TRANS_DD)  AS SEQ , 
+       NVL((  select nvl(sum(sal_quantity),0)  
+            from sla_if_upjang_sals_detail
+           where upjang_cd = #UPJANG#
+             and recd_status = 'L'
+             and substr(occur_date,1,6) BETWEEN SUBSTR(#TRANS_DDFR#,1,6) AND SUBSTR(#TRANS_DDTO#,1,6)
+             and aa.UPJANG = upjang_cd
+             and aa.TRANS_DD = occur_date
+             and aa.item_code = material_cd
+          group by upjang_cd,  occur_date, material_cd ),0) as sale_qty/*회수*/, 
+       AA.TOT_AMT, AA.CARD_AMT, AA.CASH_AMT,
+       AA.UPRICE *  NVL((  select nvl(sum(sal_quantity),0)  
+            from sla_if_upjang_sals_detail
+           where upjang_cd = #UPJANG#
+             and recd_status = 'L'
+             and substr(occur_date,1,6) BETWEEN SUBSTR(#TRANS_DDFR#,1,6) AND SUBSTR(#TRANS_DDTO#,1,6)
+             and aa.UPJANG = upjang_cd
+             and aa.TRANS_DD = occur_date
+             and aa.item_code = material_cd
+          group by upjang_cd,  occur_date, material_cd ),0) SALE_QTY_AMT                               
+  FROM (
+            SELECT  X.TRANS_DD,
+                    (SELECT TO_CHAR(TO_DATE(X.TRANS_DD),'dy') FROM DUAL) AS DD_DAY ,
+                    X.ITEM_TYPE_NM,
+                    X.ITEM_CODENM,
+                    X.UPRICE,
+                    X.UPJANG,
+                    X.ITEM_TYPE,
+                    X.ITEM_CODE,    
+                    NVL(MAX(X.TICKET_STARTNUM),0) TICKET_STARTNUM,
+                    NVL(MAX(X.TICKET_ENDNUM),0)   TICKET_ENDNUM,
+                    NVL(SUM(X.IN_QTY),0) IN_QTY,
+                    NVL(SUM(X.OUT_QTY),0) OUT_QTY,
+                    NVL(X.JAN_QTY,0) JAN_QTY,
+                    NVL(X.TOT_AMT,0) TOT_AMT,
+                    NVL(X.CARD_AMT,0) CARD_AMT,
+                    NVL(X.CASH_AMT,0) CASH_AMT
+              FROM (
+            
+                          SELECT  A.UPJANG, A.TRANS_DD, A.TRANS_TYPE
+                                       , (SELECT CODE_NAME 
+                                          FROM SCC_COMMON_CODE Z 
+                                          WHERE Z.GROUP_CODE = 'MA0121' 
+                                          AND Z.CODE = A.TRANS_TYPE) AS TRANS_TYPE_NM
+                                       , A.ITEM_TYPE
+                                       , (SELECT CODE_NAME 
+                                          FROM SCC_COMMON_CODE Z 
+                                          WHERE Z.GROUP_CODE = 'MA0122' 
+                                          AND Z.CODE = A.ITEM_TYPE) AS ITEM_TYPE_NM
+                                       , A.ITEM_CODE
+                                       , D.ITEM_NAME ||' '|| D.ITEM_SIZE ||' '              AS ITEM_CODENM
+                                       , A.UPRICE
+                                       , A.TICKET_STARTNUM
+                                       , A.TICKET_ENDNUM 
+                                       , DECODE(A.TRANS_TYPE, 'I', A.QTY, 0) AS IN_QTY
+                                       , DECODE(A.TRANS_TYPE, 'I', 0, A.QTY) AS OUT_QTY
+                                       , B.MAX_NUM
+                                       , B.JAN_QTY
+                                       , A.RECEIPT_NUM
+                                 , E.TOT_AMT
+                                , E.CARD_AMT
+                                , E.CASH_AMT
+                                    FROM MAS_TICKET_MST A
+                                       , (SELECT item_code, MAX(DECODE(Z.TRANS_TYPE, 'I', 0, Z.TICKET_ENDNUM))          AS MAX_NUM  
+                                               , SUM(DECODE(Z.TRANS_TYPE, 'I', Z.QTY, 'W', 0, (-1 * Z.QTY))) AS JAN_QTY
+                                            FROM MAS_TICKET_MST Z 
+                                           WHERE Z.UPJANG     = #UPJANG#                -- 해당업장
+                                             AND Z.TRANS_TYPE IN ('I','O','X')
+                                     group by item_code
+                                         ) B 
+                                       , (SELECT DISTINCT M.SALE_DATE
+                                               , M.UPJANG_CD
+                                               , M.RECEIPT_NUM
+                                               , (SELECT CODE_NAME 
+                                                  FROM SCC_COMMON_CODE Z 
+                                                  WHERE Z.GROUP_CODE = 'ADVANCE_SIGN_CLASS' 
+                                                  AND Z.SET1 = W.SETTLE_CLASS) AS SETTLE_CLASS
+                                               , W.CUST_CD
+                                               , W.CUST_NM
+                                               , D.BUYCPNY_NM
+                                           FROM SLA_IF_MEAL_TICKET_SAL_MST M
+                                              , SLA_IF_MEAL_TICKET_SETTLE_WAY W
+                                              , SLA_IF_CARD_APPRV_INFO C
+                                              , SLA_BUY_CPNY_MGMT D
+                                          WHERE M.SYS_CLASS   = W.SYS_CLASS
+                                            AND M.SALE_DATE   = W.SALE_DATE
+                                            AND M.UPJANG_CD   = W.UPJANG_CD
+                                            AND M.RECEIPT_NUM = W.RECEIPT_NUM
+                                            AND W.SYS_CLASS   = C.SYS_CLASS(+)
+                                            AND W.SALE_DATE   = C.OCCUR_DATE(+)
+                                            AND W.UPJANG_CD   = C.UPJANG_CD(+)
+                                            AND W.RECEIPT_NUM = C.RECEIPT_NUM(+)
+                                            AND W.SEQ         = C.SEQ(+)
+                                            AND C.BUYCPNY_CD  = D.BUYCPNY_CD(+)
+                                            AND M.UPJANG_CD   = #UPJANG#
+                                            AND M.SYS_CLASS   = '11'
+                                         ) C
+                                         , HLDC_PO_ITEM_MST D  ,
+                                  (
+                                      SELECT UPJANG_CD, SALE_DATE, ITEM_CD, SUM(TOT_AMT) AS TOT_AMT, SUM(CARD_AMT) AS CARD_AMT, SUM(CASH_AMT) AS CASH_AMT
+                                        FROM (
+                                             
+                                             SELECT a.UPJANG_CD, a.SALE_DATE, b.item_cd,
+                                                    SUM(a.SETTLE_AMT) AS TOT_AMT, 
+                                                    CASE WHEN a.SETTLE_CLASS = '2' THEN SUM(a.SETTLE_AMT) ELSE 0 END AS CARD_AMT,
+                                                    CASE WHEN a.SETTLE_CLASS = '1' THEN SUM(a.SETTLE_AMT) ELSE 0 END AS CASH_AMT 
+                                               FROM SLA_IF_MEAL_TICKET_SETTLE_WAY  a,
+                                                    SLA_IF_MEAL_TICKET_SAL_MST     b
+                                              WHERE a.UPJANG_CD =  #UPJANG#
+                                                AND a.SALE_DATE BETWEEN #TRANS_DDFR# AND #TRANS_DDTO#
+                                                and a.upjang_cd = b.upjang_cd
+                                                and a.sale_date = b.sale_date
+                                                and a.receipt_num = b.receipt_num
+                                              group by a.UPJANG_CD, a.SALE_DATE, b.item_cd, a.SETTLE_CLASS
+                                             ) 
+                                       GROUP BY UPJANG_CD, SALE_DATE, ITEM_CD
+                                   ) E 
+                                   WHERE A.UPJANG     = #UPJANG#                 -- 해당업장
+                                     AND A.TRANS_TYPE &lt;&gt; 'W'
+                                     AND A.TRANS_DD   = C.SALE_DATE(+)
+                                     AND A.UPJANG     = C.UPJANG_CD(+)
+                                     AND A.RECEIPT_NUM  = C.RECEIPT_NUM(+)
+                                     AND A.ITEM_CODE    = D.ITEM_CODE
+                               and a.item_code = b.item_code
+                               and a.trans_dd   BETWEEN #TRANS_DDFR# AND #TRANS_DDTO#
+                               AND A.UPJANG     = E.UPJANG_CD(+)
+                               AND A.TRANS_DD   = E.SALE_DATE(+)
+                               AND A.ITEM_CODE  = E.item_cd
+                                   ORDER BY A.TRANS_DD DESC, TRANS_TYPE_NM DESC, A.TICKET_STARTNUM DESC
+               ) X
+               GROUP BY X.TRANS_DD, X.ITEM_TYPE_NM, X.ITEM_CODENM, X.UPRICE, X.UPJANG, X.ITEM_TYPE, X.ITEM_CODE, 
+                        X.JAN_QTY, X.JAN_QTY, X.TOT_AMT, X.CARD_AMT, X.CASH_AMT
+        ) AA 
+</statement>
+	<input default-name="ds_cond">
+<col name="UPJANG" size="" type="NUMERIC" description="" />	
+<col name="MU_CD" size="255" type="VARCHAR" description="" />
+<col name="TM_CD" size="255" type="VARCHAR" description="" />
+<col name="TRANS_DDFR" size="255" type="VARCHAR" description="" />
+<col name="TRANS_DDTO" size="255" type="VARCHAR" description="" />	
+	</input>
+	<output default-name="ds_list">
+
+	</output>
+</query>

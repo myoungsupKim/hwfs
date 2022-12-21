@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[본부(리조트) 상품 조회(박은규)]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT B.CONSUM_YN, B.ITEM_CLASS1, B.ITEM_CLASS2, B.ITEM_CLASS3, B.ITEM_CLASS4
+     , B.ITEM_CODE, B.ITEM_NAME
+     , DECODE(B.TAX_CODE,'100','과)','면)')||B.ITEM_SIZE AS ITEM_SIZE
+     , B.PO_UOM, B.TAX_CODE
+     , B.KG_CONVERT_RATE, B.MIN_ORD_QTY, B.POINT_FLAG, B.MULTIPLIER_QTY
+     , B.ITEM_CODE AS ORI_ITEM_CODE
+     , B.USE_YN
+     , B.ORIGIN_TYPE
+  FROM HLDC_PO_ITEM_MST B
+ WHERE 1=1
+   AND B.ITEM_CLASS1 = 'F'
+<isNotNull col="CONSUM_YN">
+   AND B.CONSUM_YN = #CONSUM_YN#
+</isNotNull>
+<isNotNull col="ITEM_CLASS2">
+   AND B.ITEM_CLASS2 = #ITEM_CLASS2#
+</isNotNull>
+<isNotNull col="ITEM_CLASS3">
+   AND B.ITEM_CLASS3 = #ITEM_CLASS3#
+</isNotNull>
+<isNotNull col="ITEM_CLASS4">
+   AND B.ITEM_CLASS4 = #ITEM_CLASS4#
+</isNotNull>
+<isNotNull col="ITEM_CODE">
+   AND B.ITEM_CODE LIKE #ITEM_CODE#||'%'
+</isNotNull>
+<isNotNull col="ITEM_NAME">
+   AND B.ITEM_NAME LIKE '%'||#ITEM_NAME#||'%'
+</isNotNull>
+ <isEqual col="FS_MENU_ONLY" value="Y">
+   AND EXISTS (SELECT 1 
+                 FROM FMS_SUBINVENTORY W, SCC_COMMON_CODE X, FSR_STD_RECIPE_MST Y, FSR_STD_RECIPE_ITEM Z 
+                WHERE W.SUBINV_CLASS = X.SET1
+                  AND X.SET2 = Y.RECIPE_CLASS
+                  AND Y.RECIPE_CD = Z.RECIPE_CD
+                  AND W.UPJANG = #UPJANG#
+                  AND X.GROUP_CODE = 'FM0007' AND X.USE_YN = 'Y'
+                  AND Z.ITEM_CODE = B.ITEM_CODE)
+ </isEqual>
+ ORDER BY B.ITEM_CODE
+   </statement>
+	<input default-name="ds_in1">
+		<col name="ITEM_CODE" size="12" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAME" size="200" type="VARCHAR" description="" /> 
+		<col name="CONSUM_YN" size="1" type="VARCHAR" description="Y:소모품, N:식자재" /> 
+		<col name="ITEM_CLASS2" size="8" type="VARCHAR" description="대분류코드" /> 
+		<col name="ITEM_CLASS3" size="8" type="VARCHAR" description="중분류코드" /> 
+		<col name="ITEM_CLASS4" size="8" type="VARCHAR" description="소분류코드" /> 
+		<col name="FS_MENU_ONLY" size="1" type="VARCHAR" description="한화표준레시피 자재만 조회여부" /> 
+		<col name="UPJANG" size="22" type="NUMERIC" description="업장코드" /> 
+	</input>
+	<output default-name="gds_Csqlout">
+		<col name="CONSUM_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="ITEM_CLASS1" size="8" type="VARCHAR" description="" /> 
+		<col name="ITEM_CLASS2" size="8" type="VARCHAR" description="" /> 
+		<col name="ITEM_CLASS3" size="8" type="VARCHAR" description="" /> 
+		<col name="ITEM_CLASS4" size="8" type="VARCHAR" description="" /> 
+		<col name="ITEM_CODE" size="12" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAME" size="200" type="VARCHAR" description="" /> 
+		<col name="ITEM_SIZE" size="100" type="VARCHAR" description="" /> 
+		<col name="PO_UOM" size="10" type="VARCHAR" description="" /> 
+		<col name="TAX_CODE" size="3" type="VARCHAR" description="" /> 
+		<col name="KG_CONVERT_RATE" size="22" type="NUMERIC" description="" /> 
+		<col name="MIN_ORD_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="POINT_FLAG" size="1" type="VARCHAR" description="" /> 
+		<col name="MULTIPLIER_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="ORI_ITEM_CODE" size="12" type="VARCHAR" description="" /> 
+		<col name="USE_YN" size="1" type="VARCHAR" description="" /> 
+	</output>
+</query>

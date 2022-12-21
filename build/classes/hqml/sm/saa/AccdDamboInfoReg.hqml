@@ -1,0 +1,860 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sm.saa.accdDamboInfoRegDAO">
+    <desc>담보정보등록 HQML Query</desc>
+
+    <!-- 담보정보 목록을 조회한다. -->
+    <statement name="selectList" type="select">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.selectList */
+    <![CDATA[
+            SELECT  A.BIZ_CLASS                                                  AS MU_CD                              /* 사업부코드      */
+                  , (SELECT MU_NM FROM HLDC_SC_MU WHERE MU_CD = A.BIZ_CLASS)     AS MU_NM                              /* 사업부명        */
+                  , DECODE(D.DAMBO_TYPE, NULL, '',  D.DAMBO_TYPE || A.SEQ)       AS DAMBO_ID                           /* 담보ID          */
+                  , A.SEQ                                                        AS SEQ                                /* 순번            */
+                  , (SELECT TM_NM FROM HLDC_SC_TM WHERE MU_CD = A.BIZ_CLASS AND TM_CD = A.TEAM_CD)  AS TEAM_NM         /* 팀명            */
+                  , DECODE(B.UPJANG, NULL, '', B.MAIN_UPJANG, '본사', '')        AS MAIN_YN                            /* 본사여부        */
+                  , (SELECT UPJANGNM_DISP FROM FMS_UPJANG WHERE UPJANG = B.MAIN_UPJANG) AS MAIN_UPJANG_NM              /* 본사명          */
+                  , A.CUST_CD                       AS CUST_CD                                                         /* 업장코드        */
+                  , DECODE(A.SYS_GB, '004', B.UPJANGNM_DISP, C.CUSTNM)           AS CUST_NM                            /* 업장명          */
+                  , D.DAMBO_TYPE                    AS DAMBO_TYPE                                                      /* 담보구분        */
+                  , D.SET_DATE                      AS SET_DATE                                                        /* 설정일자        */
+                  , D.EXPIRE_DATE                   AS EXPIRE_DATE                                                     /* 만기일자        */
+                  , D.TERMIN_DATE                   AS TERMIN_DATE                                                     /* 해지일자        */
+                  , NVL(D.DAMBO_AMT, 0)             AS DAMBO_AMT                                                       /* 담보금액        */
+                  , A.BIZ_NO                        AS BIZ_NO                                                          /* 사업자번호      */
+                  , A.CEO_NM                        AS CEO_NM                                                          /* 대표자명        */
+                  , DECODE(A.SYS_GB, '004', '', C.UP_TAE || '/' || C.UP_JONG)    AS BIZ_TYPE_CAT                       /* 업태_업종       */
+                  , A.ZIP_CODE                      AS ZIP_CODE                                                        /* 우편번호        */
+                  , A.ADDR                          AS ADDR                                                            /* 주소            */
+                  , SCC_CRYPTO.MASKAUTH_FUN(A.ADDR_ENC, 10, :loginPersMask, :maskAuth)          AS ADDR_ENC            /* 상세주소        */
+                  , SCC_CRYPTO.MASKAUTH_FUN(A.CEO_BRTH_DATE_ENC, 13, :loginPersMask, :maskAuth) AS CEO_BRTH_DATE_ENC   /* 대표자 생년월일 */
+                  , A.SALES_SABUN                   AS SALES_SABUN                                                     /* 영업사원        */
+                  , (SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = A.SALES_SABUN) AS SALES_SABUN_NM                     /* 영업사원명      */
+                  , NVL(E.TOT_DAMBO_AMT, 0)         AS TOT_DAMBO_AMT                                                   /* 담보총액        */
+                  , NVL(F.CREDIT_AMOUNT, 0)         AS CREDIT_AMOUNT                                                   /* 기본 여신액     */
+                  , NVL(F.CREDIT_OVER_AMOUNT, 0)    AS CREDIT_OVER_AMOUNT                                              /* 한도 초가액     */
+              FROM  SAA_ACCD_CUST_MASTER A
+                  , FMS_UPJANG           B
+                  , ST_CUST              C
+                  , (SELECT  A.CUST_CD                AS CUST_CD
+                           , A.SEQ                    AS DAMBO_SEQ
+                           , SUBSTR(B.DAMBO_ID, 0, 2) AS DAMBO_TYPE
+                           , B.SET_DATE               AS SET_DATE
+                           , ''                       AS EXPIRE_DATE
+                           , B.TERMIN_DATE            AS TERMIN_DATE
+                           , NVL(B.DAMBO_AMT, 0)      AS DAMBO_AMT
+                       FROM  SAA_ACCD_CUST_MASTER      A
+                           , SAA_CUST_DAMBO_RE_MASTER  B
+                      WHERE  A.CUST_CD = B.CUST_CD
+                        AND  A.SEQ     = SUBSTR(B.DAMBO_ID, 3)
+                      <#if useYn?has_content>
+                        AND  A.USE_YN  = :useYn
+                      </#if>
+
+                  UNION ALL
+
+                     SELECT  A.CUST_CD                AS CUST_CD
+                           , A.SEQ                    AS DAMBO_SEQ
+                           , SUBSTR(B.DAMBO_ID, 0, 2) AS DAMBO_TYPE
+                           , ''                       AS SET_DATE
+                           , B.EXPIRE_DATE            AS EXPIRE_DATE
+                           , B.TERMIN_DATE            AS TERMIN_DATE
+                           , NVL(B.DAMBO_AMT, 0)      AS DAMBO_AMT
+                       FROM  SAA_ACCD_CUST_MASTER      A
+                           , SAA_CUST_DAMBO_SI_MASTER  B
+                      WHERE  A.CUST_CD = B.CUST_CD
+                        AND  A.SEQ     = SUBSTR(B.DAMBO_ID, 3)
+                      <#if useYn?has_content>
+                        AND  A.USE_YN  = :useYn
+                      </#if>
+
+                  UNION ALL
+
+                     SELECT  A.CUST_CD                AS CUST_CD
+                           , A.SEQ                    AS DAMBO_SEQ
+                           , SUBSTR(B.DAMBO_ID, 0, 2) AS DAMBO_TYPE
+                           , B.SET_DATE               AS SET_DATE
+                           , ''                       AS EXPIRE_DATE
+                           , B.TERMIN_DATE            AS TERMIN_DATE
+                           , 0                        AS DAMBO_AMT
+                       FROM  SAA_ACCD_CUST_MASTER      A
+                           , SAA_CUST_DAMBO_HS_MASTER  B
+                      WHERE  A.CUST_CD = B.CUST_CD
+                        AND  A.SEQ     = SUBSTR(B.DAMBO_ID, 3)
+                      <#if useYn?has_content>
+                        AND  A.USE_YN  = :useYn
+                      </#if>
+
+                  UNION ALL
+
+                     SELECT  A.CUST_CD                     AS CUST_CD
+                           , A.SEQ                         AS DAMBO_SEQ
+                           , SUBSTR(B.DAMBO_ID, 0, 2)      AS DAMBO_TYPE
+                           , B.DEPOSIT_DATE                AS SET_DATE
+                           , ''                            AS EXPIRE_DATE
+                           , B.TERMIN_DATE                 AS TERMIN_DATE
+                           , NVL(B.CASH_GUARANTEE_AMT, 0)  AS DAMBO_AMT
+                       FROM  SAA_ACCD_CUST_MASTER      A
+                           , SAA_CUST_DAMBO_CS_MASTER  B
+                      WHERE  A.CUST_CD = B.CUST_CD
+                        AND  A.SEQ     = SUBSTR(B.DAMBO_ID, 3)
+                      <#if useYn?has_content>
+                        AND  A.USE_YN  = :useYn
+                      </#if>
+
+                  UNION ALL
+
+                     SELECT  A.CUST_CD                AS CUST_CD
+                           , A.SEQ                    AS DAMBO_SEQ
+                           , SUBSTR(B.DAMBO_ID, 0, 2) AS DAMBO_TYPE
+                           , B.OPEN_DATE              AS SET_DATE
+                           , B.EXPIRE_DATE            AS EXPIRE_DATE
+                           , B.TERMIN_DATE            AS TERMIN_DATE
+                           , NVL(B.DAMBO_AMT, 0)      AS DAMBO_AMT
+                       FROM  SAA_ACCD_CUST_MASTER      A
+                           , SAA_CUST_DAMBO_RP_MASTER  B
+                      WHERE  A.CUST_CD = B.CUST_CD
+                        AND  A.SEQ     = SUBSTR(B.DAMBO_ID, 3)
+                      <#if useYn?has_content>
+                        AND  A.USE_YN  = :useYn
+                      </#if>
+
+                  UNION ALL
+
+                     SELECT  A.CUST_CD                AS CUST_CD
+                           , A.SEQ                    AS DAMBO_SEQ
+                           , SUBSTR(B.DAMBO_ID, 0, 2) AS DAMBO_TYPE
+                           , ''                       AS SET_DATE
+                           , ''                       AS EXPIRE_DATE
+                           , ''                       AS TERMIN_DATE
+                           , 0                        AS DAMBO_AMT
+                       FROM  SAA_ACCD_CUST_MASTER      A
+                           , SAA_CUST_DAMBO_TC_MASTER  B
+                      WHERE  A.CUST_CD = B.CUST_CD
+                        AND  A.SEQ     = SUBSTR(B.DAMBO_ID, 3)
+                      <#if useYn?has_content>
+                        AND  A.USE_YN  = :useYn
+                      </#if>
+                    )                    D
+                  , (SELECT  A.CUST_CD        AS CUST_CD
+                           , A.DAMBO_SEQ      AS DAMBO_SEQ
+                           , SUM(A.DAMBO_AMT) AS TOT_DAMBO_AMT
+                       FROM  (
+                              SELECT  A.CUST_CD                AS CUST_CD
+                                    , A.SEQ                    AS DAMBO_SEQ
+                                    , NVL(B.DAMBO_AMT, 0)      AS DAMBO_AMT
+                                FROM  SAA_ACCD_CUST_MASTER      A
+                                    , SAA_CUST_DAMBO_RE_MASTER  B
+                               WHERE  A.CUST_CD = B.CUST_CD
+                                 AND  A.SEQ     = SUBSTR(B.DAMBO_ID, 3)
+                               <#if useYn?has_content>
+                                 AND  A.USE_YN  = :useYn
+                               </#if>
+
+                           UNION ALL
+
+                              SELECT  A.CUST_CD                AS CUST_CD
+                                    , A.SEQ                    AS DAMBO_SEQ
+                                    , NVL(B.DAMBO_AMT, 0)      AS DAMBO_AMT
+                                FROM  SAA_ACCD_CUST_MASTER      A
+                                    , SAA_CUST_DAMBO_SI_MASTER  B
+                               WHERE  A.CUST_CD = B.CUST_CD
+                                 AND  A.SEQ     = SUBSTR(B.DAMBO_ID, 3)
+                               <#if useYn?has_content>
+                                 AND  A.USE_YN  = :useYn
+                               </#if>
+
+                           UNION ALL
+
+                              SELECT  A.CUST_CD                     AS CUST_CD
+                                    , A.SEQ                         AS DAMBO_SEQ
+                                    , NVL(B.CASH_GUARANTEE_AMT, 0)  AS DAMBO_AMT
+                                FROM  SAA_ACCD_CUST_MASTER      A
+                                    , SAA_CUST_DAMBO_CS_MASTER  B
+                               WHERE  A.CUST_CD = B.CUST_CD
+                                 AND  A.SEQ     = SUBSTR(B.DAMBO_ID, 3)
+                               <#if useYn?has_content>
+                                 AND  A.USE_YN  = :useYn
+                               </#if>
+
+                           UNION ALL
+
+                              SELECT  A.CUST_CD                AS CUST_CD
+                                    , A.SEQ                    AS DAMBO_SEQ
+                                    , NVL(B.DAMBO_AMT, 0)      AS DAMBO_AMT
+                                FROM  SAA_ACCD_CUST_MASTER      A
+                                    , SAA_CUST_DAMBO_RP_MASTER  B
+                               WHERE  A.CUST_CD = B.CUST_CD
+                                 AND  A.SEQ     = SUBSTR(B.DAMBO_ID, 3)
+                               <#if useYn?has_content>
+                                 AND  A.USE_YN  = :useYn
+                               </#if>
+                             ) A
+                   GROUP BY  CUST_CD, DAMBO_SEQ
+                    )                    E
+                  , FMS_CRDINFO          F
+             WHERE  A.CUST_CD           = B.UPJANG(+)
+               AND  A.CUST_CD           = C.CUSTCD(+)
+               AND  A.CUST_CD           = D.CUST_CD(+)
+               AND  A.SEQ               = D.DAMBO_SEQ(+)
+               AND  A.CUST_CD           = E.CUST_CD(+)
+               AND  A.SEQ               = E.DAMBO_SEQ(+)
+               AND  A.CUST_CD           = F.UPJANG(+)
+             <#if muCd?has_content>
+               AND  A.BIZ_CLASS         = :muCd
+             </#if>
+             <#if tmCd?has_content>
+               AND  A.TEAM_CD           = :tmCd
+             </#if>
+             <#if mainUpjangCd?has_content>
+               AND  B.MAIN_UPJANG       = :mainUpjangCd
+             </#if>
+             <#if upjangCd?has_content>
+               AND  A.CUST_CD           = :upjangCd
+             </#if>
+             <#if useYn?has_content>
+               AND  A.USE_YN  = :useYn
+             </#if>
+          ORDER BY  A.CUST_CD, D.DAMBO_TYPE
+        ]]>
+    </statement>
+
+    <!-- 메인업장을 조회한다. -->
+    <statement name="selectMainUpjang" type="select">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.selectMainUpjang */
+    <![CDATA[
+            SELECT  A.UPJANG           AS UPJANG_CD
+                  , A.UPJANGNM_DISP    AS UPJANG_NM
+                  , A.MAIN_UPJANG      AS MAIN_UPJANG_CD
+                  , B.UPJANGNM_DISP    AS MAIN_UPJANG_NM
+              FROM  FMS_UPJANG A
+                  , FMS_UPJANG B
+             WHERE  A.MAIN_UPJANG = B.UPJANG
+               AND  A.UPJANG      = :upjangCd
+        ]]>
+    </statement>
+
+    <!-- 부동산 목록을 조회한다. -->
+    <statement name="selectRealEstate" type="select">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.selectRealEstate */
+    <![CDATA[
+            SELECT  A.CUST_CD               AS  CUST_CD                                               /* 거래처_코드      */
+                  , DECODE(B.UPJANGNM_DISP, NULL, C.CUSTNM)               AS  CUST_NM_OLD             /* 거래처_명        */
+                  , DECODE(Z.SYS_GB, '004', B.UPJANGNM_DISP, C.CUSTNM)    AS  CUST_NM                 /* 거래처_명        */
+                  , A.DAMBO_ID              AS  DAMBO_ID                                              /* 담보_ID          */
+                  , A.SEQ                   AS  SEQ                                                   /* 순번             */
+                  , A.DAMBO_AMT             AS  DAMBO_AMT                                             /* 담보_금액        */
+                  , A.OWNR                  AS  OWNR                                                  /* 소유자           */
+                  , A.RELATION              AS  RELATION                                              /* 관계             */
+                  , A.SET_DATE              AS  SET_DATE                                              /* 설정_일자        */
+                  , A.TERMIN_YN             AS  TERMIN_YN                                             /* 해지_여부        */
+                  , A.TERMIN_DATE           AS  TERMIN_DATE                                           /* 해지_일자        */
+                  , A.SORT                  AS  SORT                                                  /* 정렬             */
+                  , A.R_E_CLASS             AS  R_E_CLASS                                             /* 부동산 구분      */
+                  , A.DAMBO_NM              AS  DAMBO_NM                                              /* 담보_명          */
+                  , A.RGST_ACCEPTNUM        AS  RGST_ACCEPTNUM                                        /* 등기 접수번호    */
+                  , A.RGSTSMLNM             AS  RGSTSMLNM                                             /* 등기소명         */
+                  , A.ZIP_CODE              AS  ZIP_CODE                                              /* 우편_번호        */
+                  , A.ADDR                  AS  ADDR                                                  /* 주소             */
+                  , SCC_CRYPTO.MASKAUTH_FUN(A.ADDR_ENC, 10, :loginPersMask, :maskAuth) AS ADDR_ENC    /* 주소_암호화      */
+                  , A.OCCUR_CHOICE_YN       AS  OCCUR_CHOICE_YN                                       /* 발생_선택_여부   */
+                  , A.NONOCCUR_CHOICE_YN    AS  NONOCCUR_CHOICE_YN                                    /* 미발생_선택_여부 */
+              FROM  SAA_CUST_DAMBO_RE_MASTER A
+                  , FMS_UPJANG               B
+                  , ST_CUST                  C
+                  , SAA_ACCD_CUST_MASTER     Z
+             WHERE  A.CUST_CD             = B.UPJANG(+)
+               AND  A.CUST_CD             = C.CUSTCD(+)
+               AND  A.CUST_CD             = Z.CUST_CD(+)
+               AND  Z.SEQ                 = TO_NUMBER(SUBSTR(A.DAMBO_ID, 3, 1))
+               AND  A.CUST_CD             = :custCd
+               AND  SUBSTR(A.DAMBO_ID, 3) = :seq
+        ]]>
+    </statement>
+
+    <!-- 보증보험 목록을 조회한다. -->
+    <statement name="selectGuaranteeInsur" type="select">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.selectGuaranteeInsur */
+    <![CDATA[
+            SELECT  A.CUST_CD               AS  CUST_CD                                      /* 거래처_코드      */
+                  , DECODE(B.UPJANGNM_DISP, NULL, C.CUSTNM)               AS  CUST_NM_OLD    /* 거래처_명        */
+                  , DECODE(Z.SYS_GB, '004', B.UPJANGNM_DISP, C.CUSTNM)    AS  CUST_NM        /* 거래처_명        */
+                  , A.DAMBO_ID              AS  DAMBO_ID                                     /* 담보_ID          */
+                  , A.SEQ                   AS  SEQ                                          /* 순번             */
+                  , A.DAMBO_AMT             AS  DAMBO_AMT                                    /* 담보_금액        */
+                  , A.OPEN_DATE             AS  OPEN_DATE                                    /* 개시_일자        */
+                  , A.EXPIRE_DATE           AS  EXPIRE_DATE                                  /* 만기_일자        */
+                  , A.TERMIN_YN             AS  TERMIN_YN                                    /* 해지_여부        */
+                  , A.TERMIN_DATE           AS  TERMIN_DATE                                  /* 해지_일자        */
+                  , A.PUBLISHPLCENM         AS  PUBLISHPLCE_NM                               /* 발행처_명        */
+                  , A.REMARK                AS  REMARK                                       /* 비고             */
+                  , A.OCCUR_CHOICE_YN       AS  OCCUR_CHOICE_YN                              /* 발생_선택_여부   */
+                  , A.NONOCCUR_CHOICE_YN    AS  NONOCCUR_CHOICE_YN                           /* 미발생_선택_여부 */
+              FROM  SAA_CUST_DAMBO_SI_MASTER A
+                  , FMS_UPJANG               B
+                  , ST_CUST                  C
+                  , SAA_ACCD_CUST_MASTER     Z
+             WHERE  A.CUST_CD             = B.UPJANG(+)
+               AND  A.CUST_CD             = C.CUSTCD(+)
+               AND  A.CUST_CD             = Z.CUST_CD(+)
+               AND  Z.SEQ                 = TO_NUMBER(SUBSTR(A.DAMBO_ID, 3, 1))
+               AND  A.CUST_CD             = :custCd
+               AND  SUBSTR(A.DAMBO_ID, 3) = :seq
+        ]]>
+    </statement>
+
+    <!-- 인보증 목록을 조회한다. -->
+    <statement name="selectGuarantor" type="select">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.selectGuarantor */
+    <![CDATA[
+            SELECT  A.CUST_CD               AS  CUST_CD                                      /* 거래처_코드      */
+                  , DECODE(B.UPJANGNM_DISP, NULL, C.CUSTNM)               AS  CUST_NM_OLD    /* 거래처_명        */
+                  , DECODE(Z.SYS_GB, '004', B.UPJANGNM_DISP, C.CUSTNM)    AS  CUST_NM        /* 거래처_명        */
+                  , A.DAMBO_ID              AS  DAMBO_ID                                     /* 담보_ID          */
+                  , A.SEQ                   AS  SEQ                                          /* 순번             */
+                  , A.GRTR_NM               AS  GRTR_NM                                      /* 보증인 명        */
+                  , A.RELATION              AS  RELATION                                     /* 관계             */
+                  , SCC_CRYPTO.MASKAUTH_FUN(A.BRTH_DATE_ENC, 13, :loginPersMask, :maskAuth)  AS  BRTH_DATE_ENC   /* 생년월일_암호화 */
+                  , A.GUARANTEE_LIMIT_AMT   AS  GUARANTEE_LIMIT_AMT                          /* 보증_한도_금액   */
+                  , A.SET_DATE              AS  SET_DATE                                     /* 설정_일자        */
+                  , A.TERMIN_YN             AS  TERMIN_YN                                    /* 해지_여부        */
+                  , A.TERMIN_DATE           AS  TERMIN_DATE                                  /* 해지_일자        */
+                  , A.ZIP_CODE              AS  ZIP_CODE                                     /* 우편_번호        */
+                  , A.ADDR                  AS  ADDR                                         /* 주소             */
+                  , SCC_CRYPTO.MASKAUTH_FUN(A.ADDR_ENC, 10, :loginPersMask, :maskAuth)       AS  ADDR_ENC        /* 주소_암호화     */
+                  , A.OCCUR_CHOICE_YN       AS  OCCUR_CHOICE_YN                              /* 발생_선택_여부   */
+                  , A.NONOCCUR_CHOICE_YN    AS  NONOCCUR_CHOICE_YN                           /* 미발생_선택_여부 */
+              FROM  SAA_CUST_DAMBO_HS_MASTER A
+                  , FMS_UPJANG               B
+                  , ST_CUST                  C
+                  , SAA_ACCD_CUST_MASTER     Z
+             WHERE  A.CUST_CD             = B.UPJANG(+)
+               AND  A.CUST_CD             = C.CUSTCD(+)
+               AND  A.CUST_CD             = Z.CUST_CD(+)
+               AND  Z.SEQ                 = TO_NUMBER(SUBSTR(A.DAMBO_ID, 3, 1))
+               AND  A.CUST_CD             = :custCd
+               AND  SUBSTR(A.DAMBO_ID, 3) = :seq
+        ]]>
+    </statement>
+
+    <!-- 현금보증 목록을 조회한다. -->
+    <statement name="selectCashGuarantee" type="select">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.selectCashGuarantee */
+    <![CDATA[
+            SELECT  A.CUST_CD               AS  CUST_CD                                      /* 거래처_코드      */
+                  , DECODE(B.UPJANGNM_DISP, NULL, C.CUSTNM)               AS  CUST_NM_OLD    /* 거래처_명        */
+                  , DECODE(Z.SYS_GB, '004', B.UPJANGNM_DISP, C.CUSTNM)    AS  CUST_NM        /* 거래처_명        */
+                  , A.DAMBO_ID              AS  DAMBO_ID                                     /* 담보_ID          */
+                  , A.SEQ                   AS  SEQ                                          /* 순번             */
+                  , A.CASH_GUARANTEE_AMT    AS  CASH_GUARANTEE_AMT                           /* 현금 보증 금액   */
+                  , A.DEPOSIT_DATE          AS  DEPOSIT_DATE                                 /* 예치 일자        */
+                  , A.TERMIN_YN             AS  TERMIN_YN                                    /* 해지_여부        */
+                  , A.TERMIN_DATE           AS  TERMIN_DATE                                  /* 해지_일자        */
+                  , A.OCCUR_CHOICE_YN       AS  OCCUR_CHOICE_YN                              /* 발생_선택_여부   */
+                  , A.NONOCCUR_CHOICE_YN    AS  NONOCCUR_CHOICE_YN                           /* 미발생_선택_여부 */
+              FROM  SAA_CUST_DAMBO_CS_MASTER A
+                  , FMS_UPJANG               B
+                  , ST_CUST                  C
+                  , SAA_ACCD_CUST_MASTER     Z
+             WHERE  A.CUST_CD             = B.UPJANG(+)
+               AND  A.CUST_CD             = C.CUSTCD(+)
+               AND  A.CUST_CD             = Z.CUST_CD(+)
+               AND  Z.SEQ                 = TO_NUMBER(SUBSTR(A.DAMBO_ID, 3, 1))
+               AND  A.CUST_CD             = :custCd
+               AND  SUBSTR(A.DAMBO_ID, 3) = :seq
+        ]]>
+    </statement>
+
+    <!-- 질권 목록을 조회한다. -->
+    <statement name="selectPledge" type="select">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.selectPledge */
+    <![CDATA[
+            SELECT  A.CUST_CD               AS  CUST_CD                                      /* 거래처_코드      */
+                  , DECODE(B.UPJANGNM_DISP, NULL, C.CUSTNM)               AS  CUST_NM_OLD    /* 거래처_명        */
+                  , DECODE(Z.SYS_GB, '004', B.UPJANGNM_DISP, C.CUSTNM)    AS  CUST_NM        /* 거래처_명        */
+                  , A.DAMBO_ID              AS  DAMBO_ID                                     /* 담보_ID          */
+                  , A.SEQ                   AS  SEQ                                          /* 순번             */
+                  , A.DAMBO_AMT             AS  DAMBO_AMT                                    /* 담보_금액        */
+                  , A.KIND                  AS  KIND                                         /* 종류             */
+                  , A.PLEDGER               AS  PLEDGER                                      /* 질권_설정자      */
+                  , A.OPEN_DATE             AS  OPEN_DATE                                    /* 개시_일자        */
+                  , A.EXPIRE_DATE           AS  EXPIRE_DATE                                  /* 만기_일자        */
+                  , A.TERMIN_YN             AS  TERMIN_YN                                    /* 해지_여부        */
+                  , A.TERMIN_DATE           AS  TERMIN_DATE                                  /* 해지_일자        */
+                  , A.PUBLISHPLCE_NM        AS  PUBLISHPLCE_NM                               /* 발행처_명        */
+                  , A.OCCUR_CHOICE_YN       AS  OCCUR_CHOICE_YN                              /* 발생_선택_여부   */
+                  , A.NONOCCUR_CHOICE_YN    AS  NONOCCUR_CHOICE_YN                           /* 미발생_선택_여부 */
+              FROM  SAA_CUST_DAMBO_RP_MASTER A
+                  , FMS_UPJANG               B
+                  , ST_CUST                  C
+                  , SAA_ACCD_CUST_MASTER     Z
+             WHERE  A.CUST_CD             = B.UPJANG(+)
+               AND  A.CUST_CD             = C.CUSTCD(+)
+               AND  A.CUST_CD             = Z.CUST_CD(+)
+               AND  Z.SEQ                 = TO_NUMBER(SUBSTR(A.DAMBO_ID, 3, 1))
+               AND  A.CUST_CD             = :custCd
+               AND  SUBSTR(A.DAMBO_ID, 3) = :seq
+        ]]>
+    </statement>
+
+    <!-- 채권양도 목록을 조회한다. -->
+    <statement name="selectAccRcvAlnt" type="select">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.selectAccRcvAlnt */
+    <![CDATA[
+            SELECT  A.CUST_CD               AS  CUST_CD                                      /* 거래처_코드      */
+                  , DECODE(B.UPJANGNM_DISP, NULL, C.CUSTNM)               AS  CUST_NM_OLD    /* 거래처_명        */
+                  , DECODE(Z.SYS_GB, '004', B.UPJANGNM_DISP, C.CUSTNM)    AS  CUST_NM        /* 거래처_명        */
+                  , A.DAMBO_ID              AS  DAMBO_ID                                     /* 담보_ID          */
+                  , A.SEQ                   AS  SEQ                                          /* 순번             */
+                  , A.BUSU                  AS  BUSU                                         /* 부수             */
+                  , A.REMARK                AS  REMARK                                       /* 비고             */
+                  , A.OCCUR_CHOICE_YN       AS  OCCUR_CHOICE_YN                              /* 발생_선택_여부   */
+                  , A.NONOCCUR_CHOICE_YN    AS  NONOCCUR_CHOICE_YN                           /* 미발생_선택_여부 */
+              FROM  SAA_CUST_DAMBO_TC_MASTER A
+                  , FMS_UPJANG               B
+                  , ST_CUST                  C
+                  , SAA_ACCD_CUST_MASTER     Z
+             WHERE  A.CUST_CD             = B.UPJANG(+)
+               AND  A.CUST_CD             = C.CUSTCD(+)
+               AND  A.CUST_CD             = Z.CUST_CD(+)
+               AND  Z.SEQ                 = TO_NUMBER(SUBSTR(A.DAMBO_ID, 3, 1))
+               AND  A.CUST_CD             = :custCd
+               AND  SUBSTR(A.DAMBO_ID, 3) = :seq
+        ]]>
+    </statement>
+
+    <!-- 부동산정보(을)를 등록한다. -->
+    <statement name="insertRealEstate" type="insert">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.insertRealEstate */
+    <![CDATA[
+            INSERT INTO SAA_CUST_DAMBO_RE_MASTER (
+                      CUST_CD
+                    , DAMBO_ID
+                    , SEQ
+                    , DAMBO_AMT
+                    , OWNR
+                    , RELATION
+                    , SET_DATE
+                    , TERMIN_YN
+                    , TERMIN_DATE
+                    , SORT
+                    , R_E_CLASS
+                    , DAMBO_NM
+                    , RGST_ACCEPTNUM
+                    , RGSTSMLNM
+                    , ZIP_CODE
+                    , ADDR
+                    , ADDR_ENC
+                    , OCCUR_CHOICE_YN
+                    , NONOCCUR_CHOICE_YN
+                    , CUSER
+                    , CDATE
+            ) VALUES (
+                      :custCd
+                    , :damboId
+                    , (SELECT NVL(MAX(seq), 0) + 1 FROM SAA_CUST_DAMBO_RE_MASTER WHERE CUST_CD = :custCd AND DAMBO_ID = :damboId)
+                    , :damboAmt
+                    , :ownr
+                    , :relation
+                    , :setDate
+                    , :terminYn
+                    , :terminDate
+                    , :sort
+                    , :rEClass
+                    , :damboNm
+                    , :rgstAcceptnum
+                    , :rgstsmlnm
+                    , :zipCode
+                    , :addr
+                    , <#if addrEnc?has_content> SCC_CRYPTO.ENC_FUN(:addrEnc) <#else> null </#if>
+                    , :occurChoiceYn
+                    , :nonoccurChoiceYn
+                    , :loginSabun
+                    , SYSDATE
+            )
+        ]]>
+    </statement>
+
+    <!-- 보증보험정보(을)를 등록한다. -->
+    <statement name="insertGuaranteeInsur" type="insert">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.insertGuaranteeInsur */
+    <![CDATA[
+            INSERT INTO SAA_CUST_DAMBO_SI_MASTER (
+                      CUST_CD
+                    , DAMBO_ID
+                    , SEQ
+                    , DAMBO_AMT
+                    , OPEN_DATE
+                    , EXPIRE_DATE
+                    , TERMIN_YN
+                    , TERMIN_DATE
+                    , PUBLISHPLCENM
+                    , REMARK
+                    , OCCUR_CHOICE_YN
+                    , NONOCCUR_CHOICE_YN
+                    , CUSER
+                    , CDATE
+            ) VALUES (
+                      :custCd
+                    , :damboId
+                    , (SELECT NVL(MAX(seq), 0) + 1 FROM SAA_CUST_DAMBO_SI_MASTER WHERE CUST_CD = :custCd AND DAMBO_ID = :damboId)
+                    , :damboAmt
+                    , :openDate
+                    , :expireDate
+                    , :terminYn
+                    , :terminDate
+                    , :publishplceNm
+                    , :remark
+                    , :occurChoiceYn
+                    , :nonoccurChoiceYn
+                    , :loginSabun
+                    , SYSDATE
+            )
+        ]]>
+    </statement>
+
+    <!-- 인보증정보(을)를 등록한다. -->
+    <statement name="insertGuarantor" type="insert">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.insertGuarantor */
+    <![CDATA[
+            INSERT INTO SAA_CUST_DAMBO_HS_MASTER (
+                      CUST_CD
+                    , DAMBO_ID
+                    , SEQ
+                    , GRTR_NM
+                    , RELATION
+                    , BRTH_DATE_ENC
+                    , GUARANTEE_LIMIT_AMT
+                    , SET_DATE
+                    , TERMIN_YN
+                    , TERMIN_DATE
+                    , ZIP_CODE
+                    , ADDR
+                    , ADDR_ENC
+                    , OCCUR_CHOICE_YN
+                    , NONOCCUR_CHOICE_YN
+                    , CUSER
+                    , CDATE
+            ) VALUES (
+                      :custCd
+                    , :damboId
+                    , (SELECT NVL(MAX(seq), 0) + 1 FROM SAA_CUST_DAMBO_HS_MASTER WHERE CUST_CD = :custCd AND DAMBO_ID = :damboId)
+                    , :grtrNm
+                    , :relation
+                    , <#if brthDateEnc?has_content> SCC_CRYPTO.ENC_FUN(:brthDateEnc) <#else> null </#if>
+                    , :guaranteeLimitAmt
+                    , :setDate
+                    , :terminYn
+                    , :terminDate
+                    , :zipCode
+                    , :addr
+                    , <#if addrEnc?has_content> SCC_CRYPTO.ENC_FUN(:addrEnc) <#else> null </#if>
+                    , :occurChoiceYn
+                    , :nonoccurChoiceYn
+                    , :loginSabun
+                    , SYSDATE
+            )
+        ]]>
+    </statement>
+
+    <!-- 현금보증정보(을)를 등록한다. -->
+    <statement name="insertCashGuarantee" type="insert">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.insertCashGuarantee */
+    <![CDATA[
+            INSERT INTO SAA_CUST_DAMBO_CS_MASTER (
+                      CUST_CD
+                    , DAMBO_ID
+                    , SEQ
+                    , CASH_GUARANTEE_AMT
+                    , DEPOSIT_DATE
+                    , TERMIN_YN
+                    , TERMIN_DATE
+                    , OCCUR_CHOICE_YN
+                    , NONOCCUR_CHOICE_YN
+                    , CUSER
+                    , CDATE
+            ) VALUES (
+                      :custCd
+                    , :damboId
+                    , (SELECT NVL(MAX(seq), 0) + 1 FROM SAA_CUST_DAMBO_CS_MASTER WHERE CUST_CD = :custCd AND DAMBO_ID = :damboId)
+                    , :cashGuaranteeAmt
+                    , :depositDate
+                    , :terminYn
+                    , :terminDate
+                    , :occurChoiceYn
+                    , :nonoccurChoiceYn
+                    , :loginSabun
+                    , SYSDATE
+            )
+        ]]>
+    </statement>
+
+    <!-- 질권정보(을)를 등록한다. -->
+    <statement name="insertPledge" type="insert">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.insertPledge */
+    <![CDATA[
+            INSERT INTO SAA_CUST_DAMBO_RP_MASTER (
+                      CUST_CD
+                    , DAMBO_ID
+                    , SEQ
+                    , DAMBO_AMT
+                    , PLEDGER
+                    , KIND
+                    , OPEN_DATE
+                    , EXPIRE_DATE
+                    , TERMIN_YN
+                    , TERMIN_DATE
+                    , PUBLISHPLCE_NM
+                    , OCCUR_CHOICE_YN
+                    , NONOCCUR_CHOICE_YN
+                    , CUSER
+                    , CDATE
+            ) VALUES (
+                      :custCd
+                    , :damboId
+                    , (SELECT NVL(MAX(seq), 0) + 1 FROM SAA_CUST_DAMBO_RP_MASTER WHERE CUST_CD = :custCd AND DAMBO_ID = :damboId)
+                    , :damboAmt
+                    , :pledger
+                    , :kind
+                    , :openDate
+                    , :expireDate
+                    , :terminYn
+                    , :terminDate
+                    , :publishplceNm
+                    , :occurChoiceYn
+                    , :nonoccurChoiceYn
+                    , :loginSabun
+                    , SYSDATE
+            )
+        ]]>
+    </statement>
+
+    <!-- 채권양도정보(을)를 등록한다. -->
+    <statement name="insertAccRcvAlnt" type="insert">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.insertAccRcvAlnt */
+    <![CDATA[
+            INSERT INTO SAA_CUST_DAMBO_TC_MASTER (
+                      CUST_CD
+                    , DAMBO_ID
+                    , SEQ
+                    , BUSU
+                    , REMARK
+                    , OCCUR_CHOICE_YN
+                    , NONOCCUR_CHOICE_YN
+                    , CUSER
+                    , CDATE
+            ) VALUES (
+                      :custCd
+                    , :damboId
+                    , (SELECT NVL(MAX(seq), 0) + 1 FROM SAA_CUST_DAMBO_TC_MASTER WHERE CUST_CD = :custCd AND DAMBO_ID = :damboId)
+                    , :busu
+                    , :remark
+                    , :occurChoiceYn
+                    , :nonoccurChoiceYn
+                    , :loginSabun
+                    , SYSDATE
+            )
+        ]]>
+    </statement>
+
+    <!-- 부동산정보(을)를 수정한다. -->
+    <statement name="updateRealEstate" type="update">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.updateRealEstate */
+    <![CDATA[
+            UPDATE SAA_CUST_DAMBO_RE_MASTER
+               SET DAMBO_AMT            = :damboAmt
+                 , OWNR                 = :ownr
+                 , RELATION             = :relation
+                 , SET_DATE             = :setDate
+                 , TERMIN_YN            = :terminYn
+                 , TERMIN_DATE          = :terminDate
+                 , SORT                 = :sort
+                 , R_E_CLASS            = :rEClass
+                 , DAMBO_NM             = :damboNm
+                 , RGST_ACCEPTNUM       = :rgstAcceptnum
+                 , RGSTSMLNM            = :rgstsmlnm
+                 , ZIP_CODE             = :zipCode
+                 , ADDR                 = :addr
+                 , ADDR_ENC             = <#if addrEnc?has_content> SCC_CRYPTO.ENC_FUN(:addrEnc) <#else> null </#if>
+                 , OCCUR_CHOICE_YN      = :occurChoiceYn
+                 , NONOCCUR_CHOICE_YN   = :nonoccurChoiceYn
+                 , UUSER                = :loginSabun
+                 , UDATE                = SYSDATE
+            WHERE  CUST_CD   = :custCd
+              AND  DAMBO_ID  = :damboId
+              AND  SEQ       = :seq
+        ]]>
+    </statement>
+
+    <!-- 보증보험정보(을)를 수정한다. -->
+    <statement name="updateGuaranteeInsur" type="update">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.updateGuaranteeInsur */
+    <![CDATA[
+            UPDATE SAA_CUST_DAMBO_SI_MASTER
+               SET DAMBO_AMT            = :damboAmt
+                 , OPEN_DATE            = :openDate
+                 , EXPIRE_DATE          = :expireDate
+                 , TERMIN_YN            = :terminYn
+                 , TERMIN_DATE          = :terminDate
+                 , PUBLISHPLCENM        = :publishplceNm
+                 , REMARK               = :remark
+                 , OCCUR_CHOICE_YN      = :occurChoiceYn
+                 , NONOCCUR_CHOICE_YN   = :nonoccurChoiceYn
+                 , UUSER                = :loginSabun
+                 , UDATE                = SYSDATE
+            WHERE  CUST_CD   = :custCd
+              AND  DAMBO_ID  = :damboId
+              AND  SEQ       = :seq
+        ]]>
+    </statement>
+
+    <!-- 인보증정보(을)를 수정한다. -->
+    <statement name="updateGuarantor" type="update">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.updateGuarantor */
+    <![CDATA[
+            UPDATE SAA_CUST_DAMBO_HS_MASTER
+               SET GRTR_NM              = :grtrNm
+                 , RELATION             = :relation
+                 , BRTH_DATE_ENC        = <#if brthDateEnc?has_content> SCC_CRYPTO.ENC_FUN(:brthDateEnc) <#else> null </#if>
+                 , GUARANTEE_LIMIT_AMT  = :guaranteeLimitAmt
+                 , SET_DATE             = :setDate
+                 , TERMIN_YN            = :terminYn
+                 , TERMIN_DATE          = :terminDate
+                 , ZIP_CODE             = :zipCode
+                 , ADDR                 = :addr
+                 , ADDR_ENC             = <#if addrEnc?has_content> SCC_CRYPTO.ENC_FUN(:addrEnc) <#else> null </#if>
+                 , OCCUR_CHOICE_YN      = :occurChoiceYn
+                 , NONOCCUR_CHOICE_YN   = :nonoccurChoiceYn
+                 , UUSER                = :loginSabun
+                 , UDATE                = SYSDATE
+            WHERE  CUST_CD   = :custCd
+              AND  DAMBO_ID  = :damboId
+              AND  SEQ       = :seq
+        ]]>
+    </statement>
+
+    <!-- 현금보증정보(을)를 수정한다. -->
+    <statement name="updateCashGuarantee" type="update">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.updateCashGuarantee */
+    <![CDATA[
+            UPDATE SAA_CUST_DAMBO_CS_MASTER
+               SET CASH_GUARANTEE_AMT   = :cashGuaranteeAmt
+                 , DEPOSIT_DATE         = :depositDate
+                 , TERMIN_YN            = :terminYn
+                 , TERMIN_DATE          = :terminDate
+                 , OCCUR_CHOICE_YN      = :occurChoiceYn
+                 , NONOCCUR_CHOICE_YN   = :nonoccurChoiceYn
+                 , UUSER                = :loginSabun
+                 , UDATE                = SYSDATE
+            WHERE  CUST_CD   = :custCd
+              AND  DAMBO_ID  = :damboId
+              AND  SEQ       = :seq
+        ]]>
+    </statement>
+
+    <!-- 질권정보(을)를 수정한다. -->
+    <statement name="updatePledge" type="update">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.updatePledge */
+    <![CDATA[
+            UPDATE SAA_CUST_DAMBO_RP_MASTER
+               SET DAMBO_AMT            = :damboAmt
+                 , PLEDGER              = :pledger
+                 , KIND                 = :kind
+                 , OPEN_DATE            = :openDate
+                 , EXPIRE_DATE          = :expireDate
+                 , TERMIN_YN            = :terminYn
+                 , TERMIN_DATE          = :terminDate
+                 , PUBLISHPLCE_NM       = :publishplceNm
+                 , OCCUR_CHOICE_YN      = :occurChoiceYn
+                 , NONOCCUR_CHOICE_YN   = :nonoccurChoiceYn
+                 , UUSER                = :loginSabun
+                 , UDATE                = SYSDATE
+            WHERE  CUST_CD   = :custCd
+              AND  DAMBO_ID  = :damboId
+              AND  SEQ       = :seq
+        ]]>
+    </statement>
+
+    <!-- 채권양도정보(을)를 수정한다. -->
+    <statement name="updateAccRcvAlnt" type="update">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.updateAccRcvAlnt */
+    <![CDATA[
+            UPDATE SAA_CUST_DAMBO_TC_MASTER
+               SET BUSU                 = :busu
+                 , REMARK               = :remark
+                 , OCCUR_CHOICE_YN      = :occurChoiceYn
+                 , NONOCCUR_CHOICE_YN   = :nonoccurChoiceYn
+                 , UUSER                = :loginSabun
+                 , UDATE                = SYSDATE
+            WHERE  CUST_CD   = :custCd
+              AND  DAMBO_ID  = :damboId
+              AND  SEQ       = :seq
+        ]]>
+    </statement>
+
+    <!-- 부동산정보(을)를 삭제한다. -->
+    <statement name="deleteRealEstate" type="delete">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.deleteRealEstate */
+    <![CDATA[
+            DELETE  FROM  SAA_CUST_DAMBO_RE_MASTER
+             WHERE  CUST_CD   = :custCd
+               AND  DAMBO_ID  = :damboId
+               AND  SEQ       = :seq
+        ]]>
+    </statement>
+
+    <!-- 보증보험정보(을)를 삭제한다. -->
+    <statement name="deleteGuaranteeInsur" type="delete">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.deleteGuaranteeInsur */
+    <![CDATA[
+            DELETE  FROM  SAA_CUST_DAMBO_SI_MASTER
+             WHERE  CUST_CD   = :custCd
+               AND  DAMBO_ID  = :damboId
+               AND  SEQ       = :seq
+        ]]>
+    </statement>
+
+    <!-- 인보증정보(을)를 삭제한다. -->
+    <statement name="deleteGuarantor" type="delete">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.deleteGuarantor */
+    <![CDATA[
+            DELETE  FROM SAA_CUST_DAMBO_HS_MASTER
+             WHERE  CUST_CD   = :custCd
+               AND  DAMBO_ID  = :damboId
+               AND  SEQ       = :seq
+        ]]>
+    </statement>
+
+    <!-- 현금보증정보(을)를 삭제한다. -->
+    <statement name="deleteCashGuarantee" type="delete">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.deleteCashGuarantee */
+    <![CDATA[
+            DELETE  FROM SAA_CUST_DAMBO_CS_MASTER
+             WHERE  CUST_CD   = :custCd
+               AND  DAMBO_ID  = :damboId
+               AND  SEQ       = :seq
+        ]]>
+    </statement>
+
+    <!-- 질권정보(을)를 삭제한다. -->
+    <statement name="deletePledge" type="delete">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.deletePledge */
+    <![CDATA[
+            DELETE  FROM SAA_CUST_DAMBO_RP_MASTER
+             WHERE  CUST_CD   = :custCd
+               AND  DAMBO_ID  = :damboId
+               AND  SEQ       = :seq
+        ]]>
+    </statement>
+
+    <!-- 채권양도정보(을)를 삭제한다. -->
+    <statement name="deleteAccRcvAlnt" type="delete">
+    /*+ com.hwfs.sm.saa.dao.AccdDamboInfoRegDAO.deleteAccRcvAlnt */
+    <![CDATA[
+            DELETE  FROM SAA_CUST_DAMBO_TC_MASTER
+             WHERE  CUST_CD   = :custCd
+               AND  DAMBO_ID  = :damboId
+               AND  SEQ       = :seq
+        ]]>
+    </statement>
+
+</hqml>

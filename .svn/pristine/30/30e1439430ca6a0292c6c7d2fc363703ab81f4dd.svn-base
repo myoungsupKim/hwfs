@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.SYS_TYPE, A.ROLE, B.ROLE_NAME
+     , A.MENU_ID
+     , NVL((SELECT Z.MENU_NAME FROM SCC_MENU Z WHERE Z.MENU_ID = C.PARENT_MENU_ID),'*')||'/'||C.MENU_NAME AS MENU_NAME
+     , SCC_YN_FUN(A.SRC_YN) AS SRC_YN
+     , SCC_YN_FUN(A.PRT_YN) AS PRT_YN
+     , SCC_YN_FUN(A.EXL_YN) AS EXL_YN
+     , SCC_YN_FUN(A.INS_YN) AS INS_YN
+     , SCC_YN_FUN(A.DEL_YN) AS DEL_YN
+     , SCC_YN_FUN(A.SAV_YN) AS SAV_YN
+     , '0' AS ALL_YN
+     , NVL(E.SRC_YN,'0') AS PSRC_YN
+     , NVL(E.PRT_YN,'0') AS PPRT_YN
+     , NVL(E.EXL_YN,'0') AS PEXL_YN
+     , NVL(E.INS_YN,'0') AS PINS_YN
+     , NVL(E.DEL_YN,'0') AS PDEL_YN
+     , NVL(E.SAV_YN,'0') AS PSAV_YN
+     , DECODE(E.MENU_ID,NULL,'N','Y') AS EXT_FLAG 
+  FROM SCC_ROLE_MENU A, SCC_ROLE B, SCC_MENU C, SCC_SYSTEM D
+     ,(SELECT D.MENU_ID
+             , SCC_YN_FUN(MAX(D.SRC_YN)) AS SRC_YN
+             , SCC_YN_FUN(MAX(D.PRT_YN)) AS PRT_YN
+             , SCC_YN_FUN(MAX(D.EXL_YN)) AS EXL_YN
+             , SCC_YN_FUN(MAX(D.INS_YN)) AS INS_YN
+             , SCC_YN_FUN(MAX(D.DEL_YN)) AS DEL_YN
+             , SCC_YN_FUN(MAX(D.SAV_YN)) AS SAV_YN
+          FROM (SELECT * FROM SCC_ROLE WHERE SYS_TYPE = #SYS_TYPE# AND ROLE_TYPE = '본부' AND USE_YN = 'Y') C
+             , (SELECT * FROM SCC_ROLE_MENU WHERE SYS_TYPE = #SYS_TYPE# AND USE_YN = 'Y') D
+             , (SELECT * FROM SCC_USER_ROLE WHERE SYS_TYPE = #SYS_TYPE# AND SABUN = #g_EmpNo# AND USE_YN = 'Y') E
+         WHERE C.ROLE = D.ROLE
+           AND D.ROLE = E.ROLE
+         GROUP BY D.MENU_ID) E
+ WHERE A.SYS_TYPE = B.SYS_TYPE
+   AND A.ROLE     = B.ROLE
+   AND A.MENU_ID  = C.MENU_ID
+   AND C.SYS_ID   = D.SYS_ID
+   AND A.MENU_ID  = E.MENU_ID(+)
+   AND A.SYS_TYPE = #SYS_TYPE#
+   AND A.ROLE     = #ROLE#
+   AND C.SYS_ID   = DECODE(#SYS_ID#,0,C.SYS_ID,#SYS_ID#)
+   AND C.MENU_TYPE= 'P'
+   AND A.USE_YN   = 'Y'
+   AND B.USE_YN   = 'Y'
+   AND C.USE_YN   = 'Y'
+ ORDER BY D.SORT_SEQ, C.PARENT_MENU_ID, C.SORT_SEQ	]]></statement>
+	<input default-name="ds_RoleMenuI">
+		<col name="SYS_TYPE" size="50" type="VARCHAR" description="" /> 
+		<col name="ROLE" size="50" type="VARCHAR" description="" /> 
+		<col name="SYS_ID" size="255" type="NUMERIC" description="" /> 
+	</input>
+	<output default-name="ds_RoleMenuO">
+		<col name="ROLE" size="50" type="VARCHAR" description="" /> 
+		<col name="ROLE_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="MENU_ID" size="22" type="NUMERIC" description="" /> 
+		<col name="MENU_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="SRC_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="PRT_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="EXL_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="INS_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="DEL_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="SAV_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="SYS_TYPE" size="50" type="VARCHAR" description="" /> 
+		<col name="PSRC_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="PPRT_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="PEXL_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="PINS_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="PDEL_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="PSAV_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="EXT_FLAG" size="1" type="VARCHAR" description="" /> 
+	</output>
+</query>

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT TO_CHAR(A.CDATE,'YYYY-MM-DD') AS CDATE
+     , A.UPJANG
+     , B.UPJANGNM_DISP AS MAIN_UPJANGNM
+     , A.UPJANGNM_DISP
+     , DECODE(G.SAUPNO,NULL,'',SUBSTR(G.SAUPNO,1,3)||'-'||SUBSTR(G.SAUPNO,4,2)||'-'||SUBSTR(G.SAUPNO,6,5)) AS SAUPNO
+     , G.DRNAME1 AS DRNAME 
+     , D.TM_NM
+     , E.NM_KOR AS PART_SALES_NAME
+     , F.NM_KOR AS CS_NAME
+     , A.CREDIT_AMOUNT
+     , CASE WHEN A.CREDIT_END > TO_CHAR(SYSDATE,'YYYYMMDD') THEN 0 ELSE A.CREDIT_OVER_AMOUNT END AS CREDIT_OVER_AMOUNT
+     , DECODE(A.USE_YN,'Y','사용','미사용') AS USE_YN
+     , A.ADDR_KEY
+     ,SCC_ADDR_FUN(A.ADDR_KEY, #g_PersInfoMask#, #p_MaskAuth#) AS ADDR_INFO
+     , G.ADDR_KEY AS CUST_ADDR_KEY
+     ,SCC_ADDR_FUN(G.ADDR_KEY, #g_PersInfoMask#, #p_MaskAuth#) AS CUST_ADDR_INFO
+     ,'' AS BASE_ADDR
+     ,'' AS DETAIL_ADDR
+     ,'' AS CUST_BASE_ADDR
+     ,'' AS CUST_DETAIL_ADDR
+     , DECODE(A.UPJANG, A.MAIN_UPJANG, '본사', '사업장') MAIN_UPJANG_YN
+  FROM FMS_UPJANG A
+     , FMS_UPJANG B
+     , HLDC_ST_UPJANG C
+     , HLDC_ST_CUST G
+     , HLDC_SC_DEPT_V D
+     , HLDC_HR_PERSONAL E
+     , HLDC_HR_PERSONAL F
+ WHERE A.MAIN_UPJANG = B.UPJANG
+   AND A.UPJANG = C.UPJANG
+   AND C.CUSTCD = G.CUSTCD
+   AND A.DEPT_ID = D.DEPT_ID
+   AND A.PART_SALES_SABUN = E.SABUN
+   AND A.CS_SABUN = F.SABUN
+<isNotNull col="TM_CD">   
+   AND D.TM_CD = #TM_CD# 	
+</isNotNull>   
+<isNotNull col="UPJANG">   
+   AND A.UPJANGNM_DISP LIKE '%' || #UPJANG# || '%'	
+</isNotNull>  
+<isNotNull col="MAIN_UPJANG">   
+   AND B.UPJANGNM_DISP LIKE '%' || #MAIN_UPJANG# || '%'	
+</isNotNull>  
+<isNotNull col="USE_YN">   
+   AND A.USE_YN = #USE_YN# 	
+</isNotNull>  
+<isNotNull col="PART_SALES_SABUN">   
+   AND A.PART_SALES_SABUN = #PART_SALES_SABUN# 	
+</isNotNull>  
+<isNotNull col="FROM_DATE">   
+   AND TO_CHAR(A.CDATE,'YYYYMMDD') BETWEEN #FROM_DATE# AND #TO_DATE#	
+</isNotNull> 
+<isEqual col="MAIN_YN" value="Y">   
+   AND A.UPJANG = A.MAIN_UPJANG 	
+</isEqual> 
+ ORDER BY A.CDATE, A.UPJANG
+</statement> 
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

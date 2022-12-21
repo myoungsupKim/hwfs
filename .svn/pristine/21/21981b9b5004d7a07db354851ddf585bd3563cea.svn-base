@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[주문통제체크]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT NVL(SUM(CNT),0) AS CNT
+  FROM (
+		SELECT COUNT(*) AS CNT
+		  FROM FMP_ORD_CTRL_DAYS A
+		 WHERE A.UPJANG = -1
+		   AND A.CTRL_DATE = #NEED_DATE#
+		   AND A.USE_YN = 'Y'
+		   AND (#UPJANG#, #NEED_DATE#) NOT IN (SELECT B.UPJANG, B.CTRL_DATE 
+												 FROM FMP_ORD_CTRL_DAYS B
+											    WHERE B.UPJANG    = #UPJANG#
+												  AND B.CTRL_DATE = #NEED_DATE#
+												  AND B.USE_YN    = 'N')  		   
+		 UNION ALL  
+		SELECT  COUNT(*) AS CNT
+		  FROM FMP_ORD_CTRL_DAYS A
+		 WHERE A.UPJANG = #UPJANG#
+		   AND A.CTRL_DATE = #NEED_DATE#
+		   AND A.USE_YN = 'Y'
+		)   	]]></statement>
+	<input default-name="ds_Cond">
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="NEED_DATE" size="8" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_List">
+		<col name="CNT" size="22" type="NUMERIC" description="" /> 
+	</output>
+</query>

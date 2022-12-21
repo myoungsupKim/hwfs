@@ -1,0 +1,477 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.scz.contractMgmtDAO">
+	<desc>계약 정보 HQML Query</desc>
+
+	<!-- 계약 정보 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sc.scz.dao.contractMgmtDAO.selectList */
+		<![CDATA[
+		SELECT A.CONTRACT_CD,
+		       A.CONTRACT_NAME,
+		       A.CONTRACT_GB,
+		       (SELECT AA.CODE_NAME FROM SCC_COMMON_CODE AA WHERE AA.GROUP_CODE IN ('CONTRACT_GB') AND AA.CODE = A.CONTRACT_GB) AS CONTRACT_GB_NM,
+		       A.CONTRACT_STATS,
+		       A.CC_CD,
+		       (SELECT CC_NM FROM SCC_CC WHERE SCC_CC.CC_CD = A.CC_CD) AS CC_NM,
+		       A.CUST_CD,
+		       A.SAP_CUST_CD,
+		       A.CUST_NM,
+		       A.LENT_ASSET_YN,
+		       A.USUFRUCT_YN,
+		       A.ORDER_YN,
+		       A.SMALL_ASSET_YN,
+		       A.START_DATE,
+		       A.END_DATE,
+		       A.CONTRACT_PERIOD,
+		       A.DIS_RATE,
+		       A.AVG_RATE,
+		       A.RGHT_USE,
+		       DECODE(A.RGHT_USE,'10','연장선택권',DECODE(A.RGHT_USE,'20','종료선택권','쌍방보유')) AS RGHT_USE_NM,
+		       A.RGHT_USE_PERIOD,
+		       DECODE(A.RGHT_USE,'10','Y','N') AS PERIOD_GB01,
+		       DECODE(A.RGHT_USE,'20','Y','N') AS PERIOD_GB02,
+		       DECODE(A.RGHT_USE,'30','Y','N') AS PERIOD_GB03,
+		       DECODE(A.RGHT_USE,'10',RGHT_USE_PERIOD,'') AS PERIOD01,
+		       DECODE(A.RGHT_USE,'20',RGHT_USE_PERIOD,'') AS PERIOD02,
+		       DECODE(A.RGHT_USE,'30',RGHT_USE_PERIOD,'') AS PERIOD03,      
+		       A.NC_PERIOD,
+		       A.RO_PERIOD,
+		       A.LS_PERIOD,
+		       A.LEASE_GB,
+		       DECODE(A.LEASE_GB,'10','고정리스료',DECODE(A.LEASE_GB,'20','변동리스료',DECODE(A.LEASE_GB,'30','매출연동리스료(최소보장없음)',DECODE(A.LEASE_GB,'40','매출연동리스료(최소보장있음)','전세계약 (월리스료 없음)')))) AS LEASE_GB_NM,
+		       A.LEASE_AMT,
+		       DECODE(A.LEASE_GB,'10','Y','N') AS FD_YN,
+		       DECODE(A.LEASE_GB,'20','Y','N') AS VA_YN,
+		       DECODE(A.LEASE_GB,'30','Y','N') AS GT_MIN_N,
+		       DECODE(A.LEASE_GB,'40','Y','N') AS GT_MIN_Y,
+		       DECODE(A.LEASE_GB,'50','Y','N') AS LE_YN,
+		       DECODE(A.LEASE_GB,'10',A.LEASE_AMT,'') AS FD_AMT,
+		       DECODE(A.LEASE_GB,'20',A.LEASE_AMT,'') AS VA_AMT,      
+		       DECODE(A.LEASE_GB,'40',A.LEASE_AMT,'') AS GT_MIN_AMT,       
+		       A.LEASE_GB2,
+		       DECODE(A.LEASE_GB,'10','염가매수청구권','잔존보증가치') AS LEASE_GB2_NM,
+		       A.LEASE_AMT2,
+		       DECODE(A.LEASE_GB2,'10','Y','N') AS LW_BUY_YN,
+		       DECODE(A.LEASE_GB2,'20','Y','N') AS GV_YN,
+		       DECODE(A.LEASE_GB2,'10',A.LEASE_AMT2,'') AS LW_BUY_AMT,
+		       DECODE(A.LEASE_GB2,'20',A.LEASE_AMT2,'') AS GV_AMT,
+		       A.DT_AMT,
+		       A.DT_REAL_AMT,
+		       A.EP_TO_AMT,
+		       A.RECOV_EXP_AMT,
+		       A.RECOV_DEB_AMT,
+		       A.USE_RGHT_ASSET_AMT,
+		       A.LEASE_DEB_AMT,
+		       A.LEASE_DEB_REAL_BAL,
+		       A.BF_CNTRT_CD,
+		       A.CNTRT_CATEGORY,
+		       A.WRT_DTM,
+		       A.WRT_ID,
+		       (SELECT MAX(BB.NM_KOR) FROM SCC_USERINFO BB WHERE BB.SABUN = A.WRT_ID) AS WRT_NM,
+		       A.WRT_KOSTL,
+		       A.CALL_VAL,
+		       A.SC_OB_YN,
+		       A.SC_OB_AMT,
+		       A.SC_OB_PD_S,
+		       A.SC_OB_PD_E,
+		       A.SC_PV_YN,
+		       A.SC_PV_AMT,
+		       A.SC_PV_PD_S,
+		       A.SC_PV_PD_E,
+		       A.SC_IN_YN,
+		       A.SC_IN_AMT,
+		       A.SC_IN_PD_S,
+		       A.SC_IN_PD_E,
+		       A.END_YN,
+		       A.SIGN_INSTANCE_ID,
+		       A.ELCTN_SIGN_ID,
+		       C.SIGN_PROGRESS_STATUS,		       
+		       CASE WHEN A.CONTRACT_STATS = '10' THEN '접수'
+		            ELSE 
+		            CASE WHEN A.CONTRACT_STATS = '20' THEN --EA전송 전 또는 완료
+		            		CASE WHEN D.PISTAT = 'S' THEN 'EA전송' ELSE 'EA전송전' END
+		            	ELSE 
+			            	CASE WHEN A.CONTRACT_STATS = '50' THEN  --전자결재 진행중
+			            			CASE WHEN C.SIGN_PROGRESS_STATUS = 'DRAFT' THEN '상신'
+			            				ELSE
+			            					CASE WHEN C.SIGN_PROGRESS_STATUS = 'REJECT' THEN '반려'
+			            					     ELSE
+			            							CASE WHEN C.SIGN_PROGRESS_STATUS = 'CANCEL' THEN '상신취소'
+			            								ELSE
+			            								CASE WHEN C.SIGN_PROGRESS_STATUS = 'SUSPEND' THEN '보류'
+			            									ELSE
+			            									CASE WHEN C.SIGN_PROGRESS_STATUS = 'COMPLETE' THEN '결재완료'			            										
+				            									ELSE
+				            									CASE WHEN C.SIGN_PROGRESS_STATUS = 'APPROVE' THEN '결재승인'
+				            									ELSE 
+				            										'결재전송'				            									
+				            								END
+				            							END
+				            						END
+				            					END
+				            				END
+				            			END
+				            			
+			       				ELSE 
+				            		CASE WHEN A.CONTRACT_STATS = '60' THEN '수정'
+				            		ELSE
+				            			'삭제'
+				            		END
+			            	END
+		             END
+		       END
+		            	
+		       AS CONTRACT_PROGRESS_NM,
+		       
+		       A.CUSER,
+		       A.CDATE,
+		       A.UUSER,
+		       A.UDATE
+		  FROM ST_CONTRACT A,
+		       ST_CUST B,		       
+		       SCC_SIGN_INFO C,
+		       SAP_IF.SAP_IFC_CONTRACT D,
+		       SCC_CC E             
+		  WHERE  A.CUST_CD = B.CUSTCD
+		  AND A.SIGN_INSTANCE_ID = C.SIGN_INSTANCE_ID(+)
+		  AND A.CONTRACT_CD = D.CNTRT_CD(+)
+		  AND A.CC_CD = E.CC_CD
+		<#if custGrpCd?has_content>
+		        AND    B.CUST_GRP_CD = :custGrpCd
+		</#if>
+		<#if custtype?has_content>
+		        AND    B.CUSTTYPE = :custtype
+		</#if>
+		<#if contractNm?has_content>
+		        AND    A.CONTRACT_NAME LIKE '%'|| :contractNm ||'%'
+		</#if>
+		<#if custcd?has_content>
+		        AND    A.CUST_CD IN (:custcd)
+		</#if>
+		<#if startDate?has_content>	
+				AND 	A.END_DATE >= :startDate
+		</#if>
+		<#if endDate?has_content>
+		    	AND 	A.START_DATE <= :endDate
+		</#if>
+		<#if contractStats?has_content>
+		        AND    A.CONTRACT_STATS = :contractStats
+		</#if>
+		<#if muCd?has_content>
+		        AND    E.MU_CD = :muCd 
+		</#if>
+		<#if tmCd?has_content>
+                AND     (SCC_GET_TM_BY_CC('CODE',A.CC_CD) = :tmCd OR SCC_GET_PT_BY_CC('CODE',A.CC_CD) = :tmCd) 
+		</#if>
+		<#if ccCd?has_content>
+		        AND    A.CC_CD = :ccCd 
+		</#if>
+		<#if bsnNo?has_content>
+		        AND    B.SAUPNO = :bsnNo
+		</#if>
+		<#if upjang?has_content>
+		        AND    B.CUSTCD IN (SELECT CUSTCD FROM ST_UPJANG WHERE UPJANG = :upjang)
+		</#if>
+		<#if contractGb?has_content>
+		        AND    A.CONTRACT_GB = :contractGb
+		</#if>
+		<#if endChk?has_content>
+				<#if endChk == 'Y'>
+		        	AND    A.END_DATE BETWEEN TO_CHAR(SYSDATE,'YYYYMMDD') AND TO_CHAR(SYSDATE+15,'YYYYMMDD')  --종료임박계약 : 오늘 ~ 보름뒤 까지 종료되는 계약?
+				</#if>        
+		</#if>
+		
+		 	AND CONTRACT_STATS != '90'  --삭제건 제외
+ 	
+		ORDER BY A.CDATE DESC 
+		--, A.CONTRACT_CD DESC
+		]]>
+	</statement>
+	
+	<!-- 이자율 정보 조회한다. -->
+	<statement name="selectRateList" type="select">
+		/*+ com.hwfs.sc.scz.dao.contractMgmtDAO.selectRateList */
+		<![CDATA[
+		SELECT    INT_YM
+				, CALL_VAL
+				, CASE WHEN (TO_NUMBER(:period) >= 12) AND (TO_NUMBER(:period) < 24) THEN  --12개월이상 24개월 미만 
+							TERM1_INT_RATE 
+				      ELSE 
+				      	CASE WHEN (TO_NUMBER(:period) < 36) THEN --24개월이상 36개월 미만 
+				      		TERM2_INT_RATE
+				      	ELSE									 --36개월 이상
+			 	      		TERM3_INT_RATE
+			 	      	END
+				  END TERM_INT_RATE
+				, INT_RATE 
+				, :period AS PERIOD
+				
+			FROM SAP_IF.SAP_IFC_INT_RATE 
+			
+				--WHERE INT_YM = (SELECT MAX(INT_YM) FROM SAP_IF.SAP_IFC_INT_RATE WHERE INT_YM <= :intYm AND CALL_VAL = :callVal ) --가장 최근 이자율로 가져옴
+				WHERE INT_YM =  TO_CHAR(ADD_MONTHS(TO_DATE(:intYm,'YYYYMMDD'),-1),'YYYYMM') -- 전월 이자율 가져옴(없는 경우 등록 불가)
+					AND CALL_VAL = :callVal
+						
+			]]>
+	</statement>
+	
+	
+	<!-- SAP에 요청할 정보를 조회한다. -->
+	<statement name="selectSapRequestData" type="select">
+		/*+ com.hwfs.sc.scz.dao.contractMgmtDAO.selectSapRequestData */
+		<![CDATA[
+SELECT A.CUST_REQUEST_SYS_CD AS SYS_CD,
+       A.CUST_REQUEST_NUM AS REQUEST_NUM,
+       A.INSPECT_TYPE,
+       A.PROC_TYPE,
+       A.CUST_GRP_CD AS CUST_GRP,
+       A.CUST_CORP_NM AS CUST_NM,
+       A.FULL_BSN_NO,
+       A.SAUPNO AS BSN_NO,
+       A.SUB_UPJANG_NUM,
+       A.BUBINNO AS CORP_NUM,
+       A.FRGN_CUST_CD AS FRGN_CUST_NUM,
+       A.ADDR,
+       SCC_CRYPTO.DEC_FUN(A.DETAIL_ADDR_ENC) AS DETAIL_ADDR,
+       A.POST_NO AS ZIP_CODE,
+       SCC_CRYPTO.DEC_FUN(A.TEL_NO_ENC) AS TEL_NUM,
+       SCC_CRYPTO.DEC_FUN(A.FAX_NO_ENC) AS FAX_NUM,
+       SCC_CRYPTO.DEC_FUN(A.EMAIL_ADDR_ENC) AS EMAIL_ADDR,
+       A.DRNAME1 AS CEO_NAME_HANGUL,
+       A.DRNAME2 AS CEO_NAME_ENGLISH,
+       A.UP_JONG AS BIZ_CAT,
+       A.UP_TAE AS BIZ_TYPE,
+       A.NATION_CD,
+       A.ELCTN_TAX_BILL_YN,
+       A.VAT_CUSTGUBUN AS VAT_TYPE,
+       :loginSabun AS REQUEST_SABUN,
+       TO_CHAR(SYSDATE, 'YYYYMMDD') AS REQUEST_DATE,
+       TO_CHAR(SYSDATE, 'HH24MISS') AS REQUEST_TIME,
+       A.DEL_YN,
+       A.CHG_REASON,
+       A.CUST_CREATION_YN,
+       A.CUST_ACCT_CD,
+       A.CUST_PAY_COND,
+       'FI-002-02' AS PICODE,
+       'R' AS PISTAT
+FROM   ST_CONTRACT A
+WHERE  A.CUSTCD = TO_NUMBER(LPAD(:custRequestNum, 20, '0'))
+		]]>
+	</statement>
+
+	<!-- EA요청건에 대하여 요청대기에서 요청으로 상태를 변경한다. -->
+	<statement name="updateStCustRequestStatus" type="update">
+		/*+ com.hwfs.sc.scz.dao.contractMgmtDAO.updateStCustRequestStatus */
+		<![CDATA[
+UPDATE ST_CONTRACT
+SET    CONTRACT_STATUS = '5',
+       UPDATE_BY = :loginSabun,
+       UPDATE_DATE = SYSDATE
+WHERE  CONTRACT_CD = :contractCd
+		]]>
+	</statement>
+
+
+	<!-- 계약 정보(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sc.scz.dao.contractMgmtDAO.insert */
+		<![CDATA[
+INSERT INTO ST_CONTRACT
+(
+ 	   CONTRACT_CD,
+       CONTRACT_NAME,
+       CONTRACT_GB,
+       CONTRACT_STATS,
+       CC_CD,
+       CUST_CD,
+       SAP_CUST_CD,
+       CUST_NM,
+       LENT_ASSET_YN,
+       USUFRUCT_YN,
+       ORDER_YN,
+       SMALL_ASSET_YN,
+       START_DATE,
+       END_DATE,
+       CONTRACT_PERIOD,
+       DIS_RATE,
+       AVG_RATE,
+       RGHT_USE,
+       RGHT_USE_PERIOD,
+       NC_PERIOD,
+       RO_PERIOD,
+       LS_PERIOD,
+       LEASE_GB,
+       LEASE_AMT,
+       LEASE_GB2,
+       LEASE_AMT2,
+       DT_AMT,
+       DT_REAL_AMT,
+       EP_TO_AMT,
+       RECOV_EXP_AMT,
+       RECOV_DEB_AMT,
+       USE_RGHT_ASSET_AMT,
+       LEASE_DEB_AMT,
+       LEASE_DEB_REAL_BAL,
+       BF_CNTRT_CD,
+       CNTRT_CATEGORY,
+       WRT_DTM,
+       WRT_ID,
+       WRT_KOSTL,
+       CALL_VAL,
+       SC_OB_YN,
+       SC_OB_AMT,
+       SC_OB_PD_S,
+       SC_OB_PD_E,
+       SC_PV_YN,
+       SC_PV_AMT,
+       SC_PV_PD_S,
+       SC_PV_PD_E,
+       SC_IN_YN,
+       SC_IN_AMT,
+       SC_IN_PD_S,
+       SC_IN_PD_E,
+       END_YN,
+       CUSER,
+       CDATE,
+       UUSER,
+       UDATE
+) VALUES (
+ 	:ccCd || :startDate || :cntrtCategory || (SELECT LPAD(COUNT(*)+1, 3, 0) FROM ST_CONTRACT WHERE START_DATE = :startDate),	
+ 	:contractName,
+ 	:contractGb,
+ 	'10',   --접수
+ 	:ccCd,
+ 	:custCd,
+ 	(SELECT ST_CUST.SAP_CUST_CD FROM ST_CUST WHERE ST_CUST.CUSTCD = :custCd),
+ 	:custNm,
+	<#if lentAssetYn?exists> :lentAssetYn, <#else> null, </#if>
+	<#if usufructYn?exists> :usufructYn, <#else> null, </#if>
+	<#if orderYn?exists> :orderYn, <#else> null, </#if>
+    :smallAssetYn,
+    :startDate,
+    :endDate,
+    :contractPeriod,
+	<#if disRate?exists> :disRate, <#else> null, </#if>
+	<#if avgRate?exists> :avgRate, <#else> null, </#if>
+	<#if rghtUse?exists> :rghtUse, <#else> null, </#if>
+	<#if rghtUsePeriod?exists> :rghtUsePeriod, <#else> null, </#if>	
+	<#if ncPeriod?exists> :ncPeriod, <#else> null, </#if>
+	<#if roPeriod?exists> :roPeriod, <#else> null, </#if>
+	<#if lsPeriod?exists> :lsPeriod, <#else> null, </#if>
+	<#if leaseGb?exists> :leaseGb, <#else> null, </#if>
+	<#if leaseAmt?exists> :leaseAmt, <#else> null, </#if>
+	<#if leaseGb2?exists> :leaseGb2, <#else> null, </#if>
+	<#if leaseAmt2?exists> :leaseAmt2, <#else> null, </#if>
+	<#if dtAmt?exists> :dtAmt, <#else> null, </#if>
+	<#if dtRealAmt?exists> :dtRealAmt, <#else> null, </#if>	
+	<#if epToAmt?exists> :epToAmt, <#else> null, </#if>
+	<#if recovExpAmt?exists> :recovExpAmt, <#else> null, </#if>
+	<#if recovDebAmt?exists> :recovDebAmt, <#else> null, </#if>
+	<#if useRghtAssetAmt?exists> :useRghtAssetAmt, <#else> null, </#if>
+	<#if leaseDebAmt?exists> :leaseDebAmt, <#else> null, </#if>
+	<#if leaseDebRealBal?exists> :leaseDebRealBal, <#else> null, </#if>
+	<#if bfCntrtCd?exists> :bfCntrtCd, <#else> null, </#if>
+	<#if cntrtCategory?exists> :cntrtCategory, <#else> null, </#if>	
+	SYSDATE,
+	:loginSabun,
+	(SELECT CC_CD FROM SCC_USERINFO WHERE SABUN = :loginSabun),	 
+	<#if callVal?exists> :callVal, <#else> null, </#if>
+	<#if scObYn?exists> :scObYn, <#else> null, </#if>
+	<#if scObAmt?exists> :scObAmt, <#else> null, </#if>
+	<#if scObPdS?exists> :scObPdS, <#else> null, </#if>
+	<#if scObPdE?exists> :scObPdE, <#else> null, </#if>	
+	<#if scPvYn?exists> :scPvYn, <#else> null, </#if>
+	<#if scPvAmt?exists> :scPvAmt, <#else> null, </#if>
+	<#if scPvPdS?exists> :scPvPdS, <#else> null, </#if>
+	<#if scPvPdE?exists> :scPvPdE, <#else> null, </#if>
+	<#if scInYn?exists> :scInYn, <#else> null, </#if>
+	<#if scInAmt?exists> :scInAmt, <#else> null, </#if>
+	<#if scInPdS?exists> :scInPdS, <#else> null, </#if>
+	<#if scInPdE?exists> :scInPdE, <#else> null, </#if>
+	<#if endYn?exists> :endYn, <#else> null, </#if>
+	 :loginSabun,
+	 SYSDATE,
+	 :loginSabun,
+	 SYSDATE
+)
+		]]>
+	</statement>
+
+	<!-- 계약 정보(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sc.scz.dao.contractMgmtDAO.update */
+		<![CDATA[
+UPDATE ST_CONTRACT SET
+	
+	<#if contractName?exists> CONTRACT_NAME = :contractName, </#if>
+	<#if contractGb?exists> CONTRACT_GB = :contractGb, </#if>
+	<#if ccCd?exists> CC_CD = :ccCd, </#if>
+	<#if custCd?exists> 
+		CUST_CD = :custCd,
+		SAP_CUST_CD = (SELECT ST_CUST.SAP_CUST_CD FROM ST_CUST WHERE ST_CUST.CUSTCD = :custCd),
+	</#if>
+	CONTRACT_STATS = DECODE(CONTRACT_STATS, '10','10','60'), -- 수정/종료, 최초 결재전은 접수상태(10), 결재중~EA전송중에는 수정 불가, EA전송 후는 변경상태(60)로 저장 
+	<#if custNm?exists> CUST_NM = :custNm, </#if>
+	<#if lentAssetYn?exists> LENT_ASSET_YN = :lentAssetYn, </#if>
+	<#if usufructYn?exists> USUFRUCT_YN = :usufructYn, </#if>
+	<#if orderYn?exists> ORDER_YN = :orderYn, </#if>
+	<#if smallAssetYn?exists> SMALL_ASSET_YN = :smallAssetYn, </#if>
+	<#if startDate?exists> START_DATE = :startDate, </#if>
+	<#if endDate?exists> END_DATE = :endDate, </#if>
+	<#if contractPeriod?exists> CONTRACT_PERIOD = :contractPeriod, </#if>
+	<#if disRate?exists> DIS_RATE = :disRate, </#if>
+	<#if avgRate?exists> AVG_RATE = :avgRate, </#if>
+	<#if rghtUse?exists> RGHT_USE = :rghtUse, </#if>
+	<#if rghtUsePeriod?exists> RGHT_USE_PERIOD = :rghtUsePeriod, </#if>	
+	<#if ncPeriod?exists> NC_PERIOD = :ncPeriod, </#if>
+	<#if roPeriod?exists> RO_PERIOD = :roPeriod, </#if>
+	<#if lsPeriod?exists> LS_PERIOD = :lsPeriod, </#if>
+	<#if leaseGb?exists> LEASE_GB = :leaseGb, </#if>
+	<#if leaseAmt?exists> LEASE_AMT = :leaseAmt, </#if>
+	<#if leaseGb2?exists> LEASE_GB2 = :leaseGb2, </#if>
+	<#if leaseAmt2?exists> LEASE_AMT2 = :leaseAmt2, </#if>
+	<#if dtAmt?exists> DT_AMT = :dtAmt, </#if>
+	<#if dtRealAmt?exists> DT_REAL_AMT = :dtRealAmt, </#if>
+	<#if epToAmt?exists> EP_TO_AMT = :epToAmt, </#if>
+	<#if recovExpAmt?exists> RECOV_EXP_AMT = :recovExpAmt, </#if>
+	<#if recovDebAmt?exists> RECOV_DEB_AMT = :recovDebAmt, </#if>
+	<#if useRghtAssetAmt?exists> USE_RGHT_ASSET_AMT = :useRghtAssetAmt, </#if>
+	<#if leaseDebAmt?exists> LEASE_DEB_AMT = :leaseDebAmt, </#if>	
+	<#if leaseDebRealBal?exists> LEASE_DEB_REAL_BAL = :leaseDebRealBal, </#if>	
+	<#if bfCntrtCd?exists> BF_CNTRT_CD = :bfCntrtCd, </#if>
+	<#if cntrtCategory?exists> CNTRT_CATEGORY = :cntrtCategory, </#if>
+	<#if callVal?exists> CALL_VAL = :callVal, </#if>
+	<#if scObYn?exists> SC_OB_YN = :scObYn, </#if>
+	<#if scObAmt?exists> SC_OB_AMT = :scObAmt, </#if>
+	<#if scObPdS?exists> SC_OB_PD_S = :scObPdS, </#if>
+	<#if scObPdE?exists> SC_OB_PD_E = :scObPdE, </#if>		
+	<#if scPvYn?exists> SC_PV_YN = :scPvYn, </#if>
+	<#if scPvAmt?exists> SC_PV_AMT = :scPvAmt, </#if>
+	<#if scPvPdS?exists> SC_PV_PD_S = :scPvPdS, </#if>
+	<#if scPvPdE?exists> SC_PV_PD_E = :scPvPdE, </#if>	
+	<#if scInYn?exists> SC_IN_YN = :scInYn, </#if>
+	<#if scInAmt?exists> SC_IN_AMT = :scInAmt, </#if>	
+	<#if scInPdS?exists> SC_IN_PD_S = :scInPdS, </#if>
+	<#if scInPdE?exists> SC_IN_PD_E = :scInPdE, </#if>
+	<#if endYn?exists> END_YN = :endYn, </#if>
+	UUSER = :loginSabun,
+ 	UDATE = SYSDATE
+ 	
+WHERE  CONTRACT_CD = :contractCd
+		]]>
+	</statement>
+
+	<!-- 계약 정보(을)를 삭제한다. -->
+	<statement name="delete" type="update">
+		/*+ com.hwfs.sc.scz.dao.contractMgmtDAO.delete */
+		<![CDATA[
+UPDATE ST_CONTRACT
+SET    CONTRACT_STATS = '90',
+	   UUSER = :loginSabun,
+ 	   UDATE = SYSDATE
+WHERE  CONTRACT_CD = :contractCd
+		]]>
+	</statement>
+
+
+</hqml>

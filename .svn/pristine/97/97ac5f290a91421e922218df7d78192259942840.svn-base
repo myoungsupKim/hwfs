@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[사업장 상품 조회(박은규)]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT B.CONSUM_YN, B.ITEM_CLASS1, B.ITEM_CLASS2, B.ITEM_CLASS3, B.ITEM_CLASS4
+     , B.ITEM_CODE, B.ITEM_NAME, B.ITEM_SIZE, B.PO_UOM, B.TAX_CODE
+     , B.KG_CONVERT_RATE, B.MIN_ORD_QTY, B.POINT_FLAG, B.MULTIPLIER_QTY
+     , B.ITEM_CODE AS ORI_ITEM_CODE
+     , 'PO' AS CODE_KIND
+     , '0000' AS OTCUSTCD
+     , B.USE_YN
+  FROM HLDC_PO_ITEM_MST B, HLDC_PO_TREAT_UPJANG A
+ WHERE A.ITEM_CODE = B.ITEM_CODE
+   AND B.ITEM_CODE BETWEEN '010000000000' AND '019999999999'
+   AND A.UPJANG = (SELECT C.AP_UNITPRICE_UPJANG FROM HLDC_ST_UPJANG C WHERE C.UPJANG = #UPJANG#)
+   AND B.CONSUM_YN = NVL(#CONSUM_YN#,B.CONSUM_YN)
+   AND B.ITEM_CLASS2 = NVL(#ITEM_CLASS2#,B.ITEM_CLASS2)
+   AND B.ITEM_CLASS3 = NVL(#ITEM_CLASS3#,B.ITEM_CLASS3)
+   AND B.ITEM_CLASS4 = NVL(#ITEM_CLASS4#,B.ITEM_CLASS4)
+   AND B.ITEM_CODE LIKE #ITEM_CODE#||'%'
+   AND B.ITEM_NAME LIKE '%'||#ITEM_NAME#||'%'
+ UNION ALL
+SELECT A.CONSUM_YN, A.ITEM_CLASS1, A.ITEM_CLASS2, A.ITEM_CLASS3, A.ITEM_CLASS4
+     , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.PO_UOM, A.TAX_CODE
+     , A.KG_CONVERT_RATE, A.MIN_ORD_QTY, A.POINT_FLAG, A.MULTIPLIER_QTY
+     , A.ORI_ITEM_CODE
+     , 'OT' AS CODE_KIND
+     , A.OTCUSTCD
+     , A.USE_YN
+  FROM FMP_OTCUST_ITEM A, FMP_OTCUST_PRICE_AVA_V B
+     ,(SELECT UPJANG, ITEM_CODE, MAX(SDATE) AS SDATE
+         FROM FMP_OTCUST_PRICE_AVA_V
+        WHERE UPJANG = (SELECT Z.OTCUST_PRICE_UPJANG FROM FMS_UPJANG Z WHERE Z.UPJANG = #UPJANG#)
+          AND SDATE <= NVL(#SDATE#,TO_CHAR(SYSDATE,'YYYYMMDD'))
+        GROUP BY UPJANG, ITEM_CODE) C
+ WHERE A.ITEM_CODE = B.ITEM_CODE
+   AND B.UPJANG = C.UPJANG
+   AND B.SDATE = C.SDATE
+   AND B.ITEM_CODE = C.ITEM_CODE AND B.USE_YN = 'Y'
+   AND A.CONSUM_YN = NVL(#CONSUM_YN#,A.CONSUM_YN)
+   AND A.ITEM_CLASS2 = NVL(#ITEM_CLASS2#,A.ITEM_CLASS2)
+   AND A.ITEM_CLASS3 = NVL(#ITEM_CLASS3#,A.ITEM_CLASS3)
+   AND A.ITEM_CLASS4 = NVL(#ITEM_CLASS4#,A.ITEM_CLASS4)
+   AND A.ITEM_CODE LIKE #ITEM_CODE#||'%'
+   AND A.ITEM_NAME LIKE '%'||#ITEM_NAME#||'%'	]]></statement>
+	<input default-name="ds_in1">
+		<col name="ITEM_CODE" size="50" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAME" size="200" type="VARCHAR" description="" /> 
+		<col name="CONSUM_YN" size="1" type="VARCHAR" description="Y:소모품, N:식자재" /> 
+		<col name="ITEM_CLASS2" size="8" type="VARCHAR" description="대분류코드" /> 
+		<col name="ITEM_CLASS3" size="8" type="VARCHAR" description="중분류코드" /> 
+		<col name="ITEM_CLASS4" size="8" type="VARCHAR" description="소분류코드" /> 
+	</input>
+	<output default-name="gds_Csqlout">
+		<col name="CONSUM_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="ITEM_CLASS1" size="8" type="VARCHAR" description="" /> 
+		<col name="ITEM_CLASS2" size="8" type="VARCHAR" description="" /> 
+		<col name="ITEM_CLASS3" size="8" type="VARCHAR" description="" /> 
+		<col name="ITEM_CLASS4" size="8" type="VARCHAR" description="" /> 
+		<col name="ITEM_CODE" size="50" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAME" size="200" type="VARCHAR" description="" /> 
+		<col name="ITEM_SIZE" size="100" type="VARCHAR" description="" /> 
+		<col name="PO_UOM" size="10" type="VARCHAR" description="" /> 
+		<col name="TAX_CODE" size="3" type="VARCHAR" description="" /> 
+		<col name="KG_CONVERT_RATE" size="22" type="NUMERIC" description="" /> 
+		<col name="MIN_ORD_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="POINT_FLAG" size="1" type="VARCHAR" description="" /> 
+		<col name="MULTIPLIER_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="ORI_ITEM_CODE" size="12" type="VARCHAR" description="" /> 
+		<col name="CODE_KIND" size="2" type="CHAR" description="" /> 
+		<col name="OTCUSTCD" size="50" type="VARCHAR" description="" /> 
+		<col name="USE_YN" size="1" type="VARCHAR" description="" /> 
+	</output>
+</query>

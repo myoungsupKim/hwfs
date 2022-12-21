@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="sc.app.commonDAO">
+	<desc>FC POS 마스터 외부 인터페이스 HQML</desc>
+
+
+
+
+
+
+
+
+
+	<statement name="selectTest"><![CDATA[SELECT '1' AS CHECK_NUM
+  FROM DUAL]]></statement>
+	<statement name="logInsert"><![CDATA[INSERT INTO APP_INTERFACE_LOG(
+INSDT,
+TXID,
+TXDIV,
+TXHEADER,
+TXDATA,
+TXRESULT)
+VALUES(
+TO_CHAR(SYSDATE,'YYYY-MM-DD HH24:MI:SS'),
+<#if txId?has_content >:txId,<#else>null,</#if> 
+<#if txDiv?has_content >:txDiv,<#else>null,</#if> 
+<#if tHeader?has_content >:tHeader,<#else>null,</#if> 
+<#if tData?has_content >:tData,<#else>null,</#if> 
+<#if tResult?has_content >:tResult<#else>null</#if> 
+)]]></statement>
+	<statement name="selectCommonCode"><![CDATA[SELECT T1.GROUP_CODE AS GRP_CD,
+       T1.GROUP_NAME AS GRP_NM,
+       T2.CODE       AS CODE,
+       T2.CODE_NAME  AS CODE_NM,
+       T2.SORT_SEQ   AS SEQ_NO,
+       T2.SET1       AS SET1,
+       T2.SET2       AS SET2,
+       T2.SET3       AS SET3,
+       T2.SET4       AS SET4,
+       T2.SET5       AS SET5
+  FROM SCC_COMMON_GROUP T1, SCC_COMMON_CODE T2
+ WHERE 1=1
+ <#if grpCd == 'ALL'>
+   AND T1.GROUP_CODE LIKE '%'
+   AND T1.ATTR10 = 'foodistApp'
+ <#else>
+   AND T1.GROUP_CODE = :grpCd
+ </#if>
+   AND T1.USE_YN     = 'Y'
+   AND T1.GROUP_CODE = T2.GROUP_CODE
+   AND T2.USE_YN     = 'Y']]></statement>
+	<statement name="selectSameText"><![CDATA[SELECT KEYWORD
+     , SIM_TXT
+  FROM EPROCUSR.ESPSSWD
+ WHERE 1=1
+ <#if keyWord == 'ALL'>
+   AND KEYWORD LIKE '%'
+ <#else>
+   AND KEYWORD = :keyWord
+ </#if>
+]]></statement>
+	<statement name="SelectBbsInfo"><![CDATA[SELECT
+	A.BBS_ID        --게시판ID
+    , A.BBS_NAME    --게시판명
+	, A.CON_ID      --게시글ID
+	, A.TITLE       --제목
+    , 'https://nfics.hanwhafoodist.co.kr'||A.BODY_URL AS BODY_URL    --내용
+	, NOTICE_YN     --중요공지
+	, CASE WHEN NOTICE_YN = 'Y' AND DAY_CNT = 0 THEN '당일중요공지'
+           WHEN NOTICE_YN = 'Y' AND DAY_CNT > 0 THEN '중요공지'
+      ELSE '일반공지' END AS NOTICE_GB --공지구분
+    , TO_CHAR(A.WRITE_TIME,'YYYY-MM-DD') AS SDATE --게시시작일
+	, TO_CHAR( TO_DATE(A.EDATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS EDATE --게시종료일
+  FROM (
+SELECT T1.BBS_ID
+       , T1.BBS_NAME
+       , M.CON_ID
+       , M.TITLE
+       , CASE WHEN M.NOTICE_EDATE >= TO_CHAR(SYSDATE, 'YYYYMMDD') THEN 'Y' ELSE 'N' END AS NOTICE_YN
+       , M.NOTICE_EDATE
+       , M.WRITE_TIME
+       , M.EDATE
+       , M.READ_ALL_YN
+       , ROW_NUMBER() OVER(ORDER BY
+                      DECODE( NOTICE_YN, 'Y', CASE WHEN M.NOTICE_EDATE >= TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '1' ELSE NULL END,NULL)
+                      , M.ATTR06 ASC, PARENT_CON_ID DESC, STEP DESC, M.UDATE DESC ) AS RN
+       , ROUND(SYSDATE - M.WRITE_TIME, 0 ) AS DAY_CNT
+       , ATTR10 AS BODY_URL
+  FROM (SELECT *
+          FROM SCC_BSS_MINFOV
+         WHERE 1=1
+           AND (TARGET_GB = 'ALL'
+            OR  TARGET_GB = SUBSTRB(:appUserGroup,1,1))) T1,
+       (SELECT *
+          FROM SCC_BBS_CON
+         WHERE EDATE >= TO_CHAR(SYSDATE, 'YYYYMMDD')
+           AND USE_YN = 'Y'
+           AND ATTR09 = 'Y'
+           AND READ_ALL_YN = 'Y'
+        UNION
+        SELECT *
+          FROM SCC_BBS_CON T1
+         WHERE EDATE >= TO_CHAR(SYSDATE, 'YYYYMMDD')
+           AND USE_YN = 'Y'
+           AND ATTR09 = 'Y'
+           AND READ_ALL_YN = 'N'
+           AND EXISTS (SELECT 'x'
+                         FROM SCC_BBS_PRIV_LIST
+                        WHERE CON_ID = T1.CON_ID
+                          AND TARGET_CODE = :upjang)) M
+ WHERE 1=1
+   AND T1.BBS_ID = M.BBS_ID
+   AND (M.USER_TYPE = '0'
+/* 본사 */
+<#if appUserGroup == '10'>
+    OR M.USER_TYPE = '1'
+/* 본사법무 */
+<#elseif appUserGroup == '11'>
+    OR M.USER_TYPE = '1'
+/* 식재내부 */
+<#elseif appUserGroup == '20'>
+    OR M.USER_TYPE = '1'
+/* 식재외부 */
+<#elseif appUserGroup == '21'>
+    OR M.USER_TYPE = '2'
+/* FS내부 */
+<#elseif appUserGroup == '30'>
+    OR M.USER_TYPE = '1'
+/* FS외부 */
+<#elseif appUserGroup == '31'>
+    OR M.USER_TYPE = '2'
+/* 브랜드내부 */
+<#elseif appUserGroup == '40'>
+    OR M.USER_TYPE = '1'
+/* 브랜드외부 */
+<#elseif appUserGroup == '41'>
+    OR M.USER_TYPE = '2'
+/* 마트 */
+<#elseif appUserGroup == '50'>
+</#if>
+       )
+) A
+ORDER BY A.RN]]></statement>
+</hqml>

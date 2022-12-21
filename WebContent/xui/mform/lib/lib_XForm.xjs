@@ -1,0 +1,2394 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Script type="xscript4.0"><![CDATA[
+var xjspath="import::lib_XForm.xjs";
+
+/**********************************************************************************
+ * 함수명     : IsNull
+ * 설명       : NULL 여부 체크
+ * argument    : sValue (문자열)
+ * return Type : boolean
+ **********************************************************************************/
+function isNull(sValue)
+{
+    if(sValue == null||sValue = NaN||sValue == undefined||sValue.length == 0) return true;
+    
+    var v_ChkStr = new String(sValue);
+    if (v_ChkStr == null||v_ChkStr.length == 0 ) return true;
+
+    return false;
+}
+
+function IsNull(sValue)
+{
+	return isNull(sValue);
+}
+
+function nvl(strValue, strValue2)
+{
+    if(isNull(strValue)) return strValue2;     
+	return strValue;
+}
+
+//********************************************************************
+//Form에 편집중인 값이 있는경우 강제로 반영을 하는 API Method입니다.		//●●● Need Checking
+//********************************************************************
+function applyData(objComponent){		
+	if(IsNull(objComponent)) objComponent = getFocus();
+    if(objComponent <> null) {
+		try{objComponent.updateToDataset();}catch(e){}
+    }
+}
+
+//********************************************************************
+//MDI 로 Application을 구성한 경우에, Child Window가 배열되는 형태를 바꾸는 Form API 
+//********************************************************************
+// return   FrameSet.arrange(strArrangeStyle);		
+// strArrangeStyle의 값이 틀리니까 구별을 해야함
+//arrange'은(는) 선언되지 않은 식별자
+function arrangeWindow(strArrangeStyle){		//●●● Need Checking
+
+	var frameSet = AllFrames("MDIForms")[0];
+	if(isNull(frameSet)) return;
+	
+	var strType = strArrangeStyle.toLowerCase();
+	
+	switch(strType) {
+		case "htile":
+			frameSet.arrange("tilehorizontal");
+			break;
+		case "vtile":
+			frameSet.arrange("tilevertical");
+			break;
+	  case "cascade":
+			frameSet.arrange("cascade");
+			break;
+	}
+}
+
+//********************************************************************
+//현재 화면의 Session을 닫는 Form API 
+//********************************************************************
+function closeSession()
+{			
+	Session = false;	
+	
+	if(isNull(SessionURL)) return;
+	var objFrame = new ChildFrame("login");
+	objFrame.formurl = SessionURL;
+	var rtn = objFrame.showModal("login");
+	if(Session == false) exit();
+}
+
+//********************************************************************
+//동적으로 지정한 Component를 생성할때 사용되는 Form API 
+//********************************************************************
+function create(strCompID,strCompName,strAttrib,strPersistData, objContainer)
+{   //●●● Need Checking
+		
+	var xml = '<ObjectTemplate id="template" objecttype="' + strCompID + '" ' + nvl(strAttrib, "") + '/>';
+	var objTemplate = new ObjectTemplate(xml);
+	if(isNull(objContainer)) objContainer = this;
+	var idx = objTemplate.createAndAddTo(objContainer, strCompName);
+	if(idx == -1) return false;
+}
+
+//********************************************************************
+//지정된 ProgID를 가지는 COM객체를 생성하는 Method
+//********************************************************************
+//차이가 있고 테스트를 해서 확인해봐야 함
+function createObject(PROGID, bExtend, bShowMsgBox){//●●● Need Checking
+     //강경민
+	 var objActiveX = new ActiveX();
+	 var retObj = objActiveX.createObject(PROGID);
+	 
+	 if(isNull(retObj) && bShowMsgBox == true) {
+		alert("객체생성에 실패했습니다.");
+		return null;
+	 }
+	 return retObj;
+}
+
+//********************************************************************
+//검색 패턴과 옵션을 지정하여 RegExp 객체를 얻어냅니다.
+//********************************************************************
+//XP의 Script Reference의 RegExp와 Regular Expression을 찾아볼것
+function createRegExp(strPattern, strOption){
+	return new RegExp(strPattern, strOption); 
+}
+
+//********************************************************************
+//특정 URL에 대해 Cache 된 File을 지우는 Form API 
+//********************************************************************
+function deleteCacheFile(strURL,strArgument,bIsForm){ 	
+	application.deleteCacheDB();
+}
+
+//********************************************************************
+//Share/Global/AppGroup/Form에 있는 변수를 제거하는 Method
+//********************************************************************
+function DeleteVariable(strID,strTarget){
+	//mip에서는 strTarget 에 "Share","Global","AGlob","Local" 값이 올 수 있다
+	application.removeVariable(strID);
+}
+
+//********************************************************************
+// CreateObject로 생성한 COM객체를 강제로 파괴하는 Method
+//********************************************************************
+function destroyObject(objContainer, Obj){	
+	
+	var parentObj = this;
+	var strComponentID = "";
+	
+	if(destroyObject.arguments.length == 2)
+	{
+		parentObj = objContainer;
+		strComponentID = Obj.name;
+	}
+	else {
+		strComponentID = objContainer.name;
+	}
+	Destroy(parentObj, strComponentID);
+	///Obj.destroy();
+}
+
+function Destroy(objContainer, strComponentID){
+	
+	var parentObj = this;
+	var args = Destroy.arguments;
+	
+	if(args.length == 2)
+	{
+		parentObj = objContainer;
+	}
+	else {
+		strComponentID = objContainer;
+	}
+	var objDelete = parentObj.removeChild(strComponentID);
+	
+	if(objDelete.destroy) objDelete.destroy();
+}
+
+//********************************************************************
+//현재 Focus를 가진 Component를 가져오는 Form API 
+//********************************************************************
+function getCurrentComponent(bNoCompositeFlag){	
+	//bNoCompositeFlag 가 true일때에 대하여 추가해야 함
+	if(isNull(bNoCompositeFlag)) bNoCompositeFlag = false;
+	var objComp = getFocus();
+	
+	if(bNoCompositeFlag)
+	{
+		var objParent = objComp.parent;			
+		if(IsComposite(objParent)) return objParent;
+	}
+	return objComp;
+}
+
+//********************************************************************
+//현재 Form이 위치한 Monitor의 번호를 구하는 Form API 
+//********************************************************************
+function GetCurrentMonitor(){//●●● Need Checking 		
+	//폼이있는 모니터를 찾아야 하는데 	getMonitorIndex 는 마우스기준으로 찾는것임
+	return system.getMonitorIndex(system.cursorx, system.cursory);
+}
+
+//********************************************************************
+// Handle 값으로 해당 Form Object값을 얻어오는 Method
+//********************************************************************
+function getFormFromHandle(Handle){
+
+	var frames = AllFrames();
+	for(var i = 0; i < frames.length; i++) {
+		if(Handle == frames[i].getHandle()) {
+			return frames[i].form;
+		}
+	}	
+}
+
+//********************************************************************
+// Form의 가로 스크롤된 크기를 Pixel 단위로 구하는 Form API 
+//********************************************************************
+function getHScroll(){	
+	return this.style.hscrollbar.position;
+}
+
+//********************************************************************
+//현재 Session의 상태를 가져오는 Form API 
+//********************************************************************
+function getSession(){	
+	return Session;	
+}
+
+//********************************************************************
+//Form의 세로로 스크롤된 크기를 Pixel 단위로 구하는 Form API 
+//********************************************************************
+function getVScroll(){	
+	return this.style.vscrollbar.position;	
+}
+
+//********************************************************************
+// Session의 상태를 설정합니다.
+//********************************************************************
+function initSession(bSuccess){
+	Session = bSuccess;	
+}
+
+//********************************************************************
+// Share/Global/AppGroup/Form에 변수가 있는지 여부를 확인하는 Method
+//********************************************************************
+function IsExistVariable(strID,strTarget){  
+	return isExistVariable(strID);
+}
+
+//********************************************************************
+// 수행하고 있는 브라우저가 Simulator인지 배포용 MiPlatform인지 확인하는 Method
+// application.xadl 경로가 웹인지 로컬PC인지에 따라 구별
+//********************************************************************
+function isSimulator(){
+	
+	var strAdlPath = application.xadl;
+	
+	if(strAdlPath.indexOf("http") > -1)
+		return false;
+	else
+		return true;
+}
+
+//********************************************************************
+// MDI의 ChildFrame을 띄우기 위한 Form API 
+//********************************************************************
+function newWindow(strFormID,strURL,strArgument,nWidth,nHeight,strOpenStyle,nLeft,nTop){
+	
+	var frameSet = AllFrames(MDIFrame);
+	if(isNull(frameSet)) return -1;
+	
+	var objNewWin = new ChildFrame;
+	objNewWin.init(strFormID, nvl(nLeft, 0), nvl(nTop, 0), nWidth, nHeight);
+	objNewWin.formurl = strURL;
+	
+	var valArr = split2(strArgument, " ", "=");
+	if(!isNull(valArr)) {
+		objNewWin.arguments = [];
+		for(var i = 0; i < valArr.length; i++) {
+			objNewWin.arguments[valArr[i][0]] = valArr[i][i];
+		}
+	}
+	
+	var openStyleArr = split2(strOpenStyle, " ", "=");
+	var openStyleVal = "";
+	
+	if(!isNull(openStyleArr)) {
+		for(var i = 0; i < openStyleArr.length; i++) {
+			openStyleVal = openStyleArr[i][0];
+			
+			switch(openStyleVal.toLowerCase()) {
+				case "openstyle":
+					objNewWin.openstatus = openStyleArr[i][1];
+					break;
+				case "title":
+				case "titlebar":
+					objNewWin.showtitlebar = openStyleArr[i][1];
+					break;
+				case "status":
+				case "statusbar":
+					objNewWin.showstatusbar = openStyleArr[i][1];
+					break;
+				case "closeflag":
+					break;
+				case "autosize":
+					objNewWin.autosize  = openStyleArr[i][1];
+					break;
+				case "resize":
+					objNewWin.resizable  = openStyleArr[i][1];
+					break;
+				case "scroll":
+					break;
+				case "session":
+					break;
+				case "overlapped":
+					break;
+				case "border":
+					objNewWin.layered = !(openStyleArr[i][1]);
+					break;
+				default:
+					break;
+			}
+		}
+	}
+	var nIndex = frameSet.addChild(strFormID, objNewWin);
+	if(nIndex == -1) return -1;
+	objNewWin.show();
+	return objNewWin.getHandle();
+}
+
+//********************************************************************
+// MDI에서 StartXML과 Session을 따로 사용하는 ChildFrame을 띄우기 위한 Form API 
+//********************************************************************
+function newWindowEx(strFormID,strStartXMLURL,strSessionURL,strURL,strArgument,nWidth,nHeight,strOpenStyle,nLeft,nTop){   //1,2,3,4,5,6,7,8
+
+	return newWindow(strFormID,strURL,strArgument,nWidth,nHeight,strOpenStyle,nLeft,nTop);	
+}
+
+//********************************************************************
+// 화면에 출력된 Form을 Printer로 출력하는 Form API 
+//********************************************************************
+function printScreen(bPrintDefault,vAlign,hAlign){
+
+	if(isNull(bPrintDefault)) bPrintDefault = true;
+	if(isNull(vAlign)) vAlign = "middle";
+	if(isNull(hAlign)) hAlign = "center";
+	
+	return print(bPrintDefault, vAlign.toLowerCase(), hAlign.toLowerCase());
+}
+
+//********************************************************************
+// SetCapture로 제한된 마우스 입력을 허용하는 Form API 
+//********************************************************************
+function releaseCapture(){	
+	setWaitCursor(false,true);
+}
+
+//********************************************************************
+// 마우스의 이동/ 눌림을 가로채서 Script와 화면에 도달하지 못하도록 하는 Form API 
+//********************************************************************
+function setCapture(){  		
+	setWaitCursor(true,true);
+}
+
+//********************************************************************
+// Registry에 User가 지정한 값을 Setting 하는 Form API 
+//********************************************************************
+function setReg(strKey,strValue){  
+
+	return setPrivateProfile(strKey, strValue);
+	
+	/*
+	strPath: key 이하의 경로
+	strName: 기록할 name
+	strValue, intValue: 기록할 값
+	retrun : true / false (true : 성공.)
+
+
+	var _extCommon = new ExtCommon();
+	var strKey = "HKEY_CURRENT_USER";
+	var strPath = "Software\\AppDataLow\\Software\\TOBESOFT\\";
+	var strName = "setVal";
+	var strValue = 1234;  [ integer / string ]
+	var rtn = _extCommon.regSetValue(strKey,strPath,strName,strValue);
+	*/
+}
+
+//********************************************************************
+//Registry에 Setting 되어있는 값을 가져오는 Form API 
+//처음부터 호출되면 세팅된 값이 없으므로 값을 못가져올 수도
+//********************************************************************
+function getReg(strKey,strDefaultValue){ 
+	
+	return nvl(getPrivateProfile(strKey), strDefaultValue);	
+}
+
+//********************************************************************
+// 폼의 가로와 세로로 스크롤된 크기를 설정할 수 있습니다.
+//********************************************************************
+function setScroll(nXPos, nYPos){  
+	this.style.vscrollbar.position = nYPos;
+    this.style.hscrollbar.position = nXPos;	
+}
+
+//********************************************************************
+// 시스템의 Mouse Cursor를 모래시계(Wait Cursor)로 설정하거나 해제하는 Form API 입니다.
+//PDA에서는 모래시계 대신 다른 Cursor가 표시 됩니다.
+//********************************************************************
+function SetWaitCursor(bWaitFlag){	
+	setWaitCursor(nvl(bWaitFlag, false), true);
+}
+
+//●●● Need Checking
+function Transaction(strSvcID,strURL,strInDatasets,strOutDatasets,strArgument,strCallbackFunc)	   
+{
+	//trace("start strSvcID : " + strSvcID + " / strURL : "+ strURL + " / !http.Sync : " + !http.Sync + " / strCallbackFunc : " + strCallbackFunc);
+
+    // 모든 통신시 WaitCursor 적용
+    setWaitCursor(true, true);
+    	
+    // 동기일때는 setWaitCursor 표시
+    //if(http.Sync) setWaitCursor(true, true);
+
+	//전송형태 : 0(XML 타입), 1(Binary 타입), 2(SSV 타입)
+	var nDataType = 1;	//성능테스트 시 0으로 변경
+	
+	//통신시 포스트데이터를 압축할지 여부
+	var bCompress = true;	//성능테스트 시 false로 변경
+
+	// 실행모드가 UX Studio 일때 전송형태, 압축여부 변경
+	if ( gv_runMode == "L" ) {
+		nDataType = 0;
+		bCompress = false;
+	}
+
+	// 공통 callback 사용하지 않을때
+	if(strCallbackFunc != "fsp_result")
+	{
+		strSvcID = strCallbackFunc + "&&" + strSvcID + "&&";
+		strCallbackFunc = "Transaction_result";
+	}
+
+	//공통 파라미터를 Url에 추가 by kksoo : jsp_transaction, fsp_callService에서 호출하므로 공통 파라미터가 있는지 검사
+	if (strURL.indexOf("?appId=") == -1)
+		strURL += fn_getGlobalVariableUrl() + "&callBack=" + strSvcID + ":" + strCallbackFunc;
+
+	//Cookie에 Transaction DataType 추가 설정 by kksoo
+	gv_xp_txdatatype=nDataType;
+
+   //!http.Sync 에 유의		
+   transaction(strSvcID, strURL, strInDatasets, strOutDatasets, strArgument, strCallbackFunc, !http.Sync, nDataType, bCompress);   
+   //trace("end strSvcID : " + strSvcID + " / strURL : "+ strURL);
+}
+
+//●●● Need Checking
+function Transaction_async(strSvcID,strURL,strInDatasets,strOutDatasets,strArgument,strCallbackFunc)	   
+{
+	//trace("start strSvcID : " + strSvcID + " / strURL : "+ strURL + " / !http.Sync : " + !http.Sync + " / strCallbackFunc : " + strCallbackFunc);
+
+    // 모든 통신시 WaitCursor 적용
+    //setWaitCursor(true, true);
+    	
+    // 동기일때는 setWaitCursor 표시
+    //if(http.Sync) setWaitCursor(true, true);
+
+	//전송형태 : 0(XML 타입), 1(Binary 타입), 2(SSV 타입)
+	var nDataType = 1;	//성능테스트 시 0으로 변경
+	
+	//통신시 포스트데이터를 압축할지 여부
+	var bCompress = true;	//성능테스트 시 false로 변경
+
+	// 실행모드가 UX Studio 일때 전송형태, 압축여부 변경
+	if ( gv_runMode == "L" ) {
+		nDataType = 0;
+		bCompress = false;
+	}
+
+	// 공통 callback 사용하지 않을때
+	if(strCallbackFunc != "fsp_result")
+	{
+		strSvcID = strCallbackFunc + "&&" + strSvcID + "&&";
+		strCallbackFunc = "Transaction_result";
+	}
+
+	//공통 파라미터를 Url에 추가 by kksoo : jsp_transaction, fsp_callService에서 호출하므로 공통 파라미터가 있는지 검사
+	if (strURL.indexOf("?appId=") == -1)
+		strURL += fn_getGlobalVariableUrl() + "&callBack=" + strSvcID + ":" + strCallbackFunc;
+
+	//Cookie에 Transaction DataType 추가 설정 by kksoo
+	gv_xp_txdatatype=nDataType;
+	   
+   //!http.Sync 에 유의		
+   transaction(strSvcID, strURL, strInDatasets, strOutDatasets, strArgument, strCallbackFunc, !http.Sync, nDataType, bCompress);   
+   //trace("end strSvcID : " + strSvcID + " / strURL : "+ strURL);
+}
+
+ /****************************************************************
+ * Transaction 서버 호출후 전체 공통 Callback 서비스 
+ * @param param 
+ * @param errCode 에러 Code  
+ * @param errMsg  에러 메시지 
+ * @return 없음
+******************************************************************/
+function Transaction_result(param, ErrorCode, ErrorMsg) 
+{   
+	//trace("Transaction_result : " + param + " / " + ErrorCode + " / " + ErrorMsg);
+	setWaitCursor(false, true);
+	
+	var str = param.split("&");
+
+    if ( ErrorCode != 0 ) 
+    {
+		// nErrorCode == -100 인경우 Business Logic 에서 Error Check 한 경우
+        if ( ErrorCode == -100 ) 
+        {
+            // Business Exception 처리 : 메시지 처리하지 않고, 화면에서 처리
+        }
+        // Session TimeOut 시 로그인창 호출
+        else if ( ErrorCode == -99 ) 
+        {
+            afrm_Bottom.form.fn_login();
+            return;
+        } 
+    }
+
+	// 업무 호출 
+	if ( !gfn_isNull(str[0]) ) {
+		if ( str[0].indexOf("(") > -1 ) {
+			var sFunction = str[0].substr(0,str[0].length-2);
+			eval(sFunction + "( str[2], ErrorCode, ErrorMsg )");
+		} else {
+			eval(str[0] + "( str[2], ErrorCode, ErrorMsg )");
+		}
+	}
+}
+
+//********************************************************************
+//Binary Data를 Text 로 바꾸는 Basic API 
+//********************************************************************
+function binToText(varBuffer, nCodePage){//●●● Need Checking		
+	
+	if(isNull(nCodePage)) 
+		return varBuffer.getText(0);
+	else
+		return varBuffer.getText(0, -1, nCodePage);
+}
+
+/**********************************************************************************
+ * 함수명      : dateTime
+ * 설명        : MiPlatform에서 사용하던 Datetime형식으로 변환
+ *               Date Type을 String으로 변환
+ * argument    : nYear (년도)
+ *               nMonth (월)
+ *               nDate (일)
+ * return Type : String
+ * return 내용 : 조합한 날짜를 리턴
+**********************************************************************************/
+function dateTime(nYear, nMonth, nDate){
+	 
+	var args = dateTime.arguments;
+	var dateObj;
+	var nLen;
+	
+	switch(args.length) {
+		case 1:
+			dateObj = new Date(getMaskFormat(args[0], "@@@@-@@-@@ @@:@@:@@"));
+			if(isNull(dateObj)) {
+				dateObj = new Date(args[0]);
+			}
+			nLen = args[0].length;
+			break;
+		case 3:
+			dateObj = new Date(args[0], args[1]-1, args[2]);
+			nLen = 8;
+			break;
+		default:
+			dateObj = new Date(args[0], args[1]-1, args[2], nvl(args[3], 0), nvl(args[4],0), nvl(args[5], 0));
+			nLen = 12;
+			break;
+	}
+	
+	var formatString;
+	switch(nLen) {
+		case 4:
+		case 6:
+		case 8:
+			formatString = "%Y%m%d";
+			break;
+		default:
+			formatString = "%Y%m%d%H%M%S";
+			break;
+	}
+	return dateObj.toFormatString(formatString);
+}
+
+function dateTimen(sDate) {
+	
+	var args = dateTimen.arguments;
+	var dateObj;
+	
+	if(args.length == 0) return 0;
+	
+	dateObj = new Date(getMaskFormat(args[0], "@@@@-@@-@@ @@:@@:@@"));
+	if(isNull(dateObj)) {
+		dateObj = new Date(args[0]);
+	}
+	return dateObj;
+}
+
+//********************************************************************
+//입력된 값 또는 수식을 검사해 적당한 값을 Return 하는  Basic API 
+//********************************************************************
+// function decode(){
+// 	
+// 	for(var i = 1 ; i < decode.arguments.length; i+=2 )
+// 	{
+// 		if( decode.arguments[0] == decode.arguments[i] )
+// 			return decode.arguments[i+1];
+// 	}
+// 	return decode.arguments[i-2];
+// }
+
+
+/*********************************************************************************************
+ * ★ Function명 : iif()
+ * ★ 설명       : 첫 값의 True/False를 검사해 그 결과에 따라 두번째 또는 세번째 값을 Return
+ * ★ Params     : 없음
+ * ★ Return     : - arrArgument 로 iif 조건에 맞는 값 리턴.
+*********************************************************************************************/
+// function iif(cond, rtnTrue, rtnFalse)
+// {
+// 	if(cond) 
+// 	{
+// 		return rtnTrue;
+// 	} else {
+// 		return rtnFalse;
+// 	}
+// }
+
+/**********************************************************************************
+ * 함수명        : Left
+ * 설명           : 문자열의 왼쪽부분을 지정한 길이만큼 Return 한다.
+ * argument    : strString (외쪽부분을 얻어올 원본 문자열)
+ *                     nSize (얻어올 크기. [Default Value = 0])
+ * return Type : String
+ * return 내용  : 오른쪽 부분이 얻어진 문자열.
+ **********************************************************************************/
+function Left(strString, nSize){
+	
+	var rtnVal = "";
+	
+	if(IsNull(strString)) return strString;
+	
+	if (isNull(nSize))
+        rtnVal = strString;
+    else
+        rtnVal = strString.toString().substring(0, nSize);
+
+    return rtnVal;
+}
+
+/*********************************************************************************************
+ * ★ Function명 : LengthB
+ * ★ 설명       : 문자열 길이 반환.
+ * ★ Params     :  1. sValue - 
+ * ★ Return     : length
+*********************************************************************************************/
+function LengthB(sValue){
+	
+	var arrArgument = LengthB.arguments;
+	
+	var sType;
+	var nCount;
+	
+	if(IsNull(arrArgument[0])) return 0;
+	//sType = arrArgument[0].toString().valueOf().substr(1,6);
+	
+	if(arrArgument[0].components)
+	{
+		return arrArgument[0].components.length;//object인 경우
+	}
+	
+	if(arrArgument[0].constructor == Array) {
+		return arrArgument[0].length;		//Array인 경우	
+	}
+
+	var v_ChkStr = sValue.toString();	//Variant,String인 경우
+	var v_cnt = 0;
+
+	for (var i=0; i<v_ChkStr.length; i++) {
+		if (v_ChkStr.charCodeAt(i) > 127) {
+			v_cnt += 2;
+		} else {
+			v_cnt += 1;
+		}
+	}
+	return v_cnt;
+}
+
+
+/*******************************************************************************
+ ★ 설명
+    음력을 양력으로 변환해주는 함수 (처리가능 기간  1841 - 2043년)
+ ★ parameter 
+    1. sDate : Flag(1 Byte)+yyyyMMdd형태의 음력일자 ( 예 : "020121122" )
+				( Flag : 평달 = "0", 윤달 = "1" )
+ ★ return 
+    - 성공 = yyyyMMdd형태의 양력일자
+    - 실패 = null 
+			  - 1841 ~ 2043 범위 오류의 경우
+			  - sDate가 9자리가 아닐경우
+			  - sDate의 첫자리 Flag가 "0"도 아니고 "1"도 아닌 경우
+ ★ 주의사항
+    1. sDate가 8자리가 아니고 9자리임에 주의
+    2. 속도가 별로 안좋네
+    3. 처리가능 기간  1841 - 2043년    
+**********************************************************************************/
+function lunar2Solar(sDate){
+	
+	var sMd = "31,0,31,30,31,30,31,31,30,31,30,31";
+	var aMd = new Array();	
+	var aBaseInfo = new Array();	
+	
+	var nLy, nLm, nLd, sLflag;		// 전해온 음력 인자값을 저장할 년, 월, 일, 윤달여부 임시변수
+	var nSy, nSm, nSd;				// 계산된 양력 년, 월, 일을 저장할 변수
+	var y1, m1, i, j, y2, y3;	// 임시변수	
+	var leap;
+
+	if( IsNull(sDate) )			return "";
+	if( sDate.length != 9 )		return "";
+	
+	sLflag = sDate.substr(0,1);
+	nLy = parseInt(sDate.substr(1,4), 10);
+	nLm = parseInt(sDate.substr(5,2), 10);
+	nLd = parseInt(sDate.substr(7,2), 10);
+	if( nLy < 1841 || nLy > 2043 )			return "";
+	if( sLflag != "0" && sLflag != "1" )	return "";
+		
+	aBaseInfo = _SolarBase();
+	aMd = sMd.split(",");
+	if( IsLeapYear(sDate.substr(1,8)) == true )					
+		aMd[1] = 29;
+	else
+		aMd[1] = 28;	
+		
+	y1 = nLy - 1841;
+	m1 = nLm - 1;
+	leap = 0;
+	if( parseInt(aBaseInfo[y1*12 + m1]) > 2 )
+		leap = IsLeapYear(nLy+"0101");
+	
+	if( leap == 1 )
+	{
+		switch( parseInt(aBaseInfo[y1*12 + m1]) )
+		{
+			case 3 : mm = 29;
+					break;
+			case 4 : mm = 30;
+					break;			
+			case 5 : mm = 29;
+					break;			
+			case 6 : mm = 30;
+					break;
+		}
+	}
+	else
+	{
+		switch( parseInt(aBaseInfo[y1*12 + m1]) )
+		{
+			case 1 : mm = 29;
+					break;			
+			case 2 : mm = 30;
+					break;			
+			case 3 : mm = 29;
+					break;			
+			case 4 : mm = 29;
+					break;			
+			case 5 : mm = 30;
+					break;			
+			case 6 : mm = 30;
+					break;			
+		}
+	}
+
+	td = 0;
+	for( i = 0 ; i <= y1 - 1 ; i++ )
+	{
+		for( j = 0 ; j <= 11 ; j++ )
+		{
+			switch( parseInt(aBaseInfo[i*12 + j]) )
+			{
+				case 1 : td = td + 29;
+						break;
+				case 2 : td = td + 30;
+						break;				
+				case 3 : td = td + 58;
+						break;				
+				case 4 : td = td + 59;
+						break;				
+				case 5 : td = td + 59;
+						break;				
+				case 6 : td = td + 60;
+						break;				
+			}
+		}
+	}
+
+	for( j = 0 ; j <= m1 - 1 ; j++ )
+	{
+		switch( parseInt(aBaseInfo[y1*12 + j]) )
+		{
+			case 1 : td = td + 29;
+					break;			
+			case 2 : td = td + 30;
+					break;						
+			case 3 : td = td + 58;
+					break;						
+			case 4 : td = td + 59;
+					break;						
+			case 5 : td = td + 59;
+					break;						
+			case 6 : td = td + 60;
+					break;						
+		}
+	}
+
+	if( leap == 1 )
+	{
+		switch( parseInt(aBaseInfo[y1*12 + m1]) )
+		{
+			case 3 : mm = 29;
+					break;						
+			case 4 : mm = 29;
+					break;						
+			case 5 : mm = 30;
+					break;						
+			case 6 : mm = 30;
+					break;						
+		}
+	}
+	
+	td = td + nLd + 22;
+	
+	if( sLflag == "1" )
+	{
+		switch( parseInt(aBaseInfo[y1*12 + m1]) )
+		{
+			case 3 : td = td + 29;
+					break;						
+			case 4 : td = td + 30;
+					break;						
+			case 5 : td = td + 29;
+					break;						
+			case 6 : td = td + 30;
+					break;						
+		}
+	}
+	
+	y1 = 1840;
+	do
+	{
+		y1 = y1 + 1;
+		leap = IsLeapYear(y1+"0101");
+
+		if( leap == 1 )
+			y2 = 366;
+		else
+			y2 = 365;
+
+		if( td <= y2 )
+			break;
+			
+		td = td - y2;
+	}
+	while(1);
+
+	nSy = y1;
+	aMd[1] = y2 - 337;
+	m1 = 0;
+	do
+	{
+		m1 = m1 + 1;
+		if( td <= parseInt(aMd[m1-1]) )
+			break;
+		td = td - parseInt(aMd[m1-1]);
+	}
+	while(1);
+	
+	nSm = m1;
+	nSd = td;
+	y3 = nSy;
+	td = y3 * 365 + parseInt(y3/4) - parseInt(y3/100) + parseInt(y3/400);
+	for( i = 0 ; i <= nSm - 1 ; i++ )
+		td = td + parseInt(aMd[i]);
+
+	td = td + nSd;
+
+	return y3 + Right("0" + nSm, 2)+ Right("0" + nSd, 2);
+}
+
+/******************************************************************************
+각 월별 음력 기준 정보를 처리하는 함수(처리가능 기간  1841 - 2043년) 단, 내부에서 사용하는 함수임
+******************************************************************************/
+function _SolarBase()
+{
+	var kk;
+	
+	//1841
+	kk = "1,2,4,1,1,2,1,2,1,2,2,1,";
+	kk += "2,2,1,2,1,1,2,1,2,1,2,1,";
+	kk += "2,2,2,1,2,1,4,1,2,1,2,1,";
+	kk += "2,2,1,2,1,2,1,2,1,2,1,2,";
+	kk += "1,2,1,2,2,1,2,1,2,1,2,1,";
+	kk += "2,1,2,1,5,2,1,2,2,1,2,1,";
+	kk += "2,1,1,2,1,2,1,2,2,2,1,2,";
+	kk += "1,2,1,1,2,1,2,1,2,2,2,1,";
+	kk += "2,1,2,3,2,1,2,1,2,1,2,2,";
+	kk += "2,1,2,1,1,2,1,1,2,2,1,2,";
+	//1851
+	kk += "2,2,1,2,1,1,2,1,2,1,5,2,";
+	kk += "2,1,2,2,1,1,2,1,2,1,1,2,";
+	kk += "2,1,2,2,1,2,1,2,1,2,1,2,";
+	kk += "1,2,1,2,1,2,5,2,1,2,1,2,";
+	kk += "1,1,2,1,2,2,1,2,2,1,2,1,";
+	kk += "2,1,1,2,1,2,1,2,2,2,1,2,";
+	kk += "1,2,1,1,5,2,1,2,1,2,2,2,";
+	kk += "1,2,1,1,2,1,1,2,2,1,2,2,";
+	kk += "2,1,2,1,1,2,1,1,2,1,2,2,";
+	kk += "2,1,6,1,1,2,1,1,2,1,2,2,";
+	//1861
+	kk += "1,2,2,1,2,1,2,1,2,1,1,2,";
+	kk += "2,1,2,1,2,2,1,2,2,3,1,2,";
+	kk += "1,2,2,1,2,1,2,2,1,2,1,2,";
+	kk += "1,1,2,1,2,1,2,2,1,2,2,1,";
+	kk += "2,1,1,2,4,1,2,2,1,2,2,1,";
+	kk += "2,1,1,2,1,1,2,2,1,2,2,2,";
+	kk += "1,2,1,1,2,1,1,2,1,2,2,2,";
+	kk += "1,2,2,3,2,1,1,2,1,2,2,1,";
+	kk += "2,2,2,1,1,2,1,1,2,1,2,1,";
+	kk += "2,2,2,1,2,1,2,1,1,5,2,1,";
+	//1871
+	kk += "2,2,1,2,2,1,2,1,2,1,1,2,";
+	kk += "1,2,1,2,2,1,2,1,2,2,1,2,";
+	kk += "1,1,2,1,2,4,2,1,2,2,1,2,";
+	kk += "1,1,2,1,2,1,2,1,2,2,2,1,";
+	kk += "2,1,1,2,1,1,2,1,2,2,2,1,";
+	kk += "2,2,1,1,5,1,2,1,2,2,1,2,";
+	kk += "2,2,1,1,2,1,1,2,1,2,1,2,";
+	kk += "2,2,1,2,1,2,1,1,2,1,2,1,";
+	kk += "2,2,4,2,1,2,1,1,2,1,2,1,";
+	kk += "2,1,2,2,1,2,2,1,2,1,1,2,";
+	//1881
+	kk += "1,2,1,2,1,2,5,2,2,1,2,1,";
+	kk += "1,2,1,2,1,2,1,2,2,1,2,2,";
+	kk += "1,1,2,1,1,2,1,2,2,2,1,2,";
+	kk += "2,1,1,2,3,2,1,2,2,1,2,2,";
+	kk += "2,1,1,2,1,1,2,1,2,1,2,2,";
+	kk += "2,1,2,1,2,1,1,2,1,2,1,2,";
+	kk += "2,2,1,5,2,1,1,2,1,2,1,2,";
+	kk += "2,1,2,2,1,2,1,1,2,1,2,1,";
+	kk += "2,1,2,2,1,2,1,2,1,2,1,2,";
+	kk += "1,5,2,1,2,2,1,2,1,2,1,2,";
+	//1891
+	kk += "1,2,1,2,1,2,1,2,2,1,2,2,";
+	kk += "1,1,2,1,1,5,2,2,1,2,2,2,";
+	kk += "1,1,2,1,1,2,1,2,1,2,2,2,";
+	kk += "1,2,1,2,1,1,2,1,2,1,2,2,";
+	kk += "2,1,2,1,5,1,2,1,2,1,2,1,";
+	kk += "2,2,2,1,2,1,1,2,1,2,1,2,";
+	kk += "1,2,2,1,2,1,2,1,2,1,2,1,";
+	kk += "2,1,5,2,2,1,2,1,2,1,2,1,";
+	kk += "2,1,2,1,2,1,2,2,1,2,1,2,";
+	kk += "1,2,1,1,2,1,2,5,2,2,1,2,";
+	//1901
+	kk += "1,2,1,1,2,1,2,1,2,2,2,1,";
+	kk += "2,1,2,1,1,2,1,2,1,2,2,2,";
+	kk += "1,2,1,2,3,2,1,1,2,2,1,2,";
+	kk += "2,2,1,2,1,1,2,1,1,2,2,1,";
+	kk += "2,2,1,2,2,1,1,2,1,2,1,2,";
+	kk += "1,2,2,4,1,2,1,2,1,2,1,2,";
+	kk += "1,2,1,2,1,2,2,1,2,1,2,1,";
+	kk += "2,1,1,2,2,1,2,1,2,2,1,2,";
+	kk += "1,5,1,2,1,2,1,2,2,2,1,2,";
+	kk += "1,2,1,1,2,1,2,1,2,2,2,1,";
+	//1911
+	kk += "2,1,2,1,1,5,1,2,2,1,2,2,";
+	kk += "2,1,2,1,1,2,1,1,2,2,1,2,";
+	kk += "2,2,1,2,1,1,2,1,1,2,1,2,";
+	kk += "2,2,1,2,5,1,2,1,2,1,1,2,";
+	kk += "2,1,2,2,1,2,1,2,1,2,1,2,";
+	kk += "1,2,1,2,1,2,2,1,2,1,2,1,";
+	kk += "2,3,2,1,2,2,1,2,2,1,2,1,";
+	kk += "2,1,1,2,1,2,1,2,2,2,1,2,";
+	kk += "1,2,1,1,2,1,5,2,2,1,2,2,";
+	kk += "1,2,1,1,2,1,1,2,2,1,2,2,";
+	//1921
+	kk += "2,1,2,1,1,2,1,1,2,1,2,2,";
+	kk += "2,1,2,2,3,2,1,1,2,1,2,2,";
+	kk += "1,2,2,1,2,1,2,1,2,1,1,2,";
+	kk += "2,1,2,1,2,2,1,2,1,2,1,1,";
+	kk += "2,1,2,5,2,1,2,2,1,2,1,2,";
+	kk += "1,1,2,1,2,1,2,2,1,2,2,1,";
+	kk += "2,1,1,2,1,2,1,2,2,1,2,2,";
+	kk += "1,5,1,2,1,1,2,2,1,2,2,2,";
+	kk += "1,2,1,1,2,1,1,2,1,2,2,2,";
+	kk += "1,2,2,1,1,5,1,2,1,2,2,1,";
+	//1931
+	kk += "2,2,2,1,1,2,1,1,2,1,2,1,";
+	kk += "2,2,2,1,2,1,2,1,1,2,1,2,";
+	kk += "1,2,2,1,6,1,2,1,2,1,1,2,";
+	kk += "1,2,1,2,2,1,2,2,1,2,1,2,";
+	kk += "1,1,2,1,2,1,2,2,1,2,2,1,";
+	kk += "2,1,4,1,2,1,2,1,2,2,2,1,";
+	kk += "2,1,1,2,1,1,2,1,2,2,2,1,";
+	kk += "2,2,1,1,2,1,4,1,2,2,1,2,";
+	kk += "2,2,1,1,2,1,1,2,1,2,1,2,";
+	kk += "2,2,1,2,1,2,1,1,2,1,2,1,";
+	//1941
+	kk += "2,2,1,2,2,4,1,1,2,1,2,1,";
+	kk += "2,1,2,2,1,2,2,1,2,1,1,2,";
+	kk += "1,2,1,2,1,2,2,1,2,2,1,2,";
+	kk += "1,1,2,4,1,2,1,2,2,1,2,2,";
+	kk += "1,1,2,1,1,2,1,2,2,2,1,2,";
+	kk += "2,1,1,2,1,1,2,1,2,2,1,2,";
+	kk += "2,5,1,2,1,1,2,1,2,1,2,2,";
+	kk += "2,1,2,1,2,1,1,2,1,2,1,2,";
+	kk += "2,2,1,2,1,2,3,2,1,2,1,2,";
+	kk += "2,1,2,2,1,2,1,1,2,1,2,1,";
+	//1951
+	kk += "2,1,2,2,1,2,1,2,1,2,1,2,";
+	kk += "1,2,1,2,4,2,1,2,1,2,1,2,";
+	kk += "1,2,1,1,2,2,1,2,2,1,2,2,";
+	kk += "1,1,2,1,1,2,1,2,2,1,2,2,";
+	kk += "2,1,4,1,1,2,1,2,1,2,2,2,";
+	kk += "1,2,1,2,1,1,2,1,2,1,2,2,";
+	kk += "2,1,2,1,2,1,1,5,2,1,2,2,";
+	kk += "1,2,2,1,2,1,1,2,1,2,1,2,";
+	kk += "1,2,2,1,2,1,2,1,2,1,2,1,";
+	kk += "2,1,2,1,2,5,2,1,2,1,2,1,";
+	//1961
+	kk += "2,1,2,1,2,1,2,2,1,2,1,2,";
+	kk += "1,2,1,1,2,1,2,2,1,2,2,1,";
+	kk += "2,1,2,3,2,1,2,1,2,2,2,1,";
+	kk += "2,1,2,1,1,2,1,2,1,2,2,2,";
+	kk += "1,2,1,2,1,1,2,1,1,2,2,1,";
+	kk += "2,2,5,2,1,1,2,1,1,2,2,1,";
+	kk += "2,2,1,2,2,1,1,2,1,2,1,2,";
+	kk += "1,2,2,1,2,1,5,2,1,2,1,2,";
+	kk += "1,2,1,2,1,2,2,1,2,1,2,1,";
+	kk += "2,1,1,2,2,1,2,1,2,2,1,2,";
+	//1971
+	kk += "1,2,1,1,5,2,1,2,2,2,1,2,";
+	kk += "1,2,1,1,2,1,2,1,2,2,2,1,";
+	kk += "2,1,2,1,1,2,1,1,2,2,2,1,";
+	kk += "2,2,1,5,1,2,1,1,2,2,1,2,";
+	kk += "2,2,1,2,1,1,2,1,1,2,1,2,";
+	kk += "2,2,1,2,1,2,1,5,2,1,1,2,";
+	kk += "2,1,2,2,1,2,1,2,1,2,1,1,";
+	kk += "2,2,1,2,1,2,2,1,2,1,2,1,";
+	kk += "2,1,1,2,1,6,1,2,2,1,2,1,";
+	kk += "2,1,1,2,1,2,1,2,2,1,2,2,";
+	//1981
+	kk += "1,2,1,1,2,1,1,2,2,1,2,2,";
+	kk += "2,1,2,3,2,1,1,2,2,1,2,2,";
+	kk += "2,1,2,1,1,2,1,1,2,1,2,2,";
+	kk += "2,1,2,2,1,1,2,1,1,5,2,2,";
+	kk += "1,2,2,1,2,1,2,1,1,2,1,2,";
+	kk += "1,2,2,1,2,2,1,2,1,2,1,1,";
+	kk += "2,1,2,2,1,5,2,2,1,2,1,2,";
+	kk += "1,1,2,1,2,1,2,2,1,2,2,1,";
+	kk += "2,1,1,2,1,2,1,2,2,1,2,2,";
+	kk += "1,2,1,1,5,1,2,1,2,2,2,2,";
+	//1991
+	kk += "1,2,1,1,2,1,1,2,1,2,2,2,";
+	kk += "1,2,2,1,1,2,1,1,2,1,2,2,";
+	kk += "1,2,5,2,1,2,1,1,2,1,2,1,";
+	kk += "2,2,2,1,2,1,2,1,1,2,1,2,";
+	kk += "1,2,2,1,2,2,1,5,2,1,1,2,";
+	kk += "1,2,1,2,2,1,2,1,2,2,1,2,";
+	kk += "1,1,2,1,2,1,2,2,1,2,2,1,";
+	kk += "2,1,1,2,3,2,2,1,2,2,2,1,";
+	kk += "2,1,1,2,1,1,2,1,2,2,2,1,";
+	kk += "2,2,1,1,2,1,1,2,1,2,2,1,";
+	//2001
+	kk += "2,2,2,3,2,1,1,2,1,2,1,2,";
+	kk += "2,2,1,2,1,2,1,1,2,1,2,1,";
+	kk += "2,2,1,2,2,1,2,1,1,2,1,2,";
+	kk += "1,5,2,2,1,2,1,2,2,1,1,2,";
+	kk += "1,2,1,2,1,2,2,1,2,2,1,2,";
+	kk += "1,1,2,1,2,1,5,2,2,1,2,2,";
+	kk += "1,1,2,1,1,2,1,2,2,2,1,2,";
+	kk += "2,1,1,2,1,1,2,1,2,2,1,2,";
+	kk += "2,2,1,1,5,1,2,1,2,1,2,2,";
+	kk += "2,1,2,1,2,1,1,2,1,2,1,2,";
+	//2011
+	kk += "2,1,2,2,1,2,1,1,2,1,2,1,";
+	kk += "2,1,6,2,1,2,1,1,2,1,2,1,";
+	kk += "2,1,2,2,1,2,1,2,1,2,1,2,";
+	kk += "1,2,1,2,1,2,1,2,5,2,1,2,";
+	kk += "1,2,1,1,2,1,2,2,2,1,2,2,";
+	kk += "1,1,2,1,1,2,1,2,2,1,2,2,";
+	kk += "2,1,1,2,3,2,1,2,1,2,2,2,";
+	kk += "1,2,1,2,1,1,2,1,2,1,2,2,";
+	kk += "2,1,2,1,2,1,1,2,1,2,1,2,";
+	kk += "2,1,2,5,2,1,1,2,1,2,1,2,";
+	//2021
+	kk += "1,2,2,1,2,1,2,1,2,1,2,1,";
+	kk += "2,1,2,1,2,2,1,2,1,2,1,2,";
+	kk += "1,5,2,1,2,1,2,2,1,2,1,2,";
+	kk += "1,2,1,1,2,1,2,2,1,2,2,1,";
+	kk += "2,1,2,1,1,5,2,1,2,2,2,1,";
+	kk += "2,1,2,1,1,2,1,2,1,2,2,2,";
+	kk += "1,2,1,2,1,1,2,1,1,2,2,2,";
+	kk += "1,2,2,1,5,1,2,1,1,2,2,1,";
+	kk += "2,2,1,2,2,1,1,2,1,1,2,2,";
+	kk += "1,2,1,2,2,1,2,1,2,1,2,1,";
+	//2031
+	kk += "2,1,5,2,1,2,2,1,2,1,2,1,";
+	kk += "2,1,1,2,1,2,2,1,2,2,1,2,";
+	kk += "1,2,1,1,2,1,5,2,2,2,1,2,";
+	kk += "1,2,1,1,2,1,2,1,2,2,2,1,";
+	kk += "2,1,2,1,1,2,1,1,2,2,1,2,";
+	kk += "2,2,1,2,1,4,1,1,2,1,2,2,";
+	kk += "2,2,1,2,1,1,2,1,1,2,1,2,";
+	kk += "2,2,1,2,1,2,1,2,1,1,2,1,";
+	kk += "2,2,1,2,5,2,1,2,1,2,1,1,";
+	kk += "2,1,2,2,1,2,2,1,2,1,2,1,";
+	//2041
+	kk += "2,1,1,2,1,2,2,1,2,2,1,2,";
+	kk += "1,5,1,2,1,2,1,2,2,2,1,2,";
+	kk += "1,2,1,1,2,1,1,2,2,1,2,2";
+	
+	var arr = new Array();
+	arr = kk.split(",");
+	
+	return arr;
+}
+
+/**********************************************************************************
+ * 함수명      : Mid
+ * 설명        : 입력된 문자열에서 가운데 부분을 주어진 길이만큼 Return 한다.
+ * argument    : strString (가운데 부문을 얻어올 원본 문자열)
+ *               nIndex (얻어올 첫 글자의 Index)
+ *               nSize (얻어올 글자수)
+ * return Type : String
+ **********************************************************************************/
+//SubStr과 동일함수 XP에서는 String의 substr함수로 대치가능
+function Mid(stringValue,nStart,nLength){
+	var arrArgument = Mid.arguments;	
+	
+	if(arrArgument.length == 3)
+		return String(stringValue).substr(nStart, nLength);
+	else
+		return String(stringValue).substr(nStart);
+}
+
+//********************************************************************
+// 입력된 문자열에서 가운데 부분을 주어진 Byte 만큼 Return 하는 Basic API 
+//********************************************************************
+function MidB(strString,nIndex,nSize){
+	
+	var arrArgument = MidB.arguments;
+	//if (IsNull(nSize))  nSize = -1;
+	var buff = new Buffer(strString.toString()); 
+	
+	if(arrArgument.length >= 3)
+		return buff.getText(nIndex, nSize);
+	else
+		return buff.getText(nIndex);
+	
+	//var rtnString = buff.getText(nIndex, nSize);	
+	//return rtnString;
+}
+
+//********************************************************************
+//입력된 문자열을 strDelimiter로 자른 결과 중 nIndex 번째 결과값을 구하는 Basic API 
+//********************************************************************
+function nToken(strString,strDelimiter,nIndex){
+	var tokenArray = strString.split(strDelimiter);
+	return tokenArray[nIndex];
+}
+
+/******************************************************************************
+ * 함수명        : NumFormat(dNumber);
+ * 설명          : 입력된 실수를 문자열 표현법으로 표현하는 함수
+ * argument       : dNumber    문자열로 출력할 실수
+ *                  nDetail    출력시 소숫점 이하의 자릿수(Default : 0)
+ * return         : 문자열로 바뀐 실수
+ *                  출력되는 실수는 정수부분에 3자리마다 ',' 가 삽입됩니다.
+ * NumFormat(12345.66)
+ ******************************************************************************/
+function numFormat(dNumber, nDetail){ 
+	if (IsNull(dNumber)) dNumber = 0;
+	if (IsNull(nDetail)) nDetail = 0; 
+	
+	//return toNumber(dNumber.toFixed(nDetail)).toLocaleString();
+	return toNumber(dNumber).toFixed(nDetail).toLocaleString();
+} 
+
+/*********************************************************************************************
+ * ★ Function명 : Pos()
+ * ★ 설명       : 문자열의 위치를 대소문자 구별하여 찾는다
+ * ★ Params      : 1. sOrg - 원래 문자열( 예 : "aaBBbbcc" )
+				   2. sFind - 찾고자 하는 문자열( 예 : "bb" )
+				   3. nStart - 검색 시작위치 (옵션 : Default=0) ( 예 : 1 )
+ * ★ Return      : - 성공 = 찾고자 하는 문자열의 시작위치 ( 예 : 4 )
+				    - 실패 = -1
+*********************************************************************************************/
+function Pos(sOrg, sFind, nStart){
+	if(IsNull(sOrg)) return -1;
+	
+	if(Pos.length >= 3)
+		return sOrg.indexOf(sFind, nStart);
+	else
+		return sOrg.indexOf(sFind);
+}
+
+/**********************************************************************************
+ * 함수명     : Right
+ * 설명       : 문자열의 오른쪼 부분을 지정한 길이만큼 가져오는 함수
+ * argument    : sOrg (원본 문자열)
+				 nSize (얻어올 크기)	
+ * return Type : String
+**********************************************************************************/
+function Right(sOrg, nSize){
+	
+	if(IsNull(sOrg)) return "";
+	if(IsNull(nSize)) return sOrg;
+	
+	if(sOrg.length < nSize )
+		return sOrg;
+	else
+		return sOrg.substr(sOrg.length-nSize, nSize);
+}
+
+//********************************************************************
+// 양력으로된 날짜를 음력으로 바꾸는 API
+//********************************************************************
+function solar2Lunar(sDate){
+	var rtnVal = _solar2lunar(sDate);
+	
+	if(rtnVal.valueOf().length == 9)
+		rtnVal = rtnVal.valueOf().substr(1,8);
+	else
+		rtnVal = "";
+		
+	return rtnVal;
+}
+
+//********************************************************************
+// 양력으로된 날짜를 음력으로 바꾸는 Basic API 입니다.
+// 변환하고자 하는 양력이 윤달인지를 추가결과로 반환해주는 Solar2Lunar Method의 확장 Method
+//********************************************************************
+function solar2LunarEx(sDate){
+
+	var arrVal = new Array();
+	var rtnVal = _solar2lunar(sDate);
+	
+	if(rtnVal.valueOf().length == 9)
+	{
+		arrVal[0] = rtnVal.valueOf().substr(1,8);
+		if(rtnVal.valueOf().substr(0,1)=="1")
+			arrVal[1] = true;
+		else
+			arrVal[1] = false;
+	}		
+			
+	return arrVal;
+}
+ /******************************************************************************
+ * Function명 : Solar2Lunar
+ * 설명       : 양력을 음력으로 변환해주는 함수 (처리가능 기간  1841 - 2043년)
+ * Params     : sDate : yyyyMMdd형태의 양력일자 ( 예 : "20121122" )
+ * Return     : return값이 8자리가 아니고 9자리임에 주의
+ *              	- 성공 = Flag(1 Byte) + (yyyyMMdd형태의 음력일자)
+ *								( Flag : 평달 = "0", 윤달 = "1" )
+ *   				- 실패 = "" ( 1841 ~ 2043 범위 오류시 )
+ ******************************************************************************/
+function _solar2lunar(sDate){		//●●● Need Checking
+	var sMd = "31,0,31,30,31,30,31,31,30,31,30,31";
+	var aMd = new Array();
+
+	var aBaseInfo = new Array();
+	var aDt = new Array();		// 매년의 음력일수를 저장할 배열 변수
+	var td;					// 음력일을 계산하기 위해 양력일과의 차이를 저장할 변수
+	var td1;					// 1840년까지의 날수
+	var td2;					// 현재까지의 날수
+	var mm;					// 임시변수
+	var nLy, nLm, nLd;			// 계산된 음력 년, 월, 일을 저장할 변수
+	var sLyoon;					// 현재월이 윤달임을 표시
+
+	if( IsNull(sDate) )		return "";
+	
+	sY = parseInt(sDate.substr(0,4), 10);
+	sM = parseInt(sDate.substr(4,2), 10);
+	sD = parseInt(sDate.substr(6,2), 10);
+	if( sY < 1841 || sY > 2043 )	return "";
+
+	aBaseInfo = _SolarBase();
+	aMd = sMd.split(",");
+	if( IsLeapYear(sDate) == true )					
+		aMd[1] = 29;
+	else
+		aMd[1] = 28;	
+	
+	td1 = 672069; 				 // 672069 = 1840 * 365 + 1840/4 - 1840/100 + 1840/400 + 23  //1840년까지 날수
+		
+	// 1841년부터 작년까지의 날수
+	td2 = (sY - 1) * 365 + parseInt((sY - 1)/4) - parseInt((sY - 1)/100) + parseInt((sY - 1)/400);
+		
+	// 전월까지의 날수를 더함
+	for( i = 0,len=sM-2 ; i <= len ; i++ )
+		td2 = td2 + parseInt(aMd[i]);
+
+	// 현재일까지의 날수를 더함
+	td2 = td2 + sD;
+
+	// 양력현재일과 음력 1840년까지의 날수의 차이
+	td = td2 - td1 + 1;
+	
+	// 1841년부터 음력날수를 계산
+	//for( i = 0 ; i <= sY - 1841 ; i++ )
+	for( i = 0,len=sY-1841 ; i <= len ; i++ )
+	{
+		aDt[i] = 0;
+		for( j = 0 ; j <= 11 ; j++ )
+		{
+			switch( parseInt(aBaseInfo[i*12 + j]) )
+			{
+				case 1 : mm = 29;
+						break;
+				case 2 : mm = 30;
+						break;				
+				case 3 : mm = 58;	// 29 + 29
+						break;				
+				case 4 : mm = 59;	// 29 + 30
+						break;				
+				case 5 : mm = 59;	// 30 + 29
+						break;				
+				case 6 : mm = 60;	// 30 + 30
+						break;				
+			}
+			aDt[i] = aDt[i] + mm;
+		}
+	}
+		
+	// 1840년 이후의 년도를 계산 - 현재까지의 일수에서 위에서 계산된 1841년부터의 매년 음력일수를 빼가면수 년도를 계산
+	nLy = 0;
+	do
+	{
+		td = td - aDt[nLy];
+		nLy = nLy + 1;
+	}
+	while(td > aDt[nLy]);
+	
+	nLm = 0;
+	sLyoon = "0";			// 현재월이 윤달임을 표시할 변수 - 기본값 평달
+	do
+	{
+		if( parseInt(aBaseInfo[nLy*12 + nLm]) <= 2 )
+		{
+			mm = parseInt(aBaseInfo[nLy*12 + nLm]) + 28;
+			if( td > mm )
+			{
+				td = td - mm;
+				nLm = nLm + 1;
+			}
+			else
+				break;
+		}
+		else
+		{
+			switch( parseInt(aBaseInfo[nLy*12 + nLm]) )
+			{
+				case 3 :
+					m1 = 29;
+					m2 = 29;
+					break;
+				case 4 : 
+					m1 = 29;
+					m2 = 30;
+					break;					
+				case 5 : 
+					m1 = 30;
+					m2 = 29;
+					break;					
+				case 6 : 
+					m1 = 30;
+					m2 = 30;
+					break;					
+			}
+
+			if( td > m1 )
+			{
+				td = td - m1;
+				if( td > m2 )
+				{
+					td = td - m2;
+					nLm = nLm + 1;
+				}
+				else
+				{
+					sLyoon = "1";
+				}
+			}
+			else
+			{
+				break;
+			}
+		}
+	}
+	while(1);
+	
+	nLy = nLy + 1841;
+	nLm = nLm + 1;
+	nLd = td;
+	
+	return sLyoon+nLy+Right("0" + nLm, 2)+Right("0" + nLd, 2);	
+}
+
+//********************************************************************
+// 해당 PC의 오늘 날짜를 가져온다
+//********************************************************************
+function Today()
+{	
+	var objDate = new Date();
+	return objDate.toFormatString("%Y%m%d");
+}	
+
+//********************************************************************
+// System 으로부터 현재 설정된 시각을 구하는 Basic API 입니다.
+// yyyyMMddhhmmss의 14자리 문자열로 값을 Return 14-01-20
+//********************************************************************
+function getDate()
+{	
+	var objDate = new Date();
+	return objDate.toFormatString("%Y%m%d%H%M%S");
+}	
+
+/**********************************************************************************
+ ★ 설명
+    숫자로 된 년, 월, 일을 yyyyMMdd형의 문자열 날짜로 만든다.
+ ★ parameter 
+    1. nYear  : 년도 ( 예 : 2012 )
+    2. nMonth : 월 ( 예 : 11 )
+    3. nDate   : 일 ( 예 : 22 )
+ ★ return 
+    - 성공 = yyyyMMdd형태의 날짜 ( 예 : "20121122" )
+    - 실패 = ""
+ ★ 주의사항     
+    년, 월, 일의 값이 범위에 맞지 않는 값을 입력하면 그에 적합한 날짜로 변경해준다.
+    (예 : nYear = 2012, nMonth = 13, nDate = 32 ==> return = "20130201"
+          nYear = 2012, nMonth = 1, nDate = -1 ==> return = "20111230")
+**********************************************************************************/
+function makeDate(nYear, nMonth, nDate)
+{
+	if( IsNull(nYear) || IsNull(nMonth) || IsNull(nDate) )	return "";
+    var objDate = new Date(nYear, nMonth-1, nDate);
+	return objDate.toFormatString("%Y%m%d");
+}
+
+/**********************************************************************************
+ ★ 설명
+    입력된 날자에 nOffset 으로 지정된 만큼의 일을 증감한다.
+ ★ parameter 
+    1. sDate : 날짜 ( 예 : "20121122" )
+    2. nOffset : 일 증감값 ( 예 : 10 또는 -10 )
+ ★ return 
+    - 성공 = yyyyMMdd형태의 증감된 날짜 ( 예 : "20121202" 또는 "20121112" )
+    - 실패 = ""
+**********************************************************************************/
+function addDate(sDate, nOffset)
+{
+	if(IsNull(sDate)) return "";
+	var objDate = new Date(getMaskFormat(sDate, "@@@@-@@-@@"));
+	objDate.addDate(nvl(nOffset, 1));
+	return objDate.toFormatString("%Y%m%d");
+}
+
+/**********************************************************************************
+ ★ 설명
+    입력된 날자에 nOffset 으로 지정된 만큼의 월을 증감한다.
+ ★ parameter 
+    1. sDate : 날짜 ( 예 : "20121122" )
+    2. nOffset : 월 증감값 ( 예 : 1 또는 -1 )
+ ★ return 
+    - 성공 = yyyyMMdd형태의 증감된 날짜 ( 예 : "20121202" 또는 "20121022" )
+    - 실패 = ""
+ ★ 주의사항    
+    단, 증감된 날짜가 그달의 마지막날짜월보다 큰 경우는 드달의 마지막 날짜를 return한다.
+    예를 들어, sDate="20120531", nOffset=-1일 경우 return="20120430" 이 된다.
+**********************************************************************************/
+function addMonth(sDate, nOffset)
+{
+	if(IsNull(sDate)) return "";
+	var objDate = new Date(getMaskFormat(sDate, "@@@@-@@-@@ @@:@@:@@"));
+	objDate.addMonth(nvl(nOffset, 1));
+	return objDate.toFormatString("%Y%m%d");
+}
+
+/*******************************************************************************
+ ★ 설명
+    대소문자 구별없이 왼쪽에서 문자열 삭제.
+ ★ Parameter 
+    1. sOrg   : 원래 문자열( 예 : "BBbbcc" )
+    2. sTrim  : Trim할 문자열(옵션 : Default=" ")( 예 : "bb" )
+ ★ return 
+    - 성공 = Trim된 문자열 ( 예 : "cc" )
+    - 실패 = ""
+ ******************************************************************************/
+function lTrimCase(sOrg, sTrim)
+{
+	var pos;
+
+	if( IsNull(sOrg) )	return "";
+	if( IsNull(sTrim) )	sTrim = " ";
+			
+	for( pos = 0 ; pos < sOrg.length ; pos+=sTrim.length )
+	{
+		if( sOrg.toLowerCase().substr( pos, sTrim.length ) != sTrim.toLowerCase() )
+			break;
+	}
+	return sOrg.substr(pos);
+}
+
+/*******************************************************************************
+ ★ 설명
+    대소문자 구별없이 오른쪽에서 문자열 삭제.
+ ★ Parameter 
+    1. sOrg   : 원래 문자열( 예 : "bbccCC" )
+    2. sTrim  : Trim할 문자열(옵션 : Default=" ")( 예 : "CC" )
+ ★ return 
+    - 성공 = Trim된 문자열 ( 예 : "bb" )
+    - 실패 = ""
+ ******************************************************************************/
+function rTrimCase(sOrg, sTrim)
+{
+	var pos, nStart;
+
+	if( IsNull(sOrg) )		return "";
+	if( IsNull(sTrim) )		sTrim = " ";
+		
+	for( pos = sOrg.length-sTrim.length ; pos >= 0 ; pos -= sTrim.length )
+	{
+		if( sOrg.toLowerCase().substr( pos, sTrim.length ) != sTrim.toLowerCase() )
+			break;
+	}
+
+	return sOrg.substr(0, pos+sTrim.length);
+}
+
+/*******************************************************************************
+ ★ 설명
+    왼쪽에 문자열 추가.
+ ★ Parameter 
+    1. sOrg   : 원래 문자열( 예 : "bbccCC" )
+    2. sPad   : Pad할 문자열(옵션 : Default=" ")( 예 : "aa" )
+    3. nCnt   : 반복횟수(옵션 : Default=1) (예 : 2)
+ ★ return 
+    - 성공 = Pad된 문자열 ( 예 : "aaaabbccCC" )
+    - 실패 = ""
+ ******************************************************************************/
+function lPad(sOrg, sPad, nCnt)
+{
+	var i, sRet="";
+	if(IsNull(sOrg)) sOrg = "";
+	return String(sOrg).padLeft(nvl(nCnt, 1), nvl(sPad, " "));
+}
+
+/*******************************************************************************
+ ★ 설명
+    오른쪽에 문자열 추가.
+ ★ Parameter 
+    1. sOrg   : 원래 문자열( 예 : "bbccCC" )
+    2. sPad   : Pad할 문자열(옵션 : Default=" ")( 예 : "aa" )
+    3. nCnt   : 반복횟수(옵션 : Default=1) (예 : 2)
+ ★ return 
+    - 성공 = Pad된 문자열 ( 예 : "bbccCCaaaa" )
+    - 실패 = ""
+ ******************************************************************************/
+function rPad(sOrg, sPad, nCnt)
+{
+	var i, sRet="";
+
+	if( IsNull(sOrg) )	sOrg = "";
+	return String(sOrg).padRight(nvl(nCnt, 1), nvl(sPad, " "));	
+}
+
+//mip의 split 대체함수
+function split(stringValue,strDelimiter){
+	return String(stringValue).split(strDelimiter);	
+}
+
+//MP의 split2 대체함수
+function split2(stringValue,strDelimiter1, strDelimiter2){
+	var stringVal = [];
+	var stringArr = String(stringValue).split(strDelimiter1);
+	for(var i = 0; i < stringArr.length; i++) {
+		stringVal.push(split(stringArr[i],strDelimiter2));
+	}
+	return stringVal;
+}
+
+/*******************************************************************************
+ ★ 요일구하기
+ ★ parameter 
+    sDate : yyyyMMdd형태의 날짜 ( 예 : "20121122" )
+ ★ return 
+    - 성공 = 요일(0=일요일, ~ , 6=토요일)
+    - 실패 = -1
+******************************************************************************/ 
+function getDay(sDate)
+{
+	if(IsNull(sDate)) return -1;
+	var oDate = new Date(getMaskFormat(sDate, "@@@@-@@-@@"));
+	return oDate.getDay();
+}
+
+//mip의 IndexOf 대체함수
+function indexOf(stringValue,strPattern,nStart){
+	if(indexOf.arguments.length == 3)
+		return String(stringValue).indexOf(strPattern, nStart);
+	else
+		return String(stringValue).indexOf(strPattern);
+}
+
+/*******************************************************************************
+ ★ 설명
+    문자열을 대소문자 구별하여 치환한다
+ ★ Parameter 
+    1. sOrg   : 원래문자열 (예 : "aaBBbbccBB" )
+    2. sRepFrom : 치환할 문자열 ( 예 : "BB" )
+    3. sRepTo : 치환될 문자열 ( 예 : "xx" )
+ ★ return 
+    - 성공 = 치환된 문자열 ( 예 : "aaxxbbccxx" )
+    - 실패 = sOrg
+ ******************************************************************************/
+function replace(sOrg, sRepFrom, sRepTo )
+{
+	return String(sOrg).split(sRepFrom).join(nvl(sRepTo, ""));
+}
+
+//mip의 CharAt 대체함수
+function charAt(stringValue, nIndex){	
+	return String(stringValue).charAt(nIndex);
+}
+
+function space(nSize){
+	return String("").padLeft(nSize, " ");
+}
+
+//mip의 ExponentFormat 대체함수
+function exponentFormat(dNumber, nDetail){	
+	return Number(dNumber).toExponential(nDetail);
+}
+
+//mip의 Greatest 대체함수
+function greatest(){
+
+	var varRtnValue;	
+	var arrArgument = greatest.arguments;
+	
+	//if (arrArgument.length < 1) { return varRtnValue; }
+	
+	varRtnValue = arrArgument[0];
+	
+	for(i=0; i<arrArgument.length; i++)
+	{		
+		if(arrArgument[i] > varRtnValue)
+			varRtnValue = arrArgument[i];
+	}
+	
+	return varRtnValue; 
+}
+
+//mip의 Least 대체함수
+function least(){
+
+	var varRtnValue;	
+	var arrArgument = least.arguments;
+	
+	//if (arrArgument.length < 1) { return varRtnValue; }
+	
+	varRtnValue = arrArgument[0];
+	
+	for(i=0; i<arrArgument.length; i++)
+	{		
+		if(arrArgument[i] < varRtnValue)
+			varRtnValue = arrArgument[i];
+	}
+	return varRtnValue; 
+}
+
+//mip의 Time 대체함수
+function Time()
+{
+	var objDate = new Date();
+	var nTime = Math.round(objDate.getTime() / 1000);
+	return nTime;
+}
+
+//mip의 Timen 대체함수
+function Timen()
+{
+	var objDate = new Date();
+	var nTime = objDate.getTime();
+	return nTime;
+}
+
+//2014-01-08 ssh 추가
+function isInf(dDecimal){	
+	if(dDecimal <= Number.NEGATIVE_DECIMALMAX ||dDecimal >= Number.POSITIVE_DECIMALMAX) return true;
+	return false;	
+}
+
+//mip의 Asc 대체함수
+function Asc(args)
+{	
+	if(IsNull(args)) return 0;	
+	return args.charCodeAt(0);	
+}
+
+//********************************************************************
+//입력값 형태에 따라서 길이 또는 범위를 구하는 Basic API 입니다.
+//문자열의 길이, 배열의 크기, Binary Data의 크기등을  
+//********************************************************************
+function Bound(args)
+{		
+	if(IsNull(args)) return 0;
+		
+	if(args.components)
+	{
+		return args.components.length;   //object인 경우 count of components
+	}
+	else
+	{
+		return args.length;   //Array, String, Variant인 경우
+	}	
+}
+
+/*******************************************************************************
+ ★ 설명
+    전각문자를 반각문자로
+    ( 참고 : 전각문자는 "정사각형" 안에 들어가는 문자이고, 반각은 그 정사각형의 반쪽에 들어가는 문자이다.
+             전각문자의 폭은, 반각문자의 2배입니다. 
+             예를 들어 숫자 "3" 은, 한글 "가"의 절반의 폭만을 가지고 있습니다. 
+             그래서 영문과 숫자 등은 반각이고, 한글이나 한자들은 전각문자입니다. 
+             다만, 영문과 숫자를 전각으로 표현할 수도 있습니다.
+      예 : 전각문자 ==> ※★０＋
+           반각문자 ==> 1a )
+ ★ Parameter 
+    1. sFull   : 전각문자( 예 : "０＋" )
+ ★ return 
+    - 성공 = 반각문자 ( 예 : "0+" )
+    - 실패 = ""
+ ******************************************************************************/
+function Full2Half(args)	
+{
+	var i, c, sHalf = "";
+  
+	if( IsNull(args) &&  IsNull(name))		return "";
+	
+		for( i=0 ; i < args.length ; i++ )
+		{
+			var c = args.charCodeAt(i);
+
+			if (c == 12288) 
+				sHalf += unescape("%20"); 
+			else if ( (c >= 65281) && (c <= 65374) ) 
+				sHalf += unescape("%"+(c-65248).toString(16));
+			else 
+				sHalf += args.charAt(i);
+		}
+	return  sHalf;
+}
+
+/*******************************************************************************
+ ★ 설명
+    반각문자를 전각문자로
+ ★ Parameter 
+    1. sHalf   : 반각문자( 예 : "0+" )
+ ★ return 
+    - 성공 = 전각문자 ( 예 : "０＋" )
+    - 실패 = ""
+ ******************************************************************************/
+function Half2Full(args)
+{
+    var rTmp = "";
+    var iTmp = "";
+    var i;
+ 
+ 	if( IsNull(args))		return "";
+ 	
+		for( i = 0 ; i < args.length ; i++ ) 
+		{
+			//기본 아스키 코드 값을 벗어난 경우(한글)는 전자로 변환할 필요 없음.
+			if( (args.charCodeAt(i) >= 32) && (args.charCodeAt(i) <= 126) ) 
+			{
+				if( args.charCodeAt(i) == 32 ) 
+					iTmp = unescape("%u"+(12288).toString(16));
+				else 
+					iTmp = args.charCodeAt(i) + 65248;
+			}
+			else 
+				iTmp = args.charCodeAt(i);
+
+			if( args.charCodeAt(i) == 32 ) 
+				rTmp = rTmp + (iTmp);
+			else 
+				rTmp = rTmp + String.fromCharCode(iTmp);
+	 }
+    return rTmp;
+}
+
+/*******************************************************************************
+ ★ 설명
+    대소문자 구별하여 왼쪽에서 문자열 삭제.
+ ★ Parameter 
+    1. sOrg   : 원래 문자열( 예 : "BBbbcc" )
+    2. sTrim  : Trim할 문자열(옵션 : Default=" ") ( 예 : "bb" )
+ ★ return 
+    - 성공 = Trim된 문자열 ( 예 : "bbcc" )
+    - 실패 = ""
+ ******************************************************************************/
+function Ltrim(args)
+{	
+	if(IsNull(args)) return "";
+	return String(args).trimLeft();
+}
+
+/******************************************************************************
+ * 함수명         : Length()
+ * 설명           : 입력값 형태에 따라서 길이 또는 범위를 구하는 함수 ( bound 함수와 같음 )
+ * argument       : 객체, 문자열, 배열
+ * return         : Type에 따라 구해진 길이 또는 범위
+ * Length("123")
+ ******************************************************************************/
+function Length(args)
+{		
+	if(IsNull(args)) return 0;	
+	
+	if(args.components)
+	{
+		return args.components.length;//object인 경우 count of components
+	}
+	else
+	{
+		return args.length;//Array, String, Variant인 경우
+	}					
+}
+
+//입력된 문자열의 오른쪽 공백을 제거하는 Basic API
+function Rtrim(args)
+{
+	if(IsNull(args)) return "";
+	return String(args).trimRight();
+}
+
+//********************************************************************
+// String 형의 Variant 변수를 특정 Encoding의 Ansi Charater set의 Binary 형 변수로 변환하는 API
+//********************************************************************
+function TextToBin(args, name)
+{	
+	if( IsNull(args)) return "";
+
+	var objBuffer = new Buffer(args);	
+	return objBuffer.data; 
+}
+
+//********************************************************************
+// 문자열에 있는 모든 영어를 소문자로 바꾸는 Basic API 
+//********************************************************************
+function ToLower(args)
+{	
+	if( IsNull(args)) return "";
+	return	String(args).toLowerCase();
+}
+
+function ToLowerCase(args)
+{		
+	if( IsNull(args)) return "";
+	return	String(args).toLowerCase();
+}
+
+//mip의 ToString 대체함수
+function ToString(args)
+{	
+	if(IsNull(args)) return "";
+	return args.toString();
+}
+
+function ToUpper(args)
+{			
+	if( IsNull(args)) return "";
+	return	String(args).toUpperCase();
+}
+
+function ToUpperCase(args){	
+		
+	if(IsNull(args)) return "";
+	return String(args).toUpperCase();
+}
+
+function Trim(args)
+{		
+	if(IsNull(args)) return "";
+	return String(args).trim();
+}
+
+
+//********************************************************************
+// Alias가 포함된 File경로를 실제 경로로 바꾸는 Method
+//********************************************************************
+function AliasToRealPath(args)
+{		//★★★ Need Checking 실제로 일치하는 파라미터값이 없어서 제대로 작동은 안할 듯	
+	if(IsNull(args)) return "";	
+	return system.convertRealPath(args);
+}
+
+//********************************************************************
+//Component의 ID로부터 원하는 Component를 찾는 Form API 
+//********************************************************************
+function Find() //체크해봐야 함
+{	
+	var parentObj;
+	var objStr;
+	
+	switch(Find.arguments.length) {
+		case 0:
+			return null;
+			break;
+		case 1:
+			parentObj = this;
+			objStr    = Find.arguments[0];
+			break;
+		default:
+			parentObj = Find.arguments[0];
+			objStr    = Find.arguments[1];	
+			break;
+	}
+	
+	if(parentObj.isValidObject(objStr))
+	{
+		return parentObj[objStr];
+	}
+	else {
+		return getObject(parentObj, objStr);
+	}
+}
+
+//********************************************************************
+//해당 Form에 해당하는 Component/Dataset/ServiceObject/DataObject의 ID를 검색하여 리턴하는 Method입니다.
+//********************************************************************
+function GetChild()
+{	
+	switch(GetChild.arguments.length) {
+		case 0:
+			return null;
+			break;
+		case 1:
+			parentObj = this;
+			objStr    = GetChild.arguments[0];
+			break;
+		default:
+			parentObj = GetChild.arguments[0];
+			objStr    = GetChild.arguments[1];	
+			break;
+	}
+	
+	return Find(parentObj, objStr);
+}
+
+
+//********************************************************************
+//시스템 장치의 정보를 구하는 Form API 
+//********************************************************************
+function GetDeviceInfo(args){
+	
+	if(IsNull(args)) return "";	
+	
+	var sFlag = args.toLowerCase();
+	
+	if(sFlag=='cxscreen')
+		return system.screenwidth;
+	else if(sFlag=='cyscreen')
+		return system.screenheight;
+	else if(sFlag=='cmonitor')
+		return system.monitorcount;
+	else if(sFlag=='osversion')
+		return system.osversion;
+	else if(sFlag=='osversionsp')
+		return null;
+	else if(sFlag=='osproducttype')
+		return null;
+	else if(sFlag=='oeminfo')
+		return null;
+}
+
+//********************************************************************
+//Share/ Global/ AppGroup/ Form에 있는 전역 변수의 값을 가져오는 Method
+//********************************************************************
+function GetVariable(args)
+{	
+	if(IsNull(args)) return null;
+	return eval(args);	
+}
+
+function AddVariable(strID, varValue, strTarget)
+{
+	var strType=strTarget.toLowerCase();
+		
+	if(strType!="share" && strType!="global")	{
+		strType="global";		//예외의 경우에도 global로 대체  수정해야함.
+	}
+	if(IsNull(strType)){
+		return addVariable(strID,varValue);
+	}else{
+		return addVariable(strID, varValue, strTarget);
+	}
+}
+
+//mip의 substr 대체함수
+function SubStr(stringValue,nStart,nLength){
+	if(SubStr.arguments.length == 3)
+	//if (IsNull(nLength))  nLength = String(stringValue).length; 
+		return String(stringValue).substr(nStart, nLength);
+	else
+		return String(stringValue).substr(nStart);
+}
+
+//********************************************************************
+//사용자가 원하는 외부 실행파일을 실행하는 Form API 
+//********************************************************************
+function ExecProc(strExeName,strCommand){ 	
+	var ExtComm = new ExtCommon;
+	if(ExecProc.arguments.length == 2)
+		ExtComm.executeProcess(strExeName, strCommand);
+	else
+		ExtComm.executeProcess(strExeName);	
+}
+
+//********************************************************************
+//  Session의 상태를 검사하고 비정상인경우 Session의 연결을 유도하는 Form API
+//********************************************************************
+function LoginSession(strURL){
+		
+	if(Session == true) return;
+	if(isNull(strURL)) strURL = nvl(strURL, SessionURL);
+	if(isNull(strURL)) return;
+	
+	var objFrame = new ChildFrame("login");
+	objFrame.formurl = strURL;
+	var rtn = objFrame.showModal("login");
+	if(Session == false) {
+		exit();
+	}	
+}
+
+//이벤트맵에서 사용한 function  varKeyState()    
+function varKeyState(e){
+	var eKey = new Array();
+
+	switch(e.button) {
+		case "lbutton":
+		    eKey.push(true);
+		    eKey.push(false);
+		    eKey.push(false);
+			break;
+		case "mbutton":
+			eKey.push(false);
+		    eKey.push(true);
+		    eKey.push(false);
+			break;
+		case "rbutton":
+			eKey.push(false);
+		    eKey.push(false);
+		    eKey.push(true);
+			break;
+	}
+	eKey.push(e.shiftKey);
+	eKey.push(e.ctrlKey);
+	eKey.push(e.altKey);
+	return eKey;
+}
+
+//mip의 random 대체함수
+function random(nStart, nEnd)
+{	
+	//일정한 정수 범위의 난수를 구하는 Basic API. nStart와 nEnd 사이에 있는 임의의 정수를 리턴
+	var rtnVal;
+	if(isNull(nStart)) nStart = 0;
+	if(isNull(nEnd)) nEnd = 65535;	//miplatform 기준
+	
+	if(nStart < 0) nStart = 0;	
+	if(nStart >= 65535) nStart = 65535;	
+	if(nEnd > 65535) nEnd = 65535;
+	
+	var nGap = nEnd - nStart;	//두 값 사이의 차이
+	
+	rtnVal = nStart + Math.floor(Math.random() * nGap);
+	
+	return rtnVal;
+}
+
+//XPlatformAX 헬프참고 //●●● Need Checking
+function CallScript(args)
+{
+	if( IsNull(args)) return "";	
+	return XPlatformAX.callscript(args);
+}
+
+/******************************************************************************
+ * Function명 : IsLeapYear
+ * 설명       : 윤년여부 확인
+ * Params     : sDate : yyyyMMdd형태의 날짜 ( 예 : "20121122" )
+ * Return     : 
+ *              	- sDate가 윤년인 경우 = true
+ *					- sDate가 윤년이 아닌 경우 = false
+ *   				- sDate가 입력되지 않은 경우 = false
+ ******************************************************************************/
+function IsLeapYear(sDate)
+{
+    var ret;
+    var nY;
+    
+    //if(IsNull(sDate)) return false;
+    
+    nY = parseInt(sDate.substring(0,4), 10);
+
+    if ((nY % 4) == 0) 
+    {
+        if ((nY % 100) != 0 || (nY % 400) == 0) 
+            ret = true;
+        else 
+            ret = false;
+    } 
+    else 
+        ret = false;
+  
+    return ret;
+}
+
+//MP의 Window를 대체, 모든 form별로 form을 소유하는childframe으로 대체
+function getFrame()
+{
+	return FrameObject(getOwnerFrame());
+}
+
+//MP의 Windows를 대체, 모든 form별로 form을 소유하는childframe에 속하는 frame들
+function getFrames()
+{
+	return getOwnerFrame().all;
+}
+
+//MP이 event처리를 XP에서의 event 등록처리로 변환 KKM
+function setEventHandle(objEvent, strFunction)
+{
+	if(isNull(strFunction)) objEvent.removeHandler(0);
+	try{objEvent.setHandler(0, eval(strFunction));}catch(e){} 
+}
+
+
+//********************************************************************
+//*Dataset Component의 내용을 이용해 PopupMenu를 실행하는 Form API 
+//********************************************************************
+function trackPopupMenu(strDatasetID,strLevelColID,strMenuIDColID,strTextColID,strStatusColID,strImageColID,nXPos,nYPos,strCallBackFunc,objObject, nRow, nCell,strArg){
+	
+	if(isNull(Find("__trackPopupMenu__")) == true) {
+		create("PopupMenu", "__trackPopupMenu__", 'onmenuclick="trackPopupMenu_onmenuclick"');
+	}
+	
+	__trackPopupMenu__.innerdataset = strDatasetID;
+	__trackPopupMenu__.levelcolumn  = strLevelColID;
+	__trackPopupMenu__.idcolumn     = strMenuIDColID;
+	__trackPopupMenu__.captioncolumn  = strTextColID;
+	
+	__trackPopupMenu__.enablecolumn  = strStatusColID;
+	__trackPopupMenu__.iconcolumn    = strImageColID;
+	
+	__trackPopupMenu__.strCallBackFunc  = strCallBackFunc;
+	__trackPopupMenu__.objObject  = objObject;
+	__trackPopupMenu__.nRow       = nRow;
+	__trackPopupMenu__.nCell      = nCell;
+	
+	__trackPopupMenu__.trackPopupByComponent(objObject, nXPos, nYPos, nvl(strArg, ""));
+}
+
+function trackPopupMenu_onmenuclick(obj:PopupMenu, e:MenuClickEventInfo)
+{
+	if(isNull(obj.strCallBackFunc)) return;
+	
+	var callStr = obj.strCallBackFunc + "(" + obj.objObject.name + "," + e.id + "," + nvl(obj.nRow, -1) + "," + nvl(obj.nCell, -1) + ")";
+	try {
+		eval(callStr);
+	}catch(e){}
+}
+
+//mip에서 Grid의 ExpandEdit, ExpandUp 이벤트에서 strValue 값을 취하기 위한 함수
+function getExpandCellValue(objGrid, e)
+{
+	var rtnVal;	
+	var objDs = eval(objGrid.binddataset);		
+	var colid = getColidProperty(objGrid.getCellProperty("Body",e.cell,"text")); 
+	
+	rtnVal = objDs.getColumn(e.row, colid);	
+	return rtnVal;	
+}
+
+function getColidProperty(strText) {
+	if(isNull(strText)) return "";
+	arrText = strText.split(":");
+	if(arrText.length == 2) return arrText[1];
+	return strText;
+}
+
+function getMDIStatus(obj) 
+{
+	
+	var statusStr;
+	if(isNull(obj)) return;
+	
+	if(obj.toString().toUpperCase() == "[OBJECT FRAMESET]")
+		statusStr = obj.openstatus;
+	else
+		statusStr = obj.getOwnerFrame().openstatus;
+		
+    switch(statusStr) {
+		case "maximize":
+			return "Max";
+			break;
+		case "minimize":
+			return "Min";
+			break;
+		case "normal":
+			return "Normal";
+			break;
+    }
+}
+
+function setMDIStatus(obj, status) 
+{
+	var statusStr;
+	
+	if(isNull(obj)) return;
+	
+	switch(status.toLowerCase()) {
+		case "max":
+			statusStr = "maximize";
+			break;
+		case "min":
+			statusStr = "minimize";
+			break;
+		case "normal":
+			statusStr = "normal";
+			break;
+    }
+    
+    if(obj.toString().toUpperCase() == "[OBJECT FRAMESET]")
+		obj.openstatus = statusStr;
+	else
+		obj.getOwnerFrame().openstatus = statusStr;
+}
+
+/**********************************************************************************
+ ★ 설명
+    해당월의 마지막 날짜를 숫자로 구하기 
+ ★ parameter 
+    1. sDate : yyyyMMdd형태의 날짜 ( 예 : "20121122" )
+ ★ return 
+    - 성공 = 마지막 날짜 숫자값 ( 예 : 30 )
+    - 실패 = -1
+**********************************************************************************/
+function lastDateNum(sDate)
+{
+    var nMonth, nLastDate;
+	//if( IsNull(sDate)) return -1;
+	
+	nMonth = parseInt(sDate.substr(4,2), 10);
+    if( nMonth == 1 || nMonth == 3 || nMonth == 5 || nMonth == 7  || nMonth == 8 || nMonth == 10 || nMonth == 12 )
+		nLastDate = 31;
+    else if( nMonth == 2 )  
+    {
+        if( IsLeapYear(sDate) == true )
+			nLastDate = 29;
+        else
+			nLastDate = 28;
+    } 
+    else 
+		nLastDate = 30;
+		
+	return nLastDate;
+}
+
+//********************************************************************
+//  MiPlatform의 입력된 문자열을 이용해 현재위치에서 해당 Object를 검색하여 Return 하는 Basic API 대체
+//********************************************************************
+function getObject()	//Find함수에서 사용중
+{
+	var parentObj;
+	var objStr;
+	var objRet;
+	
+	switch(getObject.arguments.length) {
+		case 0:
+			return null;
+			break;
+		case 1:
+			parentObj = this;
+			objStr    = getObject.arguments[0];
+			break;
+		default:
+			parentObj = getObject.arguments[0];
+			objStr    = getObject.arguments[1];	
+			break;
+	}
+	
+	if(parentObj.all) {
+		objRet = parentObj.all[objStr];
+	}
+	else {
+		objRet = parentObj[objStr];
+	}
+	
+	if(isNull(objRet) == true) {
+		try {
+			objRet = eval(objStr);
+		}catch(e){}
+	}
+	return objRet;
+}
+
+/******************************************************************************
+* Function Name: getMaskFormat
+* Description  : 문자 포맷 형식 변환 ( 해당 문자는 포맷에서 @ 사용)
+* Arguments    : Val: 문자열, 
+*                strMask: 문자열 포맷, (@:문자, 포맷스트링("-", ",", ".")등
+* return       : 포맷된 문자
+******************************************************************************/
+function getMaskFormat(Val, Mask) {
+    
+    var strRetVal = "";
+	var sUnit;
+	
+	if(isNull(Val)) return null;
+	
+	var strVal  = String(Val);
+	var strMask = nvl(Mask, "");
+	
+	for(var i = 0; i < strMask.length; i++) {
+		sUnit = strMask.substr(i, 1);
+		
+		if(sUnit == "@")
+		{
+		    strRetVal += strVal.substr(0, 1);
+		    strVal = strVal.substr(1);
+		    if(strVal.length == 0) break;
+		}
+		else
+		{
+		    strRetVal += sUnit;
+		}
+    }
+    return strRetVal;
+}
+
+function GetPrevComponent(CompositeFlag){
+	
+	var bNoCompositeFlag,objComponent,objComp;
+	
+	 objComp = getFocus();
+	 bNoCompositeFlag = nvl(CompositeFlag,false);
+	 objComponent= getPrevComponent(objComp,bNoCompositeFlag);
+	return objComponent;
+}
+
+function GetNextComponent(CompositeFlag){
+	
+	var bNoCompositeFlag,objComponent,objComp;
+	
+	 objComp = getFocus();
+	 bNoCompositeFlag = nvl(CompositeFlag,false);
+	 objComponent= getNextComponent(objComp,bNoCompositeFlag);
+	return objComponent;
+}
+
+/**
+ * @class 서버에 전송할 Global 변수를 Get Url 방식으로 정의 by kksoo
+ * @param 없음
+ * @return 공통변수값
+ */
+function fn_getGlobalVariableUrl() 
+{
+	var strVal  = "";
+	//(주의) wrapQuote 사용하면 안 됨
+	strVal += "?appId=" + g_AppId;    					// App ID
+	strVal += "&sysType=" + g_SystemId;    				// Syetem ID
+	strVal += "&menuId=" + gv_menuId;    				// 메뉴ID        
+	strVal += "&prgId=" + gv_progrmId; 					// 프로그램 ID
+
+    return strVal;
+}]]></Script>

@@ -1,0 +1,313 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Script type="xscript4.0"><![CDATA[/* ********************************************************************************************** */
+// KICC 처리 모듈
+/* ********************************************************************************************** */
+var SCKicc = {
+	
+	/* ********************************************************************************************** */
+	// 설명 : 명령어 코드(10진수값)
+	/* ********************************************************************************************** */
+	Command : {
+		Default : 0xFD,
+		Zero : 0x00
+	},
+	
+	/* ********************************************************************************************** */
+	// 설명 : CAT단말기를 초기화한다.
+	/* ********************************************************************************************** */
+	initCat : function(activeXObject) {
+		var tmp = "";
+		activeXObject.ReqCmd(SCKicc.Command.Default, SCKicc.Command.Zero, SCKicc.Command.Zero,  "TM", tmp);
+	},
+	
+	/* ********************************************************************************************** */
+	// 설명 : 승인(카드/현금)을 진행한다.
+	//        system : 호출하고자하는 업무(시스템)을 구분하기 위한 값
+	//        refNo  : 신규 승인인경우에는 ""으로, 분할 승인인 경우에는 이전에 승인된 refNo의 값
+	//        totalApprovalAmt : 승인 금액
+	/* ********************************************************************************************** */
+	approval : function(system, refNo, totalApprovalAmt) {
+		var strId       = "KiccService";
+		var strURL      = "cmn::KiccService.xfdl";
+		var objArgument = {
+		    PROCESS_TYPE : "Approval",
+			SYSTEM : system,
+			REF_NO : refNo,
+			SEQ : "",
+			TOTAL_APPROVAL_AMT : totalApprovalAmt
+		};
+		var nWidth      = -1;
+		var nHeight     = -1;
+		var strStyle    = "";
+		var nLeft       = -1;
+		var nTop        = -1;
+		var isModeless  = false;
+		var bShowTitle  = true;
+		var strAlign    = "-1";
+
+		// 리턴값을 배열로 받을 경우	
+		var arrRtn = gfn_dialog(strId, strURL, objArgument, nWidth, nHeight, strStyle, nLeft, nTop, isModeless, bShowTitle, strAlign);
+		
+		if (arrRtn instanceof Object) {
+			//refNo, resCd (0000:성공, 그외는 실패)
+			return arrRtn;
+		}
+	},
+	
+	/* ********************************************************************************************** */
+	// 설명 : 취소(카드/현금)을 진행한다.
+	//        system : 호출하고자하는 업무(시스템)을 구분하기 위한 값
+	//        refNo  : 승인처리에 대한 refNo값
+	//        seq    : 승인된 Row에 대한 Seq값
+	/* ********************************************************************************************** */
+	cancel : function(system, refNo, seq) {
+		
+		if (gfn_isNull(refNo)) {
+			gfn_alert("취소할 자료가 없습니다.");
+			return;
+		}
+		
+		var strId       = "KiccService";
+		var strURL      = "cmn::KiccService.xfdl";
+		var objArgument = {
+		    PROCESS_TYPE : "Cancel",
+			SYSTEM : system,
+			REF_NO : refNo,
+			SEQ : seq,
+			TOTAL_APPROVAL_AMT : 0
+		};
+		var nWidth      = -1;
+		var nHeight     = -1;
+		var strStyle    = "";
+		var nLeft       = -1;
+		var nTop        = -1;
+		var isModeless  = false;
+		var bShowTitle  = true;
+		var strAlign    = "-1";
+
+		// 리턴값을 배열로 받을 경우	
+		var arrRtn = gfn_dialog(strId, strURL, objArgument, nWidth, nHeight, strStyle, nLeft, nTop, isModeless, bShowTitle, strAlign);
+
+		if (arrRtn instanceof Object) {
+			//refNo, resCd (0000:성공, 그외는 실패)
+			return arrRtn;
+		}
+	},
+	
+	/* ********************************************************************************************** */
+	// 설명 : 결제금액에 대하여 공급가액과 부가세를 계산한다.
+	/* ********************************************************************************************** */
+	calculation : function(totalApprovalAmt) {
+		var rtn = {netAmt : 0, vatAmt : 0};
+		
+		if (Number(totalApprovalAmt) > 999) {
+			rtn.netAmt = Math.ceil(Number(totalApprovalAmt)/(11/10));
+			rtn.vatAmt = Number(totalApprovalAmt) - (Math.ceil(Number(totalApprovalAmt)/(11/10)));
+		}
+		else {
+			rtn.netAmt = 0;
+			rtn.vatAmt = 0;
+		}
+		
+		return rtn;
+	},
+	
+	/* ********************************************************************************************** */
+	// 설명 : CAT단말기로 승인(카드/현금)요청을 한다.
+	/* ********************************************************************************************** */
+	approvalRequest : function(activeXObject, requestDataObject, serviceType, divMonth_custType, totalApprovalAmt, vatAmt) {
+		var docCd = "";
+		var wcc = " ";
+		var cardNo = gfn_rPad(" ", " ", 40);
+		var ymd = gfn_rPad(" ", " ", 6);
+		var approvalNo = gfn_rPad(" ", " ", 12);
+		var serviceCharge = gfn_rPad("0", " ", 8);
+		var posNo = "000000"+gfn_todayTime();
+		
+		totalApprovalAmt = gfn_rPad(totalApprovalAmt, " ", 8);
+		vatAmt = gfn_rPad(vatAmt, " ", 8);
+		
+		switch (serviceType) {
+			case "CardApproval" :
+				docCd = "D1";
+				break;
+			case "CashApproval" :
+				docCd = "B1";
+				break;
+			case "CashAuto" :
+				docCd = "B3";
+				break;
+		}
+		
+		var docData = docCd+wcc+cardNo+divMonth_custType+ymd+approvalNo+totalApprovalAmt+serviceCharge+vatAmt+posNo;
+		var msg = "";
+
+		requestDataObject.value = docData;
+		
+		activeXObject.ReqCmd(SCKicc.Command.Default, SCKicc.Command.Zero, SCKicc.Command.Zero, docData, msg);
+	},
+	
+	/* ********************************************************************************************** */
+	// 설명 : CAT단말기로 취소(카드/현금)요청을 한다.
+	/* ********************************************************************************************** */
+	cancelRequest : function(activeXObject, requestDataObject, serviceType, dataSet) {
+		var docCd = "";
+		var wcc = dataSet.getColumn(0, "wcc");
+		var divMonth_custType = dataSet.getColumn(0, "div");
+		var cardNo = gfn_rPad(" ", " ", 40);
+		var ymd = SCKicc.stringCut(dataSet.getColumn(0, "approvalDt"), 0, 6);
+		var approvalNo = gfn_rPad(dataSet.getColumn(0, "approvalNo"), " ", 12);
+		var totalApprovalAmt = gfn_rPad(dataSet.getColumn(0, "amt"), " ", 8);
+		var vatAmt = gfn_rPad(dataSet.getColumn(0, "vat"), " ", 8);
+		var serviceCharge = gfn_rPad("0", " ", 8);
+		var posNo = "000000"+gfn_todayTime();
+		
+		switch (serviceType) {
+			case "CardCancel" :
+				if (gfn_today() == "20"+ymd) {
+					docCd = "D2";
+				}
+				else {
+					docCd = "D3";
+				}
+				
+				break;
+			case "CashCancel" :
+				docCd = "B2";
+				break;
+		}
+		
+		var docData = docCd+wcc+cardNo+divMonth_custType+ymd+approvalNo+totalApprovalAmt+serviceCharge+vatAmt+posNo;
+		var msg = "";
+
+		requestDataObject.value = docData;
+		
+		activeXObject.ReqCmd(SCKicc.Command.Default, SCKicc.Command.Zero, SCKicc.Command.Zero, docData, msg);
+	},
+	
+	/* ********************************************************************************************** */
+	// 설명 : 단말기로부터의 발생한 이벤트
+	/* ********************************************************************************************** */
+	event : function(requestData, o, e) {
+		var rtn = {  reqDocCd : ""
+		           , reqWcc : ""
+		           , reqCardNo : ""
+		           , reqDiv : ""
+		           , reqApprovalDt : ""
+		           , reqApprovalNo : ""
+		           , reqAmt : 0
+		           , reqCharge : 0
+		           , reqVat : 0
+		           , reqPosNo : ""
+		           , docCd : ""
+		           , resCd : ""
+		           , tid : ""
+		           , wcc : ""
+		           , cardData : ""
+		           , cardNo : ""
+		           , div : ""
+		           , amt : 0
+		           , charge : 0
+		           , vat : 0
+		           , approvalNo : ""
+		           , approvalDt : ""
+		           , issueCpnCd : ""
+		           , cardCpnNm : ""
+		           , memberCd : ""
+		           , purchaseCpnCd : ""
+		           , purchaseCpnNm : ""
+		           , posNo : ""
+		           , dscDiv : ""
+		           , msg : ""
+		          };
+		
+		//요청에 대한 결과구조를 생성한다.
+		rtn.reqDocCd      = SCKicc.stringCut(requestData, 0, 2);
+		rtn.reqWcc        = SCKicc.stringCut(requestData, 2, 1);
+		rtn.reqCardNo     = SCKicc.stringCut(requestData, 3, 40);
+		rtn.reqDiv        = SCKicc.stringCut(requestData, 43, 2);
+		rtn.reqApprovalDt = SCKicc.stringCut(requestData, 45, 6);
+		rtn.reqApprovalNo = SCKicc.stringCut(requestData, 51, 12);
+		rtn.reqAmt        = SCKicc.stringCut(requestData, 63, 8);
+		rtn.reqCharge     = SCKicc.stringCut(requestData, 71, 8);
+		rtn.reqVat        = SCKicc.stringCut(requestData, 79, 8);
+		rtn.reqPosNo      = SCKicc.stringCut(requestData, 87, 20);
+		
+		//응답에 대한 결과구조를 생성한다.
+		var datas = gfn_replace(e.RData, String.fromCharCode(28), " "); //e.RData
+		rtn.docCd = SCKicc.stringCut(datas, 0, 2);
+		rtn.resCd = SCKicc.stringCut(datas, 2, 4);
+		
+		if (rtn.resCd == "0000") {
+			rtn.tid           = SCKicc.stringCut(datas, 6, 8);
+			rtn.wcc           = SCKicc.stringCut(datas, 14, 1);
+			rtn.cardData      = SCKicc.stringCut(datas, 15, 40);
+			rtn.cardNo        = SCKicc.stringCut(rtn.cardData, 0, 16);
+			rtn.div           = SCKicc.stringCut(datas, 55, 2);
+			rtn.amt           = SCKicc.stringCut(datas, 57, 8);
+			rtn.charge        = SCKicc.stringCut(datas, 65, 8);
+			rtn.vat           = SCKicc.stringCut(datas, 73, 8);
+			rtn.approvalNo    = SCKicc.stringCut(datas, 81, 12);
+			rtn.approvalDt    = SCKicc.stringCut(datas, 93, 12);
+			rtn.issueCpnCd    = SCKicc.stringCut(datas, 105, 3);
+			rtn.cardCpnNm     = SCKicc.stringCut(datas, 108, 20);
+			rtn.memberCd      = SCKicc.stringCut(datas, 128, 12);
+			rtn.purchaseCpnCd = SCKicc.stringCut(datas, 140, 3);
+			rtn.purchaseCpnNm = SCKicc.stringCut(datas, 143, 20);
+			rtn.posNo         = SCKicc.stringCut(datas, 163, 20);
+			rtn.dscDiv        = SCKicc.stringCut(datas, 183, 1);
+			rtn.msg           = "OK";
+		}
+		else {
+			rtn.tid           = gfn_rPad(" ", " ", 8);
+			rtn.wcc           = gfn_rPad(" ", " ", 1);
+			rtn.cardData      = gfn_rPad(" ", " ", 40);
+			rtn.cardNo        = gfn_rPad(" ", " ", 16);
+			rtn.div           = gfn_rPad(" ", " ", 1);
+			rtn.amt           = gfn_rPad(" ", " ", 8);
+			rtn.charge        = gfn_rPad(" ", " ", 8);
+			rtn.vat           = gfn_rPad(" ", " ", 8);
+			rtn.approvalNo    = gfn_rPad(" ", " ", 12);
+			rtn.approvalDt    = gfn_rPad(" ", " ", 12);
+			rtn.issueCpnCd    = gfn_rPad(" ", " ", 3);
+			rtn.cardCpnNm     = gfn_rPad(" ", " ", 20);
+			rtn.memberCd      = gfn_rPad(" ", " ", 12);
+			rtn.purchaseCpnCd = gfn_rPad(" ", " ", 3);
+			rtn.purchaseCpnNm = gfn_rPad(" ", " ", 20);
+			rtn.posNo         = gfn_rPad(" ", " ", 20);
+			rtn.dscDiv        = " ";
+			rtn.msg           = SCKicc.stringCut(datas, 6, 64);
+		}
+
+		return rtn;
+	},
+	
+	/* ********************************************************************************************** */
+	// 설명 : 특정문자열을 자른다.
+	/* ********************************************************************************************** */
+	stringCut : function(str, st, len) {
+		var l = 0;
+		var s = 0;
+		
+		for (var i=0; i<str.length; i++) {
+			s += (str.charCodeAt(i) > 128) ? 2 : 1;
+			if (s>st) {
+				st = i;
+				break;
+			}
+		}
+		
+		str = str.substr(st);
+		
+		for (var i=0; i<str.length; i++) {
+			l += (str.charCodeAt(i) > 128) ? 2 : 1;
+			if (l>len) return str.substring(0, i);
+		}
+		
+		return str;
+	},
+	
+	tmp : function() {
+	}
+};
+]]></Script>

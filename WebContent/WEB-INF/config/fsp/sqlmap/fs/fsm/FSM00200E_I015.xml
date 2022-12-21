@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>insert</type>
+	<description><![CDATA[업장표준레시피복사 - 레시피포함 :자재복사]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+INSERT INTO FSM_REAL_RECIPE_ITEM
+            (UPJANG, MENU_CD, RECIPE_CD, ITEM_CODE, ITEM_SEQ, NEED_QTY, EDIBLE_QTY, CUT_SPEC
+            ,ORDER_YN, PR_ID, PR_NUM, PR_QTY, NEED_DATE, UNIT_PRICE, MARGIN_RATE, MARGIN_PRICE
+            ,CUSER, CDATE, UUSER, UDATE)
+SELECT --/*+ USE_NL (A B) */
+       #UPJANG# UPJANG -- 상단의 복사될 사업장
+      ,#MENU_CD# MENU_CD -- 상단의 예상인원이 등록된 MENU_CD
+      ,A.RECIPE_CD
+      ,A.ITEM_CODE
+      ,NVL(A.ITEM_SEQ,0) ITEM_SEQ
+      ,A.NEED_QTY
+      ,A.EDIBLE_QTY
+      ,A.CUT_SPEC
+      ,'N' ORDER_YN
+      ,0 PR_ID
+      ,'' PR_NUM
+      ,0 PR_QTY
+      ,#MENU_DATE# NEED_DATE -- 제공일
+      ,NVL(B.CONTRACT_PRICE,0) UNIT_PRICE
+      ,NVL(B.MARGIN_RATE,0) MARGIN_RATE
+      ,NVL(B.ITEM_PRICE,0) MARGIN_PRICE
+      ,#g_EmpNo# CUSER -- 복사하는 USER
+      ,SYSDATE CDATE
+      ,#g_EmpNo# UUSER -- 복사하는 USER
+      ,SYSDATE UDATE
+  FROM FSM_REAL_RECIPE_ITEM A
+      ,(
+	    SELECT /*+ USE_HASH(A D E) */ 
+	           A.ITEM_CODE
+	         , D.ITEM_NAME
+	         , D.ITEM_SIZE
+	         , D.PO_UOM
+	         , A.CUSTCD
+	         , DECODE(A.MARGIN_RATE, 0, A.CONTRACT_PRICE, DECODE(E.OUTVAT_FLAG, 'Y' , ( ROUND( (A.CONTRACT_PRICE * DECODE(D.TAX_CODE, '100' , 1.1, 1) * (A.MARGIN_RATE+100) / 100 ) / 10) * 10 ) , ( ROUND( (A.CONTRACT_PRICE * (A.MARGIN_RATE+100) / 100 ) / 10) * 10 ) ) ) AS ITEM_PRICE
+	         , KG_CONVERT_RATE
+	         , ROUND((DECODE(A.MARGIN_RATE, 0, A.CONTRACT_PRICE, DECODE(E.OUTVAT_FLAG, 'Y' , ( ROUND( (A.CONTRACT_PRICE * DECODE(D.TAX_CODE, '100' , 1.1, 1) * (A.MARGIN_RATE+100) / 100 ) / 10) * 10 ) , ( ROUND( (A.CONTRACT_PRICE * (A.MARGIN_RATE+100) / 100 ) / 10) * 10 ) ) ) )/KG_CONVERT_RATE/1000,2) AS G_ITEM_PRICE
+	         , A.UPJANG
+		     , A.MARGIN_RATE
+		     , A.CONTRACT_PRICE
+  	      FROM HLDC_PO_CONTRACT_F A
+  	         , HLDC_PO_ITEM_MST D
+  	         , HLDC_PO_SUBINVENTORY E		      
+		 WHERE 1=1
+           AND A.UPJANG = (SELECT AP_UNITPRICE_UPJANG FROM HLDC_ST_UPJANG Z WHERE Z.UPJANG = #UPJANG#)
+		   AND #MENU_DATE# BETWEEN A.CONTRACT_START AND A.CONTRACT_END
+		   AND A.USE_YN = 'Y'
+		   AND A.CONTRACT_PRICE > 0
+           AND E.UPJANG = #UPJANG#
+           AND E.SUBINV_CODE = #SUBINV_CODE#
+           AND A.ITEM_CODE = D.ITEM_CODE
+       ) B
+ WHERE A.ITEM_CODE = B.ITEM_CODE(+)
+   AND A.UPJANG = #SRC_UPJANG# -- 좌측의 선택된 사업장
+   AND A.MENU_CD = #SRC_MENU_CD# --좌측의 선택된 메뉴코드
+   AND A.RECIPE_CD IN (#RECIPE_CD$#) -- 복수개의 선택된 레시피 코드를 INPUT으로 입력 받는다.
+   AND NOT EXISTS (
+               SELECT 1
+                 FROM FSM_REAL_RECIPE_MST C
+                WHERE C.UPJANG = #UPJANG#  -- 상단의 복사될 사업장
+                  AND C.MENU_CD = #MENU_CD#  -- 상단의 예상인원이 등록된 MENU_CD
+                  AND C.RECIPE_CD = A.RECIPE_CD
+               )	</statement>
+	<input default-name="ds_list">
+		<col name="UPJANG" size="6" type="NUMERIC" description="" /> 
+		<col name="MENU_CD" size="255" type="VARCHAR" description="" /> 
+		<col name="MENU_DATE" size="255" type="VARCHAR" description="" /> 
+		<col name="g_EmpNo" size="255" type="VARCHAR" description="" /> 
+		<col name="SRC_UPJANG" size="6" type="NUMERIC" description="" /> 
+		<col name="SRC_MENU_CD" size="255" type="VARCHAR" description="" /> 
+		<col name="RECIPE_CD" size="255" type="VARCHAR" description="" /> 
+		<col name="SUBINV_CODE" size="255" type="VARCHAR" description="" /> 		
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

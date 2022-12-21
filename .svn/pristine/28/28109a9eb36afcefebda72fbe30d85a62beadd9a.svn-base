@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fs.fsb.upjangChangeHistoryDAO">
+	<desc>업장이력조회 HQML Query</desc>
+
+	<!-- 업장이력조회 목록을 조회한다. -->
+	<statement name="selectUpjangChangeHistory" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackHistoryDAO.selectUpjangChangeHistory */
+		<![CDATA[
+			 SELECT A.UPJANG
+		           ,A.CHG_DATE
+		           ,A.SEQ
+		           ,V.UPJANGNM
+		           ,V.SAUPNO
+		           ,V.DRNAME
+		           ,A.ADDR_KEY
+		           ,SCC_GET_ADDR_FUN('ZIP'   , A.ADDR_KEY, :loginPersMask, :maskAuth) AS ZIP_CODE
+                   ,SCC_GET_ADDR_FUN('BASE'  , A.ADDR_KEY, :loginPersMask, :maskAuth)||' '||SCC_GET_ADDR_FUN('DETAIL', A.ADDR_KEY, :loginPersMask, :maskAuth) AS ADDR
+		           ,V.UP_TAE
+		           ,V.UP_JONG
+		           ,A.FRNC_STOR_NO         
+		           ,V.UPJANGNM VAT_UPJANG
+		           ,(SELECT BANKNM FROM HLDC_ST_BANK WHERE BANKCD = V.ADVANCE_BANKCD) ADVANCE_BANKCD         
+		           ,V.ACC_OPENDATE
+		           ,V.ACC_CLOSEDATE
+		           ,V.DEPT_ID
+		           ,(SELECT MU_NM||'>'||SC_NM||'>'||TM_NM||'>'||PT_NM||'>'||CC_NM FROM HLDC_SC_DEPT_V WHERE DEPT_ID = V.DEPT_ID) DEPTNM
+		           ,V.CC_CD
+		           ,(SELECT CC_NM FROM HLDC_SC_CC WHERE CC_CD = V.CC_CD) CC_NM
+		           ,A.SAUP_TYPE
+		           ,A.JOB_CD
+		           ,A.SUB_JOB_CD
+		           ,A.RELATED_YN
+		           ,SCC_CRYPTO.MASK_FUN(A.UPJANG_TEL_ENC,9,:loginPersMask) AS UPJANG_TEL      --   전화번호 
+		           ,SCC_CRYPTO.DEC_FUN(A.UPJANG_TEL_ENC) UPJANG_TEL_ENC    
+		           ,A.CHARGE_SABUN
+		           ,(SELECT NM_KOR FROM SCO_FS_HR_PERSONAL_V WHERE SABUN = A.CHARGE_SABUN) CHARGE_SABUNNM    -- 점장명
+		           ,A.FIRST_JUMJANG_YN
+		           ,SCC_CRYPTO.MASK_FUN(A.CHARGE_SABUNHP_ENC,8,:loginPersMask) AS CHARGE_SABUNHP    -- 휴대폰번호
+		           ,A.OPEN_DATE       --   오픈일 
+		           ,A.CLOSE_DATE     -- 폐점일 
+		           ,A.AVG_EAT_CNT     -- 운영평균일식수 
+		           ,A.LIVE_NO_MAN     -- 입주총인원 
+		           ,A.PERMISSION_TYPE   --   인허가형태(MA0004) 
+		           ,A.DIST_TYPE          --배식형태(MA0005) 
+		           ,A.FIRST_CTRT_DATE    --  최초계약일 
+		           ,A.END_CTRT_DATE        --  계약만료일 
+		           ,A.CTRT_TYPE            --  계약방식(MA0006) 
+		           ,A.SPECIAL_AGREE        --  특약사항 
+		           ,A.GUARANTY_DESC        --  보증금담보 
+		           ,A.CONTRIB_NOPAY_YN    --  기부체납 
+		           ,A.ROOM_LEASE_AMT     -- 임대료(식당) 
+		           ,A.CORNER_LEASE_AMT   --   매점임대료 
+		           ,NVL(A.TOT_INVEST_AMT, 0) TOT_INVEST_AMT    --  총투자실적 
+		           ,NVL(A.GUARANTY_AMT, 0) GUARANTY_AMT        --  보증금잔액 
+		           ,NVL(A.DEPRN_RESERVE_AMT, 0) DEPRN_RESERVE_AMT    -- 미상각잔액
+		           ,A.STORE_YN           --   매점운영 여부 
+		           ,A.VENDING_YN         -- 자판기보유 여부
+		           ,A.GIVE_AMT           --   기부금 
+		           ,A.EXPENSE_TYPE       --   경비부담 주체(MA0007) 
+		           ,A.UTILITY_TYPE        --  수도광열비(MA0008) 
+		           ,A.WATER_GUBUN         -- 용수구분(001 지하수, 002 상수도) 
+		           ,A.LEADER_SABUN        
+		           ,(SELECT NM_KOR FROM SCO_FS_HR_PERSONAL_V WHERE SABUN = A.LEADER_SABUN) LEADER_SABUNNM          --    리더명 
+		           ,A.SUBTEAM_MST_SABUN
+		           ,(SELECT NM_KOR FROM SCO_FS_HR_PERSONAL_V WHERE SABUN = A.SUBTEAM_MST_SABUN) SUBTEAM_MST_SABUNNM  --    소팀장명 
+		           ,A.TEAM_MST_SABUN
+		           ,(SELECT NM_KOR FROM SCO_FS_HR_PERSONAL_V WHERE SABUN = A.TEAM_MST_SABUN) TEAM_MST_SABUNNM       --   대팀장명 
+		           ,A.IMG_PATH       --   사업장약도 
+		           ,A.LOC_CD
+		           ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0040' AND CODE = A.LOC_CD) LOC_CDNM   --   지역1 
+		           ,A.SUB_LOC_CD
+		           ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0041' AND SET1 = A.LOC_CD AND CODE = A.SUB_LOC_CD) SUB_LOC_CDNM    --  지역2 
+		           ,A.DELIVERY_ADDR_KEY   --   배송주소 
+		           ,SCC_GET_ADDR_FUN('ZIP'   , A.DELIVERY_ADDR_KEY, :loginPersMask, :maskAuth) AS DELIVERY_ZIP_CODE
+                   ,SCC_GET_ADDR_FUN('BASE'  , A.DELIVERY_ADDR_KEY, :loginPersMask, :maskAuth)||' '||SCC_GET_ADDR_FUN('DETAIL', A.DELIVERY_ADDR_KEY, :loginPersMask, :maskAuth) AS DELIVERY_ADDR 
+		           ,A.DELIVERY_DETAIL   --   배송특이사항 
+		           ,A.EXCEPT_FLAG
+		           ,A.ICE_MACHINE_YN
+		           ,A.VENDING_MACHINE_YN
+		           ,A.NO_DISASTER_DATE    
+		           ,A.UNDERWATER_PUR_YN      --    지하정수처리시설 여부
+		           ,A.UNDERWATER_PUR_TYPE    --  지하정수처리시설 방식 
+		           ,A.DC_OIL_PROC        -- 폐식용유처리
+		           ,A.DC_OIL_PROC_REASON -- 자가처리사유
+		           ,A.MENU_SUNHO         -- 메뉴선호세대
+		           ,A.MENU_SUNHO_M       -- 성별비율(남)
+		           ,A.MENU_SUNHO_W       -- 성별비율(여)
+		           ,A.CAFE_OP_YN         -- 카페운영여부
+		           ,A.CAFE_OP_AMT        -- 카페운영임대료
+		           ,A.WTR_YN            --  수도 여부
+		           ,A.GS_YN              -- 가스 여부
+		           ,A.PERIOD_YN          -- 전기 여부
+		           ,A.COOLING_HTNG_YN    -- 냉난방 여부
+		           ,A.RECONTRACT_PLAN_YN -- 재계약계획
+		           ,A.RECONTRACT_ACT_YN  -- 재계약실적
+		           ,A.RECONTRACTDT       -- 재계약일자
+		           ,A.RESP_MEAL_UPRICE   --  대표식단가
+		           ,A.RESP_MEAL_QTY      -- 대표식수1
+		           ,A.OP_TYPE            --  운영형태(O 오픈형, C 폐쇄형)
+		           ,A.GRIL_KEEP_YN 
+		           ,A.OVEN_DUTY_YN 
+		           ,A.EMAIL_ENC
+		           ,B.MGMT_CD           
+		           ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0037' AND CODE = B.MGMT_CD) MGMT_CDNM
+		           ,B.MGMT_CD1            
+		           ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0042' AND CODE = B.MGMT_CD1) MGMT_CD1NM
+		           ,B.REMAIN_COMPANY      
+		           ,B.VENDOR_USERNAME    
+		           ,SCC_CRYPTO.MASK_FUN(B.VENDOR_USERTEL1_ENC,9,:loginPersMask) AS VENDOR_USERTEL1  
+		           ,SCC_CRYPTO.MASK_FUN(B.VENDOR_USERTEL2_ENC,9,:loginPersMask) AS VENDOR_USERTEL2
+		           ,B.FEE_CD      
+		           ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0039' AND CODE = B.FEE_CD) FEE_CDNM
+		           ,B.UPRICE      
+		           ,B.ATTR01
+		           ,A.CUSER
+		           ,(SELECT C.NM_KOR FROM SCO_FS_HR_PERSONAL_V C WHERE C.SABUN = A.CUSER) NM_KOR
+           		   ,A.CDATE
+		       FROM SCO_UPJANG_MST_HIS A
+		           ,SCO_UPJANG_REMAINMEAL B
+		           ,SCO_UPJANG_MST_V V
+		     WHERE A.UPJANG = B.UPJANG(+) --변경이력이 안나오는 문제 수정 20181213 김호석
+		       AND A.UPJANG = V.UPJANG
+		       AND A.UPJANG = :upjangCd
+		     <#if udateFrom?has_content>   
+				   AND TO_CHAR(A.UDATE,'YYYYMMDD') BETWEEN :udateFrom 
+			    <#if udateTo?has_content>
+			   		AND :udateTo
+			    </#if>
+		     </#if>  
+		  ORDER BY A.UPJANG, A.UDATE DESC, A.SEQ
+		]]>
+	</statement>
+	
+	<!-- 식단가현황(TAB6)_History 목록을 조회한다. -->
+	<statement name="selectMpriceInfoHistory" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectMpriceInfoHistory */
+		<![CDATA[
+		  SELECT CHG_DATE		/* 변경일 */
+				,SEQ			/* 순번 */
+				,UPJANG			/* 업장코드 */
+				,GUBUN_CD1		/* 식구분 */
+				,(SELECT A.CODE_NAME FROM SCC_COMMON_CODE A WHERE A.GROUP_CODE = 'MA0009' AND A.CODE = GUBUN_CD1) GUBUN_CD1NM
+				,GUBUN_CD2		/* 메뉴구분 */
+				,(SELECT A.CODE_NAME FROM SCC_COMMON_CODE A WHERE A.GROUP_CODE BETWEEN 'MA0010' AND 'MA0014' AND A.CODE = GUBUN_CD2) GUBUN_CD2NM
+				,MPRICE_OPENDD	/* 단가개시일 */
+				,MEAL_UPRICE	/* 식단가 */
+				,USE_YN			/* 사용 여부 */
+				,ATTR01			/* 여분01 */
+				,ATTR02			/* 여분02 */
+				,ATTR03			/* 여분03 */
+				,ATTR04			/* 여분04 */
+				,ATTR05			/* 여분05 */
+				,(SELECT V.NM_KOR FROM SCO_FS_HR_PERSONAL_V V WHERE V.SABUN = CUSER) NM_KOR
+				,(SELECT V.TM_NM FROM SCO_FS_HR_PERSONAL_V V WHERE V.SABUN = CUSER) TM_NM
+				,CDATE
+		    FROM SCO_UPJANG_MPRICE_HIS
+		   WHERE UPJANG = :upjangCd
+		   <#if udateFrom?has_content>   
+			   	AND TO_CHAR(UDATE,'YYYYMMDD') BETWEEN :udateFrom 
+		      <#if udateTo?has_content>
+		   		AND :udateTo
+		      </#if>
+	       </#if>
+		ORDER BY UPJANG, UDATE DESC, SEQ
+		]]>
+	</statement>
+
+</hqml>

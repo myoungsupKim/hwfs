@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<isEqual col="GUBUN" value="1">  
+SELECT 
+		V.LINE_DATE,
+		NVL(SUM(V.RCP_AMT), 0) RCP_AMT	
+  FROM (
+			SELECT
+					V.UPJANG_CD AS UPJANG,
+					V.CUST_CD AS CUSTCD,
+					D.RECEIVE_DATE AS  LINE_DATE,
+				   NVL(D.RECEIVE_AMT, 0) AS RCP_AMT
+			FROM SLA_AR_MST V  INNER JOIN SCO_UPJANG_CUST B ON V.UPJANG_CD = B.UPJANG
+																						AND V.CUST_CD = B.CUSTCD
+											INNER JOIN SCO_UPJANG_MST_V C ON V.UPJANG_CD = C.UPJANG
+											INNER JOIN SLA_AR_RECEIVE_DETAIL D ON D.RECD_STATUS = 'L'
+																								AND D.RECEIVE_DATE BETWEEN TO_CHAR(TO_DATE(#TRX_DATE#, 'YYYYMMDD') + 1, 'YYYYMMDD') AND #RCP_END_DATE#
+																								AND V.AR_NUM  = D.AR_NUM 
+			WHERE  (V.OCCUR_DATE   BETWEEN '19000101' AND #TRX_DATE#)
+			AND    V.RECD_STATUS = 'L'
+			AND     V.SYS_CLASS NOT IN ('13')			-- 식재제외(13)
+			<isNotNull col="UPJANG">
+			AND   (V.UPJANG_CD = #UPJANG#)
+			</isNotNull>
+			<isNotNull col="CUSTCD">
+			AND   (V.CUST_CD  = #CUSTCD#)
+			</isNotNull>
+       ) V
+GROUP BY V.LINE_DATE
+HAVING NVL(SUM(V.RCP_AMT), 0)  &lt;&gt; 0          
+</isEqual>
+
+<isEqual col="GUBUN" value="2">  
+SELECT 
+		V.LINE_DATE,
+		NVL(SUM(V.RCP_AMT), 0) RCP_AMT	
+  FROM (
+			SELECT
+					V.UPJANG_CD AS UPJANG,
+					V.CUST_CD AS CUSTCD,
+					D.RECEIVE_DATE AS  LINE_DATE,
+				   NVL(D.RECEIVE_AMT, 0) AS RCP_AMT
+			FROM SLA_AR_MST V  	INNER JOIN 
+											(
+												SELECT UPJANG,
+													   MAX(PAY_GUBUN_CD) AS PAY_GUBUN_CD,
+													   MAX(PAY_DATE) AS PAY_DATE
+												FROM SCO_UPJANG_CUST
+												GROUP BY UPJANG
+											) B ON  V.UPJANG_CD = B.UPJANG
+											INNER JOIN SCO_UPJANG_MST_V C ON V.UPJANG_CD = C.UPJANG
+											INNER JOIN SLA_AR_RECEIVE_DETAIL D ON D.RECD_STATUS = 'L'
+																								AND D.RECEIVE_DATE BETWEEN TO_CHAR(TO_DATE(#TRX_DATE#, 'YYYYMMDD') + 1, 'YYYYMMDD') AND #RCP_END_DATE#
+																								AND V.AR_NUM  = D.AR_NUM 
+			WHERE  (V.OCCUR_DATE   BETWEEN '19000101' AND #TRX_DATE#)
+			AND    V.RECD_STATUS = 'L'
+			AND     V.SYS_CLASS  IN ('13')			-- 식재(13)
+			<isNotNull col="UPJANG">
+			AND   (V.UPJANG_CD = #UPJANG#)
+			</isNotNull>
+			<isNotNull col="CUSTCD">
+			AND   (V.CUST_CD  = #CUSTCD#)
+			</isNotNull>
+       ) V
+GROUP BY V.LINE_DATE
+HAVING NVL(SUM(V.RCP_AMT), 0)  &lt;&gt; 0          
+</isEqual>
+</statement>
+	<input default-name="ds_cond">
+		<col name="UPJANG" size="255" type="VARCHAR" description="업장코드" /> 
+		<col name="CUSTCD" size="255" type="VARCHAR" description="거래처코드" /> 
+		<col name="TRX_DATE" size="255" type="VARCHAR" description="" /> 
+		<col name="RCP_END_DATE" size="255" type="VARCHAR" description="" /> 				
+	</input>
+	<output default-name="ds_listDetailRcp">           	
+<col name="LINE_DATE" size="255" type="VARCHAR" description="" />
+<col name="RCP_AMT" size="" type="NUMERIC" description="" />
+	</output>
+</query>

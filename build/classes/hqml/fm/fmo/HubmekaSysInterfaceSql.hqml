@@ -1,0 +1,577 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="fm.fmo.HubmekaSysInterfaceSqlDAO">
+	<desc>허브메카 Interface HQML Query</desc>
+
+
+	<!-- 허브메카 고객정보조회 -->
+	<statement name="selectUserList"><![CDATA[
+	SELECT SERVICE_GUBUN, USERID 
+  	  FROM HUB_UPJANG_MST 
+	 WHERE TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS') BETWEEN TO_CHAR(START_DATE,'YYYYMMDDHH24MISS') AND TO_CHAR(END_DATE,'YYYYMMDDHH24MISS')
+	 <#if magamGubun?has_content> 
+	 AND MAGAM_GUBUN = :magamGubun
+	 </#if>
+	ORDER BY END_DATE DESC
+	]]></statement>
+	
+	
+	<!-- 허브메카 주문인터페이스 상태값 업데이트 -->
+	<statement name="updateUserList"><![CDATA[
+	UPDATE HUB_UPJANG_MST
+	SET PISTAT = :piStat
+	<#if userId?has_content> 
+	, PIDATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+	, PITIME = TO_CHAR(SYSDATE,'HH24MISS')
+	, PICODE = 'SYSTEM-BATCH'
+	</#if> 
+	 WHERE TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS') BETWEEN TO_CHAR(START_DATE,'YYYYMMDDHH24MISS') AND TO_CHAR(END_DATE,'YYYYMMDDHH24MISS')
+	 <#if magamGubun?has_content>
+	 AND MAGAM_GUBUN = :magamGubun
+	 </#if>
+	<#if userId?has_content>  
+	AND USERID = :userId
+	</#if>  
+	]]></statement>
+	
+	<!-- 허브메카 단가 수동인터페이스 상태값 업데이트 -->
+	<statement name="updateUserList2"><![CDATA[
+	UPDATE HUB_UPJANG_MST
+	SET PISTAT2 = :piStat
+		, PIDATE2 = SYSDATE
+	 WHERE TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS') BETWEEN TO_CHAR(START_DATE,'YYYYMMDDHH24MISS') AND TO_CHAR(END_DATE,'YYYYMMDDHH24MISS')
+	AND USERID = :userId
+	]]></statement>
+	
+	<!-- 허브메카 고객별/일자별 주문정보temp 데이터 삭제 -->
+	<statement name="deleteOrderTempList"><![CDATA[
+	DELETE FROM IF_HUB_ORDER_TEMP --TEMP테이블
+	WHERE NEED_DATE BETWEEN :sday AND :eday --I/F 호출 파라미터 (주문시작일 & 주문종료일)
+	AND IF_USERID = :if_userid
+	]]></statement>
+	
+	<!-- 허브메카 일자별 주문정보temp 데이터 일괄삭제 -->
+	<statement name="deleteOrderTempAllList"><![CDATA[
+	DELETE FROM IF_HUB_ORDER_TEMP --TEMP테이블
+	WHERE NEED_DATE BETWEEN :sday AND :eday --I/F 호출 파라미터 (주문시작일 & 주문종료일)
+	]]></statement>
+	
+	
+	<!-- 주문정보 insert -->
+	<statement name="updateOrderList"><![CDATA[
+	
+	INSERT INTO IF_HUB_ORDER_TEMP (
+	IF_KEY          
+	,IF_USERID      
+	,SUBINV_CODE    
+	,ORDER_DATE     
+	,NEED_DATE      
+	,ITEM_CODE      
+	,ITEM_NAME      
+	,PR_QTY         
+	,REMARK         
+	,DOT_YN         
+	,STOP_YN        
+	,DELETION_YN    
+	,PO_UOM         
+	,ITEM_SIZE      
+	,TAX_YN         
+	,LEAD_TIME      
+	,MODIFIER_DATE  
+	,PICODE         
+	,PISTAT         
+	,PIDATE         
+	,PITIME         
+	)        
+	VALUES
+	(
+	:if_key     
+	,:if_userid
+	,upper(trim(:if_code))
+	,:if_orderDay
+	,:if_stockInDay
+	,:if_materialCode
+	,:if_materialName
+	,TO_NUMBER(:if_qty)
+	,:if_remark
+	,:if_dotYN
+	,:if_stopYN
+	,:if_deletionYN
+	,:if_unit
+	,:if_spec
+	,:if_vatYN
+	,:if_leadTime
+	,:if_modifierdate
+	,'HUB-001-01' 
+	,'S' 
+	,TO_CHAR(SYSDATE,'YYYYMMDD') 
+	,TO_CHAR(SYSDATE,'HH24MISS')
+	)
+	      
+	]]></statement>
+	
+	
+	<!-- 주문정보 insert_OLD -->
+	<statement name="updateOrderList_old"><![CDATA[
+	
+	INSERT INTO IF_HUB_ORDER_TEMP (
+	IF_KEY          
+	,IF_USERID      
+	,SUBINV_CODE    
+	,ORDER_DATE     
+	,NEED_DATE      
+	,ITEM_CODE      
+	,ITEM_NAME      
+	,PR_QTY         
+	,REMARK         
+	,DOT_YN         
+	,STOP_YN        
+	,DELETION_YN    
+	,PO_UOM         
+	,ITEM_SIZE      
+	,TAX_YN         
+	,LEAD_TIME      
+	,MODIFIER_DATE  
+	,PICODE         
+	,PISTAT         
+	,PIDATE         
+	,PITIME         
+	)        
+	VALUES
+	(
+	:if_key     
+	,:if_userid
+	,upper(trim(:if_code))
+	,:if_orderDay
+	,:if_stockInDay
+	,:if_materialCode
+	,:if_materialName
+	,TO_NUMBER(:if_qty)
+	,:if_remark
+	,:if_dotYN
+	,:if_stopYN
+	,:if_deletionYN
+	,:if_unit
+	,:if_spec
+	,:if_vatYN
+	,:if_leadTime
+	,:if_modifierdate
+	,'HUB-001-01' 
+	,'S' 
+	,TO_CHAR(SYSDATE,'YYYYMMDD') 
+	,TO_CHAR(SYSDATE,'HH24MISS')
+	)
+	
+	
+	/*테스트*/
+	/*
+	MERGE INTO IF_HUB_ORDER_TEMP  A
+			USING (SELECT   :if_key AS IF_KEY 
+                           ,:if_userid AS IF_USERID
+                           , upper(trim(:if_code)) AS SUBINV_CODE
+                           , :if_orderDay AS ORDER_DATE
+                           , :if_stockInDay AS NEED_DATE
+                           , :if_materialCode AS ITEM_CODE
+                           , :if_materialName AS ITEM_NAME
+                           , TO_NUMBER(:if_qty) AS PR_QTY
+                           , :if_remark AS REMARK
+                           , :if_dotYN AS DOT_YN
+                           , :if_stopYN AS STOP_YN
+                           , :if_deletionYN AS DELETION_YN
+                           , :if_unit AS PO_UOM
+                           , :if_spec AS ITEM_SIZE
+                           , :if_vatYN AS TAX_YN
+                           , :if_leadTime AS LEAD_TIME
+                           , :if_modifierdate AS MODIFIER_DATE
+                           , 'HUB-001-01' AS PICODE
+                           , 'S'  AS PISTAT
+                           , TO_CHAR(SYSDATE,'YYYYMMDD') AS PIDATE
+                           , TO_CHAR(SYSDATE,'HH24MISS') AS PITIME
+                     FROM   DUAL B
+                    
+		      	  ) B
+		   ON (A.IF_KEY=B.IF_KEY) 
+		  WHEN MATCHED THEN 
+
+		      UPDATE 
+		      SET ORDER_DATE = B.ORDER_DATE
+                , NEED_DATE = B.NEED_DATE
+                , ITEM_CODE = B.ITEM_CODE
+                , ITEM_NAME = B.ITEM_NAME
+                , PR_QTY =  B.PR_QTY
+                , REMARK =  B.REMARK
+                , DOT_YN =  B.DOT_YN
+                , STOP_YN = B.STOP_YN
+                , DELETION_YN = B.DELETION_YN
+                , PO_UOM = B.PO_UOM
+                , ITEM_SIZE = B.ITEM_SIZE
+                , TAX_YN = B.TAX_YN
+                , LEAD_TIME = B.LEAD_TIME
+                , MODIFIER_DATE =  B.MODIFIER_DATE
+             
+        WHEN NOT MATCHED THEN 
+            INSERT
+            (
+                IF_KEY          --KEY값
+				,IF_USERID      --고객ID
+				,SUBINV_CODE    --창고코드
+				,ORDER_DATE     --주문일자
+				,NEED_DATE      --입고일자
+				,ITEM_CODE      --품목코드
+				,ITEM_NAME      --품명
+				,PR_QTY         --수량
+				,REMARK         --비고
+				,DOT_YN         --소수점발주 가능여부
+				,STOP_YN        --불용/가용여부
+				,DELETION_YN    --발주규제여부
+				,PO_UOM         --단위
+				,ITEM_SIZE      --규격
+				,TAX_YN         --과세여부
+				,LEAD_TIME      --리드타임
+				,MODIFIER_DATE  --수정일시  
+				,PICODE         --인터페이스ID
+				,PISTAT         --인터페이스 상태값
+				,PIDATE         --인터페이스 날짜
+				,PITIME         --인터페이스 시간
+			            
+             )
+		      VALUES 
+	            (   B.IF_KEY
+                 ,  B.IF_USERID
+                 ,  B.SUBINV_CODE
+                 ,  B.ORDER_DATE
+                 ,  B.NEED_DATE
+                 ,  B.ITEM_CODE
+                 ,  B.ITEM_NAME
+                 ,  B.PR_QTY
+                 ,  B.REMARK
+                 ,  B.DOT_YN
+                 ,  B.STOP_YN
+                 ,  B.DELETION_YN
+                 ,  B.PO_UOM
+                 ,  B.ITEM_SIZE
+                 ,  B.TAX_YN
+                 ,  B.LEAD_TIME
+                 ,  B.MODIFIER_DATE
+                 ,	B.PICODE         --인터페이스ID
+				,	B.PISTAT         --인터페이스 상태값
+				,	B.PIDATE         --인터페이스 날짜
+				,	B.PITIME         --인터페이스 시간
+
+                )
+       */         
+	]]></statement>
+	
+
+	 <statement name="mergeOrderList"><![CDATA[
+    MERGE INTO IF_HUB_ORDER  A
+			USING (SELECT   IF_KEY 
+                           , IF_USERID
+                           , SUBINV_CODE
+                           , ORDER_DATE
+                           , NEED_DATE
+                           , ITEM_CODE
+                           , ITEM_NAME
+                           , PR_QTY
+                           , REMARK
+                           , DOT_YN
+                           , STOP_YN
+                           , DELETION_YN
+                           , PO_UOM
+                           , ITEM_SIZE
+                           , TAX_YN
+                           , LEAD_TIME
+                           , MODIFIER_DATE
+                           , PICODE
+                           , PISTAT
+                           , PIDATE
+                           , PITIME
+                     FROM IF_HUB_ORDER_TEMP B
+                    WHERE NEED_DATE BETWEEN :sday AND :eday --I/F 호출 파라미터 (주문시작일 & 주문종료일) -- D+1 ~ D+8 전체주문으로 변경 
+                    --  AND IF_USERID IN (SELECT USERID FROM HUB_IF.HUB_UPJANG_MST WHERE PISTAT = 'S') --인터페이스 성공상태인 업장만
+                     AND IF_USERID = :userId
+		      	  ) B
+		   ON (A.IF_KEY=B.IF_KEY) 
+		  WHEN MATCHED THEN 
+
+		      UPDATE 
+		      SET ORDER_DATE = B.ORDER_DATE
+                , NEED_DATE = B.NEED_DATE
+                , ITEM_CODE = B.ITEM_CODE
+                , ITEM_NAME = B.ITEM_NAME
+                , PR_QTY =  B.PR_QTY
+                , REMARK =  B.REMARK
+                , DOT_YN =  B.DOT_YN
+                , STOP_YN = B.STOP_YN
+                , DELETION_YN = B.DELETION_YN
+                , PO_UOM = B.PO_UOM
+                , ITEM_SIZE = B.ITEM_SIZE
+                , TAX_YN = B.TAX_YN
+                , LEAD_TIME = B.LEAD_TIME
+                , MODIFIER_DATE =  B.MODIFIER_DATE
+                , UUSER        = 'SYSTEM'
+                , UDATE        = SYSDATE    
+
+        WHEN NOT MATCHED THEN 
+            INSERT
+            (
+                IF_KEY
+                , IF_USERID
+                , SUBINV_CODE
+                , ORDER_DATE
+                ,  NEED_DATE
+                ,  ITEM_CODE
+                ,  ITEM_NAME
+                ,  PR_QTY
+                ,  REMARK
+                ,  DOT_YN
+                ,  STOP_YN
+                ,  DELETION_YN
+                ,  PO_UOM
+                ,  ITEM_SIZE
+                ,  TAX_YN
+                ,  LEAD_TIME
+                ,  MODIFIER_DATE
+                ,  CDATE
+                ,  CUSER
+                ,  UDATE
+                ,  UUSER
+             )
+		      VALUES 
+	            (   B.IF_KEY
+                 ,  B.IF_USERID
+                 ,  B.SUBINV_CODE
+                 ,  B.ORDER_DATE
+                 ,  B.NEED_DATE
+                 ,  B.ITEM_CODE
+                 ,  B.ITEM_NAME
+                 ,  B.PR_QTY
+                 ,  B.REMARK
+                 ,  B.DOT_YN
+                 ,  B.STOP_YN
+                 ,  B.DELETION_YN
+                 ,  B.PO_UOM
+                 ,  B.ITEM_SIZE
+                 ,  B.TAX_YN
+                 ,  B.LEAD_TIME
+                 ,  B.MODIFIER_DATE
+                 ,  SYSDATE
+                 ,  'SYSTEM'
+                 ,  SYSDATE
+                 ,  'SYSTEM'
+                )
+  	]]></statement>
+	
+		
+	<statement name="updateZeroList"><![CDATA[ 
+	  --삭제내역(TEMP에 없는 데이터) 0 처리 
+          UPDATE IF_HUB_ORDER 
+             SET PR_QTY = 0
+               , UDATE = SYSDATE
+               , UUSER = 'SYSTEM_DEL'
+          WHERE NEED_DATE BETWEEN :sday AND :eday --I/F 호출 파라미터 (주문시작일 & 주문종료일) -- D+1 ~ D+8 전체주문으로 변경
+            --AND IF_USERID IN (SELECT USERID FROM HUB_IF.HUB_UPJANG_MST WHERE PISTAT = 'S') --인터페이스 성공 상태인 업장만
+            AND IF_USERID = :userId
+            AND IF_KEY NOT IN (SELECT IF_KEY 
+                                 FROM IF_HUB_ORDER_TEMP 
+                                WHERE NEED_DATE BETWEEN :sday AND :eday --I/F 호출 파라미터 (주문시작일 & 주문종료일) -- D+1 ~ D+8 전체주문으로 변경
+                                  --AND IF_USERID IN (SELECT USERID FROM HUB_IF.HUB_UPJANG_MST WHERE PISTAT = 'S') --인터페이스 성공 상태인 업장만
+                                  AND IF_USERID = :userId
+                               )
+	]]></statement>
+	
+	<!-- 주문 수동 배치 param조회 -->
+	<statement name="selectParamList"><![CDATA[
+	SELECT SERVICE_GUBUN, USERID, MANUAL_IF_START, MANUAL_IF_END 
+  	  FROM HUB_UPJANG_MST 
+	 WHERE MANUAL_IF_SABUN = :loginSabun
+	]]></statement>
+	
+	<!-- 단가 수동 배치 param조회 -->
+	<statement name="selectParamList2"><![CDATA[
+	SELECT SERVICE_GUBUN, USERID, PI_PRICE_DATE, PI_PRICE_GUBUN
+  	  FROM HUB_UPJANG_MST 
+	 WHERE PISABUN = :loginSabun
+	]]></statement>
+	
+	
+  <!-- 사업장 디데이 계산-->
+  <statement name="selectDdayList"><![CDATA[
+  SELECT TO_CHAR(TO_DATE(MIN(EXC_DATE)),'YYYY-MM-DD') AS SDAY, TO_CHAR(TO_DATE(MAX(EXC_DATE)),'YYYY-MM-DD') AS EDAY
+	FROM(SELECT UPJANG_CD, EXC_DATE , RNUM
+	 	   FROM(
+		 		SELECT A.UPJANG_CD, B.EXC_DATE , ROW_NUMBER() OVER(PARTITION BY UPJANG_CD ORDER BY EXC_DATE)AS RNUM
+		   		  FROM(SELECT TO_NUMBER(CODE) AS UPJANG_CD
+				  		 FROM SCC_COMMON_CODE A
+				 		WHERE GROUP_CODE = 'moadam_if_dday' 
+				   		  AND USE_YN = 'Y'
+				
+			   			UNION 
+			   
+			   		   SELECT -1 AS UPJANG_CD
+				 		 FROM DUAL) A, FMS_EXC_DAYS B 
+						WHERE A.UPJANG_CD = B.UPJANG (+)
+		  				  AND EXC_DATE >= TO_CHAR(TO_DATE(SYSDATE+1),'YYYYMMDD')
+		  				  AND B.USE_YN = 'N'
+				) Z
+			WHERE RNUM <= 3
+		)
+]]></statement>
+
+
+	<statement name="selectPriceList"><![CDATA[
+	/*입력받은 단가시작일, 허브메카id 기준 단가정보 조회*/
+	
+	SELECT Z.UPJANG, Z.START_DATE, Z.CLASS_NAME2, Z.ITEM_CODE, Z.ITEM_NAME, Z.ITEM_SIZE, Z.PO_UOM, 
+			--DECODE(Z.HUB_CONTRACT_PRICE,'',Z.CONTRACT_PRICE, Z.HUB_CONTRACT_PRICE)AS CONTRACT_PRICE, 
+			Z.CONTRACT_PRICE,
+			--DECODE(Z.HUB_SALE_PRICE,'',Z.SALE_PRICE, Z.HUB_SALE_PRICE)AS SALE_PRICE, 
+			Z.SALE_PRICE, Z.TAX_YN, 
+			DECODE(Z.HUB_LEAD_TIME, '', Z.LEAD_TIME, Z.HUB_LEAD_TIME) AS LEAD_TIME, Z.MIN_QTY, Z.APPLY_QTY,  Z.DOT_YN
+	FROM
+		(    SELECT A.UPJANG, A.CONTRACT_START AS START_DATE,
+		   			C.CLASS_NAME2, A.ITEM_CODE, B.ITEM_NAME,
+		   			B.ITEM_SIZE, B.PO_UOM, A.SALE_PRICE AS CONTRACT_PRICE, --(SELECT LAST_VALUE(CONTRACT_PRICE) OVER (ORDER BY UDATE DESC) FROM HUB_UPJANG_CONTRACT_FSALE WHERE UPJANG = A.UPJANG AND START_DAY BETWEEN A.CONTRACT_START AND A.CONTRACT_END AND ITEM_CODE = A.ITEM_CODE AND ROWNUM = 1) AS HUB_CONTRACT_PRICE,
+		   			--A.SALE_PRICE, (SELECT LAST_VALUE(SALE_PRICE) OVER (ORDER BY UDATE DESC) FROM HUB_UPJANG_CONTRACT_FSALE WHERE UPJANG = A.UPJANG AND START_DAY BETWEEN A.CONTRACT_START AND A.CONTRACT_END AND ITEM_CODE = A.ITEM_CODE AND ROWNUM = 1) AS HUB_SALE_PRICE,
+		   			
+		   			<#if schGubun == "2">
+						CASE WHEN CC.OP_PRICE IS NOT NULL OR CC.OP_RATE IS NOT NULL 
+                       	 	 THEN DECODE(SIGN(NVL(CC.OP_PRICE,0) ),0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(CC.OP_RATE,0) / 100),CC.CEIL_VAL), CC.OP_PRICE) 
+                        	 WHEN DD.OP_PRICE IS NOT NULL OR DD.OP_RATE IS NOT NULL 
+                        	 THEN DECODE(SIGN(NVL(DD.OP_PRICE,0) ),0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(DD.OP_RATE,0) / 100),DD.CEIL_VAL), DD.OP_PRICE) 
+                   	  	ELSE A.SALE_PRICE END AS SALE_PRICE , --공급운영단가표 타입B 운영단가
+					<#else>
+						A.SALE_PRICE AS SALE_PRICE,
+					</#if>
+					
+		   			DECODE(B.TAX_CODE,'100','Y','210','N','') AS TAX_YN,
+		   			FCUS.FMS_PREORDER_FUN( (SELECT CENTER_CODE FROM VO_CENTER_UPJANG WHERE UPJANG = A.UPJANG),A.ITEM_CODE,'D_DAYS') AS LEAD_TIME,
+		   			(SELECT  DECODE(LAST_VALUE(PISTAT) OVER (ORDER BY UDATE DESC),'D',-1,LAST_VALUE(LEAD_TIME) OVER (ORDER BY UDATE DESC)) FROM HUB_UPJANG_CONTRACT_FSALE WHERE UPJANG = A.UPJANG AND START_DAY BETWEEN A.CONTRACT_START AND A.CONTRACT_END AND ITEM_CODE = A.ITEM_CODE AND ROWNUM = 1) AS HUB_LEAD_TIME,
+		   			B.MIN_ORD_QTY AS MIN_QTY,
+		   			0 AS APPLY_QTY, --불필요한 컬럼으로 0전송협의
+		   			B.POINT_FLAG AS DOT_YN
+			  FROM FCUS.PO_CONTRACT_FSALE A, HLDC_PO_ITEM_MST B, HLDC_PO_ITEM_CLASS_V C
+			  		, ( 
+		               SELECT * 
+		                 FROM FMU_OP_RATE 
+		                WHERE UPJANG = (SELECT PRICE_UPJANG FROM HUB_UPJANG_MST WHERE USERID = :userId)
+		                  AND :startDate BETWEEN SDATE AND EDATE 
+		                  AND USE_YN = 'Y' 
+		                  AND ITEM_TYPE = 'M' 
+		               ) CC 
+		              ,( 
+		               SELECT * 
+		                 FROM FMU_OP_RATE 
+		                WHERE UPJANG = (SELECT PRICE_UPJANG FROM HUB_UPJANG_MST WHERE USERID = :userId)
+		                  AND :startDate BETWEEN SDATE AND EDATE 
+		                  AND USE_YN = 'Y' 
+		                  AND ITEM_TYPE = 'C' 
+		               ) DD 
+			  
+			 WHERE CONTRACT_START >= TO_CHAR(TO_DATE(:startDate),'YYYYMM')||'01'
+	  		   AND TO_CHAR(TO_DATE(:startDate),'YYYYMMDD') BETWEEN CONTRACT_START AND CONTRACT_END 
+	  		   AND A.UPJANG IN ( SELECT PRICE_UPJANG 
+						  		   FROM FCUS.HUB_UPJANG_MST 
+						 		  WHERE TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS') BETWEEN TO_CHAR(START_DATE,'YYYYMMDDHH24MISS') AND TO_CHAR(END_DATE,'YYYYMMDDHH24MISS')
+						   			AND PRICE_UPJANG IS NOT NULL
+					   			)	   
+	 		   AND A.UPJANG = (SELECT PRICE_UPJANG FROM FCUS.HUB_UPJANG_MST WHERE TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS') BETWEEN TO_CHAR(START_DATE,'YYYYMMDDHH24MISS') AND TO_CHAR(END_DATE,'YYYYMMDDHH24MISS') AND USERID = :userId)
+	 		   AND A.ITEM_CODE = B.ITEM_CODE 
+			   AND B.ITEM_CLASS1 = C.CLASS_CODE1 
+		 	   AND B.ITEM_CLASS2 = C.CLASS_CODE2 
+			   AND B.ITEM_CLASS3 = C.CLASS_CODE3 
+			   AND B.ITEM_CLASS4 = C.CLASS_CODE4 
+			   
+			   AND A.ITEM_CODE = CC.ITEM_CODE(+) 
+           	   AND B.ITEM_CLASS4 = DD.ITEM_CODE(+) 
+
+           	   AND :startDate BETWEEN CC.SDATE(+) AND CC.EDATE(+)
+           	   AND :startDate BETWEEN DD.SDATE(+) AND DD.EDATE(+)
+	 	)Z
+	 	WHERE Z.LEAD_TIME != -1
+  ]]></statement>
+  
+  <!-- 허브메카 단가정보 전송 로그 데이터 삭제 -->
+	<statement name="deleteIflog"><![CDATA[
+	DELETE FROM HUB_UPJANG_CONTRACT_IF_LOG --전송 로그테이블
+	WHERE UPJANG = (SELECT PRICE_UPJANG FROM HUB_UPJANG_MST WHERE USERID = :userId)
+	]]></statement>
+	
+	 <!-- 허브메카 단가정보 전송 로그 데이터 삽입 -->
+  <statement name="insertIflog"><![CDATA[
+	
+	INSERT INTO HUB_UPJANG_CONTRACT_IF_LOG
+	(
+	/*입력받은 단가시작일, 허브메카id 기준 단가정보 조회*/
+	SELECT Z.UPJANG, Z.START_DATE, Z.CLASS_NAME2, Z.ITEM_CODE, Z.ITEM_NAME, Z.ITEM_SIZE, Z.PO_UOM, 
+			--DECODE(Z.HUB_CONTRACT_PRICE,'',Z.CONTRACT_PRICE, Z.HUB_CONTRACT_PRICE)AS CONTRACT_PRICE, 
+			Z.CONTRACT_PRICE,
+			--DECODE(Z.HUB_SALE_PRICE,'',Z.SALE_PRICE, Z.HUB_SALE_PRICE)AS SALE_PRICE, 
+			Z.SALE_PRICE, Z.TAX_YN, 
+			DECODE(Z.HUB_LEAD_TIME, '', Z.LEAD_TIME, Z.HUB_LEAD_TIME) AS LEAD_TIME, Z.MIN_QTY, Z.APPLY_QTY,  Z.DOT_YN, SYSDATE AS CDATE, :loginSabun AS CUSER
+	FROM
+		(    SELECT A.UPJANG, A.CONTRACT_START AS START_DATE,
+		   			C.CLASS_NAME2, A.ITEM_CODE, B.ITEM_NAME,
+		   			B.ITEM_SIZE, B.PO_UOM, A.SALE_PRICE AS CONTRACT_PRICE, --(SELECT LAST_VALUE(CONTRACT_PRICE) OVER (ORDER BY UDATE DESC) FROM HUB_UPJANG_CONTRACT_FSALE WHERE UPJANG = A.UPJANG AND START_DAY BETWEEN A.CONTRACT_START AND A.CONTRACT_END AND ITEM_CODE = A.ITEM_CODE AND ROWNUM = 1) AS HUB_CONTRACT_PRICE,
+		   			--A.SALE_PRICE, (SELECT LAST_VALUE(SALE_PRICE) OVER (ORDER BY UDATE DESC) FROM HUB_UPJANG_CONTRACT_FSALE WHERE UPJANG = A.UPJANG AND START_DAY BETWEEN A.CONTRACT_START AND A.CONTRACT_END AND ITEM_CODE = A.ITEM_CODE AND ROWNUM = 1) AS HUB_SALE_PRICE,
+		   			
+		   			<#if schGubun == "2">
+						CASE WHEN CC.OP_PRICE IS NOT NULL OR CC.OP_RATE IS NOT NULL 
+                       	 	 THEN DECODE(SIGN(NVL(CC.OP_PRICE,0) ),0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(CC.OP_RATE,0) / 100),CC.CEIL_VAL), CC.OP_PRICE) 
+                        	 WHEN DD.OP_PRICE IS NOT NULL OR DD.OP_RATE IS NOT NULL 
+                        	 THEN DECODE(SIGN(NVL(DD.OP_PRICE,0) ),0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(DD.OP_RATE,0) / 100),DD.CEIL_VAL), DD.OP_PRICE) 
+                   	  	ELSE A.SALE_PRICE END AS SALE_PRICE , --공급운영단가표 타입B 운영단가
+					<#else>
+						A.SALE_PRICE AS SALE_PRICE,
+					</#if>
+					
+		   			DECODE(B.TAX_CODE,'100','Y','210','N','') AS TAX_YN,
+		   			FCUS.FMS_PREORDER_FUN( (SELECT CENTER_CODE FROM VO_CENTER_UPJANG WHERE UPJANG = A.UPJANG),A.ITEM_CODE,'D_DAYS') AS LEAD_TIME,
+		   			(SELECT  DECODE(LAST_VALUE(PISTAT) OVER (ORDER BY UDATE DESC),'D',-1,LAST_VALUE(LEAD_TIME) OVER (ORDER BY UDATE DESC)) FROM HUB_UPJANG_CONTRACT_FSALE WHERE UPJANG = A.UPJANG AND START_DAY BETWEEN A.CONTRACT_START AND A.CONTRACT_END AND ITEM_CODE = A.ITEM_CODE AND ROWNUM = 1) AS HUB_LEAD_TIME,
+		   			B.MIN_ORD_QTY AS MIN_QTY,
+		   			0 AS APPLY_QTY, --불필요한 컬럼으로 0전송협의
+		   			B.POINT_FLAG AS DOT_YN
+			  FROM FCUS.PO_CONTRACT_FSALE A, HLDC_PO_ITEM_MST B, HLDC_PO_ITEM_CLASS_V C
+			  		, ( 
+		               SELECT * 
+		                 FROM FMU_OP_RATE 
+		                WHERE UPJANG = (SELECT PRICE_UPJANG FROM HUB_UPJANG_MST WHERE USERID = :userId)
+		                  AND :startDate BETWEEN SDATE AND EDATE 
+		                  AND USE_YN = 'Y' 
+		                  AND ITEM_TYPE = 'M' 
+		               ) CC 
+		              ,( 
+		               SELECT * 
+		                 FROM FMU_OP_RATE 
+		                WHERE UPJANG = (SELECT PRICE_UPJANG FROM HUB_UPJANG_MST WHERE USERID = :userId)
+		                  AND :startDate BETWEEN SDATE AND EDATE 
+		                  AND USE_YN = 'Y' 
+		                  AND ITEM_TYPE = 'C' 
+		               ) DD 
+			  
+			 WHERE CONTRACT_START >= TO_CHAR(TO_DATE(:startDate),'YYYYMM')||'01'
+	  		   AND TO_CHAR(TO_DATE(:startDate),'YYYYMMDD') BETWEEN CONTRACT_START AND CONTRACT_END 
+	  		   AND A.UPJANG IN ( SELECT PRICE_UPJANG 
+						  		   FROM FCUS.HUB_UPJANG_MST 
+						 		  WHERE TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS') BETWEEN TO_CHAR(START_DATE,'YYYYMMDDHH24MISS') AND TO_CHAR(END_DATE,'YYYYMMDDHH24MISS')
+						   			AND PRICE_UPJANG IS NOT NULL
+					   			)	   
+	 		   AND A.UPJANG = (SELECT PRICE_UPJANG FROM FCUS.HUB_UPJANG_MST WHERE TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS') BETWEEN TO_CHAR(START_DATE,'YYYYMMDDHH24MISS') AND TO_CHAR(END_DATE,'YYYYMMDDHH24MISS') AND USERID = :userId)
+	 		   AND A.ITEM_CODE = B.ITEM_CODE 
+			   AND B.ITEM_CLASS1 = C.CLASS_CODE1 
+		 	   AND B.ITEM_CLASS2 = C.CLASS_CODE2 
+			   AND B.ITEM_CLASS3 = C.CLASS_CODE3 
+			   AND B.ITEM_CLASS4 = C.CLASS_CODE4 
+			   
+			   AND A.ITEM_CODE = CC.ITEM_CODE(+) 
+           	   AND B.ITEM_CLASS4 = DD.ITEM_CODE(+) 
+
+           	   AND :startDate BETWEEN CC.SDATE(+) AND CC.EDATE(+)
+           	   AND :startDate BETWEEN DD.SDATE(+) AND DD.EDATE(+)
+	 	)Z
+	 	WHERE Z.LEAD_TIME != -1
+	 )	
+  ]]></statement>
+  
+</hqml>
+

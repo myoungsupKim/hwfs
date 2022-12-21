@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.rrm.menuEngineeringToolDAO">
+	<desc>MenuEngineeringTool HQML Query</desc>
+
+	<!-- MenuEngineeringTool 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		<![CDATA[
+		/*+ com.hwfs.rc.rrm.dao.MenuEngineeringToolDAO.selectList */
+        SELECT A.UPJANG_CD   -- 업장코드
+             , A.UPJANG_NM  -- 업장명
+             , A.MENU_CD  -- 메뉴코드
+             , A.MENU_NM  -- 메뉴명
+             , A.SAL_QUANTITY  -- 판매량
+             , NVL(A.APPLY_PRICE, 0) AS SAL_PRICE  -- 판매가(실제 POS 판매가로 수정 2016.06.02)
+             , ROUND(NVL(A.APPLY_PRICE, 0) / 1.1) AS NET_PRICE  -- 공급가(판매가(VAT제외))             
+             , ROUND((NVL(A.APPLY_PRICE, 0) / 1.1)*A.SAL_QUANTITY) AS NET_AMT
+             , A.SAL_AMT  -- 매출금액(판매가*판매량)-DB에 계산해서 저장되어 있음
+             , A.RECP_CD  -- 레서피코드
+             , A.RECIPE_NM  -- 레서피명
+             , NVL((SELECT INVEST_AMT
+                      FROM RSS_UPJANG_RECIPE_DAILY_DTL Z
+                     WHERE Z.UPJANG_CD = A.UPJANG_CD
+                       AND Z.MAIN_RECIPE_CD = A.RECP_CD
+                       --AND Z.STD_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+                       AND Z.STD_DATE = :schBtDate 
+                       AND Z.SEMI_GOODS_YN = 'Y'
+                       AND Z.LOSS_RATE IS NULL), 0) AS CST_AMT  -- 원가
+             , A.SCLASS_CD  -- 메뉴유형
+             , 0 AS MARGIN
+             , 0 AS TOT_CST_AMT
+             , 0 AS TOT_CST_RATE
+             , 0 AS TOT_SAL_AMT
+             , 0 AS MENU_MIX
+             , '' AS GONG_MARGIN_STR
+             , 0 AS GONG_MARGIN_INT
+             , '' AS MENU_MIX_STR
+             , 0 AS MENU_MIX_INT
+             , '' AS RESULT
+             , 0 AS SAL_AMT_RATE
+             , 0 AS MENU_MIX_COMP
+             , 0 AS GONG_MARGIN_RATE
+             , 0 AS AVG_GONG_MARGIN
+             , 0 AS GONG_MARGIN
+             , 0 AS SAL_AMT_ACC
+             , '' AS ABC
+          FROM (
+                SELECT T.UPJANG_CD
+                     , U.UPJANGNM UPJANG_NM
+                     , T.MENU_CD
+                     , S.MENU_NM
+                     , T.SAL_QUANTITY
+                     , S.APPLY_PRICE
+                     , T.SAL_AMT
+                     , T.NET_AMT 
+                     , S.RECP_CD
+                     , R.RECIPE_NM
+                     , R.SCLASS_CD
+                  FROM (
+                        SELECT A.UPJANG_CD
+                             , A.MENU_CD
+                             , SUM(A.SAL_QUANTITY) AS SAL_QUANTITY
+                             , SUM(A.SAL_AMT) AS SAL_AMT       
+                             , SUM(A.NET_AMT) AS NET_AMT                      
+                          FROM SLA_IF_UPJANG_SALS_DETAIL A
+                             , SLA_IF_UPJANG_SALS_MST B
+                             , SCO_UPJANG_V C
+                         WHERE A.OCCUR_DATE = B.OCCUR_DATE(+)
+                           AND A.SYS_CLASS = B.SYS_CLASS(+)
+                           AND A.UPJANG_CD = B.UPJANG_CD(+)
+                           AND A.RECEIPT_NUM = B.RECEIPT_NUM(+)
+                           AND A.UPJANG_CD = C.UPJANG(+)
+                           AND A.MENU_CD IS NOT NULL
+                           AND A.MU_CD = :muCd
+                           AND A.OCCUR_DATE >= :occurDateFr
+                           AND A.OCCUR_DATE <= :occurDateTo
+                        <#if tmCd?has_content>
+                           AND C.TM_CD = :tmCd
+                        </#if>
+                        <#if upjangCd?has_content>
+                           AND A.UPJANG_CD = :upjangCd
+                        </#if>
+                         GROUP BY A.UPJANG_CD, A.MENU_CD
+                       ) T
+                     , SLE_OUTLET_MENU S
+                     , ST_UPJANG U
+                     , RSS_UPJANG_RECIPE_CD_MST R
+                <#if sclassCd?has_content>
+                 WHERE T.UPJANG_CD = S.OUTLET_CD(+)
+                   AND T.MENU_CD = S.MENU_CD(+)
+                   AND T.UPJANG_CD = U.UPJANG(+)
+                   AND S.MENU_CD IS NOT NULL
+                   AND S.OUTLET_CD = R.UPJANG_CD
+                   AND S.RECP_CD = R.STD_RECIPE_CD
+                   AND S.USE_YN(+) = 'Y'
+                   AND R.SCLASS_CD = :sclassCd
+                <#else>
+                 WHERE T.UPJANG_CD = S.OUTLET_CD(+)
+                   AND T.MENU_CD = S.MENU_CD(+)
+                   AND T.UPJANG_CD = U.UPJANG(+)
+                   AND S.MENU_CD IS NOT NULL
+                   AND S.OUTLET_CD = R.UPJANG_CD(+)
+                   AND S.RECP_CD = R.STD_RECIPE_CD(+)
+                   AND S.USE_YN(+) = 'Y'
+                </#if>
+               ) A
+         ORDER BY A.UPJANG_CD ASC, A.SCLASS_CD ASC, (ROUND(NVL(A.APPLY_PRICE, 0) / 1.1) * A.SAL_QUANTITY) DESC
+		]]>
+	</statement>
+
+</hqml>

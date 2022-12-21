@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sm.sar.arSettleDescMgntDAO">
+	<desc>후불 결제 내역 관리 HQML Query</desc>
+
+	<!-- 후불 결제 내역 관리 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sm.sar.dao.ArSettleDescMgntDAO.selectList */
+		<![CDATA[
+		SELECT A.MU_CD,
+		       (SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE MU.MU_CD = A.MU_CD)  AS MU_NM,
+		       A.CC_CD,
+		       (SELECT  CC_NM FROM SCC_CC WHERE CC_CD = A.CC_CD) AS CC_NM,
+		       A.OCCUR_DATE,
+		       A.UPJANG_CD,
+		       A.SEQ,
+		       A.CUST_CD,
+		       A.CUST_NM,
+		       A.AMT,
+		       A.WITHDRAW_SCHD_DATE,
+		       A.RECEIPT_NUM,
+		       A.SYS_CLASS,
+		       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'SYS_CLASS' AND CODE = A.SYS_CLASS) SYS_CLASS_NM,
+		       DECODE(A.MODIFY_SALS_YN,'N','정상분','Y','조정분') MODIFY_SALS_YN_NM
+		FROM   SLA_CRDT_AR_PAY_INFO A
+		WHERE  1=1
+		AND    A.RECD_STATUS = 'L'
+		<#if muCd?has_content> AND  A.MU_CD = :muCd </#if>
+		<#if ccCd?has_content> AND  A.CC_CD = :ccCd </#if>
+        <#if tmCd?has_content>
+            AND     A.CC_CD IN (
+                            SELECT  A.CC_CD
+                            FROM    SCC_CC A
+                                    ,HLDC_SC_DEPT_V B
+                            WHERE   B.CC_CD = A.CC_CD
+                            AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+                            AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+                            AND     B.TM_CD = :tmCd
+                            )
+        </#if>
+        <#if occurDateFr?has_content> AND  A.OCCUR_DATE >= :occurDateFr </#if>
+        <#if occurDateTo?has_content> AND  A.OCCUR_DATE <= :occurDateTo </#if>
+        <#if modifySalsYn?has_content>AND    A.MODIFY_SALS_YN LIKE :modifySalsYn</#if>
+        ORDER BY A.OCCUR_DATE, A.SYS_CLASS, A.SEQ ASC
+		]]>
+	</statement>
+	
+	<!-- 후불 결제 내역 상세내역을 조회한다. -->
+	<statement name="selectDetail" type="select">
+		/*+ com.hwfs.sm.sar.dao.ArSettleDescMgntDAO.selectDetail */
+		<![CDATA[
+		SELECT A.OCCUR_DATE,
+		       A.SYS_CLASS,
+		       A.UPJANG_CD,
+		       A.SEQ,
+		       A.CUST_CD,
+		       A.CUST_NM,
+		       A.MU_CD,
+		       (SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE MU.MU_CD = A.MU_CD)  AS MU_NM,
+		       A.CC_CD,
+		       (SELECT  CC_NM FROM SCC_CC WHERE CC_CD = A.CC_CD) AS CC_NM,
+		       A.AMT,
+		       A.WITHDRAW_SCHD_DATE,
+		       A.RECEIPT_NUM,
+		       A.EVIDENCE_NUM,
+		       A.REF_NUM,
+		       A.JOURNALZ_YN,
+		       A.JOURNALZ_NUM,
+		       A.AR_NUM
+		FROM   SLA_CRDT_AR_PAY_INFO A
+		WHERE  1=1
+		AND    A.RECD_STATUS = 'L'
+		<#if occurDate?has_content> AND   A.OCCUR_DATE = :occurDate </#if>
+		<#if sysClass?has_content> AND   A.SYS_CLASS = :sysClass </#if>
+		<#if upjangCd?has_content> AND   A.UPJANG_CD = :upjangCd </#if>
+		<#if seq?has_content> AND   A.SEQ = :seq </#if>
+		]]>
+	</statement>
+
+	<!-- 후불 결제 내역 관리(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sm.sar.dao.ArSettleDescMgntDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 후불 결제 내역 관리(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sm.sar.dao.ArSettleDescMgntDAO.update */
+		<![CDATA[
+		UPDATE TABLE_NAME 
+		SET    COLUMN_NAME1 = :columnName1,
+		       COLUMN_NAME2 = :columnName2,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+	<!-- 후불 결제 내역 관리(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.sm.sar.dao.ArSettleDescMgntDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>

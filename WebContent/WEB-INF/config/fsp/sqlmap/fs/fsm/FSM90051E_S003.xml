@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.MENU_CD
+     , A.UPJANG
+     , A.HALL_CD
+     , A.SUBINV_CODE     
+     , A.MEAL
+     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0023' AND CODE = A.MEAL) MEAL_NAME
+     , A.CORNER
+     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0022' AND CODE = A.CORNER) CORNER_NAME
+     , A.MENU_DATE     
+     , A.SALE_PRICE
+     , NVL(B.EXPECT_MEAL_QTY, 0) AS EXPECT_MEAL_QTY
+     , NVL(B.GOAL_COST_RATE, 0) AS GOAL_COST_RATE
+     , NVL(B.REAL_MEAL_QTY, 0) AS REAL_MEAL_QTY
+     , ROW_NUMBER() OVER(PARTITION BY A.MENU_DATE, A.MEAL, A.CORNER ORDER BY A.MEAL, A.CORNER ASC) SSEQ
+     , DECODE((SELECT 'Y'
+                 FROM FSM_REAL_RECIPE_ITEM
+                WHERE UPJANG = A.UPJANG
+                  AND MENU_CD = A.MENU_CD
+                  AND ORDER_YN = 'Y'
+                  AND ROWNUM <= 1), 'Y', 'Y', 'N') AS ORDER_YN
+     , C.RECIPE_NAME
+  FROM (
+        SELECT C.MENU_DATE || '-' || A.HALL_CD || B.MEAL || B.CORNER AS MENU_CD 
+             , A.UPJANG
+             , A.HALL_CD
+             , A.SUBINV_CODE
+             , B.MEAL
+             , B.CORNER
+             , B.MEAL_UPRICE AS SALE_PRICE
+             , C.MENU_DATE
+          FROM FSA_HALL_MST A
+             , FSA_HALL_DTL B
+             , (
+                SELECT MENU_DATE
+                  FROM (SELECT TO_CHAR(TO_DATE(#MENU_SDATE#, 'YYYYMMDD') + LEVEL - 1, 'YYYYMMDD') AS MENU_DATE
+                          FROM DUAL
+                        CONNECT BY LEVEL <= TO_DATE(#MENU_EDATE#, 'YYYYMMDD') - TO_DATE(#MENU_SDATE#, 'YYYYMMDD') + 1)
+               ) C
+         WHERE A.UPJANG = B.UPJANG
+           AND A.HALL_CD = B.HALL_CD
+           AND A.UPJANG = #UPJANG#
+           AND A.HALL_CD = #HALL_CD#
+       ) A
+     , FSM_REAL_MENU_MST B
+     , FSM_REAL_RECIPE_MST C
+ WHERE A.UPJANG = B.UPJANG(+)
+   AND A.HALL_CD = B.HALL_CD(+)
+   AND A.MENU_CD = B.MENU_CD(+)
+   AND A.UPJANG = C.UPJANG(+)
+   AND A.MENU_CD = C.MENU_CD(+)   
+]]>
+    </statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_bodyList">
+	</output>
+</query>

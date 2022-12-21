@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.roa.partTimerMgntDAO">
+    <desc>용역 대상자 관리 HQML Query</desc>
+
+    <!-- 용역 대상자 관리 목록을 조회한다. -->
+    <statement name="selectList" type="select">
+        /*+ com.hwfs.rc.roa.dao.PartTimerMgntDAO.selectList */
+        <![CDATA[
+            SELECT  A.PART_TIME_EMP_SABUN
+                    ,A.UPJANG
+                    ,A.PART_TIME_EMP_NM
+                    ,A.PART_TIME_SALARY_CD
+                    ,B.PART_TIME_SALARY_CD_NM
+                    ,A.DUTY_YN
+                    ,DECODE(A.DUTY_YN,'Y','예','아니오') DUTY_YN_NM
+                    ,A.CUST_CD
+                    ,SCC_COMMON_CODE_NAME_FUN('PART_TIME_CUST_CD',A.CUST_CD) CUST_NM
+                    ,A.SORT_ORDER
+                    ,B.WEEKLY_DUTY_AMT
+                    ,B.NGHT_DUTY_AMT
+                    ,B.EXTENSION_DUTY_AMT
+            FROM    RSS_PART_TIME_TRGLST_INFO A
+                    ,RSS_PART_TIME_SALARY_INFO B
+            WHERE   A.PART_TIME_SALARY_CD = B.PART_TIME_SALARY_CD
+        <#if upjang?has_content>
+            AND     A.UPJANG = :upjang
+        </#if>
+        <#if dutyYn?has_content>
+            AND     A.DUTY_YN = :dutyYn
+        </#if>
+            ORDER BY A.SORT_ORDER, A.PART_TIME_EMP_SABUN
+        ]]>
+    </statement>
+
+    <!-- 용역 대상자 중복체크. -->
+    <statement name="selectExists" type="select">
+        /*+ com.hwfs.rc.roa.dao.PartTimerMgntDAO.selectExists */
+        <![CDATA[
+            SELECT  COUNT(*) AS EXISTS_CNT
+            FROM    RSS_PART_TIME_TRGLST_INFO
+            WHERE   PART_TIME_EMP_SABUN = :partTimeEmpSabun
+            AND     UPJANG = :upjang
+        ]]>
+    </statement>
+
+    <!-- 용역 대상자 관리(을)를 등록한다. -->
+    <statement name="insert" type="insert">
+        /*+ com.hwfs.rc.roa.dao.PartTimerMgntDAO.insert */
+        <![CDATA[
+            INSERT INTO RSS_PART_TIME_TRGLST_INFO (
+                PART_TIME_EMP_SABUN
+                ,UPJANG
+                ,PART_TIME_EMP_NM
+                ,PART_TIME_SALARY_CD
+                ,DUTY_YN
+                ,CUST_CD
+                ,SORT_ORDER
+                ,CUSER
+                ,CDATE
+            ) VALUES (
+                RSS_PART_TIME_EMP_SABUN_FUN(:upjang)
+                ,:upjang
+                ,<#if partTimeEmpNm?exists>:partTimeEmpNm<#else>null</#if>
+                ,<#if partTimeSalaryCd?exists>:partTimeSalaryCd<#else>null</#if>
+                ,<#if dutyYn?exists>:dutyYn<#else>null</#if>
+                ,<#if custCd?exists>:custCd<#else>null</#if>
+                ,<#if sortOrder?exists>:sortOrder<#else>null</#if>
+                ,:loginSabun
+                ,SYSDATE
+            )
+        ]]>
+    </statement>
+
+    <!-- 용역 대상자 관리(을)를 수정한다. -->
+    <statement name="update" type="update">
+        /*+ com.hwfs.rc.roa.dao.PartTimerMgntDAO.update */
+        <![CDATA[
+            UPDATE  RSS_PART_TIME_TRGLST_INFO
+            SET     PART_TIME_EMP_NM        = :partTimeEmpNm
+                    ,PART_TIME_SALARY_CD    = :partTimeSalaryCd
+                    ,DUTY_YN                = :dutyYn
+                    ,CUST_CD                = :custCd
+                    ,SORT_ORDER             = :sortOrder
+                    ,UUSER                  = :loginSabun
+                    ,UDATE                  = SYSDATE
+            WHERE   PART_TIME_EMP_SABUN     = :partTimeEmpSabun
+            AND     UPJANG                  = :upjang
+        ]]>
+    </statement>
+
+    <!-- 용역 대상자 관리(을)를 삭제한다. -->
+    <statement name="delete" type="delete">
+        /*+ com.hwfs.rc.roa.dao.PartTimerMgntDAO.delete */
+        <![CDATA[
+            DELETE
+            FROM    RSS_PART_TIME_TRGLST_INFO
+            WHERE   PART_TIME_EMP_SABUN     = :partTimeEmpSabun
+            AND     UPJANG                  = :upjang
+        ]]>
+    </statement>
+
+</hqml>

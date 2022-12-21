@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[대분류별환산점수]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT   AA.CHK_DD,
+         AA.HL_CLASS_CD,
+         AA.HL_CLASS_NM,
+         AA.K CHK_IDCTR,
+         NVL(AA.KK,0) CHK_SCORE,
+         ROUND(NVL(BB.LL/BB.L*100*BB.L/CC.LLL,0),2) AS FINAL_SCORE,
+         NVL(CLASS_CNT,0) CLASS_CNT
+FROM     ( SELECT  B.CHK_DD,
+                  A.HL_CLASS_CD,
+                  A.HL_CLASS_NM,
+                  SUM(B.CHK_IDCTR) K,
+                  SUM(B.CHK_SCORE) KK
+         FROM     FSC_PATL_FORM_DTL A ,
+                  FSC_PATL_RESULT_DTL B ,
+                  FSC_PATL_CLASS C
+         WHERE    A.TABLE_TYPE  = B.TABLE_TYPE
+         AND      A.FORM_CD     = B.FORM_CD
+         AND      A.CLASS_CD    = B.CLASS_CD
+         AND      A.TABLE_TYPE  = C.TABLE_TYPE
+         AND      A.FORM_CD     = C.FORM_CD
+         AND      A.HL_CLASS_CD = C.CLASS_CD
+         AND      A.TABLE_TYPE  = #TABLE_TYPE#
+         AND      A.FORM_CD     = #FORM_CD#
+         AND      B.UPJANG      = #UPJANG# 
+         AND      B.CHK_DD      = #CHK_DD#
+                  --AND B.NA_YN = 'N'
+         GROUP BY B.CHK_DD,
+                  A.HL_CLASS_CD,
+                  A.HL_CLASS_NM
+         )
+         AA,
+         ( SELECT  B.CHK_DD,
+                  A.HL_CLASS_CD,
+                  A.HL_CLASS_NM,
+                  SUM(B.CHK_IDCTR) L,
+                  SUM(B.CHK_SCORE) LL,
+                  COUNT(*) AS CLASS_CNT
+         FROM     FSC_PATL_FORM_DTL A ,
+                  FSC_PATL_RESULT_DTL B ,
+                  FSC_PATL_CLASS C
+         WHERE    A.TABLE_TYPE  = B.TABLE_TYPE
+         AND      A.FORM_CD     = B.FORM_CD
+         AND      A.CLASS_CD    = B.CLASS_CD
+         AND      A.TABLE_TYPE  = C.TABLE_TYPE
+         AND      A.FORM_CD     = C.FORM_CD
+         AND      A.HL_CLASS_CD = C.CLASS_CD
+         AND      A.TABLE_TYPE  = #TABLE_TYPE#
+         AND      A.FORM_CD     = #FORM_CD#
+         AND      B.UPJANG      = #UPJANG#
+         AND      B.CHK_DD      = #CHK_DD#
+         AND      B.NA_YN       = 'N'
+         GROUP BY B.CHK_DD,
+                  A.HL_CLASS_CD,
+                  A.HL_CLASS_NM
+         )
+         BB,
+         ( SELECT SUM(CHK_IDCTR) LLL
+         FROM    FSC_PATL_RESULT_DTL D
+         WHERE   D.TABLE_TYPE = #TABLE_TYPE#
+         AND     D.FORM_CD    = #FORM_CD#
+         AND     D.UPJANG     = #UPJANG#
+         AND     D.CHK_DD     = #CHK_DD#
+         AND     D.NA_YN      = 'N'
+         )
+         CC
+WHERE    AA.CHK_DD      = BB.CHK_DD(+)
+AND      AA.HL_CLASS_CD = BB.HL_CLASS_CD(+)
+ORDER BY AA.CHK_DD,
+         AA.HL_CLASS_CD,
+         AA.HL_CLASS_NM
+    </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_lmClassScoreList">
+	</output>
+</query>

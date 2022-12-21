@@ -1,0 +1,175 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="CmmnLoginPop" classname="GUIDE_COMP_03" left="0" top="0" width="420" height="432" scrollbars="none" titletext="로그인 팝업창" onload="form_onload">
+    <Layouts>
+      <Layout>
+        <Static id="staFormSize" taborder="0" left="0" top="0" width="420" height="432" cssclass="sta_POP_Bg"/>
+        <Static id="staBtnClose" taborder="6" onclick="staBtnClose_onclick" left="400" top="0" right="0" height="67"/>
+        <Static id="Static01" taborder="34" cssclass="sta_LOGIN_Bg02" left="0" top="0" right="0" bottom="0"/>
+        <Button id="btnLogin" taborder="3" onclick="btnLogin_onclick" cssclass="btn_LOGIN_Login" left="28" top="213" right="32" height="80"/>
+        <Edit id="edtPwd" taborder="2" imemode="alpha" password="true" displaynulltext="패스워드를 입력하세요" onkeydown="edtPwd_onkeydown" cssclass="edt_LOGIN_Login" left="28" top="149" right="32" height="55"/>
+        <Edit id="edtId" taborder="1" displaynulltext="ID를 입력하세요" onkeydown="edtId_onkeydown" cssclass="edt_LOGIN_Login" left="28" top="88" right="32" height="55" readonly="true"/>
+        <Static id="Static03" taborder="5" cssclass="sta_LOGIN_Login" left="28" top="33" width="100" height="42"/>
+        <Static id="sta_inform" taborder="4" text="일정 시간 동안 사용을 하지 않거나, 서버 어플리케이션이 재기동 된 경우 다시 로그인 하셔야 합니다." left="29" top="307" width="359" height="109" style="color:#ffffffff;align:left middle;font:bold antialias 12 arial;"/>
+      </Layout>
+    </Layouts>
+    <Bind/>
+    <Objects>
+      <Dataset id="ds_list" preload="true" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true">
+        <ColumnInfo>
+          <Column id="DCSN_CD" size="6" type="STRING"/>
+          <Column id="KOR_DEPT_NM" size="4000" type="STRING"/>
+          <Column id="APPR_YN" size="5" type="STRING"/>
+          <Column id="APPR_DT" size="8" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_cond" preload="true" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true">
+        <ColumnInfo>
+          <Column id="ACNT_UNIT" size="20" type="STRING"/>
+          <Column id="ACNT_FG" size="20" type="STRING"/>
+          <Column id="DCSN_NO" size="20" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript5.0"><![CDATA[//########################################################
+// [프로젝트]		FC종합전산 모바일시스템 구축
+// [시스템명]		로그인팝업
+// [부시스템명]	로그인팝업 - 조회
+// [설명]
+// 		부서 검색하기.
+// [작성자명] 		강대성
+// [작성일자]		2015.05.22
+// -----------------[수정이력]--------------------------
+// 수정일자 : 수정자 : 수정내용
+// 2015.05.22 : 강대성 : 로그인팝업 처리.
+//########################################################
+include "lib::lib_Com.xjs"
+
+/*======================================================
+ 전역변수
+ ======================================================*/
+var fv_isLogin = false;		//로그인 여부
+
+/*================================================================================
+ * 2. Form관련 Script
+ *===============================================================================*/
+/** 
+ * Form의 모든 컴포넌트가 생성되고, 모든 Object가 Load 되었을 때에 발생하는 Event
+ * @param
+	obj : Event가 발생한 Object
+	e : Event Object
+ * @return : 없음
+ */ 
+this.form_onload = function(obj:Form, e:nexacro.LoadEventInfo)
+{
+	this.edtId.set_value(application.gds_userInfo.getColumn(application.gds_userInfo.rowposition, "userid")); 
+	
+	application.goMain.gfn_POP_resize(this);
+}
+
+/*******************************************************************************
+* 기      능   :  로그인처리
+* 설      명   :  로그인처리
+********************************************************************************/
+this.btnLogin_onclick = function(obj:Button,  e:nexacro.ClickEventInfo)
+{
+	if(application.gfn_IsNull(this.edtPwd.text)) 
+    {
+        application.goMain.gfn_Msg("alertTest", "Information", "패스워드를 입력하여 주십시요.", "OK");
+        this.edtPwd.setFocus();
+        return;
+    }
+    	
+	// 서비스 연결 됐을때 아래 로직으로..
+	var strSvcID   	     = "loginPop";
+    var strUrl     	     = "sc/cmn/login.xdo";
+    var strInDataset     = "";
+    var strOutDataset    = "";
+    var strArguments	 = "id=" + nexacro.wrapQuote(this.edtId.text);
+	   strArguments     += " pwd=" + nexacro.wrapQuote(this.edtPwd.value);
+	var strCallbackFunc  = "fn_callBack";
+    var bAsync			 = false;
+ 
+    this.gfn_transaction(this, strSvcID, strUrl, strInDataset, strOutDataset, strArguments, strCallbackFunc, bAsync);
+
+}
+
+/*==========================================================================
+ * 4. Component관련 Script
+*========================================================================*/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 트랜잭션 콜백 함수 (필수)
+ *---------------------------------------------------------------------------------------------*/
+this.fn_callBack = function (strSvcID, nErrorCode, strErrorMsg)
+{	
+	
+	// 에러시 gfn_callBack에서 메시지 제공, 화면별 특정 에러 발생시에만 사용하세요.
+	if (nErrorCode < 0) 
+	{
+		return;
+	}
+	
+    switch(strSvcID)
+    {		
+		//로그인후
+        case "loginPop" :
+        
+			fv_isLogin = true;
+			
+			// 조회 건수 확인  
+            if (application.gds_userInfo.getRowCount() == 0) 
+            {
+                application.goMain.gfn_Msg("ALERT_0", "Information", "해당하는 사용자 정보가 없습니다.", "OK");	//해당하는 사용자 정보가 없습니다.
+                return;
+            }
+            else // 조회건수가 1페이지 이상일때
+            {
+				application.goMain.gfn_POP_close(this, "");				
+			}            
+  			break;
+  		
+    }     
+}
+
+
+/** Message callback 함수
+ * @param
+	id : id
+	rtn : type이 "OK" 일 때는 none
+	type이 "YN" 일 때는 "Y" or "N"
+ * @return : 없음
+ * @note : Alert 이나 Confirm 메시지의 콜백 함수
+ *         gfn_Msg(...) 함수를 사용하여 띄운 창을 닫을 때 호출된다.
+ */
+this.msg_callback = function (id, rtn)
+{
+	if (id == "ALERT_0") // 조회 시 오류
+	{
+		// 아무 일도 안함.
+	}	
+	
+}
+
+/*******************************************************************************
+* 기      능   :  키패드 이동
+* 설      명   :  키페드 이동시 다음 탭 오더순으로 가도록 해줌
+********************************************************************************/
+this.edtId_onkeydown = function(obj:Edit, e:nexacro.KeyEventInfo)
+{
+	if(e.keycode == 13){this.getNextComponent(this.getFocus()).setFocus();}
+}
+
+
+
+this.edtPwd_onkeydown = function(obj:Edit, e:nexacro.KeyEventInfo)
+{
+	if(e.keycode == 13){this.getNextComponent(this.getFocus()).setFocus(); this.btnLogin_onclick();}
+	
+}
+
+
+
+]]></Script>
+  </Form>
+</FDL>

@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fs.fsf.funeralSaleSumDAO">
+	<desc>매출집계관리 HQML Query</desc>
+
+	<!-- 매출집계관리 목록을 조회한다. -->
+	<statement name="selectFuneralSaleSum" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleSumDAO.selectFuneralSaleSum */
+		<![CDATA[
+		SELECT SS.KIND_TYPE, SS.FUNERAL_HALL_CD, SS.FUNERAL_PARLOR_NM, 
+		SS.SALE_DATE, 
+		       SUM(SS.SALEOUT_EA) AS SALEOUT_EA,    		-- 판매수량 
+				   SUM(SS.SALEOUT_AMT) AS SALEOUT_AMT,  	    -- 판매금액 
+				   SUM(SS.RETURN_EA) AS RETURN_EA,   			-- 반품수량 
+				   SUM(SS.RETURN_AMT) AS RETURN_AMT,    		-- 반품금액
+		       SUM(SS.ADJUST_EA) AS ADJUST_EA,        -- 합계 수량
+		       SUM(SS.ADJUST_AMT) AS ADJUST_AMT         -- 합계 금액
+		  FROM (
+		              SELECT CC.KIND_TYPE, CC.FUNERAL_HALL_CD, DECODE(KIND_TYPE, '장례',SCC_CODE_NM('FUNERAL_PARLOR_TYPE', DD.FUNERAL_PARLOR), '개별') AS FUNERAL_PARLOR_NM,  
+		              			   			   		<#if sumType=="01">
+		              			   			   			CC.SALE_DATE AS SALE_DATE,
+		              			   			   		</#if>	
+		              			   			   		<#if sumType=="02">
+		              			   			   			SUBSTR(CC.SALE_DATE, 1, 6) AS SALE_DATE,
+		              			   			   		</#if>	
+		              			   			   		<#if sumType=="03">
+		              			   			   			SUBSTR(CC.SALE_DATE, 1, 4) AS SALE_DATE,
+		              			   			   		</#if>
+		              			   			   		DECODE(KIND_TYPE, '장례',DD.FUNERAL_PARLOR, '999') as FUNERAL_PARLOR,	
+		              		       SUM(NVL(CC.EA_001, 0))  AS SALEOUT_EA,    		-- 판매수량 
+		              		       SUM(NVL(CC.AMT_001, 0)) AS SALEOUT_AMT,  	 -- 판매금액 
+		              		       SUM(NVL(CC.EA_002, 0))  AS RETURN_EA ,   			-- 반품수량 
+		              		       SUM(NVL(CC.AMT_002, 0)) AS RETURN_AMT,    		-- 반품금액
+		              		       SUM(NVL(CC.EA_001, 0)) - SUM(NVL(CC.EA_002, 0)) AS ADJUST_EA,   	  -- 합계 수량
+		                    		   SUM(NVL(CC.AMT_001, 0)) - SUM(NVL(CC.AMT_002, 0)) AS ADJUST_AMT	      -- 합계 금액
+		              				
+		              		  FROM (
+		              		              SELECT '장례' AS KIND_TYPE, A.FUNERAL_HALL_CD, A.GUEST_NUM, TO_CHAR(A.SALE_DATE,'YYYYMMDD') AS SALE_DATE,
+		              		                     CASE WHEN A.SALE_CLASS = '001' THEN SUM(A.EA)  ELSE 0 END AS EA_001, -- ,-- 판매수량 
+		              		                     CASE WHEN A.SALE_CLASS = '001' THEN SUM(A.AMT) ELSE 0 END AS AMT_001,-- 판매금액 
+		              		                     CASE WHEN A.SALE_CLASS = '002' THEN SUM(A.EA)  ELSE 0 END AS EA_002 , -- 반품수량 
+		              		                     CASE WHEN A.SALE_CLASS = '002' THEN SUM(A.AMT) ELSE 0 END AS AMT_002-- 반품금액
+		              		                FROM FSF_SALE_ORDER      A
+		              		               WHERE (A.KIND_TYPE <> 'S' OR A.KIND_TYPE IS NULL)
+		              		               	 AND A.ORDER_STATUS = '002' 
+		              		                 AND   A.FUNERAL_HALL_CD = :upjangCd
+		              		               GROUP BY A.FUNERAL_HALL_CD, A.GUEST_NUM, TO_CHAR(A.SALE_DATE,'YYYYMMDD'), A.SALE_CLASS
+		              		              
+		              		               UNION ALL
+		              		               
+		              		              SELECT '개별' AS KIND_TYPE, A.FUNERAL_HALL_CD, A.GUEST_NUM, TO_CHAR(A.SALE_DATE,'YYYYMMDD') AS SALE_DATE,
+		              		                     CASE WHEN A.SALE_CLASS = '001' THEN SUM(A.EA)  ELSE 0 END AS S_EA_001, -- ,-- 판매수량 
+		              		                     CASE WHEN A.SALE_CLASS = '001' THEN SUM(A.AMT) ELSE 0 END AS S_AMT_001,-- 판매금액 
+		              		                     CASE WHEN A.SALE_CLASS = '002' THEN SUM(A.EA)  ELSE 0 END AS S_EA_002 , -- 반품수량 
+		              		                     CASE WHEN A.SALE_CLASS = '002' THEN SUM(A.AMT) ELSE 0 END AS S_AMT_002-- 반품금액
+		              		                FROM FSF_SALE_ORDER      A
+		              		               WHERE (A.KIND_TYPE = 'S')
+		              		                 AND   A.FUNERAL_HALL_CD = :upjangCd
+		              		               GROUP BY A.FUNERAL_HALL_CD, A.GUEST_NUM, TO_CHAR(A.SALE_DATE,'YYYYMMDD'), A.SALE_CLASS
+		              		       ) CC ,
+		              		       FSF_FUNERAL_MASTER   DD
+		              		 WHERE CC.FUNERAL_HALL_CD = DD.FUNERAL_HALL_CD
+		              		   AND CC.GUEST_NUM       = DD.GUEST_NUM
+		              		   AND CC.FUNERAL_HALL_CD = :upjangCd
+		              		   		<#if sumType=="01">								/*  일별 조건 */
+		              		   			<#if saleoutFrom?has_content && saleoutTo?has_content>
+								   		AND CC.SALE_DATE BETWEEN :saleoutFrom AND :saleoutTo
+								   		</#if>
+								   </#if>
+								   <#if sumType=="02">								/*  월별 조건 */
+		              		   			<#if saleoutFrom?has_content && saleoutTo?has_content>
+								   		AND TO_CHAR(TO_DATE(CC.SALE_DATE, 'YYYYMMDD'),'YYYYMM') BETWEEN SUBSTR(:saleoutFrom, 1, 6) AND SUBSTR(:saleoutTo, 1, 6)
+								   		</#if>
+								   </#if>
+								   <#if sumType=="03">								/*  년별 조건 */
+		              		   			<#if saleoutFrom?has_content && saleoutTo?has_content>
+								   		AND TO_CHAR(TO_DATE(CC.SALE_DATE, 'YYYYMMDD'),'YYYY') BETWEEN SUBSTR(:saleoutFrom, 1, 4) AND SUBSTR(:saleoutTo, 1, 4)
+								   		</#if>
+								   </#if>
+            		   		   		GROUP BY CC.KIND_TYPE, CC.FUNERAL_HALL_CD, SCC_CODE_NM('FUNERAL_PARLOR_TYPE', DD.FUNERAL_PARLOR)   
+            		   		   		<#if sumType=="01">,CC.SALE_DATE </#if><#if sumType=="02">,SUBSTR(CC.SALE_DATE, 1, 6) </#if>,DD.FUNERAL_PARLOR
+            		   		   		<#if sumType=="03">,SUBSTR(CC.SALE_DATE, 1, 4) </#if>
+		              ORDER BY CC.KIND_TYPE DESC
+		        ) SS
+		GROUP BY SS.KIND_TYPE, SS.FUNERAL_HALL_CD, SS.FUNERAL_PARLOR_NM, SS.SALE_DATE, SS.FUNERAL_PARLOR
+		ORDER BY SS.SALE_DATE, SS.FUNERAL_PARLOR, SS.KIND_TYPE DESC
+
+
+		  	
+		]]>
+	</statement>
+	
+	<!-- 매출집계관리 목록을 품목별로 조회한다. -->
+	<statement name="selectFuneralSaleSumItem" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleSumDAO.selectFuneralSaleSum */
+		<![CDATA[
+		SELECT SS.KIND_TYPE, SS.FUNERAL_HALL_CD, SS.SALE_DATE, SS.DETAIL_GOODS_NM,
+			       SUM(SS.SALEOUT_EA)  AS SALEOUT_EA,  -- 판매수량 
+			       SUM(SS.SALEOUT_AMT) AS SALEOUT_AMT, -- 판매금액 
+			       SUM(SS.RETURN_EA)   AS RETURN_EA, -- 반품수량 
+			       SUM(SS.RETURN_AMT)  AS RETURN_AMT,   -- 반품 금액
+			       SUM(SS.ADJUST_EA)   AS ADJUST_EA,   	  -- 합계 수량
+			       SUM(SS.ADJUST_AMT)  AS ADJUST_AMT	      -- 합계 금액
+			  FROM (
+			            SELECT AA.KIND_TYPE,  AA.FUNERAL_HALL_CD, AA.GUEST_NUM,
+			            <#if sumType=="01">
+	   			   			AA.SALE_DATE AS SALE_DATE,
+	   			   		</#if>	
+	   			   		<#if sumType=="02">
+	   			   			SUBSTR(AA.SALE_DATE, 1, 6) AS SALE_DATE,
+	   			   		</#if>	
+	   			   		<#if sumType=="03">
+	   			   			SUBSTR(AA.SALE_DATE, 1, 4) AS SALE_DATE,
+	   			   		</#if>	             
+			            BB.GOODS_CLASS_NM,  BB.DETAIL_GOODS_NM,
+			            		       SUM(NVL(AA.EA_001,0))  AS SALEOUT_EA,  -- 판매수량 
+			            		       SUM(NVL(AA.AMT_001,0)) AS SALEOUT_AMT, -- 판매금액 
+			            		       SUM(NVL(AA.EA_002,0))  AS RETURN_EA , -- 반품수량 
+			            		       SUM(NVL(AA.AMT_002,0)) AS RETURN_AMT,   -- 반품 금액
+			            		       SUM(NVL(AA.EA_001, 0)) - SUM(NVL(AA.EA_002, 0)) AS ADJUST_EA,   	  -- 합계 수량
+			                  		   SUM(NVL(AA.AMT_001, 0)) - SUM(NVL(AA.AMT_002, 0)) AS ADJUST_AMT	      -- 합계 금액
+			            		  FROM (
+			            		              SELECT '장례' AS KIND_TYPE, A.FUNERAL_HALL_CD, A.GUEST_NUM, TO_CHAR(A.SALE_DATE,'YYYYMMDD') AS SALE_DATE, 
+			            		                     A.GOODS_CLASS_CD, A.DETAIL_GOODS_CD, 
+			            		                     CASE WHEN A.SALE_CLASS = '001' THEN SUM(A.EA)  ELSE 0 END AS EA_001,  -- 판매수량 
+			            		                     CASE WHEN A.SALE_CLASS = '001' THEN SUM(A.AMT) ELSE 0 END AS AMT_001, -- 판매금액 
+			            		                     CASE WHEN A.SALE_CLASS = '002' THEN SUM(A.EA)  ELSE 0 END AS EA_002 , -- 반품수량 
+			            		                     CASE WHEN A.SALE_CLASS = '002' THEN SUM(A.AMT) ELSE 0 END AS AMT_002  -- 반품금액
+			            		                FROM FSF_SALE_ORDER      A
+			            		               WHERE (A.KIND_TYPE <> 'S' OR A.KIND_TYPE IS NULL) 
+			            		                 AND A.ORDER_STATUS = '002'
+			            		                 AND A.FUNERAL_HALL_CD = :upjangCd
+			            		               GROUP BY A.FUNERAL_HALL_CD, A.GUEST_NUM, TO_CHAR(A.SALE_DATE,'YYYYMMDD'), A.SALE_CLASS, GOODS_CLASS_CD, DETAIL_GOODS_CD
+			            		              
+			            		               UNION ALL
+			            		              
+			            		              SELECT '개별' AS KIND_TYPE, A.FUNERAL_HALL_CD, A.GUEST_NUM, TO_CHAR(A.SALE_DATE,'YYYYMMDD') AS SALE_DATE, GOODS_CLASS_CD, DETAIL_GOODS_CD,
+			            		                     CASE WHEN A.SALE_CLASS = '001' THEN SUM(A.EA)  ELSE 0 END AS S_EA_001,   -- 판매수량 
+			            		                     CASE WHEN A.SALE_CLASS = '001' THEN SUM(A.AMT) ELSE 0 END AS S_AMT_001,  -- 판매금액 
+			            		                     CASE WHEN A.SALE_CLASS = '002' THEN SUM(A.EA)  ELSE 0 END AS S_EA_002 ,  -- 반품수량 
+			            		                     CASE WHEN A.SALE_CLASS = '002' THEN SUM(A.AMT) ELSE 0 END AS S_AMT_002   -- 반품금액
+			            		                FROM FSF_SALE_ORDER      A
+			            		               WHERE (A.KIND_TYPE = 'S')
+			            		               AND A.FUNERAL_HALL_CD = :upjangCd
+			            		               GROUP BY A.FUNERAL_HALL_CD, A.GUEST_NUM, TO_CHAR(A.SALE_DATE,'YYYYMMDD'), A.SALE_CLASS, GOODS_CLASS_CD, DETAIL_GOODS_CD
+			            		     ) AA,
+			            		     (       
+			            		                 --   	S003	   원자력세트	                   002	            010708010927	    로리나오렌지에이드 Bottle(330ml)[두쏠]
+			            		                 --   	001	     식사류	                       001	            001	              공기밥
+			            		                 --   	001	     식사류	                       001	            002	              육계장     
+			            		              SELECT A.SET_CD, A.SET_NM AS GOODS_CLASS_NM, B.GOODS_CLASS_CD,  B.DETAIL_GOODS_CD, B.DETAIL_GOODS_NM
+			            		                FROM FSF_MCLASS_GOODS_MASTER   A,
+			            		                     FSF_SCLASS_GOODS_MASTER   B
+			            		               WHERE B.FUNERAL_HALL_CD = :upjangCd
+			            		                 AND A.FUNERAL_HALL_CD = B.FUNERAL_HALL_CD
+			            		                 AND A.SET_CD = B.SET_CD
+			            		               UNION ALL
+			            		              SELECT GOODS_CLASS_CD AS SET_CD, GOODS_CLASS_NM, GOODS_CLASS_CD, DETAIL_GOODS_CD, DETAIL_GOODS_NM
+			            		                FROM FSF_FUNERAL_GOODS
+			            		                WHERE FUNERAL_HALL_CD = :upjangCd  
+			            		     ) BB
+			            		 WHERE AA.GOODS_CLASS_CD  = BB.SET_CD
+			            		   AND AA.DETAIL_GOODS_CD = BB.DETAIL_GOODS_CD
+			            		   AND AA.FUNERAL_HALL_CD = :upjangCd
+			            		   		<#if sumType=="01">								/*  일별 조건 */
+			            		   			<#if saleoutFrom?has_content && saleoutTo?has_content>
+									   		AND AA.SALE_DATE BETWEEN :saleoutFrom AND :saleoutTo
+										   </#if>
+									   </#if>
+									   <#if sumType=="02">								/*  월별 조건 */
+			            		   			<#if saleoutFrom?has_content && saleoutTo?has_content>
+									   		AND TO_CHAR(TO_DATE(AA.SALE_DATE, 'YYYYMMDD'),'YYYYMM') BETWEEN SUBSTR(:saleoutFrom, 1, 6) AND SUBSTR(:saleoutTo, 1, 6)
+										   </#if>
+									   </#if>
+									   <#if sumType=="03">								/*  년별 조건 */
+			            		   			<#if saleoutFrom?has_content && saleoutTo?has_content>
+									   		AND TO_CHAR(TO_DATE(AA.SALE_DATE, 'YYYYMMDD'),'YYYY') BETWEEN SUBSTR(:saleoutFrom, 1, 4) AND SUBSTR(:saleoutTo, 1, 4)
+										   </#if>
+									   </#if>
+			            		   		    GROUP BY AA.KIND_TYPE,  AA.FUNERAL_HALL_CD, AA.GUEST_NUM
+			            		   		    <#if sumType=="01">,AA.SALE_DATE </#if><#if sumType=="02">,SUBSTR(AA.SALE_DATE, 1, 6) </#if>
+            		   		   			 	<#if sumType=="03">,SUBSTR(AA.SALE_DATE, 1, 4) </#if>, BB.GOODS_CLASS_NM,  BB.DETAIL_GOODS_NM
+			      ) SS
+			GROUP BY SS.KIND_TYPE, SS.FUNERAL_HALL_CD, SS.SALE_DATE, SS.DETAIL_GOODS_NM
+			ORDER BY SS.KIND_TYPE DESC
+
+		]]>
+	</statement>
+</hqml>

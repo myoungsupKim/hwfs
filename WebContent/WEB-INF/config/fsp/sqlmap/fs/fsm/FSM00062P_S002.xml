@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.RECIPE_CD
+      ,A.RECIPE_NAME
+      ,A.ITEM_CODE
+      ,A.ITEM_NAME
+      ,A.FEATURE_NAME
+      ,A.ITEM_SIZE
+      ,A.PO_UOM
+      ,A.NEED_QTY
+      ,ROUND( A.PAST_PRICE) PAST_PRICE
+      ,NVL(ROUND( (A.NEED_QTY * NVL(G_ITEM_PRICE,0))),0) CUR_PRICE
+      ,A.UPJANG
+      ,A.MENU_CD
+      ,A.ITEM_SEQ
+      ,A.EDIBLE_QTY
+      ,A.CUT_SPEC
+      ,A.ORDER_YN
+      ,A.PR_ID
+      ,A.PR_NUM
+      ,A.PR_QTY
+      ,A.NEED_DATE
+      ,A.UNIT_PRICE
+      ,A.MARGIN_RATE
+      ,A.MARGIN_PRICE
+  FROM
+       (
+         SELECT A.RECIPE_SEQ, A.RECIPE_TYPE, A.CUISINE_TYPE, A.RECIPE_CD, A.RECIPE_NAME,
+                C.ITEM_NAME, D.FEATURE_NAME, C.ITEM_SIZE, C.PO_UOM,
+                B.UPJANG, B.MENU_CD, B.ITEM_CODE, B.ITEM_SEQ, B.NEED_QTY, B.EDIBLE_QTY, B.CUT_SPEC, B.ORDER_YN,
+                B.PR_ID, B.PR_NUM, B.PR_QTY, B.NEED_DATE, B.UNIT_PRICE, B.MARGIN_RATE, B.MARGIN_PRICE,
+                NVL((B.NEED_QTY * NVL(ROUND((B.MARGIN_PRICE / C.KG_CONVERT_RATE / 1000),2),0)),0) AS PAST_PRICE
+           FROM FSM_REAL_RECIPE_MST A
+               ,FSM_REAL_RECIPE_ITEM B
+               ,HLDC_PO_ITEM_MST C
+               ,(
+                SELECT A.ITEM_CODE,
+                       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0033' AND CODE = A.ITEM_FEATURE) AS FEATURE_NAME
+                  FROM
+                       (
+                        SELECT CENTER_CODE, CUSTCD, ITEM_CODE, ITEM_FEATURE
+                          FROM FSI_ITEM_FEATURE
+                         WHERE (1=1)
+                          AND  (CENTER_CODE, CUSTCD, ITEM_CODE, APPLY_DATE) IN (
+                                SELECT
+                                       CENTER_CODE, CUSTCD, ITEM_CODE, MAX(APPLY_DATE) AS APPLY_DATE
+                                  FROM  FSI_ITEM_FEATURE
+                                 WHERE  CENTER_CODE  = (SELECT CENTER_CODE FROM HLDC_PO_UPJANG_CENTER WHERE UPJANG = (SELECT AP_UNITPRICE_UPJANG FROM HLDC_ST_UPJANG WHERE UPJANG = #UPJANG#))
+                                    AND  TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN APPLY_DATE AND TO_CHAR(ADD_MONTHS(TO_DATE(APPLY_DATE,'YYYYMMDD'),1)-1,'YYYYMMDD')
+                                 GROUP BY CENTER_CODE, CUSTCD, ITEM_CODE
+                               )
+                        ) A
+                ) D
+          WHERE A.UPJANG = B.UPJANG
+            AND A.MENU_CD = B.MENU_CD
+            AND A.RECIPE_CD = B.RECIPE_CD
+            AND B.ITEM_CODE = C.ITEM_CODE
+            AND B.ITEM_CODE = D.ITEM_CODE(+)
+            AND ((C.ITEM_CLASS2 BETWEEN 'F10' AND 'F26') OR C.ITEM_CLASS2 = 'F29')
+            AND A.UPJANG  = #UPJANG#
+            AND A.MENU_CD = #MENU_CD#
+            AND A.RECIPE_CD = #RECIPE_CD#
+       ) A
+      ,(
+SELECT /*+ ORDERED USE_NL(B E A D) INDEX(C)*/ A.ITEM_CODE,
+              D.ITEM_NAME,
+              D.ITEM_SIZE,
+              D.PO_UOM,
+              A.CUSTCD,
+              DECODE(A.MARGIN_RATE, 0, A.CONTRACT_PRICE, DECODE(E.OUTVAT_FLAG, 'Y' , ( ROUND( (A.CONTRACT_PRICE * DECODE(D.TAX_CODE, '100' , 1.1, 1) * (A.MARGIN_RATE+100) / 100 ) / 10) * 10 ) , ( ROUND( (A.CONTRACT_PRICE * (A.MARGIN_RATE+100) / 100 ) / 10) * 10 ) ) ) AS ITEM_PRICE,
+              KG_CONVERT_RATE,
+              ROUND((DECODE(A.MARGIN_RATE, 0, A.CONTRACT_PRICE, DECODE(E.OUTVAT_FLAG, 'Y' , ( ROUND( (A.CONTRACT_PRICE * DECODE(D.TAX_CODE, '100' , 1.1, 1) * (A.MARGIN_RATE+100) / 100 ) / 10) * 10 ) , ( ROUND( (A.CONTRACT_PRICE * (A.MARGIN_RATE+100) / 100 ) / 10) * 10 ) ) ) )/KG_CONVERT_RATE/1000,2) AS G_ITEM_PRICE,
+              A.UPJANG
+         FROM HLDC_ST_UPJANG B,
+              HLDC_PO_SUBINVENTORY E,
+              HLDC_PO_CONTRACT_F A,
+              HLDC_PO_ITEM_MST D
+        WHERE A.ITEM_CODE = D.ITEM_CODE
+          AND A.USE_YN = 'Y'
+          AND A.CONTRACT_PRICE > 0
+          AND A.UPJANG = B.AP_UNITPRICE_UPJANG
+          AND B.UPJANG = E.UPJANG
+          AND B.UPJANG = #UPJANG#
+          AND E.SUBINV_CODE = #SUBINV_CODE#
+          AND #MENU_DATE#  BETWEEN A.CONTRACT_START AND NVL(A.CONTRACT_END,'99999999')
+       ) B
+ WHERE A.ITEM_CODE = B.ITEM_CODE(+)
+ ORDER BY A.RECIPE_SEQ, A.RECIPE_TYPE, A.CUISINE_TYPE, A.RECIPE_CD	</statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_Detail">
+	</output>
+</query>

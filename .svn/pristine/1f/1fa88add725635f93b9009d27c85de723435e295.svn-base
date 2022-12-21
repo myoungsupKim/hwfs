@@ -1,0 +1,184 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FSP00035V2" onload="form_onload" titletext="기신청내역조회" position="absolute 0 0 850 155" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Grid autoenter="select" binddataset="ds_list" cellsizingtype="both" enable="true" id="grd_MenuItem" useinputpanel="false" onheadclick="grd_OnHeadClick" taborder="3" tabstop="true" usecontextmenu="true" useselcolor="false" visible="true" wheelscrollrow="1" position="absolute 15 40 835 140" readonly="true" selecttype="row" autofittype="col">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="30"/>
+                <Column size="97"/>
+                <Column size="77"/>
+                <Column size="104"/>
+                <Column size="91"/>
+                <Column size="132"/>
+                <Column size="69"/>
+                <Column size="57"/>
+                <Column size="81"/>
+                <Column size="69"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="text" style="align:center;" class="head_Excel"/>
+                <Cell col="1" text="구매유형"/>
+                <Cell col="2" text="신청일자"/>
+                <Cell col="3" text="신청번호"/>
+                <Cell col="4" text="자재코드"/>
+                <Cell col="5" text="자재명"/>
+                <Cell col="6" text="단가"/>
+                <Cell col="7" text="신청량"/>
+                <Cell col="8" text="신청액"/>
+                <Cell col="9" text="신청자"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" style="align:center;" expr="expr:currow+1"/>
+                <Cell col="1" displaytype="text" style="align:left;" text="bind:TYPE_NAME"/>
+                <Cell col="2" displaytype="date" style="align:left;" text="bind:PR_DATE" calendardisplaynulltype="none"/>
+                <Cell col="3" displaytype="text" style="align:left;" text="bind:PR_NUM"/>
+                <Cell col="4" displaytype="text" style="align:left;" text="bind:ITEM_CODE"/>
+                <Cell col="5" displaytype="text" style="align:left;" text="bind:ITEM_NAME"/>
+                <Cell col="6" displaytype="number" style="align:right;" text="bind:MARGIN_PRICE"/>
+                <Cell col="7" displaytype="number" style="align:right;" text="bind:PR_QTY"/>
+                <Cell col="8" displaytype="number" style="align:right;" text="bind:PR_AMT"/>
+                <Cell col="9" displaytype="text" style="align:left;" text="bind:NM_KOR"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="Static18" text="W102" visible="false" position="absolute 343 10 345 35" anchor="top right" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static00" text="h06" class="Guide01_AreaRed" visible="false" position="absolute 15 10 215 16"/>
+        <Static id="MenuID" text="기신청액 조회" class="sta_WF_Title" position="absolute 15 16 215 40"/>
+        <Static id="Static04" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 15 140 835 155"/>
+        <Static id="Static03" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 835 8 850 149"/>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 8 15 141"/>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 835 10"/>
+        <Static id="Static05" text="h05" class="Guide01_AreaRed" visible="false" position="absolute 220 35 819 40"/>
+        <Static id="Static06" text="아이콘기준 h08" class="Guide01_AreaRed" visible="false" position="absolute 15 32 215 40"/>
+        <ImageViewer id="comBg" taborder="7" image="URL('theme://convertImages/img_ComBtnBg.png')" position="absolute 750 10 790 32" visible="false"/>
+        <Button id="btn_Close00" taborder="8" text="닫기" onclick="btn_Close_OnClick" class="btn_WF_CRUD" position="absolute 790 10 835 35"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_list">
+        <ColumnInfo>
+          <Column id="ITEM_CODE" size="12" type="STRING"/>
+          <Column id="ITEM_NAME" size="200" type="STRING"/>
+          <Column id="MARGIN_PRICE" size="22" type="BIGDECIMAL"/>
+          <Column id="NM_KOR" size="50" type="STRING"/>
+          <Column id="PR_AMT" size="22" type="BIGDECIMAL"/>
+          <Column id="PR_DATE" size="8" type="STRING"/>
+          <Column id="PR_NUM" size="50" type="STRING"/>
+          <Column id="PR_QTY" size="22" type="BIGDECIMAL"/>
+          <Column id="TYPE_NAME" size="100" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="dsPoLineStatus">
+        <ColumnInfo>
+          <Column id="NEED_MONTH" size="256" type="STRING"/>
+          <Column id="BUDDEPT_ID" size="256" type="STRING"/>
+          <Column id="ACCTCD" type="STRING" size="256"/>
+          <Column id="BUD_CLS" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : FS시스템/메뉴관리/구매관리/구매신청서작성/식자재구매신청(자동)-자재상세내역(식단)
+ * 프로그램명   : FSP00035V2.XML
+ * 기      능   : 기신청내역 조회
+ * 작  성  자   : 김동표
+ * 작성  일자   : 2008-01-28
+ * 비      고   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "lib::sc_comon.js"
+//@@컨버터에서 주석처리 #include "lib::tit_comm_0001.js"		// X-Framework Lib
+//@@컨버터에서 주석처리 #include "lib::po_common.js"
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	// X-Framework : Action 정보 생성 
+	fsp_init(this);
+	
+	fn_SearchBudget();
+}
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+ function fn_SearchBudget()
+ {
+	dsPoLineStatus.clearData();
+	dsPoLineStatus.addRow();
+
+	dsPoLineStatus.setColumn(0, "NEED_MONTH", gfn_nvl(p_NeedMonth, ""));
+	dsPoLineStatus.setColumn(0, "BUDDEPT_ID", gfn_nvl(p_BUDDEPT_ID, ""));
+	dsPoLineStatus.setColumn(0, "ACCTCD", gfn_nvl(p_ACCTCD, ""));
+	dsPoLineStatus.setColumn(0, "BUD_CLS", gfn_nvl(p_BUD_CLS, ""));
+	
+	var actionName, cmdName, inData, outData, otherArg, callBackFnc;	
+	actionName		= "FSP00035V1_S001";
+	cmdName			= "U_svc::" + "fs/fsp/FSP00035V1_S001.jsp";
+	inData			= "dsPoLineStatus=dsPoLineStatus";
+	outData			= "ds_list=ds_out";
+	callBackFnc		= "fn_SearchBudget_callback";
+	otherArg  = "";
+	
+	jsp_transaction(this,actionName, cmdName ,inData ,outData,otherArg,callBackFnc,true,false,false);
+//	Transaction(strSvcID,strURL,strInDatasets,strOutDatasets,strArgument,strCallbackFunc);
+ }
+ 
+ function fn_SearchBudget_callback() {
+	
+ }
+ 
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+function grd_OnHeadClick(obj:Grid, e:GridClickEventInfo)
+{
+	gfn_gridSort(obj, e); //(eval(obj.binddataset), obj, e.cell);
+}
+
+function btn_Close_OnClick(obj:Button, e:ClickEventInfo)
+{
+	this.close();
+}
+]]></Script>
+  </Form>
+</FDL>

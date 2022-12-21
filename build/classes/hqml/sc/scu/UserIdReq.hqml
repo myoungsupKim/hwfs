@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.scu.userIdReqDAO">
+	<desc>사용자 정보 HQML Query</desc>
+
+	<!-- 아이디 중복을 체크한다. -->
+	<statement name="selectExistsUserId" type="select">
+		/*+ com.hwfs.sc.scu.dao.UserIdReqDAO.selectExistsUserId */
+		<![CDATA[
+SELECT COUNT(*) AS CNT
+FROM   SCC_USERINFO
+WHERE  USERID = :userid
+		]]>
+	</statement>
+
+	<!-- 사용자 정보(을)를 등록한다. -->
+	<statement name="insertUserInfo" type="insert">
+		/*+ com.hwfs.sc.scu.dao.UserIdReqDAO.insertUserInfo */
+		<![CDATA[
+INSERT INTO SCC_USERINFO
+(
+ SABUN,
+ USERID,
+ PASSWORD,
+ NM_KOR,
+ USER_GROUP,
+ USER_TYPE,
+ UPJANG,
+ JOIN_DATE,
+ PWD_CHG_DATE,
+ REMARK,
+ USE_YN,
+ ACCT_STATUS,
+ PERS_INFO_AGREE_YN,
+ CUSER,
+ CDATE,
+ UUSER,
+ UDATE
+) VALUES (
+ :sabun,
+ :userId,
+ SCC_CRYPTO.ONEWAY_ENC_FUN(:sabun),
+<#if nmKor?exists> :nmKor, <#else> null, </#if>
+ '식재영업',
+ '외부',
+<#if upjang?exists> :upjang, <#else> null, </#if>
+ TO_CHAR(SYSDATE, 'YYYYMMDD'),
+ TO_CHAR(SYSDATE, 'YYYYMMDD'),
+<#if remark?exists> :remark, <#else> null, </#if>
+ 'N',
+<#if requestCd?exists> :requestCd, <#else> null, </#if>
+ 'N',
+ :loginSabun,
+ SYSDATE,
+ :loginSabun,
+ SYSDATE
+)
+		]]>
+	</statement>
+
+	<!-- 사용자 정보(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sc.scu.dao.UserIdReqDAO.insert */
+		<![CDATA[
+INSERT INTO SCC_USERID_REQUEST
+(
+ REQUEST_DATE,
+ REQUEST_CD,
+ USER_ID,
+ UPJANG,
+ USER_NAME,
+ REQ_USER_SABUN,
+ REMARK,
+ APPROV_USER_SABUN,
+ APPRV_DATE,
+ STATUS_CD,
+ CUSER,
+ CDATE,
+ UUSER,
+ UDATE
+) VALUES (
+ :requestDate || TO_CHAR(SYSDATE, 'HH24MISS'),
+ :requestCd,
+ :userId,
+<#if upjang?exists> :upjang, <#else> null, </#if>
+<#if nmKor?exists> :nmKor, <#else> null, </#if>
+ :loginSabun,
+<#if remark?exists> :remark, <#else> null, </#if>
+<#if approvUserSabun?exists> :approvUserSabun, <#else> null, </#if>
+<#if apprvDate?exists> :apprvDate, <#else> null, </#if>
+ '00',
+ :loginSabun,
+ SYSDATE,
+ :loginSabun,
+ SYSDATE
+)
+		]]>
+	</statement>
+
+	<!-- 사용자 정보(을)를 수정한다. -->
+	<statement name="updateUserInfo" type="update">
+		/*+ com.hwfs.sc.scu.dao.UserIdReqDAO.updateUserInfo */
+		<![CDATA[
+UPDATE SCC_USERINFO SET
+	   USE_YN = 'N',
+       ACCT_STATUS = :requestCd,
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+WHERE  USERID = :userId
+		]]>
+	</statement>
+</hqml>

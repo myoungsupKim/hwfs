@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="rc.sle.menuSalesListDAO">
+	<desc>메뉴 단품 매출 현황</desc>
+
+	<!--  bill check list  -->
+
+	<statement name="selectList" type="select"><![CDATA[
+
+			SELECT A.OUTLET_CD,  KK.OUTLET_NM AS OUTLET_NM, A.MENU_CD, A.MENU_NM, A.MENU_UCST
+                 , A.QTY, A.OCCR_AMT, A.DSCN_AMT, A.NET_AMT, A.SVC, A.VAT, A.TOT_AMT
+				 , NVL(ROUND((TOT_AMT / DECODE(NVL(B.GRAND_TOT, 0),0,NULL,NVL(B.GRAND_TOT, 0))) * 100,2),0) AS PCT
+				 , NVL(ROUND((QTY     / DECODE(NVL(B.GRAND_TOT, 0),0,NULL,NVL(B.GRAND_TOT, 0))) * 100,2),0) AS OCT_QTY
+
+			FROM (
+                       SELECT OUTLET_CD
+                            , MENU_CD       AS MENU_CD,    MAX(MENU_NM)   AS MENU_NM
+                            , MENU_UCST     AS MENU_UCST 
+                            , SUM(QTY)      AS QTY
+                            , SUM(OCCR_AMT) AS OCCR_AMT
+                            , SUM(DSCN_AMT) AS DSCN_AMT
+                            , SUM(NET_AMT)  AS NET_AMT
+                            , SUM(SVC)      AS SVC
+                            , SUM(VAT)      AS VAT
+                            , NVL(SUM(TOT_AMT),0) AS TOT_AMT
+                       FROM (
+                            SELECT DECODE( :outletSet , 'SALE' , MST.OUTLET_CD, MST.ATTACH_OUTLET_CD ) AS OUTLET_CD,
+                                   MST.MENU_CD, MENU.MENU_NM, MST.MENU_UPRICE AS MENU_UCST, MST.QUANTITY AS QTY,
+                                   MST.OCCUR_AMT AS OCCR_AMT, MST.DISCNT_AMT AS DSCN_AMT,
+                                   MST.NET_AMT, MST.SVC, MST.VAT, MST.TOT_AMT
+                                   
+                                   FROM SLE_SALS_GOODS  MST
+                                   LEFT OUTER JOIN SLE_OUTLET_MENU MENU ON MST.OUTLET_CD = MENU.OUTLET_CD AND MST.MENU_CD = MENU.MENU_CD
+                                   
+                                   INNER JOIN (
+													SELECT INFO.OUTLET_CD, INFO.SALES_DATE, INFO.RECEIPT_NUM ,NVL(INFO.TABLE_CD,'00') AS TABLE_CD
+													FROM SLE_SALS_INFO INFO
+													LEFT OUTER JOIN (
+													      SELECT OUTLET_CD, POS_NUM, CODE_NAME FROM SLE_POS_SET POS
+													      INNER JOIN SCC_COMMON_CODE GRP ON GRP.GROUP_CODE = 'SLE_0111' AND GRP.CODE = POS.OUTLET_SUB_CD
+													      <#if outletSub?has_content> WHERE GRP.CODE = :outletSub </#if>  --01:다채움 02:마루 03:나무 
+													      ORDER BY  OUTLET_CD, POS_NUM
+													) POS ON POS.OUTLET_CD = INFO.OUTLET_CD AND POS.POS_NUM = INFO.POS_NUM
+													WHERE INFO.SALS_CLASS     = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+													  AND INFO.MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+													  <#if internalYn == 'Y' > AND INFO.RECEIPT_STATUS IN ('Q','R','E') </#if> --영수증 상태 Q:정상 R:반품(-)
+   				      			    				  <#if internalYn == 'N' > AND INFO.RECEIPT_STATUS IN ('Q','R') </#if> --영수증 상태 Q:정상 R:반품(-)			          				
+                                        			  AND INFO.SALES_DATE BETWEEN :frSalesDt AND :toSalesDt
+													  <#if outletCd?has_content> AND INFO.OUTLET_CD = :outletCd </#if>
+													  <#if outletSub?has_content> AND INFO.POS_NUM  = POS.POS_NUM  </#if>
+													
+							    				)  INFO ON INFO.OUTLET_CD = MST.OUTLET_CD 
+							    				       AND INFO.SALES_DATE = MST.SALES_DATE
+							    				       AND INFO.RECEIPT_NUM = MST.RECEIPT_NUM	  
+							    				       
+                                   
+                                  WHERE  1=1
+                                    	<#if internalYn == 'Y' > AND MST.RECEIPT_STATUS IN ('Q','R','E') </#if> --영수증 상태 Q:정상 R:반품(-)
+   				      			    	<#if internalYn == 'N' > AND MST.RECEIPT_STATUS IN ('Q','R') </#if> --영수증 상태 Q:정상 R:반품(-)			          				
+                                        AND MST.MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+                                    AND MST.SALS_CLASS     = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+                                    AND MST.DATA_CLASS     = '1'  -- 1:메뉴 3:주문사항 
+                                    --AND MST.SALS_YN        = 'Y'	--판매여부
+                                    --시작 : 2017.03.02 현대카드M포인트 제휴 추가로 매출여부 조건 변경 처리자:김호석 CH201702_00668
+ 									AND MST.SELL_YN  = DECODE(MST.RECEIPT_STATUS ,'E','N','Y')				--매출 여부
+									--종료
+                                    AND MST.SALES_DATE BETWEEN :frSalesDt AND :toSalesDt						     --매출일자
+                        
+                                    AND DECODE( :outletSet , 'SALE' , MST.OUTLET_CD, MST.ATTACH_OUTLET_CD ) = <#if outletCd?has_content> :outletCd 
+	                              			                                                          <#else> DECODE( :outletSet , 'SALE' , MST.OUTLET_CD, MST.ATTACH_OUTLET_CD )
+	                              			                                                          </#if> 
+                                     <#if sellYn?has_content >     
+                                    	<#if internalYn == 'N' >
+                                    		AND MST.SELL_YN = 'Y'	--매출여부
+                                    	</#if>  
+                                    </#if>
+                                    <#if salsYn?has_content > AND MST.SALS_YN = 'Y'  </#if>  --판매여부  
+                       ) DUAL GROUP BY OUTLET_CD, MENU_CD,MENU_UCST    
+			) A
+			LEFT OUTER JOIN
+				    (
+				    	SELECT OUTLET_CD, SUM(QUANTITY) AS GRAND_QTY, SUM(TOT_AMT) AS GRAND_TOT
+				    	   FROM (
+                            SELECT DECODE( :outletSet , 'SALE' , MST.OUTLET_CD, MST.ATTACH_OUTLET_CD ) AS OUTLET_CD, 
+                            	    MST.QUANTITY ,  MST.TOT_AMT 
+                                   FROM SLE_SALS_GOODS MST
+                                   INNER JOIN (
+													SELECT INFO.OUTLET_CD, INFO.SALES_DATE, INFO.RECEIPT_NUM ,NVL(INFO.TABLE_CD,'00') AS TABLE_CD
+													FROM SLE_SALS_INFO INFO
+													LEFT OUTER JOIN (
+													      SELECT OUTLET_CD, POS_NUM, CODE_NAME FROM SLE_POS_SET POS
+													      INNER JOIN SCC_COMMON_CODE GRP ON GRP.GROUP_CODE = 'SLE_0111' AND GRP.CODE = POS.OUTLET_SUB_CD
+													      <#if outletSub?has_content> WHERE GRP.CODE = :outletSub </#if>  --01:다채움 02:마루 03:나무 
+													      ORDER BY  OUTLET_CD, POS_NUM
+													) POS ON POS.OUTLET_CD = INFO.OUTLET_CD AND POS.POS_NUM = INFO.POS_NUM
+													WHERE INFO.SALS_CLASS     = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+													  AND INFO.MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+													  <#if internalYn == 'Y' > AND INFO.RECEIPT_STATUS IN ('Q','R','E') </#if> --영수증 상태 Q:정상 R:반품(-)
+   				      			    				  <#if internalYn == 'N' > AND INFO.RECEIPT_STATUS IN ('Q','R') </#if> --영수증 상태 Q:정상 R:반품(-)			          				
+                                        			  AND INFO.SALES_DATE BETWEEN :frSalesDt AND :toSalesDt
+													  <#if outletCd?has_content> AND INFO.OUTLET_CD = :outletCd </#if>
+													  <#if outletSub?has_content> AND INFO.POS_NUM  = POS.POS_NUM  </#if>
+													
+							    				)  INFO ON INFO.OUTLET_CD = MST.OUTLET_CD 
+							    				       AND INFO.SALES_DATE = MST.SALES_DATE
+							    				       AND INFO.RECEIPT_NUM = MST.RECEIPT_NUM	       
+                                  WHERE   1=1
+                                    	<#if internalYn == 'Y' > AND MST.RECEIPT_STATUS IN ('Q','R','E') </#if> --영수증 상태 Q:정상 R:반품(-)
+   				      			    	<#if internalYn == 'N' > AND MST.RECEIPT_STATUS IN ('Q','R') </#if> --영수증 상태 Q:정상 R:반품(-)			          				
+                                        AND MST.SALS_CLASS     = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+                                    AND MST.DATA_CLASS     = '1'  -- 1:메뉴 3:주문사항 
+                                    AND MST.MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+                                    --AND MST.SALS_YN        = 'Y'	--판매여부
+                                    --시작 : 2017.03.02 현대카드M포인트 제휴 추가로 매출여부 조건 변경 처리자:김호석 CH201702_00668
+									AND MST.SELL_YN  = DECODE(MST.RECEIPT_STATUS ,'E','N','Y')				--매출 여부
+								    --종료
+                                    AND MST.SALES_DATE BETWEEN :frSalesDt AND :toSalesDt						      --매출일자
+                                    
+                                    AND DECODE( :outletSet , 'SALE' , MST.OUTLET_CD, MST.ATTACH_OUTLET_CD ) = <#if outletCd?has_content> :outletCd 
+	                              			                                                          <#else> DECODE( :outletSet , 'SALE' , MST.OUTLET_CD, MST.ATTACH_OUTLET_CD )
+	                              			                                                          </#if>  
+                                    <#if sellYn?has_content >     
+                                    	<#if internalYn == 'N' >
+                                    		AND MST.SELL_YN = 'Y'	--매출여부
+                                    	</#if>  
+                                    </#if>
+                                    <#if salsYn?has_content >     AND MST.SALS_YN = 'Y'  </#if>  --판매여부  
+                                ) SS
+                            GROUP BY OUTLET_CD
+					) B ON A.OUTLET_CD = B.OUTLET_CD
+			
+			INNER JOIN SLE_OUTLET_MST KK ON KK.OUTLET_CD = A.OUTLET_CD 
+			
+			INNER JOIN (SELECT MST.OUTLET_CD, MST.OUTLET_NM
+		               FROM SLE_OUTLET_MST MST
+		              INNER JOIN SCO_UPJANG_V UPJANG ON UPJANG.UPJANG = TO_NUMBER(MST.OUTLET_CD) 
+		                     <#if muCd?has_content> AND UPJANG.MU_CD = :muCd </#if>
+		                     <#if tmCd?has_content> AND  UPJANG.TM_CD = :tmCd </#if> 
+                         <#if outletCd?has_content> WHERE MST.OUTLET_CD = :outletCd </#if>
+		            ) OUTLET ON OUTLET.OUTLET_CD = A.OUTLET_CD
+			
+			ORDER BY A.OUTLET_CD, MENU_CD, MENU_NM, MENU_UCST
+
+				   
+		
+		]]></statement>
+
+</hqml>

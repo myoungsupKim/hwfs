@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fm.fmo.foodMaterialsSalePrintSetDAO">
+	<desc>식재영업 출력설정 HQML Query</desc>
+
+	<!-- 식재영업 출력설정 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.fm.fmo.dao.FoodMaterialsSalePrintSetDAO.selectList */
+		<![CDATA[ 
+		SELECT
+                (SELECT CENTER_NAME FROM HLDC_PO_CENTER WHERE CENTER_CODE = C.CENTER_CODE) AS CENTER_NAME
+			  ,	DECODE(A.MAIN_UPJANG,A.UPJANG,NULL,'       ')||A.UPJANG||' '||A.UPJANGNM_DISP AS UPJANGNM
+		      , A.USE_YN
+		      , A.CTPRT_FLAG
+		      , A.CTPRT_PRICEGB
+		      , A.CTPRT_TYPE
+		      , A.UPJANG
+		      , A.CTPRT_ALLGB
+		      , SCC_YN_FUN(A.CTPRT_CRDGB,'S') AS CTPRT_CRDGB
+              , A.MAIN_UPJANG_NM
+              , SCC_YN_FUN(NVL(A.CTPRT_ATTR01, 'N'), 'S') AS CTPRT_ATTR01
+              , CASE WHEN A.CTPRT_ATTR02 IS NOT NULL THEN A.CTPRT_ATTR02
+                     WHEN A.CTPRT_TYPE = '0' THEN '01'
+                     WHEN A.CTPRT_TYPE = '1' THEN '02'
+              	END AS CTPRT_ATTR02 
+          FROM (SELECT MAIN_UPJANG, UPJANG, UPJANGNM_DISP, USE_YN, CTPRT_FLAG, CTPRT_PRICEGB, CTPRT_TYPE, CTPRT_ALLGB, CTPRT_CRDGB, CTPRT_ATTR01, CTPRT_ATTR02,
+                      (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = MAIN_UPJANG) MAIN_UPJANG_NM
+                 FROM FMS_UPJANG) A
+                , ST_UPJANG B, VO_CENTER_UPJANG C
+		 WHERE A.UPJANG = B.UPJANG
+		   AND B.AP_UNITPRICE_UPJANG = C.UPJANG
+		   --AND C.CENTER_CODE = :schCenter
+           <#if schCode?has_content>
+           AND C.CENTER_CODE IN (${schCode})</#if>
+		   <#if schMainUpjang?has_content>
+		   AND A.MAIN_UPJANG_NM LIKE '%'||:schMainUpjang||'%'
+		   </#if>
+		   AND B.UPJANGNM LIKE '%'||:schUpjang||'%'
+		   <#if useYn == 'Y'> 
+		   AND A.USE_YN = 'Y'
+		   </#if>
+		 ORDER BY A.MAIN_UPJANG, A.UPJANG
+
+		]]>
+	</statement>
+
+	
+	<!-- 식재영업 출력설정(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.fm.fmo.dao.FoodMaterialsSalePrintSetDAO.update */
+		<![CDATA[
+			UPDATE FMS_UPJANG A
+			   SET A.CTPRT_FLAG    = :ctprtFlag
+			     , A.CTPRT_PRICEGB = :ctprtPricegb
+			     , A.CTPRT_TYPE    = :ctprtType
+			     , A.CTPRT_ALLGB   = :ctprtAllgb
+			     , A.CTPRT_CRDGB   = SCC_YN_FUN(:ctprtCrdgb,'I')
+			     , A.CTPRT_ATTR01  = SCC_YN_FUN(:ctprtAttr01,'I')
+			     , A.CTPRT_ATTR02  = :ctprtAttr02
+			     , A.UUSER         = :loginSabun
+			     , A.UDATE         = SYSDATE
+			 WHERE A.UPJANG        = :upjang
+			]]>
+	</statement>
+
+	<!-- (공통)거래명세서 일괄출력을 조회한다. -->
+	<statement name="selectSCC" type="select">
+		/*+ com.hwfs.fm.fmo.dao.FoodMaterialsSalePrintSetDAO.selectSCC */
+		<![CDATA[
+			SELECT CODE,
+			       CODE_NAME AS NAME
+			FROM   SCC_COMMON_CODE
+			WHERE  GROUP_CODE = '032'
+			AND    USE_YN = 'Y'
+			ORDER BY SORT_SEQ, CODE
+			]]>
+	</statement>
+	
+</hqml>

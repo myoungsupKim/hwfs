@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.roa.overTimeUpjangDAO">
+	<desc>특근 발생 현황 HQML Query</desc>
+
+	<!-- 특근 발생 현황 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.rc.roa.dao.OverTimeUpjangDAO.selectList */
+		<![CDATA[
+		 SELECT 
+			 A.UPJANG
+			,B.UPJANGNM 
+			,A.EMPNO
+			,A.EMP_NM
+			--,MIN(A.OCCUR_DATE) AS START_DATE
+			,TO_CHAR(to_date(:schYYMM||'01','YYYYMMDD')-1,'YYYYMMDD') AS START_DATE
+			,TO_CHAR(LAST_DAY(to_date(:schYYMM||'01','YYYYMMDD')),'YYYYMMDD') AS END_DATE
+			--,MAX(A.OCCUR_DATE) AS END_DATE
+			,NVL(SUM(EXTENSION_OCCUR_J),0) EXTENSION_OCCUR_J
+			,NVL(SUM(EXTENSION_OCCUR),0) EXTENSION_OCCUR
+			,NVL(SUM(EXTENSION_USE+EXTENSION_PAY),0)             EXTENSION_PAY
+			,NVL(SUM((EXTENSION_OCCUR+EXTENSION_OCCUR_J)-(NVL(EXTENSION_USE,0)+NVL(EXTENSION_PAY,0))),0)           EXTENSION_RSS
+			,NVL(SUM(EXTENSION_REWARD_OCCUR),0)    EXTENSION_REWARD_OCCUR
+			,NVL(SUM(EXTENSION_REWARD_USE),0)      EXTENSION_REWARD_USE
+			,NVL(SUM(EXTENSION_REWARD_PAY),0)      EXTENSION_REWARD_PAY
+			,NVL(SUM(EXTENSION_REWARD_OCCUR),0)    EXTENSION_REWARD_RSS
+			,NVL(SUM(HOLIDAY_OCCUR),0)             HOLIDAY_OCCUR
+			,NVL(SUM(HOLIDAY_USE),0)               HOLIDAY_USE
+			,NVL(SUM(HOLIDAY_PAY),0)               HOLIDAY_PAY
+			,NVL(SUM(HOLIDAY_OCCUR),0)             HOLIDAY_RSS
+			,NVL(SUM(HOLIDAY_REWARD_OCCUR),0)      HOLIDAY_REWARD_OCCUR
+			,NVL(SUM(HOLIDAY_REWARD_USE),0)        HOLIDAY_REWARD_USE
+			,NVL(SUM(HOLIDAY_REWARD_PAY),0)        HOLIDAY_REWARD_PAY
+			,NVL(SUM(HOLIDAY_REWARD_OCCUR),0)      HOLIDAY_REWARD_RSS
+			,NVL(SUM(NGHT_OCCUR),0)                NGHT_OCCUR
+			,NVL(SUM(NGHT_PAY),0)                  NGHT_PAY
+			  FROM (
+			 SELECT  0 CHK
+			                    ,A.OCCUR_DATE
+			                    ,A.OCCUR_TYPE
+			                    ,A.UPJANG
+			                    ,A.EMPNO
+			                    ,A.EMP_NM
+			                    ,A.YY_MM
+			                    ,A.WEEKLY_SEQ
+			                    ,'전월 이월' DAY
+			                    ,NULL DUTY_START_TIME
+			                    ,NULL DUTY_END_TIME
+			                    ,NVL(A.EXTENSION_OCCUR,0)           EXTENSION_OCCUR_J
+			                    ,0           						EXTENSION_OCCUR
+			                    ,NVL(A.EXTENSION_USE,0)             EXTENSION_USE
+			                    ,NVL(A.EXTENSION_PAY,0)             EXTENSION_PAY
+			                    ,NVL(A.EXTENSION_OCCUR,0)           EXTENSION_RSS
+			                    ,NVL(A.EXTENSION_REWARD_OCCUR,0)    EXTENSION_REWARD_OCCUR
+			                    ,NVL(A.EXTENSION_REWARD_USE,0)      EXTENSION_REWARD_USE
+			                    ,NVL(A.EXTENSION_REWARD_PAY,0)      EXTENSION_REWARD_PAY
+			                    ,NVL(A.EXTENSION_REWARD_OCCUR,0)    EXTENSION_REWARD_RSS
+			                    ,NVL(A.HOLIDAY_OCCUR,0)             HOLIDAY_OCCUR
+			                    ,NVL(A.HOLIDAY_USE,0)               HOLIDAY_USE
+			                    ,NVL(A.HOLIDAY_PAY,0)               HOLIDAY_PAY
+			                    ,NVL(A.HOLIDAY_OCCUR,0)             HOLIDAY_RSS
+			                    ,NVL(A.HOLIDAY_REWARD_OCCUR,0)      HOLIDAY_REWARD_OCCUR
+			                    ,NVL(A.HOLIDAY_REWARD_USE,0)        HOLIDAY_REWARD_USE
+			                    ,NVL(A.HOLIDAY_REWARD_PAY,0)        HOLIDAY_REWARD_PAY
+			                    ,NVL(A.HOLIDAY_REWARD_OCCUR,0)      HOLIDAY_REWARD_RSS
+			                    ,NVL(A.NGHT_OCCUR,0)                NGHT_OCCUR
+			                    ,NVL(A.NGHT_PAY,0)                  NGHT_PAY
+			                    ,'N' CLOSE_YN
+			                    ,'N' LOG_YN
+			                    ,1 SORT
+			            FROM    RSS_OVER_TIME_INFO A
+			                    ,RSS_CLOSE_STATUS B
+			            WHERE   A.OCCUR_TYPE    NOT IN ('1')
+			            AND     A.UPJANG        = B.UPJANG
+			            AND     A.YY_MM         = TO_CHAR(ADD_MONTHS(TO_DATE(B.YYMM,'YYYYMM'),1),'YYYYMM')
+			            AND     B.CLOSE_YN      = 'Y'
+			            AND     A.YY_MM         = :schYYMM
+<#if schEmpNo?has_content>AND     A.EMPNO         = :schEmpNo</#if>
+<#if schUpjang?has_content>AND     A.UPJANG        = :schUpjang</#if>	 			            
+			            UNION ALL
+			            SELECT  0 CHK
+			                    ,A.OCCUR_DATE
+			                    ,NVL(B.OCCUR_TYPE,'2') OCCUR_TYPE
+			                    ,A.UPJANG
+			                    ,A.EMPNO
+			                    ,NVL(A.EMP_NM,'강태윤') EMP_NM
+			                    ,A.YY_MM
+			                    ,A.WEEKLY_SEQ
+			                    ,TO_CHAR(TO_DATE(A.OCCUR_DATE,'YYYYMMDD'),'DD')||'일 '||'('||SCC_GET_WEEK_FUN('NAME',A.OCCUR_DATE)||')' DAY
+			                    ,A.DUTY_START_TIME
+			                    ,A.DUTY_END_TIME
+			                    ,0						            EXTENSION_OCCUR_J
+			                    ,NVL(B.EXTENSION_OCCUR,0)           EXTENSION_OCCUR
+			                    ,NVL(B.EXTENSION_USE,0)             EXTENSION_USE
+			                    ,NVL(B.EXTENSION_PAY,0)             EXTENSION_PAY
+			                    ,NVL(B.EXTENSION_OCCUR,0)           EXTENSION_RSS
+			                    ,NVL(B.EXTENSION_REWARD_OCCUR,0)    EXTENSION_REWARD_OCCUR
+			                    ,NVL(B.EXTENSION_REWARD_USE,0)      EXTENSION_REWARD_USE
+			                    ,NVL(B.EXTENSION_REWARD_PAY,0)      EXTENSION_REWARD_PAY
+			                    ,NVL(B.EXTENSION_REWARD_OCCUR,0)    EXTENSION_REWARD_RSS
+			                    ,NVL(B.HOLIDAY_OCCUR,0)             HOLIDAY_OCCUR
+			                    ,NVL(B.HOLIDAY_USE,0)               HOLIDAY_USE
+			                    ,NVL(B.HOLIDAY_PAY,0)               HOLIDAY_PAY
+			                    ,NVL(B.HOLIDAY_OCCUR,0)             HOLIDAY_RSS
+			                    ,NVL(B.HOLIDAY_REWARD_OCCUR,0)      HOLIDAY_REWARD_OCCUR
+			                    ,NVL(B.HOLIDAY_REWARD_USE,0)        HOLIDAY_REWARD_USE
+			                    ,NVL(B.HOLIDAY_REWARD_PAY,0)        HOLIDAY_REWARD_PAY
+			                    ,NVL(B.HOLIDAY_REWARD_OCCUR,0)      HOLIDAY_REWARD_RSS
+			                    ,NVL(B.NGHT_OCCUR,0)                NGHT_OCCUR
+			                    ,NVL(B.NGHT_PAY,0)                  NGHT_PAY
+			                    ,NVL(C.CLOSE_YN,'N')                CLOSE_YN
+			                    ,'N'                                LOG_YN
+			                    ,2                                  SORT
+			            FROM    RSS_OVER_TIME_WORK_ATT A
+			                    ,RSS_OVER_TIME_INFO B
+			                    ,RSS_CLOSE_STATUS C
+			            WHERE   A.OCCUR_DATE    = B.OCCUR_DATE(+)
+			            AND     A.UPJANG        = B.UPJANG(+)
+			            AND     A.EMPNO         = B.EMPNO(+)
+			            AND     B.OCCUR_TYPE(+) = '1'
+			            AND     A.UPJANG        = C.UPJANG(+)
+			            AND     A.YY_MM         = C.YYMM(+)
+			            AND     A.YY_MM         = :schYYMM
+<#if schEmpNo?has_content>AND     A.EMPNO         = :schEmpNo</#if>
+<#if schUpjang?has_content>AND     A.UPJANG        = :schUpjang</#if>	            
+			            ORDER BY SORT, OCCUR_DATE ) A , ST_UPJANG B
+			            WHERE A.UPJANG = B.UPJANG
+			GROUP BY A.UPJANG,A.EMPNO,A.EMP_NM,A.YY_MM,B.UPJANGNM
+		]]>
+	</statement>
+
+	<!-- 특근 발생 현황(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.rc.roa.dao.OverTimeUpjangDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 특근 발생 현황(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.rc.roa.dao.OverTimeUpjangDAO.update */
+		<![CDATA[
+		UPDATE TABLE_NAME 
+		SET    COLUMN_NAME1 = :columnName1,
+		       COLUMN_NAME2 = :columnName2,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+	<!-- 특근 발생 현황(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.rc.roa.dao.OverTimeUpjangDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>

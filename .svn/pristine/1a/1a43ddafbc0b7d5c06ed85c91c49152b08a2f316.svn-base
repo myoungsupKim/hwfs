@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sm.sar.giftReportByValidDateDAO">
+	<desc>상품권 유효일자별 잔액조회 HQML Query</desc>
+
+	<!-- 상품권 유효일자별 잔액조회 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sm.sar.dao.GiftReportByValidDateDAO.selectList */
+		<![CDATA[
+		SELECT C.MU_CD,
+		       (SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE MU.MU_CD = C.MU_CD)  AS MU_NM,
+		       C.CC_CD,
+		       (SELECT  CC_NM FROM SCC_CC WHERE CC_CD = C.CC_CD) AS CC_NM,
+		       C.GIFT_KIND_CD,
+		       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'GIFT_TYPE' AND CODE = C.GIFT_KIND_CD)  AS GIFT_KIND_NM,
+		       C.OCCUR_DATE,
+		       --SCC_CRYPTO.MASKAUTH_FUN(C.GIFT_NUM,6,'YYYYYYNNNNNNNNN',1) AS GIFT_NUM_MSK,
+		       C.GIFT_NUM AS GIFT_NUM_MSK,
+		       C.GIFT_NUM,
+		       C.GIFT_AMT,
+		       C.USE_AMT,
+		       C.REMARK
+		FROM   SLA_GIFT_BILLING_MST B,
+		       SLA_GIFT_WITHDRAW_INFO C
+		WHERE  1=1
+		AND    B.GIFT_BILLING_NUM = C.GIFT_BILLING_NUM
+		AND    B.RECD_STATUS      = 'L'
+		AND    C.RECD_STATUS      = 'L'
+		AND    C.GIFT_BILLING_YN  = 'Y'     --청구인것만조회
+        <#if occurDateFr?has_content>AND      C.OCCUR_DATE  >= :occurDateFr</#if>
+        <#if occurDateTo?has_content>AND      C.OCCUR_DATE  <= :occurDateTo</#if>
+		<#if muCd?has_content>AND    C.MU_CD = :muCd</#if>
+		<#if ccCd?has_content>AND    C.CC_CD = :ccCd</#if>
+		<#if tmCd?has_content>
+				AND     C.CC_CD IN (
+				                SELECT  A.CC_CD
+				                FROM    SCC_CC A
+				                        ,HLDC_SC_DEPT_V B
+				                WHERE   B.CC_CD = A.CC_CD
+				                AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+				                AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+				                AND     B.TM_CD = :tmCd
+				                )
+	        </#if>
+	    <#if giftKindCd?has_content>AND    C.GIFT_KIND_CD = :giftKindCd</#if>
+		ORDER BY 1,3,4 ASC
+		]]>
+	</statement>
+
+	<!-- 상품권 유효일자별 잔액조회(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sm.sar.dao.GiftReportByValidDateDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 상품권 유효일자별 잔액조회(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sm.sar.dao.GiftReportByValidDateDAO.update */
+		<![CDATA[
+		UPDATE TABLE_NAME 
+		SET    COLUMN_NAME1 = :columnName1,
+		       COLUMN_NAME2 = :columnName2,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+	<!-- 상품권 유효일자별 잔액조회(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.sm.sar.dao.GiftReportByValidDateDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>

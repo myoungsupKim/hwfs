@@ -1,0 +1,250 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FMP00470P" onkeydown="fn_FormKeyDown" onload="form_onload" titletext="타 식당 재고상품 복사" position="absolute 0 0 296 129" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Static id="Static02" position="absolute 15 31 281 58" class="sta_WFDA_Labelbg"/>
+        <Button id="btn_Copy" onclick="fn_search" taborder="1" tabstop="false" text="복 사" position="absolute 66 94 141 114" class="btn_WF_Custom" image=""/>
+        <Button id="btn_Exit" onclick="btn_Exit_OnClick" taborder="2" tabstop="false" text="취 소" position="absolute 144 94 219 114" class="btn_WF_Custom" image=""/>
+        <Static id="st_Upjang" text="사업장" userdata="strQuery_FMUpjang" position="absolute 15 31 86 58" class="sta_WFDA_Label01"/>
+        <Edit autoselect="true" id="ed_Upjang" onkeydown="fn_edBtn_OnKeyDown" readonly="true" taborder="0" position="absolute 88 34 259 55"/>
+        <Button id="btn_Upjang" onclick="fn_edBtn_OnClick" taborder="0" tabstop="false" text="" position="absolute 258 34 278 55" class="btn_WF_popSearch" image=""/>
+        <TextArea id="ta_Sql" readonly="true" taborder="10" tabstop="false" position="absolute 157 0 271 32"/>
+        <Static id="Static0" text="식당 별 복사" position="absolute 15 14 121 33" class="sta_WF_Title01"/>
+        <Static id="Static01" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 15 114 296 129"/>
+        <Static id="Static06" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 129" anchor="top right"/>
+        <Static id="Static03" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 281 13 296 114" anchor="top right"/>
+        <Static id="Static15" text="h13" class="Guide01_AreaRed" visible="false" position="absolute 15 0 296 13"/>
+        <Static id="Static16" text="글자기준간격 h05" class="Guide01_AreaRed" visible="false" position="absolute 15 26 281 31"/>
+        <Static id="Static04" class="sta_WFDA_Labelbg" position="absolute 15 57 281 84"/>
+        <Static id="st_SubInv" text="식당" position="absolute 15 57 86 84" class="sta_WFDA_Label01"/>
+        <Combo codecolumn="SUBINV_CODE" datacolumn="SUBINV_NAME_DISP" displayrowcount="10" id="cbo_Subinv" index="0" innerdataset="@ds_Subinv" onitemchanged="cbo_Subinv_OnChanged" taborder="0" position="absolute 88 60 278 81"/>
+        <Static id="Static05" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 84 281 94"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_Subinv"/>
+      <Dataset id="ds_List4"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 수불관리>재고관리>재고관리 상품등록
+ * 프로그램명   : FMP00470E.XML
+ * 기      능   : 사업장의 식당별로 재고관리 할 상품을 조회/등록/추가/삭제 한다.
+ * 작  성  자   : 노규완
+ * 작성  일자   : 2008-01-07(월)
+ * ----------------------------------------------------------------------------------------
+ * HISTORY      : 1) 1차 수정 박은규
+ ******************************************************************************************
+*/
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "lib::sc_comon.js"				// 시스템 공통
+////@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js"		//JAVA 코딩시
+//@@컨버터에서 주석처리 #include "LIB::tit_comm_0001.js"		// X-Framework Lib
+//@@컨버터에서 주석처리 #include "lib::sc_sql_common.js"		// 공통팝업
+//@@컨버터에서 주석처리 #include "lib::fm_common.js"			// FM공통
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+//var fa_MainUpjang, fa_Upjang, fa_UpjangNm, fa_SubinvCode;
+var fa_Sql;
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+	
+	//trace(fa_MainUpjang + ":" + fa_Upjang + ":" + fa_UpjangNm + ":" + fa_SubinvCode);
+	
+
+	//초기화
+   	fsp_init(this);
+   	ta_Sql.visible = (application.g_EmpNo == gfmsAdmin);
+
+	ed_Upjang.userdata     = fa_Upjang;
+	ed_Upjang.value         = fa_UpjangNm;
+	
+	//창고세팅
+	fn_SetSubinv();
+	//DS구조의 동기화
+	Copy(ds_List4, "opener.ds_List");
+	Copy(ds_Subinv,"opener.ds_Subinv");
+
+	if (ed_Upjang.enable) ed_Upjang.setFocus();
+	else
+		cbo_Subinv.setFocus();
+}
+
+function fn_search(obj:Button, e:ClickEventInfo)
+{
+	//체크
+	if (ffn_ChkNull(ed_Upjang.userdata))
+	{
+		g_Message("EE", "사업장을 선택하세요.");
+		if (ed_Upjang.enable) ed_Upjang.setFocus();
+		return;
+	}
+	if (ffn_ChkNull(cbo_Subinv.value))
+	{
+		g_Message("EE", "식당을 선택하세요.");
+		if (cbo_Subinv.enable) cbo_Subinv.setFocus();
+		return;
+	}
+	if (cbo_Subinv.value == fa_SubinvCode)
+	{
+		g_Message("EE", "복사대상과 같은 식당입니다.\n\n다른 식당을 선택하세요.");
+		if (cbo_Subinv.enable) cbo_Subinv.setFocus();
+		return;
+	}
+	if (! g_Confirm("02", '재고조사 품목을 복사하시겠습니까?!')) return;
+	// 초기화
+	ds_List4.clearData();
+	// 조회
+	var strSvcID, strURL, strInDatasets, strOutDatasets, strArgument, strCallbackFunc;
+	// 경로 설정
+	strSvcID = "FMP00470E_T001";
+	strURL   = "U_svc::" + "fm/fmp/FMP00470E_T001.jsp";
+	// 데이터셋 설정
+	strInDatasets  = "";
+	strOutDatasets = "ds_List4=ds_List";
+	// 파라메터 설정
+	strArgument  = "g_Upjang=" + wrapQuote(g_Upjang);
+	strArgument += " g_EmpNo=" + wrapQuote(g_EmpNo);
+	strArgument += " sType=" + wrapQuote('재고복사');
+	strArgument += " sUpjang=" + wrapQuote(ed_Upjang.userdata);
+	strArgument += " sSUBINV_CODE=" + wrapQuote(cbo_Subinv.value);
+	// 콜백함수 지정
+	strCallbackFunc = "fn_CallBack_Search";
+	// 서버 호출
+	Transaction(strSvcID, strURL, strInDatasets, strOutDatasets, strArgument, strCallbackFunc);	
+}
+
+function fn_CallBack_Search(SvcID, errCode, errMsg)
+{
+ta_Sql.value = fa_Sql;
+	if (errCode == 0)
+	{
+		if (ds_List4.rowcount < 1)
+			g_Message("EE","복사할 재고관리 상품이 없습니다.");
+		else
+		{
+			fn_Copy();
+			close();
+		}
+	}
+	else
+		g_Message("EE",fn_AlertMsg("002"));
+}
+
+function fn_Copy()
+{
+	//사업장/창고를 To로 대체
+	for (i=0; i<ds_List4.rowcount; i++)
+	{
+		ds_List4.setColumn(i,"UPJANG",fa_Upjang);
+		ds_List4.setColumn(i,"SUBINV_CODE",fa_SubinvCode);
+	}
+	Copy(opener.ds_List3,ds_List4);
+}
+
+function fn_edBtn_OnClick(obj:Button, e:ClickEventInfo)
+{
+	var sAddWhere = " AND A.USE_YN = 'Y'";
+
+	switch(obj.name)
+	{	
+		case "btn_Upjang":
+			//본부가 아니면 해당 사업장만 조회
+			if (application.g_UserKind != '본부')
+				sAddWhere += " AND A.MAIN_UPJANG = " + fa_MainUpjang;
+			//사업장인 경우 관리업장만 조회
+			if (application.g_UserKind == '사업장')
+				sAddWhere += " AND ( A.UPJANG = " + application.g_Upjang + " OR EXISTS (SELECT 1 FROM FMS_USER_UPJANG B WHERE B.USE_YN = 'Y' AND B.UPJANG = A.UPJANG AND B.SABUN = '" + application.g_EmpNo + "') )";
+		
+		default:
+		
+			break;
+	}
+	//fm공통 팝업클릭 호출
+	if (ffn_btn_OnClick(obj, sAddWhere)) fn_Trigger_edBtn(eval("ed_" + gfn_subStr(obj.name, 4)));
+}
+
+function fn_edBtn_OnKeyDown(obj:Edit, e:KeyEventInfo)
+{
+	if (ffn_ed_OnKeyDown(obj,e.keycode)) fn_Trigger_edBtn(obj);	
+}
+
+function fn_Trigger_edBtn(obj)
+{
+	switch(obj)
+	{
+		case ed_Upjang:
+			ds_List4.clearData();
+			//창고세팅
+			fn_SetSubinv();
+
+		default:
+			break;
+	}
+}
+
+function fn_SetSubinv()
+{
+	/*-------------*/
+	http.Sync = true;
+	/*-------------*/
+	// 초기화
+	ds_Subinv.clearData();
+	// 조회
+	var actionName, cmdName, inData, outData, otherArg, callBackFnc;
+	// 파라미터셋팅
+    outData		= "ds_Subinv=ds_List";
+    otherArg	= "UPJANG=" + wrapQuote(gfn_trim(ed_Upjang.userdata));
+	//action 정보 초기화 
+	fsp_clear(this); 
+    // 서버에서 조회할 정보 추가 
+	fsp_addSearch(this, "fm/fmz:FMZ_PO_SUBINV_S001");
+	// 서버 호출 
+    fsp_callService(this, actionName, cmdName, inData, outData, otherArg, callBackFnc);
+	/*-------------*/
+	http.Sync = false;
+	/*-------------*/
+	//기본창고지정
+	if (ds_Subinv.rowcount > 0) cbo_Subinv.index = 0;
+}
+
+function fn_FormKeyDown(obj:Form, e:KeyEventInfo)
+{
+	gfn_formKeyDown(obj, e); //(obj,e.fromreferenceobject,e.keycode,e.shiftKey,e.ctrlKey,e.altKey,-1,-1);
+	//ESC시 닫기
+	if (e.keycode == 27) close();
+	if (e.keycode == 13)
+	{
+		if (e.fromreferenceobject == cbo_Subinv) fn_Search();
+	}
+}
+
+function cbo_Subinv_OnChanged(obj:Combo, e:ItemChangeEventInfo)
+{
+	ds_List4.clearData();
+	ds_Subinv.rowposition = e.postindex;
+}
+
+function btn_Exit_OnClick(obj:Button, e:ClickEventInfo)
+{
+	close();
+}
+]]></Script>
+  </Form>
+</FDL>

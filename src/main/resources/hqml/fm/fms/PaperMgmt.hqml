@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fm.fms.paperMgmtDAO">
+	<desc>서류관리 HQML Query</desc>
+
+	<!-- 문서분류별 문서목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.fm.fms.dao.PaperMgmtDAO.selectList */
+		<![CDATA[
+		SELECT
+			S.MU,
+			S.MU_NM,
+			S.TM,
+			S.TM_NM,
+			S.MAIN_UPJANG,
+			S.MAIN_UPJANG_NM,
+			S.UPJANG,
+			S.UPJANG_NM,					   
+		    S.DOC_CLSFI_CD,
+		    S.DOC_CLS_NM,
+			S.DOC_NM,
+			S.DOC_NUM,
+			S.DOC_CONTENTS,
+			S.REF_SEQ,
+			S.FILE_CNT,
+		   	TO_CHAR(S.CDATE,'YYYYMMDD') AS CDATE,
+		   	NVL(U.NM_KOR,'') AS CUSER
+		FROM
+		(
+			SELECT 
+			   A.MU,
+			   M.MU_NM,
+			   A.TM,
+			   T.TM_NM,
+			   A.MAIN_UPJANG,
+			   NVL(U1.UPJANGNM_DISP,'') AS MAIN_UPJANG_NM,
+			   A.UPJANG,
+			   U2.	UPJANGNM AS UPJANG_NM,					   
+		       A.DOC_CLSFI_CD,
+			   GFN_SCC_CODENAME_FUN(:schGroupCd, A.DOC_CLSFI_CD) AS DOC_CLS_NM,
+			   A.DOC_NM,
+			   A.DOC_NUM,
+			   A.DOC_CONTENTS,
+			   A.REF_SEQ,
+			   (SELECT COUNT(*) FROM SCC_APPEND_FILE WHERE REF_SEQ = A.REF_SEQ) AS FILE_CNT,
+			   DECODE(A.UDATE, NULL, A.CDATE, A.UDATE) AS CDATE,
+			   DECODE(A.UUSER, NULL, A.CUSER, A.UUSER) AS CUSER				  
+			FROM   FMS_PAPER_MGMT A INNER JOIN SCC_MU M ON A.MU = M.MU_CD	/* 사업부 정보 */
+								 INNER JOIN (
+								 	SELECT DISTINCT TM_CD, TM_NM
+								 	FROM HLDC_SC_TM
+								 ) T ON A.TM = T.TM_CD    /* 팀 정보 */
+								 LEFT JOIN FMS_UPJANG U1 ON A.MAIN_UPJANG = U1.UPJANG /* 본사 정보 */
+								 INNER JOIN ST_UPJANG U2 ON A.UPJANG = U2.UPJANG /* 사업장 정보 */
+			WHERE  1 = 1
+			<#if schMu?has_content>
+			AND   A.MU = :schMu
+			</#if>
+			<#if schTm?has_content>
+			AND   A.TM = :schTm
+			</#if>
+			<#if schMainUpjang?has_content>
+			AND   A.MAIN_UPJANG = :schMainUpjang
+			</#if>
+			<#if schUpjang?has_content>
+			AND   A.UPJANG = :schUpjang
+			</#if>
+			<#if schDocCls?has_content>
+			AND   A.DOC_CLSFI_CD = :schDocCls
+			</#if>
+			<#if schDocNm?has_content>
+			AND   A.DOC_NM LIKE '%' || :schDocNm || '%'
+			</#if>
+		) S LEFT JOIN SCC_USERINFO U ON S.CUSER = U.SABUN
+		WHERE 1 = 1
+		AND   TO_CHAR(S.CDATE,'YYYYMMDD') BETWEEN :schDate1 AND :schDate2
+		<#if schFile == '1'>
+		AND   S.FILE_CNT > 0
+		</#if>
+		<#if schFile == '2'>
+		AND   S.FILE_CNT = 0
+		</#if>
+		ORDER BY S.CDATE DESC
+		]]>
+	</statement>
+
+
+	<!-- 문서분류별 문서목록을 조회한다. : 자료이관용 -->
+	<statement name="selectMigList" type="select">
+		/*+ com.hwfs.fm.fms.dao.PaperMgmtDAO.selectMigList */
+		<![CDATA[
+		SELECT
+			  ROWNUM AS ROW_NUM
+	  		,  A.E_UPJANG AS UPJANG
+    		, '(' ||  A.E_UPJANG || ')' ||  B.UPJANGNM AS UPJANG_NM
+    		, C.MU_CD
+    		, C.MU_NM
+    		, C.TM_CD
+    		, C.TM_NM
+        	, D.MAIN_UPJANG
+    		, '(' || D.MAIN_UPJANG || ')' || (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = D.MAIN_UPJANG) AS MAIN_UPJANG_NM
+    		, A.DOC_CLSFI_CD
+    		, GFN_SCC_CODENAME_FUN('FM0032', A.DOC_CLSFI_CD) AS DOC_CLS_NM    -- 계약서(001), 관련서류(002)
+    		, A.E_TL AS DOC_NM
+    		, A.E_FILE AS ORGNL_FILE_NM
+    		--, 'E:\contractScan\' || A.E_PATH || '\' || A.E_FILE AS ORGNL_PATH
+    		, A.E_PATH AS ORGNL_PATH
+    		, A.E_TRANS_YN
+    		, NVL(A.E_SIZE, 0) * 1024 AS FILE_SIZE
+    		, 'pdf' AS FILE_EXT
+    		, A.REF_SEQ
+    		--, NVL(A.DOC_CONTENTS, '문서자료이관') AS DOC_CONTENTS				-- 자료이관
+    		, '스캔 자료이관 대상폴더 = ' || A.E_PATH AS DOC_CONTENTS				-- 자료이관
+    		, '(' || A.E_BIZ_NO || ')' || A.E_BIZ_NM AS BIZ_NM 
+    		, '' AS FLAG
+    		, A.E_FILE
+    		, A.E_PATH
+    		, '' AS FILE_YN
+		FROM FMS_PAPER_MGMT_MIG A LEFT JOIN ST_UPJANG B ON A.E_UPJANG = B.UPJANG
+                          							  LEFT JOIN HLDC_SC_DEPT_V C ON B.DEPT_ID = C.DEPT_ID    
+                          							  LEFT JOIN FMS_UPJANG D ON A.E_UPJANG = D.UPJANG
+		<#if schPath?has_content>
+		WHERE 	A.E_PATH = :schPath 
+		</#if>
+		                          							  
+		ORDER BY A.E_PATH
+		]]>
+	</statement>
+
+	<!-- 문서분류별 폴더목록을 조회한다. : 자료이관용 -->
+	<statement name="selectPath" type="select">
+		/*+ com.hwfs.fm.fms.dao.PaperMgmtDAO.selectPath */
+		<![CDATA[
+		SELECT
+			DISTINCT 
+    		  A.E_PATH AS CODE
+    		, A.E_PATH AS NAME
+		FROM FMS_PAPER_MGMT_MIG A
+		ORDER BY A.E_PATH ASC
+		]]>
+	</statement>
+
+	<!-- 문서정보를 조회한다. -->
+	<statement name="selectDoc" type="select">
+		/*+ com.hwfs.fm.fms.dao.PaperMgmtDAO.selectDoc */
+		<![CDATA[
+			SELECT 
+				S.MU,
+				S.MU_NM,
+				S.TM,
+				S.TM_NM,
+				S.MAIN_UPJANG,
+				S.MAIN_UPJANG_NM,
+				S.UPJANG,
+				S.UPJANG_NM,					   
+		    	S.DOC_CLSFI_CD,
+				S.DOC_NM,
+				S.DOC_NUM,
+				S.DOC_CONTENTS,
+				S.REF_SEQ,
+		   		TO_CHAR(S.CDATE,'YYYYMMDD') AS CDATE,
+		   		NVL(U.NM_KOR,'') AS CUSER,
+		   		'' AS FLAG
+		FROM (
+				SELECT 
+			   		A.MU,
+			   		M.MU_NM,
+			   		A.TM,
+			   		T.TM_NM,
+			   		A.MAIN_UPJANG,
+			   		NVL(U1.UPJANGNM_DISP,'') AS MAIN_UPJANG_NM,
+			   		A.UPJANG,
+			   		U2.UPJANGNM AS UPJANG_NM,					   
+		       		A.DOC_CLSFI_CD,
+			   		A.DOC_NM,
+			   		A.DOC_NUM,
+			   		A.DOC_CONTENTS,
+			   		A.REF_SEQ,
+			   		DECODE(A.UDATE, NULL, A.CDATE, A.UDATE) AS CDATE,
+			   		DECODE(A.UUSER, NULL, A.CUSER, A.UUSER) AS CUSER				  
+				FROM   FMS_PAPER_MGMT A INNER JOIN SCC_MU M ON A.MU = M.MU_CD	/* 사업부 정보 */
+								 						  INNER JOIN (
+								 							SELECT DISTINCT TM_CD, TM_NM
+								 							FROM HLDC_SC_TM
+								 						  ) T ON A.TM = T.TM_CD    /* 팀 정보 */
+								 					      LEFT JOIN FMS_UPJANG U1 ON A.MAIN_UPJANG = U1.UPJANG /* 본사 정보 */
+								 						  INNER JOIN ST_UPJANG U2 ON A.UPJANG = U2.UPJANG /* 사업장 정보 */
+				WHERE  A.MU = :selMu
+				AND     A.TM = :selTm
+				AND     A.UPJANG = :selUpjang
+				AND     A.DOC_NUM = :selDocNum
+		) S LEFT JOIN SCC_USERINFO U ON S.CUSER = U.SABUN	
+		]]>
+	</statement>
+
+
+
+
+	<!-- 문서정보(을)를 등록한다. -->
+	<statement name="insertDoc" type="insert">
+		/*+ com.hwfs.fm.fms.dao.PaperMgmtDAO.insertDoc */
+		<![CDATA[
+		INSERT INTO FMS_PAPER_MGMT 
+		(
+			   MU,
+			   TM,
+			   MAIN_UPJANG,	
+		       UPJANG,
+		       DOC_NUM,
+		       DOC_CLSFI_CD,
+		       DOC_NM,
+		       DOC_CONTENTS,
+		       REF_SEQ,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+			:mu, 	/* MU */
+			:tm,	/* TM */
+		<#if mainUpjang?has_content> :mainUpjang, <#else> null, </#if>	/* MAIN_UPJANG */
+			:upjang,			/* UPJANG */
+			(SELECT NVL(TO_NUMBER(MAX(DOC_NUM)),0)+1
+			FROM   FMS_PAPER_MGMT
+			WHERE MU = :mu
+			AND    TM = :tm
+			AND    UPJANG = :upjang 
+			),	/* DOC_NUM */
+		    :docClsfiCd,	/* DOC_CLSFI_CD */
+		    :docNm,			/* DOC_NM */
+		    :docContents,	/* DOC_CONTENTS */
+		<#if refSeq?has_content> :refSeq, <#else> null, </#if>	/* REF_SEQ */
+		    :loginSabun,	/* CUSER */
+		    SYSDATE			/* CDATE */
+		)
+		]]>
+	</statement>
+
+
+	<!-- 문서정보(을)를 수정한다. -->
+	<statement name="updateDoc" type="update">
+		/*+ com.hwfs.fm.fms.dao.PaperMgmtDAO.updateDoc */
+		<![CDATA[
+		UPDATE FMS_PAPER_MGMT 
+		SET    DOC_NM = :docNm,
+		         DOC_CONTENTS = :docContents,
+		<#if refSeq?has_content >
+			   REF_SEQ = :refSeq,
+		</#if>
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE MU = :mu
+		AND    TM = :tm
+		AND    UPJANG = :upjang 
+		AND    DOC_NUM = :docNum
+		]]>
+	</statement>
+
+
+	<!-- 문서정보(을)를 삭제한다. -->
+	<statement name="deleteDoc" type="delete">
+		/*+ com.hwfs.fm.fms.dao.PaperMgmtDAO.deleteDoc */
+		<![CDATA[
+		DELETE 
+		FROM   FMS_PAPER_MGMT 
+		WHERE MU = :mu
+		AND    TM = :tm
+		AND    UPJANG = :upjang 
+		AND    DOC_NUM = :docNum
+		]]>
+	</statement>	
+
+
+
+	<!-- 문서정보(을)를 수정한다. : 마이그레이션용 -->
+	<statement name="updateMig" type="update">
+		/*+ com.hwfs.fm.fms.dao.PaperMgmtDAO.updateMig */
+		<![CDATA[
+		UPDATE FMS_PAPER_MGMT_MIG 
+		SET    E_TRANS_YN = 'Y',
+		<#if refSeq?has_content >
+			   REF_SEQ = :refSeq,
+		</#if>
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE E_FILE = :eFile
+		AND    E_PATH = :ePath
+		]]>
+	</statement>
+
+
+</hqml>

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[처음 로그인시 보여줘야 하는 팝업]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+	  B.CON_ID
+	  , BBS_ID
+	  , B.TITLE
+	  , TO_CHAR(B.WRITE_TIME, 'YYYY-MM-DD') AS WRITE_DATE
+	  , TO_CHAR(TO_DATE(B.EDATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS END_DATE
+	  , C.NM_KOR
+	  , D.CODE_NAME AS UPJANGNM
+	  , '' AS N_CONT
+FROM SCC_BBS_POPUP A, 
+(
+ 	 SELECT * 
+	 FROM SCC_BBS_CON
+	 WHERE READ_ALL_YN  = 'Y'
+	 AND EDATE >= TO_CHAR( SYSDATE, 'YYYYMMDD')
+	 UNION ALL
+	 SELECT M.* 
+	 FROM SCC_BBS_CON M, SCC_BBS_PRIV_LIST A
+	 WHERE M.READ_ALL_YN  = 'N'
+	 AND M.EDATE >= TO_CHAR( SYSDATE, 'YYYYMMDD')
+	 AND A.CON_ID = M.CON_ID
+	 AND A.TARGET_CODE = #TARGET_CODE#	-- 업장 코드 또는 업체 코드 
+) B, SCC_USERINFO C, SCC_UPJANGCUST_V D
+WHERE TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.SDATE AND A.EDATE
+AND B.CON_ID = A.CON_ID
+AND C.SABUN = B.WRITE_SABUN
+AND D.CODE = B.UPJANG
+AND NOT EXISTS(
+	SELECT CON_ID
+	FROM SCC_BBS_POPUP_CONF
+	WHERE CON_ID = A.CON_ID
+	AND SABUN = #g_EmpNo#
+)	]]></statement>
+	<input default-name="ds_cond">
+		<col name="TARGET_CODE" size="255" type="NUMERIC" description="" /> 
+		<col name="g_EmpNo" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_popupList">
+		<col name="CON_ID" size="22" type="NUMERIC" description="" /> 
+		<col name="BBS_ID" size="22" type="NUMERIC" description="" /> 
+		<col name="TITLE" size="100" type="VARCHAR" description="" /> 
+		<col name="WRITE_DATE" size="10" type="VARCHAR" description="" /> 
+		<col name="END_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="NM_KOR" size="20" type="VARCHAR" description="" /> 
+		<col name="UPJANGNM" size="50" type="VARCHAR" description="" /> 
+		<col name="N_CONT" size="0" type="CHAR" description="" /> 
+	</output>
+</query>

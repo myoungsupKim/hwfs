@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[확정 여부 조회 SQL]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT MONTHS_BETWEEN(TO_DATE(SUBSTR(START_DATE,0,6),'YYYYMM') ,TO_DATE(CLOSE_MON,'YYYYMM') ) MGMM        
+FROM (          
+   SELECT #START_DATE# START_DATE,
+                               (SELECT TO_CHAR(TO_DATE(MAX(CLS_YM),'YYYYMM'),'YYYYMM')
+                                  FROM HLDC_PO_CLOSING 
+                                 WHERE CLS_FLAG = 'Y' 
+                                  AND SUBINV_CODE = A.SUBINV_CODE
+                                  AND CLS_YM &lt; SUBSTR(#START_DATE#, 0, 6)) CLOSE_MON          
+                          FROM HLDC_PO_ONHAND_MONTH A
+                             , HLDC_PO_SUBINVENTORY B
+                             , HLDC_PO_ITEM_MST C
+                         WHERE A.SUBINV_CODE = B.SUBINV_CODE
+                           AND A.ITEM_CODE = C.ITEM_CODE
+                           <isNotNull col="UPJANG">
+                           AND B.UPJANG =  #UPJANG#	   
+                           </isNotNull> 
+                           <isNull col="UPJANG">
+                           AND B.UPJANG IN (SELECT UPJANG FROM HLDC_PO_SUBINVENTORY WHERE CC_CD IN (SELECT CC_CD FROM HLDC_SC_DEPT_V WHERE TM_CD = #TM_CD#)         )     
+                           </isNull> 
+                           AND B.MATERIAL_ACCTCD = '11402000'	
+                           AND ROWNUM = 1
+     )      
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_mgMm">
+		<col name="MGMM" size="256" type="VARCHAR" description="" />  
+	</output>
+</query>

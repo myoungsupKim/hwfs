@@ -1,0 +1,675 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fm.fms.spContFactDAO">
+	<desc>품목별 특약율을 설정 HQML Query</desc>
+
+	<!-- 업장별 창고리스트 목록을 조회한다. -->
+	<statement name="selectSubinv" type="select">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.selectSubinv */
+		<![CDATA[
+		SELECT
+			A.SUBINV_CODE,
+			DECODE(A.USE_YN,'N','폐장') || A.SUBINV_CODE || ' ' || A.SUBINV_NAME AS SUBINV_NAME
+		FROM VO_SUBINVENTORY A INNER JOIN ST_UPJANG B ON A.UPJANG = B.UPJANG
+		WHERE SUBSTR(A.SUBINV_CODE, 1, 2) = 'S1'
+		AND    A.UPJANG = :schUpjang
+		ORDER BY A.SUBINV_CODE ASC
+		]]>
+	</statement>
+
+
+	<!-- 품목별 특약율을 설정 목록을 조회한다.(중분류, 소분류) -->
+	<statement name="selectClass" type="select">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.selectClass */
+		<![CDATA[
+		SELECT
+			ROWNUM AS ROW_NUM,
+			<#if schClassType == 'S'>
+			S.CATE_CD AS CLS_CD3,
+			S.CATE_NM AS CLS_NM3,
+			</#if>
+			<#if schClassType == 'D'>
+			S.CATE_CD AS CLS_CD4,
+			S.CATE_NM AS CLS_NM4,
+			</#if>
+			NVL(R.FM_SALE_RATE,0) AS FM_SALE_RATE,
+			NVL(R.FM_NOSALE_RATE,0) AS FM_NOSALE_RATE,
+			:schUpjang AS UPJANG,
+			:schSubinvCode AS SUBINV_CODE,
+			:schSdate AS SDATE,
+			:schCashCode AS CASH_CODE,
+			S.USE_YN,
+			TO_CHAR(S.CATE_LVL) AS CLS_LVL,
+			S.SORT_ORD
+		FROM 
+		(
+			SELECT
+				A.CLASS_CODE AS CATE_CD,
+				A.CLASS_NAME AS CATE_NM,
+				A.CLASS_TYPE AS CATE_LVL,
+				'Y' AS USE_YN,
+				A.CLASS_CODE AS SORT_ORD 
+			FROM VO_ITEM_CLASS A
+			WHERE SUBSTR(A.CLASS_CODE,1,1) = 'F'
+			AND   A.CLASS_TYPE = :schClassType
+		) S LEFT JOIN  FMS_SALE_RATE R ON R.UPJANG = :schUpjang
+					  				  AND R.SUBINV_CODE = :schSubinvCode
+					  				  AND R.SDATE = :schSdate
+					  				  AND R.CASH_CODE = :schCashCode
+					  				  AND S.CATE_CD = R.ITEM_CLASS
+		ORDER BY S.SORT_ORD ASC
+		]]>
+	</statement>
+
+	<!-- 품목별 특약율을 설정(을)를 등록한다. (중분류) -->
+	<statement name="insertGroup" type="insert">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.insertGroup */
+		<![CDATA[
+		INSERT INTO FMS_SALE_RATE 
+		(
+		       UPJANG,
+			   SUBINV_CODE,
+			   SDATE,
+			   CASH_CODE,
+			   ITEM_CLASS,
+			   EDATE,
+			   FM_SALE_RATE,
+			   FM_NOSALE_RATE,
+			   USE_YN,
+		       CREATE_BY,
+		       CREATE_DATE
+		)
+		VALUES
+		(
+		       :upjang,			/* UPJANG */
+		       :subinvCode,		/* SUBINV_CODE */
+		       :sdate,			/* SDATE */
+			   :cashCode,		/* CASH_CODE */
+			<#if clsLvl == 'S'>
+		       :clsCd3, 		/* ITEM_CLASS */
+			</#if>
+			<#if clsLvl == 'D'>
+		       :clsCd4,			/* ITEM_CLASS */
+			</#if>
+			  NVL((SELECT 
+					/*+ INDEX_ASC(Z FMS_SALE_RATE_PK) */
+					TO_CHAR(TO_DATE(Z.SDATE,'YYYYMMDD')-1,'YYYYMMDD')
+			   FROM   FMS_SALE_RATE Z
+			   WHERE  Z.UPJANG = :upjang
+			   AND     Z.SUBINV_CODE = :subinvCode
+			   AND     Z.CASH_CODE = :cashCode
+			<#if clsLvl == 'S'>
+			   AND     Z.ITEM_CLASS = :clsCd3
+			</#if>
+			<#if clsLvl == 'D'>
+			   AND     Z.ITEM_CLASS = :clsCd4
+			</#if>
+			   AND     Z.SDATE > :sdate
+			   AND     ROWNUM <= 1), '99999999'),	/* EDATE */
+			   <#if fmSaleRate?has_content> :fmSaleRate, <#else> 0, </#if>	/* FM_SALE_RATE */
+			   <#if fmNosaleRate?has_content> :fmNosaleRate, <#else> 0, </#if>	/* FM_NOSALE_RATE */
+			   <#if useYn?has_content> :useYn, <#else> 'Y', </#if>	/* USE_YN */
+		       :loginSabun,	/* CREATE_BY */
+		       SYSDATE		/* CREATE_DATE */
+		)
+		]]>
+	</statement>
+	
+
+	<!-- 품목별 특약율을 설정(을)를 삭제한다. (중분류,소분류) -->
+	<statement name="deleteGroup" type="delete">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.deleteGroup */
+		<![CDATA[
+		DELETE 
+		FROM   FMS_SALE_RATE 
+		WHERE  UPJANG = :upjang
+		AND    SUBINV_CODE = :subinvCode
+		<#if clsLvl == 'S'>
+		AND    LENGTH(ITEM_CLASS) = 5	/* 중분류목록대상만 삭제 */
+		</#if>
+		<#if clsLvl == 'D'>
+		AND    LENGTH(ITEM_CLASS) = 7	/* 소분류목록대상만 삭제 */
+		</#if>
+		AND    SDATE = :sdate
+		AND    CASH_CODE = :cashCode
+		]]>
+	</statement>
+
+	<!-- 품목별 특약율관련 기준일자의  종료일자를 수정한다.(분류별) -->
+	<statement name="updateGroup" type="update">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.updateGroup */
+		<![CDATA[
+		UPDATE FMS_SALE_RATE A
+        SET 		A.EDATE = TO_CHAR(TO_DATE(:sdate,'YYYYMMDD')-1,'YYYYMMDD')
+   		WHERE  A.UPJANG 			= :upjang
+   		AND     A.SUBINV_CODE = :subinvCode
+		AND     A.CASH_CODE = :cashCode
+		<#if clsLvl == 'S'>
+		AND    LENGTH(A.ITEM_CLASS) = 5	/* 중분류목록대상만 수정 */
+		</#if>
+		<#if clsLvl == 'D'>
+		AND    LENGTH(A.ITEM_CLASS) = 7	/* 소분류목록대상만 수정 */
+		</#if>
+   		AND     A.SDATE = (
+ 										SELECT /*+ INDEX_DESC(Z FMS_SALE_RATE_PK) */
+													Z.SDATE
+	    								FROM FMS_SALE_RATE Z
+	    								WHERE Z.UPJANG = :upjang
+            							AND 	   Z.SUBINV_CODE = :subinvCode
+            							AND 	   Z.CASH_CODE = :cashCode
+										<#if clsLvl == 'S'>
+										AND    LENGTH(Z.ITEM_CLASS) = 5	/* 중분류목록대상만 수정 */
+										</#if>
+										<#if clsLvl == 'D'>
+										AND    LENGTH(Z.ITEM_CLASS) = 7	/* 소분류목록대상만 수정 */
+										</#if>
+            							AND 	   Z.SDATE < :sdate
+            							AND 	   ROWNUM <= 1
+            							)
+		]]>
+	</statement>
+
+
+
+	<!-- 품목별 특약율관련 기준일자의  종료일자를 수정한다.(중분류,소분류 모두) : 2016-02-03-->
+	<statement name="updateGroup2" type="update">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.updateGroup2 */
+		<![CDATA[
+		UPDATE FMS_SALE_RATE A
+        SET 		A.EDATE = TO_CHAR(TO_DATE(:sdate,'YYYYMMDD')-1,'YYYYMMDD')
+   		WHERE  A.UPJANG 			= :upjang
+   		AND     A.SUBINV_CODE = :subinvCode
+		AND     A.CASH_CODE = :cashCode
+   		AND     A.SDATE = (
+ 										SELECT /*+ INDEX_DESC(Z FMS_SALE_RATE_PK) */
+													Z.SDATE
+	    								FROM FMS_SALE_RATE Z
+	    								WHERE Z.UPJANG = :upjang
+            							AND 	   Z.SUBINV_CODE = :subinvCode
+            							AND 	   Z.CASH_CODE = :cashCode
+            							AND 	   Z.SDATE < :sdate
+            							AND 	   ROWNUM <= 1
+            							)
+		]]>
+	</statement>
+
+
+	<!-- 품목별 특약율을 설정 목록을 조회한다.(저장자재별) -->
+	<statement name="selectItem" type="select">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.selectItem */
+		<![CDATA[
+		SELECT
+			ROWNUM AS ROW_NUM,
+			X.ITEM_CODE,
+			X.ITEM_NAME,
+			X.ITEM_SIZE,
+			X.FM_SALE_RATE,
+			X.FM_NOSALE_RATE,
+			X.UPJANG,
+			X.SUBINV_CODE,
+			X.SDATE,
+			X.CASH_CODE,
+			X.USE_YN,
+			X.CLS_LVL,
+			X.SORT_ORD
+		FROM 
+		(
+			SELECT
+				S.ITEM_CODE,
+				S.ITEM_NAME,
+				S.ITEM_SIZE,
+				NVL(R.FM_SALE_RATE,0) AS FM_SALE_RATE,
+				NVL(R.FM_NOSALE_RATE,0) AS FM_NOSALE_RATE,
+				:schUpjang AS UPJANG,
+				:schSubinvCode AS SUBINV_CODE,
+				:schSdate AS SDATE,
+				:schCashCode AS CASH_CODE,
+				S.USE_YN,
+				'' AS CLS_LVL,
+				S.ITEM_CODE AS SORT_ORD
+			FROM 
+			(
+			    SELECT
+					  ITEM_CODE
+					, FM_SALE_RATE
+					, FM_NOSALE_RATE
+			    FROM FMS_ITEM_SALE_RATE
+			    WHERE UPJANG = :schUpjang
+			    AND    SUBINV_CODE = :schSubinvCode
+			    AND    SDATE  = :schSdate
+				AND    CASH_CODE = :schCashCode
+			) R INNER JOIN  HLDC_PO_ITEM_MST S ON S.USE_YN = 'Y'
+					  				  			AND S.ITEM_CLASS1 = 'F'
+					  				  			AND S.ITEM_CODE = R.ITEM_CODE
+        	ORDER BY S.ITEM_CODE ASC
+		) X
+		]]>
+	</statement>
+
+
+	<!-- 품목별 특약율을 설정 목록을 조회한다.(전체자재별) : 사용X -->
+	<statement name="selectItem2" type="select">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.selectItem2 */
+		<![CDATA[
+		SELECT
+			ROWNUM AS ROW_NUM,
+			X.ITEM_CODE,
+			X.ITEM_NAME,
+			X.ITEM_SIZE,
+			X.FM_SALE_RATE,
+			X.FM_NOSALE_RATE,
+			X.UPJANG,
+			X.SUBINV_CODE,
+			X.SDATE,
+			X.CASH_CODE,
+			X.USE_YN,
+			X.CLS_LVL,
+			X.SORT_ORD
+		FROM 
+		(
+			SELECT
+				S.ITEM_CODE,
+				S.ITEM_NAME,
+				S.ITEM_SIZE,
+				NVL(R.FM_SALE_RATE,0) AS FM_SALE_RATE,
+				NVL(R.FM_NOSALE_RATE,0) AS FM_NOSALE_RATE,
+				:schUpjang AS UPJANG,
+				:schSubinvCode AS SUBINV_CODE,
+				:schSdate AS SDATE,
+				:schCashCode AS CASH_CODE,
+				S.USE_YN,
+				'' AS CLS_LVL,
+				S.SORT_ORD
+			FROM 
+			(
+				SELECT
+					A.ITEM_CODE,
+					A.ITEM_NAME,
+					A.ITEM_SIZE,
+					A.USE_YN,
+					A.ITEM_CODE AS SORT_ORD 
+				FROM HLDC_PO_ITEM_MST A
+				WHERE A.ITEM_CLASS1 = 'F'
+				AND   A.USE_YN = 'Y'
+			) S LEFT JOIN  FMS_ITEM_SALE_RATE R ON R.UPJANG = :schUpjang
+					  				  			AND R.SUBINV_CODE = :schSubinvCode
+					  				  			AND R.SDATE = :schSdate
+					  				  			AND R.CASH_CODE = :schCashCode
+					  				  			AND S.ITEM_CODE = R.ITEM_CODE
+        	ORDER BY S.SORT_ORD ASC
+		) X
+		]]>
+	</statement>
+
+
+	<!-- 품목별 특약율을 설정(을)를 삭제한다. (전체자재별) -->
+	<statement name="deleteItem" type="delete">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.deleteItem */
+		<![CDATA[
+		DELETE 
+		FROM   FMS_ITEM_SALE_RATE 
+		WHERE  UPJANG = :upjang
+		AND    SUBINV_CODE = :subinvCode
+		AND    SDATE = :sdate
+		AND    CASH_CODE = :cashCode
+		]]>
+	</statement>
+
+
+	<!-- 품목별 특약율을 설정(을)를 삭제한다. (자재건별) -->
+	<statement name="deleteItem2" type="delete">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.deleteItem2 */
+		<![CDATA[
+		DELETE 
+		FROM   FMS_ITEM_SALE_RATE 
+		WHERE  UPJANG = :upjang
+		AND    SUBINV_CODE = :subinvCode
+		AND    SDATE = :sdate
+		AND    CASH_CODE = :cashCode
+		AND    ITEM_CODE = :itemCode
+		]]>
+	</statement>
+
+
+
+	<!-- 품목별 특약율을 설정(을)를 등록한다. (자재별) -->
+	<statement name="insertItem" type="insert">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.insertItem */
+		<![CDATA[
+		INSERT INTO FMS_ITEM_SALE_RATE 
+		(
+		       UPJANG,
+			   SUBINV_CODE,
+			   SDATE,
+			   CASH_CODE,
+			   ITEM_CODE,
+			   EDATE,
+			   FM_SALE_RATE,
+			   FM_NOSALE_RATE,
+			   USE_YN,
+		       CREATE_BY,
+		       CREATE_DATE
+		)
+		VALUES
+		(
+		       :upjang,		/* UPJANG */
+		       :subinvCode,	/* SUBINV_CODE */
+		       :sdate,		/* SDATE */
+			   :cashCode,	/* CASH_CODE */
+		       :itemCode,	/* ITEM_CODE */
+			  NVL((SELECT 
+				/*+ INDEX_ASC(Z FMS_ITEM_SALE_RATE_PK) */
+				TO_CHAR(TO_DATE(Z.SDATE,'YYYYMMDD')-1,'YYYYMMDD')
+			  FROM   FMS_ITEM_SALE_RATE Z
+			  WHERE  Z.UPJANG = :upjang
+			  AND     Z.SUBINV_CODE = :subinvCode
+			  AND     Z.CASH_CODE = :cashCode
+			  AND     Z.ITEM_CODE = :itemCode
+			  AND     Z.SDATE > :sdate
+			  AND     ROWNUM <= 1), '99999999'),	/* EDATE */
+			   <#if fmSaleRate?has_content> :fmSaleRate, <#else> 0, </#if>	/* FM_SALE_RATE */
+			   <#if fmNosaleRate?has_content> :fmNosaleRate, <#else> 0, </#if>	/* FM_NOSALE_RATE */
+			   <#if useYn?has_content> :useYn, <#else> 'Y', </#if>	/* USE_YN */
+		       :loginSabun,	/* CREATE_BY */
+		       SYSDATE		/* CREATE_DATE */
+		)
+		]]>
+	</statement>
+
+
+	<!-- 품목별 특약율관련 기준일자의  종료일자를 수정한다.(전체자재별) -->
+	<!-- 이전일자 건에 대한 모든 자재별로 update 한다  -->
+	<statement name="updateItem" type="update">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.updateItem */
+		<![CDATA[
+		UPDATE FMS_ITEM_SALE_RATE A
+        SET 		A.EDATE = TO_CHAR(TO_DATE(:sdate,'YYYYMMDD')-1,'YYYYMMDD')
+   		WHERE  A.UPJANG 			= :upjang
+   		AND     A.SUBINV_CODE = :subinvCode
+		AND     A.CASH_CODE = :cashCode
+   		AND     A.SDATE = (
+ 										SELECT /*+ INDEX_DESC(Z FMS_ITEM_SALE_RATE_PK) */
+													Z.SDATE
+	    								FROM FMS_ITEM_SALE_RATE Z
+	    								WHERE Z.UPJANG = :upjang
+            							AND 	   Z.SUBINV_CODE = :subinvCode
+            							AND 	   Z.CASH_CODE = :cashCode
+            							AND 	   Z.SDATE < :sdate
+            							AND 	   ROWNUM <= 1
+            							)
+		]]>
+	</statement>
+
+
+	<!-- 품목별 특약율관련 기준일자의  종료일자를 수정한다.(자재건별) -->
+	<!-- 이전일자 건에 대한 특정 자재별로 update 한다  -->
+	<statement name="updateItem2" type="update">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.updateItem2 */
+		<![CDATA[
+		UPDATE FMS_ITEM_SALE_RATE A
+        SET 		A.EDATE = TO_CHAR(TO_DATE(:sdate,'YYYYMMDD')-1,'YYYYMMDD')
+   		WHERE  A.UPJANG 			= :upjang
+   		AND     A.SUBINV_CODE = :subinvCode
+		AND     A.CASH_CODE = :cashCode
+		AND     A.ITEM_CODE = :itemCode
+   		AND     A.SDATE = (
+ 										SELECT /*+ INDEX_DESC(Z FMS_ITEM_SALE_RATE_PK) */
+													Z.SDATE
+	    								FROM FMS_ITEM_SALE_RATE Z
+	    								WHERE Z.UPJANG = :upjang
+            							AND 	   Z.SUBINV_CODE = :subinvCode
+            							AND 	   Z.CASH_CODE = :cashCode
+            							AND 	   Z.ITEM_CODE = :itemCode
+            							AND 	   Z.SDATE < :sdate
+            							AND 	   ROWNUM <= 1
+            							)
+		]]>
+	</statement>
+
+
+
+	<!-- 품목별 특약율관련 기준일자 목록을 조회한다. -->
+	<statement name="selectDateList" type="select">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.selectDateList */
+		<![CDATA[
+		SELECT
+			DISTINCT SDATE,
+					 TO_CHAR(TO_DATE(SDATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS SDATE_DISP,
+					 '1' AS ORDR
+		FROM  FMS_SALE_RATE
+		WHERE UPJANG = :schUpjang
+		AND   SUBINV_CODE = :schSubinvCode
+		UNION ALL
+		SELECT 
+			'',
+			'기준일 선택',
+			'0' AS ORDR
+		FROM DUAL
+		ORDER BY ORDR ASC, SDATE ASC
+		]]>
+	</statement>
+
+
+	<!-- 본사별 창고리스트 목록을 조회한다. -->
+	<statement name="selectSub" type="select">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.selectSub */
+		<![CDATA[
+		SELECT
+			'0' CHK,
+			B.SUBINV_CODE,
+			DECODE(B.USE_YN,'N','폐장')|| B.SUBINV_CODE || ' ' || B.SUBINV_NAME AS SUBINV_NAME, 
+			NVL(C.SDATE,'') AS SDATE,
+       		TO_CHAR(SYSDATE, 'YYYYMMDD') AS ADATE,
+			A.UPJANG,
+			S.UPJANGNM  AS UPJANG_NM
+		FROM  FMS_UPJANG A INNER JOIN VO_SUBINVENTORY B ON A.UPJANG = B.UPJANG
+													   AND NOT EXISTS (
+													   /* 대상 창고코드는 제외 */
+														SELECT 1 FROM VO_SUBINVENTORY Z
+			     										WHERE B.SUBINV_CODE = Z.SUBINV_CODE
+			     										AND Z.SUBINV_CODE = :schSubinvCode
+													   )	
+										INNER JOIN ST_UPJANG S ON A.UPJANG = S.UPJANG			   
+						   				LEFT JOIN  (
+														/* 특약율 정보 */
+														SELECT  UPJANG,
+							   				   						SUBINV_CODE,
+							   				   						CASH_CODE,
+							   				   						MAX(SDATE) AS SDATE	/* 최근일자 */
+														FROM  FMS_SALE_RATE
+														WHERE NVL(EDATE, '99999999') = '99999999'
+														GROUP BY UPJANG, SUBINV_CODE, CASH_CODE
+														) C ON C.CASH_CODE = :schCashCode
+						   									AND B.UPJANG = C.UPJANG
+						   									AND B.SUBINV_CODE = C.SUBINV_CODE
+		WHERE A.MAIN_UPJANG = :schMainUpjang 
+		ORDER BY A.UPJANG, B.SUBINV_CODE ASC
+		]]>
+	</statement>
+
+
+	<!-- 조건에 따른 특약율 정보 건수를 구한다. -->
+	<statement name="selectSubCnt" type="select">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.selectSubCnt */
+		<![CDATA[
+		SELECT COUNT(*) AS PROCESS_CNT
+		FROM  FMS_SALE_RATE
+		WHERE UPJANG = :schUpjang
+		AND   SUBINV_CODE = :schSubinvCode
+		AND   SDATE = :schSdate
+		AND   CASH_CODE = :schCashCode
+		]]>
+	</statement>
+	
+	<!-- 특약율 정보를 일괄 삭제한다. (선택한 창고기준), 분류별 -->
+	<statement name="deleteSub" type="delete">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.deleteSub */
+		<![CDATA[
+		DELETE 
+		FROM   FMS_SALE_RATE 
+		WHERE  UPJANG = :upjang
+		AND    SUBINV_CODE = :subinvCode
+		AND    SDATE = :schStdDate
+		AND    CASH_CODE = :schCashCode
+		]]>
+	</statement>
+	
+	<!-- 특약율 정보를 일괄 등록한다. (분류별) -->
+	<statement name="insertSub" type="insert">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.insertSub */
+		<![CDATA[
+		INSERT INTO FMS_SALE_RATE 
+		(
+		       UPJANG,
+			   SUBINV_CODE,
+			   SDATE,
+			   CASH_CODE,
+			   ITEM_CLASS,
+			   EDATE,
+			   FM_SALE_RATE,
+			   FM_NOSALE_RATE,
+			   USE_YN,
+		       CREATE_BY,
+		       CREATE_DATE
+		)
+		SELECT
+			   :upjang,						/* UPJANG */
+			   :subinvCode,				/* SUBINV_CODE */
+			   :schStdDate AS SDATE,	/* SDATE */
+			   A.CASH_CODE,				/* CASH_CODE */
+			   A.ITEM_CLASS,				/* ITEM_CLASS */
+			  NVL((SELECT 
+					/*+ INDEX_ASC(Z FMS_SALE_RATE_PK) */
+					TO_CHAR(TO_DATE(Z.SDATE,'YYYYMMDD')-1,'YYYYMMDD')
+			   FROM   FMS_SALE_RATE Z
+			   WHERE  Z.UPJANG = :upjang
+			   AND     Z.SUBINV_CODE = :subinvCode
+			   AND     Z.CASH_CODE = :schCashCode
+			   AND     Z.ITEM_CLASS = A.ITEM_CLASS
+			   AND     Z.SDATE > :schStdDate
+			   AND     ROWNUM <= 1), '99999999') AS EDATE,	/* EDATE */
+			   A.FM_SALE_RATE,			/* FM_SALE_RATE */
+			   A.FM_NOSALE_RATE,		/* FM_NOSALE_RATE */
+			   A.USE_YN,					/* USE_YN */
+			   :loginSabun,					/* CREATE_BY */
+		       SYSDATE						/* CREATE_DATE */
+		FROM  FMS_SALE_RATE A
+		WHERE  A.UPJANG = :schUpjang
+		AND     A.SUBINV_CODE = :schSubinvCode
+		AND     A.SDATE = :schSdate
+		AND     A.CASH_CODE = :schCashCode
+		]]>
+	</statement>
+	
+		<!-- 품목별 특약율 일괄복사 관련  종료일자를 수정한다.(분류별) -->
+	<statement name="updateSub" type="update">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.updateSub */
+		<![CDATA[
+		UPDATE FMS_SALE_RATE A
+			SET A.EDATE = TO_CHAR(TO_DATE(:schStdDate,'YYYYMMDD')-1,'YYYYMMDD')
+   		WHERE  A.UPJANG 	   = :upjang
+   		AND     A.SUBINV_CODE = :subinvCode
+		AND     A.CASH_CODE   = :schCashCode
+   		AND     A.SDATE < :schStdDate
+   		AND     A.SDATE = (
+									SELECT /*+ INDEX_DESC(Z FMS_SALE_RATE_PK) */
+											Z.SDATE
+	    							FROM FMS_SALE_RATE Z
+	    							WHERE Z.UPJANG = A.UPJANG
+            						AND 	   Z.SUBINV_CODE = A.SUBINV_CODE
+            						AND 	   Z.CASH_CODE = A.CASH_CODE
+            						AND 	   Z.ITEM_CLASS = A.ITEM_CLASS
+            						AND 	   Z.SDATE < :schStdDate
+            						AND 	   ROWNUM <= 1
+            						)
+		]]>
+	</statement>
+	
+	
+
+	<!-- 특약율 정보를 일괄 삭제한다. (선택한 창고기준), 자재별 -->
+	<statement name="deleteSubItem" type="delete">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.deleteSubItem */
+		<![CDATA[
+		DELETE 
+		FROM   FMS_ITEM_SALE_RATE 
+		WHERE  UPJANG = :upjang
+		AND    SUBINV_CODE = :subinvCode
+		AND    SDATE = :schStdDate
+		AND    CASH_CODE = :schCashCode
+		]]>
+	</statement>
+	
+	<!-- 특약율 정보를 일괄 등록한다. (자재별) -->
+	<statement name="insertSubItem" type="insert">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.insertSubItem */
+		<![CDATA[
+		INSERT INTO FMS_ITEM_SALE_RATE 
+		(
+		       UPJANG,
+			   SUBINV_CODE,
+			   SDATE,
+			   CASH_CODE,
+			   ITEM_CODE,
+			   EDATE,
+			   FM_SALE_RATE,
+			   FM_NOSALE_RATE,
+			   USE_YN,
+		       CREATE_BY,
+		       CREATE_DATE
+		)
+		SELECT
+		       :upjang,					/* UPJANG */
+			   :subinvCode,			/* SUBINV_CODE */
+			   :schStdDate AS SDATE,	/* SDATE */
+			   A.CASH_CODE,			/* CASH_CODE */
+			   A.ITEM_CODE,			/* ITEM_CODE */
+			  NVL((SELECT 
+				/*+ INDEX_ASC(Z FMS_ITEM_SALE_RATE_PK) */
+				TO_CHAR(TO_DATE(Z.SDATE,'YYYYMMDD')-1,'YYYYMMDD')
+			  FROM   FMS_ITEM_SALE_RATE Z
+			  WHERE  Z.UPJANG = :upjang
+			  AND     Z.SUBINV_CODE = :subinvCode
+			  AND     Z.CASH_CODE = :schCashCode
+			  AND     Z.ITEM_CODE = A.ITEM_CODE
+			  AND     Z.SDATE > :schStdDate
+			  AND     ROWNUM <= 1), '99999999') AS EDATE,	/* EDATE */
+			   A.FM_SALE_RATE,		/* FM_SALE_RATE */
+			   A.FM_NOSALE_RATE,	/* FM_NOSALE_RATE */
+			   A.USE_YN,				/* USE_YN */
+		       :loginSabun,				/* CREATE_BY */
+		       SYSDATE					/* CREATE_DATE */
+		FROM  FMS_ITEM_SALE_RATE A
+		WHERE  A.UPJANG = :schUpjang
+		AND    A.SUBINV_CODE = :schSubinvCode
+		AND    A.SDATE = :schSdate
+		AND    A.CASH_CODE = :schCashCode
+		]]>
+	</statement>
+
+	<!-- 품목별 특약율 일괄복사 관련 종료일자를 수정한다.(자재별) -->
+	<statement name="updateSubItem" type="update">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.updateSubItem */
+		<![CDATA[
+		UPDATE FMS_ITEM_SALE_RATE A
+			SET A.EDATE = TO_CHAR(TO_DATE(:schStdDate,'YYYYMMDD')-1,'YYYYMMDD')
+   		WHERE  A.UPJANG 	   = :upjang
+   		AND     A.SUBINV_CODE = :subinvCode
+		AND     A.CASH_CODE    = :schCashCode
+   		AND     A.SDATE < :schStdDate
+   		AND     A.SDATE = (
+ 						SELECT /*+ INDEX_DESC(Z FMS_ITEM_SALE_RATE_PK) */
+							Z.SDATE
+	    					FROM FMS_ITEM_SALE_RATE Z
+	    					WHERE Z.UPJANG = A.UPJANG
+            					AND 	   Z.SUBINV_CODE = A.SUBINV_CODE
+            					AND 	   Z.CASH_CODE = A.CASH_CODE
+            					AND 	   Z.ITEM_CODE = A.ITEM_CODE
+            					AND 	   Z.SDATE < :schStdDate
+            					AND 	   ROWNUM <= 1
+            					)
+		]]>
+	</statement>
+
+
+
+</hqml>

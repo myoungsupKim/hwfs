@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[자재조회팝업]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT AA.ITEM_CODE,    --자재코드
+       AA.ITEM_NAME,    --자재명
+       AA.ITEM_SIZE,    --규격
+       AA.PO_UOM,       --단위
+       AA.KG_CONVERT_RATE,
+       nvl(BB.OP_PRICE,0) MARGIN_PRICE,  --단가
+       DECODE(NVL(BB.OP_PRICE,0),0,'Y','N') RESTRICT_YN,    --발주불가상태(금지)
+       AA.DISUSE_RATE,                  --폐기율
+       ROUND(NVL(BB.OP_PRICE,0) / AA.KG_CONVERT_RATE / 1000,2) GRAM_PRICE,--g당단가
+       AA.KG_CONVERT_RATE,      --kg환산율
+       AA.CAL,                   --100g당 에너지
+	   CC.FEATURE_NAME			--자재특성
+  FROM
+      (
+      SELECT A.ITEM_CODE,A.ITEM_NAME,A.ITEM_SIZE,A.PO_UOM,A.KG_CONVERT_RATE
+             ,B.CAL, B.WATER, B.PROT, B.FAT, B.CARBO, B.FIBER, B.ASH, B.CA, B.P
+             ,B.FE, B.NA, B.K, B.VITA_A, B.RETIN, B.B_CAROT, B.THIA, B.RIBO, B.NIACIN
+             , B.VITA_C, B.CHOLE, B.DISUSE_RATE
+      FROM (SELECT B.ITEM_CODE, B.ITEM_NAME, B.ITEM_SIZE, B.PO_UOM, B.TAX_CODE,B.KG_CONVERT_RATE
+              FROM HLDC_PO_ITEM_MST B, HLDC_PO_TREAT_UPJANG A
+             WHERE A.ITEM_CODE = B.ITEM_CODE
+               AND B.ITEM_CODE BETWEEN '010000000000' AND '019999999999'
+               AND A.UPJANG = (SELECT C.AP_UNITPRICE_UPJANG FROM HLDC_ST_UPJANG C WHERE C.UPJANG = #UPJANG#)
+               AND A.USE_YN = 'Y' AND B.USE_YN = 'Y'
+             UNION ALL
+            SELECT A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.PO_UOM, A.TAX_CODE,A.KG_CONVERT_RATE
+              FROM FMP_OTCUST_ITEM A, FMP_OTCUST_PRICE_AVA_V B
+                 ,(SELECT UPJANG, ITEM_CODE, MAX(SDATE) AS SDATE
+                     FROM FMP_OTCUST_PRICE_AVA_V
+                    WHERE UPJANG = (SELECT Z.OTCUST_PRICE_UPJANG FROM FMS_UPJANG Z WHERE Z.UPJANG = #UPJANG#)
+                      AND SDATE &lt;= NVL('',TO_CHAR(SYSDATE,'YYYYMMDD'))
+                    GROUP BY UPJANG, ITEM_CODE) C
+             WHERE A.ITEM_CODE = B.ITEM_CODE
+               AND B.UPJANG = C.UPJANG
+               AND B.SDATE = C.SDATE
+               AND B.ITEM_CODE = C.ITEM_CODE
+               AND A.USE_YN = 'Y' AND B.USE_YN = 'Y') A,
+           (SELECT ITEM_CODE, CAL, WATER, PROT, FAT, CARBO, FIBER, ASH, CA, P, FE, NA, K, VITA_A, RETIN, B_CAROT, THIA, RIBO, NIACIN, VITA_C, CHOLE, DISUSE_RATE
+              FROM FMP_ITEM_NUT WHERE UPJANG = #UPJANG#
+             UNION ALL
+           (SELECT ITEM_CODE, CAL, WATER, PROT, FAT, CARBO, FIBER, ASH, CA, P, FE, NA, K, VITA_A, RETIN, B_CAROT, THIA, RIBO, NIACIN, VITA_C, CHOLE, DISUSE_RATE
+              FROM FSI_ITEM_NUT
+             MINUS
+            SELECT ITEM_CODE, CAL, WATER, PROT, FAT, CARBO, FIBER, ASH, CA, P, FE, NA, K, VITA_A, RETIN, B_CAROT, THIA, RIBO, NIACIN, VITA_C, CHOLE, DISUSE_RATE
+              FROM FMP_ITEM_NUT WHERE UPJANG = #UPJANG#)) B
+        WHERE A.ITEM_CODE = B.ITEM_CODE
+        <isNotEqual col="BIG_CODE" value="0000">
+           AND SUBSTR(A.ITEM_CODE,1,4)=#BIG_CODE#
+        </isNotEqual>
+        <isNotEqual col="MID_CODE" value="0000">
+           AND SUBSTR(A.ITEM_CODE,1,6)=#MID_CODE#
+        </isNotEqual>
+        <isNotEqual col="SMALL_CODE" value="0000">
+           AND SUBSTR(A.ITEM_CODE,1,8)=#SMALL_CODE#
+        </isNotEqual>
+        <isNotNull col="CODE_NAME">
+           AND A.ITEM_NAME  LIKE '%'||#CODE_NAME#||'%'
+        </isNotNull>
+      ) AA,
+  	(
+		SELECT /*+ USE_HASH (A C) */
+		       A.UPJANG, A.ITEM_CODE, A.SALE_PRICE, NVL(C.OP_RATE,0) AS OP_RATE,                  --운영율
+		       DECODE(SIGN(NVL(C.OP_PRICE,0) ),0, SCC_CEIL(A.SALE_PRICE + ROUND(A.SALE_PRICE * NVL(C.OP_RATE, 0) / 100), C.CEIL_VAL), C.OP_PRICE) AS OP_PRICE --운영단가(1인원가)
+		  FROM
+		     (
+		     SELECT A.CEIL_VAL, A.ITEM_CODE, OP_RATE, OP_PRICE
+		       FROM FMU_OP_RATE A
+		      WHERE UPJANG = #UPJANG#
+			AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN SDATE AND EDATE
+			AND A.USE_YN = 'Y'
+		     ) C,
+		     (
+		      SELECT #UPJANG# AS UPJANG ,
+			     TO_CHAR(SYSDATE,'YYYYMMDD') AS NEED_DATE ,
+			     ITEM_CODE, TO_NUMBER(SUBSTR(RESULT, 9, 8) ) SALE_PRICE
+			FROM
+			     (
+			     SELECT /*+ INDEX_DESC(C PO_CONTRACT_FSALE_U1) */
+				    C.ITEM_CODE, C.CENTER_CODE, MAX(C.CONTRACT_START||RPAD(C.SALE_PRICE, 8) ) AS RESULT
+			       FROM HLDC_PO_CONTRACT_FSALE C, HLDC_PO_UPJANG_CENTER D, HLDC_ST_UPJANG E
+			      WHERE C.CENTER_CODE = D.CENTER_CODE
+				AND D.UPJANG = E.AP_UNITPRICE_UPJANG
+				AND E.UPJANG = #UPJANG#
+				AND C.UPJANG = E.AP_UNITPRICE_UPJANG
+				AND C.ITEM_CODE > ' '
+				AND C.CONTRACT_START &lt;= TO_CHAR(SYSDATE,'YYYYMMDD')
+				AND C.USE_YN = 'Y'
+				AND EXISTS
+				    (
+				    SELECT 1
+				      FROM HLDC_PO_TREAT_UPJANG X
+				     WHERE X.ITEM_CODE = C.ITEM_CODE
+				       AND X.UPJANG = C.UPJANG
+				    )
+			      GROUP BY C.CENTER_CODE, C.UPJANG, C.ITEM_CODE
+			    ) A
+		      WHERE TO_NUMBER(SUBSTR(RESULT, 9, 8) ) > 0
+		     -----------
+		      UNION ALL
+		     -----------
+		     SELECT #UPJANG# AS UPJANG, TO_CHAR(SYSDATE,'YYYYMMDD') AS NEED_DATE, A.ITEM_CODE, A.SALE_PRICE
+		       FROM FMP_OTCUST_PRICE_AVA_V A ,
+			    (
+			    SELECT UPJANG, ITEM_CODE, MAX(SDATE) AS SDATE
+			      FROM FMP_OTCUST_PRICE_AVA_V
+			     WHERE UPJANG =
+				   (
+				   SELECT OTCUST_PRICE_UPJANG
+				     FROM FMS_UPJANG
+				    WHERE UPJANG = #UPJANG#
+				   )
+			       AND SDATE &lt;= TO_CHAR(SYSDATE,'YYYYMMDD')
+			     GROUP BY UPJANG, ITEM_CODE
+			    ) B
+		      WHERE A.UPJANG = B.UPJANG
+			AND A.SDATE = B.SDATE
+			AND A.ITEM_CODE = B.ITEM_CODE
+			AND A.SALE_PRICE > 0
+			AND A.USE_YN = 'Y'
+		     ) A
+		WHERE A.ITEM_CODE BETWEEN C.ITEM_CODE(+) AND C.ITEM_CODE(+)||'9999'
+            <isNotEqual col="BIG_CODE" value="0000">
+               AND SUBSTR(A.ITEM_CODE,1,4)=#BIG_CODE#
+            </isNotEqual>
+            <isNotEqual col="MID_CODE" value="0000">
+               AND SUBSTR(A.ITEM_CODE,1,6)=#MID_CODE#
+            </isNotEqual>
+            <isNotEqual col="SMALL_CODE" value="0000">
+               AND SUBSTR(A.ITEM_CODE,1,8)=#SMALL_CODE#
+            </isNotEqual>
+	) BB,
+	(
+	SELECT  ITEM_CODE,
+			(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0033' AND CODE = ITEM_FEATURE) AS FEATURE_NAME
+	FROM    FSI_ITEM_FEATURE
+	WHERE   (ITEM_CODE, CDATE) IN (
+								  SELECT ITEM_CODE, MAX(CDATE) AS CDATE
+								  FROM   FSI_ITEM_FEATURE
+								  WHERE (1=1)
+								  AND  (CENTER_CODE, CUSTCD, ITEM_CODE, APPLY_DATE) IN (
+												   SELECT CENTER_CODE,
+														  CUSTCD,
+														  ITEM_CODE,
+														  MAX(APPLY_DATE) AS APPLY_DATE
+													FROM  FSI_ITEM_FEATURE
+													WHERE  CENTER_CODE  = '300001'
+													AND TO_CHAR(SYSDATE,'YYYYMMDD')  BETWEEN  APPLY_DATE
+																	AND   TO_CHAR(ADD_MONTHS(TO_DATE(APPLY_DATE,'YYYYMMDD'),1)-1,'YYYYMMDD') 
+													GROUP BY CENTER_CODE, CUSTCD, ITEM_CODE
+													)
+									GROUP BY ITEM_CODE
+									)
+	) CC
+WHERE AA.ITEM_CODE=BB.ITEM_CODE(+)
+AND	AA.ITEM_CODE=CC.ITEM_CODE(+)	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_ListItem">
+	</output>
+</query>

@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.scu.userRoleGrantDAO">
+	<desc>권한부여 HQML Query</desc>
+
+	<!-- 권한부여(부서권한) 목록을 조회한다. -->
+	<statement name="selectUserInfo" type="select">
+		/*+ com.hwfs.sc.scu.dao.UserRoleGrantDAO.selectUserInfo */
+		<![CDATA[
+SELECT A.SABUN,
+       A.NM_KOR,
+       A.CC_CD,
+       (SELECT DISTINCT TM_NM || ' > ' || CC_NM FROM HLDC_SC_DEPT_V WHERE CC_CD = A.CC_CD) AS CC_NM,
+       A.USER_GROUP,
+       A.USER_GROUP AS OLD_USER_GROUP,
+       B.UPJANG,
+       B.UPJANG AS OLD_UPJANG,
+       B.UPJANGNM,
+       TO_CHAR(C.CHG_REQ_DATE, 'YYYY-MM-DD') AS CHG_REQ_DATE,
+       C.CHG_CONTENTS,
+       A.DEPT_AUTH_APPLY_YN,
+       A.USER_GROUP_AUTH_APPLY_YN,
+       A.DEPT_AUTH_APPLY_YN AS OLD_DEPT_AUTH_APPLY_YN,
+       A.USER_GROUP_AUTH_APPLY_YN AS OLD_USER_GROUP_AUTH_APPLY_YN
+FROM   SCC_USERINFO A,
+       ST_UPJANG B,
+       SCC_AUTH_CHG_REQ C
+WHERE  B.UPJANG = A.UPJANG
+AND    C.SABUN = A.SABUN
+AND    C.CHG_SRLNUM = :chgSrlnum
+AND    A.SABUN = :sabun
+		]]>
+	</statement>
+
+	<!-- 권한부여(부서권한) 목록을 조회한다. -->
+	<statement name="selectDeptAuthList" type="select">
+		/*+ com.hwfs.sc.scu.dao.UserRoleGrantDAO.selectDeptAuthList */
+		<![CDATA[
+SELECT A.SYS_TYPE,
+       A.ROLE,
+       A.CC_CD,
+       A.REMARK,
+       DECODE(A.USE_YN, 'Y', 1, 0) AS USE_YN,
+       A.ATTR01,
+       A.ATTR02,
+       A.ATTR03,
+       A.ATTR04,
+       A.ATTR05,
+       A.ATTR06,
+       A.ATTR07,
+       A.ATTR08,
+       A.ATTR09,
+       A.ATTR10
+FROM   SCC_DEPT_ROLE A,
+       ST_UPJANG B
+WHERE  B.CC_CD = A.CC_CD
+AND    B.UPJANG = :upjang
+		]]>
+	</statement>
+
+	<!-- 권한부여(사용자군권한) 목록을 조회한다. -->
+	<statement name="selectUserGroupAuthList" type="select">
+		/*+ com.hwfs.sc.scu.dao.UserRoleGrantDAO.selectUserGroupAuthList */
+		<![CDATA[
+SELECT A.SYS_TYPE,
+       A.ROLE,
+       A.USER_GROUP,
+       A.REMARK,
+       DECODE(A.USE_YN, 'Y', 1, 0) AS USE_YN,
+       A.ATTR01,
+       A.ATTR02,
+       A.ATTR03,
+       A.ATTR04,
+       A.ATTR05,
+       A.ATTR06,
+       A.ATTR07,
+       A.ATTR08,
+       A.ATTR09,
+       A.ATTR10
+FROM   SCC_USER_GROUP_ROLE A
+WHERE  A.USER_GROUP = :userGroup
+		]]>
+	</statement>
+
+	<!-- 권한부여(사용자권한) 목록을 조회한다. -->
+	<statement name="selectUserAuthList" type="select">
+		/*+ com.hwfs.sc.scu.dao.UserRoleGrantDAO.selectUserAuthList */
+		<![CDATA[
+SELECT CASE WHEN B.ROLE IS NULL THEN '0' ELSE '1' END AS CHK,
+       A.SYS_TYPE,
+       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = '시스템구분' AND CODE = A.SYS_TYPE) AS SYS_TYPE_NAME,
+       A.USE_CD,
+       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'USE_CD' AND CODE = A.USE_CD) AS USE_NM,
+       A.ROLE,
+       A.ROLE_NAME,
+       A.REMARK,
+       CASE WHEN B.ROLE IS NULL THEN '0' ELSE '1' END AS OLD_ROLE_CHK
+FROM   SCC_ROLE A,
+       (SELECT A.SYS_TYPE,
+               A.ROLE
+        FROM   SCC_USER_ROLE A
+        WHERE  A.SABUN = :sabun
+        AND    A.USE_YN = 'Y'
+--     UNION ALL
+--        SELECT A.SYS_TYPE,
+--               A.ROLE
+--        FROM   SCC_DEPT_ROLE A,
+--               (SELECT A.CC_CD
+--                FROM   ST_UPJANG A,
+--                       SCC_USERINFO B
+--                WHERE  B.UPJANG = A.UPJANG
+--                AND    B.SABUN = :sabun
+--                AND    B.DEPT_AUTH_APPLY_YN = 'Y') B
+--        WHERE   B.CC_CD = A.CC_CD
+--        AND     A.USE_YN = 'Y'
+--     UNION ALL
+--        SELECT A.SYS_TYPE,
+--               A.ROLE
+--        FROM   SCC_USER_GROUP_ROLE A,
+--               SCC_USERINFO B
+--        WHERE  B.USER_GROUP = A.USER_GROUP
+--        AND    B.SABUN = :sabun
+--        AND    A.USE_YN = 'Y'
+--        AND    B.USER_GROUP_AUTH_APPLY_YN = 'Y'
+        ) B
+WHERE  B.SYS_TYPE(+) = A.SYS_TYPE
+AND    B.ROLE(+) = A.ROLE
+AND    A.USE_YN = 'Y'
+AND    A.ROLE_TYPE = '본부'
+AND    A.USE_CD = 'USER'
+<#if sysType?has_content>
+AND    A.SYS_TYPE = :sysType
+</#if>
+ORDER BY A.SYS_TYPE, A.USE_CD
+		]]>
+	</statement>
+
+	<!-- 권한부여(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sc.scu.dao.UserRoleGrantDAO.insert */
+		<![CDATA[
+INSERT INTO SCC_USER_ROLE
+(
+ SYS_TYPE,
+ SABUN,
+ ROLE,
+ REMARK,
+ USE_YN,
+ ATTR01,
+ ATTR02,
+ ATTR03,
+ ATTR04,
+ ATTR05,
+ ATTR06,
+ ATTR07,
+ ATTR08,
+ ATTR09,
+ ATTR10,
+ CUSER,
+ CDATE,
+ UUSER,
+ UDATE
+) VALUES (
+ :sysType,
+ :sabun,
+ :role,
+<#if remark?exists> :remark, <#else> null, </#if>
+ 'Y',
+<#if attr01?exists> :attr01, <#else> null, </#if>
+<#if attr02?exists> :attr02, <#else> null, </#if>
+<#if attr03?exists> :attr03, <#else> null, </#if>
+<#if attr04?exists> :attr04, <#else> null, </#if>
+<#if attr05?exists> :attr05, <#else> null, </#if>
+<#if attr06?exists> :attr06, <#else> null, </#if>
+<#if attr07?exists> :attr07, <#else> null, </#if>
+<#if attr08?exists> :attr08, <#else> null, </#if>
+<#if attr09?exists> :attr09, <#else> null, </#if>
+<#if attr10?exists> :attr10, <#else> null, </#if>
+ :loginSabun,
+ SYSDATE,
+ :loginSabun,
+ SYSDATE
+)
+		]]>
+	</statement>
+
+	<!-- 사용자의 정보를 수정한다. -->
+	<statement name="updateUserInfo" type="update">
+		/*+ com.hwfs.sc.scu.dao.UserRoleGrantDAO.updateUserInfo */
+		<![CDATA[
+UPDATE SCC_USERINFO
+SET    UPJANG = :upjang,
+       USER_GROUP = :userGroup,
+       DEPT_AUTH_APPLY_YN = :deptAuthApplyYn,
+       USER_GROUP_AUTH_APPLY_YN = :userGroupAuthApplyYn,
+       UDATE = SYSDATE,
+       UUSER = :loginSabun
+WHERE  SABUN = :sabun
+		]]>
+	</statement>
+
+	<!-- 권한부여(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sc.scu.dao.UserRoleGrantDAO.update */
+		<![CDATA[
+UPDATE SCC_AUTH_CHG_REQ SET
+       PROC_STATUS = '02',
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+WHERE  CHG_SRLNUM = :chgSrlnum
+		]]>
+	</statement>
+
+	<!-- 권한부여(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.sc.scu.dao.UserRoleGrantDAO.delete */
+		<![CDATA[
+DELETE
+FROM   SCC_USER_ROLE
+WHERE  SYS_TYPE = :sysType
+AND    SABUN = :sabun
+AND    ROLE = :role
+		]]>
+	</statement>
+
+</hqml>

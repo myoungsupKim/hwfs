@@ -1,0 +1,1103 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="UpjangSearchComponent" classname="UpjangSearchComponent" inheritanceid="" position="absolute 0 0 196 21" titletext="업장 검색용 Component" bindDataset="" bindUpjangCodeColumn="" bindUpjangNameColumn="" eventBeforeTrigger="" eventAfterTrigger="" onload="UpjangSearchComponent_onload" roleSetId="">
+    <Layouts>
+      <Layout>
+        <Edit id="edt_upjangNm" taborder="0" readonly="true" position="absolute 0 0 176 21" anchor="left top right" tmCd="" onkeydown="edt_upjangNm_onkeydown" autoselect="true"/>
+        <Button id="btn_search" taborder="1" class="btn_WF_popSearch" position="absolute 175 0 196 21" anchor="top right" onclick="btn_search_onclick" tabstop="false"/>
+        <Edit id="edt_upjangCd" taborder="2" readonly="true" onkeydown="edt_upjangNm_onkeydown" position="absolute 0 29 176 50" anchor="left top right" tmCd="" visible="false"/>
+      </Layout>
+    </Layouts>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : 팀 검색용 컴포넌트
+  파 일 명 : TmSearchComponent.xfdl
+  기    능 : 팀 검색 Composite 콤포넌트
+
+    수정일     수정자                  수정내용
+  ----------   -------  --------------------------------------------------
+  2015.03.10   김재섭   최초 생성
+*/
+
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+************************************************************************************************/
+include "lib::lib_com.xjs";
+
+var dataSet = new Dataset();
+var isReadonly = false;
+
+var RoleSet = {
+	ScoAuthLevel : {
+		//초기화
+		init : function() {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", "업장검색");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", "업장코드");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", "업장명");
+		},
+		
+		//팝업창의 타이틀을 설정한다.
+		setTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", val);
+		},
+		
+		//팝업창의 업장코드에 대한 명칭을 설정한다.
+		setUpjangCodeTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", val);
+		},
+		
+		//팝업창의 업장명에 대한 명칭을 설정한다.
+		setUpjangNameTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", val);
+		},
+		
+		//적용권한 종류를 설정한다.
+		setApplyAuthKind : function(val) {
+			dataSet.addColumn("applyAuthKind", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "applyAuthKind", val);
+		},
+		
+		//사업부 코드를 설정한다.
+		setMuCd : function(val) {
+			dataSet.addColumn("muCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "muCd", val);
+		},
+		
+		//팀 코드를 설정한다.
+		setTmCd : function(val) {
+			dataSet.addColumn("tmCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "tmCd", val);
+		},
+		
+		//권한레벨을 설정한다.
+		setAuthLevel : function(val) {
+			dataSet.addColumn("authLevel", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "authLevel", val);
+		},
+		
+		//접속 사원번호를 설정한다.
+		setSabun : function(val) {
+			dataSet.addColumn("sabun", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "sabun", val);
+		},
+		
+		//Main Upjang으로 사용하는지를 설정한다.
+		isMainUpjang : function(val) {
+			dataSet.addColumn("isMainUpjang", "STRING", "1");
+			dataSet.setColumn(dataSet.rowposition, "isMainUpjang", val);
+		},
+		
+		//Main Upjang으로 사용하는지를 설정한다.
+		isSubUpjang : function(val) {
+			dataSet.addColumn("isSubUpjang", "STRING", "1");
+			dataSet.setColumn(dataSet.rowposition, "isSubUpjang", val);
+		},
+		//Main Upjang 코드값을 설정한다.
+		setMainUpjang : function(val) {
+			dataSet.addColumn("mainUpjang", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "mainUpjang", val);
+		},
+
+		//예외쿼리
+		setQuery : function(val) {
+			dataSet.addColumn("query", "STRING", "2000");
+			dataSet.setColumn(dataSet.rowposition, "query", val);
+		}
+	},
+	
+	//SCO_UPJANG_MST_V에서 권한레벨에 따른 업장조회.
+	ScoAuthLevel01 : {
+		//초기화
+		init : function() {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", "업장검색");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", "업장코드");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", "업장명");
+		},
+		
+		//팝업창의 타이틀을 설정한다.
+		setTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", val);
+		},
+		
+		//팝업창의 업장코드에 대한 명칭을 설정한다.
+		setUpjangCodeTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", val);
+		},
+		
+		//팝업창의 업장명에 대한 명칭을 설정한다.
+		setUpjangNameTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", val);
+		},
+		
+		//사업부 코드를 설정한다.
+		setMuCd : function(val) {
+			dataSet.addColumn("muCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "muCd", val);
+		},
+		
+		//팀 코드를 설정한다.
+		setTmCd : function(val) {
+			dataSet.addColumn("tmCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "tmCd", val);
+		}
+	},
+	
+	//FMS_UPJANG을 기준으로 본사 사업장을 조회한다.
+	FmsMainUpjang : {
+		init : function() {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", "본사 사업장");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", "사업장코드");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", "사업장명");
+		},
+		
+		//팝업창의 타이틀을 설정한다.
+		setTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", val);
+		},
+		
+		//팝업창의 업장코드에 대한 명칭을 설정한다.
+		setUpjangCodeTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", val);
+		},
+		
+		//팝업창의 업장명에 대한 명칭을 설정한다.
+		setUpjangNameTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", val);
+		},
+
+		//사업부 코드를 설정한다.
+		setMuCd : function(val) {
+			dataSet.addColumn("muCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "muCd", val);
+		},
+		
+		//팀 코드를 설정한다.
+		setTmCd : function(val) {
+			dataSet.addColumn("tmCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "tmCd", val);
+		}
+	},
+	
+	//ScoUpjangMst 기준으로 본사 사업장을 조회한다.
+	ScoUpjangMst : {
+		init : function() {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", "업장");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", "업장코드");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", "업장명");
+		},
+		
+		//팝업창의 타이틀을 설정한다.
+		setTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", val);
+		},
+		
+		//팝업창의 업장코드에 대한 명칭을 설정한다.
+		setUpjangCodeTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", val);
+		},
+		
+		//팝업창의 업장명에 대한 명칭을 설정한다.
+		setUpjangNameTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", val);
+		},
+		
+		//사업부 코드를 설정한다.
+		setMuCd : function(val) {
+			dataSet.addColumn("muCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "muCd", val);
+		},
+		
+		//팀 코드를 설정한다.
+		setTmCd : function(val) {
+			dataSet.addColumn("tmCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "tmCd", val);
+		}
+	},
+	
+	//FMS_UPJANG을 기준으로 사업장을 조회한다.
+	FmsUpjang : {
+		init : function() {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", "사업장검색");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", "사업장코드");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", "사업장명");
+		},
+		
+		//팝업창의 타이틀을 설정한다.
+		setTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", val);
+		},
+		
+		//팝업창의 업장코드에 대한 명칭을 설정한다.
+		setUpjangCodeTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", val);
+		},
+		
+		//팝업창의 업장명에 대한 명칭을 설정한다.
+		setUpjangNameTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", val);
+		},
+		
+		//메인업장의 조건을 설정한다.
+		setMainUpjang : function(val) {
+			dataSet.addColumn("mainUpjang", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "mainUpjang", val);
+		},
+
+		//사업부 코드를 설정한다.
+		setMuCd : function(val) {
+			dataSet.addColumn("muCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "muCd", val);
+		},
+		
+		//팀 코드를 설정한다.
+		setTmCd : function(val) {
+			dataSet.addColumn("tmCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "tmCd", val);
+		}
+	},
+	
+	//SCO_UPJANG_V을 기준으로 사업장을 조회한다.
+	ScoUpjang : {
+		init : function() {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", "업장검색");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", "업장코드");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", "업장명");
+		},
+		
+		//팝업창의 타이틀을 설정한다.
+		setTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", val);
+		},
+		
+		//팝업창의 업장코드에 대한 명칭을 설정한다.
+		setUpjangCodeTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", val);
+		},
+		
+		//팝업창의 업장명에 대한 명칭을 설정한다.
+		setUpjangNameTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", val);
+		},
+		
+		//조건에 BU코드를 추가/설정한다.
+		setBuCd : function(val) {
+			dataSet.addColumn("buCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "buCd", val);
+		},
+		
+		//조건에 MU코드를 추가/설정한다.
+		setMuCd : function(val) {
+			dataSet.addColumn("muCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "muCd", val);
+		},
+		
+		//조건에 CC코드를 추가/설정한다.
+		setCcCd : function(val) {
+			dataSet.addColumn("ccCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "ccCd", val);
+		},
+
+		//팀 코드를 설정한다.
+		setTmCd : function(val) {
+			dataSet.addColumn("tmCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "tmCd", val);
+		}
+	},
+	
+	//ST_UPJANG을 기준으로 사업장을 조회한다.
+	StUpjang : {
+		init : function() {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", "사업장검색");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", "사업장코드");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", "사업장명");
+		},
+		
+		//팝업창의 타이틀을 설정한다.
+		setTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", val);
+		},
+		
+		//팝업창의 업장코드에 대한 명칭을 설정한다.
+		setUpjangCodeTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", val);
+		},
+		
+		//팝업창의 업장명에 대한 명칭을 설정한다.
+		setUpjangNameTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", val);
+		},
+		
+		//사업부 코드를 설정한다.
+		setMuCd : function(val) {
+			dataSet.addColumn("muCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "muCd", val);
+		},
+		
+		//팀 코드를 설정한다.
+		setTmCd : function(val) {
+			dataSet.addColumn("tmCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "tmCd", val);
+		},
+		
+		setIncludeVirtureUpjang : function(val) {
+			if (val) {
+				dataSet.addColumn("virtureUpjang", "STRING", "100");
+				dataSet.setColumn(dataSet.rowposition, "virtureUpjang", "Y");
+			}
+		}
+	},
+	
+	//세무신고 업장을 기준으로 사업장을 조회한다.
+	VatUpjang : {
+		init : function() {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", "세무신고 업장검색");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", "업장코드");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", "업장명");
+		},
+		
+		//팝업창의 타이틀을 설정한다.
+		setTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", val);
+		},
+		
+		//팝업창의 업장코드에 대한 명칭을 설정한다.
+		setUpjangCodeTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", val);
+		},
+		
+		//팝업창의 업장명에 대한 명칭을 설정한다.
+		setUpjangNameTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", val);
+		},
+		
+		//사업부 코드를 설정한다.
+		setMuCd : function(val) {
+			dataSet.addColumn("muCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "muCd", val);
+		},
+		
+		//팀 코드를 설정한다.
+		setTmCd : function(val) {
+			dataSet.addColumn("tmCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "tmCd", val);
+		}
+	},
+
+	//CC 가져오기
+	CostCenter : {
+		init : function() {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", "코스트센터");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", "CC코드");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", "CC명");
+		},
+		
+		//팝업창의 타이틀을 설정한다.
+		setTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", val);
+		},
+		
+		//팝업창의 업장코드에 대한 명칭을 설정한다.
+		setUpjangCodeTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", val);
+		},
+		
+		//팝업창의 업장명에 대한 명칭을 설정한다.
+		setUpjangNameTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", val);
+		},
+		
+// 		setBuCd : function(val) {
+// 			dataSet.addColumn("buCd", "STRING", "100");
+// 			dataSet.setColumn(dataSet.rowposition, "buCd", val);
+// 		},
+		
+		//사업부 코드를 설정한다.
+		setMuCd : function(val) {
+			dataSet.addColumn("muCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "muCd", val);
+		},
+		
+		//팀 코드를 설정한다.
+		setTmCd : function(val) {
+			dataSet.addColumn("tmCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "tmCd", val);
+		}
+	},
+	
+	//브랜드유통사업장
+	BrandUpjang : {
+		init : function() {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", "사업장검색");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", "사업장코드");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", "사업장명");
+		},
+		
+		//팝업창의 타이틀을 설정한다.
+		setTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", val);
+		},
+		
+		//팝업창의 업장코드에 대한 명칭을 설정한다.
+		setUpjangCodeTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", val);
+		},
+		
+		//팝업창의 업장명에 대한 명칭을 설정한다.
+		setUpjangNameTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", val);
+		},
+		
+		/*
+		//메인업장의 조건을 설정한다.
+		setMainUpjang : function(val) {
+			dataSet.addColumn("mainUpjang", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "mainUpjang", val);
+		},
+		*/
+		//사업부 코드를 설정한다.
+		setMuCd : function(val) {
+			dataSet.addColumn("muCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "muCd", val);
+		},
+		
+		//팀 코드를 설정한다.
+		setTmCd : function(val) {
+			dataSet.addColumn("tmCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "tmCd", val);
+		}
+	},
+
+	//브랜드유통본사사업장
+	BrandMainUpjang : {
+		init : function() {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", "본사 사업장검색");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", "사업장코드");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", "사업장명");
+		},
+		
+		//팝업창의 타이틀을 설정한다.
+		setTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", val);
+		},
+		
+		//팝업창의 업장코드에 대한 명칭을 설정한다.
+		setUpjangCodeTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", val);
+		},
+		
+		//팝업창의 업장명에 대한 명칭을 설정한다.
+		setUpjangNameTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", val);
+		},
+		
+		/*
+		//메인업장의 조건을 설정한다.
+		setMainUpjang : function(val) {
+			dataSet.addColumn("mainUpjang", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "mainUpjang", val);
+		},
+		*/
+		//사업부 코드를 설정한다.
+		setMuCd : function(val) {
+			dataSet.addColumn("muCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "muCd", val);
+		},
+		
+		//팀 코드를 설정한다.
+		setTmCd : function(val) {
+			dataSet.addColumn("tmCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "tmCd", val);
+		}
+	},
+
+	//브랜드유통본사사업장
+	HnrUpjang : {
+		init : function() {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", "본사 사업장검색");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", "사업장코드");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", "사업장명");
+		},
+		
+		//팝업창의 타이틀을 설정한다.
+		setTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", val);
+		},
+		
+		//팝업창의 업장코드에 대한 명칭을 설정한다.
+		setUpjangCodeTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", val);
+		},
+		
+		//팝업창의 업장명에 대한 명칭을 설정한다.
+		setUpjangNameTitle : function(val) {
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", val);
+		},
+		
+		/*
+		//메인업장의 조건을 설정한다.
+		setMainUpjang : function(val) {
+			dataSet.addColumn("mainUpjang", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "mainUpjang", val);
+		},
+		*/
+		//사업부 코드를 설정한다.
+		setMuCd : function(val) {
+			dataSet.addColumn("muCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "muCd", val);
+		},
+		
+		//팀 코드를 설정한다.
+		setTmCd : function(val) {
+			dataSet.addColumn("tmCd", "STRING", "100");
+			dataSet.setColumn(dataSet.rowposition, "tmCd", val);
+		}
+	}
+};
+
+var isExceptionAuthLevel = false; //예외권한을 적용하는지를 판별
+var oTmComponent = null;          //팀 컴포넌트 오브젝트
+var oMuComponent = null;          //사업부 컴포넌트 오브젝트
+var sExceptionQuery = "";         //예외권한의 SQL Query문
+var isBasicAuthLevel = true;      //기본권한을 적용하는지를 판별
+var isDoNotEvent = false;         //이벤트 비활성화를 수행한다.(true 비활성화)
+var isAuthRole = false;           //권한을 적용받는지를 판별한다.
+var isMainUpjang = false;         //현재 업장 Component를 Main Upjang(식재일때만 사용)인지를 판별한다.
+var isSubUpjang = false;          //Main Upjang의 Upjang Code를 읽을지를 판별
+var oMainUpjangComponent = null;  //Main Upjang에 대한 Component 오브젝트
+var isAlwaysFmsUpjang = false;    //별도의 조건없이 항상 FMS 업장을 조회한다.
+var forcedRoleSetId = "ScoAuthLevel"; //강제로 RoleSetId를 설정한다.
+
+var isApplyAuth = true; //전체에 대한 권한을 적용할 지를 판단한다.
+var isUpjangControl = false; //특정업장을 가져오지 못하도록 설정한다.
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 전체에 대한 권한을 적용여부를 결정한다.(true(적용-기본값), false(적용안함)
+ *---------------------------------------------------------------------------------------------*/
+function setApplyAuth(val) {
+	isApplyAuth = val;
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 팀 OBJECT을 지정한다.
+ *---------------------------------------------------------------------------------------------*/
+function setTmComponent(o) {
+	oTmComponent = o;
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : MU OBJECT을 지정한다.
+ *---------------------------------------------------------------------------------------------*/
+function setMuComponent(o) {
+	oMuComponent = o;
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 초기설정한다.
+ *---------------------------------------------------------------------------------------------*/
+function UpjangSearchComponent_onload(obj:Form, e:LoadEventInfo)
+{
+	
+	if (!gfn_isNull(this.class) && this.class == "edt_WF_Essential")
+	{
+		edt_upjangNm.class = this.class;
+		btn_search.class = "btn_WF_popSearchEssential";
+	}
+
+	if (!gfn_isNull(obj.isUpjangControl) && obj.isUpjangControl == "Y") {
+		isUpjangControl = true;
+	}
+	
+	//내부용도로 사용되는 업장 검색용 DATASET 이름을 정의한다.
+ 	this.upjangSearchDatasetName = "ds_" + this.name;
+ 	dataSet.id = this.upjangSearchDatasetName;
+ 	dataSet.name = this.upjangSearchDatasetName;
+ 	dataSet.addRow();
+ 	dataSet.addColumn("roleSetId", "STRING", "4000");
+ 	dataSet.addColumn("designTitle", "STRING", "4000"); //팝업디자인정보 : 타이틀명
+ 	dataSet.addColumn("designUpjangCode", "STRING", "4000"); //팝업디자인정보 : 업장코드명
+ 	dataSet.addColumn("designUpjangName", "STRING", "4000"); //팝업디자인정보 : 업장명
+
+ 	dataSet.setColumn(dataSet.rowposition, "roleSetId", this.roleSetId);
+
+	fn_setBindItem();
+}
+
+/** ****************************************************************************************
+ * @class 검색용 DATASET을 만든다.
+ * @param obj - Event Dataset
+ * @param e - Event 발생정보
+ * @return 
+ ******************************************************************************************* */
+// function fn_createDataset()
+// {
+// }
+
+function setClass(val) {
+	if (gfn_isNull(val)) {
+		edt_upjangNm.class = "";
+		btn_search.class = "btn_WF_popSearch";
+	}
+	else {
+		edt_upjangNm.class = val;
+		btn_search.class = "btn_WF_popSearchEssential";
+	}
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 바인딩 정보를 처리한다.
+ *---------------------------------------------------------------------------------------------*/
+function fn_setBindItem()
+{
+	if (!gfn_isNull(this.bindDataset))
+	{
+		if (!gfn_isNull(this.bindUpjangNameColumn))
+		{
+			var bindItem0 = new BindItem("upjangSearchBindItem0", "edt_upjangNm", "value", this.bindDataset, this.bindUpjangNameColumn);
+			this.addChild(bindItem0.name, bindItem0);
+			bindItem0.bind();
+		}
+		
+		if (!gfn_isNull(this.bindUpjangCodeColumn))
+		{
+			var bindItem1 = new BindItem("upjangSearchBindItem1", "edt_upjangCd", "value", this.bindDataset, this.bindUpjangCodeColumn);
+			this.addChild(bindItem1.name, bindItem1);
+			bindItem1.bind();
+		}
+	}
+
+	setUpjangCode(g_Upjang);
+	setUpjangName(g_UpjangNm);
+}
+
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 강제적으로 RoleSetId를 설정한다.
+ *---------------------------------------------------------------------------------------------*/
+function setForcedRoleSet(val)
+{
+	forcedRoleSetId = val;
+}
+
+function setReadonly(val)
+{
+	isReadonly = val;
+}
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 권한role을 적용한다.
+ *---------------------------------------------------------------------------------------------*/
+function applyAuthLevel()
+{
+	if (arguments.length > 0)
+	{
+		this.roleSetId = "ScoAuthLevel";
+		dataSet.setColumn(dataSet.rowposition, "roleSetId", this.roleSetId);
+		isAuthRole = true;
+		isApplyAuth = false;
+		
+		if (forcedRoleSetId == "CostCenter") {
+			setUpjangCode(g_Cc_Cd);
+			setUpjangName(g_Cc_Nm);
+		}
+		else {
+			setUpjangCode(g_Upjang);
+			setUpjangName(g_UpjangNm);
+		}
+		
+		if (arguments[0].toString() == "TmSearchComponent")
+		{
+			oTmComponent = arguments[0];
+			oMuComponent = oTmComponent.getMuComponent();
+			sExceptionQuery = "";
+			isExceptionAuthLevel = false;
+		}
+		else
+		{
+			oTmComponent = null;
+			oMuComponent = null;
+			sExceptionQuery = arguments[0];
+			isExceptionAuthLevel = true;
+		}
+		
+		if (arguments.length == 2)
+		{
+			isBasicAuthLevel = arguments[1];
+		}
+		
+		//[[기본 권한을 적용할때
+		if (!isExceptionAuthLevel && isBasicAuthLevel) {
+			//권한을 체크하여 기능을 제어한다.(관리자(99), 관리자(999), BU권한자(80), MU권한자(70), 소팀장(14), 팀장(16)
+			if (SCAuth.isAuthLevel("99") || SCAuth.isAuthLevel("999") || SCAuth.isAuthLevel("80") || SCAuth.isAuthLevel("70") || SCAuth.isAuthLevel("14") || SCAuth.isAuthLevel("16") || SCAuth.isAuthLevel("17"))
+			{
+				isDoNotEvent = false;
+			}
+			else
+			{
+				isDoNotEvent = true;
+			}		
+		}
+		//기본 권한을 적용할때]]
+		//[[업장의 ROLE을 적용할때
+		else if (!isExceptionAuthLevel && !isBasicAuthLevel) {
+			//권한을 체크하여 기능을 제어한다.(관리자(99), 관리자(999), BU권한자(80), MU권한자(70), 소팀장(14), 팀장(16), 리더(12)
+			if (SCAuth.isAuthLevel("99") || SCAuth.isAuthLevel("999") || SCAuth.isAuthLevel("80") || SCAuth.isAuthLevel("70") || SCAuth.isAuthLevel("14") || SCAuth.isAuthLevel("16") || SCAuth.isAuthLevel("12") || SCAuth.isAuthLevel("17") )
+			{
+				isDoNotEvent = false;
+			}
+			else
+			{
+				isDoNotEvent = true;
+			}		
+		}
+		//업장의 ROLE을 적용할때]]
+		//[[예외권한을 적용받을때
+		else if (isExceptionAuthLevel) {
+			isDoNotEvent = !isBasicAuthLevel;
+		}
+		//예외권한을 적용받을때]]
+	}
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 항상 FMS 업장을 수행한다.
+ *---------------------------------------------------------------------------------------------*/
+function setAlwaysFmsUpjang(val)
+{
+	isAlwaysFmsUpjang = val;
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 본 Component를 Main Upjang으로 사용하는지를 판별한다.
+ *---------------------------------------------------------------------------------------------*/
+function setMainUpjang(val)
+{
+	isMainUpjang = val;
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 본 Component에서 사용할 Main Upjang의 Component를 설정한다.
+ *---------------------------------------------------------------------------------------------*/
+function applyMainUpjang(o)
+{
+	isSubUpjang = true;
+	oMainUpjangComponent = o;
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 업장코드를 가져온다.
+ *---------------------------------------------------------------------------------------------*/
+function getUpjangCode()
+{
+	//return edt_upjangNm.upjangCode;
+	return edt_upjangCd.value;
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 업장코드를 설정한다.
+ *---------------------------------------------------------------------------------------------*/
+function setUpjangCode(val)
+{
+	edt_upjangNm.upjangCode = val;
+	edt_upjangCd.value = val;
+	
+	if (val == "") {
+		setUpjangName("");
+	}
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 업장명을 가져온다.
+ *---------------------------------------------------------------------------------------------*/
+function getUpjangName()
+{
+	return edt_upjangNm.value;
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 업장명을 설정한다.
+ *---------------------------------------------------------------------------------------------*/
+function setUpjangName(val)
+{
+	edt_upjangNm.value = val;
+}
+ 
+function setRoleSetId(val)
+{
+	this.roleSetId = val;
+	dataSet.setColumn(dataSet.rowposition, "roleSetId", this.roleSetId);
+}
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 
+ *---------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 
+ *---------------------------------------------------------------------------------------------*/
+
+/************************************************************************************************
+ * 각 COMPONENT 별 EVENT 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 버튼에 대한 이벤트
+ *---------------------------------------------------------------------------------------------*/
+function btn_search_onclick(obj:Button,  e:ClickEventInfo)
+{
+	if (isAuthRole) { 
+		if (isDoNotEvent) return; 
+		
+		//강제로 RoleSetId를 변경시에 다시 원본한 후에 다음을 처리하도록 한다.(roleSetClass 에서 에러가 발생한다.)
+		if (this.roleSetId == "OutletUpjang" || this.roleSetId == "CostCenter") {
+			this.roleSetId = "ScoAuthLevel";
+		}
+	}
+	
+	var roleSetClass = RoleSet[this.roleSetId];
+	roleSetClass.init();//초기화처리
+	
+	//[[Before Event를 정의한다.
+	if (!gfn_isNull(this.eventBeforeTrigger))
+	{
+		var beforeEvent = eval("parent."+this.eventBeforeTrigger);
+		var rtn = beforeEvent(this, roleSetClass);
+		
+		if (!rtn) return;
+	}
+	//Before Event를 정의한다.]]
+
+	if (isAuthRole) {
+		//강제적으로 RoleSetId를 설정한다.(기본은 ScoAuthLevel 임.)
+		this.roleSetId = forcedRoleSetId;
+		dataSet.setColumn(dataSet.rowposition, "roleSetId", this.roleSetId);
+		
+		//코스트 센터를 호출할 경우에 대한 처리
+		if (this.roleSetId == "CostCenter") {
+			dataSet.setColumn(dataSet.rowposition, "designTitle", "코스트센터");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangCode", "CC코드");
+			dataSet.setColumn(dataSet.rowposition, "designUpjangName", "CC명");
+		}
+		
+		//[[예외권한을 적용받지 않는 경우
+		if (!isExceptionAuthLevel && isBasicAuthLevel)
+		{
+			roleSetClass.setApplyAuthKind("default");
+			roleSetClass.setMuCd(oMuComponent.getMuCode());
+			roleSetClass.setTmCd(oTmComponent.getTmCode());
+			roleSetClass.isMainUpjang("N");
+			roleSetClass.isSubUpjang("N");
+			
+			if (isMainUpjang)
+			{
+				//이 경우에는 roleSetId를 Service단에서 변경한다.(FmsMainUpjangAuthLevel)
+				roleSetClass.isMainUpjang("Y");
+			}
+			
+			if (isAlwaysFmsUpjang)
+			{
+				//이 경우에는 roleSetId를 Service단에서 변경한다.(FmsUpjangAuthLevel)
+				roleSetClass.isSubUpjang("Y");
+				if (!gfn_isNull(oMainUpjangComponent))
+				{
+					roleSetClass.setMainUpjang(oMainUpjangComponent.getUpjangCode());
+				}
+			}
+			else
+			{
+				if (isSubUpjang && oMuComponent.getMuCode() == "2004")
+				{
+					//이 경우에는 roleSetId를 Service단에서 변경한다.(FmsUpjangAuthLevel)
+					roleSetClass.isSubUpjang("Y");
+					if (!gfn_isNull(oMainUpjangComponent))
+					{
+						roleSetClass.setMainUpjang(oMainUpjangComponent.getUpjangCode());
+					}
+				}
+			}
+		}
+		else if (!isExceptionAuthLevel && !isBasicAuthLevel) {
+			roleSetClass.setApplyAuthKind("upjangRole");
+			roleSetClass.setMuCd(oMuComponent.getMuCode());
+			roleSetClass.setTmCd(oTmComponent.getTmCode());
+			roleSetClass.isMainUpjang("N");
+			roleSetClass.isSubUpjang("N");
+		
+			//리더
+			if (SCAuth.isAuthLevel("12")) { roleSetClass.setAuthLevel("12"); }
+			//소팀장
+			if (SCAuth.isAuthLevel("14")) { roleSetClass.setAuthLevel("14"); }
+			//팀장
+			if (SCAuth.isAuthLevel("16")) { roleSetClass.setAuthLevel("16"); }
+			//본부장
+			if (SCAuth.isAuthLevel("17")) { roleSetClass.setAuthLevel("17"); }
+			//MU장
+			if (SCAuth.isAuthLevel("70")) { roleSetClass.setAuthLevel("70"); }
+			//BU장
+			if (SCAuth.isAuthLevel("80")) { roleSetClass.setAuthLevel("80"); }
+			//관리자
+			if (SCAuth.isAuthLevel("99")) { roleSetClass.setAuthLevel("99"); }
+			//전산관리자
+			if (SCAuth.isAuthLevel("999")) { roleSetClass.setAuthLevel("999"); }
+			
+			roleSetClass.setSabun(g_EmpNo);
+		}
+		//예외권한을 적용받지 않는 경우]]
+		
+		//[[예외권한을 적용받는 경우
+		else if (isExceptionAuthLevel) {
+			roleSetClass.setApplyAuthKind("exception");
+			roleSetClass.setQuery(sExceptionQuery);
+		}
+		//[[예외권한을 적용받는 경우
+	}
+	else {
+		//[[권한을 적용할지에 대한 판별
+		if (isApplyAuth) {
+			//권한을 체크하여 기능을 제어한다.(관리자(99), 관리자(999), BU권한자(80), MU권한자(70), 소팀장(14), 팀장(16)
+			//if (SCAuth.isAuthLevel("99") || SCAuth.isAuthLevel("999") || SCAuth.isAuthLevel("80") || SCAuth.isAuthLevel("70") || SCAuth.isAuthLevel("14") || SCAuth.isAuthLevel("16"))
+			
+			if (SCAuth.isAuthLevel("99") || SCAuth.isAuthLevel("999") || SCAuth.isAuthLevel("80")) {
+				if (oTmComponent != null) {
+					if (!gfn_isNull(oTmComponent.getTmCode())) {
+						roleSetClass.setTmCd(oTmComponent.getTmCode());
+					}
+				}
+			}
+			else if (SCAuth.isAuthLevel("70")) {
+				//if (dataSet.getColumnInfo("muCd") == null) {
+				roleSetClass.setMuCd(g_Mu_Cd);
+				//}
+				
+				if (oTmComponent != null) {
+					if (!gfn_isNull(oTmComponent.getTmCode())) {
+						roleSetClass.setTmCd(oTmComponent.getTmCode());
+					}
+				}
+			}
+			else if (SCAuth.isAuthLevel("14") || SCAuth.isAuthLevel("16") || SCAuth.isAuthLevel("17")) {
+				//if (dataSet.getColumnInfo("muCd") == null) {
+				roleSetClass.setMuCd(g_Mu_Cd);
+				//}
+				
+				if (dataSet.getColumnInfo("tmCd") == null) {
+					if (oTmComponent != null) {
+						if (!gfn_isNull(oTmComponent.getTmCode())) {
+							roleSetClass.setTmCd(oTmComponent.getTmCode());
+						}
+						else {
+							roleSetClass.setTmCd(g_Tm_Cd);
+						}
+					}
+					else {					
+						roleSetClass.setTmCd(g_Tm_Cd);
+					}
+				}
+			}
+			else {
+				return;
+			}		
+		}
+		//권한을 적용할지에 대한 판별]]
+	}
+	
+	if (isUpjangControl) {
+		dataSet.addColumn("isUpjangControl", "STRING", "100");
+		dataSet.setColumn(dataSet.rowposition, "isUpjangControl", "Y");
+	} else {
+		if ( !gfn_isNull(dataSet.getColumnSet(0,"isUpjangControl")) ) {
+			dataSet.setColumn(dataSet.rowposition, "isUpjangControl", "");
+		}
+	}
+
+	//[[팝업창을 호출한다.
+	var strId       = "UpjangSearch";
+	var strURL      = "cmn::UpjangSearchPop.xfdl";
+	var objArgument = {
+		P_DATASET : dataSet
+	};
+	var nWidth      = 513;
+	var nHeight     = 495;
+	var strStyle    = "";
+	var nLeft       = -1;
+	var nTop        = -1;
+	var isModeless  = false;
+	var bShowTitle  = true;
+	var strAlign    = "-1";
+
+	// 리턴값을 배열로 받을 경우	
+	var arrRtn = gfn_dialog(strId, strURL, objArgument, nWidth, nHeight, strStyle, nLeft, nTop, isModeless, bShowTitle, strAlign);
+	
+	if (arrRtn instanceof Object)
+	{
+ 		setUpjangCode(arrRtn.upjangCode);
+ 		setUpjangName(arrRtn.upjangName);
+		
+		//[[권한을 적용받는 영역에 대하여 tm 명을 설정한다.
+		if (isAuthRole) {
+			if (gfn_isNull(oTmComponent.getTmCode())) {
+				oTmComponent.setTmCode(arrRtn.tmCd);
+				oTmComponent.setTmName(arrRtn.tmNm);
+			}
+		}
+		//권한을 적용받는 영역에 대하여 tm 명을 설정한다.]]
+		
+		if (isApplyAuth) {
+			if (oTmComponent != null) {
+				oTmComponent.setTmCode(arrRtn.tmCd);
+				oTmComponent.setTmName(arrRtn.tmNm);
+			}
+		}
+		
+		//[[After Event를 정의한다.
+		if (!gfn_isNull(this.eventAfterTrigger))
+		{
+			var afterEvent = eval("parent."+this.eventAfterTrigger);
+			afterEvent(this, arrRtn);
+		}
+		//After Event를 정의한다.]]
+	}
+	//팝업창을 호출한다.]]
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 
+ *---------------------------------------------------------------------------------------------*/
+function edt_upjangNm_onkeydown(obj:Edit, e:KeyEventInfo)
+{
+	if (isAuthRole) {
+		if (isDoNotEvent) return;
+	}
+
+	if (isReadonly) return;
+	
+	// Enter 키
+	if(e.keycode == 13) 
+	{		
+        if (gfn_isNull(obj.upjangCode))
+        {
+			btn_search.click();
+		}
+	}
+	// Del 키
+	else if(e.keycode == 46) 
+	{
+		if (isApplyAuth) {
+			//권한을 체크하여 기능을 제어한다.(관리자(99), 관리자(999), BU권한자(80), MU권한자(70), 소팀장(14), 팀장(16)
+			if (SCAuth.isAuthLevel("99") || SCAuth.isAuthLevel("999") || SCAuth.isAuthLevel("80") || SCAuth.isAuthLevel("70") || SCAuth.isAuthLevel("14") || SCAuth.isAuthLevel("16") || SCAuth.isAuthLevel("17")) {
+			}
+			else {
+				return;
+			}
+		}
+				
+		setUpjangCode("");
+		setUpjangName("");
+		
+		//[[After Event를 정의한다.
+		if (!gfn_isNull(this.eventAfterTrigger))
+		{
+			var arrRtn = {upjangCode:"", upjangName:"", tmCd:"", tmNm:"", muCd:"", muNm:"", ccCd:"", ccNm:""};
+			var afterEvent = eval("parent."+this.eventAfterTrigger);
+			afterEvent(this, arrRtn);
+		}
+		//After Event를 정의한다.]]
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT	D.UPJANG,D.OP_DATE,
+	D.MEAL REG_MEAL,
+	(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE='FS0023' AND CODE=D.MEAL) MEAL_NAME,                
+	--NVL(G.OP_DATE,' ') OP_DATE,
+	NVL(E.MEAL,D.MEAL)  REAL_MEAL,
+	NVL(E.EXPECT_MEAL_QTY,0) EXPECT_MEAL_QTY ,			--끼니별 예상식수
+	NVL(E.REAL_MEAL_QTY,0) REAL_MEAL_QTY,				--끼니별 실식수
+	NVL(F.EXPECT_MEAL_QTY,0) TOT_EXPECT_MEAL_QTY,			--업장 당일 예상식수
+	NVL(F.REAL_MEAL_QTY,0)   TOT_REAL_MEAL_QTY ,			--업장 당일 실식수
+	NVL(F.RATE,0) RATE,						--당일 오차율
+	NVL(F.DAY,TO_CHAR(TO_DATE(D.OP_DATE, 'yyyymmdd'), 'd')) DAY	--1~7(일~토)요일 반환	
+FROM
+	(
+            SELECT A.UPJANG,B.OP_DATE,A.MEAL
+            FROM (
+                            SELECT	MAX(B.UPJANG) UPJANG,A.MEAL
+                            FROM	FMS_MEAL_CORNER A,
+                                            FMS_SUBINVENTORY B
+                            WHERE	B.UPJANG=#UPJANG#
+                            AND		A.SUBINV_CODE=B.SUBINV_CODE(+)
+                            GROUP BY A.MEAL
+                            ORDER BY A.MEAL
+                  ) A
+                  ,(      
+                            SELECT  UPJANG,OP_DATE
+                             FROM   FMO_OP_MENU A 
+                             WHERE  A.UPJANG=#UPJANG#
+                             AND    SUBSTR(A.OP_DATE,0,6)=#OP_DATE# 
+			     <isNotNull col="MEAL">
+			     AND    A.MEAL=#MEAL#
+			     </isNotNull>
+			     <isNotNull col="CORNER">
+			     AND    A.CORNER=#CORNER#
+			     </isNotNull>
+			     <isNotNull col="DAY">
+			     AND    TO_CHAR(TO_DATE(A.OP_DATE, 'yyyymmdd'), 'd')=#DAY#
+			     </isNotNull>			     
+                             GROUP BY UPJANG,OP_DATE
+                             ORDER BY OP_DATE
+                    ) B
+            ORDER BY B.OP_DATE,A.MEAL
+	) D,--업장에 등록된 끼니조회
+        (
+		SELECT A.UPJANG,
+			   A.OP_DATE,
+			   A.MEAL,
+			   SUM(NVL(A.EXPECT_MEAL_QTY,0)) EXPECT_MEAL_QTY,	--예상식수
+			   SUM(NVL(A.REAL_MEAL_QTY,0)) REAL_MEAL_QTY,		--실식수
+			   MAX(NVL(A.MEAL_TOT,0)) MEAL_TOT					--실식수
+		FROM   FMO_OP_MENU A
+		WHERE  A.UPJANG=#UPJANG#
+		AND    SUBSTR(A.OP_DATE,0,6)=#OP_DATE# 
+		<isNotNull col="MEAL">
+		AND    A.MEAL=#MEAL#
+		</isNotNull>
+		<isNotNull col="CORNER">
+		AND    A.CORNER=#CORNER#
+		</isNotNull>
+		<isNotNull col="DAY">
+		AND    TO_CHAR(TO_DATE(A.OP_DATE, 'yyyymmdd'), 'd')=#DAY#
+		</isNotNull>
+		GROUP BY A.UPJANG,A.OP_DATE,A.MEAL
+	) E,--업장별 일별 끼별 예상식수, 실식수, 실식수
+	(
+		SELECT B.UPJANG,
+			   B.OP_DATE,
+			   TO_CHAR(TO_DATE(B.OP_DATE, 'yyyymmdd'), 'd') DAY, --1~7(일~토)요일 반환
+			   SUM(B.EXPECT_MEAL_QTY) EXPECT_MEAL_QTY,          --끼니 예상식수
+			   SUM(B.REAL_MEAL_QTY)   REAL_MEAL_QTY,          --당일 총실식수 합
+			   SUM(B.MEAL_TOT)        MEAL_TOT,                  --당일 총실식수 합(당일 총식수)
+			   DECODE(SUM(B.EXPECT_MEAL_QTY),0,0,ROUND(((SUM(B.REAL_MEAL_QTY)-SUM(B.EXPECT_MEAL_QTY))/SUM(B.EXPECT_MEAL_QTY))*100,2))  RATE--당일 오차율
+		FROM (
+				SELECT A.UPJANG,
+					   A.OP_DATE,
+					   A.MEAL,
+					   SUM(NVL(A.EXPECT_MEAL_QTY,0)) EXPECT_MEAL_QTY, --끼니별  예상식수
+					   SUM(NVL(A.REAL_MEAL_QTY,0)) REAL_MEAL_QTY,     --끼니별  실식수
+					   MAX(NVL(A.MEAL_TOT,0)) MEAL_TOT                --당일 끼니 총실식수
+				FROM   FMO_OP_MENU A 
+			       WHERE  A.UPJANG=#UPJANG#
+			       AND    SUBSTR(A.OP_DATE,0,6)=#OP_DATE# 
+			       <isNotNull col="MEAL">
+			       AND    A.MEAL=#MEAL#
+			       </isNotNull>
+			       <isNotNull col="CORNER">
+			       AND    A.CORNER=#CORNER#
+			       </isNotNull>
+			       <isNotNull col="DAY">
+			       AND    TO_CHAR(TO_DATE(A.OP_DATE, 'yyyymmdd'), 'd')=#DAY#
+			       </isNotNull>
+			       GROUP BY A.UPJANG,A.OP_DATE,A.MEAL
+			 ) B
+		WHERE 1=1
+		GROUP BY B.UPJANG,
+			 B.OP_DATE
+	) F --당일 업장의 총예상식수 총실식수
+WHERE D.UPJANG =E.UPJANG(+)
+AND D.OP_DATE  =E.OP_DATE(+)
+AND D.MEAL     =E.MEAL(+)
+AND D.UPJANG   =F.UPJANG(+)
+AND D.OP_DATE  =F.OP_DATE(+)
+ORDER BY D.OP_DATE,D.MEAL	</statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

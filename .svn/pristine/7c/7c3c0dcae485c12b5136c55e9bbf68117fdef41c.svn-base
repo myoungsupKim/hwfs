@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.sca.authChngListDAO">
+	<desc>권한 변경요청 내역 HQML Query</desc>
+
+	<!-- 권한 변경요청 내역 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sc.sca.dao.AuthChngListDAO.selectList */
+		<![CDATA[
+SELECT A.CHG_SRLNUM,
+       A.SABUN,
+       B.NM_KOR,
+       (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = B.UPJANG) AS SOSOK,
+       A.PROC_STATUS,
+
+       CASE WHEN A.PROC_STATUS = '00' THEN '대기'
+            WHEN A.PROC_STATUS = '01' AND E.SIGN_PROGRESS_STATUS = 'DRAFT'   THEN '결재 진행중'
+            WHEN A.PROC_STATUS = '01' AND E.SIGN_PROGRESS_STATUS = 'COMPLETE' THEN '권한부여대상'
+            WHEN A.PROC_STATUS = '01' AND E.SIGN_PROGRESS_STATUS = 'REJECT' THEN '반송처리'
+            WHEN A.PROC_STATUS = '01' AND E.SIGN_PROGRESS_STATUS = 'CANCEL' THEN '상신취소'
+            WHEN A.PROC_STATUS = '02' THEN '처리완료'
+            ELSE '확인필요'
+       END AS PROC_STATUS_NAME,
+
+       --(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'PROC_STATUS' AND CODE = A.PROC_STATUS) AS PROC_STATUS_NAME,
+
+       TO_CHAR(A.CHG_REQ_DATE, 'YYYY-MM-DD') AS CHG_REQ_DATE,
+       A.CHG_REASON_CD,
+       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'CHG_REASON_CD' AND CODE = A.CHG_REASON_CD) AS CHG_REASON_NAME,
+       A.CHG_CONTENTS,
+       A.DRAFT_DATE,
+       A.DRAFT_USER,
+       NVL(E.SIGN_PROGRESS_STATUS, 'NONE') AS SIGN_PROGRESS_STATUS,
+       NVL((SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'SIGN_PROGRESS_STATUS' AND CODE = E.SIGN_PROGRESS_STATUS), '대기') AS SIGN_PROGRESS_STATUS_NAME,
+       TO_CHAR(E.APPROV_DATE, 'YYYYMMDD') AS APPROV_DATE,
+       E.APPROV_USER,
+       (SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = E.APPROV_USER) AS APPROV_USER_NAME,
+       E.SIGN_REMARK
+FROM   SCC_AUTH_CHG_REQ A,
+       SCC_USERINFO B,
+       SCC_SIGN_INFO E
+WHERE  B.SABUN = A.SABUN
+AND    E.SIGN_INSTANCE_ID(+) = A.SIGN_INSTANCE_ID
+<#if signProgressStatus?has_content>
+
+<#if signProgressStatus == "NODRAFT">
+AND    A.PROC_STATUS = '00'
+<#else>
+AND    E.SIGN_PROGRESS_STATUS = :signProgressStatus
+</#if>
+</#if>
+
+<#if startChgReqDate?has_content>
+AND    A.CHG_REQ_DATE >= TO_DATE(:startChgReqDate || '000000', 'YYYYMMDDHH24MISS')
+</#if>
+<#if endChgReqDate?has_content>
+AND    A.CHG_REQ_DATE <= TO_DATE(:endChgReqDate || '235959', 'YYYYMMDDHH24MISS')
+</#if>
+<#if ccCd?has_content && sabun?has_content>
+AND   (B.UPJANG IN (SELECT UPJANG FROM ST_UPJANG WHERE CC_CD = :ccCd) OR A.SABUN = :sabun)
+<#else>
+<#if ccCd?has_content>
+AND   B.UPJANG IN (SELECT UPJANG FROM ST_UPJANG WHERE CC_CD = :ccCd)
+</#if>
+<#if sabun?has_content>
+AND    A.SABUN = :sabun
+</#if>
+</#if>
+ORDER BY A.CHG_REQ_DATE DESC
+		]]>
+	</statement>
+
+</hqml>

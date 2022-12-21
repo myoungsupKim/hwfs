@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fm.fms.strategyGainRateItemRegDAO">
+	<desc>전략이익률 자재등록  HQML Query</desc>
+
+	<!-- 전략이익률 자재  목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.fm.fms.dao.StrategyGainRateItemRegDAO.selectList */
+		<![CDATA[
+		SELECT
+	  		  ROWNUM AS ROW_NUM
+			, A.ITEM_CODE
+			, B.ITEM_NAME
+			, DECODE(B.TAX_CODE,'100','과)','면)') || B.ITEM_SIZE AS ITEM_SIZE
+			, B.PO_UOM AS ITEM_UNIT
+			, NVL(A.CONTRACT_PRICE_P, 0) AS CONTRACT_PRICE
+    		, NVL(A.STRATEGY_RATE, 0) AS STRATEGY_RATE
+    		, NVL(A.STRATEGY_PRICE, 0) AS STRATEGY_PRICE
+    		, NVL(A.PLANNING_RATE, 0) AS PLANNING_RATE
+    		, NVL(A.PLANNING_PRICE, 0) AS PLANNING_PRICE
+    		, :schCenter AS SCH_CENTER
+    		, :schDate AS SCH_DATE
+		FROM FM_CONTRACT_PROFIT A INNER JOIN HLDC_PO_ITEM_MST B ON A.ITEM_CODE = B.ITEM_CODE
+		WHERE A.CENTER_CODE = :schCenter
+		AND    A.PROFIT_DATE =:schDate
+		ORDER BY A.ITEM_CODE ASC
+		]]>
+	</statement>
+	
+	<!-- 전략이익률 자재  등록일자를 조회한다. -->
+	<statement name="selectDate" type="select">
+		/*+ com.hwfs.fm.fms.dao.StrategyGainRateItemRegDAO.selectDate */
+		<![CDATA[
+		SELECT
+	   		TO_CHAR(DECODE(A.UPDATE_DATE, NULL, A.CREATE_DATE, A.UPDATE_DATE), 'YYYYMMDD') AS S_DATE
+		FROM FM_CONTRACT_PROFIT A
+		WHERE A.CENTER_CODE = :schCenter
+		AND    A.PROFIT_DATE =:schDate
+		AND    ROWNUM <= 1
+		]]>
+	</statement>
+	
+	
+	
+	<!-- 전략이익율 자재정보 등록 여부를 조회한다. -->
+	<statement name="selectItemCnt" type="select">
+		/*+ com.hwfs.fm.fms.dao.StrategyGainRateItemRegDAO.selectItemCnt */
+		<![CDATA[
+		SELECT 
+			COUNT(*) AS CNT
+		FROM FM_CONTRACT_PROFIT 
+		WHERE  CENTER_CODE = :schCenter
+		AND     PROFIT_DATE   = :schDate
+		AND     ITEM_CODE     = :itemCode
+		]]>
+	</statement>
+	
+
+	<!-- 전략이익률 자재 (을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.fm.fms.dao.StrategyGainRateItemRegDAO.insert */
+		<![CDATA[
+		INSERT INTO FM_CONTRACT_PROFIT (
+	  		  CENTER_CODE
+			, PROFIT_DATE
+			, ITEM_CODE
+			, CONTRACT_PRICE_P
+			, STRATEGY_RATE
+			, STRATEGY_PRICE
+			, PLANNING_RATE
+			, PLANNING_PRICE
+			, STATUS
+			, CREATE_DATE
+			, CREATE_BY
+		)	 VALUES (
+	  		  :schCenter		/* CENTER_CODE */
+			, :schDate			/* PROFIT_DATE */
+			, :itemCode			/* ITEM_CODE */
+			, :contractPrice	/* CONTRACT_PRICE_P */
+			, :strategyRate		/* STRATEGY_RATE */
+			, :strategyPrice		/* STRATEGY_PRICE */
+			, :planningRate	/* PLANNING_RATE */
+			, :planningPrice	/* PLANNING_PRICE */
+			, '신규'				/* 	STATUS */
+			, SYSDATE			/* CREATE_DATE */
+			, :loginSabun		/* CREATE_BY */
+		)
+		]]>
+	</statement>
+	
+	<!-- 전략이익률 자재 (을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.fm.fms.dao.StrategyGainRateItemRegDAO.update */
+		<![CDATA[
+		UPDATE FM_CONTRACT_PROFIT 
+		SET  CONTRACT_PRICE_P = :contractPrice,
+		       STRATEGY_RATE = :strategyRate,
+		       STRATEGY_PRICE = :strategyPrice,
+		       PLANNING_RATE = :planningRate,
+		       PLANNING_PRICE = :planningPrice,
+		       STATUS = '수정',
+		       UPDATE_BY = :loginSabun,
+		       UPDATE_DATE = SYSDATE
+		WHERE  CENTER_CODE = :schCenter
+		AND     PROFIT_DATE   = :schDate
+		AND     ITEM_CODE     = :itemCode
+		]]>
+	</statement>
+
+
+	<!-- 전략이익률  자재목록을 등록한다. (MERGE)-->
+	<statement name="insert2" type="insert">
+		/*+ com.hwfs.fm.fms.dao.StrategyGainRateItemRegDAO.insert2 */
+		<![CDATA[
+		MERGE INTO FM_CONTRACT_PROFIT A
+		USING DUAL
+		ON  (CENTER_CODE = :schCenter
+		AND PROFIT_DATE = :schDate
+		AND ITEM_CODE = :itemCode)
+		WHEN MATCHED THEN 
+			UPDATE  SET
+			        CONTRACT_PRICE_P = 	<#if contractPrice?has_content>:contractPrice<#else>0</#if>,
+		       		STRATEGY_RATE = <#if strategyRate?has_content>:strategyRate<#else>0</#if>,
+		       		STRATEGY_PRICE = <#if strategyPrice?has_content>:strategyPrice<#else>0</#if>,
+		       		PLANNING_RATE = <#if planningRate?has_content>:planningRate<#else>0</#if>,
+		       		PLANNING_PRICE = <#if planningPrice?has_content>:planningPrice<#else>0</#if>,
+		       		STATUS = '수정',
+		       		UPDATE_BY = :loginSabun,
+		       		UPDATE_DATE = SYSDATE
+			WHERE  CENTER_CODE = :schCenter
+			AND     PROFIT_DATE   = :schDate
+			AND     ITEM_CODE     = :itemCode
+		
+        WHEN NOT MATCHED THEN
+			INSERT  
+			(
+	  		  CENTER_CODE
+			, PROFIT_DATE
+			, ITEM_CODE
+			, CONTRACT_PRICE_P
+			, STRATEGY_RATE
+			, STRATEGY_PRICE
+			, PLANNING_RATE
+			, PLANNING_PRICE
+			, STATUS
+			, CREATE_DATE
+			, CREATE_BY
+			)
+			VALUES
+			(
+	  		  :schCenter		/* CENTER_CODE */
+			, :schDate			/* PROFIT_DATE */
+			, :itemCode			/* ITEM_CODE */
+			, <#if contractPrice?has_content>:contractPrice<#else>0</#if>	/* CONTRACT_PRICE_P */
+			, <#if strategyRate?has_content>:strategyRate<#else>0</#if>		/* STRATEGY_RATE */
+			, <#if strategyPrice?has_content>:strategyPrice<#else>0</#if>		/* STRATEGY_PRICE */
+			, <#if planningRate?has_content>:planningRate<#else>0</#if>	/* PLANNING_RATE */
+			, <#if planningPrice?has_content>:planningPrice<#else>0</#if>	/* PLANNING_PRICE */
+			, '신규'				/* 	STATUS */
+			, SYSDATE			/* CREATE_DATE */
+			, :loginSabun		/* CREATE_BY */
+			)
+		]]>
+	</statement>
+
+
+
+	<!-- 전략이익률 자재 (을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.fm.fms.dao.StrategyGainRateItemRegDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   FM_CONTRACT_PROFIT 
+		WHERE  CENTER_CODE = :schCenter
+		AND     PROFIT_DATE   = :schDate
+		AND     ITEM_CODE     = :itemCode
+		]]>
+	</statement>
+
+	<!-- 전략이익률 자재 (을)를 일괄 삭제한다. -->
+	<statement name="deleteAll" type="delete">
+		/*+ com.hwfs.fm.fms.dao.StrategyGainRateItemRegDAO.deleteAll */
+		<![CDATA[
+		DELETE 
+		FROM   FM_CONTRACT_PROFIT 
+		WHERE CENTER_CODE = :schCenter
+		AND    PROFIT_DATE =:schDate
+		]]>
+	</statement>
+
+	<!-- 매출처 업데이트 리스트를 조회한다. -->
+	<statement name="upjangList" type="select">
+		/*+ com.hwfs.fm.fms.dao.StrategyGainRateItemRegDAO.upjangList */
+		<![CDATA[
+		SELECT
+			  '' AS RES
+			, A.UPJANG_TYPE
+			, A.UPJANG
+			, A.MAIN_UPJANG_NM
+			, A.UPJANG_NM
+			, A.CUST_TYPE
+			, A.USE_YN
+			, A.PART_SALES_SABUN_NM
+			, A.PART_SALES_SABUN
+			, A.PART_SALES_TEL_NO AS PART_SALES_TEL_NO1
+			, (SELECT  SCC_CRYPTO.MASKAUTH_FUN (HP_NO_ENC,9,'YYYYNNNNNNNNNNN', '0')  FROM SCC_USERINFO WHERE SABUN =  A.PART_SALES_SABUN) AS  PART_SALES_TEL_NO2
+  		    , A.BIZ_KIND_NAME
+        	, (SELECT Z.CODE FROM SCC_COMMON_CODE Z WHERE Z.GROUP_CODE = 'FM0020' AND Z.CODE_NAME = A.BIZ_KIND_NAME AND ROWNUM <= 1) AS BIZ_KIND
+  		    , A.BIZ_GROUP_NAME
+        	, (SELECT Z.CODE FROM SCC_COMMON_CODE Z WHERE Z.GROUP_CODE = 'FM0004' AND Z.CODE_NAME = A.BIZ_GROUP_NAME AND ROWNUM <= 1) AS BIZ_GROUP
+  		    , A.PART_CODE_NAME
+        	, (SELECT Z.CODE FROM SCC_COMMON_CODE Z WHERE Z.GROUP_CODE = 'FM0022' AND Z.CODE_NAME = A.PART_CODE_NAME AND ROWNUM <= 1) AS PART_CODE
+  			, A.BIZ_DETAIL_NAME
+        	, (SELECT Z.CODE FROM SCC_COMMON_CODE Z WHERE Z.GROUP_CODE = 'FM0021' AND Z.CODE_NAME = A.BIZ_DETAIL_NAME AND ROWNUM <= 1) AS BIZ_DETAIL
+  			, A.CONTRACT_TERM
+		FROM FMS_UPJANG_EXCEL A
+		WHERE 1 = 1
+		<#if schMainUpjang?has_content>
+		AND   A.MAIN_UPJANG_NM LIKE '%' || :schMainUpjang || '%'
+		</#if>
+		<#if schUpjang?has_content>
+		AND   A.UPJANG_NM LIKE '%' || :schUpjang || '%'
+		</#if>
+		ORDER BY A.UPJANG		
+		]]>
+	</statement>
+
+	<!-- 매출처 항목 (을)를 수정한다. -->
+	<statement name="updateMig" type="update">
+		/*+ com.hwfs.fm.fms.dao.StrategyGainRateItemRegDAO.updateMig */
+		<![CDATA[
+		UPDATE FMS_UPJANG 
+		SET  
+		   	  <#if partSalesTelNo2?has_content> PART_SALES_TEL_NO 	= :partSalesTelNo2, </#if>
+			  <#if partSalesTelNo2?has_content> PART_SALES_TEL_NO_ENC = SCC_CRYPTO.ENC_FUN(:partSalesTelNo2), </#if>
+			   CUST_TYPE = :custType,
+			   USE_YN = :useYn,
+			   PART_SALES_SABUN 	= :partSalesSabun,
+			   BIZ_KIND = :bizKind,
+			   BIZ_GROUP = :bizGroup,
+			   PART_CODE = :partCode,
+			   BIZ_DETAIL = :bizDetail,
+			   CONTRACT_TERM = :contractTerm
+		WHERE  UPJANG = :upjang
+		]]>
+	</statement>
+
+</hqml>

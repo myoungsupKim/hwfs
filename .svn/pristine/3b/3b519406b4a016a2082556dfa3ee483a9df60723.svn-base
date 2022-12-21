@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.NEED_DATE -- 최종발주일
+  FROM (SELECT /*+ INDEX_DESC(HLDC_PO_PR PO_PR_I5) */
+               NEED_DATE
+          FROM HLDC_PO_PR
+         WHERE RC_UPJANG = #UPJANG#
+           AND NEED_DATE >= TO_CHAR(SYSDATE-10,'YYYYMMDD')
+           AND LINE_STATUS <> '003' --신청취소
+           AND ROWNUM <= 1
+         UNION ALL
+        SELECT /*+ INDEX_DESC(FMP_OTCUST_PR FMP_OTCUST_PR_IE2) */
+               NEED_DATE
+          FROM FMP_OTCUST_PR
+         WHERE UPJANG = #UPJANG#
+           AND NEED_DATE >= TO_CHAR(SYSDATE-10,'YYYYMMDD')
+           AND LINE_STATUS <> '003' --신청취소
+           AND ROWNUM <= 1) A
+ ORDER BY A.NEED_DATE DESC	]]></statement>
+	<input default-name="ds_in">
+	</input>
+	<output default-name="ds_needdate">
+	</output>
+</query>

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[협력업체 점검결과 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[	    
+SELECT T1.HL_CLASS_CD AS CLASS_CD
+     , T2.CLASS_NM
+     , MAX(WGT_RATE) AS WGT_RATE -- 가중치
+     , SUM(T1.CHK_IDCTR) AS CHK_IDCTR -- 총점
+     , SUM(T1.CHK_IDCTR_NA) AS CHK_IDCTR_NA -- 평가총점
+     , SUM(T1.CHK_SCORE_NA) AS CHK_SCORE_NA -- 평가점수
+     , MAX(T2.NOT_FIT_CNT) AS NOT_FIT_CNT -- 과락부적합건수
+     , SUM(T1.NOT_FIT_RESULT_CNT) AS NOT_FIT_RESULT_CNT -- 부적합건수
+     , CASE WHEN SUM(T1.CHK_IDCTR_NA) = 0 THEN 0
+            ELSE ROUND(SUM(T1.CHK_SCORE_NA) / SUM(T1.CHK_IDCTR_NA) * 100, 1) 
+       END AS RATIO
+     , CASE WHEN SUM(T1.CHK_IDCTR_NA) = 0 THEN 0
+            ELSE ROUND((MAX(WGT_RATE) / 100) * SUM(T1.CHK_SCORE_NA) / SUM(T1.CHK_IDCTR_NA) * 100, 1) 
+       END AS FINAL_SCORE
+     , CASE WHEN MAX(T2.NOT_FIT_CNT) > 0 AND MAX(T2.NOT_FIT_CNT) <= SUM(T1.NOT_FIT_RESULT_CNT) THEN '부적합'
+            ELSE '적합'
+       END AS NOT_FIT_RESULT
+FROM (     
+      SELECT A.TABLE_TYPE
+           , A.FORM_CD
+           , B.CLASS_NM
+           , B.HL_CLASS_CD
+           , A.NA_YN
+           , NVL(A.CHK_IDCTR, 0) AS CHK_IDCTR
+           , NVL(A.NOT_FIT_SCORE, 0) AS NOT_FIT_SCORE     
+           , NVL(A.CHK_SCORE, 0) AS CHK_SCORE
+           , CASE WHEN A.NA_YN = 'Y' THEN 0
+                  ELSE NVL(A.CHK_IDCTR, 0)
+             END AS CHK_IDCTR_NA
+           , CASE WHEN A.NA_YN = 'Y' THEN 0
+                  ELSE NVL(A.NOT_FIT_SCORE, 0)
+             END AS NOT_FIT_SCORE_NA
+           , CASE WHEN A.NA_YN = 'Y' THEN 0
+                  ELSE NVL(A.CHK_SCORE, 0)
+             END AS CHK_SCORE_NA
+           , CASE WHEN A.NA_YN = 'N' AND B.FOCS_ARTICLE_YN = 'Y' AND NVL(A.NOT_FIT_SCORE, 0) > NVL(A.CHK_SCORE, 0) THEN 1
+                  ELSE 0
+             END AS NOT_FIT_RESULT_CNT
+           , A.SUB_COMP_NM
+        FROM FSC_CONTRT_RESULT_DTL A
+           , FSC_CONTRT_FORM_DTL B
+       WHERE A.TABLE_TYPE = B.TABLE_TYPE
+         AND A.FORM_CD = B.FORM_CD
+         AND A.TABLE_TYPE = #TABLE_TYPE#
+         AND A.CLASS_CD = B.CLASS_CD
+         AND A.FORM_CD = #FORM_CD#
+         AND A.CUSTCD = #CUSTCD#
+         AND A.CHK_DD = #CHK_DD#
+         AND A.SUB_COMP_NM = #SUB_COMP_NM#) T1   /* 하위공장명추가_2018.05.24I*/
+     , FSC_CONTRT_CLASS T2
+ WHERE T1.TABLE_TYPE = T2.TABLE_TYPE
+   AND T1.FORM_CD = T2.FORM_CD
+   AND T1.HL_CLASS_CD = T2.CLASS_CD
+GROUP BY T1.HL_CLASS_CD, T2.CLASS_NM
+ORDER BY CLASS_CD ASC
+]]>
+    </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_sumList">
+	</output>
+</query>

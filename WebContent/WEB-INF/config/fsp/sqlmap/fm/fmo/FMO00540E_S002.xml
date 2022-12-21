@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+ SELECT  0 GBN
+        ,A.UPJANG
+	,B.UPJANGNM_DISP
+	,A.OCCUR_DATE
+        ,TO_CHAR(TO_DATE(#OCCUR_F_DATE# || LPAD(ROWNUM,2,'0'), 'yyyymmdd'), 'd') weekday
+	,nvl(A.OCCUR_QTY,0)  OCCUR_QTY
+	,A.PROC_METHOD
+	,nvl(A.PROC_COST,0) PROC_COST
+	,A.PROC_BY
+	,A.CONTENTS
+	,A.REMARK
+	,A.USE_YN
+FROM	FMO_WASTE_PROC A,
+	FMS_UPJANG B
+WHERE	A.UPJANG=B.UPJANG
+AND     A.UPJANG=#UPJANG#
+<isNotNull col="OCCUR_F_DATE">
+AND    substr(trim(A.OCCUR_DATE),1,6)=#OCCUR_F_DATE#
+</isNotNull>
+UNION ALL
+SELECT  1		GBN,
+        #UPJANG#	UPJANG,
+        NULL		UPJANGNM_DISP,
+        #OCCUR_F_DATE#|| LPAD(ROWNUM,2,'0') OCCUR_DATE,  
+        TO_CHAR(TO_DATE(#OCCUR_F_DATE# || LPAD(ROWNUM,2,'0'), 'yyyymmdd'), 'd') weekday,
+        0	OCCUR_QTY,
+        NULL	PROC_METHOD,
+        0	PROC_COST,
+        NULL	PROC_BY,
+        NULL	CONTENTS,
+        NULL	REMARK,
+        'Y'	USE_YN
+FROM
+( SELECT LEVEL FROM DUAL CONNECT BY LEVEL &lt;= TO_CHAR(LAST_DAY(TO_DATE(#OCCUR_F_DATE#,'yyyymm')),'dd') )	</statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_List">
+	</output>
+</query>

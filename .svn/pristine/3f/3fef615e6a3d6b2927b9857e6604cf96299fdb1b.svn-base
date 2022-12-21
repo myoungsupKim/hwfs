@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fs.fsa.adoptionPoolSearchPopDAO">
+	<desc>인력을  HQML Query</desc>
+
+	<!-- 인력을  목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.fs.fsa.dao.AdoptionPoolSearchPopDAO.selectList */
+		<![CDATA[
+		SELECT
+		        ADOPTION_NUM                                                      									/* 채용번호             */
+		      , NAME                                                              									/* 성명                 */      
+		      , AGE                                                               									/* 나이                 */
+		      , ADOPTION_STATUS                                                   									/* 채용상태(공통코드)   */
+		      , ADOPTION_STATUS_NM                                                
+		      , BRTH_YEAR                                                         									/* 생년                 */  
+		      , GENDER                                                            									/* 그룹공통코드(성별)   */  
+		      , TELNO                                                             									/* 전화번호 */  
+		      , SCC_TELNO_SPLIT_FUN(TELNO, 1) AS TELNO1
+		      , SCC_TELNO_SPLIT_FUN(TELNO, 2) AS TELNO2
+		      , SCC_TELNO_SPLIT_FUN(TELNO, 3) AS TELNO3                           
+		      , SCC_TELNO_SPLIT_FUN(HANDPHONE_NUM, 1) AS HANDPHONE_NUM1
+		      , SCC_TELNO_SPLIT_FUN(HANDPHONE_NUM, 2) AS HANDPHONE_NUM2
+		      , SCC_TELNO_SPLIT_FUN(HANDPHONE_NUM, 3) AS HANDPHONE_NUM3
+		      , SCC_TELNO_SPLIT_FUN(HANDPHONE_NUM, 1)||'-'||SCC_TELNO_SPLIT_FUN(HANDPHONE_NUM, 2)||'-'||SCC_TELNO_SPLIT_FUN(HANDPHONE_NUM, 3) AS HANDPHONE_NUM                                                     									/* 핸드폰               */  
+		      , EMAIL                                                             									/* 이메일주소           */  
+		      , ADDR_KEY
+		      , ADDR_INFO
+		      , ZIP_CODE
+		      , FULL_ADDR
+		      , ADOPTION_PRTC                                                     									/* 채용_경위            */  
+		      , PERS_INFO_AGREE_DATE                                              									/* 개인정보 동의일자    */  
+		      , PERS_INFO_EDATE                                                   									/* 개인정보_만료일자    */  
+		      , PERS_INFO_DSTRY_SABUN                                             									/* 개인정보_파기자_사번 */  
+		      , PERS_INFO_DSTRY_DATE                                              									/* 년/월/일 시분초      */  
+		      , SUP_DUTY                                                          									/* 지원직무             */  
+		      , SUP_DUTY_ETC
+		      , SUP_DUTY_NM
+		      , SUP_DUTY_GROUP
+		      , POSS_DUTY                                                         									/* 가능직무             */  
+		      , POSS_DUTY_ETC                                                     									/* 가능직무             */  
+		      , REMARK                                                            									/* 비고                 */  
+		      , FILE_ID
+		FROM (
+		      SELECT  
+		      		  ADOPTION_NUM                                                									/* 채용번호             */
+		            , NAME                                                        									/* 성명                 */      
+		            , TO_NUMBER( TO_CHAR( SYSDATE ,'YYYY') ) - TO_NUMBER( SUBSTR( BRTH_DATE,0,4))   AS AGE   		/* 나이                 */
+		            , ADOPTION_STATUS                                             									/* 채용상태(공통코드)   */
+		            , (SELECT CODE_NAME 
+		                 FROM SCC_COMMON_CODE
+		                WHERE GROUP_CODE = 'ALLC_TYPE'
+		                  AND CODE = M.ADOPTION_STATUS
+		                  AND ROWNUM = 1
+		              ) AS ADOPTION_STATUS_NM
+		            , TO_NUMBER( SUBSTR( BRTH_DATE,0,4)) AS BRTH_YEAR                                               /* 생년                 */
+		            , GENDER                                                     									/* 그룹공통코드(성별)   */
+		            , SCC_CRYPTO.MASKAUTH_FUN (TELNO_ENC,9,:loginPersMask,:maskAuth) AS TELNO            			/* 전화번호_지역_암호화 */
+		            , SCC_CRYPTO.MASKAUTH_FUN (HANDPHONE_NUM_ENC,8,:loginPersMask,:maskAuth) AS HANDPHONE_NUM    	/*                      */
+		            , SCC_CRYPTO.MASKAUTH_FUN(EMAIL_ENC, 7, :loginPersMask, :maskAuth) AS EMAIL           			/* 이메일주소           */
+		            , ADDR_KEY
+		      		, SCC_ADDR_FUN(ADDR_KEY, :loginPersMask, :maskAuth) AS ADDR_INFO
+		      		, SCC_GET_ADDR_FUN('ZIP'   , ADDR_KEY, :loginPersMask, :maskAuth) AS ZIP_CODE                 /* 우편번호             */
+		            , SCC_GET_ADDR_FUN('BASE'  , ADDR_KEY, :loginPersMask, :maskAuth)||' '||SCC_GET_ADDR_FUN('DETAIL', ADDR_KEY, :loginPersMask, :maskAuth) AS FULL_ADDR
+		            , ADOPTION_PRTC                                              									/* 채용_경위            */
+		            , PERS_INFO_AGREE_DATE                                       									/* 개인정보 동의일자    */
+		            , PERS_INFO_EDATE                                               								/* 개인정보_만료일자    */
+		            , PERS_INFO_DSTRY_SABUN                                      									/* 개인정보_파기자_사번 */
+		            , PERS_INFO_DSTRY_DATE                                       									/* 년/월/일 시분초      */
+		            , SUP_DUTY                                                   									/* 지원직무             */
+		            , SUP_DUTY_ETC                                               									/* 기타 지원직무        */
+		            , (SELECT CODE_NAME 
+		                 FROM SCC_COMMON_CODE
+		                WHERE GROUP_CODE = 'DUTY_TYPE'
+		                  AND CODE = M.SUP_DUTY
+		                  AND ROWNUM = 1            
+		              ) AS SUP_DUTY_NM
+		            , (SELECT CASE WHEN SET1 = '1' THEN 
+		            			'조리사'
+		                      ELSE
+		                      	'조리원'
+		                      END
+		                 FROM SCC_COMMON_CODE
+		                WHERE GROUP_CODE = 'DUTY_TYPE'
+		                  AND CODE = M.SUP_DUTY
+		                  AND ROWNUM = 1            
+		              ) AS SUP_DUTY_GROUP
+		            , POSS_DUTY                                                  									/* 가능직무             */
+		            , POSS_DUTY_ETC                                              									/* 기타가능직무         */
+		            , REMARK                                                     									/* 비고                 */
+		            , FILE_ID
+		        FROM  FSA_POOL_MASTER M
+		       WHERE  M.ADOPTION_STATUS = 'R'
+		       AND M.PERS_INFO_DSTRY_SABUN IS NULL
+		       AND M.PERS_INFO_DSTRY_DATE IS NULL
+		       <#if name?has_content>
+			   AND    NAME LIKE '%' || :name || '%'
+		       </#if>
+		       <#if duty?has_content>
+			   AND    SUP_DUTY = :duty 
+		       </#if>
+		       <#if gender?has_content>
+			   AND    GENDER = :gender 
+		       </#if>
+		        AND NOT EXISTS
+        		(SELECT 1 
+				FROM FSA_POOL_ASSIGN A
+                WHERE A.GOOD_YN = 'R'
+                AND   A.REQUEST_UPJANG_CD = :upjangCd
+                AND   A.ADOPTION_NUM = M.ADOPTION_NUM)
+		     ) K 
+		WHERE 1 = 1
+		<#if sido?has_content>
+		 AND SUBSTR(ZIP_CODE, 1, 3) IN (${sido})
+		</#if>
+		<#if addr?has_content>
+		 AND FULL_ADDR LIKE '%' || :addr || '%'
+		</#if>
+		<#if ageStart?has_content>
+		AND    AGE >= :ageStart 
+		</#if>
+		<#if ageEnd?has_content>
+		AND    AGE <= :ageEnd 
+		</#if>
+		 ORDER BY ADOPTION_NUM DESC   
+		     
+		]]>
+	</statement>
+	
+</hqml>

@@ -1,0 +1,1583 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Script type="xscript4.0"><![CDATA[/**
+ * LIMS JS 스크립트
+ * @ClassName LimsUtil.xjs
+ * @Description LimsUtil javascript
+ * @Modification-Information
+ *    수정일     수정자        수정내용
+ *  ----------   ----------   -------------------------------
+ *  2015.01.22    jshoon       최초 생성
+ *
+ * @author FC종합전산구축 : jshoon
+ * @since 2015.01.22.
+ * @version 1.0
+ * @see
+ *
+ *  Copyright (C) 2015 by HANWHA S&C CO.,LTD. All right reserved.
+ */
+/**
+ * javascript hashMap
+ *  - 중복체크시 사용
+ *
+ * @param none
+ * @return none
+ */
+var jHashMap = function()
+{
+    var mapKey = new Array();
+    var mapVal = new Array();
+
+    this.get = function(key)
+    {
+        return mapVal[key];
+    };
+    this.getPost = function(n)
+    {
+        return mapVal[mapKey[n]];
+    };
+    this.clear = function(key)
+    {
+        mapKey = new Array();
+    };
+    this.remove = function(key)
+    {
+        var ary = new Array();
+        for (var i = 0, iLen = mapKey.length; i < iLen; i++)
+        {
+            if (key != mapKey[i])
+            {
+                ary.push(mapKey[i]);
+            }
+        }
+        mapKey = ary;
+    };
+    this.put = function(key, val)
+    {
+        mapVal[key] = val;
+        var flg = true;
+        for (var i = 0, iLen = mapKey.length; i < iLen; i++)
+        {
+            if (key == mapKey[i])
+            {
+                flg = false;
+            }
+        }
+        if (flg)
+            mapKey.push(key);
+    };
+    this.getKeys = function()
+    {
+        return mapKey;
+    };
+    this.getValues = function()
+    {
+        return mapVal;
+    };
+    this.size = function()
+    {
+        return mapKey.length;
+    };
+    this.debug = function()
+    {
+        var debug = "";
+        for (var i = 0, iLen = mapKey.length; i < iLen; i++)
+        {
+            var key = mapKey[i];
+            var val = mapVal[key];
+            debug += key + " = " + val + "\n";
+        }
+        return debug;
+    };
+    this.containsKey = function(key)
+    {
+        for (var i = 0, iLen = mapKey.length; i < iLen; i++)
+        {
+            if (key == mapKey[i])
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+};
+
+(function() {
+
+	/**
+     * Object 의 크기 변환 함수
+     *
+     * @param objForm Form
+     * @param obj 변환할 object
+     * @param objButton 이벤트가 발생하는 Button
+     * @param objButtonText 이벤트가 발생하는 Button Text
+     * @param targetprop 크기가 변환될 방향 Property
+     * @param orgFromValue 늘이기전 위치값
+     * @param orgToValue 늘인후 위치값
+     * @param rmvFromValue 늘인후 위치값
+     * @param rmvToValue 늘이기전 위치값
+     * @return none
+     */
+    gfn_objResize = function (objForm, obj, objButton, objButtonText, targetprop, orgFromValue, orgToValue, rmvFromValue, rmvToValue)
+    {
+		var PropAniR = new PropertyAnimation();
+		PropAniR.duration = 400;
+		PropAniR.interpolation = Interpolation.expoOut;
+		PropAniR.targetcomp = obj;
+		PropAniR.endingmode = "to";
+		PropAniR.targetprop = targetprop;
+		PropAniR.starttime = 0;
+
+		if (objButton.text == objButtonText)
+		{
+			objButton.text = "원래대로";
+			PropAniR.fromvalue = orgFromValue;
+			PropAniR.tovalue = orgToValue;
+		}
+		else
+		{
+			objButton.text = objButtonText;
+			PropAniR.fromvalue = rmvFromValue;
+			PropAniR.tovalue = rmvToValue;	// 기준이 되는 Static Bar : align -> right, bottom처리
+		}
+		PropAniR.run();
+    };
+    
+    /**
+     * Edit의 내용을 Tooltip으로 보여 준다.
+     *
+     * @param obj Edit
+     * @param e MouseEventInfo
+     * @return none
+     */
+    gfn_editTextTooltipViewEvent = function (obj, e)
+    {
+        if (obj.text != null && obj.text != "")
+        {
+            obj.tooltiptype = "hover";
+            obj.tooltiptext = obj.text;
+        }
+        else
+        {
+            obj.tooltiptext = '';
+        }
+    };
+
+    /**
+     * Grid에서 사용되는 radio 제어
+     *  - row당 한개의 radio만 선택하게끔 한다.
+     *  - 시험정보등록 / 시험정보 상세에서 사용
+     *
+     * @param obj Grid
+     * @param e GridClickEventInfo
+     * @return none
+     */
+    gfn_setGridRadioEventHandler = function (obj, e)
+    {
+        if (e.row < 0) return;
+        if (obj.readonly) return;
+        if (obj.getCellProperty("body", e.cell, "displaytype") != "checkbox") return;
+
+        // 헤더의 체크박스에 체크 해제
+        var nCnt = obj.getCellCount("Head");
+        var strType = "";
+        for (var j = 0; j < nCnt; j++)
+        {
+            if (obj.getCellProperty("head", j, "displaytype") == "checkbox")
+            {
+                strType = obj.getCellProperty("head", j, "displaytype");
+                if (strType == "checkbox" && obj.getCellProperty("head", j, "text") == "1")
+                {
+                    obj.setCellProperty("head", j, "text", '0');
+                }
+            }
+        }
+
+        var objColClass = obj.getCellProperty("body", e.cell, "class");
+        //if (typeof objColClass == "undefined" || objColClass != "radio" || objColClass == "" || objColClass == null) return;
+
+        var clsType = "";
+        nCnt = obj.getCellCount("Body");
+        var objDs = eval(obj.binddataset);
+        var colName = "";
+        //var objColName = obj.getCellProperty("body", e.cell, "text").replace("bind:", "");
+        var objColName = gfn_getCellColId(obj, e.cell, "Body");
+
+		if (gfn_isNull(objColClass))
+		{
+			// 일반 체크박스 하나만 선택 하게끔
+			for (var j = 0; j < nCnt; j++)
+			{
+				clsType = obj.getCellProperty("body", j, "class");
+				if (obj.getCellProperty("body", j, "displaytype") == "checkbox" &&
+				    clsType != "radio")
+				{
+					//colName = obj.getCellProperty("body", j, "text").replace("bind:", "");
+					colName = gfn_getCellColId(obj, j, "Body");
+					if (colName == "") continue;
+					if (objColName == colName)
+					{
+						objDs.setColumn(e.row, colName, '1');
+					}
+					else
+					{
+						objDs.setColumn(e.row, colName, '0');
+					}
+				}
+			}
+		}
+		else
+		{
+			// 라디오 체크박스 하나만 선택 하게끔
+			for (var j = 0; j < nCnt; j++)
+			{
+				clsType = obj.getCellProperty("body", j, "class");
+				if (obj.getCellProperty("body", j, "displaytype") == "checkbox" &&
+				    clsType == "radio")
+				{
+					//colName = obj.getCellProperty("body", j, "text").replace("bind:", "");
+					colName = gfn_getCellColId(obj, j, "Body");
+					if (colName == "") continue;
+					if (objColName == colName)
+					{
+						objDs.setColumn(e.row, colName, '1');
+					}
+					else
+					{
+						objDs.setColumn(e.row, colName, '0');
+					}
+				}
+			}
+		}
+    };
+
+    /**
+     * Grid에서 사용되는 CheckAll 제어 - 일반적인 공통 전체 체크가 아닌
+     *        별도의 전체 체크가 필요 시 사용 한다.
+     *        1. Grid의 onheadclick 별도 구현
+     *        2. gfn_formOnLoad(this, false)로 해서 공토 Component 세팅을 하지 않는다.
+     *
+     * @param obj Grid
+     * @param e GridClickEventInfo
+     * @param strName CheckAll 제어 컬럼명
+     * @return none
+     */
+    gfn_setGridItemCheckAll = function (obj:Grid, e:GridClickEventInfo, strName)
+    {
+        var strType = obj.getCellProperty("head", e.cell, "displaytype");
+        if (strType != "checkbox") return;
+        if (gfn_isNull(strName)) return;
+        var objDs = eval(obj.binddataset);
+        var nCnt = obj.getCellCount("Body");
+        var clsType = "";
+        var colName = "";
+
+		try {
+			for (var j = 0; j < nCnt; j++)
+			{
+				clsType = obj.getCellProperty("body", j, "class");
+				if (typeof clsType != "undefined" && clsType == "radio" && clsType != "")
+				{
+					//colName = obj.getCellProperty("body", j, "text").replace("bind:", "");
+					colName = gfn_getCellColId(obj, j, "Body");
+					if (colName == "") continue;
+					if (strName != colName)
+					{
+						// Body셋팅
+						for (var i = 0; i < objDs.rowcount; i++)
+						{
+							objDs.setColumn(i, colName, '0');
+						}
+					}
+				}
+			}
+		} catch(e) {
+		}
+    };
+
+    /**
+     * array변수에 문자열이 포함되어 있느지 여부를 return 한다.
+     * ex) if (gfn_getArrContains(objSkipComp, strName)) continue;
+     *
+     * @param arrVal 배열
+     * @param obj 체크할 문자열
+     * @return boolean
+     */
+    gfn_getArrContains = function (arrVal, obj)
+    {
+        for (var key in arrVal)
+        {
+            if (arrVal[key] == obj) return true;
+        }
+        return false;
+    };
+
+    /**
+     * object 변수의 길이를 return 한다.
+     * ex) gfn_getObjkeyLength(rtnVal)
+     *
+     * @param obj 체크할 변수
+     * @return object length or 0
+     */
+    gfn_getObjkeyLength = function (obj)
+    {
+        if (obj == null) return 0;
+
+        if (typeof obj == "object")
+        {
+            var count = 0;
+            for (var key in obj)
+            {
+                if (obj.hasOwnProperty(key)) count++;
+            }
+            return count;
+        }
+        else
+        {
+            return 0;
+        }
+    };
+
+    /**
+     * 문자열을 CamelCase형식으로 변환 한다.
+     * ex) gfn_toCamelCase(rtnVal)
+     *
+     * @param strVal 변환할 문자열
+     * @return strVal CamcelCase로 변환된 문자열
+     */
+    gfn_toCamelCase = function (strVal)
+    {
+        //strVal = strVal.replace(/([^a-zA-Z0-9_\- ])|^[_0-9]+/g, "").trim().toLowerCase();
+        strVal = strVal.trim().toLowerCase();
+        strVal = strVal.replace(/([_]+)([a-zA-Z0-9])/g, function(a, b, c) {
+            return c.toUpperCase();
+        });
+        return strVal;
+    };
+    
+    /**
+     * 전화번호를 Mask 씌워 보여 준다.
+     *
+     * @param strVal 변환할 문자열
+     * @return retVal Mask로 변환된 전화번호
+     */
+    gfn_telNoMask = function (strVal)
+    {
+        if (gfn_isNull(strVal)) return "";
+		var retVal = strVal.replace(/(^02.{0}|^01.{1}|[0-9]{3})([0-9]+)([0-9]{4})/, '$1-$2-$3');
+		//var retVal = strVal.replace(/(^02.{0}|^01.{1}|[0-9]{3})([0-9]+)([0-9]{4})/, function(a, b, c, d) {
+        //    return b+'-'+c+'-'+d;
+        //});
+		return retVal;
+    };
+    
+    /**
+     * 사업자번호를 Mask 씌워 보여 준다.
+     *
+     * @param strVal 변환할 문자열
+     * @return retVal Mask로 변환된 사업자 등록번호
+     */
+    gfn_bsnNoMask = function (strVal)
+    {
+        if (gfn_isNull(strVal)) return "";
+		var retVal = gfn_removeSpecialChar(strVal).replace(/([0-9]{3})([0-9]+)([0-9]{5})/, '$1-$2-$3');
+		return retVal;
+    };
+    
+    /**
+     * 특수문자를 제거한다.
+     *
+     * @param strVal 변환할 문자열
+     * @return retVal 특수문자가 제거된 문자열
+     */
+    gfn_removeSpecialChar = function (strVal)
+    {
+        if (gfn_isNull(strVal)) return "";
+		var retVal = strVal.replace(/[\{\}\[\]\/?.,;:|\)*~`!^\-_+<>@\#$%&\\\=\(\'\"]/gi, "");
+		return retVal;
+    };
+
+}());
+
+var LimsUtil = {
+
+    BATCH_CODE_LIST_FORM : "",  	// 해당 Form
+    BATCH_CODE_LIST_DIV : "",   	// 해당 Div Component
+    BATCH_CODE_LIST : "",       	// 코드 리스트
+    BATCH_EXCLUDE_CODE_LIST : "",   // 예외처리 코드 리스트
+    BATCH_CODE_ALL_GUBUN : "",  	// Combo에 전체 출력 여부
+    BATCH_MAPPING_DS_LIST : "",		// 코드에 매핑시킬 DataSet 리스트
+    fv_rowPos : 0,
+    
+    /**
+	 * LimsUtil을 초기화 한다.
+	 * @return none
+	 */
+	init : function (objForm)
+	{
+		try 
+		{
+			setGridResize(objForm);
+		} 
+		catch(e) 
+		{
+			gfn_alert(e.message);
+		}
+	},
+
+    /**
+     * Form의 component 제어 함수
+     *
+     * @param obj Form
+     * @param objLvl 사용여부
+     * @param objSkipComp 예외처리 Component명
+     * @return none
+     */
+    setComponentAuth : function (obj, objLvl, objSkipComp)
+    {
+        // Skip Component존재 여부
+        var bIsSkipComp = false;
+        if (typeof objSkipComp != "undefined" && objSkipComp != null && objSkipComp instanceof Object)
+        {
+           bIsSkipComp = true;
+        }
+
+        for (var i = 0, iLen = obj.components.length; i < iLen; i++)
+        {
+            strType = obj.components[i].toString().toUpperCase();
+            strName = obj.components[i].name;
+            //trace("setComponentAuth : strType : " + strType + " / strName : " + strName);
+            if (strType == "[OBJECT STATIC]" || strType == "[OBJECT IMAGEVIEWER]") continue;
+
+            // Skip Component가 있으면 Skip한다.
+            if (bIsSkipComp)
+            {
+                if (gfn_getArrContains(objSkipComp, strName)) continue;
+            }
+
+            switch (strType)
+            {
+                case "[OBJECT STATIC]": break;
+                case "[OBJECT IMAGEVIEWER]": break;
+                case "[OBJECT EDIT]":
+                    obj.components[i].readonly = (objLvl==false?true:false);
+                    break;
+                case "[OBJECT MASKEDIT]":
+                    obj.components[i].readonly = (objLvl==false?true:false);
+                    break;
+                case "[OBJECT TEXTAREA]":
+                    obj.components[i].readonly = (objLvl==false?true:false);
+                    break;
+                case "[OBJECT CALENDAR]":
+                    obj.components[i].enable = (objLvl==false?false:true);
+                    break;
+                case "[OBJECT OBJCALMONTH]":
+                    obj.components[i].enable = (objLvl==false?false:true);
+                    break;
+                case "OBJCALENDAR":
+                    obj.components[i].enable = (objLvl==false?false:true);
+                    break;
+                case "[OBJECT COMBO]":
+                    obj.components[i].enable = (objLvl==false?false:true);
+                    break;
+                case "[OBJECT CHECKBOX]":
+                    obj.components[i].enable = (objLvl==false?false:true);
+                    break;
+                case "[OBJECT RADIO]":
+                    obj.components[i].readonly = (objLvl==false?true:false);
+                    break;
+                case "[OBJECT GRID]":
+                    obj.components[i].readonly = (objLvl==false?true:false);
+                    break;
+                case "[OBJECT BUTTON]":
+                    obj.components[i].enable = (objLvl==false?false:true);
+                    if (strName.indexOf("btn_search") == -1)
+                    {
+                        obj.components[i].visible = (objLvl==false?false:true);
+                    }
+                    break;
+                case "TELEPHONECOMPONENT":
+                    obj.components[i].enable = (objLvl==false?false:true);
+                default:
+                    break;
+            }
+        }
+    },
+
+    /**
+     * Popup Grid 선택 시 Row Parameter 배열 추출 함수
+     *
+     * @param objDs 배열로 추출할 DataSet
+     * @return arr 추출된 배열
+     */
+    setPopupParam : function (objDs)
+    {
+        var arr = {};
+        if (typeof objDs != "undefined" && objDs != null && objDs === '[object Dataset]')
+        {
+            var colId = "";
+            if (objDs.rowcount == 0) return arr;
+            for (var i = 0, iColCnt = objDs.getColCount(); i < iColCnt; i++)
+            {
+                colId = objDs.getColID(i);
+                arr[colId] = objDs.getColumn(objDs.rowposition, colId);
+            }
+        }
+        return arr;
+    },
+
+    /**
+     * 배열객체의 값을 DataSet Binding 함수
+     *  - 단, 배열객체의 항목명과 DataSet의 Column명이 동일해야 함.
+     *
+     * @param objDs Binding 할 DataSet
+     * @param arr 배열 객체
+     * @return none
+     */
+    setArrParamBind : function (objDs, arr)
+    {
+        if (typeof objDs != "undefined" &&
+            objDs != null &&
+            objDs === '[object Dataset]' &&
+            typeof arr != "undefined" &&
+            arr != null)
+        {
+            var colId = "";
+            for (var i = 0, iColCnt = objDs.getColCount(); i < iColCnt; i++)
+            {
+                colId = objDs.getColID(i);
+                if (typeof arr[colId] != "undefined" && arr[colId] != null)
+                {
+                    //trace(colId + " ==> " + arr[colId]);
+                    objDs.setColumn(objDs.rowposition, colId, arr[colId]);
+                }
+//                 else
+//                 {
+// 					objDs.setColumn(objDs.rowposition, colId, "");
+//                 }
+            }
+        }
+    },
+    
+    /**
+     * DataSet의 값을 Target DataSet에 Binding
+     * copyData를 사용하면 row에 안지워야 할것도 지워져서 별도로 만든다.
+     * 시험접수/상세 화면에서 사용
+     *
+     * @param targetObjDs Binding 할 Target DataSet
+     * @param objDs 원본 DataSet
+     * @return none
+     */
+    setDataSetToDataSetBind : function (targetObjDs, objDs)
+    {
+        if (typeof objDs != "undefined" &&
+            objDs != null &&
+            objDs === '[object Dataset]' &&
+            typeof targetObjDs != "undefined" &&
+            targetObjDs != null &&
+            targetObjDs === '[object Dataset]')
+        {
+            var colId = "";
+            if (objDs.rowcount == 0) return;
+            for (var i = 0, iColCnt = objDs.getColCount(); i < iColCnt; i++)
+            {
+                colId = objDs.getColID(i);
+                //trace("colId >>> " + colId + " , " + (targetObjDs.findRowExpr(colId + " == " + colId)));
+                if (targetObjDs.findRowExpr(colId + " == " + colId) == 0) {
+					targetObjDs.setColumn(targetObjDs.rowposition, colId, objDs.getColumn(objDs.rowposition, colId));
+				}
+            }
+        }
+    },
+
+    /**
+     * 해당 일자의 첫 날짜를 구한다.
+     *  - 단, 해당월의 1 ~ 7일까지는 전주의 날짜를 구한다.
+     *
+     * @param sDate 첫 날짜를 구할 일자
+     * @return sRetDate 해당 일자의 첫 날짜
+     */
+    getFirstDate : function (sDate)
+    {
+        var sRetDate = "";
+        if (typeof sDate == "undefined" || sDate == null)
+        {
+            sRetDate = gfn_today();
+        }
+        else
+        {
+			sRetDate = sDate;
+        }
+        return sDate.substr(0, 6) + "01";
+    },
+
+    /**
+     * Grid cell 클릭 Layer Popup 출력 함수
+     *
+     * @param objGrd Grid Object
+     * @param evtGrid GridClickEventInfo
+     * @param nPwidth 출력할 Layer Popup의 가로 크기
+     * @param nPheight 출력할 Layer Popup의 세로 크기
+     * @param sPpopupDivNm 출력할 Layer Popup 명
+     * @param sPopupUrl 출력할 Layer Popup 화면 URL
+     * @param objArg LayerPopup으로 넘겨줄 Parameter Object
+     * @param objForm LayerPopup으로 넘겨줄 Form Object
+     * @return none
+     */
+    gridLayerPopup : function (sPlayerPopup)
+    {
+        if (typeof sPlayerPopup.objGrd == "undefined" || sPlayerPopup.objGrd == null)
+        {
+            gfn_alert("msg.error"); // 시스템 관리자에게 문의하세요.
+            return;
+        }
+        if (typeof sPlayerPopup.evtGrid == "undefined" || sPlayerPopup.evtGrid == null)
+        {
+            gfn_alert("msg.error"); // 시스템 관리자에게 문의하세요.
+            return;
+        }
+        if (typeof sPlayerPopup.nPwidth == "undefined" || sPlayerPopup.nPwidth == null)
+        {
+            gfn_alert("msg.error"); // 시스템 관리자에게 문의하세요.
+            return;
+        }
+        if (typeof sPlayerPopup.nPheight == "undefined" || sPlayerPopup.nPheight == null)
+        {
+            gfn_alert("msg.error"); // 시스템 관리자에게 문의하세요.
+            return;
+        }
+        if (typeof sPlayerPopup.sPpopupDivNm == "undefined" || sPlayerPopup.sPpopupDivNm == null)
+        {
+            gfn_alert("msg.error"); // 시스템 관리자에게 문의하세요.
+            return;
+        }
+        if (typeof sPlayerPopup.sPopupUrl == "undefined" || sPlayerPopup.sPopupUrl == null)
+        {
+            gfn_alert("msg.error"); // 시스템 관리자에게 문의하세요.
+            return;
+        }
+        if (typeof sPlayerPopup.objForm == "undefined" || sPlayerPopup.objForm == null)
+        {
+            gfn_alert("msg.error"); // 시스템 관리자에게 문의하세요.
+            return;
+        }
+
+        var objGrd = sPlayerPopup.objGrd;
+        var evtGrid = sPlayerPopup.evtGrid;
+        var nPwidth = sPlayerPopup.nPwidth;
+        var nPheight = sPlayerPopup.nPheight;
+        var sPpopupDivNm = sPlayerPopup.sPpopupDivNm;
+        var sPopupUrl = sPlayerPopup.sPopupUrl;
+        var objArg = sPlayerPopup.objArg;
+
+        var arrCellRect = objGrd.getCellRect(evtGrid.row, evtGrid.cell);
+        var nLeft = system.clientToScreenX(objGrd, arrCellRect.left);
+        var nTop = system.clientToScreenY(objGrd, arrCellRect.bottom);
+        var nWidth = nPwidth;
+        var nHeight = nPheight;
+
+        var nBottom = nTop + nHeight;
+        var nRight = nLeft + nWidth;
+
+        // 화면 밖으로 벗어나는 Dialog 방지
+        var nMonitor = system.getMonitorIndex((nLeft+nRight)/2, (nTop+nBottom)/2);
+        var rectScreen = system.getScreenRect(nMonitor);
+        if (nBottom > rectScreen.bottom)
+        {
+            nTop = rectScreen.bottom - (nBottom - nTop);
+            nBottom = rectScreen.bottom;
+        }
+        if (nTop < rectScreen.top)
+        {
+            nBottom = rectScreen.top + (nBottom - nTop);
+            nTop = rectScreen.top;
+        }
+        if (nRight > rectScreen.right)
+        {
+            nLeft = rectScreen.right - (nRight - nLeft);
+            nRight = rectScreen.right;
+        }
+        if (nLeft < rectScreen.left)
+        {
+            nRight = rectScreen.left + (nRight - nLeft);
+            nLeft = rectScreen.left;
+        }
+
+        var sPopupDivNm = sPpopupDivNm;
+        if (typeof sPlayerPopup.objForm.all[sPopupDivNm] == "undefined" || sPlayerPopup.objForm.all[sPopupDivNm] == null)
+        {
+            objPopupDiv = new PopupDiv(sPopupDivNm, nLeft, nTop, nRight, nBottom);
+            sPlayerPopup.objForm.addChild(sPopupDivNm, objPopupDiv);
+            objPopupDiv.url = sPopupUrl;
+            objPopupDiv.style.background  = "#ffffff";
+            objPopupDiv.style.border = "1 solid #AAAAAA";
+            //objPopupDiv.style.showeffect = "trans 100 linear fade [starttime 0]";
+            objPopupDiv.show();
+            objPopupDiv.setFocus();
+        }
+
+        ////////////////////////////////////////////////////////
+        // LayerPopup에서 받을 공통 함수 호출
+        objPopupDiv.fn_setPopupParameter(objArg);
+        ///////////////////////////////////////////////////////
+
+        objPopupDiv.trackPopup(nLeft, nTop);
+
+        // 삭제
+        sPlayerPopup.objForm.removeChild(sPopupDivNm);
+        objPopupDiv.destroy();
+        objPopupDiv = null;
+    },
+
+    /**
+     * Object 클릭 코드 멀티선택 ComboBox Layer Popup 출력 함수
+     *
+     * @param objGubun Object 구분 ( 'comp' : 콤보박스, 'grid' : Grid )
+     * @param evtGrid GridClickEventInfo
+     * @param objInput ComboBox / Grid Object
+     * @param nPwidth 출력할 Layer Popup의 가로 크기
+     * @param nPheight 출력할 Layer Popup의 세로 크기
+     * @param sPpopupDivNm 출력할 Layer Popup 명
+     * @param sPopupUrl 출력할 Layer Popup 화면 URL
+     * @param objArg LayerPopup으로 넘겨줄 Parameter Object
+     * @param sObjInputFuc 결과를 받을 Function -> code, codeName [,]로 구분되어져 넘어온다.
+     * @param sParam1 기 체크되고 싶은 code값을 [,]로 구분하여 넘긴다.
+     * @param objForm LayerPopup으로 넘겨줄 Form Object
+     * @return none
+     */
+    gfn_objMultiComboLayerPopup : function (sPlayerPopup)
+    {
+        if (typeof sPlayerPopup.objGubun == "undefined" || sPlayerPopup.objGubun == null)
+        {
+            gfn_alert("msg.error"); // 시스템 관리자에게 문의하세요.
+            return;
+        }
+        if (typeof sPlayerPopup.objInput == "undefined" || sPlayerPopup.objInput == null)
+        {
+            gfn_alert("msg.error"); // 시스템 관리자에게 문의하세요.
+            return;
+        }
+        if (typeof sPlayerPopup.nPwidth == "undefined" || sPlayerPopup.nPwidth == null)
+        {
+            gfn_alert("msg.error"); // 시스템 관리자에게 문의하세요.
+            return;
+        }
+        if (typeof sPlayerPopup.nPheight == "undefined" || sPlayerPopup.nPheight == null)
+        {
+            gfn_alert("msg.error"); // 시스템 관리자에게 문의하세요.
+            return;
+        }
+        if (typeof sPlayerPopup.sPpopupDivNm == "undefined" || sPlayerPopup.sPpopupDivNm == null)
+        {
+            gfn_alert("msg.error"); // 시스템 관리자에게 문의하세요.
+            return;
+       }
+        if (typeof sPlayerPopup.sPopupUrl == "undefined" || sPlayerPopup.sPopupUrl == null)
+        {
+            gfn_alert("msg.error"); // 시스템 관리자에게 문의하세요.
+            return;
+        }
+        if (typeof sPlayerPopup.objForm == "undefined" || sPlayerPopup.objForm == null)
+        {
+            gfn_alert("msg.error"); // 시스템 관리자에게 문의하세요.
+            return;
+        }
+
+        var objGubun = sPlayerPopup.objGubun;
+        var evtGrid = (objGubun == 'grid' ? sPlayerPopup.evtGrid : null);
+
+        var objInput = sPlayerPopup.objInput;
+        var nPwidth = sPlayerPopup.nPwidth;
+        var nPheight = sPlayerPopup.nPheight;
+        var sPpopupDivNm = sPlayerPopup.sPpopupDivNm;
+        var sPopupUrl = sPlayerPopup.sPopupUrl;
+        var objArg = sPlayerPopup.objArg;
+
+        var arrCellRect = "";
+        var nLeft = "";
+        var nTop = "";
+
+        // ComboBox
+        if (objGubun == "comp")
+        {
+            nLeft = system.clientToScreenX(objInput, 0);
+            nTop = system.clientToScreenY(objInput, objInput.position.height);
+        }
+        else
+        {   // Grid
+            arrCellRect = objInput.getCellRect(evtGrid.row, evtGrid.cell);
+            nLeft = system.clientToScreenX(objInput, arrCellRect.left);
+            nTop = system.clientToScreenY(objInput, arrCellRect.bottom);
+        }
+
+        var nWidth = nPwidth;
+        var nHeight = nPheight;
+
+        var nBottom = nTop + nHeight;
+        var nRight = nLeft + nWidth;
+
+        // 화면 밖으로 벗어나는 Dialog 방지
+        var nMonitor = system.getMonitorIndex((nLeft+nRight)/2, (nTop+nBottom)/2);
+        var rectScreen = system.getScreenRect(nMonitor);
+        if (nBottom > rectScreen.bottom)
+        {
+            nTop = rectScreen.bottom - (nBottom - nTop);
+            nBottom = rectScreen.bottom;
+        }
+        if (nTop < rectScreen.top)
+        {
+            nBottom = rectScreen.top + (nBottom - nTop);
+            nTop = rectScreen.top;
+        }
+        if (nRight > rectScreen.right)
+        {
+            nLeft = rectScreen.right - (nRight - nLeft);
+            nRight = rectScreen.right;
+        }
+        if (nLeft < rectScreen.left)
+        {
+            nRight = rectScreen.left + (nRight - nLeft);
+            nLeft = rectScreen.left;
+        }
+
+        var sPopupDivNm = sPpopupDivNm;
+        if (typeof sPlayerPopup.objForm.all[sPopupDivNm] == "undefined" || sPlayerPopup.objForm.all[sPopupDivNm] == null)
+        {
+            objPopupDiv = new PopupDiv(sPopupDivNm, nLeft, nTop, nRight, nBottom);
+            sPlayerPopup.objForm.addChild(sPopupDivNm, objPopupDiv);
+            objPopupDiv.url = sPopupUrl;
+            objPopupDiv.style.background  = "#ffffff";
+            objPopupDiv.style.border = "1 solid #AAAAAA";
+            objPopupDiv.show();
+            objPopupDiv.setFocus();
+        }
+
+        ////////////////////////////////////////////////////////
+        // LayerPopup에서 받을 공통 함수 호출
+        objPopupDiv.fn_setPopupParameter(objArg);
+        ///////////////////////////////////////////////////////
+
+        //objPopupDiv.trackPopup(nLeft, nTop);
+        objPopupDiv.trackPopup(nLeft, nTop);
+
+        // 삭제
+        sPlayerPopup.objForm.removeChild(sPopupDivNm);
+        objPopupDiv.destroy();
+        objPopupDiv = null;
+    },
+
+    /**
+     * 텍스트 입력 시 해당 내용으로 포커스 이동
+     *
+     * @param objDs 검색할 DataSet
+     * @param grdField 검색할 binding Field
+     * @param strVal 검색할 내용
+     * @return none
+     */
+    setFindDataPosition : function(objDs, grdField, strVal, objTxtComp, nRowPos)
+    {
+        var rowPos = 0;
+        if (gfn_isNull(strVal))
+        {
+            objDs.rowposition = 0;
+        }
+        else
+        {
+			if (nRowPos != undefined) fv_rowPos = nRowPos;
+            //rowPos = objDs.findRowAs(grdField, strVal);
+            //rowPos = objDs.findRowExpr("String(" + grdField + ").substr(0," + strVal.length + ").indexOf('" + strVal + "') >= 0");
+            rowPos = objDs.findRowExpr("String(" + grdField + ").indexOf(\"" + strVal + "\") >= 0", fv_rowPos);
+            if (rowPos != -1)
+            {
+                objDs.rowposition = rowPos;
+                fv_rowPos = rowPos + 1;
+                return;
+            }
+            else
+            {
+				fv_rowPos = 0;	// 다 찾았으면 처음으로 이동
+            }
+        }
+    },
+
+    /**
+     * full 파일명에서 확장자를 추출 한다.
+     *
+     * @param sFilename 검추출할 full 파일명
+     * @return retVal 추출된 확장자
+     *                ex) .jpg
+     */
+    getFileExt : function(sFilename)
+    {
+        var retVal = "";
+        if (typeof sFilename != "undefined" && sFilename != null && sFilename != "")
+        {
+            var idx = sFilename.indexOf(".");
+            retVal = sFilename.substr(idx);
+        }
+        return retVal;
+    },
+
+    /**
+     * 파일 다운로드 처리를 한다.
+     *
+     * @param objForm Form Object
+     * @param objHttp http Object
+     * @param attachfileurl 파일이 존재하는 서버경로
+     * @param strFileName 원본 파일명
+     * @param svrFilenm 서버 파일명
+     * @param webRepoYn 첨부파일 저장소를 webapp아래로 할지 여부
+     * @return bResult boolean
+     */
+    fileDownload : function (objForm, objHttp, attachfileurl, strFileName, svrFilenm, webRepoYn)
+    {
+        // Create Object
+        var fd = new FileDialog();
+        fd.defaultextention = true;
+        fd.filter = "All(*.*)|*.*|";
+        var bResult = true;
+
+        //trace("******>  downloadurl=" + attachfileurl + ",   attachfilenm=" + strFileName);
+        var vFile_down = fd.open("File Download", FileDialog.SAVE ,"%MYDOCUMENT%", strFileName);
+        if (vFile_down)
+        {
+            var strUrl = application.services["svc"].url + "sc/cmn/downloadFile.do?webRepoYn="+webRepoYn+"&relPath="+attachfileurl+"&fileName="+svrFilenm;
+			bResult = objHttp.download(strUrl, vFile_down, false);
+        }
+        else
+        {
+            bResult = false;    // 폴더선택 Dialog에서 취소했을 경우
+        }
+        return bResult;
+    },
+
+    /**
+     * 멀티 건 파일 다운로드 처리를 한다. - 공통함수 적용
+     *  첨부파일 조회 후 Callback에서 다운로드 처리
+     *  그리드의 첨부파일 다운로드 시 사용.
+     *
+     * @param thisForm 호출 Form
+     * @param strRefSeq 첨부파일 참조순서
+     * @param strDs 받을 첨부파일 DataSet
+     * @return none
+     */
+    fileDownloadAttach : function (thisForm, strRefSeq, strDs)
+    {
+        if (!gfn_confirm("첨부파일 전체를 다운로드 하시겠습니까?"))
+        {
+            return;
+        }
+
+        var strSvcID    = "fileAttachDownload";
+        var strURL      = "ls/lcm/formMgmt/selectAttachFileList.xdo";
+        var strInDs     = "";
+        var strOutDs    = "ds_file=ds_file";
+        var strArg      = "refSeq=" + strRefSeq + " retrunDataSet=" + strDs;
+        var strCallback = "LimsUtil.limsCallBack";
+        var bAsync      = true;
+
+        gfn_transaction(thisForm, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+    },
+
+    /**
+     * Unicode -> 한글 변환 (CS 상담에서 사용)
+     *
+     * @param strValue 변환할 Unicode
+     * @return 변환된 한글
+     */
+    convUnicodeToHangul : function (strValue)
+    {
+        return unescape(strValue.replace(/\\/gi,"%"));
+    },
+
+    /**
+     * 한글 -> Unicode (CS 상담에서 사용)
+     *
+     * @param strValue 변환할 한글문자열
+     * @return 변환된 Unicode
+     */
+    convHangulToUnicode : function (strValue)
+    {
+        return escape(str).replace(/%/gi, "\\");
+    },
+    
+    /**
+     * 1depth 메뉴 Text Size 반환 
+     *
+     * @param thisObject
+     * @param sText (사이즈를 계산할 텍스트 )
+     * @param objFont (Font정보를 가지고 있는 object입니다.)
+     * @return 계산된 사이즈가 저장된 Size object
+     */
+	getTextSize : function(thisObj, sText, objFont)
+	{
+		var objPainter = thisObj.canvas.getPainter();
+		var objTextSize = objPainter.getTextSize(sText, objFont);
+
+		return objTextSize;	//cx,cy
+	},
+	
+    /**
+     * Font Object 생성 반환
+     *
+     * @return Font Object
+     */
+	getObjFont : function()
+	{
+		var objFont = new Font;
+		objFont.size = 9;
+		objFont.name = "Gulim";
+
+		return objFont;
+	},
+
+    /**
+     * Grid의 column size 제어 함수
+     *  Grid의 크기가 커지면 Grid의 크기에 맞게 변경되고 다시 줄이면 Grid본래의 크기로 돌린다.
+     *  단, autofittype이 col인 경우는 제외 시킨다.
+     *
+     * @param obj Form
+     * @return none
+     */
+    setGridResize : function (obj)
+    {
+        var strType;
+        var strName;
+        var preAutofittype;
+        var bAutoSelectEnable = true;
+
+        for (var i = 0, iLen = obj.components.length; i < iLen; i++)
+        {
+            strType = obj.components[i].toString().toUpperCase();
+            strName = obj.components[i].name;
+            //trace("setComponentAuth : strType : " + strType + " / strName : " + strName);
+
+            switch (strType)
+            {
+                case "[OBJECT EDIT]":
+					obj.components[i].autoselect = bAutoSelectEnable;
+                    // Edit value를 ToolTip으로 출력
+                    obj.components[i].onmouseenter.addHandler(gfn_editTextTooltipViewEvent);
+                    break;
+                case "[OBJECT COMBO]":
+                    // Edit value를 ToolTip으로 출력
+                    obj.components[i].onmouseenter.addHandler(gfn_editTextTooltipViewEvent);
+                    break;
+                case "[OBJECT MASKEDIT]":
+                    obj.components[i].autoselect = bAutoSelectEnable;
+                    break;
+                case "[OBJECT CALENDAR]":
+                    obj.components[i].autoselect = bAutoSelectEnable;
+                    break;
+                case "[OBJECT OBJCALMONTH]":
+                    obj.components[i].autoselect = bAutoSelectEnable;
+                    break;
+                case "[OBJECT OBJCALENDAR]":
+                    obj.components[i].autoselect = bAutoSelectEnable;
+                    break;
+                case "[OBJECT GRID]":
+                    if (obj.components[i].autofittype != "col")
+                    {
+                        obj.components[i].onsize.addHandler(function(obj, e) {
+							if (obj.position.width > obj.getRealColFullSize())
+							{
+								obj.autofittype = "col";
+							}
+							else
+							{
+								obj.autofittype = "none";
+							}
+                        }); // resize 제어
+                    }
+                    // Grid에서 Colsize 체크해서 Text보다 길이가 적으면 Tooltip을 보여준다.
+                    // Div에서의 ExtCommon 오동작으로 인해 함수를 별도로 구현하여 사용한다.
+					obj.components[i].onmousemove.addHandler(function(obj, e) {
+						if (e.row < 0) {
+							obj.tooltiptext = ""; // tooltiptext 초기화
+							return;
+						}
+						if (e.cell == undefined) {
+							obj.tooltiptext = ""; // tooltiptext 초기화
+							return;
+						}
+						if (e.cell == -1) {
+							obj.tooltiptext = ""; // tooltiptext 초기화
+							return;
+						}
+						if (obj.getCellCount("Body") < e.cell) {
+							obj.tooltiptext = ""; // tooltiptext 초기화
+							return;
+						}
+// 						if (obj.getCellProperty("body", e.cell, "displaytype") == undefined) {
+// 							obj.tooltiptext = ""; // tooltiptext 초기화
+// 							return;
+// 						}
+						if (obj.getCellProperty("body", e.cell, "displaytype") == "checkbox" ||
+						    obj.getCellProperty("body", e.cell, "displaytype") == "radio") {
+						    // new String(obj.getCellProperty("body", e.cell, "text")).toUpperCase().indexOf("EXPR") == -1) {
+							return;
+						}
+						var fontObj = LimsUtil.getObjFont();
+						try {
+							var sCellTextLen = LimsUtil.getTextSize(obj, obj.getCellText(e.row, e.cell), fontObj);
+							if (sCellTextLen.cx > obj.getRealColSize(e.cell)) 
+							{
+								obj.tooltiptext = obj.getCellText(e.row, e.cell); // cell의 width 보다 클 경우만 tooltiptext 셋팅.
+							} 
+							else 
+							{
+								obj.tooltiptext = ""; // tooltiptext 초기화
+							}
+						} catch (e) {
+							obj.tooltiptext = ""; // tooltiptext 초기화
+						}
+					});
+					// Grid 클릭시 Combo, Calendar항목을 자동 DropDown하여 보여준다.
+					var nCnt = obj.components[i].getCellCount("Body");
+					var edtType = "";
+					var dispType = "";
+					for (var j = 0; j < nCnt; j++)
+					{
+						edtType = obj.components[i].getCellProperty("body", j, "edittype");
+						//dispType = obj.components[i].getCellProperty("body", j, "displaytype");
+						if (typeof edtType != "undefined" && edtType != "none" && new String(edtType).toUpperCase().indexOf("EXPR") == -1)
+						{
+							// Grid Property가 Edit Mode none이 아닌경우 Cursor를 손가락으로 변환한다.
+							// expr의 여러 Case때문에 주석처리
+							// obj.components[i].setCellProperty("body", j, "cursor", "pointer");
+							// Grid 클릭시 Combo, Calendar 자동 보여주기
+							switch (edtType)
+							{
+								case "combo" :
+									// 그리드의 콤보 선택 시 바로 dropdown되게 처리한다.
+// 									obj.components[i].oncellclick.addHandler(function(obj, e) {
+// 										obj.dropdownCombo();
+// 									});
+									break;
+								case "date" :
+									// 그리드의 카렌터 선택 시 바로 dropdown되게 처리한다.
+// 									obj.components[i].oncellclick.addHandler(function(obj, e) {
+// 										obj.dropdownCalendar();
+// 									});
+									break;
+								case "text" :
+								case "normal" :
+								case "mask" :
+								case "masknumber" :
+									obj.components[i].setCellProperty("body", j, "editautoselect", bAutoSelectEnable);
+									break;
+								default :
+									break;
+							}
+						}
+					}
+                    break;
+                case "[OBJECT TAB]":
+                    setGridResize(obj.components[i]);   // Tab안의 그리드를 위해
+                    break;
+                case "[OBJECT TABPAGE]":
+                    setGridResize(obj.components[i]);   // TabPage안의 그리드를 위해
+                    break;
+                case "[OBJECT DIV]":
+                    setGridResize(obj.components[i]);   // Div안의 그리드를 위해
+                    break;
+                default:
+                    break;
+            }
+        }
+    },
+    
+    /**
+     * 배열에 해당되는 Grid의 콤보 edittype를 세팅 한다.
+     *
+     * @param obj Grid
+     * @param arrVal 배열 객체
+     * @return none
+     */
+    setGrdComboCallback : function (obj:Grid, arrVal)
+    {
+        var nCnt = obj.getCellCount("Body");
+        for (var j = 0; j < nCnt; j++)
+        {
+            colName = obj.getCellProperty("body", j, "text").replace("bind:", "");
+            for (var key in arrVal)
+            {
+                if (colName == arrVal[key])
+                {
+                    obj.setCellProperty("body", j, "edittype", "expr:getRowType(currow)=='1'?'none':'combo'");
+                }
+            }
+        }
+    },
+
+    /**
+     * 배열에 해당되는 Grid의 CheckBox edittype를 세팅 한다.
+     *
+     * @param obj Grid
+     * @param arrVal 배열 객체
+     * @return none
+     */
+    setGrdCheckBoxCallback : function (obj:Grid, arrVal)
+    {
+        var nCnt = obj.getCellCount("Body");
+        for (var j = 0; j < nCnt; j++)
+        {
+            colName = obj.getCellProperty("body", j, "text").replace("bind:", "");
+            for (var key in arrVal)
+            {
+                //trace(arrVal[key]);
+                if (colName == arrVal[key])
+                {
+                    obj.setCellProperty("body", j, "edittype", "expr:getRowType(currow)=='1'?'none':'checkbox'");
+                }
+            }
+        }
+    },
+
+    /**
+     * 배열객체의 값을 DataSet Binding 함수
+     *
+     * @param objDs Binding 할 DataSet
+     * @param arr 배열 객체
+     * @param arrOriBindField bind대상 원본 항목
+     * @param arrBindField bind시킬 target 항목
+     * @return none
+     */
+    setMultiComboDataSetBind : function (objDs, targetObjDs, arrOriBindField, arrBindField)
+    {
+        var nIdx = 0;
+        if (typeof objDs != "undefined" &&
+            objDs != null &&
+            objDs === '[object Dataset]' &&
+            typeof targetObjDs != "undefined" &&
+            targetObjDs != null &&
+            targetObjDs === '[object Dataset]')
+        {
+            targetObjDs.clearData();
+            for (var i = 0, iColCnt = objDs.rowcount; i < iColCnt; i++)
+            {
+				if (objDs.getColumn(i, "code") == "") continue;
+				
+                nIdx = targetObjDs.addRow();
+                for (var j = 0; j < arrBindField.length; j++)
+                {
+                    targetObjDs.setColumn(nIdx, arrBindField[j], objDs.getColumn(i, arrOriBindField[j]));
+                }
+            }
+        }
+    },
+
+    /**
+     * 공통코드를 일괄적으로 가져오는 함수
+     *  ex) var codeList = "SPECM_CLASS,SPECM_TYPE,COST_CLASS,INSPT_CLASS";
+     *      LimsUtil.selectCodeBatchList(this, null, codeList, excludeCodeList, "ALL");
+     *
+     * @param thisForm Form
+     * @param thisDiv combo component가 존재하는 div id
+     * @param codeList 공통코드 리스트
+     * @param excludeCodeList bind제외 ComboBox
+     * @param allGubun DataSet에 All 추가 여부
+     * @return none
+     */
+    selectCodeBatchList : function (thisForm, thisDiv, codeList, excludeCodeList, allGubun, mappingDsList)
+    {
+        LimsUtil.BATCH_CODE_LIST_FORM = thisForm;
+        LimsUtil.BATCH_CODE_LIST_DIV = thisDiv;
+        LimsUtil.BATCH_CODE_LIST = codeList;
+        if (typeof excludeCodeList != "undefined" && excludeCodeList != null)
+        {
+            LimsUtil.BATCH_EXCLUDE_CODE_LIST = excludeCodeList;
+        }
+        if (typeof allGubun != "undefined" && allGubun != null)
+        {
+            LimsUtil.BATCH_CODE_ALL_GUBUN = allGubun;
+        }
+        if (typeof mappingDsList != "undefined" && mappingDsList != null)
+        {
+            LimsUtil.BATCH_MAPPING_DS_LIST = mappingDsList;
+        }
+
+        // DataSet 생성
+        var outDsId = "ds_codeList";
+        if (thisForm.all[outDsId] != null) thisForm.removeChild(outDsId);
+        outDs = new Dataset();
+        outDs.id = outDsId;
+        outDs.name = outDsId;
+        thisForm.addChild(outDsId, outDs);
+
+        var strSvcID    = "selectCodeBatchList";
+        var strURL      = "ls/lcm/scArticleMgmt/selectCodeDtlBatchList.xdo";
+        var strInDs     = "";
+        var strOutDs    = "ds_codeList=ds_codeList";
+        var strArg      = "groupCodeList=" + BATCH_CODE_LIST;
+        var strCallback = "LimsUtil.limsCallBack";
+        var bAsync      = true;
+
+        gfn_transaction(thisForm, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync, false);
+    },
+
+    /**
+     * 공통코드를 일괄적으로 가져와서 DataSet에 Copy하는 CallBack 함수
+     *  ex) var codeList = "SPECM_CLASS,SPECM_TYPE,COST_CLASS,INSPT_CLASS";
+     *      LimsUtil.selectCodeBatchList(this, null, codeList, excludeCodeList, "ALL");
+     *
+     * @param svcId 서비스ID
+     * @param errCode 오류 코드
+     * @param errMsg 오류 메세지
+     * @return none
+     */
+    limsCallBack : function(svcId, errCode, errMsg)
+    {
+        if (errCode < 0)
+        {
+            return;
+        }
+
+        switch(svcId)
+        {
+            // 코드 일괄 조회
+            case "selectCodeBatchList" :
+                var tmpCodeList = LimsUtil.BATCH_CODE_LIST.split(",");
+                var tmpCamelGroupCode = "";
+                var tmpDs = "";
+                var tmpCombo = "";
+                var tmpExcludeCodeList = "";
+                var tmpMappingDsList = "";
+                var tmpObj;
+                var exCnt = 0;
+
+                // ComboBox binding 제외 component 추출
+                //if (!gfn_isNull(LimsUtil.BATCH_EXCLUDE_CODE_LIST))
+                if (typeof LimsUtil.BATCH_EXCLUDE_CODE_LIST != "undefined" && LimsUtil.BATCH_EXCLUDE_CODE_LIST != null && LimsUtil.BATCH_EXCLUDE_CODE_LIST != "")
+                {
+                    tmpExcludeCodeList = LimsUtil.BATCH_EXCLUDE_CODE_LIST.split(",");
+                }
+                if (typeof LimsUtil.BATCH_MAPPING_DS_LIST != "undefined" && LimsUtil.BATCH_MAPPING_DS_LIST != null && LimsUtil.BATCH_MAPPING_DS_LIST != "")
+                {
+                    tmpMappingDsList = LimsUtil.BATCH_MAPPING_DS_LIST.split(",");
+                }
+                //trace("tmpMappingDsList >>> " + tmpMappingDsList);
+
+                for (var i = 0, iColCnt = tmpCodeList.length; i < iColCnt; i++)
+                {
+                    exCnt = 0;
+                    ds_codeList.filter("groupCode == '" + tmpCodeList[i] + "'");    // GroupCode로 Filter
+                    if (!gfn_isNull(tmpMappingDsList)) {
+						tmpCamelGroupCode = gfn_trim(tmpMappingDsList[i]);
+						tmpDs = tmpCamelGroupCode;
+                    } else {
+						tmpCamelGroupCode = gfn_toCamelCase(gfn_trim(tmpCodeList[i]));  // CamelCase 형식으로 변환
+						tmpDs = "ds_"+tmpCamelGroupCode;
+                    }
+                    //trace("tmpCamelGroupCode >>> " + tmpCamelGroupCode);
+
+                    if (LimsUtil.BATCH_CODE_LIST_DIV != null)
+                        tmpObj = LimsUtil.BATCH_CODE_LIST_DIV;
+                    else
+                        tmpObj = LimsUtil.BATCH_CODE_LIST_FORM;
+
+                    if (LimsUtil.BATCH_CODE_LIST_FORM.all[tmpDs] != null)
+                    {
+                        tmpDs = eval(tmpDs);
+                        tmpDs.copyData(ds_codeList, true);  // 필터된 DataSet copy
+                        // All 구분 추가
+                        if (LimsUtil.BATCH_CODE_ALL_GUBUN == "ALL")
+                        {
+                            tmpDs.insertRow(0);
+                            tmpDs.setColumn(0, "code", "");
+                            tmpDs.setColumn(0, "codeName", "전체");
+                        }
+
+                        tmpCombo = "cbo_"+tmpCamelGroupCode;
+                        if (tmpObj.all[tmpCombo] != null)
+                        {
+                            // binding제외 후 ComboBox 추출
+                            for (var j = 0, iCnt = tmpExcludeCodeList.length; j < iCnt; j++)
+                            {
+                                if (tmpCombo == tmpExcludeCodeList[j]) exCnt++;
+                            }
+                            // binding제외 후 ComboBox에 Binding
+                            if (exCnt == 0)
+                            {
+                                eval("tmpObj."+tmpCombo).codecolumn = "code";
+                                eval("tmpObj."+tmpCombo).datacolumn = "codeName";
+                                eval("tmpObj."+tmpCombo).innerdataset = tmpDs;
+                                // All 구분추가 시 All 선택
+                                if (LimsUtil.BATCH_CODE_ALL_GUBUN == "ALL")
+                                {
+                                    eval("tmpObj."+tmpCombo).index = 0;
+                                }
+                            }
+                        }
+                    }
+                }
+                fn_codeBatchCallback(); // 작업이 끝난 후 실행되는 화면단 callback 함수
+                break;
+            // 그리드에서의 멀티 건 파일 다운로드 처리를 한다
+            case "fileAttachDownload" :
+                var FileDialog_Common = new FileDialog();
+                FileDialog_Common.defaultextention = true;
+
+                // 내문서 밑 hwfs 폴더에 파일 생성
+                var vFileDown = new VirtualFile;
+                vFileDown.createDirectory("hwfs");
+
+                //파일 저장 위치 지정
+                var v_FileDownDir = FileDialog_Common.open("파일 저장", FileDialog.SELFOLDER, "%MyDocument%hwfs");
+                if (gfn_isNull(v_FileDownDir))
+                {
+                    gfn_alert("msg.err.nofilepath");    // 경로가 지정되지 않았습니다.
+                    return false;
+                }
+
+                // 그리드에서는 파일선택이 불가능하므로 첨부파일 전체를 받아 내린다.
+                //trace(fv_retrunDataSet);
+                var v_nCheckCnt = eval(fv_retrunDataSet).rowcount;
+                gfn_dialog("fileDownload", "cmn::FileMultiDownProgress.xfdl", {av_oDataSet:eval(fv_retrunDataSet), av_nCheckCnt:v_nCheckCnt, av_sFileDownDir:v_FileDownDir});
+                break;
+            case "rptIssuePreviewClose" :
+				break;
+			case "setLimsAuthLevels" :
+				//trace(gds_limsAuthLevels.saveXML());
+				break;
+        }
+    },
+    
+    /**
+     * 성적서 미리보기 후 Open Url로 이동된 성적서를 삭제 한다.
+     *
+     * @param thisForm Form
+     * @param retVal 미리보기 화면에서 넘어온 값
+     * @param arrParam
+     * @return none
+     */
+    inspectRptPreviewClose : function (thisForm, rtnVal, arrParam, objDs)
+    {
+        if (typeof rtnVal != "undefined" && rtnVal != null && rtnVal != "")
+		{
+			eval(objDs).setColumn(0, "reqNum", arrParam[0]);
+			eval(objDs).setColumn(0, "acceptNum", arrParam[1]);
+			
+			var strSvcID    = "rptIssuePreviewClose";
+			var strURL      = "ls/lem/inspectRptIssueInquery/selectInspectRptPreviewClose.xdo";
+			var strInDs     = objDs+"="+objDs+":A";
+			var strOutDs    = "";
+			var strArg      = "";
+			var strCallback = "LimsUtil.limsCallBack";
+			var bAsync      = true;
+
+			gfn_transaction(thisForm, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync, false);
+		}
+    },
+    
+    /**
+     * 특정 row에 대한 valid만 체크 한다.
+     *
+     * @param obj 체크 대상 DataSet
+     * @param 체크 DataSet
+     * @return boolean
+     */
+	rowValidCheck : function (obj, objDsValid)
+	{
+		var sObjType = gfn_getObjType(obj);
+		if (sObjType == "Grid")
+		{
+			var objGrd = obj;
+			var objDs = eval(objGrd.binddataset);
+		} 
+		else if (sObjType == "Dataset")
+		{	
+			var objDs = obj;
+		}
+		else 
+		{
+			gfn_alert("첫번째 Argument에는 Grid or Dataset이 와야 합니다.");
+			return;
+		}
+
+		var nColCnt = objDs.getColCount();
+		for (var j = 0; j < nColCnt; j++) 
+		{
+			// Validation 체크
+			var rtnVal = gfn_itemCheck(objDs.rowposition, j, objDs, objDsValid);
+
+			if (rtnVal != true) 
+			{
+				this.enableevent = false;
+				// Message 처리
+				gfn_message("A", rtnVal);
+				
+				var strColNm = objDs.getColID(j);
+				
+				// Grid setFocus 처리
+				if (sObjType == "Grid" && objDsValid.getColumn(0, strColNm).indexOf("focus") == -1) 
+				{
+					objGrd.setCellPos(objGrd.getBindCellIndex("Body", objDs.getColID(j)));
+					objGrd.showEditor(true);
+					objGrd.setFocus();
+				}					
+				// Validation에 focus가 있는 경우 Component로 setFocus 처리
+				else if (objDsValid.getColumn(0, strColNm).indexOf("focus") > -1)
+				{
+					var arrItem1 = objDsValid.getColumn(0, strColNm).split(",");
+					var arrItem2 = new Array();
+					for (var i = 0; i < arrItem1.length; i++) 
+					{
+						arrItem2 = arrItem1[i].split(":");
+						if (arrItem2[0] == "focus") 
+						{
+							eval(arrItem2[1]).setFocus();
+						}
+					}
+				}
+				this.enableevent = true;
+				return false;
+			}
+		}
+
+		return true;
+	},
+	
+	/**
+     * 특정 화면에 대하여 삭제권한을 부여하지 않는다.
+     *
+     * @param obj 체크 대상 DataSet
+     * @param 체크 DataSet
+     * @return boolean
+     */
+	setAuthDeleteBtn : function()
+	{
+		// 검사자는 삭제 권한을 안준다.
+		if ( gds_limsAuthLevels.findRow('authCd', '102') != -1 ||
+			 gds_limsAuthLevels.findRow('authCd', '103') != -1 ||
+			 gds_limsAuthLevels.findRow('authCd', '104') != -1 ||
+			 gds_limsAuthLevels.findRow('authCd', '105') != -1) {
+			div_cmnBtn.btn_delete.enable = true;
+		} else {
+			div_cmnBtn.btn_delete.enable = false;
+		}
+	},
+	
+	/**
+     * LIMS 권한 세팅
+     *
+     * @param thisForm Form
+     * @return none
+     */
+    setLimsAuthLevels : function (thisForm)
+    {
+		var strSvcID    = "setLimsAuthLevels";
+		var strURL      = "ls/lcm/introFrameLims/selectLimsAuthLevels.xdo";
+		var strInDs     = "";
+		var strOutDs    = "gds_limsAuthLevels=gds_limsAuthLevels";
+		var strArg      = "";
+		var strCallback = "LimsUtil.limsCallBack";
+		var bAsync      = false;
+
+		gfn_transaction(thisForm, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync, false);
+    }
+
+};
+
+// Grid의 column size 제어 함수
+LimsUtil.init (this);
+]]></Script>

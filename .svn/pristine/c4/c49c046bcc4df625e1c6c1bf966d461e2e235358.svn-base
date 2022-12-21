@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[업장표준레시피 검색]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+ SELECT 
+       A.UPJANG
+      ,A.MENU_CD
+      ,A.MENU_DATE       --제공일
+      ,NVL(A.MEAL_NM||A.CORNER_NM,A.MENU_FEATURE)   MENU_FEATURE  --식단특성
+      ,A.SALE_PRICE      --식단가
+      ,SUM(ROUND(PAST_PRICE)) AS CUR_PRICE --과거원가
+      ,DECODE(A.SALE_PRICE,0,0,ROUND(SUM(PAST_PRICE) / A.SALE_PRICE * 100,1)) COST_RATE2 --과거원가 대비 원가율
+      ,FSM_REAL_RECIPE_NAME_FUN(A.UPJANG, A.MENU_CD) AS RECIPE_INFO --구성
+      ,A.HALL_CD         --식당코드
+      ,A.HALL_NAME       --식당
+  FROM
+       (
+        SELECT A.UPJANG, A.MENU_CD, A.MENU_DATE, A.HALL_CD, D.HALL_NAME, A.MEAL, A.CORNER, A.SALE_PRICE,
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE CODE=A.MEAL AND GROUP_CODE='FS0023') MEAL_NM,
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE CODE=A.CORNER AND GROUP_CODE='FS0022') CORNER_NM,
+               A.MENU_FEATURE, C.ITEM_CODE, C.NEED_QTY,
+               NVL((C.NEED_QTY * ROUND(NVL((C.MARGIN_PRICE / F.KG_CONVERT_RATE / 1000),0),2)),0) AS PAST_PRICE
+          FROM
+               FSM_REAL_MENU_MST A
+              ,FSM_REAL_RECIPE_MST B
+              ,FSM_REAL_RECIPE_ITEM C
+              ,FSA_HALL_MST D
+              ,HLDC_PO_ITEM_MST F
+         WHERE A.UPJANG = B.UPJANG
+           AND A.MENU_CD = B.MENU_CD
+           AND B.UPJANG = C.UPJANG
+           AND B.MENU_CD = C.MENU_CD
+           AND B.RECIPE_CD = C.RECIPE_CD
+           AND A.UPJANG = D.UPJANG
+           AND A.HALL_CD = D.HALL_CD
+           AND C.ITEM_CODE = F.ITEM_CODE
+           -- AND A.MEAL IS NULL
+           -- AND A.CORNER IS NULL
+           AND A.UPJANG = #UPJANG#        --사업장
+<isNotNull col="HALL_CD">
+           AND A.HALL_CD = #HALL_CD#     --식당코드
+</isNotNull>
+<isNotNull col="FROM_DATE">
+           AND A.MENU_DATE BETWEEN #FROM_DATE# AND #TO_DATE# --기간
+</isNotNull>
+<isNotNull col="MENU_FEATURE">
+		   AND A.MENU_FEATURE like '%'||TRIM( #MENU_FEATURE#)||'%'
+</isNotNull>
+<isNotNull col="RECIPE_NAME">
+		   AND FSM_REAL_RECIPE_NAME_FUN(A.UPJANG, A.MENU_CD) LIKE '%' || #RECIPE_NAME# || '%'
+</isNotNull>
+       ) A
+ GROUP BY A.UPJANG
+         ,A.MENU_CD
+         ,A.MENU_DATE
+         ,A.HALL_CD
+         ,A.HALL_NAME
+         ,A.MENU_FEATURE
+         ,A.MEAL_NM,A.CORNER_NM
+         ,A.SALE_PRICE	</statement>
+	<input default-name="ds_cond">
+		<col name="UPJANG" size="6" type="NUMERIC" description="" /> 
+		<col name="HALL_CD" size="255" type="VARCHAR" description="" /> 
+		<col name="FROM_DATE" size="255" type="VARCHAR" description="" /> 
+		<col name="TO_DATE" size="255" type="VARCHAR" description="" /> 
+		<col name="MENU_CD" size="255" type="VARCHAR" description="" /> 
+		<col name="RECIPE_SEQ" size="255" type="VARCHAR" description="" /> 
+		<col name="RECIPE_NAME" size="255" type="VARCHAR" description="" /> 
+		<col name="SUBINV_CODE" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="COST_RATE1" size="22" type="NUMERIC" description="" /> 
+		<col name="COST_RATE2" size="22" type="NUMERIC" description="" /> 
+		<col name="CUR_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="HALL_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="HALL_NAME" size="50" type="VARCHAR" description="" /> 
+		<col name="MENU_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="MENU_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="MENU_FEATURE" size="200" type="VARCHAR" description="" /> 
+		<col name="PAST_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="RECIPE_INFO" size="4000" type="VARCHAR" description="" /> 
+		<col name="SALE_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+	</output>
+</query>

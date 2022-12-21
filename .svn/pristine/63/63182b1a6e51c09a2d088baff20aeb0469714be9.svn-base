@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[평가점수]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT   '레시피' AS NM
+         ,ROUND(100 - ((100 * SUM(CASE WHEN CNT > 1 THEN CNT ELSE 0 END)) / SUM(CNT))) RATE
+FROM     (
+            SELECT RECIPE_NAME AS NM
+                   , COUNT(*) CNT
+              FROM FMM_RECIPE
+             WHERE UPJANG = #UPJANG#
+               AND MENU_CD IN (
+                               SELECT MENU_CD
+                                 FROM FMM_MENU A, FMM_RECIPE B --FSM_REAL_MENU_MST
+                                WHERE A.UPJANG = #UPJANG#
+                                  AND A.UPJANG = B.UPJANG
+                                  AND B.SUBINV_CLASS = #HALL_CD#
+                                  AND A.LENGTH(MEAL||CORNER) > 0
+                                  AND A.MENU_DATE = #MENU_DATE#
+                              )
+               AND RECIPE_NAME NOT IN (
+                                        SELECT CODE_NAME
+                                          FROM SCC_COMMON_CODE
+                                         WHERE GROUP_CODE = 'FS0035'
+                                      )
+            GROUP BY RECIPE_NAME
+         ) A
+UNION ALL
+SELECT   '주재료' AS NM
+         ,ROUND(100 - ((100 * SUM(CASE WHEN CNT > 1 THEN CNT ELSE 0 END)) / SUM(CNT))) RATE
+FROM     (
+            SELECT MAIN_ITEM_CODE1 AS NM
+                   , COUNT(*) CNT
+              FROM FMM_RECIPE A
+             WHERE UPJANG = #UPJANG#
+               AND MENU_CD IN (
+                               SELECT MENU_CD
+                                 FROM FMM_MENU A, FMM_RECIPE B --FSM_REAL_MENU_MST
+                                WHERE A.UPJANG = #UPJANG#
+                                  AND A.UPJANG = B.UPJANG
+                                  AND B.SUBINV_CLASS = #HALL_CD#
+                                  AND A.LENGTH(MEAL||CORNER) > 0
+                                  AND A.MENU_DATE = #MENU_DATE#
+                              )
+               AND MAIN_ITEM_CODE1 NOT IN (
+                                        SELECT CODE_NAME
+                                          FROM SCC_COMMON_CODE
+                                         WHERE GROUP_CODE = 'FS0036'
+                                      )
+            GROUP BY MAIN_ITEM_CODE1
+         ) A	]]></statement>
+	<input default-name="ds_in">
+	</input>
+	<output default-name="ds_Chart">
+	</output>
+</query>

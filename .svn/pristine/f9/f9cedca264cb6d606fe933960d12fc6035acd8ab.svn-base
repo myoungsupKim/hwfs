@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+    
+	SELECT A.CUSTCD  
+	     , B.CUSTNM
+	     , A.CONTRACT_TERM_START
+	     , A.CONTRACT_TERM_END
+	     , A.CONTRACT_UNIT
+	     , A.CONTRACT_AMT
+	     , A.CONTRACT_PRCG_NM
+	     , A.CONTRACT_CNTCPLCE
+	     , A.CONTRACT_DD
+	     , A.ORGNL_FILE_NM 
+	     , A.SVR_FILE_NM
+	     , '' AS FILE_PATH 
+	     , A.REMARK 
+	     , C.UPJANG_CNT
+	     , D.REMV_QTY
+	     , D.REMV_AMT
+	  FROM MAS_DC_OIL_REMV_VENDOR A
+	     , HLDC_ST_CUST B 
+	     , (SELECT CUSTCD
+	             , CONTRACT_DD
+	             , COUNT(UPJANG) AS UPJANG_CNT
+	          FROM MAS_DC_OIL_UPJANG      
+	         GROUP BY CUSTCD, CONTRACT_DD 
+	       ) C
+	     , (SELECT CUSTCD
+	             , SUM(REMV_QTY) AS REMV_QTY 
+	             , SUM(REMV_AMT) AS REMV_AMT
+	          FROM MAS_DC_OIL_MGMT 
+	         GROUP BY CUSTCD
+	       ) D 
+	 WHERE A.CUSTCD = B.CUSTCD
+	   AND A.CUSTCD = C.CUSTCD(+)
+	   AND A.CONTRACT_DD = C.CONTRACT_DD(+)
+	   AND A.CUSTCD = D.CUSTCD(+)
+	   AND A.USE_YN = 'Y'
+       <isNotNull col="CONTRACT_DD">
+       AND #CONTRACT_DD# BETWEEN A.CONTRACT_TERM_START AND A.CONTRACT_TERM_END   	    
+       </isNotNull>
+	   <isNotNull col="CUSTCD">
+       AND A.CUSTCD = #CUSTCD#	    
+       </isNotNull>
+   	 
+    </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

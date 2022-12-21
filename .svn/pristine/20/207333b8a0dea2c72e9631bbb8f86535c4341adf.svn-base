@@ -1,0 +1,495 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="btn_DetailView" onkeydown="fn_form_OnKeyDown" onload="form_onload" titletext="전도금사용내역서" position="absolute 0 0 1252 725" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Div id="div_cmnBtn" taborder="4" text="Div0" url="cmn::CmnBtn.xfdl" position="absolute 0 0 1237 30" anchor="left top right" scrollbars="none"/>
+        <Static id="Static00" position="absolute 0 30 1237 71" class="sta_WFSA_Labelbg" anchor="left top right"/>
+        <Static id="st_UPJANGQuery" text="업    장" userdata="strMAQuery_Upjang" position="absolute 205 40 261 61" class="sta_WFSA_label"/>
+        <Static id="Static5" text="전표일자" position="absolute 447 40 511 61" class="sta_WFSA_label"/>
+        <Edit id="edt_UPJANGQuery" imemode="native" ontextchanged="edt_UPJANGQuery_OnChanged" onkeydown="edt_UPJANGQuery_OnKeyDown" readonly="true" taborder="2" position="absolute 268 40 397 61"/>
+        <Button id="edtBtn_UPJANGQuery" onclick="edtBtn_UPJANGQuery_OnClick" taborder="5" tabstop="false" position="absolute 396 40 417 61" class="btn_WF_popSearch" text="" image=""/>
+        <MaskEdit id="me_DateFr" mask="####-##-##" ontextchanged="me_DateFr_OnChanged" oneditclick="g_Date_OnFocus" onsetfocus="g_Date_OnFocus" onkillfocus="g_Date_OnKillFocus" taborder="3" type="string" position="absolute 516 40 596 61" class="msk_WF_Cal"/>
+        <Button id="edtBtn_Date" onclick="edtBtn_Date_OnClick" taborder="6" tabstop="false" userdata="me_DateFr" position="absolute 595 40 615 61" class="btn_WF_popSearch" text="" image=""/>
+        <Edit id="edt_UPDEPT_IDQuery" imemode="native" ontextchanged="edt_UPJANGQuery_OnChanged" onkeydown="edt_UPJANGQuery_OnKeyDown" readonly="true" taborder="1" position="absolute 43 40 155 61" class="edt_WF_Essential"/>
+        <Button id="edtBtn_UPDEPT_IDQuery" onclick="edtBtn_UPJANGQuery_OnClick" taborder="7" tabstop="false" position="absolute 154 40 175 61" class="btn_WF_popSearchEssential" text="" image=""/>
+        <Static id="st_UPDEPT_IDQuery" text="팀" userdata="strMAQuery_UP_DEPT_ID" position="absolute 15 40 34 61" class="sta_WFSA_label"/>
+        <Tab id="Tab_UPJANG" onchanged="Tab_UPJANG_OnChanged" taborder="13" position="absolute 0 86 1237 710" showextrabutton="false" anchor="all">
+          <Tabpages>
+            <Tabpage id="tab1" taborder="1" text="전도금사용" position="absolute 2 24 969 558" scrollbars="none">
+              <Layouts>
+                <Layout>
+                  <WebBrowser id="wb_Report" taborder="2" position="absolute 10 10 1226 587" anchor="all"/>
+                </Layout>
+              </Layouts>
+            </Tabpage>
+          </Tabpages>
+        </Tab>
+        <Static id="Static0" text="전도금자동정산전표를 생성하지 않을 시 조회에서 &#10;누락되오니 반드시 전표생성후 출력하시기 바랍니다." position="absolute 646 36 1009 65" class="sta_WF_DiscInfo"/>
+        <Static id="Static2" text="전표일자는 평달의 경우 25일, 분기월(3,6,9,12)의 경우 25일(1차), 해당월 말일자(2차) 입니다." position="absolute 114 94 701 109" class="sta_WF_DiscPoint"/>
+        <Static id="Static40" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 0 71 389 86" anchor="left top"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 1237 0 1252 710" anchor="top right"/>
+        <Static id="Static71" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 0 710 1252 725" anchor="left bottom"/>
+        <Static id="Static36" text="글자간격기준 w10" class="Guide01_AreaRed" visible="false" position="absolute 33 40 43 61" anchor="left top"/>
+        <Static id="Static01" text="글자간격기준 w10" class="Guide01_AreaRed" visible="false" position="absolute 258 40 268 61" anchor="left top"/>
+        <Static id="Static03" text="글자간격기준 w10" class="Guide01_AreaRed" visible="false" position="absolute 506 40 516 61" anchor="left top"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_cond"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : FS시스템/시스템공통/템플릿 1
+ * 프로그램명   : Sam_Form_Basic1.XML
+ * 기      능   : 표준 UI Form
+ * 작  성  자   : 구종화
+ * 작성  일자   : 2007-11-16
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "lib::sc_comon.js"
+//@@컨버터에서 주석처리 #include "lib::sc_sql_common.js"
+//@@컨버터에서 주석처리 #include "lib::tit_comm_0001.js"
+//@@컨버터에서 주석처리 #include "lib::ma_common.js"
+
+
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+var f_Saved_ID,
+	f_CurrDate;
+
+var onWork = false,
+    onHeaderClick = false;
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+    var F_ArrCol          = new Array(-1);
+    var F_ArrColType      = new Array(-1);
+    
+	//init_btn_setup();	// Button 초기화
+	fsp_init(this);
+
+
+	/*
+	#############################################################################################################
+	공통코드 SETTING
+	#############################################################################################################
+	*/
+			
+	edt_UPDEPT_IDQuery.userdata = g_Tm_Cd;
+	edt_UPDEPT_IDQuery.value     = g_Tm_Nm;
+				
+			
+
+			
+    f_CurrDate = fn_CurrDateWeek();
+	//me_TRANS_MONTHFR.Value   = Substr(f_CurrDate, 0, 6) + "01";		
+	me_DateFr.value   = f_CurrDate;			  
+		  
+    
+    //사업장 권한 셋팅#############################################################################
+	fn_SetAuth("edt_UPDEPT_IDQuery","edtBtn_UPDEPT_IDQuery","edt_UPJANGQuery", "edtBtn_UPJANGQuery");
+    //사업장 권한 셋팅#############################################################################
+    
+	/*
+	#############################################################################################################
+	공통코드 SETTING
+	#############################################################################################################
+	*/
+}
+
+
+
+
+
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+function fn_search()
+{
+
+
+
+}
+
+function fn_insert()
+{
+
+}
+
+function fn_delete()
+{
+
+}
+
+function fn_save()
+{
+  
+}
+
+
+function fn_print()
+{	
+	if (!before_SelectCheck())
+		return;
+
+	strParam = "IFIS/oz.asp?title=전도금사용내역서";			// Page Title
+	strParam += "&url=IFIS/MAG10030S_전도금사용내역서.ozr";	// OZ Report File Name
+	strParam += "&cnt=2";									// Parameters Count
+	strParam += "&p1=" + me_DateFr.value;	// 업장코드
+	strParam += "&p2=" + edt_UPJANGQuery.userdata;			// 해당일자
+	strParam += "&zoom=150";						// 화면 출력 크기
+
+	Tab_UPJANG.tab1.wb_Report.url = g_OzUrl + strParam;
+	/* Run은 지원되지 않는 메서드입니다.*/ //Tab_UPJANG.tab1.wb_Report.Run();
+				
+}
+function fn_Close()
+{
+	this.close();
+}
+function fn_help()
+{
+}
+
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+
+function fn_SearchDetail(int_TabIndex)
+{
+
+}
+
+function before_SelectCheck()
+{
+
+	
+	if (numFormat(edt_UPJANGQuery.userdata)== "0")
+	{
+	
+		gfn_alert("업장을 지정하여 주십시요.");
+		edt_UPJANGQuery.setFocus();
+		return false;
+	}	
+	
+	if (gfn_length(me_DateFr.value)== 0)
+	{
+	
+		gfn_alert("전표일자를 지정하여 주십시요.");
+		me_DateFr.setFocus();
+		return false;
+	}
+
+	var str_LastDate;
+	str_LastDate = fn_GetMonthLastDate(ds_cond, gfn_subStr(me_DateFr.value, 0, 6)+ "01");
+	
+	// 20141022 이숙자 요청. 201004월 이전에는 말일 마감이여서 말일로 놓고 조회가 가능하게 변경
+	if(gfn_subStr(me_DateFr.value, 0, 6)<= "201004"){
+		if (
+				(gfn_subStr(me_DateFr.value, 6, 2)!= gfn_subStr(str_LastDate, 6, 2))
+		   )	
+		{
+			gfn_alert("전표일자를 확인하여 주십시요." + "\n" +
+				  "전표일자는 말일자 입니다.");
+			me_DateFr.setFocus();
+			return false;
+		}		
+	}else{
+		if (
+				(gfn_subStr(me_DateFr.value, 6, 2)!= "25") &&
+				(gfn_subStr(me_DateFr.value, 6, 2)!= gfn_subStr(str_LastDate, 6, 2))
+		   )	
+		{
+			gfn_alert("전표일자를 확인하여 주십시요." + "\n" +
+				  "전표일자는 해당월 25일 혹은 말일자 입니다.");
+			me_DateFr.setFocus();
+			return false;
+		}	
+	
+	//alert((toNumber(substr(me_DateFr.Value, 4, 2)) % toNumber(3)));
+	
+		if (
+			((toNumber(gfn_subStr(me_DateFr.value, 4, 2)) % toNumber(3)) != 0) &&
+			(gfn_subStr(me_DateFr.value, 6, 2)== gfn_subStr(str_LastDate, 6, 2))
+		   )	
+		{
+			gfn_alert("전표일자를 확인하여 주십시요." + "\n" +
+				  "분기월을 제외하고는 해당월 25일자 입니다.");
+			me_DateFr.setFocus();
+			return false;
+		}	
+	}
+	
+	return true;
+}
+
+
+function before_SaveCheck(str_Gubun)
+{
+ 
+}
+
+
+function fn_AfterSaveSearch(errCode, errMsg)
+{
+
+	if (errCode != 0){
+		
+		g_Message("EE");		
+		return;
+	}
+		
+    g_Message("03");		
+	
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : Common_Btn_common_OnClick
+ * 입      력   : obj  = Form Component
+ * 반      환   : 없음
+ * 기      능   : 
+ * 작  성  자   : 구종화
+ * 작성  일자   : 2007-11-16
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+
+function Common_Btn_common_OnClick(obj)
+{
+
+	switch(obj.name)
+	{
+		case "btn_search":
+		    //alert("d");
+			fn_search();
+			break;
+		case "btn_ins":
+			fn_insert();
+			break;
+		case "btn_del":
+			fn_delete();
+			break;
+		case "btn_save":
+			fn_save();
+			break;
+		case "btn_Print":
+			//fn_Print();
+			break;
+		case "btn_close":
+			fn_Close();
+			break;
+		case "btn_Help":
+			//fn_Help();
+			break;
+		default:
+			break;
+	}
+
+}
+
+
+function WorkForm_OnKeyDown(obj,objSenderObj,nChar,bShift,bControl,bAlt,nLLParam,nHLParam)
+{
+	
+	gfn_formKeyDown(obj, e); //(obj,objSenderObj,nChar,bShift,bControl,bAlt,nLLParam,nHLParam);
+}
+
+
+
+
+
+function edt_UPJANGQuery_OnKeyDown(obj:Edit, e:KeyEventInfo)
+{
+	fn_edt_OnKeyDown(obj,e.keycode);	
+			
+			
+	if (e.keycode == 46){
+	
+		if (obj.name == "edt_UPDEPT_IDQuery"){
+				
+			fn_DataSetAllClear();
+		
+			//하위 업장정보  Clear#######################################################
+			edt_UPJANGQuery.userdata = "";
+			edt_UPJANGQuery.value     = "";
+			//하위 업장정보  Clear#######################################################		
+		}
+		
+		if (obj.name == "edt_UPJANGQuery"){
+				
+			fn_DataSetAllClear();				
+		}	
+
+	   	
+	}
+	else {
+	
+		if (obj.name == "edt_UPDEPT_IDQuery"){
+			
+		
+		}
+		
+		if (obj.name == "edt_UPJANGQuery"){
+				
+						
+		}			
+	}
+}
+
+
+function fn_DataSetAllClear()
+{
+
+		
+}	
+
+
+
+
+
+function edtBtn_UPJANGQuery_OnClick(obj:Button, e:ClickEventInfo)
+{
+  var str_Where;
+  if (
+       (obj.name == "edtBtn_UPJANGQuery") &&
+       (gfn_length(gfn_trim(edt_UPDEPT_IDQuery.userdata))!= 0 )  
+     )
+  str_Where = " AND (TM_CD ='" + edt_UPDEPT_IDQuery.userdata + "')";
+  
+  fn_edtBtn_OnClick(obj, str_Where);
+	
+  if (gfn_length(gfn_trim(edt_UPJANGQuery.userdata))== 0 ) {  
+	 
+	
+  }     
+  else {     
+	 
+	if (obj.name == "edtBtn_UPDEPT_IDQuery"){
+		
+		//하위 업장정보  Clear#######################################################
+		edt_UPJANGQuery.userdata = "";
+		edt_UPJANGQuery.value     = "";
+		//하위 업장정보  Clear#######################################################		
+
+		
+		
+	}
+	
+	if (obj.name == "edtBtn_UPJANGQuery"){
+			
+	}
+	 
+  }
+  
+	  
+	    	
+	fn_DataSetAllClear();		
+}
+
+
+
+
+
+
+
+
+function edt_UPJANGQuery_OnChanged(obj:Edit, e:TextChangedEventInfo)
+{
+	fn_DataSetAllClear();		
+}
+
+
+
+
+
+
+//마감항목 배경색처리###############################################################
+function fn_GetBackColorClose(str_rowtype, ColorGubun)
+{
+
+   	if (str_rowtype == "logical")
+   	{
+		return "user0";
+	}
+	else
+	{
+		if (ColorGubun == "1")
+		return "white";
+		else
+		return "#F6FCFC";
+	}
+
+}
+
+
+//마감항목 배경색처리###############################################################
+
+
+
+
+
+
+
+
+
+function edtBtn_Date_OnClick(obj:Button, e:ClickEventInfo)
+{
+	g_CalButton_OnClick(obj);
+	fn_DataSetAllClear();		
+}
+
+
+
+
+
+
+
+
+function me_Date_OnChanged(obj,strText)
+{
+	fn_DataSetAllClear();		
+}
+
+
+
+
+
+
+function me_DateFr_OnChanged(obj:MaskEdit, e:TextChangedEventInfo)
+{
+	
+}
+]]></Script>
+  </Form>
+</FDL>

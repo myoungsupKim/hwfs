@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fm.fms.exceptionItemMgntDAO">
+	<desc>예외품목등록 HQML Query</desc>
+	
+	<!-- 자재를 조회한다  -->
+	<statement name="selectItem" type="select">
+		/* fm.fms.exceptionItemMgntDAO.selectItem */
+		<![CDATA[
+		SELECT ZZ.*, DECODE(WKD_CNT,0,'','O') AS WKD_EXC, DECODE(DATE_CNT,0,'','O') AS DATE_EXC, DECODE(PB_FOOD_YN,'Y','theme://Images/new/grd_WF_Icon09.png','')AS FEATURE_ICON 
+		FROM( 
+		SELECT '0'           AS CHK              /* 선택 */
+		     , A.ITEM_CODE                       /* 자재코드 */
+		     , A.ITEM_CLASS1                     /* 자재분류코드1 */
+		     , A.ITEM_CLASS2                     /* 자재분류코드2 */
+		     , A.ITEM_CLASS3                     /* 자재분류코드3 */
+		     , A.ITEM_CLASS4                     /* 자재분류코드4 */
+		     , C2.CLASS_NAME AS ITEM_CLASS_NAME2 /* 자재분류명2 */
+		     , C3.CLASS_NAME AS ITEM_CLASS_NAME3 /* 자재분류명3 */
+		     , C4.CLASS_NAME AS ITEM_CLASS_NAME4 /* 자재분류명4 */
+		     , A.ITEM_NAME                       /* 자재명 */
+		     , A.ITEM_SIZE                       /* 규격 */
+		     , A.UOM_CODE                        /* 단위 */
+		     , B.WIN_ITEM_CD                     /* 88코드 */
+		     
+		     ,(SELECT MAX(DD.USR_NM)   
+						FROM EPROCUSR.ESPINFO AA  
+		     			LEFT OUTER JOIN EPROCUSR.ESMVDOG BB ON AA.SYS_ID = BB.SYS_ID AND AA.COMP_CD = BB.COMP_CD AND AA.VD_SN = BB.VD_SN  
+		     											    AND BB.OPER_ORG_SN = '414' --FC부문만  
+		     			INNER JOIN EPROCUSR.ESPSWHC CC ON AA.SYS_ID = CC.SYS_ID AND AA.COMP_CD = CC.COMP_CD AND AA.PURC_OPER_ORG_SN = CC.OPER_ORG_SN_PURC  
+		     		  	INNER JOIN EPROCUSR.ESAUSER DD ON DD.SYS_ID = '100' AND DD.COMP_CD = 'HFC' AND BB.HFC_CHR_ID = DD.USR_ID  AND DD.STS <> 'D' 
+		     					WHERE AA.SYS_ID = '100' AND AA.COMP_CD = 'HFC' AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN AA.APPLY_SD AND AA.APPLY_ED  --계약 기간  
+		     						   AND AA.STS <> 'D' --AND SUBSTR(AA.ITEM_CD, 0 , 1) = 'F' --식자재만  
+		     					--       AND BB.VD_SN = A.VD_SN --AND A.CUSTCD = BB.ERP_VD_CD  
+		     						   AND AA.VD_SN = BB.VD_SN
+		     					       AND AA.ITEM_CD = A.ITEM_CODE 
+		    							   AND CC.WH_CNTR_CD = '300008' --이천센터 
+		       ) AS MD_NAME	/*담당MD*/ 
+		    ,  (SELECT VD_NM
+			   FROM VO_FC_VENDOR
+			   WHERE VD_CD = INFO.VD_CD) AS VD_NM /*공급업체명*/ 
+			   
+			, ( SELECT COUNT(TWK.DAY_WEEK_CD) AS WKD_CNT
+			    FROM EPROCUSR.ESPSLTVD TVD
+			    INNER JOIN EPROCUSR.ESPSLTWK TWK ON TVD.SYS_ID = TWK.SYS_ID AND TVD.COMP_CD = TWK.COMP_CD AND TVD.PURC_OPER_ORG_SN = TWK.PURC_OPER_ORG_SN AND TVD.VD_SN = TWK.VD_SN AND TVD.ITEM_CD = TWK.ITEM_CD AND TWK.SYS_ID = '100' AND TWK.COMP_CD = 'HFC' --AND TWK.PURC_OPER_ORG_SN = INFO.PURC_OPER_ORG_SN 
+			   -- AND TWK.VD_SN = INFO.VD_SN AND TWK.ITEM_CD = A.ITEM_CODE 
+			    WHERE 1 = 1
+			    AND TVD.SYS_ID = '100'
+			    AND TVD.COMP_CD = 'HFC'
+			    AND TVD.PURC_OPER_ORG_SN = INFO.PURC_OPER_ORG_SN
+			    AND TVD.VD_SN = INFO.VD_SN
+			    AND TVD.ITEM_CD = A.ITEM_CODE 
+			    AND TVD.STS <> 'D'
+			    AND TWK.SHOP_TYP_CD = '02' --01 직영 02 고객
+				AND TWK.DAY_WEEK_CD = TO_CHAR(SYSDATE,'D')
+			    )AS WKD_CNT --요일별 발주제한
+			    
+			 , (SELECT COUNT(LMT_DATE) AS DATE_CNT
+                from EPROCUSR.ESPSLIT
+                WHERE 1 = 1
+                AND SYS_ID = '100'
+                AND COMP_CD = 'HFC'
+                AND PURC_OPER_ORG_SN =  INFO.PURC_OPER_ORG_SN
+                AND VD_SN = INFO.VD_SN
+                AND LMT_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD') 
+                AND ITEM_CD = A.ITEM_CODE ) AS DATE_CNT --일자별 제한  
+                
+			 ,  INFO.VD_SN 
+			 ,  INFO.PURC_OPER_ORG_SN
+			 ,  INFO.PB_FOOD_YN
+		  FROM EPROCUSR.MV_ITEM_MST3     A
+		     , EPROCUSR.ESMMTGL          B
+		     , HLDC_PO_ITEM_CLASS_HLDC_V C2
+		     , HLDC_PO_ITEM_CLASS_HLDC_V C3
+		     , HLDC_PO_ITEM_CLASS_HLDC_V C4
+		     , EPROCUSR.ESPINFO INFO
+		     , EPROCUSR.ESPINDT INDT --NPB추가요청 2022.05.13
+		 WHERE A.ITEM_CODE   = B.ITEM_CD(+)
+		   AND B.SYS_ID      = '100'
+		   AND A.ITEM_CLASS2 = C2.CLASS_CODE
+		   AND A.ITEM_CLASS3 = C3.CLASS_CODE
+		   AND A.ITEM_CLASS4 = C4.CLASS_CODE
+		   AND A.ITEM_CLASS1 = 'F'
+		   
+		   AND INFO.SYS_ID = '100'
+           AND INFO.COMP_CD = 'HFC'
+           AND INFO.ITEM_CD = A.ITEM_CODE
+           AND INFO.PURC_OPER_ORG_SN IN (SELECT  WHC.OPER_ORG_SN_PURC FROM EPROCUSR.ESPSWHC WHC WHERE  WHC.SYS_ID='100' AND WHC.COMP_CD = 'HFC' AND WHC.WH_CNTR_CD = '300008')
+           AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN INFO.APPLY_SD AND INFO.APPLY_ED
+           AND INFO.STS <> 'D'
+           --AND INFO.PB_FOOD_YN = 'Y' 
+           
+           AND INDT.SYS_ID = '100' AND INDT.COMP_CD = 'HFC' AND INDT.CNTR_NO = INFO.CNTR_NO AND INDT.CNTR_REV = INFO.CNTR_REV AND INDT.CNTR_LNO = INFO.CNTR_LNO AND INDT.ITEM_CD = INFO.ITEM_CD
+           AND (INFO.PB_FOOD_YN = 'Y' OR  INDT.GLB_SRC_YN = 'Y') --PB자재 OR NPB자재
+           
+		   <#if classCodeM?has_content> AND ITEM_CLASS2 =  :classCodeM </#if>
+		   <#if classCodeS?has_content> AND ITEM_CLASS3 =  :classCodeS </#if>
+		   <#if classCodeD?has_content> AND ITEM_CLASS4 =  :classCodeD </#if>
+		   <#if searchText?has_content>
+		       <#if gbn == '88'>        AND B.WIN_ITEM_CD LIKE '%' || :searchText        /* 88코드 */   </#if>
+		       <#if gbn == 'ITEM_CODE'> AND A.ITEM_CODE   LIKE '%' || :searchText || '%' /* 자재코드 */ </#if>
+		       <#if gbn == 'ITEM_NAME'> AND A.ITEM_NAME   LIKE '%' || :searchText || '%' /* 자재명 */   </#if>
+		   </#if>
+		   AND NOT EXISTS ( SELECT 1
+		                      FROM EXC_ITEM_MST X
+		                     WHERE X.ITEM_CODE = A.ITEM_CODE
+		                  )
+		   <#if tempItemCode?has_content>
+		       /* 화면에 저장 하지 않은 DATA 제외 처리 */
+		       AND (A.ITEM_CODE, 0) NOT IN (
+		           <#list tempItemCode?split(",") as item>
+		               ('${item}', 0)<#if item_has_next>,</#if>
+		           </#list>
+		       )
+		   </#if>
+		)ZZ   
+		 ORDER BY ITEM_CODE
+		]]>
+	</statement>
+	
+	<!-- 반환가능품목을 조회한다  -->
+	<statement name="selectExceptionItem" type="select">
+		/* fm.fms.exceptionItemMgntDAO.selectExceptionItem */
+		<![CDATA[
+		SELECT ZZ.*, DECODE(WKD_CNT,0,'','O') AS WKD_EXC, DECODE(DATE_CNT,0,'','O') AS DATE_EXC, DECODE(PB_FOOD_YN,'Y','theme://Images/new/grd_WF_Icon09.png','')AS FEATURE_ICON 
+		FROM( SELECT '0'                                       AS CHK        /* 선택 */
+		     , R.ITEM_CODE                                             /* 자재코드 */
+		     , R.EXC_GUBUN											   /* 통제구분 */
+			 , R.ORDER_YN											   /* 발주가능여부 */
+		     , R.UUSER                                                 /* 수정자 */
+		     , HR.NM_KOR                                 AS UUSER_NAME /* 수정자명 */
+		     , TO_CHAR(R.UDATE, 'YYYY-MM-DD HH24:MI:SS') AS UDATE      /* 수정시각 */
+		     , A.ITEM_CLASS1                     /* 자재분류코드1 */
+		     , A.ITEM_CLASS2                     /* 자재분류코드2 */
+		     , A.ITEM_CLASS3                     /* 자재분류코드3 */
+		     , A.ITEM_CLASS4                     /* 자재분류코드4 */
+		     , C2.CLASS_NAME AS ITEM_CLASS_NAME2 /* 자재분류명2 */
+		     , C3.CLASS_NAME AS ITEM_CLASS_NAME3 /* 자재분류명3 */
+		     , C4.CLASS_NAME AS ITEM_CLASS_NAME4 /* 자재분류명4 */
+		     , A.ITEM_NAME                       /* 자재명 */
+		     , A.ITEM_SIZE                       /* 규격 */
+		     , A.UOM_CODE                        /* 단위 */
+		     , B.WIN_ITEM_CD                     /* 88코드 */
+		     
+		     ,(SELECT MAX(DD.USR_NM)   
+						FROM EPROCUSR.ESPINFO AA  
+		     			LEFT OUTER JOIN EPROCUSR.ESMVDOG BB ON AA.SYS_ID = BB.SYS_ID AND AA.COMP_CD = BB.COMP_CD AND AA.VD_SN = BB.VD_SN  
+		     											    AND BB.OPER_ORG_SN = '414' --FC부문만  
+		     			INNER JOIN EPROCUSR.ESPSWHC CC ON AA.SYS_ID = CC.SYS_ID AND AA.COMP_CD = CC.COMP_CD AND AA.PURC_OPER_ORG_SN = CC.OPER_ORG_SN_PURC  
+		     		  	INNER JOIN EPROCUSR.ESAUSER DD ON DD.SYS_ID = '100' AND DD.COMP_CD = 'HFC' AND BB.HFC_CHR_ID = DD.USR_ID  AND DD.STS <> 'D' 
+		     					WHERE AA.SYS_ID = '100' AND AA.COMP_CD = 'HFC' AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN AA.APPLY_SD AND AA.APPLY_ED  --계약 기간  
+		     						   AND AA.STS <> 'D' --AND SUBSTR(AA.ITEM_CD, 0 , 1) = 'F' --식자재만  
+		     					--       AND BB.VD_SN = A.VD_SN --AND A.CUSTCD = BB.ERP_VD_CD  
+		     						   AND AA.VD_SN = BB.VD_SN
+		     					       AND AA.ITEM_CD = A.ITEM_CODE 
+		    							   AND CC.WH_CNTR_CD = '300008' --이천센터 
+		       ) AS MD_NAME	/*담당MD*/ 
+		    ,  (SELECT VD_NM
+			   FROM VO_FC_VENDOR
+			   WHERE VD_CD = INFO.VD_CD) AS VD_NM /*공급업체명*/ 
+			   
+			, ( SELECT COUNT(TWK.DAY_WEEK_CD) AS WKD_CNT
+			    FROM EPROCUSR.ESPSLTVD TVD
+			    INNER JOIN EPROCUSR.ESPSLTWK TWK ON TVD.SYS_ID = TWK.SYS_ID AND TVD.COMP_CD = TWK.COMP_CD AND TVD.PURC_OPER_ORG_SN = TWK.PURC_OPER_ORG_SN AND TVD.VD_SN = TWK.VD_SN AND TVD.ITEM_CD = TWK.ITEM_CD AND TWK.SYS_ID = '100' AND TWK.COMP_CD = 'HFC' --AND TWK.PURC_OPER_ORG_SN = INFO.PURC_OPER_ORG_SN 
+			   -- AND TWK.VD_SN = INFO.VD_SN AND TWK.ITEM_CD = A.ITEM_CODE 
+			    WHERE 1 = 1
+			    AND TVD.SYS_ID = '100'
+			    AND TVD.COMP_CD = 'HFC'
+			    AND TVD.PURC_OPER_ORG_SN = INFO.PURC_OPER_ORG_SN
+			    AND TVD.VD_SN = INFO.VD_SN
+			    AND TVD.ITEM_CD = A.ITEM_CODE 
+			    AND TVD.STS <> 'D'
+			    AND TWK.SHOP_TYP_CD = '02' --01 직영 02 고객
+				AND TWK.DAY_WEEK_CD = TO_CHAR(SYSDATE,'D')
+			    )AS WKD_CNT --요일별 발주제한
+			    
+			 , (SELECT COUNT(LMT_DATE) AS DATE_CNT
+                from EPROCUSR.ESPSLIT
+                WHERE 1 = 1
+                AND SYS_ID = '100'
+                AND COMP_CD = 'HFC'
+                AND PURC_OPER_ORG_SN =  INFO.PURC_OPER_ORG_SN
+                AND VD_SN = INFO.VD_SN
+                AND LMT_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD') 
+                AND ITEM_CD = A.ITEM_CODE ) AS DATE_CNT --일자별 제한
+                  
+			 ,  INFO.VD_SN 
+			 ,  INFO.PURC_OPER_ORG_SN   
+			 ,  INFO.PB_FOOD_YN
+		  FROM EXC_ITEM_MST              R
+		     , EPROCUSR.MV_ITEM_MST3     A
+		     , EPROCUSR.ESMMTGL          B
+		     , HLDC_PO_ITEM_CLASS_HLDC_V C2
+		     , HLDC_PO_ITEM_CLASS_HLDC_V C3
+		     , HLDC_PO_ITEM_CLASS_HLDC_V C4
+		     , HR_PERSONAL               HR
+		     , EPROCUSR.ESPINFO INFO
+		     , EPROCUSR.ESPINDT INDT --NPB추가요청 2022.05.13
+		     
+		 WHERE R.ITEM_CODE   = A.ITEM_CODE
+		   AND R.ITEM_CODE   = B.ITEM_CD(+)
+		   AND B.SYS_ID      = '100'
+		   AND A.ITEM_CLASS2 = C2.CLASS_CODE
+		   AND A.ITEM_CLASS3 = C3.CLASS_CODE
+		   AND A.ITEM_CLASS4 = C4.CLASS_CODE
+		   AND R.UUSER       = HR.SABUN
+		   AND A.ITEM_CLASS1 = 'F'
+		   
+		   AND INFO.SYS_ID = '100'
+           AND INFO.COMP_CD = 'HFC'
+           AND INFO.ITEM_CD = A.ITEM_CODE
+           AND INFO.PURC_OPER_ORG_SN IN (SELECT  WHC.OPER_ORG_SN_PURC FROM EPROCUSR.ESPSWHC WHC WHERE  WHC.SYS_ID='100' AND WHC.COMP_CD = 'HFC' AND WHC.WH_CNTR_CD = '300008')
+           AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN INFO.APPLY_SD AND INFO.APPLY_ED
+           AND INFO.STS <> 'D'
+           --AND INFO.PB_FOOD_YN = 'Y'  
+           
+           AND INDT.SYS_ID = '100' AND INDT.COMP_CD = 'HFC' AND INDT.CNTR_NO = INFO.CNTR_NO AND INDT.CNTR_REV = INFO.CNTR_REV AND INDT.CNTR_LNO = INFO.CNTR_LNO AND INDT.ITEM_CD = INFO.ITEM_CD
+           AND (INFO.PB_FOOD_YN = 'Y' OR  INDT.GLB_SRC_YN = 'Y')
+           
+		   <#if itemCode?has_content>
+		       AND R.ITEM_CODE = :itemCode
+		   </#if>
+		   <#if orderYn?has_content>
+		       AND R.ORDER_YN = :orderYn
+		   </#if>
+		   <#if excGubun?has_content>
+		       AND R.EXC_GUBUN = :excGubun
+		   </#if>
+		   <#if searchText?has_content>
+		       <#if gbn == '88'>        AND B.WIN_ITEM_CD LIKE '%' || :searchText        /* 88코드 */   </#if>
+		       <#if gbn == 'ITEM_CODE'> AND R.ITEM_CODE   LIKE '%' || :searchText || '%' /* 자재코드 */ </#if>
+		       <#if gbn == 'ITEM_NAME'> AND A.ITEM_NAME   LIKE '%' || :searchText || '%' /* 자재명 */   </#if>
+		   </#if>
+		)ZZ  
+		 ORDER BY ITEM_CODE, UDATE
+		]]>
+	</statement>
+	
+	<!-- 반환가능품목을 추가한다  -->
+	<statement name="insertExceptionItem" type="insert">
+		/* fm.fms.exceptionItemMgntDAO.insertExceptionItem */
+		<![CDATA[
+		INSERT INTO EXC_ITEM_MST 
+		     ( ITEM_CODE    /* 자재코드 */
+		     , EXC_GUBUN       /* 통제구분 */
+		     , ORDER_YN     /* 주문가능유무 */
+		     , CUSER        /* 생성자 */
+		     , CDATE        /* 생성시각 */
+		     , UUSER        /* 수정자 */
+		     , UDATE        /* 수정시각 */
+		     )
+		VALUES 
+		     ( :itemCode                    /* 자재코드 */
+		     , :excGubun                    /* 통제구분 */
+		     , :orderYn                     /* 주문가능유무 */
+		     , :loginSabun                  /* 생성자 */
+		     , SYSDATE                      /* 생성시각 */
+		     , :loginSabun                  /* 수정자 */
+		     , SYSDATE                      /* 수정시각 */
+		     )
+		]]>
+	</statement>
+	
+	<!-- 반환가능품목을 수정한다  -->
+	<statement name="updateExceptionItem" type="update">
+		/* fm.fms.exceptionItemMgntDAO.updateExceptionItem */
+		<![CDATA[
+		UPDATE EXC_ITEM_MST
+		   SET EXC_GUBUN = :excGubun                	 /* 통제구분 */
+		   	 , ORDER_YN  = :orderYn                  	 /* 주문가능유무 */
+		     , UUSER     = :loginSabun                   /* 수정자 */
+		     , UDATE     = SYSDATE                       /* 수정시각 */
+		 WHERE ITEM_CODE = :itemCode                     /* 자재코드 */
+		]]>
+	</statement>
+
+	<!-- 반환가능품목을 삭제한다  -->
+	<statement name="deleteExceptionItem" type="delete">
+		/* fm.fms.exceptionItemMgntDAO.deleteExceptionItem */
+		<![CDATA[
+		DELETE FROM EXC_ITEM_MST
+		 WHERE ITEM_CODE = :itemCode /* 자재코드 */
+		]]>
+	</statement>
+	
+	<!-- 반환가능품목을 입력/수정/삭제 히스토리를 등록한다  -->
+	<statement name="insertHisExceptionItem" type="insert">
+		/* fm.fms.exceptionItemMgntDAO.insertHisExceptionItem */
+		<![CDATA[
+		INSERT INTO EXC_ITEM_HIST 
+		     ( ITEM_CODE    /* 자재코드 */
+		     , EXC_GUBUN       /* 통제구분 */
+		     , ORDER_YN     /* 주문가능유무 */
+		     , FLAG			/* 작업유형 (I:입력, U:수정, D:삭제)*/
+		     , CUSER        /* 생성자 */
+		     , CDATE        /* 생성시각 */
+		     , UUSER        /* 수정자 */
+		     , UDATE        /* 수정시각 */
+		     )
+		VALUES 
+		     ( :itemCode                    /* 자재코드 */
+		     , :excGubun                    /* 통제구분 */
+		     , :orderYn                     /* 주문가능유무 */
+		     , :rowStatus                     	/* 작업유형 */
+		     , :loginSabun                  /* 생성자 */
+		     , SYSDATE                      /* 생성시각 */
+		     , :loginSabun                  /* 수정자 */
+		     , SYSDATE                      /* 수정시각 */
+		     )
+		]]>
+	</statement>
+
+</hqml>

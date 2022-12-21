@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[협력업체 점검결과 조회]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>1</result-count>
+    <statement>
+SELECT A.TABLE_TYPE
+     , A.FORM_CD
+     , B.FORM_NM
+     , A.CUSTCD
+     , F.VD_SN
+     , F.VD_NM AS CUSTNM
+     , A.CHK_DD
+     , A.DEAL_CLASS
+     , A.CHK_CLASS
+     , C.CODE_NAME AS CHK_CLASS_NM
+     , A.TM_CD
+     , (SELECT TM_NM FROM HLDC_SC_DEPT_V WHERE TM_CD = A.TM_CD AND ROWNUM = 1) AS TM_NM
+     , NVL(A.DELIVERY_PLCE, '') AS DELIVERY_PLCE
+     , A.INSPECTOR
+     , D.NM_KOR AS INSPECTOR_NM
+     , NVL(A.PASS_CENTER, '') AS PASS_CENTER
+     , A.FOOD_TYPE_MGRP
+     , A.FOOD_TYPE_MCALSS
+     , A.FOOD_TYPE_SCLASS
+     , NVL(A.FOOD_TYPE_CLASS, '') AS FOOD_TYPE_CLASS
+     , A.CHK_START_TIME
+     , A.CHK_END_TIME
+     , ROUND(A.SCORE, 1) AS SCORE
+     , A.GRADE_CD
+     , A.CHK_RESULT
+     , E.CODE_NAME AS CHK_RESULT_TXT
+     , A.CONFIRM_YN
+     , A.CONFIRM_DD
+     , A.IMPROV_CONFIRM_YN
+     , A.IMPROV_CONFIRM_DD
+     , A.INSPT_REQ_YN
+     , A.INSPT_REQ_DD
+     , A.INSPT_REQ_NUM
+     , A.INSPT_REQ_RESULT
+     , A.REMARK
+     , A.USE_YN
+     , A.CUSER
+     , A.CDATE
+     , A.UUSER
+     , A.UDATE
+     , A.ATTR01
+     , A.ATTR02
+     , A.ATTR03
+     , A.ATTR04
+     , A.ATTR05
+     , A.ATTR06
+     , A.ATTR07
+     , A.ATTR08
+     , A.ATTR09
+     , A.ATTR10
+     , A.ATTR11
+     , A.ATTR12
+     , A.ATTR13
+     , A.ATTR14
+     , (SELECT COUNT(1)
+          FROM FSC_CONTRT_RESULT_DTL
+         WHERE TABLE_TYPE = A.TABLE_TYPE
+           AND FORM_CD = A.FORM_CD
+           AND CUSTCD = A.CUSTCD
+           AND CHK_DD = A.CHK_DD
+           AND (CHK_RESULT = '2' OR IMPROV_MRMT_DD IS NOT NULL)) AS NOT_FIT_CNT
+     , (SELECT COUNT(1)
+          FROM FSC_CONTRT_RESULT_DTL
+         WHERE TABLE_TYPE = A.TABLE_TYPE
+           AND FORM_CD = A.FORM_CD
+           AND CUSTCD = A.CUSTCD
+           AND CHK_DD = A.CHK_DD
+           AND IMPROV_MRMT_DD IS NOT NULL) AS IMPROV_MRMT_CNT
+     , A.SIGN_INSTANCE_ID1  /* 점검결재ID */
+     , CASE WHEN A.SIGN_INSTANCE_ID1 IS NOT NULL THEN NVL(SCC_SIGN_STATUS_FUN(A.SIGN_INSTANCE_ID1), 'DRAFT') END AS SIGN_PROGRESS_STATUS1
+     , A.SIGN_INSTANCE_ID2  /* 개선결재ID */
+     , CASE WHEN A.SIGN_INSTANCE_ID2 IS NOT NULL THEN NVL(SCC_SIGN_STATUS_FUN(A.SIGN_INSTANCE_ID2), 'DRAFT') END AS SIGN_PROGRESS_STATUS2
+     , A.PO_SEND_YN
+     , A.SPECM_TYPE
+     , A.SUB_COMP_NM /* 하위공장명_2018.05.24*/
+  FROM FSC_CONTRT_RESULT A
+     , FSC_CONTRT_FORM B
+     , SCC_COMMON_CODE C
+     , SCC_COMMON_CODE E
+     , HLDC_HR_PERSONAL D
+     , HLDC_PO_VENDOR_AUDIT F
+ WHERE A.TABLE_TYPE = B.TABLE_TYPE
+   AND A.FORM_CD = B.FORM_CD
+   AND (A.CUSTCD = F.VD_CD OR A.CUSTCD = F.VD_SN)
+   AND C.GROUP_CODE = 'FS0106'
+   AND A.CHK_CLASS = C.CODE
+   AND E.GROUP_CODE = 'FS0117'
+   AND A.CHK_RESULT = E.CODE
+   AND A.INSPECTOR = D.SABUN
+<isNotNull col="CUSTCD">
+   AND TO_CHAR(A.CUSTCD) = #CUSTCD#
+</isNotNull>
+<isNotNull col="FORM_CD">
+   AND A.FORM_CD = #FORM_CD#
+</isNotNull>
+<isNotNull col="CHK_DD">
+   AND A.CHK_DD = #CHK_DD#
+</isNotNull>
+<isNotNull col="START_DD">
+   AND A.CHK_DD BETWEEN #START_DD# AND #END_DD#
+</isNotNull>
+<isNotNull col="CONFIRM_YN">
+   AND A.CONFIRM_YN = #CONFIRM_YN#
+</isNotNull>
+<isNotNull col="SUB_COMP_NM">
+   AND A.SUB_COMP_NM = #SUB_COMP_NM#
+</isNotNull>
+ORDER BY A.CDATE DESC
+    </statement>
+    <input default-name="ds_cond">
+    </input>
+    <output default-name="ds_list">
+    </output>
+</query>

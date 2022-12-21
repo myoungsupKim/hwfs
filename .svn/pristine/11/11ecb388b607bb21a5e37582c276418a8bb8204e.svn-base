@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.bms.amProfitsListDAO">
+
+	<desc>AM 수익분석</desc>
+	
+	<!-- DATA를 조회한다. -->
+	<statement name="selectList" type="select">
+		<![CDATA[
+		
+			SELECT  
+			    AMTM.CODE_NAME          AS AMTM_NM,
+			    SMGR.AM_NM              AS AM_NM,
+			    MAST.RESERV_NM          AS RESERV_NM,
+			    MAST.STR_DATE           AS STR_DT,
+			    KIND.CODE_NAME          AS KIND_NM,
+			    MENU.QTY                AS QTY,
+			    NVL(MENU.AMT / DECODE(MENU.QTY,0,NULL, MENU.QTY) , 0)     AS UPRICE,
+			    MENU.AMT                AS AMT,
+			    NVL(MENU.TOT_AMT / DECODE(MENU.QTY,0,NULL, MENU.QTY) , 0) AS TOT_UPRICE,
+			    MENU.TOT_AMT            AS TOT_AMT,
+			    MENU.AMT - MENU.TOT_AMT AS SUB_AMT 
+			    
+			
+			FROM BMS_RESERV_MST MAST
+			INNER JOIN (
+						SELECT C.RESERV_NUM, SUM(C.QTY) AS QTY, SUM(C.AMT) AS AMT, SUM(C.TOT_AMT) AS TOT_AMT
+						FROM (
+								--연회장의 인원수만 계산한다 2016.02.17
+								SELECT A.RESERV_NUM, CASE WHEN FNB_CLASS = 'R' THEN SUM(A.ADLT_PSN) END AS QTY, SUM(A.AMT) AS AMT, SUM(A.TOT_AMT) AS TOT_AMT
+						 		  FROM BMS_RESERV_MENU A 
+					              INNER JOIN BMS_RESERV_MST B ON B.RESERV_NUM = A.RESERV_NUM
+					              INNER JOIN (SELECT MST.OUTLET_CD, MST.OUTLET_TYPE, MST.OUTLET_NM 
+					                       FROM   SLE_OUTLET_MST MST
+					                          INNER JOIN  SCO_UPJANG_V   UPJANG ON  UPJANG.UPJANG = TO_NUMBER(MST.OUTLET_CD) 
+					                                     <#if muCd?has_content> AND  UPJANG.MU_CD = :muCd </#if>
+					                                     <#if tmCd?has_content> AND  UPJANG.TM_CD = :tmCd </#if>
+					          			 ) OUTLET ON OUTLET.OUTLET_CD =  A.OUTLET_CD 
+					              WHERE B.USE_YN = 'Y' 
+					                AND A.USE_YN ='Y'
+					                AND B.RESERV_STATUS IN ('2','3')  --확정,종료 
+					                AND (  ( A.STR_DATE  BETWEEN :reservDtFr AND :reservDtTo OR  A.END_DATE BETWEEN :reservDtFr AND :reservDtTo )
+								         OR( :reservDtFr BETWEEN A.STR_DATE  AND A.END_DATE  OR :reservDtTo BETWEEN A.STR_DATE  AND A.END_DATE )
+					                     )
+								  GROUP BY A.RESERV_NUM,FNB_CLASS
+						 ) C						  
+						 GROUP BY C.RESERV_NUM
+						  
+			           ) MENU ON MENU.RESERV_NUM = MAST.RESERV_NUM
+			INNER JOIN BMS_AM_MST      SMGR ON SMGR.AM_CD = MAST.AM_CD
+			INNER JOIN SCC_COMMON_CODE CODE ON CODE.GROUP_CODE = 'BMS_0005' AND CODE.CODE = MAST.RESERV_CD	    --행사형태
+			INNER JOIN SCC_COMMON_CODE SANG ON SANG.GROUP_CODE = 'BMS_0001' AND SANG.CODE = MAST.RESERV_STATUS	--예약상태
+			INNER JOIN SCC_COMMON_CODE KIND ON KIND.GROUP_CODE = 'BMS_0002' AND KIND.CODE = MAST.KIND_CD        --예약종류
+			INNER JOIN SCC_COMMON_CODE AMTM ON AMTM.GROUP_CODE = 'BMS_0003' AND AMTM.CODE = SMGR.AM_TM_CD	    --AM TEAM
+			
+			WHERE MAST.USE_YN = 'Y'
+			  AND MAST.RESERV_STATUS IN ('2','3')
+			 
+			<#if amCd?has_content >       AND MAST.AM_CD     = :amCd     </#if>
+			<#if amTmCd?has_content >     AND SMGR.AM_TM_CD  = :amTmCd   </#if>
+			<#if outletCd?has_content >   AND MAST.OUTLET_CD = :outletCd </#if>  
+			
+			ORDER BY AMTM.CODE_NAME, SMGR.AM_NM, MAST.RESERV_NM, MAST.STR_DATE, KIND.CODE_NAME
+			
+			       
+		]]>
+	</statement>
+	
+</hqml>	

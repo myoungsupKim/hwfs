@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.cmn.persInfoProcPolicyDAO">
+	<desc>개인정보취급방침 동의를 HQML Query</desc>
+
+	<!-- 개인정보취급방침 동의를(을) 저장한다. (Insert or Update) -->
+	<statement name="saveAgreeInfo" type="update">
+		/*+ com.hwfs.sc.cmn.dao.PersInfoProcPolicyDAO.saveAgreeInfo */
+		<![CDATA[
+		MERGE INTO SCC_PERS_INFO_AGREE
+        USING DUAL
+        ON   (SABUN  = :loginSabun)
+        WHEN  MATCHED THEN
+              UPDATE 
+              SET   
+              		<#if esstArticleAgreeYn?has_content> ESST_ARTICLE_AGREE_YN = :esstArticleAgreeYn, <#else> ESST_ARTICLE_AGREE_YN = NULL, </#if>
+              		<#if choiceArticleAgreeYn?has_content> CHOICE_ARTICLE_AGREE_YN = :choiceArticleAgreeYn, <#else> CHOICE_ARTICLE_AGREE_YN = NULL, </#if>
+              		UUSER = :loginSabun,
+              		UDATE = SYSDATE
+        WHEN NOT MATCHED THEN
+              INSERT (
+                    SABUN,
+              		ESST_ARTICLE_AGREE_YN,
+              		CHOICE_ARTICLE_AGREE_YN,
+              		AGREE_DATE,
+              		CUSER,
+              		CDATE
+              )
+              VALUES (
+                    :loginSabun,
+                    <#if esstArticleAgreeYn?has_content> :esstArticleAgreeYn, <#else> NULL, </#if>
+              		<#if choiceArticleAgreeYn?has_content> :choiceArticleAgreeYn, <#else> NULL, </#if>
+              		SYSDATE,
+              		:loginSabun,
+              		SYSDATE
+              )
+		]]>
+	</statement>
+	
+	<!-- 노무수령거부 동의를(을) 저장한다. (Insert or Update) -->
+	<statement name="saveHRAgree" type="insert">
+		/*+ com.hwfs.sc.cmn.dao.PersInfoProcPolicyDAO.saveAgreeInfo */
+		<![CDATA[
+			INSERT INTO SCC_EHR_LOG (
+					SABUN,
+					LOG_DATE,
+					LOG_TIME,
+					GNT_CD,
+					S_YMD,
+					E_YMD )
+              
+              SELECT 
+              		DISTINCT
+              		:loginSabun,
+                    TO_CHAR(sysdate,'yyyymmdd'),
+                    TO_CHAR(sysdate,'HH24MISS'),
+              		GNT_CD,
+              		S_YMD,
+              		E_YMD 
+              FROM IF_EHR_GNT_MST
+              WHERE SABUN = :loginSabun              		
+  					<#if sGubun == "T">
+                    	--당일근태 
+                		AND TO_CHAR(sysdate,'YYYYMMDD') between S_YMD AND E_YMD    
+                    <#else>
+                    	--내일근태
+                    	AND TO_CHAR(sysdate+1,'YYYYMMDD') between S_YMD AND E_YMD
+					</#if>
+              	AND CANCEL_YN = 'N'
+              
+		]]>
+	</statement>
+
+</hqml>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.sle.subinvCodePopDAO">
+	<desc>창고 코드 검색</desc>
+ 
+	
+	
+	<!--  DATA를 조회한다. -->
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.rc.sle.dao.subinvCodePopDAO.selectList */
+	<![CDATA[
+	
+		--SELECT SUBINV_CODE CODE    
+		--	    	   ,SUBINV_NAME CODE_NAME
+		--  FROM HLDC_PO_SUBINVENTORY 
+		-- WHERE 1=1
+	    -- AND  USE_YN='Y'  
+		-- AND  (SUBSTR(SUBINV_CODE,0,1) = 'A' OR SUBSTR(SUBINV_CODE,0,1) = 'C')
+		-- AND  UPJANG= :outletCd
+	    --  <#if subinvName?has_content> AND SUBINV_NAME LIKE  '%' ||  :subinvName || '%' </#if>
+	     
+	     
+	     
+	     SELECT A.SUBINV_CODE CODE
+		     , DECODE(A.USE_YN,'N','폐장')||A.SUBINV_CODE||' '||A.SUBINV_NAME||'('||B.UPJANGNM||')' AS CODE_NAME
+		     , SUBSTR(D.CENTER_TYPE,1,2) AS CENTER_TYPE 
+		  FROM HLDC_PO_SUBINVENTORY A
+		     , ST_UPJANG B 
+		     , HLDC_PO_UPJANG_CENTER C
+		     , HLDC_PO_CENTER D 
+		 WHERE A.UPJANG = B.UPJANG 
+		       AND B.AP_UNITPRICE_UPJANG = C.UPJANG 
+		       AND C.CENTER_CODE         = D.CENTER_CODE 
+		       AND A.UPJANG              = TO_NUMBER(:outletCd)
+		       AND A.USE_YN              = 'Y' 
+		       
+		        <#if subinvName?has_content> AND A.SUBINV_NAME LIKE  '%' ||  :subinvName || '%' </#if>
+		       
+		ORDER BY A.SUBINV_CODE 
+	      
+	       
+	
+	]]>
+	</statement>
+	
+</hqml>

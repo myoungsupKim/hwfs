@@ -1,0 +1,731 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.rrm.recipeCopyDAO">
+	<desc>표준 레시피 복사 HQML Query</desc>
+
+	<!-- 표준 레시피 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.rc.rrm.dao.RecipeCopyDAO.selectList */
+		<![CDATA[
+
+		SELECT 0 AS CHK
+		     , :upjang AS UPJANG
+		     , A.UPJANG_TYPE
+		     , A.STD_RECIPE_CD
+		     , A.MU_CD
+		     , A.RECIPE_NM
+		     , A.RECIPE_NM_ENGLISH
+		     , A.RECIPE_NM_BYNM
+		     , A.STAND
+		     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'STAND_TYPE' AND CODE = A.STAND) AS STAND_NM
+		     , A.ORIGIN
+		     , A.UNIT_CD
+		     , A.OFFER_UNIT
+		     , A.COOK_UNIT
+		     , A.GOAL_CSTRAT
+		     , A.CSTRAT_DRCT_INPUT_YN
+		     , A.DRCT_INPUT_CST_RATE
+		     , A.STD_RECIPE_APPLY_BASIS
+		     , A.MCALSS_CD
+		     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MCALSS_CD' AND CODE = A.MCALSS_CD) AS MCALSS_CD_NM
+		     , A.SCLASS_CD
+		     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'SCLASS_CD' AND CODE = A.SCLASS_CD) AS SCLASS_CD_NM
+		     , A.SALE_PRICE
+		     , A.RECIPE_DVLP_BY
+		     , A.REMARK
+		     , A.UPJANG_MODIFY_ALLOW_YN
+		     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'UPJANG_MODIFY_ALLOW_YN' AND CODE = A.UPJANG_MODIFY_ALLOW_YN) AS UPJANG_MODIFY_ALLOW_YN_NM
+		     , A.RECIPE_STATUS
+		     , A.USE_YN
+		     , A.CUSER
+		     , A.CDATE
+		     , A.UUSER
+		     , A.UDATE
+		     , A.OFER_NO
+		     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'OFER_UNIT' AND CODE = A.OFER_UNIT) AS OFER_UNIT_NM
+		     , A.OFER_UNIT
+		     , DECODE(C.STD_RECIPE_CD, NULL, 0, 1) AS COPY_YN
+		     , DECODE(C.STD_RECIPE_CD, NULL, 'N', 'Y') AS COPY_YN2
+		     --, FN_RECIPE_AMT_FUN('', A.STD_RECIPE_CD, TO_CHAR(SYSDATE, 'YYYYMMDD'), '4') AS INVEST_AMT
+		     , 0 AS INVEST_AMT
+		  FROM RSS_STD_RECIPE_CD_MST A
+		     , RSS_UPJANG_RECIPE_CD_MST C
+		 WHERE A.STD_RECIPE_CD = C.STD_RECIPE_CD(+)
+		   AND C.UPJANG_CD(+) = :upjang
+		   AND A.MU_CD = :muCd
+		   AND A.UPJANG_TYPE = :upjangType
+		   AND A.USE_YN = 'Y'
+		   AND NVL(A.SML_YN, 'N') = 'N'
+		<#if stdRecipeCd?has_content>
+		   AND A.STD_RECIPE_CD = :stdRecipeCd
+		</#if>
+		<#if recipeNm?has_content>
+		   AND UPPER(A.RECIPE_NM) LIKE '%'|| UPPER(:recipeNm) ||'%'
+		</#if>
+		<#if copyYn?has_content>
+		   AND DECODE(C.STD_RECIPE_CD, NULL, 'N', 'Y') = :copyYn
+		</#if>
+		 ORDER BY A.STD_RECIPE_CD ASC
+
+		]]>
+	</statement>
+
+	<!-- 표준 레시피 업장 레시피로 복사한다. -->
+	<statement name="insertRecipe" type="insert">
+		/*+ com.hwfs.rc.rrm.dao.RecipeCopyDAO.insertRecipe */
+		<![CDATA[
+		INSERT INTO RSS_UPJANG_RECIPE_CD_MST
+		(
+			UPJANG_CD,
+			STD_RECIPE_CD,
+			UPJANG_TYPE,
+			MU_CD,
+			RECIPE_NM,
+			RECIPE_NM_ENGLISH,
+			RECIPE_NM_BYNM,
+			STAND,
+			ORIGIN,
+			OFFER_UNIT,
+			COOK_UNIT,
+			GOAL_CSTRAT,
+			CSTRAT_DRCT_INPUT_YN,
+			DRCT_INPUT_CST_RATE,
+			STD_RECIPE_APPLY_BASIS,
+			MCALSS_CD,
+			SCLASS_CD,
+			SALE_PRICE,
+			RECIPE_DVLP_BY,
+			REMARK,
+			REG_DATE,
+			REF_SEQ,
+			APPEND_SEQ,
+			UPJANG_MODIFY_ALLOW_YN,
+			RECIPE_STATUS,
+			USE_YN,
+			CUSER,
+			CDATE,
+			UUSER,
+			UDATE
+		)
+		SELECT
+			:upjang,
+			STD_RECIPE_CD,
+			UPJANG_TYPE,
+			MU_CD,
+			RECIPE_NM,
+			RECIPE_NM_ENGLISH,
+			RECIPE_NM_BYNM,
+			STAND,
+			ORIGIN,
+			OFFER_UNIT,
+			COOK_UNIT,
+			GOAL_CSTRAT,
+			CSTRAT_DRCT_INPUT_YN,
+			DRCT_INPUT_CST_RATE,
+			STD_RECIPE_APPLY_BASIS,
+			MCALSS_CD,
+			SCLASS_CD,
+			SALE_PRICE,
+			RECIPE_DVLP_BY,
+			REMARK,
+			REG_DATE,
+			REF_SEQ,
+			APPEND_SEQ,
+			'Y',
+			RECIPE_STATUS,
+			USE_YN,
+			:loginSabun,
+			SYSDATE,
+			:loginSabun,
+			SYSDATE
+		FROM RSS_STD_RECIPE_CD_MST
+		WHERE MU_CD = :muCd
+		AND   UPJANG_TYPE = :upjangType
+		AND	  STD_RECIPE_CD = :stdRecipeCd
+		AND   NVL(SML_YN, 'N') = 'N'
+		]]>
+	</statement>
+	
+	<!-- 표준 레시피 상세 업장 레시피 상세로 복사한다. -->
+	<statement name="insertRecipeDetail" type="insert">
+		/*+ com.hwfs.rc.rrm.dao.RecipeCopyDAO.insertRecipeDetail */
+		<![CDATA[
+		INSERT INTO RSS_UPJANG_RECIPE_CD_DETAIL
+		(
+			UPJANG_CD,
+			STD_RECIPE_CD,
+			MATERIAL_CD,
+			SDATE,
+			UPJANG_TYPE,
+			NEED_QTY,
+			CST_AMT,
+			BASIS_UNIT_CD,
+			PO_UNIT,
+			RECIPE_APPLY_UNIT,
+			LOSS_RATE,
+			YIELD,
+			SEMI_GOODS_YN,
+			PRVS_MATERIAL_CD,
+			SORT_ORDER,
+			ITEM_UPJANG,
+			REMARK,
+			EDATE,
+			CUSER,
+			CDATE,
+			UUSER,
+			UDATE
+		)
+		SELECT
+			:upjang,
+			STD_RECIPE_CD,
+			MATERIAL_CD,
+			SDATE,
+			UPJANG_TYPE,
+			NEED_QTY,
+			CST_AMT,
+			BASIS_UNIT_CD,
+			PO_UNIT,
+			RECIPE_APPLY_UNIT,
+			LOSS_RATE,
+			YIELD,
+			SEMI_GOODS_YN,
+			PRVS_MATERIAL_CD,
+			SORT_ORDER,
+			ITEM_UPJANG,
+			REMARK,
+			EDATE,
+			:loginSabun,
+			SYSDATE,
+			:loginSabun,
+			SYSDATE	
+		FROM RSS_STD_RECIPE_CD_DETAIL
+		WHERE UPJANG_TYPE = :upjangType
+		AND	  STD_RECIPE_CD = :stdRecipeCd
+		AND	  MU_CD = :muCd
+		]]>
+	</statement>
+	
+	<!-- 표준 레시피 조리법 업장 레시피 조리법으로 복사한다. -->
+	<statement name="insertRecipeCuisine" type="insert">
+		/*+ com.hwfs.rc.rrm.dao.RecipeCopyDAO.insertRecipeCuisine */
+		<![CDATA[
+		INSERT INTO RSS_UPJANG_RECIPE_CUISINE
+		(
+			UPJANG_CD,
+			STD_RECIPE_CD,
+			SRLNUM,
+			CUISINE,
+			REF_SEQ,
+			APPEND_SEQ,
+			COOK_SEQ,
+			CUSER,
+			CDATE,
+			UUSER,
+			UDATE
+		)
+		SELECT
+			:upjang,
+			STD_RECIPE_CD,
+			SRLNUM,
+			CUISINE,
+			REF_SEQ,
+			APPEND_SEQ,
+			COOK_SEQ,
+			:loginSabun,
+			SYSDATE,
+			:loginSabun,
+			SYSDATE
+		FROM RSS_STD_RECIPE_CUISINE
+		WHERE UPJANG_TYPE = :upjangType
+		AND	  STD_RECIPE_CD = :stdRecipeCd
+		]]>
+	</statement>
+	
+	<!-- 표준 레시피 업장 레시피로 복사(수정)한다. -->
+	<statement name="mergeRecipe" type="insert">
+		/*+ com.hwfs.rc.rrm.dao.RecipeCopyDAO.mergeRecipe */
+		<![CDATA[
+		MERGE INTO RSS_UPJANG_RECIPE_CD_MST A
+        USING
+        (
+            SELECT X.*
+            FROM   RSS_STD_RECIPE_CD_MST X
+            WHERE  MU_CD = :muCd
+            AND    UPJANG_TYPE = :upjangType
+            AND    STD_RECIPE_CD = :stdRecipeCd
+        ) T
+        ON (A.UPJANG_CD = :upjang AND A.STD_RECIPE_CD = T.STD_RECIPE_CD)
+        WHEN MATCHED THEN
+            UPDATE
+            SET A.RECIPE_NM              = T.RECIPE_NM,
+                A.RECIPE_NM_ENGLISH      = T.RECIPE_NM_ENGLISH,
+                A.RECIPE_NM_BYNM         = T.RECIPE_NM_BYNM,
+                A.STAND                  = T.STAND,
+                A.ORIGIN                 = T.ORIGIN,
+                A.OFFER_UNIT             = T.OFFER_UNIT,
+                A.COOK_UNIT              = T.COOK_UNIT,
+                A.GOAL_CSTRAT            = T.GOAL_CSTRAT,
+                A.CSTRAT_DRCT_INPUT_YN   = T.CSTRAT_DRCT_INPUT_YN,
+                A.DRCT_INPUT_CST_RATE    = T.DRCT_INPUT_CST_RATE,
+                A.STD_RECIPE_APPLY_BASIS = T.STD_RECIPE_APPLY_BASIS,
+                A.MCALSS_CD              = T.MCALSS_CD,
+                A.SCLASS_CD              = T.SCLASS_CD,
+                A.SALE_PRICE             = T.SALE_PRICE,
+                A.RECIPE_DVLP_BY         = T.RECIPE_DVLP_BY,
+                A.REMARK                 = T.REMARK,
+                A.REG_DATE               = T.REG_DATE,
+                A.REF_SEQ                = T.REF_SEQ,
+                A.APPEND_SEQ             = T.APPEND_SEQ,
+                A.UPJANG_MODIFY_ALLOW_YN = 'Y',
+                A.RECIPE_STATUS          = T.RECIPE_STATUS,
+                A.USE_YN                 = T.USE_YN,
+                A.UUSER                  = :loginSabun,
+                A.UDATE                  = SYSDATE
+            WHERE A.UPJANG_CD = :upjang
+            AND   A.STD_RECIPE_CD = T.STD_RECIPE_CD
+        WHEN NOT MATCHED THEN
+            INSERT
+            (
+                A.UPJANG_CD,
+                A.STD_RECIPE_CD,
+                A.UPJANG_TYPE,
+                A.MU_CD,
+                A.RECIPE_NM,
+                A.RECIPE_NM_ENGLISH,
+                A.RECIPE_NM_BYNM,
+                A.STAND,
+                A.ORIGIN,
+                A.OFFER_UNIT,
+                A.COOK_UNIT,
+                A.GOAL_CSTRAT,
+                A.CSTRAT_DRCT_INPUT_YN,
+                A.DRCT_INPUT_CST_RATE,
+                A.STD_RECIPE_APPLY_BASIS,
+                A.MCALSS_CD,
+                A.SCLASS_CD,
+                A.SALE_PRICE,
+                A.RECIPE_DVLP_BY,
+                A.REMARK,
+                A.REG_DATE,
+                A.REF_SEQ,
+                A.APPEND_SEQ,
+                A.UPJANG_MODIFY_ALLOW_YN,
+                A.RECIPE_STATUS,
+                A.USE_YN,
+                A.CUSER,
+                A.CDATE,
+                A.UUSER,
+                A.UDATE
+            )
+            VALUES
+            (
+                :upjang,
+                T.STD_RECIPE_CD,
+                T.UPJANG_TYPE,
+                T.MU_CD,
+                T.RECIPE_NM,
+                T.RECIPE_NM_ENGLISH,
+                T.RECIPE_NM_BYNM,
+                T.STAND,
+                T.ORIGIN,
+                T.OFFER_UNIT,
+                T.COOK_UNIT,
+                T.GOAL_CSTRAT,
+                T.CSTRAT_DRCT_INPUT_YN,
+                T.DRCT_INPUT_CST_RATE,
+                T.STD_RECIPE_APPLY_BASIS,
+                T.MCALSS_CD,
+                T.SCLASS_CD,
+                T.SALE_PRICE,
+                T.RECIPE_DVLP_BY,
+                T.REMARK,
+                T.REG_DATE,
+                T.REF_SEQ,
+                T.APPEND_SEQ,
+                'Y',
+                T.RECIPE_STATUS,
+                T.USE_YN,
+                :loginSabun,
+                SYSDATE,
+                :loginSabun,
+                SYSDATE
+            )
+		]]>
+	</statement>
+	
+	<!-- 표준 레시피 상세 업장 레시피 상세로 복사(수정)한다. -->
+	<statement name="mergeRecipeDetail" type="insert">
+		/*+ com.hwfs.rc.rrm.dao.RecipeCopyDAO.mergeRecipeDetail */
+		<![CDATA[
+		MERGE INTO RSS_UPJANG_RECIPE_CD_DETAIL A
+		USING
+		(
+			SELECT X.*
+			FROM   RSS_STD_RECIPE_CD_DETAIL X
+			WHERE  MU_CD = :muCd
+			AND	   UPJANG_TYPE = :upjangType
+			AND	   STD_RECIPE_CD = :stdRecipeCd
+		) T
+		ON (A.UPJANG_CD = :upjang AND A.STD_RECIPE_CD = T.STD_RECIPE_CD AND A.MATERIAL_CD = T.MATERIAL_CD AND A.SDATE = T.SDATE)
+		WHEN MATCHED THEN
+			UPDATE
+			SET	A.NEED_QTY          = T.NEED_QTY,
+				A.CST_AMT           = T.CST_AMT,
+				A.BASIS_UNIT_CD     = T.BASIS_UNIT_CD,
+				A.PO_UNIT           = T.PO_UNIT,
+				A.RECIPE_APPLY_UNIT = T.RECIPE_APPLY_UNIT,
+				A.LOSS_RATE         = T.LOSS_RATE,
+				A.YIELD             = T.YIELD,
+				A.SEMI_GOODS_YN     = T.SEMI_GOODS_YN,
+				A.PRVS_MATERIAL_CD  = T.PRVS_MATERIAL_CD,
+				A.SORT_ORDER        = T.SORT_ORDER,
+				A.REMARK            = T.REMARK,
+				A.ITEM_UPJANG		= T.ITEM_UPJANG,
+				A.EDATE             = T.EDATE,
+				A.UUSER             = :loginSabun,
+				A.UDATE             = SYSDATE
+			WHERE  A.UPJANG_CD = :upjang
+			AND	   A.STD_RECIPE_CD = T.STD_RECIPE_CD
+			AND    A.MATERIAL_CD = T.MATERIAL_CD
+			AND    A.SDATE = T.SDATE
+		WHEN NOT MATCHED THEN
+			INSERT
+			(
+				A.UPJANG_CD,
+				A.STD_RECIPE_CD,
+				A.MATERIAL_CD,
+				A.SDATE,
+				A.UPJANG_TYPE,
+				A.NEED_QTY,
+				A.CST_AMT,
+				A.BASIS_UNIT_CD,
+				A.PO_UNIT,
+				A.RECIPE_APPLY_UNIT,
+				A.LOSS_RATE,
+				A.YIELD,
+				A.SEMI_GOODS_YN,
+				A.PRVS_MATERIAL_CD,
+				A.SORT_ORDER,
+				A.ITEM_UPJANG,
+				A.REMARK,
+				A.EDATE,
+				A.CUSER,
+				A.CDATE,
+				A.UUSER,
+				A.UDATE
+			)
+			VALUES
+			(
+				:upjang,
+				T.STD_RECIPE_CD,
+				T.MATERIAL_CD,
+				T.SDATE,
+				T.UPJANG_TYPE,
+				T.NEED_QTY,
+				T.CST_AMT,
+				T.BASIS_UNIT_CD,
+				T.PO_UNIT,
+				T.RECIPE_APPLY_UNIT,
+				T.LOSS_RATE,
+				T.YIELD,
+				T.SEMI_GOODS_YN,
+				T.PRVS_MATERIAL_CD,
+				T.SORT_ORDER,
+				T.ITEM_UPJANG,
+				T.REMARK,
+				T.EDATE,
+				:loginSabun,
+				SYSDATE,
+				:loginSabun,
+				SYSDATE
+			)
+
+		]]>
+	</statement>
+	
+	<!-- 표준 레시피 조리법 업장 레시피 조리법으로 복사(수정)한다. -->
+	<statement name="mergeRecipeCuisine" type="insert">
+		/*+ com.hwfs.rc.rrm.dao.RecipeCopyDAO.mergeRecipeCuisine */
+		<![CDATA[
+		MERGE INTO RSS_UPJANG_RECIPE_CUISINE A
+		USING
+		(
+			SELECT X.*
+			FROM   RSS_STD_RECIPE_CUISINE X
+			WHERE  MU_CD = :muCd
+			AND	   UPJANG_TYPE = :upjangType
+			AND	   STD_RECIPE_CD = :stdRecipeCd
+		) T
+		ON (A.UPJANG_CD = :upjang AND A.STD_RECIPE_CD = T.STD_RECIPE_CD AND A.SRLNUM = T.SRLNUM)
+		WHEN MATCHED THEN
+			UPDATE
+			SET	A.CUISINE    = T.CUISINE,
+				A.REF_SEQ    = T.REF_SEQ,
+				A.APPEND_SEQ = T.APPEND_SEQ,
+				A.COOK_SEQ   = T.COOK_SEQ,
+				A.UUSER      = :loginSabun,
+				A.UDATE      = SYSDATE
+			WHERE  A.UPJANG_CD = :upjang
+			AND	   A.STD_RECIPE_CD = T.STD_RECIPE_CD
+			AND    A.SRLNUM = T.SRLNUM
+		WHEN NOT MATCHED THEN
+			INSERT
+			(
+				A.UPJANG_CD,
+				A.STD_RECIPE_CD,
+				A.SRLNUM,
+				A.CUISINE,
+				A.REF_SEQ,
+				A.APPEND_SEQ,
+				A.COOK_SEQ,
+				A.CUSER,
+				A.CDATE,
+				A.UUSER,
+				A.UDATE
+			)
+			VALUES
+			(
+				:upjang,
+				T.STD_RECIPE_CD,
+				T.SRLNUM,
+				T.CUISINE,
+				T.REF_SEQ,
+				T.APPEND_SEQ,
+				T.COOK_SEQ,
+				:loginSabun,
+				SYSDATE,
+				:loginSabun,
+				SYSDATE
+			)
+		]]>
+	</statement>
+
+	<!-- 레시피 복사 전 업장 레시피 유무을 조회한다. -->
+	<statement name="selectUpjangRecipe" type="select">
+		/*+ com.hwfs.rc.rrm.dao.RecipeCopyDAO.selectUpjangRecipe */
+		<![CDATA[
+
+		SELECT CASE WHEN COUNT(*) > 0 THEN 'Y' ELSE 'N' END AS RECIPE_YN
+		  FROM RSS_UPJANG_RECIPE_CD_MST
+		 WHERE UPJANG_CD = :upjang
+		   AND STD_RECIPE_CD = :stdRecipeCd
+		   AND UPJANG_TYPE = :upjangType
+		   AND MU_CD = :muCd
+
+		]]>
+	</statement>
+
+	<!-- 표준레시피 복사전 업장레시피를 삭제한다. -->
+	<statement name="deleteUpjangRecipeMst" type="delete">
+		/*+ com.hwfs.rc.rrm.dao.RecipeCopyDAO.deleteUpjangRecipeMst */
+		<![CDATA[
+		DELETE FROM RSS_UPJANG_RECIPE_CD_MST
+		 WHERE UPJANG_CD = :upjang
+		   AND STD_RECIPE_CD = :stdRecipeCd
+		   AND UPJANG_TYPE = :upjangType
+		   AND MU_CD = :muCd
+		]]>
+	</statement>
+
+	<!-- 표준레시피 복사전 업장레시피상세를 삭제한다. -->
+	<statement name="deleteUpjangRecipeDtl" type="delete">
+		/*+ com.hwfs.rc.rrm.dao.RecipeCopyDAO.deleteUpjangRecipeDtl */
+		<![CDATA[
+		DELETE FROM RSS_UPJANG_RECIPE_CD_DETAIL
+		 WHERE UPJANG_CD = :upjang
+		   AND STD_RECIPE_CD = :stdRecipeCd
+		   AND UPJANG_TYPE = :upjangType
+		]]>
+	</statement>
+
+	<!-- 표준레시피 복사전 업장레시피상세를 삭제한다. -->
+	<statement name="deleteUpjangRecipeCuisine" type="delete">
+		/*+ com.hwfs.rc.rrm.dao.RecipeCopyDAO.deleteUpjangRecipeCuisine */
+		<![CDATA[
+		DELETE FROM RSS_UPJANG_RECIPE_CUISINE
+		 WHERE UPJANG_CD = :upjang
+		   AND STD_RECIPE_CD = :stdRecipeCd
+		]]>
+	</statement>
+
+	<!-- 표준 레시피를 업장 레시피로 복사한다. -->
+	<statement name="saveUpjangRecipeMst" type="insert">
+		/*+ com.hwfs.rc.rrm.dao.RecipeCopyDAO.saveUpjangRecipeMst */
+		<![CDATA[
+		INSERT INTO RSS_UPJANG_RECIPE_CD_MST
+		(
+		   UPJANG_CD
+		 , STD_RECIPE_CD
+		 , RECIPE_NM
+		 , RECIPE_NM_ENGLISH
+		 , RECIPE_NM_BYNM
+		 , STAND
+		 , ORIGIN
+		 , OFFER_UNIT
+		 , COOK_UNIT
+		 , GOAL_CSTRAT
+		 , CSTRAT_DRCT_INPUT_YN
+		 , DRCT_INPUT_CST_RATE
+		 , STD_RECIPE_APPLY_BASIS
+		 , MCALSS_CD
+		 , SCLASS_CD
+		 , RECIPE_REG_AGED
+		 , SALE_PRICE
+		 , RECIPE_DVLP_BY
+		 , REMARK
+		 , REG_DATE
+		 , REF_SEQ
+		 , APPEND_SEQ
+		 , UPJANG_MODIFY_ALLOW_YN
+		 , RECIPE_STATUS
+		 , UPJANG_TYPE
+		 , MU_CD
+		 , USE_YN
+		 , CUSER
+		 , CDATE
+		 , UUSER
+		 , UDATE
+		 , OFER_NO
+		 , OFER_UNIT
+		 , SET_RECIPE_CD
+		)
+		SELECT :upjang
+		     , STD_RECIPE_CD
+		     , RECIPE_NM
+		     , RECIPE_NM_ENGLISH
+		     , RECIPE_NM_BYNM
+		     , STAND
+		     , ORIGIN
+		     , OFFER_UNIT
+		     , COOK_UNIT
+		     , GOAL_CSTRAT
+		     , CSTRAT_DRCT_INPUT_YN
+		     , DRCT_INPUT_CST_RATE
+		     , STD_RECIPE_APPLY_BASIS
+		     , MCALSS_CD
+		     , SCLASS_CD
+		     , '2'
+		     , SALE_PRICE
+		     , RECIPE_DVLP_BY
+		     , REMARK
+		     , REG_DATE
+		     , REF_SEQ
+		     , APPEND_SEQ
+		     , 'Y'
+		     , RECIPE_STATUS
+		     , UPJANG_TYPE
+		     , MU_CD
+		     , USE_YN
+		     , :loginSabun
+		     , SYSDATE
+		     , :loginSabun
+		     , SYSDATE
+		     , OFER_NO
+		     , OFER_UNIT
+		     , SET_RECIPE_CD
+		  FROM RSS_STD_RECIPE_CD_MST
+		 WHERE UPJANG_TYPE = :upjangType
+		   AND STD_RECIPE_CD = :stdRecipeCd
+		   AND MU_CD = :muCd
+		]]>
+	</statement>
+
+	<!-- 표준 레시피 상세를 업장 레시피 상세로 복사한다. -->
+	<statement name="saveUpjangRecipeDtl" type="insert">
+		/*+ com.hwfs.rc.rrm.dao.RecipeCopyDAO.saveUpjangRecipeDtl */
+		<![CDATA[
+		INSERT INTO RSS_UPJANG_RECIPE_CD_DETAIL
+		(
+		   UPJANG_CD
+		 , STD_RECIPE_CD
+		 , MATERIAL_CD
+		 , SDATE
+		 , UPJANG_TYPE
+		 , NEED_QTY
+		 , CST_AMT
+		 , BASIS_UNIT_CD
+		 , PO_UNIT
+		 , RECIPE_APPLY_UNIT
+		 , LOSS_RATE
+		 , YIELD
+		 , SEMI_GOODS_YN
+		 , PRVS_MATERIAL_CD
+		 , SORT_ORDER
+		 , CHG_REASON
+		 , REMARK
+		 , EDATE
+		 , ITEM_UPJANG
+		 , CUSER
+		 , CDATE
+		 , UUSER
+		 , UDATE
+		 , SET_RECIPE_CD
+		 , CHG_REASON_CD
+		)
+		SELECT :upjang
+		     , A.STD_RECIPE_CD
+		     , A.MATERIAL_CD
+		     , A.SDATE
+		     , A.UPJANG_TYPE
+		     , A.NEED_QTY
+		     , A.CST_AMT
+		     , A.BASIS_UNIT_CD
+		     , A.PO_UNIT
+		     , A.RECIPE_APPLY_UNIT
+		     , A.LOSS_RATE
+		     , A.YIELD
+		     , A.SEMI_GOODS_YN
+		     , A.PRVS_MATERIAL_CD
+		     , A.SORT_ORDER
+		     , A.CHG_REASON
+		     , A.REMARK
+		     , A.EDATE
+		     , A.ITEM_UPJANG
+		     , :loginSabun
+		     , SYSDATE
+		     , :loginSabun
+		     , SYSDATE
+		     , A.SET_RECIPE_CD
+		     , CHG_REASON_CD
+		  FROM RSS_STD_RECIPE_CD_DETAIL A
+		  WHERE UPJANG_TYPE = :upjangType
+		    AND STD_RECIPE_CD = :stdRecipeCd
+		    AND MU_CD = :muCd
+		]]>
+	</statement>
+
+	<!-- 표준 레시피 조리법을 업장 레시피 조리법으로 복사한다. -->
+	<statement name="saveUpjangRecipeCuisine" type="insert">
+		/*+ com.hwfs.rc.rrm.dao.RecipeCopyDAO.saveUpjangRecipeCuisine */
+		<![CDATA[
+		INSERT INTO RSS_UPJANG_RECIPE_CUISINE
+		(
+		   UPJANG_CD
+		 , STD_RECIPE_CD
+		 , SRLNUM
+		 , CUISINE
+		 , REF_SEQ
+		 , APPEND_SEQ
+		 , COOK_SEQ
+		 , CUSER
+		 , CDATE
+		 , UUSER
+		 , UDATE
+		)
+		SELECT :upjang
+		     , STD_RECIPE_CD
+		     , SRLNUM
+		     , CUISINE
+		     , REF_SEQ
+		     , APPEND_SEQ
+		     , COOK_SEQ
+		     , :loginSabun
+		     , SYSDATE
+		     , :loginSabun
+		     , SYSDATE
+		  FROM RSS_STD_RECIPE_CUISINE
+		 WHERE UPJANG_TYPE = :upjangType
+		   AND STD_RECIPE_CD = :stdRecipeCd
+		   AND MU_CD = :muCd
+		]]>
+	</statement>
+</hqml>

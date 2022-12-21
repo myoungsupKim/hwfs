@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[자재추가 팝업 리스트 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT B.ITEM_CODE
+     , B.ITEM_NAME
+     , B.ITEM_SIZE
+     , B.PO_UOM
+     , NVL(B.ITEM_PRICE,0) AS ITEM_PRICE
+     , B.KG_CONVERT_RATE
+     , ROUND(NVL(B.G_ITEM_PRICE,0),2) AS G_ITEM_PRICE
+     , C.RESTRICT_SEQ
+     , C.RESTRICT_START
+     , C.RESTRICT_END
+     , C.RESTRICT_REASON
+     , C.RESTRICT_PERIOD
+     , DECODE(NVL(C.RESTRICT_SEQ,0),0,'N','Y') AS RESTRICT_YN   --금지
+     , C.CNL_START
+     , C.CNL_END
+     , C.CNL_REASON
+     , C.CNL_PERIOD
+     , B.CONTRACT_PRICE
+     , B.MARGIN_RATE
+     , F.CAL --"열량"
+     , F.WATER --"수분"
+     , F.PROT --"단백질"
+     , F.FAT --"지질"
+     , F.CARBO --"당질"
+     , F.FIBER --"섬유"
+     , F.ASH --"회분"
+     , F.CA --"칼슘"
+     , F.P --"인"
+     , F.FE --"철"
+     , F.NA --"나트륨"
+     , F.K --"칼륨"
+     , F.VITA_A --"비타민A"
+     , F.RETIN --"레티놀"
+     , F.B_CAROT --"B_카르틴"
+     , F.THIA --"비타민B1"
+     , F.RIBO --"비타민B2"
+     , F.NIACIN --"나이아신"
+     , F.VITA_C --"비타민C"
+     , F.CHOLE --"콜레스테롤"
+     , FN_ITEM_FEATURE_ICON(B.DUTY_YN, B.PB_YN, B.ECO_ITEM, B.MANUF_CD) AS FEATURE_ICON
+     , TO_CHAR(B.CUSTCD) AS CUSTCD
+     -- [속도개선 Project 시작] 2017. 12. 06. 김호석 담당MD 추가		
+     ,(SELECT DD.USR_NM 
+  	 					FROM EPROCUSR.ESPINFO AA 
+  	 			LEFT OUTER JOIN EPROCUSR.ESMVDOG BB ON AA.SYS_ID = BB.SYS_ID AND AA.COMP_CD = BB.COMP_CD AND AA.VD_SN = BB.VD_SN 
+  	 				    AND BB.OPER_ORG_SN = '414' --FC부문만 
+   	 			INNER JOIN EPROCUSR.ESPSWHC CC ON AA.SYS_ID = CC.SYS_ID AND AA.COMP_CD = CC.COMP_CD AND AA.PURC_OPER_ORG_SN = CC.OPER_ORG_SN_PURC 
+   	      		INNER JOIN EPROCUSR.ESAUSER DD ON DD.SYS_ID = '100' AND DD.COMP_CD = 'HFC' AND BB.HFC_CHR_ID = DD.USR_ID  AND DD.STS != 'D'
+   	 				WHERE AA.SYS_ID = '100' AND AA.COMP_CD = 'HFC' AND #MENU_DATE# BETWEEN AA.APPLY_SD AND AA.APPLY_ED  --계약 기간 
+   	 				    AND AA.STS != 'D' --AND SUBSTR(AA.ITEM_CD, 0 , 1) = 'F' --식자재만
+   	          			AND BB.VD_SN = B.VD_SN 
+   	          			AND AA.ITEM_CD = B.ITEM_CODE
+   	         			AND CC.WH_CNTR_CD = B.CENTER_CODE
+   	           ) AS MD_NAME	--담당MD	 
+   	--[속도개선 Project 시작] 2017. 12. 06. 김호석 담당MD 추가
+     , B.IMG_YN
+     
+      --추가 2022.07.28
+     , EPROCUSR.FN_ITEM_PROCURE_MTG_UNS('100', B.ITEM_CODE) AS MTG_UNS -- 불용자재체크
+     , EPROCUSR.FN_ITEM_PROCURE_MTG_STP('100', B.ITEM_CODE, '01') AS MTG_STP -- 중지자재체크(Q-STOP)
+     , EPROCUSR.FN_ITEM_PROCURE_SHP_MAP('100', 'HFC', E.OPER_ORG_SN_PURC, B.UPJANG_GRP, B.ITEM_CODE, #NEED_DATE#) AS SHP_MAP  /* 자재 업장군 맵핑 유효성 체크 CE : 맵핑안되어있음(사용불가), CK : 맵핑되어있음(사용가능) */  
+     , EPROCUSR.FN_ITEM_PROCURE_REQ_WKD('100', 'HFC', E.OPER_ORG_SN_PURC, B.ITEM_CODE, B.VD_SN, '01', #NEED_DATE#) AS REQ_WKD      /* 요일별 신청불가 체크 XE : 신청불가(사용불가), XR : 신청가능(사용가능), NN : DATA NOT FOUND */                
+     , EPROCUSR.FN_ITEM_PROCURE_SCH('100', 'HFC', E.OPER_ORG_SN_PURC, B.ITEM_CODE, B.VD_SN, '01', NVL(D.D_DAYS, 0), NVL(D.D_TIMES, 0), TO_CHAR(SYSDATE,'YYYYMMDD'), #NEED_DATE#) AS SCH  /* 수발주 스케쥴에 따른 유효성 체크 HE : 신청불가(사용불가), HK : 신청가능(사용가능), NN : DATA NOT FOUND */       
+     
+     
+  FROM (
+        SELECT A.ITEM_CODE
+             , D.ITEM_NAME
+             , D.ITEM_SIZE
+             , D.ITEM_CLASS2
+             , D.ITEM_CLASS3
+             , D.ITEM_CLASS4
+             , D.PO_UOM
+             , A.CUSTCD
+             , DECODE(A.MARGIN_RATE, 0, A.CONTRACT_PRICE, DECODE(E.OUTVAT_FLAG, 'Y' , ( ROUND( (A.CONTRACT_PRICE * DECODE(D.TAX_CODE, '100' , 1.1, 1) * (A.MARGIN_RATE+100) / 100 ) / 10) * 10 ) , ( ROUND( (A.CONTRACT_PRICE * (A.MARGIN_RATE+100) / 100 ) / 10) * 10 ) ) ) AS ITEM_PRICE
+ 	         , KG_CONVERT_RATE
+ 	         , ROUND((DECODE(A.MARGIN_RATE, 0, A.CONTRACT_PRICE, DECODE(E.OUTVAT_FLAG, 'Y' , ( ROUND( (A.CONTRACT_PRICE * DECODE(D.TAX_CODE, '100' , 1.1, 1) * (A.MARGIN_RATE+100) / 100 ) / 10) * 10 ) , ( ROUND( (A.CONTRACT_PRICE * (A.MARGIN_RATE+100) / 100 ) / 10) * 10 ) ) ) )/DECODE(KG_CONVERT_RATE, 0, 1, KG_CONVERT_RATE) /1000,2) AS G_ITEM_PRICE
+ 	         , A.UPJANG
+             , A.CENTER_CODE
+ 		     , A.MARGIN_RATE
+ 		     , A.CONTRACT_PRICE
+             --PB_YN을 계약에서 가져옴 (2015.08.29)
+             , A.PB_YN
+             , D.MANUF_CD
+             , D.ECO_ITEM
+             , D.IMG_YN  --20180511 윤지혜대리 추가 요청 추가(김호석)
+             , (SELECT CASE WHEN COUNT(1) > 0 THEN 'Y' ELSE 'N' END
+    	 	      FROM FSI_DUTY_MST
+    			 WHERE ITEM_CODE = A.ITEM_CODE
+    			   AND CENTER_CODE = A.CENTER_CODE
+    			   AND CUSTCD = A.CUSTCD
+    			   AND #MENU_DATE# BETWEEN START_DATE AND END_DATE
+    			   AND USE_YN = 'Y') AS DUTY_YN
+    		  , A.VD_SN
+    		  , A.UPJANG_GRP --추가 2022.07.28
+   	      FROM HLDC_PO_CONTRACT_F A
+   	         , HLDC_PO_ITEM_MST D
+             , HLDC_PO_SUBINVENTORY E
+         WHERE 1=1
+           AND A.UPJANG = (SELECT AP_UNITPRICE_UPJANG FROM HLDC_ST_UPJANG Z WHERE Z.UPJANG = #UPJANG#)
+ 		   AND #MENU_DATE# BETWEEN A.CONTRACT_START AND A.CONTRACT_END
+ 		   AND A.USE_YN = 'Y'
+ 		   AND A.CONTRACT_PRICE > 0
+           AND E.UPJANG = #UPJANG#
+           AND E.SUBINV_CODE = #SUBINV_CODE#
+           AND A.ITEM_CODE = D.ITEM_CODE
+       ) B -- 단가, g당 단가
+     , (
+        SELECT A.UPJANG
+             , A.ITEM_CODE
+             , A.RESTRICT_SEQ
+             , A.RESTRICT_START
+             , A.RESTRICT_END
+             , A.RESTRICT_REASON
+             , TO_CHAR(TO_DATE(A.RESTRICT_START, 'YYYYMMDD' ) , 'YYYY.MM.DD' ) || '~' || TO_CHAR(TO_DATE(A.RESTRICT_END, 'YYYYMMDD' ) , 'YYYY.MM.DD' ) AS RESTRICT_PERIOD
+             , CNL_START
+             , CNL_END
+             , CNL_REASON
+             , NVL2(A.CNL_START,TO_CHAR(TO_DATE(A.CNL_START, 'YYYYMMDD' ) , 'YYYY.MM.DD' ) || '~' || TO_CHAR(TO_DATE(A.CNL_END, 'YYYYMMDD' ) , 'YYYY.MM.DD' ),'') AS CNL_PERIOD
+          FROM FSI_RESTRICT_SET A
+             , HLDC_PO_ITEM_MST B
+         WHERE A.ITEM_CODE = B.ITEM_CODE
+           AND A.UPJANG = #UPJANG#
+           AND (B.ITEM_CLASS2 BETWEEN 'F10' AND 'F26' OR B.ITEM_CLASS2 = 'F29')
+           AND ( (RESTRICT_START BETWEEN #MENU_DATE# AND #MENU_DATE#)
+               OR (RESTRICT_END BETWEEN #MENU_DATE# AND #MENU_DATE#)
+               OR (RESTRICT_START &lt;= #MENU_DATE# AND RESTRICT_END &gt;= #MENU_DATE#) )
+           AND NOT (
+                    (CNL_START IS NOT NULL) AND ( (CNL_START BETWEEN #MENU_DATE# AND #MENU_DATE#)
+                                               OR (CNL_END BETWEEN #MENU_DATE# AND #MENU_DATE#)
+                                               OR (CNL_START &lt;= #MENU_DATE# AND CNL_END &gt;= #MENU_DATE#)
+                    )
+                  )
+      ) C --금지자재
+      , HLDC_PO_PREORDER_LIST D  /* 선발주제한 추가 2022.07.28*/
+      , VO_CENTER E /*추가 2022.07.28*/
+      
+     , FSI_ITEM_NUT F
+ WHERE B.ITEM_CODE = C.ITEM_CODE(+)
+   AND B.ITEM_CODE = F.ITEM_CODE(+)
+   AND (B.ITEM_CLASS2 BETWEEN 'F10' AND 'F26' OR B.ITEM_CLASS2 = 'F29')
+   AND NVL(B.ITEM_PRICE, 0) > 0
+   
+   --추가 2022.07.28
+   AND B.CENTER_CODE = D.CENTER_CODE(+)
+   AND B.ITEM_CODE = D.ITEM_CODE(+)
+   AND B.CENTER_CODE = E.CENTER_CODE (+)  
+   
+<isNotNull col="BIG_CODE">
+   AND B.ITEM_CLASS2 =#BIG_CODE#
+</isNotNull>
+<isNotNull col="MID_CODE">
+   AND B.ITEM_CLASS3 =#MID_CODE#
+</isNotNull>
+<isNotNull col="SMALL_CODE">
+   AND B.ITEM_CLASS4 =#SMALL_CODE#
+</isNotNull>
+<isNotNull col="ITEM_NAME">
+ --AND B.ITEM_NAME LIKE '%'|| #ITEM_NAME# ||'%'
+   --REGEXP_LIKE 함수의 변수값이 200자 넘으면 에러 발생 substr함수로 200자 제한 추가
+   AND (REGEXP_LIKE(B.ITEM_NAME, (SELECT SUBSTR(TRIM(LISTAGG(REPLACE(T.ITEM_NAME, ',', '|'), '|') WITHIN GROUP(ORDER BY ITEM_GROUP)),0,200) AS ITEM_NAME
+                             FROM
+                                 (SELECT REPLACE(REPLACE(REPLACE(#ITEM_NAME#, '(', '\\('), ')', '\\)'), ' ', '|') AS ITEM_NAME
+                                       , '1' AS ITEM_GROUP
+                                    FROM DUAL
+                                  UNION ALL
+                                  --정규식에서 괄호가 한쪽만 있으면 에러 발생하기때문에 치환처리
+                                  SELECT REPLACE(REPLACE(REPLACE(KEYWORD||'|'||SIM_TXT, '(', ''), ')', ''), ' ', '|') AS ITEM_NAME
+                                       , '1' AS ITEM_GROUP
+                                    FROM EPROCUSR.VO_ITEM_SIM_WORD
+                                   --WHERE REGEXP_LIKE(KEYWORD, REPLACE(REPLACE(REPLACE(#ITEM_NAME#, '(', '\\('), ')', '\\)'), ' ', '|'))
+                                   --유사어에 등록된 키워드는 일치검색으로 변경
+                                   WHERE KEYWORD = REPLACE(REPLACE(REPLACE(#ITEM_NAME#, '(', '\\('), ')', '\\)'), ' ', '|')
+                                   
+                                 ) T
+                           )
+             )
+       OR B.ITEM_CODE LIKE '%'|| #ITEM_NAME# ||'%')
+</isNotNull>
+ ORDER BY ROUND(NVL(B.G_ITEM_PRICE,0),2) ASC, B.ITEM_NAME
+    </statement>
+	<input default-name="ds_Input">
+	</input>
+	<output default-name="ds_ListItem">
+	</output>
+</query>

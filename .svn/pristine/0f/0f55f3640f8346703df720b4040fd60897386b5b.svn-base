@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="rc.sle.eventCustSalesListDAO">
+	<desc>고객별 매출 현황</desc>
+
+
+	<statement name="selectList" type="select"><![CDATA[
+			         
+	        SELECT MST.MEMB_NUM, MST.MEMB_NM, MST.CLOSE_TIME            --회원번호, 회원명,매출시간
+            	 , MST.OUTLET_CD, SHOP.OUTLET_NM AS OUTLET_NM           --업장코드,업장명
+            	 , MST.RECEIPT_STATUS, CODE.CODE_NAME  AS RECEIPT_NM    --영수증 상태, 상태명
+	             , MST.SALES_DATE, MST.RECEIPT_NUM, MST.POS_NUM         --매출일자,영수증번호,포스번호
+	             , MST.KOR_PSN, MST.FOR_PSN, MST.PSN                    --내국인,외국인,인원수
+	             , GOODS.QUANTITY 	AS QTY			--수량
+                 , GOODS.OCCUR_AMT  AS OCCUR_AMT	--원금액
+                 , GOODS.DISCNT_AMT AS TOT_DSCN_AMT --할인금액 
+	             , GOODS.NET_AMT    AS NET_AMT      --공급가
+                 , GOODS.SVC_AMT    AS SVC          --봉사료  
+                 , GOODS.VAT_AMT    AS VAT          --부가세
+                 , GOODS.TOT_AMT    AS TOT_AMT      --매출액
+
+	        FROM SLE_SALS_INFO MST
+               INNER JOIN (
+                          --매출상세(과세,영세,면세,봉사료,부가세,매출액)
+                          SELECT  A.OUTLET_CD, A.SALES_DATE, A.RECEIPT_NUM
+                          		, SUM(A.QUANTITY)    AS QUANTITY
+                                , SUM(A.OCCUR_AMT)   AS OCCUR_AMT
+                                , SUM(A.DISCNT_AMT)  AS DISCNT_AMT
+                                , SUM(A.NET_AMT)     AS NET_AMT
+                                , SUM(A.SVC)         AS SVC_AMT
+                                , SUM(A.VAT)         AS VAT_AMT
+                                , SUM(A.TOT_AMT)     AS TOT_AMT
+                          FROM SLE_SALS_GOODS  A
+                          INNER JOIN (SELECT MST.OUTLET_CD, MST.OUTLET_NM
+			                        FROM SLE_OUTLET_MST      MST
+			                      INNER JOIN  SCO_UPJANG_V   UPJANG ON  UPJANG.UPJANG = TO_NUMBER(MST.OUTLET_CD) 
+			                                         					<#if muCd?has_content> AND  UPJANG.MU_CD = :muCd </#if>
+			                                         					<#if tmCd?has_content> AND  UPJANG.TM_CD = :tmCd </#if>
+			                      <#if outletCd?has_content > WHERE MST.OUTLET_CD   = :outletCd </#if>
+			              		  ) OUTLET ON OUTLET.OUTLET_CD =  A.OUTLET_CD
+                          
+                          
+                          WHERE 1=1
+			                <#if internalYn == 'Y' > AND A.RECEIPT_STATUS IN ('Q','R','E') </#if> --영수증 상태 Q:정상 R:반품(-)
+						    <#if internalYn == 'N' > AND A.RECEIPT_STATUS IN ('Q','R') </#if> --영수증 상태 Q:정상 R:반품(-)                        	                                     
+        			        --시작 : 2017.03.02 현대카드M포인트 제휴 추가로 매출여부 조건 변경 처리자:김호석 CH201702_00668
+				         	AND A.SELL_YN  = DECODE(A.RECEIPT_STATUS ,'E','N','Y')				--매출 여부
+  					 		--종료			                       
+			                AND A.DATA_CLASS     = '1'
+                            AND A.SALS_CLASS     = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+                            AND A.MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 2:조정
+                            AND A.SALES_DATE BETWEEN :frSalesDt AND :toSalesDt			 --매출일자
+                            <#if outletCd?has_content > AND A.OUTLET_CD = :outletCd </#if> --업장
+                            <#if internalYn == 'N' > 
+                            	<#if sellYn?has_content >   AND A.SELL_YN   = 'Y'       </#if> --매출여부
+                            </#if>
+                            <#if salsYn?has_content >   AND A.SALS_YN   = 'Y'       </#if> --판매여부 
+                          GROUP BY A.OUTLET_CD, A.SALES_DATE, A.RECEIPT_NUM
+
+                          ) GOODS  ON GOODS.OUTLET_CD   = MST.OUTLET_CD
+                                  AND GOODS.SALES_DATE  = MST.SALES_DATE
+                                  AND GOODS.RECEIPT_NUM = MST.RECEIPT_NUM           
+               INNER JOIN SLE_OUTLET_MST  SHOP ON SHOP.OUTLET_CD  = MST.OUTLET_CD	--업장명
+               INNER JOIN SCC_COMMON_CODE CODE ON CODE.GROUP_CODE ='SLE_0075' AND CODE.CODE = MST.RECEIPT_STATUS
+	        WHERE 1=1
+			  <#if internalYn == 'Y' > AND MST.RECEIPT_STATUS IN ('Q','R','E') </#if> --영수증 상태 Q:정상 R:반품(-)
+			  <#if internalYn == 'N' > AND MST.RECEIPT_STATUS IN ('Q','R') </#if> --영수증 상태 Q:정상 R:반품(-)
+			  AND MST.SALS_CLASS = '0'	                                        --0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+              AND MST.MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+              AND MST.SALES_DATE BETWEEN :frSalesDt AND :toSalesDt              --매출일자
+              AND MST.MEMB_NUM   IS NOT NULL
+              <#if outletCd?has_content > AND MST.OUTLET_CD = :outletCd </#if>  --업장
+	        ORDER BY MST.MEMB_NUM, MST.MEMB_NM, MST.OUTLET_CD, MST.SALES_DATE, MST.RECEIPT_NUM
+
+		]]></statement>
+
+</hqml>

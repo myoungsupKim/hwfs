@@ -1,0 +1,830 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Script type="xscript4.0"><![CDATA[/**
+ * @fileOverview
+ * Data 관련 공통 함수 모음
+ */
+ 
+  /**
+ * @class gds_userInfo(사용자 정보)의 칼럼값을 전달
+ * @param sColumn - 칼럼명
+ * @return String 칼럼값
+ */  
+function gfn_getUserInfo(sColumn)
+{
+    var bColChk = gds_userInfo.getColumnInfo(sColumn);
+    if(!gfn_isNull(bColChk)) {
+        return gds_userInfo.getColumn(0, sColumn);
+    }
+    
+    gfn_alert("사용자정보 '" + sColumn + "' 는 존재하지 않습니다. 정확한 칼럼을 입력하세요!");    
+    return;
+}
+
+ /**
+ * @class  사용자 ID 값을 리턴
+ * @return String 사용자 ID
+ */   
+function gfn_getUserId()
+{
+	var strVal = gfn_getUserInfo("userid");
+	
+	// 사용자 ID 없을때
+	if (this.gfn_isNull(strVal))
+	{
+		trace(gfn_getMessage("msg.login.error"));	// 해당하는 사용자 정보가 없습니다.
+		return "";
+	}
+	return strVal;
+}
+
+ /**
+ * @class dataSet object에서 키에 해당되는 Row를 찾아서 rowpostion 전달
+ * @param ObjDs     - dataset
+ * @param strIdCol  - 키칼럼
+ * @param strId     - 키값
+ * @param strSubCol - 서브키 칼럼
+ * @param strSubId  - 서브키값
+ * @return rowpostion
+ */  
+function gfn_findData(ObjDs, strIdCol, strId, strSubCol, strSubId)
+{
+	if (gfn_isNull(strSubCol)) 
+	{
+		return ObjDs.findRow(strIdCol, strId);
+	}
+	return ObjDs.findRowExpr(strIdCol + " == '" + strId + "' && " + strSubCol + " == '" + strSubId + "'");	
+	
+}
+
+ /**
+ * @class dataset object에서 키에 해당되는 Row를 찾아서 삭제
+ * @param ObjDs     - dataset
+ * @param strIdCol  - 키칼럼
+ * @param strId     - 키값
+ * @param strSubCol - 서브키 칼럼
+ * @param strSubId  - 서브키값
+ * @return 없음
+ */ 
+function gfn_deleteData(ObjDs, strIdCol, strId, strSubCol, strSubId)
+{
+	var curRow = gfn_findData(ObjDs, strIdCol, strId, strSubCol, strSubId);
+	ObjDs.deleteRow(curRow);
+}
+
+ /**
+ * @class dataset object에서 키에 해당되는 Row를 찾아서 이동
+ * @param ObjDs     - dataset
+ * @param strIdCol  - 키칼럼
+ * @param strId     - 키값
+ * @param newRow    - 이동할 Row
+ * @param strSubCol - 서브키 칼럼
+ * @param strSubId  - 서브키값
+ * @return 없음
+ */  
+function gfn_moveData(ObjDs, strIdCol, strId, newRow, strSubCol, strSubId)
+{
+	var curRow = gfn_findData(ObjDs, strIdCol, strId, strSubCol, strSubId);
+	ObjDs.moveRow(curRow, newRow);
+}
+
+ /**
+ * @class dataset object에서 키에 해당되는 Row를 찾아서 값을 변경
+ * @param ObjDs     - dataset
+ * @param strIdCol  - 키칼럼
+ * @param strId     - 키값
+ * @param valCol    - 변경할 칼럼
+ * @param newVal    - 변경값
+ * @param strSubCol - 서브키 칼럼
+ * @param strSubId  - 서브키 값
+ * @return boolean
+ */  
+function gfn_editData(ObjDs, strIdCol, strId, valCol, newVal, strSubCol, strSubId)
+{
+	var curRow = gfn_findData(ObjDs, strIdCol, strId, strSubCol, strSubId);
+	return ObjDs.setColumn(curRow, valCol, newVal);
+}
+
+ /**
+ * @class Dataset의 모든 행을 함수의 인자로 넘겨주고 함수 호출처리
+ * @param ObjDs         - 대상 dataset
+ * @param callFncObj    - 호출할 함수
+ * @param bModifiedOnly - 변경된 데이터만 호출할지 여부
+ * @return retVal
+ */   
+function gfn_allRowDataCall(objDs, callFncObj, bModifiedOnly)
+{
+	var retVal;
+	for (var i = 0; i < objDs.getRowCount(); i++) 
+	{
+		if (bModifiedOnly && !(objDs.getRowType(i) == 2 || objDs.getRowType(i) == 4)) 
+		{
+			continue;
+		}
+		retVal = callFncObj(objDs, i);
+		if (gfn_isNull(retVal) == false) 
+		{
+			return retVal;
+		}
+	}
+}
+
+ /**
+ * @class dataSet object에서 키에 해당되는 Row를 찾아서 칼럼값을 전달
+ * @param ObjDs     - dataset
+ * @param strIdCol  - 키칼럼
+ * @param strId     - 키값
+ * @param strInfo   - dataSet 칼럼
+ * @param strSubCol - 서브키칼럼
+ * @param strSubId  - 서브키값
+ * @return 칼럼값
+ */   
+function gfn_getLookupData(ObjDs, strIdCol, strId, strInfo, strSubCol, strSubId)
+{
+	var strVal;
+	var curRow = gfn_findData(ObjDs, strIdCol, strId, strSubCol, strSubId);
+	
+	if (curRow < 0) 
+	{
+		return "";
+	}
+	
+	strVal = ObjDs.getColumn(curRow, strInfo);
+	if (gfn_isNull(strVal)) 
+	{
+		return "";
+	}
+
+	return strVal;
+}
+
+ /**
+ * @class value를 Dataset에 적용 후 Datset의 갱신여부를  Return 한다.
+ * @param objDs     - 확인 대상 Dataset
+ * @return boolean
+ */  
+function gfn_dsGetUpdated(objDs)
+{
+	gfn_updateToDataset();
+	return gfn_dsIsUpdated(objDs);
+}
+
+
+/**
+* @class 해당 화면의 변경사항 체크
+* @return boolean
+*/
+function gfn_isDataChange()
+{
+	var bChange = false;
+	
+	var arrDataset = gfn_split(v_ds_check, ";");
+    for (var i = 0; i < arrDataset.length ; i++ ) 
+    {
+		var rtn = gfn_dsIsUpdated(eval(arrDataset[i]));
+		//trace("arrDataset[i] : " + arrDataset[i] + " / rtn : " + rtn);		
+        if(rtn) 
+        {
+			bChange = true;
+			break;
+		}
+    }
+
+    return bChange;
+}
+
+ /**
+ * @class dataSet의 Row 중에서 변경된 내용이 있는지 여부
+ * @param objDs     - 확인 대상 Dataset
+ * @return boolean
+ */   
+function gfn_dsIsUpdated(objDs)
+{	
+	gfn_updateToDataset();
+	
+    var bRtn = false;
+    var sFilterStr = (objDs.filterstr).toString();
+    
+    // Filter되어있을 경우 UnFilter해서
+    // 필터되어있던 Row에 대해서도 Update가 발생했는지 체크한다
+    if(sFilterStr.length>0)    objDs.filter("");
+    
+    // 삭제건수 확인
+    if (objDs.updatecontrol) {
+        if (objDs.getDeletedRowCount() > 0) {
+            // 필터가 되어있었을 경우 다시 필터해준다.
+            if(sFilterStr.length>0) objDs.filter(sFilterStr);
+            return true;
+        }
+    }
+    
+    var iRowType;
+    
+    for (var i=0; i<objDs.getRowCount(); i++) {
+        iRowType = objDs.getRowType(i);
+        
+        // insert, update, delete 확인
+        if (iRowType == 2 || iRowType == 4 || iRowType == 8) {
+            bRtn = true;
+            break;
+        }
+    }
+    
+    // 필터가 되어있었을 경우 다시 필터해준다.
+    if(sFilterStr.length > 0) objDs.filter(sFilterStr);
+    
+    return bRtn;    	
+}
+
+
+ /**
+ * @class 컨트롤이 Dataset에 bind되어 있을 경우 즉시 value를 Dataset에 적용시킨다.
+ * @return 없음
+ */   
+function gfn_updateToDataset()
+{
+	var objComp = getFocus();
+	
+	if (objComp != null) 
+	{
+		try 
+		{
+			objComp.updateToDataset();
+		}
+		catch (e) 
+		{
+		}
+	}
+}
+
+/**
+ * @class 콤포넌트의 변경된 값을 데이타셋에 반영(탭 변경시등 사용)
+ * @param obj - form, Div object
+ * @return 없음
+ */ 
+function gfn_updateToDatasetAll(obj)
+{
+    var componentList = obj.components;
+    var strType;
+    var strSTyle;
+    
+    for ( var i=0; i<componentList.length; i++ ) {	    
+        strType  = componentList[i].toString().toUpperCase();
+		strName  = componentList[i].name;
+        
+        if ( strType == "[OBJECT IMAGEVIEWER]") continue;			// IMAGEVIEWER 제외     
+        if ( strType == "[OBJECT STATIC]") continue;				// STATIC 제외       
+        if ( strType == "[OBJECT BUTTON]") continue;				// BUTTON 제외 
+        if ( strType == "ObjPaging") continue;						// ObjPaging 제외      
+        if ( strType == "ObjAtchFile") continue;					// ObjAtchFile 제외      
+
+		//trace("strType : " + strType + " / strName : " + strName);
+                
+        // TAB, TABPAGE, DIV, POPUPDIV
+        if ( strType == "[OBJECT TAB]" || strType == "[OBJECT TABPAGE]"
+             || strType == "[OBJECT DIV]" || strType == "[OBJECT POPUPDIV]" ) {
+            gfn_updateToDataset(componentList[i]);
+        } 
+        else {
+			componentList[i].updateToDataset();
+        }      
+    }
+}
+
+ /**
+ * @class dataSet의 Row가 변경되었는지 판단하는 함수
+ * @param ObjDs     - 대상 dataset
+ * @param nRow      - row값
+ * @return boolean
+ */   
+function gfn_isUpdatedRow(objDs, nRow)
+{
+	if (objDs.updatecontrol == true) 
+	{
+		if (objDs.getRowType(nRow) == 2 || objDs.getRowType(nRow) == 4) 
+		{
+			return true;
+		}
+		return false;
+	}
+	else 
+	{
+		for (var i = 0; objDs.getColCount(); i++) 
+		{
+			if (gfn_isUpdateColumn(objDs, nRow, i) == true) 
+			{
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+ /**
+ * @class dataSet의 Row 에서 해당 칼럼이 변경되었는지 판단하는 함수
+ * @param ObjDs     - 대상 dataset
+ * @param nRow      - row값
+ * @param Column    - 칼럼명
+ * @return boolean
+ */   
+function gfn_isUpdateColumn(objDs, nRow, Column)
+{
+	if (objDs.getRowType(nRow) == 2) 
+	{
+		if (gfn_isNull(objDs.getColumn(nRow, Column))) 
+		{
+			return false;
+		}
+	}
+	else 
+	{
+		if (objDs.getColumn(nRow, Column) == objDs.getOrgColumn(nRow, Column)) 
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+ /**
+ * @class DataSet 내의 데이터 무결성을 검사하는 함수
+ * @param obj        - Validation 체크 대상 Grid / Dataset
+ * @param objDsValid - Check Info Dataset
+ * @param bAll       - true : 전체, false : 변경된 row만
+ * @return boolean
+ */  
+function gfn_validCheck(obj, objDsValid, bAll)
+{
+	if(gfn_isNull(bAll)) bAll = false;
+	
+	var sObjType = gfn_getObjType(obj);
+	if(sObjType == "Grid")
+	{
+		var objGrd = obj;
+		var objDs = eval(objGrd.binddataset);
+	} 
+	else if (sObjType == "Dataset")
+	{	
+		var objDs = obj;
+	}
+	else {
+		gfn_alert("첫번째 Argument에는 Grid or Dataset이 와야 합니다.");
+		return;
+	}
+
+	var nRowCnt = objDs.rowcount;
+	var nColCnt = objDs.getColCount();
+	
+	for (var i = 0; i < nRowCnt; i++) 
+	{
+		for (var j = 0; j < nColCnt; j++) 
+		{
+			//trace(j+" 해당값 : " + objDs.getColumn(i,j) + " / RowType : " + objDs.getRowType(i));
+			// 모든 row를 검사하거나, 아미면 Row Type이 insert(2), update(4)일 경우에만
+			if ( bAll || 
+			    (bAll == false && (objDs.getRowType(i) == 2 || objDs.getRowType(i) == 4))
+			   ) 
+			{
+				// Validation 체크
+				var rtnVal = gfn_itemCheck(i, j, objDs, objDsValid);
+
+				if (rtnVal != true) 
+				{
+					this.enableevent = false;
+					// Message 처리
+					gfn_message("A", rtnVal);
+					
+					// Error 위치로 setFocus 처리					
+					objDs.rowposition = i;
+					var strColNm = objDs.getColID(j);
+					
+					// Grid setFocus 처리
+					if (sObjType == "Grid" && objDsValid.getColumn(0, strColNm).indexOf("focus") == -1) 
+					{
+						objGrd.setCellPos(objGrd.getBindCellIndex("Body", objDs.getColID(j)));
+						objGrd.showEditor(true);
+						objGrd.setFocus();
+					}					
+					// Validation에 focus가 있는 경우 Component로 setFocus 처리
+					else if (objDsValid.getColumn(0, strColNm).indexOf("focus") > -1)
+					{
+						var arrItem1 = objDsValid.getColumn(0, strColNm).split(",");
+						var arrItem2 = new Array();
+						for (var i = 0; i < arrItem1.length; i++) 
+						{
+							arrItem2 = arrItem1[i].split(":");
+							if (arrItem2[0] == "focus") 
+							{
+								eval(arrItem2[1]).setFocus();
+							}
+						}
+					}
+					this.enableevent = true;
+					return false;
+				}
+			}
+		}
+	}
+	return true;
+}
+
+ /**
+ * @class Column별 Validation Check
+ * @param rowPos     - Check Dataset의 Row Position
+ * @param colIdx     - Check Dataset의 Row Column
+ * @param objDs      - Check Dataset
+ * @param objDsValid - Check Info Dataset
+ * @return boolean
+ */  
+function gfn_itemCheck(rowPos, colIdx, objDs, objDsValid)
+{
+	var arrItem = new Array();
+	var arrItem2 = new Array();
+	
+	var strColNm = objDs.getColID(colIdx);
+
+	// Column 여부 존재 여부 체크
+    var bColChk = objDsValid.getColumnInfo(strColNm);
+    if(gfn_isNull(bColChk)) return true;
+    
+    // 값설정 여부 체크
+	var strCol = objDsValid.getColumn(0, strColNm);
+	//trace("rowPos : " + rowPos + " / colIdx : " + colIdx + " / strColNm : " + strColNm + " / strCol : " + strCol);
+	if (gfn_isNull(strCol)) return true;
+	
+	var value = objDs.getColumn(rowPos, colIdx);	
+
+	arrItem = strCol.split(",");
+	var rtnVal;
+
+	for (var k = 0; k < arrItem.length; k++) 
+	{
+		//trace("item value : "+arrItem[k]);
+		rtnVal = gfn_itemValueCheck(rowPos, arrItem[k], value, objDs, colIdx);
+		if (rtnVal == true) 
+		{
+			// trace("***************************");
+			continue;
+		}
+		else if (rtnVal == "SKIP") 
+		{
+			if (gfn_isNull(value)) 
+			{
+				return true;
+			}
+			else 
+			{
+				continue;
+			}
+		}
+		else 
+		{
+			return rtnVal;
+		}
+	}
+	// end for
+
+	return true;
+}
+
+ /**
+ * @class Check 항목별 DataSet 데이터 무결성을 검사하는 함수
+ * @param rowPos     - Check Dataset의 Row Position
+ * @param Value      - Validation Check 항목
+ * @param itemValue  - 체크 대상 Vlaue
+ * @param objDs      - Check Dataset
+ * @param colIdx     - Column Index
+ * @return boolean
+ */   
+function gfn_itemValueCheck(rowPos, Value, itemValue, objDs, colIdx)
+{
+	var arrItem2 = new Array();	
+	var rtnVal = true;
+	arrItem2 = Value.split(":");
+	
+	//trace("arrItem2 : " + arrItem2);
+	switch (arrItem2[0]) 
+	{
+		// Alert시 칼럼 표시 명칭 - title:아이디
+		case "title":
+			strTitle = arrItem2[1];			
+			break;
+		// 필수체크 - required:true
+		case "required":
+			// 필수입력항목 여부
+			if (arrItem2[1] == "true") 
+			{
+				if (gfn_isNull(gfn_trim(itemValue))) 
+				{
+					rtnVal = gfn_getMessage("msg.err.validator.required", strTitle);	// $1 은(는) 필수 입력 항목입니다.
+				}
+			}
+			else 
+			{
+				return "SKIP";
+			}
+			break;
+		// size 크기 - length:4
+		case "length":
+			if (!gfn_isNull(itemValue)) 
+			{
+				if (itemValue.length != parseInt(arrItem2[1])) 
+				{
+					rtnVal = gfn_getMessage("msg.err.validator.length", strTitle+"^"+arrItem2[1]);	// $1 의 입력값의 길이는 $2 이어야 합니다.
+				}
+			}
+			break;			
+		// 최대 size 크기 - maxlength:7
+		case "maxlength":
+			if (!gfn_isNull(itemValue)) 
+			{
+				if (itemValue.length > parseInt(arrItem2[1])) 
+				{
+					rtnVal = gfn_getMessage("msg.err.validator.maxlength", strTitle+"^"+arrItem2[1]);	// $1 의 입력값의 길이는 $2 이하이어야 합니다.
+				}
+			}
+			break;
+		// 최소 size 크기 - minlength:7
+		case "minlength":
+			if (!gfn_isNull(itemValue)) 
+			{
+				if (itemValue.length < parseInt(arrItem2[1])) 
+				{
+					rtnVal = gfn_getMessage("msg.err.validator.minlength", strTitle+"^"+arrItem2[1]);	// $1 의 입력값의 길이는 $2 이상이어야 합니다.
+				}
+			}
+			break;
+		// 최대 size 크기(Byte) - maxlengthB:7
+		case "maxlengthB":
+			//if (lookupFunc("gfn_lengthByte").call(itemValue) > parseInt(arrItem2[1])) 
+			if (gfn_lengthByte(itemValue) > parseInt(arrItem2[1])) 
+			{
+				rtnVal = gfn_getMessage("msg.err.validator.maxlength", strTitle+"^"+arrItem2[1]);	// $1 의 입력값의 길이는 $2 이하이어야 합니다.
+			}
+			break;
+		// 최소 size 크기(Byte) - minlengthB:7
+		case "minlengthB":
+			//if (lookupFunc("gfn_lengthByte").call(itemValue) < parseInt(arrItem2[1])) 
+			if (gfn_lengthByte(itemValue) < parseInt(arrItem2[1])) 
+			{
+				rtnVal = gfn_getMessage("msg.err.validator.minlength", strTitle+"^"+arrItem2[1]);	// $1 의 입력값의 길이는 $2 이상이어야 합니다.
+			}
+			break;
+		// 숫자 여부 - digits:true
+		case "digits":
+			//if (!lookupFunc("gfn_isNum").call(itemValue)) 
+			if (!gfn_isNum(itemValue)) 
+			{
+				rtnVal = gfn_getMessage("msg.err.validator.chknumber.n", strTitle);	// $1 은(는) 숫자만 입력 가능합니다.
+			}
+			break;
+		// 해당 숫자 이하 - min:7
+		case "min":
+			if (parseFloat(itemValue) < parseFloat(arrItem2[1])) 
+			{
+				rtnVal = gfn_getMessage("msg.err.validator.fromnum", strTitle+"^"+arrItem2[1]);	// $1 은(는) $2 이상의 숫자만 입력 가능합니다.
+			}
+			break;
+		// 해당 숫자 이상 - max:7
+		case "max":
+			if (parseFloat(itemValue) > parseFloat(arrItem2[1])) 
+			{
+				rtnVal = gfn_getMessage("msg.err.validator.tonum", strTitle+"^"+arrItem2[1]);	// $1 은(는) $2 이하의 숫자만 입력 가능합니다.
+			}
+			break;
+		// 소숫점 자리수 비교 - declimit:3
+		case "declimit":
+			if (!gfn_isNull(itemValue)) 
+			{
+				var isExistDot = itemValue.indexOf(".");
+				if (isExistDot == -1) 
+				{
+					rtnVal = gfn_getMessage("msg.err.validator.declimit", strTitle+"^"+arrItem2[1]);	// $1 은(는) 소숫점 $2 자리로 구성되어야 합니다.
+				}
+				else 
+				{					
+					var decLen = itemValue.substr(isExistDot + 1, itemValue.length);
+					if (decLen.length != parseInt(arrItem2[1])) 
+					{
+						rtnVal = gfn_getMessage("msg.err.validator.declimit", strTitle+"^"+arrItem2[1]);	// $1 은(는) 소숫점 $2 자리로 구성되어야 합니다.
+					}
+				}
+			}
+			break;
+		// 날짜 년월일 체크 - date:true
+		case "date":
+			if (!gfn_isNull(gfn_trim(itemValue, ""))) 
+			{
+				//if (!lookupFunc("gfn_isDate").call(itemValue)) 
+				if (!gfn_isDate(itemValue)) 
+				{
+					rtnVal = gfn_getMessage("msg.err.validator.date", strTitle);	// $1 : 유효하지 않은 날짜 형식입니다.
+				}
+			}
+			break;
+		// 날짜 년월 체크 - dateym:true
+		case "dateym":
+			if (!gfn_isNull(gfn_trim(itemValue, ""))) 
+			{
+				//if (!lookupFunc("gfn_isDate6").call(itemValue)) 
+				if (!gfn_isDate6(itemValue)) 
+				{
+					rtnVal = gfn_getMessage("msg.err.validator.dateym", strTitle);	// $1 : 유효하지 않은 년월 형식입니다.
+				}
+			}
+			break;
+		// 타 칼럼값과 작 값인지 비교 - comparemax:Column4:시작일
+		case "comparemax":
+			if (parseFloat(itemValue) < parseFloat(objDs.getColumn(rowPos, arrItem2[1]))) 
+			{
+				rtnVal = gfn_getMessage("msg.err.validator.comparemax", strTitle+"^"+arrItem2[2]);	// $1 이(가) $2 보다 작습니다.
+			}
+			break;
+		// 타 칼럼값과 큰 값인지 비교 - comparemin:Column6:종료일
+		case "comparemin":
+			if (parseFloat(itemValue) > parseFloat(objDs.getColumn(rowPos, arrItem2[1]))) 
+			{
+				rtnVal = gfn_getMessage("msg.err.validator.comparemin", strTitle+"^"+arrItem2[2]);	// $1 이(가) $2 보다 큽니다.
+			}
+			break;
+		// 타 칼럼값과 같은 값인지 비교 - equalto:Column5:금액1
+		case "equalto":						
+			if (parseInt(itemValue) != parseInt(objDs.getColumn(rowPos, arrItem2[1]))) 
+			{
+				rtnVal = gfn_getMessage("msg.err.validator.equalto", strTitle+"^"+arrItem2[2]);	// $1 이(가) $2 와(과) 틀립니다.
+			}
+			break;
+		// 사이의 값인지 비교 - range:40:100
+		case "range":
+			if (parseInt(itemValue) < parseInt(arrItem2[1]) || parseInt(itemValue) > parseInt(arrItem2[2])) 
+			{
+				rtnVal = gfn_getMessage("msg.err.validator.equalto", strTitle+"^"+arrItem2[1]+"^"+arrItem2[2]);	// $1 은(는) $2 와(과) $3 사이의 값입니다.
+			}
+			break;
+		// 코드값이 목록내의 값인지 비교 - code:1:2:3
+		case "code":
+			if (!gfn_isNull(itemValue)) 
+			{
+				for (var i = 1; i < arrItem2.length; i++) 
+				{
+					if (parseInt(itemValue) == parseInt(arrItem2[i])) 
+					{
+						return true;
+					}
+				}
+				rtnVal = gfn_getMessage("msg.err.validator.code", strTitle+"^"+Value.split("code:").join(""));	// $1 은(는) $2 의 값이어야 합니다.
+			}
+			break;
+		// 이메일 여부 체크(함수 체크시 예제) - isEmail:true
+		case "isEmail":
+			//if (!lookupFunc("gfn_isEmail").call(itemValue)) 
+			if (!gfn_isEmail(itemValue)) 
+			{
+				rtnVal = gfn_getMessage("msg.err.validator.email");	// e-mail이 잘못된 형태로 입력 되었습니다.
+			}
+			break;
+		default:
+			return rtnVal;
+			break;
+	}
+	// end switch
+	return rtnVal;
+}
+
+
+ /**
+ * @class combo dataset에 data를 추가
+ * @param objCbo   - combo object
+ * @param sCd      - code 값
+ * @param sText    - text
+ * @param nRow     - insert 될 row
+ * @param nIdx     - combo에서 선택 되어질 index
+ * @param sValue   - combo에서 선택 되어질 값
+ * @return 없음
+ */
+function gfn_setComboValue(objCbo, sCd, sText, nRow, nIdx, sValue)
+ {
+	var objDs = objCbo.innerdataset;
+	//var objDs = objects[objCbo.innerdataset];
+
+	if(gfn_isNull(sCd))
+	{
+		sCd = "";
+	}
+	
+	if(gfn_isNull(sText))
+	{
+		sText = "";
+	}
+	
+	if(gfn_isNull(nIdx))
+	{
+		nIdx = 0;
+	}
+	
+	if(gfn_isNull(nRow))
+	{
+		nRow = 0;
+	}
+
+	try {
+		objDs.insertRow(nRow);
+		objDs.setColumn(nRow, objCbo.codecolumn, sCd);
+		objDs.setColumn(nRow, objCbo.datacolumn, sText);
+	} catch(e) {
+		trace("Combo : " + objCbo.name + " 의 innerdataset을 재지정해 주세요.");
+	}
+	// combo값 지정
+	if(!gfn_isNull(nIdx)) {
+		// combo값을 index로 지정
+		objCbo.index = nIdx;
+	}
+	if(!gfn_isNull(sValue)) {
+		// combo값을 값으로 지정
+		objCbo.value = sValue;
+	}
+// 	 else {
+// 		// combo값을 index로 지정
+// 		objCbo.value = sValue;
+// 		objCbo.index = nIdx;
+// 	}	
+ }
+
+/**
+* @class 년도 콤보 셋팅
+* @param objCbo   - combo object(필수)
+* @param sYear    - 현재 년도(없으면 현재 년도)
+* @param sCd      - innerdataset의 code 칼럼(없으면 CODE)
+* @param sText    - innerdataset의 data 칼럼(없으면 NAME)
+* @param nNum     - 년도 갯수(없으면 앞뒤로 5개씩)
+* @return 없음
+*/	
+function gfn_setYear(objCbo, sYear, sCd, sText, nNum)
+{
+	var objDs = objects[objCbo.innerdataset];
+
+	if(gfn_isNull(sYear)) sYear = gfn_getYear();
+	if(gfn_isNull(sCd))   sCd   = "CODE";
+	if(gfn_isNull(sText)) sText = "NAME";
+	if(gfn_isNull(nNum))  nNum  = 5;
+	
+	var iStartYear = sYear - nNum;
+	objDs.clearData();	
+	for(i=0; i<=nNum+nNum; i++)
+	{
+		var nRow = objDs.addRow();
+		objDs.setColumn(nRow, sCd  , iStartYear + i);
+		objDs.setColumn(nRow, sText, iStartYear + i);
+	}
+
+	// combo값을 값으로 지정
+	objCbo.value = sYear;	
+}
+
+var fv_keyColumn;
+var fv_keyValue;
+
+/**
+* @class 현재 Row 정보 저장
+* @param objDs   - Dataset object(필수)
+* @param nRow    - 저장할 Dataset의 rowposition(필수)
+* @param strKey  - 칼럼명(필수)
+* @return 없음
+*/
+function gfn_setRowValue(objDs, nRow, strKey)
+{
+	fv_keyColumn = strKey;
+	fv_keyValue  = "";
+
+	var arrKeyColumn = gfn_split(strKey, "@");
+    for (var i = 0; i < arrKeyColumn.length ; i++ ) 
+    {
+        fv_keyValue += objDs.getColumn(nRow, arrKeyColumn[i]) + "@";
+    }
+    fv_keyValue = gfn_subStr(fv_keyValue, 0, fv_keyValue.length-1);
+}
+
+/**
+* @class 저장된 칼럼정보 및 칼럼 값으로 rowposition 이동
+* @param objDs   - Dataset object(필수)
+* @return 없음
+*/
+function gfn_setRow(objDs)
+{
+	if(gfn_isNull(fv_keyValue)) return;
+	
+	var arrKeyColumn = gfn_split(fv_keyColumn, "@");
+	var arrKeyValue  = gfn_split(fv_keyValue,  "@");
+	
+	var strFindRow = "" ;
+    for (var i = 0; i < arrKeyValue.length ; i++ ) 
+    {
+        strFindRow += arrKeyColumn[i] + " == '" + arrKeyValue[i] + "' && ";
+    }    
+    strFindRow = gfn_subStr(strFindRow, 0, strFindRow.length-4);
+
+    var nRow = objDs.findRowExpr(strFindRow);
+    if(nRow > -1) objDs.rowposition(nRow);
+    
+	fv_keyColumn = "";
+	fv_keyValue  = "";
+}]]></Script>

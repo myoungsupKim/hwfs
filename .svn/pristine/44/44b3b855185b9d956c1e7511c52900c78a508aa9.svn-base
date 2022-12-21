@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="sc.app.loginDAO">
+	<desc>FC POS 마스터 외부 인터페이스 HQML</desc>
+
+
+
+
+
+
+
+
+
+	<statement name="selectTest"><![CDATA[SELECT '1' AS CHECK_NUM
+  FROM DUAL]]></statement>
+	<statement name="logInsert"><![CDATA[INSERT INTO APP_INTERFACE_LOG(
+INSDT,
+TXID,
+TXDIV,
+TXHEADER,
+TXDATA,
+TXRESULT)
+VALUES(
+TO_CHAR(SYSDATE,'YYYY-MM-DD HH24:MI:SS'),
+<#if txId?has_content >:txId,<#else>null,</#if> 
+<#if txDiv?has_content >:txDiv,<#else>null,</#if> 
+<#if tHeader?has_content >:tHeader,<#else>null,</#if> 
+<#if tData?has_content >:tData,<#else>null,</#if> 
+<#if tResult?has_content >:tResult<#else>null</#if> 
+)]]></statement>
+	<statement name="selectUser"><![CDATA[
+SELECT
+	   A.SABUN
+     , A.USERID
+     , A.NM_KOR
+     , A.ACCT_STATUS
+     , A.ACCT_LK_REASON_CD
+     , B.MU_CD
+     , B.MU_NM
+     , B.TM_CD
+     , B.TM_NM
+     , B.CC_CD
+     , B.CC_NM
+     , B.UPJANG
+     , B.UPJANGNM AS UPJANG_NM
+     , D.MAIN_UPJANG AS MAIN_UPJANG
+     , (SELECT CC.UPJANGNM FROM ST_UPJANG CC WHERE CC.UPJANG = D.MAIN_UPJANG) AS MAIN_UPJANG_NM
+     , D.CUST_TYPE AS UPJANG_GROUP
+	 , (SELECT APP_USER_GRP_FUN(a.SABUN, b.MU_CD, b.TM_CD, b.CC_CD, a.USER_TYPE, b.DEPT_ID) FROM DUAL) AS APP_USER_GROUP
+     , A.USER_TYPE      /* 사용자구분(내부,외부) */
+     , NVL(A.M_RECV_YN,'N') AS M_RECV_YN      /* 광고성알림동의여부(Y,N) */
+     , NVL(A.M_NOTI_YN,'N') AS M_NOTI_YN      /* 정보성알림동의여부(Y,N) */
+     , NVL((SELECT ESST_ARTICLE_AGREE_YN FROM SCC_PERS_INFO_AGREE WHERE SABUN=A.SABUN), 'N') AS M_MINFOCOL_YN /* 필수정보수집동의여부(Y,N) */
+     , NVL((SELECT CHOICE_ARTICLE_AGREE_YN FROM SCC_PERS_INFO_AGREE WHERE SABUN=A.SABUN), 'N') AS M_PINFOCOL_YN /* 선택정보수집동의여부(Y,N) */
+     , (SELECT AGREE_DATE FROM SCC_PERS_INFO_AGREE WHERE SABUN=A.SABUN) AS AGREE_DATE /* 동의일 */
+     <#if userPw?has_content >
+     ,
+       CASE
+            WHEN A.PASSWORD = SCC_CRYPTO.ONEWAY_ENC_FUN(:userPw)
+            THEN 'Y'
+            ELSE 'N'
+       END AS VALID_PWD_YN                  /* 비밀번호 일치 여부 */
+     </#if>
+     , A.PWD_CHG_DATE
+     ,(SELECT CASE
+                  WHEN SYSDATE - TO_DATE(A.PWD_CHG_DATE) >= ENV_INFO_VALUE
+                  THEN 'Y'
+                  ELSE 'N'
+              END AS CHG_PWD_YN
+       FROM  SCC_PERS_INFO_MGMT_ENV WHERE ENV_INFO_ID='PWD_CHG_PERIOD') AS PWD_CHG_YN
+     , NVL(A.PWD_ERR_CNT, 0) AS PWD_ERR_CNT
+     ,(SELECT ENV_INFO_VALUE FROM SCC_PERS_INFO_MGMT_ENV WHERE ENV_INFO_ID='PWD_ERR_CNT') AS MAX_PWD_ERR_CNT
+     , SCC_CRYPTO.DEC_FUN(A.TEL_NO_ENC) AS TEL_NO
+     , SCC_CRYPTO.DEC_FUN(A.HP_NO_ENC) AS HP_NO
+     , SCC_CRYPTO.DEC_FUN(A.EMAIL_ENC) AS EMAIL_ADDR
+     , NVL(A.JOIN_DATE,A.SDATE) AS JOIN_DATE
+FROM   SCC_USERINFO A,
+       (SELECT X.UPJANG, X.UPJANGNM, Y.* FROM ST_UPJANG X, HLDC_SC_DEPT_V Y WHERE X.DEPT_ID = Y.DEPT_ID) B,
+       FMS_UPJANG D,
+       HLDC_ST_CUST E,
+       FMP_OTHER_CUST F
+WHERE  1=1
+AND    A.USERID   = :userid
+AND    A.USE_YN   = 'Y'
+AND    A.UPJANG   = B.UPJANG(+)
+AND    A.UPJANG   = D.UPJANG(+)
+AND    A.CUSTCD   = E.CUSTCD(+)
+AND    A.OTCUSTCD = F.OTCUSTCD(+)
+        
+		]]></statement>
+	<statement name="updateLoginPwdErrCnt"><![CDATA[		UPDATE SCC_USERINFO
+		SET    PWD_ERR_CNT = NVL(PWD_ERR_CNT, 0)+1
+		  ,    UUSER = 'LOGIN'
+		  ,    UDATE = SYSDATE
+		WHERE  USERID = :userid]]></statement>
+	<statement name="updateAccountLockForPwdErrOver"><![CDATA[		UPDATE SCC_USERINFO
+		SET    ACCT_STATUS = 'LOCK'
+		     , ACCT_LK_REASON_CD = 'PWD_ERR_OVER'
+		     , ACCT_LK_DD  = SYSDATE
+		     , UUSER = (SELECT SABUN FROM SCC_USERINFO WHERE USERID = :userid)
+		     , UDATE = SYSDATE
+		WHERE  USERID = :userid]]></statement>
+	<statement name="updateLoginPwdErrCntInit"><![CDATA[		UPDATE SCC_USERINFO
+		SET    PWD_ERR_CNT = 0
+		  ,    UUSER = 'LOGIN'
+		  ,    UDATE = SYSDATE
+		WHERE  USERID = :userid]]></statement>
+	<statement name="updateMrecvYn"><![CDATA[		UPDATE SCC_USERINFO
+		SET    <#if type == "3" > M_NOTI_YN = :mrcvYn </#if>
+		       <#if type == "4" > M_RECV_YN = :mrcvYn </#if>
+		  ,    UUSER = :sabun
+		  ,    UDATE = SYSDATE
+		WHERE  USERID = :userid]]></statement>
+	<statement name="updateMrecvYn2"><![CDATA[
+MERGE INTO SCC_PERS_INFO_AGREE
+        USING DUAL
+        ON   (SABUN  = :sabun)
+        WHEN  MATCHED THEN
+              UPDATE 
+              SET   
+              		<#if type == "1" > ESST_ARTICLE_AGREE_YN = :mrcvYn, </#if>
+              		<#if type == "2" > CHOICE_ARTICLE_AGREE_YN = :mrcvYn, </#if>
+              		UUSER = :sabun,
+              		UDATE = SYSDATE
+        WHEN NOT MATCHED THEN
+              INSERT (
+                    SABUN,
+                    <#if type == "1" > ESST_ARTICLE_AGREE_YN, </#if>
+                    <#if type == "2" > CHOICE_ARTICLE_AGREE_YN, </#if>
+              		AGREE_DATE,
+              		CUSER,
+              		CDATE
+              )
+              VALUES (
+                    :sabun,
+              		:mrcvYn,
+              		SYSDATE,
+              		:sabun,
+              		SYSDATE
+              )]]></statement>
+	<statement name="selectPwdChg"><![CDATA[
+SELECT A.SABUN,
+	   A.CUR_PWD,
+       A.NEW_PWD,
+       CASE WHEN SCC_TELNO_SPLIT_FUN(A.TEL_NO, 1) IS NOT NULL
+            THEN CASE WHEN INSTR(:newPwd, SCC_TELNO_SPLIT_FUN(A.TEL_NO, 1)) > 0 THEN 'FALSE' ELSE 'TRUE' END
+            ELSE 'TRUE' END AS TEL_NO1,
+       CASE WHEN SCC_TELNO_SPLIT_FUN(A.TEL_NO, 2) IS NOT NULL
+            THEN CASE WHEN INSTR(:newPwd, SCC_TELNO_SPLIT_FUN(A.TEL_NO, 2)) > 0 THEN 'FALSE' ELSE 'TRUE' END
+            ELSE 'TRUE' END AS TEL_NO2,
+       CASE WHEN SCC_TELNO_SPLIT_FUN(A.TEL_NO, 3) IS NOT NULL
+            THEN CASE WHEN INSTR(:newPwd, SCC_TELNO_SPLIT_FUN(A.TEL_NO, 3)) > 0 THEN 'FALSE' ELSE 'TRUE' END
+            ELSE 'TRUE' END AS TEL_NO3,
+       CASE WHEN SCC_TELNO_SPLIT_FUN(A.TEL_NO, 1) || SCC_TELNO_SPLIT_FUN(A.TEL_NO, 2) || SCC_TELNO_SPLIT_FUN(A.TEL_NO, 3) IS NOT NULL
+            THEN CASE WHEN INSTR(:newPwd, SCC_TELNO_SPLIT_FUN(A.TEL_NO, 1) || SCC_TELNO_SPLIT_FUN(A.TEL_NO, 2) || SCC_TELNO_SPLIT_FUN(A.TEL_NO, 3)) > 0 THEN 'FALSE' ELSE 'TRUE' END
+            ELSE 'TRUE' END AS TEL_NO,
+       CASE WHEN SCC_TELNO_SPLIT_FUN(A.HP_NO, 1) IS NOT NULL
+            THEN CASE WHEN INSTR(:newPwd, SCC_TELNO_SPLIT_FUN(A.HP_NO, 1)) > 0 THEN 'FALSE' ELSE 'TRUE' END
+            ELSE 'TRUE' END AS HP_NO1,
+       CASE WHEN SCC_TELNO_SPLIT_FUN(A.HP_NO, 2) IS NOT NULL
+            THEN CASE WHEN INSTR(:newPwd, SCC_TELNO_SPLIT_FUN(A.HP_NO, 2)) > 0 THEN 'FALSE' ELSE 'TRUE' END
+            ELSE 'TRUE' END AS HP_NO2,
+       CASE WHEN SCC_TELNO_SPLIT_FUN(A.HP_NO, 3) IS NOT NULL
+            THEN CASE WHEN INSTR(:newPwd, SCC_TELNO_SPLIT_FUN(A.HP_NO, 3)) > 0 THEN 'FALSE' ELSE 'TRUE' END
+            ELSE 'TRUE' END AS HP_NO3,
+       CASE WHEN SCC_TELNO_SPLIT_FUN(A.HP_NO, 1) || SCC_TELNO_SPLIT_FUN(A.HP_NO, 2) || SCC_TELNO_SPLIT_FUN(A.HP_NO, 3) IS NOT NULL
+            THEN CASE WHEN INSTR(:newPwd, SCC_TELNO_SPLIT_FUN(A.HP_NO, 1) || SCC_TELNO_SPLIT_FUN(A.HP_NO, 2) || SCC_TELNO_SPLIT_FUN(A.HP_NO, 3)) > 0 THEN 'FALSE' ELSE 'TRUE' END
+            ELSE 'TRUE' END AS HP_NO,
+       CASE WHEN A.SABUN = :newPwd OR A.USERID = :newPwd THEN 'FALSE' ELSE 'TRUE' END AS PER_CHK1,
+       A.ACCT_STATUS,
+       A.PASS_WORD
+FROM   (SELECT SABUN,
+               USERID,
+               'TRUE' AS CUR_PWD,
+               CASE WHEN PRVSPWD = SCC_CRYPTO.ONEWAY_ENC_FUN(:newPwd) THEN 'FALSE' ELSE 'TRUE' END NEW_PWD,
+               SCC_CRYPTO.DEC_FUN(TEL_NO_ENC) AS TEL_NO,
+               SCC_CRYPTO.DEC_FUN(HP_NO_ENC) AS HP_NO,
+               CASE ACCT_STATUS WHEN 'LOCK' THEN 'Y' WHEN 'NORMAL' THEN 'Y' ELSE 'N' END ACCT_STATUS,
+               PASSWORD AS PASS_WORD
+        FROM   SCC_USERINFO
+        WHERE  USERID = :userid
+        ) A
+		]]></statement>
+	<statement name="updatePwd"><![CDATA[
+UPDATE SCC_USERINFO
+SET    PASSWORD = SCC_CRYPTO.ONEWAY_ENC_FUN(:newPwd),
+       PRVSPWD = :curPwd,
+       PWD_CHG_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+       ACCT_STATUS = 'NORMAL',
+	   ACCT_LK_REASON_CD = NULL,
+	   ACCT_LK_DD  = NULL,
+	   UUSER = (SELECT SABUN FROM SCC_USERINFO WHERE USERID = :userid),
+       UDATE = SYSDATE
+WHERE  USERID = :userid
+]]></statement>
+
+
+	<statement name="selectIdFind"><![CDATA[SELECT A.USERID,
+       A.NM_KOR,
+       B.UPJANG,
+       B.UPJANGNM,
+       NVL(A.JOIN_DATE,A.SDATE) AS JOIN_DATE
+  FROM SCC_USERINFO A,
+       (SELECT X.UPJANG, X.UPJANGNM, Y.* FROM ST_UPJANG X, HLDC_SC_DEPT_V Y WHERE X.DEPT_ID = Y.DEPT_ID) B  
+ WHERE A.USE_YN = 'Y'
+   AND SCC_CRYPTO.DEC_FUN(A.EMAIL_ENC) = :email
+   AND SCC_CRYPTO.DEC_FUN(A.HP_NO_ENC) = :hpNo
+   AND A.UPJANG = B.UPJANG(+)]]></statement>
+
+	<statement name="selectSalesUpjang"><![CDATA[SELECT T2.UPJANG,
+       T2.UPJANGNM_DISP AS UPJANGNM,
+       T3.UPJANG AS MAIN_UPJANG,
+       T3.UPJANGNM_DISP AS MAIN_UPJANGNM
+  FROM SCC_USERINFO T1, FMS_UPJANG T2, FMS_UPJANG T3
+ WHERE T1.USERID = :userid
+   AND T1.SABUN  = T2.PART_SALES_SABUN
+   AND T2.USE_YN = 'Y'
+   AND T2.MAIN_UPJANG = T3.UPJANG(+)
+   AND T3.USE_YN(+) = 'Y'
+UNION
+SELECT A.UPJANG,
+       A.upjangnm AS UPJANGNM,
+       D.MAIN_UPJANG AS MAIN_UPJANG,
+       D.UPJANGNM_DISP AS MAIN_UPJANGNM
+  FROM ST_UPJANG A,
+	   FMS_USER_UPJANG B,
+	   FMS_UPJANG C,
+	   FMS_UPJANG D
+ WHERE B.UPJANG = A.UPJANG
+   AND C.UPJANG(+) = A.UPJANG
+   AND A.USE_YN = 'Y'
+   AND (B.USE_YN = 'Y' AND NVL(B.ATTR01, TO_CHAR(SYSDATE, 'YYYYMMDD')) <= TO_CHAR(SYSDATE, 'YYYYMMDD') AND NVL(B.ATTR02, TO_CHAR(SYSDATE, 'YYYYMMDD')) >= TO_CHAR(SYSDATE, 'YYYYMMDD'))
+   AND B.SABUN = :userid
+   AND C.MAIN_UPJANG = D.UPJANG(+)
+   AND D.USE_YN(+) = 'Y'
+ORDER BY 3, 1]]></statement>
+</hqml>

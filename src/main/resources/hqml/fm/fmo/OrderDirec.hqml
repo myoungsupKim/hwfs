@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="fm.fmo.orderDirecDAO">
+	<desc>주문지시서 HQML Query</desc>
+
+	<!-- 주문지시서 목록을 조회한다. -->
+	<statement name="selectList" type="select"><![CDATA[
+  	    SELECT  
+  	    		   (SELECT Z.MU_CD||' '||Z.MU_NM FROM HLDC_SC_DEPT_V Z WHERE Z.MU_CD = A.RC_MU_CD GROUP BY Z.MU_CD, Z.MU_NM) MU
+                 , A.CUSTCD, B.VD_NM CUSTNM,TO_CHAR(TO_DATE(A.NEED_DATE,'YYYYMMDD'),'YYYY-MM-DD') NEED_DATE
+                 , A.RC_UPJANG, C.UPJANGNM
+                 , S.PR_NUM
+                 , S.PR_ID
+                 , A.SUBINV_CODE, D.SUBINV_NAME
+                -- ,DECODE(A.CENTER_FLAG,'Y','센터','직송') CENTER_FLAG
+                 , DECODE(A.CENTER_FLAG, 'VC', '직송', A.CENTER_FLAG) CENTER_FLAG
+                 , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.PO_UOM
+                 , (SELECT Z.ORIGIN_NAT FROM HLDC_PO_ITEM_MST Z WHERE Z.ITEM_CODE = A.ITEM_CODE) ORIGIN_NAT
+                 , (SELECT Z.KEEPING_TYPE FROM HLDC_PO_ITEM_MST Z WHERE Z.ITEM_CODE = A.ITEM_CODE AND ROWNUM <= 1) KEEPING_TYPE
+                 --,ROUND(NVL((SELECT SUM(TRANS_MPRICE) FROM FMS_TRANSACTION_V WHERE SOURCE_ID = A.PO_ID),0)) UNIT_PRICE
+                 --,SUM(NVL(A.PO_QTY,0)) PO_QTY
+                 --,ROUND(SUM(NVL((SELECT SUM(TRANS_MPRICE * A.PO_QTY) FROM FMS_TRANSACTION_V WHERE SOURCE_ID = A.PO_ID),0))) PO_AMT
+                 , ROUND(A.SALE_PRICE) AS UNIT_PRICE
+                 , NVL(A.PO_QTY,0) PO_QTY
+                 , ROUND(A.SALE_PRICE * A.PO_QTY) AS PO_AMT
+                 , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FM0037' AND CODE = A.LINE_STATUS) LINE_STATUS_NM
+                 , A.LINE_STATUS 
+                 , DECODE(F.PO_TYP,'BP','Y','N') AS JUNGSAN_PO_YN
+                 , A.CENTER_CODE
+                 , (SELECT CENTER_NAME FROM HLDC_PO_CENTER WHERE CENTER_CODE = A.CENTER_CODE) AS CENTER_NAME
+          FROM HLDC_PO_PO A, SO_PR S, VO_FC_VENDOR B, ST_UPJANG C, HLDC_PO_SUBINVENTORY D, EPROCUSR.ESPPOHD F
+         WHERE A.CUSTCD    = B.VD_CD(+)
+           AND A.PO_ID = S.PR_ID
+           AND A.PO_NUM = S.PR_NUM
+		   AND A.RC_UPJANG = C.UPJANG
+		   AND A.SUBINV_CODE = D.SUBINV_CODE
+		   AND A.PO_NO = F.PO_NO
+		   AND F.SYS_ID = '100'
+       	   AND F.COMP_CD = 'HFC'
+		   AND A.NEED_DATE BETWEEN :schDate1 AND :schDate2 /*입고일자*/
+		   --<#if schCenter != "*">
+		   --AND A.CENTER_CODE = :schCenter                      /*센터*/
+		   --</#if>
+          <#if schCode?has_content>
+            AND A.CENTER_CODE IN (${schCode})
+          </#if>
+		   <#if schCust?has_content>
+		   AND A.CUSTCD      = :schCust                        /*업체*/
+		   </#if>
+		   <#if schUpjang?has_content>
+		   AND A.RC_UPJANG = :schUpjang              /*업장*/
+		   </#if>
+		   AND A.LINE_STATUS   IN  ('PC','DL','GC') 
+           --AND A.PO_TYPE IN ('07', '29')
+		   --GROUP BY A.RC_MU_CD, A.CUSTCD, B.VD_NM, A.NEED_DATE,A.RC_UPJANG, C.UPJANGNM,A.SUBINV_CODE, D.SUBINV_NAME, A.CENTER_FLAG,
+		   --A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE , A.PO_UOM, A.PO_ID
+		   <#if schItemCode?has_content>
+		   		AND A.ITEM_CODE = :schItemCode
+		   </#if> 
+		  ORDER BY A.RC_MU_CD, A.RC_UPJANG,S.PR_NUM, A.NEED_DATE DESC
+		
+		]]></statement>
+
+	<!-- 주문지시서(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.fm.fmo.dao.OrderDirecDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+
+	<!-- 주문지시서(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.fm.fmo.dao.OrderDirecDAO.update */
+		<![CDATA[
+		UPDATE TABLE_NAME 
+		SET    COLUMN_NAME1 = :columnName1,
+		       COLUMN_NAME2 = :columnName2,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+	<!-- 주문지시서(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.fm.fmo.dao.OrderDirecDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>
+
+

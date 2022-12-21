@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+/* 재고조사일 조회 */
+SELECT MAX(A.PHYSIC_DATE) AS PHYSIC_DATE
+  FROM HLDC_PO_PHYSICAL_INVENTORY A
+      , ( SELECT DISTINCT A.*
+            FROM HLDC_PO_PHYSICAL_INVENTORY A
+               , ( SELECT PHYSIC_DATE AS PHYSIC_DATE
+                        , ITEM_CODE AS ITEM_CODE
+                        , MAX(UPDATE_DATE) AS UPDATE_DATE
+                     FROM HLDC_PO_PHYSICAL_INVENTORY
+                    WHERE PHYSIC_DATE &lt;= TO_CHAR(SYSDATE, 'YYYYMMDD')
+                      AND SUBINV_CODE  = #SUBINV_CODE#
+                    GROUP BY PHYSIC_DATE, ITEM_CODE
+                 ) B
+           WHERE A.PHYSIC_DATE  = B.PHYSIC_DATE
+             AND A.ITEM_CODE    = B.ITEM_CODE
+             AND A.UPDATE_DATE  = B.UPDATE_DATE
+             AND A.PHYSIC_DATE &lt;= TO_CHAR(SYSDATE, 'YYYYMMDD')
+             AND A.SUBINV_CODE  = #SUBINV_CODE#
+        ) B
+ WHERE A.PHYSIC_ID    = B.PHYSIC_ID
+   AND A.ITEM_CODE    = B.ITEM_CODE
+   AND A.PHYSIC_DATE &lt;= TO_CHAR(SYSDATE, 'YYYYMMDD')
+   AND A.SUBINV_CODE  = #SUBINV_CODE#
+   AND B.CANCEL_YN    = 'N'
+
+	</statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_date">
+	</output>
+</query>

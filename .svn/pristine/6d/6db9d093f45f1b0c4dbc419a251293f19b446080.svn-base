@@ -1,0 +1,977 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+    name="ms.mtm.teamLeaderAppDAO">
+    <desc>각종팀장승인(추가발주, 취소신청팀장승인, LIMS등) HQML Query</desc>
+
+    <!-- 각종팀장승인(추가발주) 목록을 조회한다. -->
+    <statement name="selectList001" type="select">
+    /*+ com.hwfs.ms.mtm.teamLeaderAppDAO.selectList */
+    <![CDATA[
+    SELECT  '0'                                   AS CHK
+	       , A.UPJANG	                          AS UPJANG
+	       , B.UPJANGNM	                          AS UPJANG_NM
+	       , '추가발주'						      AS GUBUN_NM
+	       , A.START_DATE						  AS FROM_DT
+	       , A.END_DATE                           AS TO_DT
+	       , TO_CHAR(TO_DATE(A.START_DATE),'YYYY.MM.DD') || '~' || TO_CHAR(TO_DATE(A.END_DATE),'YYYY.MM.DD') AS FROM_TO_DT
+	       , C.CODE_NAME                          AS REASON_CD
+	       , D.CODE_NAME                          AS REMARK
+	       , A.PR_DATE                            AS PR_DATE
+	       , A.APRV_YN                            AS APPR_GUBUN
+	       , DECODE(A.APRV_YN,'Y'
+	              ,'1'
+	              ,'0')                           AS APRV_10
+	       , A.START_DATE                         AS OLD_START
+	       , A.END_DATE                           AS OLD_END
+	FROM     FSA_PR_CHECK A
+	       , MAC_UPJANG_V B
+	       , SCC_COMMON_CODE C
+	       , SCC_COMMON_CODE D
+	WHERE    A.UPJANG = B.UPJANG
+	AND      A.PR_DATE BETWEEN :reqDate ||'01' AND :reqDate ||'31'
+	AND      C.GROUP_CODE = 'FS0123'
+	AND      A.ATTR01 = C.CODE
+	AND      D.GROUP_CODE = 'FS0124'
+	AND      A.PR_REASON = D.CODE
+	AND      B.TM_CD   = :tmCd
+	AND      A.APRV_YN = 'N'
+	AND      C.USE_YN  = 'Y'
+	AND      D.USE_YN  = 'Y'
+	ORDER BY A.UPJANG
+	       , A.PR_DATE
+	       , A.START_DATE
+	       , A.END_DATE
+	]]></statement>
+
+	<!-- 각종팀장승인(마감취소) 목록을 조회한다. -->
+    <statement name="selectList002" type="select">
+    /*+ com.hwfs.ms.mtm.teamLeaderAppDAO.selectList002 */
+    <![CDATA[
+    SELECT   '0'                                   AS CHK
+	       , V.REQ_ID                             AS REQ_ID
+	       , V.UPJANG                             AS UPJANG
+	       , A.UPJANGNM                           AS UPJANG_NM
+	       , V.CLOSE_GUBUN                        AS GUBUN
+	       , (SELECT CODE_NAME
+	         FROM    SCC_COMMON_CODE
+	         WHERE   GROUP_CODE = 'MA0035'
+	         AND     CODE       = V.CLOSE_GUBUN
+	         )                                    AS GUBUN_NM
+	       , V.CLOSE_DATEFR                       AS FROM_DT
+	       , V.CLOSE_DATETO                       AS TO_DT
+	       , TO_CHAR(TO_DATE(V.CLOSE_DATEFR),'YYYY.MM.DD') || '~' || TO_CHAR(TO_DATE(V.CLOSE_DATETO),'YYYY.MM.DD') AS FROM_TO_DT
+	       , V.REQUEST_SABUN                      AS REQ_SABUN
+	       , (SELECT NM_KOR
+	         FROM    SCO_FS_HR_PERSONAL_V
+	         WHERE   SABUN = V.REQUEST_SABUN
+	         )                                    AS REQ_SABUN_NM
+	       , V.REQUEST_DATE                       AS REQ_DATE
+	       , V.TEAM_MST_SABUN                     AS TEAM_MST_SABUN
+	       , (SELECT NM_KOR
+	         FROM    SCO_FS_HR_PERSONAL_V
+	         WHERE   SABUN = V.TEAM_MST_SABUN
+	         )                                    AS TEAM_MST_SABUNNM
+	       , DECODE(V.TEAM_MST_CONGUBN, 'Y'
+	              , '1'
+	              , '0')                          AS TEAM_MST_CONGUBN
+	       , V.TEAM_MST_DATE                      AS TEAM_MST_DATE
+	       , V.APPROV_SABUN                       AS APPR_SABUN
+	       , (SELECT NM_KOR
+	         FROM    SCO_FS_HR_PERSONAL_V
+	         WHERE   SABUN = V.APPROV_SABUN
+	         )                                    AS APPR_SABUN_NM
+	       , V.APPRV_GUBUN                        AS APPR_GUBUN
+	       , V.APPRV_DATE                         AS APPR_DATE
+	       , V.REMARK_DESC                        AS REMARK
+	       , (SELECT DECODE(SET1,'Y'
+	                      ,'Y'
+	                      ,'N')
+	         FROM    SCC_COMMON_CODE
+	         WHERE   GROUP_CODE = 'MA0035'
+	         AND     CODE       = V.CLOSE_GUBUN
+	         )                                    AS CLS_GUBN
+	FROM     MAS_CLOSE_MODIFYREQ V
+	       , SCO_UPJANG_MST_V A
+	WHERE    V.UPJANG = A.UPJANG
+	<#if chkGubun == "approv">
+	AND     (V.TEAM_MST_CONGUBN  = 'Y')
+	AND     (V.APPRV_GUBUN = DECODE('1', '1', 'N', V.APPRV_GUBUN))
+	</#if>
+	<#if chkGubun == "teamMst">
+	AND	     V.TEAM_MST_CONGUBN = 'N'
+	--AND      A.TM_CD  = :tmCd
+	AND      V.TEAM_MST_SABUN    = :loginSabun   
+	</#if>
+	AND      V.CLOSE_DATEFR BETWEEN :reqDate ||'01' AND :reqDate ||'31'
+	<#if gubun != 'ALL'>
+	AND      V.CLOSE_GUBUN = :gubun
+	</#if>
+	<#if gubun == 'ALL'>
+		<#if chkGubun == "approv">
+		AND     V.CLOSE_GUBUN IN ('006','008','009','011')
+		</#if>
+		<#if chkGubun == "teamMst">
+		AND     V.CLOSE_GUBUN NOT IN ('001')
+		</#if>
+	</#if>
+	ORDER BY V.CLOSE_GUBUN
+	       , V.CLOSE_DATEFR
+	]]></statement>
+	
+	<!-- 각종팀장승인(기기기물_케터링) 목록을 조회한다. -->
+    <statement name="selectList003" type="select">
+    /*+ com.hwfs.ms.mtm.teamLeaderAppDAO.selectList003 */
+    <![CDATA[
+    SELECT '0'  AS CHK
+	     , '케터링(기물)'  AS GUBUN_NM
+	     , M.REQUEST_UPJANG_CD                     AS REQUEST_UPJANG_CD       /* 신청 업장코드  */
+	     , (
+	       SELECT UPJANGNM
+	         FROM HLDC_ST_UPJANG S
+	        WHERE S.UPJANG = M.REQUEST_UPJANG_CD
+	          AND ROWNUM = 1
+	     )                            AS REQUEST_UPJANG_NM
+	     , M.REQUEST_ID                            AS REQUEST_ID                /* 신청ID */
+	     , CELE_NM                                          /* 행사명  */
+	     , CELE_NM                             AS ORG_CELE_NM         /* 행사명  */
+	     , LEND_TERM_SDATE                                  /* 대여기간 */
+	     , LEND_TERM_SDATE                     AS ORG_LEND_TERM_SDATE     /* 대여기간 */
+	     , LEND_TERM_EDATE                                  /* 대여기간 */
+	     , LEND_TERM_EDATE                     AS ORG_LEND_TERM_EDATE     /* 대여기간 */
+	     , TO_CHAR(TO_DATE(LEND_TERM_SDATE),'YYYY.MM.DD') || '~' || TO_CHAR(TO_DATE(LEND_TERM_EDATE),'YYYY.MM.DD') AS SDATE_EDATE
+	     , MACHINE_CLASS_CD                                 /* 기기/기물 구분 */
+	     , MACHINE_CLASS_CD                    AS ORG_MACHINE_CLASS_CD   /* 기기/기물 구분 */
+	     , (
+	        SELECT LCLASS_NM
+	          FROM FS_LCLASS S
+	         WHERE S.LCLASS_CD = M.MACHINE_CLASS_CD
+	           AND USE_YN = 'Y'
+	           AND ROWNUM = 1
+	        )                                               AS MACHINE_CLASS_NM
+	     , MACHINE_KIND_CD                                  /* 기기/기물 종류  */
+	     , MACHINE_KIND_CD                    AS ORG_MACHINE_KIND_CD    /* 기기/기물 종류  */
+	     , (
+	        SELECT MCLASS_NM
+	          FROM FS_MCLASS S
+	         WHERE S.MCLASS_CD = M.MACHINE_KIND_CD
+	           AND USE_YN = 'Y'
+	           AND ROWNUM = 1
+	        )                                               AS MACHINE_KIND_NM
+	     , MACHINE_CD                                       /* 기기/기물 기물명 */
+	     , MACHINE_CD                         AS ORG_MACHINE_CD        /* 기기/기물 기물명 */
+	     , (
+	        SELECT SCLASS_NM
+	          FROM FS_SCLASS S
+	         WHERE S.SCLASS_CD = M.MACHINE_CD
+	           AND USE_YN = 'Y'
+	           AND ROWNUM = 1
+	        )                                               AS MACHINE_NM
+	     , RMA_QUANTITY                                     /* 잔여수량 */
+	     , REQUEST_QUANTITY                                               /* 신청수량 */
+	     , REQUEST_QUANTITY                   AS ORG_REQUEST_QUANTITY    /* 신청수량 */
+	     , RMA_DATE                                              /* 반납일자  */
+	     , TO_CHAR(RMA_DATE,'YYYYMMDD')                 AS ORG_RMA_DATE           /* 반납일자  */
+	     , DECODE(NVL(APPRV_YN, '0'), 'Y', '1', '0')     AS APPRV_YN               /* 승인여부 */
+	     , SCC_CRYPTO.DEC_FUN(CNTC_NUM_ENC)         AS CNTC_NUM             /* 연락처 암호화 */
+	     , SCC_CRYPTO.DEC_FUN(CNTC_NUM_ENC)         AS ORG_CNTC_NUM           /* 연락처 암호화 */
+	     , SUBSTR( ZIP_CODE , 0, 3)             AS ZIP_CODE1              /* 우편번호 */
+	     , SUBSTR( ZIP_CODE , 0, 3)             AS ORG_ZIP_CODE1            /* 우편번호 */
+	     , SUBSTR( ZIP_CODE , 4)                AS ZIP_CODE2              /* 우편번호 */
+	     , SUBSTR( ZIP_CODE , 4)                AS ORG_ZIP_CODE2            /* 우편번호 */
+	     , SCC_CRYPTO.DEC_FUN(B.ADDR_ENC)           AS ADDR                 /* 주소 암호화 */
+	     , SCC_CRYPTO.DEC_FUN(B.ADDR_ENC)           AS ORG_ADDR               /* 주소 암호화 */
+	     , TRANSPORT_MTOD1                                  /* 운송방법  */
+	     , TRANSPORT_MTOD1                   AS  ORG_TRANSPORT_MTOD1    /* 운송방법  */
+	     , TRANSPORT_MTOD2                                  /* 운송방법 */
+	     , TRANSPORT_MTOD2                   AS ORG_TRANSPORT_MTOD2     /* 운송방법 */
+	     , NVL(C.ALLC_SEQ,1)                         AS ALLC_SEQ                 /* 배정순번       */
+	     , C.FIRST_SIGN_PRCG_EMP                      AS FIRST_SIGN_PRCG_EMP      /* 배정 담당 사번 */
+	     , (
+	         SELECT NM_KOR
+	           FROM SCC_USERINFO A
+	          WHERE A.SABUN = C.FIRST_SIGN_PRCG_EMP
+	            AND ROWNUM = 1
+	       )                                      AS ALLC_NM
+	     , C.FIRST_RTN_REASON                       AS FIRST_RTN_REASON        /* 배정사유       */
+	     , NVL(C.FIRST_SIGN_STATUS,'001')              AS FIRST_SIGN_STATUS       /* 배정상태       */
+	
+	     , CASE WHEN ALLC_SEQ IS NULL
+	       THEN 'Y'
+	       END                                AS NEW_YN
+	     , NVL(C.CATER_CLASS,'003')                     AS CATER_CLASS             /* 케터링구분 001-행사, 002-조리인력, 003-조리지도 */
+	FROM   FSC_CATERINGUTENSIL_REG M
+	     , FSC_CATERINGCELE_ALLC C
+	     , SCO_UPJANG_MST_V B
+	WHERE  M.REQUEST_UPJANG_CD = B.UPJANG
+	AND    M.REQUEST_UPJANG_CD =  C.REQUEST_UPJANG_CD(+)    /* 신청 업장코드  */
+	AND    M.REQUEST_ID        =  C.REQUEST_ID(+)           /* 신청ID */
+	AND   C.CATER_CLASS(+)        = '003'
+	AND   B.FS_UPJANG = 'Y'
+	AND   NVL( C.FIRST_SIGN_STATUS ,'001')  = '001'
+	AND (    LEND_TERM_SDATE BETWEEN :reqDate || '01'  AND :reqDate|| '31'
+	      OR LEND_TERM_EDATE BETWEEN :reqDate || '01'  AND :reqDate|| '31'
+	    )
+	AND   M.FIRST_SIGN_PRCG_EMP = :loginSabun
+	ORDER BY M.LEND_TERM_SDATE    DESC
+	       , M.REQUEST_UPJANG_CD  DESC        /* 신청 업장코드  */
+	       , M.REQUEST_ID         DESC          /* 신청ID */
+	       , C.ALLC_SEQ           ASC           /* 배정순번       */
+	]]></statement>
+	
+	<!-- 각종팀장승인(기기기물_이벤트) 목록을 조회한다. -->
+    <statement name="selectList004" type="select">
+    /*+ com.hwfs.ms.mtm.teamLeaderAppDAO.selectList004 */
+    <![CDATA[
+    SELECT  '0'                       AS CHK
+	      , '이벤트(기물)'            AS GUBUN_NM
+	      , C.MU_CD                   AS MU_CD
+	      , C.MU_NM                   AS MU_NM
+	      , C.TM_CD                   AS TM_CD
+	      , C.TM_NM                   AS TM_NM
+	      , C.UPJANG_CD               AS UPJANG_CD
+	      , C.UPJANG_NM               AS UPJANG_NM
+	      , C.REQUEST_CD              AS REQUEST_CD
+	      , C.REQUEST_NM              AS REQUEST_NM
+	      , C.REQUEST_UPJANG_CD       AS REQUEST_UPJANG_CD
+	      , C.REQUEST_UPJANG_NM       AS REQUEST_UPJANG_NM
+	      , C.LCLASS_CD               AS LCLASS_CD
+	      , C.MCLASS_CD               AS MCLASS_CD
+	      , A.MCLASS_NM               AS MCLASS_NM
+	      , C.SCLASS_CD               AS SCLASS_CD
+	      , B.SCLASS_NM               AS SCLASS_NM
+	      , C.SEQ                     AS SEQ
+	      , C.EVNT_TITLE              AS EVNT_TITLE
+	      , C.SIGN_STATUS             AS SIGN_STATUS
+	      , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'EVENT_SIGN_STATUS' AND CODE = C.SIGN_STATUS) AS SIGN_STATUS_NM
+	       , ''                        AS SIGN_PRCG_SABUN
+	      , ''                        AS RTN_REASON
+	      , C.RESULT_YN               AS RESULT_YN
+	      , C.CUSER                   AS CUSER
+	      , C.CUSER_NM                AS CUSER_NM
+	  FROM  FS_MCLASS A, FS_SCLASS B
+	      , (
+	         SELECT  NVL(N.MU_CD,    J.MU_CD)     AS MU_CD
+	               , NVL(N.MU_NM,    J.MU_NM)     AS MU_NM
+	               , NVL(N.TM_CD,    J.TM_CD)     AS TM_CD
+	               , NVL(N.TM_NM,    J.TM_NM)     AS TM_NM
+	               , NVL(N.UPJANG,   J.UPJANG)    AS UPJANG_CD
+	               , NVL(N.UPJANGNM, J.UPJANGNM)  AS UPJANG_NM
+	               , '001'                        AS REQUEST_CD
+	               , '이벤트'                     AS REQUEST_NM
+	               , NVL(N.UPJANG,   J.UPJANG)    AS REQUEST_UPJANG_CD
+	               , NVL(N.UPJANGNM, J.UPJANGNM)  AS REQUEST_UPJANG_NM
+	               , MGRP_CD                      AS LCLASS_CD
+	               , MCLASS_CD                    AS MCLASS_CD
+	               , SCLASS_CD                    AS SCLASS_CD
+	               , SEQ                          AS SEQ
+	               , EVNT_TITLE                   AS EVNT_TITLE
+	               , SIGN_STATUS                  AS SIGN_STATUS
+	               , ''                           AS RESULT_YN
+	               , A.CUSER                      AS CUSER
+	             --, (SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = A.CUSER AND ROWNUM = 1)  AS CUSER_NM
+	               , NVL(M.NM_KOR,   I.NM_KOR)    AS CUSER_NM
+	           FROM  FSE_EVNT_MASTER A
+	               , SCC_USERINFO I
+	               , (SELECT X.UPJANG, X.UPJANGNM, Y.* FROM ST_UPJANG X, HLDC_SC_DEPT_V Y WHERE X.DEPT_ID = Y.DEPT_ID) J
+	               , HR_PERSONAL M
+	               , (SELECT X.UPJANG, X.UPJANGNM, Y.* FROM ST_UPJANG X, HLDC_SC_DEPT_V Y WHERE X.DEPT_ID = Y.DEPT_ID) N
+	          WHERE  A.SIGN_STATUS IS NOT NULL
+	            AND  A.USE_YN  = 'Y'
+	            AND  A.CUSER   = I.SABUN(+)
+	            AND  I.SABUN   = M.SABUN(+)
+	            AND  I.USE_YN  = 'Y'
+	            AND  I.UPJANG  = J.UPJANG(+)
+	            AND  M.DEPT_ID = N.DEPT_ID(+)
+	         UNION ALL
+	         SELECT  A.MU_CD                  AS MU_CD
+	               , A.MU_NM                  AS MU_NM
+	               , A.TM_CD                  AS TM_CD
+	               , A.TM_NM                  AS TM_NM
+	               , B.REQUEST_UPJANG_CD      AS UPJANG_CD
+	               , A.UPJANGNM               AS UPJANG_NM
+	               , '002'                    AS REQUEST_CD
+	               , '진행정보'               AS REQUEST_NM
+	               , B.REQUEST_UPJANG_CD      AS REQUEST_UPJANG_CD
+	               , Z.UPJANGNM               AS REQUEST_UPJANG_NM
+	               , B.LCLASS_CD              AS LCLASS_CD
+	               , B.MCLASS_CD              AS MCLASS_CD
+	               , B.SCLASS_CD              AS SCLASS_CD
+	               , B.EVNT_ID                AS SEQ
+	               , B.EVNT_TITLE             AS EVNT_TITLE
+	               , B.SIGN_STATUS            AS SIGN_STATUS
+	               , (SELECT   DECODE(COUNT(A.EVNT_ID), 0 , 'N', 'Y')
+	                    FROM   FSE_EVNT_RESULT A
+	                       ,   FSE_EVNT_REQUEST B
+	                   WHERE   A.REQUEST_UPJANG_CD = B.REQUEST_UPJANG_CD
+	                     AND   A.EVNT_ID           = B.EVNT_ID
+	                     AND   A.SIGN_STATUS IS NOT NULL AND ROWNUM = 1)  AS RESULT_YN
+	               , B.CUSER                  AS CUSER
+	             --, (SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = B.CUSER AND ROWNUM = 1)  AS CUSER_NM
+	               , NVL(M.NM_KOR,   I.NM_KOR)    AS CUSER_NM
+	           FROM  SCO_UPJANG_MST_V A
+	               , SCO_UPJANG_MST_V Z
+	               , FSE_EVNT_REQUEST B
+	               , SCC_USERINFO     I
+	               , HR_PERSONAL      M
+	          WHERE  A.UPJANG = B.REQUEST_UPJANG_CD
+	            AND  Z.UPJANG = B.REQUEST_UPJANG_CD
+	            AND  B.SIGN_STATUS IS NOT NULL
+	            AND  B.CUSER  = I.SABUN(+)
+	            AND  I.SABUN  = M.SABUN(+)
+	            AND  I.USE_YN = 'Y'
+	        ) C
+	 WHERE  A.LCLASS_CD = B.LCLASS_CD
+	   AND  A.MCLASS_CD = B.MCLASS_CD
+	   AND  B.LCLASS_CD = C.LCLASS_CD
+	   AND  B.MCLASS_CD = C.MCLASS_CD
+	   AND  B.SCLASS_CD = C.SCLASS_CD
+	   AND  REQUEST_CD       = '002'       -- 신청분류:진행정보
+	   AND  SIGN_STATUS      = '001'       -- 결재상태:접수
+	   <#if muCd?has_content>
+	   AND  C.MU_CD     = :muCd
+	   </#if>
+	   <#if tmCd?has_content>
+	   AND  C.TM_CD     = :tmCd
+	   </#if>
+	   <#if upjangCd?has_content>
+	   AND  C.UPJANG_CD = :upjangCd
+	   </#if>
+	]]></statement>
+	
+	<!-- 각종팀장승인(식권폐기) 목록을 조회한다. -->
+    <statement name="selectList005" type="select">
+    /*+ com.hwfs.ms.mtm.teamLeaderAppDAO.selectList005 */
+    <![CDATA[
+    SELECT 0                       AS CHK
+	     , V.TICKET_SEQ
+	     , V.TICKET_GROUP_SEQ
+	     , '식권폐기승인'          AS GUBUN_NM
+	     , V.UPJANG
+	     , (SELECT UPJANGNM
+	       FROM    SCO_UPJANG_MST_V
+	       WHERE   UPJANG = V.UPJANG
+	       )
+	       UPJANGNM
+	     , V.ITEM_TYPE
+	     , (SELECT CODE_NAME
+	       FROM    SCC_COMMON_CODE
+	       WHERE   GROUP_CODE = 'MA0122'
+	       AND     CODE       = V.ITEM_TYPE
+	       )
+	       ITEM_TYPENM
+	     , V.ITEM_CODE
+	     , (SELECT ITEM_NAME
+	       FROM    HLDC_PO_ITEM_MST
+	       WHERE   ITEM_CODE = V.ITEM_CODE
+	       )
+	       ITEM_CODENM
+	     , V.TRANS_DD
+	     , V.TRANS_TYPE
+	     , (SELECT CODE_NAME
+	       FROM    SCC_COMMON_CODE
+	       WHERE   GROUP_CODE = 'MA0121'
+	       AND     CODE       = V.TRANS_TYPE
+	       )
+	       TRANS_TYPENM
+	     , V.TRANS_GUBUN
+	     , (SELECT GUBUN_NAME
+	       FROM    MAS_TICKET_CODE
+	       WHERE   TRANS_TYPE  = V.TRANS_TYPE
+	       AND     TRANS_GUBUN = V.TRANS_GUBUN
+	       )
+	       TRANS_GUBUNNM
+	     , NVL(V.UPRICE, 0) UPRICE
+	     , NVL(V.QTY, 0) QTY
+	     , NVL(V.UPRICE, 0) * NVL(V.QTY, 0) AMT
+	     , V.TICKET_STARTNUM
+	     , V.TICKET_ENDNUM
+	     , V.REMARK_DESC
+	     , V.AUTO_GUBUN
+	     , V.AUTO_KIND
+	     , (SELECT CODE_NAME
+	       FROM    SCC_COMMON_CODE
+	       WHERE   GROUP_CODE = 'MA0120'
+	       AND     CODE       = V.AUTO_KIND
+	       )
+	       AUTO_KINDNM
+	     , V.SOURCE_ID
+	     , V.REQUEST_SABUN
+	     , (SELECT NM_KOR
+	       FROM    SCO_FS_HR_PERSONAL_V
+	       WHERE   SABUN = V.REQUEST_SABUN
+	       )
+	       REQUEST_SABUNNM
+	     , TO_CHAR(V.REQUEST_DATE,'YYYY.MM.DD') AS REQUEST_DATE
+	     , V.DISUSE_IMG
+	     , V.TEAM_MST_SABUN
+	     , (SELECT NM_KOR
+	       FROM    SCO_FS_HR_PERSONAL_V
+	       WHERE   SABUN = V.TEAM_MST_SABUN
+	       )
+	       TEAM_MST_SABUNNM
+	     , V.TEAM_MST_CONGUBN
+	     , DECODE(V.TEAM_MST_CONGUBN, 'N'
+	            , '미승인'
+	            , 'Y'
+	            , '승인'
+	            , 'R'
+	            , '반려') TEAM_MST_CONGUBNNM
+	     , V.TEAM_MST_DATE
+	     , V.APPROV_SABUN
+	     , (SELECT NM_KOR
+	       FROM    SCO_FS_HR_PERSONAL_V
+	       WHERE   SABUN = V.APPROV_SABUN
+	       )
+	       APPROV_SABUNNM
+	     , V.APPROV_CONGUBN
+	     , DECODE(V.APPROV_CONGUBN, 'N'
+	            , '미승인'
+	            , 'Y'
+	            , '승인'
+	            , 'R'
+	            , '반려') APPROV_CONGUBNNM
+	     , V.APPRV_DATE
+	     , V.CONGUBN_DESC
+	     , V.TEAM_MST_CONGUBN_DESC
+	     , (SELECT MAX(TICKET_ENDNUM)
+	       FROM    MAS_TICKET_MST
+	       WHERE   SUBUL_YN  = 'Y'
+	       AND     CONGUBN   = 'Y'
+	       AND     SOURCE_ID = TO_CHAR(V.TICKET_SEQ)
+	       AND     EXISTS
+	               (SELECT 'X'
+	               FROM    MAS_TICKET_CODE
+	               WHERE   TRANS_TYPE  = V.TRANS_TYPE
+	               AND     TRANS_GUBUN = V.TRANS_GUBUN
+	               AND     SET1        = 'O'
+	               )
+	       )
+	       TICKET_MAXNUM
+	FROM   MAS_TICKET_MST V
+	     , SCO_UPJANG_MST_V A
+	WHERE  ( V.UPJANG = A.UPJANG )
+	AND    ( V.TRANS_TYPE = 'X' )
+	<#if tmCd?has_content>
+	AND    ( A.TM_CD = :tmCd )
+	</#if>
+	AND    ( V.TRANS_DD BETWEEN :reqDate ||'01' AND    :reqDate ||'31')
+	<#if chkGubun == "approv">
+	AND    ( V.APPROV_CONGUBN  = 'N')
+	AND    (V.APPROV_SABUN  = :loginSabun)
+	</#if>
+	<#if chkGubun == "teamMst">
+	AND    ( V.TEAM_MST_CONGUBN = 'N')
+	AND    ( V.APPROV_CONGUBN = 'Y')
+	AND    ( V.TEAM_MST_SABUN = :loginSabun)
+	</#if>
+	ORDER BY V.UPJANG, V.TRANS_DD, V.ITEM_CODE, V.TICKET_SEQ
+	]]></statement>
+	
+	<!-- 각종팀장승인(시험접수) 목록을 조회한다. -->
+	<statement name="selectList006" type="select">
+	/*+ com.hwfs.ms.mtm.teamLeaderAppDAO.selectList006 */
+	<![CDATA[
+	/* 시험접수목록 조회 */
+	SELECT '0' AS CHK
+	     , '시험접수승인' AS GUBUN_NM
+	     , A.REQ_NUM
+	     , A.REQ_DATE
+	     , A.ACCEPTNM
+	     , A.UPJANG_NM
+	     , A.ORG_NM
+	     , (SELECT COUNT(1)
+	          FROM LRM_SPECM_INFO B
+	         WHERE A.REQ_NUM = B.REQ_NUM) AS SPECM_CNT    /* 검체목록건수 */
+	     , (
+	        SELECT NVL(SUM(DECODE(Y.COMM_1_USE_YN, 'Y', SUM(Y.COMM_1), 0)) +
+	                   SUM(DECODE(Y.COMM_2_USE_YN, 'Y', SUM(Y.COMM_2), 0)) +
+	                   SUM(DECODE(Y.COMM_3_USE_YN, 'Y', SUM(Y.COMM_3), 0)) +
+	                   SUM(DECODE(Y.COMM_4_USE_YN, 'Y', SUM(Y.COMM_4), 0)) +
+	                   SUM(DECODE(Y.COMM_5_USE_YN, 'Y', SUM(Y.COMM_5), 0)), 0)
+	          FROM LRM_SPECM_INFO X
+	             , LRM_TEST_INFO Y
+	         WHERE 1 = 1
+	           AND X.REQ_NUM = A.REQ_NUM
+	           AND X.REQ_NUM = Y.REQ_NUM
+	           AND X.ACCEPT_NUM = Y.ACCEPT_NUM
+	           --AND X.COST_CLASS = '102' -- 유상
+	         GROUP BY Y.COMM_1_USE_YN, Y.COMM_2_USE_YN, Y.COMM_3_USE_YN, Y.COMM_4_USE_YN, Y.COMM_5_USE_YN
+	       ) AS COMM_TOT_AMT
+	     , (SELECT X.NM_KOR
+	          FROM SCC_USERINFO X
+	         WHERE X.SABUN = A.CUSER) AS USER_NM    /* 접수자 */
+	     , (SELECT MAX(ACCEPTDD)
+	          FROM LRM_SPECM_INFO B
+	         WHERE A.REQ_NUM = B.REQ_NUM) AS ACCEPTDD    /* 접수일자 */
+	     , U.PROC_CLASS AS PROGRESS_STATUS  /* 진행상태 */
+	     , U.PROC_REASON  /* 취소/반려사유 */
+	     , (SELECT X.NM_KOR
+	          FROM SCC_USERINFO X
+	         WHERE X.SABUN = U.PROC_USER) AS PROC_USER_NM  /* 처리자 */
+	     , U.PROCDD  /* 처리일자 */
+	  FROM LRM_TEST_REQ_ACCEPT A
+	     , (
+	        SELECT PD.REQ_NUM
+	             , PD.PROC_USER
+	             , PD.PROCDD
+	             , PD.PROC_REASON
+	             , PD.PROC_CLASS
+	             , PD.SEQ
+	          FROM (
+	                SELECT Y.REQ_NUM
+	                     , Y.PROC_USER
+	                     , Y.PROCDD
+	                     , Y.PROC_REASON
+	                     , Y.PROC_CLASS
+	                     , Y.SEQ
+	                     , ROW_NUMBER() OVER (PARTITION BY Y.REQ_NUM ORDER BY Y.REQ_NUM, Y.SEQ DESC) AS RN
+	                  FROM LRM_PROC_DESC Y
+	               ) PD
+	         WHERE RN = 1
+	       ) U
+	 WHERE 1 = 1
+	 AND A.REQ_NUM = U.REQ_NUM(+)
+	<#if reqDate?has_content> AND A.REQ_DATE BETWEEN :reqDate || '01' AND :reqDate || '31' </#if>
+	 AND U.PROC_CLASS = '130'
+	 ORDER BY A.REQ_NUM DESC
+	]]></statement>
+	
+	<!-- 각종팀장승인(시험접수_상세) 목록을 조회한다. -->
+    <statement name="selectDetailList006" type="select">
+    /*+ com.hwfs.ms.mtm.teamLeaderAppDAO.selectDetailList006 */
+    <![CDATA[
+    SELECT A.REQ_NUM
+	     , A.ACCEPT_NUM
+	     , A.SPECM_NM   /* 검체(시료)명 */
+	     , SCC_CODE_NM('INSPT_PURP_1', A.INSPT_PURP_1) AS INSPT_PURP_1_NM   /* 검사용도 */
+	     , SCC_CODE_NM('INSPT_PURP_2', A.INSPT_PURP_2) AS INSPT_PURP_2_NM   /* 실험방법 */
+	     , SCC_CODE_NM('SPECM_TYPE', A.SPECM_TYPE) AS SPECM_TYPE_1_NM /* 검체유형 */
+	     , ((SELECT X.MGRP_NM FROM LCM_SPECM_TYPE_MGRP X WHERE X.SPECM_TYPE = A.SPECM_TYPE AND X.MGRP_CD = A.MGRP_CD AND X.USE_YN = 'Y') || ' / ' ||
+	        (SELECT X.MCALSS_NM FROM LCM_SPECM_TYPE_MCALSS X WHERE X.SPECM_TYPE = A.SPECM_TYPE AND X.MCALSS_CD = A.MCALSS_CD AND X.USE_YN = 'Y') || ' / ' ||
+	        (SELECT X.SCLASS_NM FROM LCM_SPECM_TYPE_SCLASS X WHERE X.SPECM_TYPE = A.SPECM_TYPE AND X.SCLASS_CD = A.SCLASS_CD AND X.USE_YN = 'Y'))
+	       AS SPECM_TYPE_2_NM     /* 검체유형명 */
+	     , SCC_CODE_NM('INSPT_OBJ_1', INSPT_OBJ_1) || ' / ' ||
+	       SCC_CODE_NM('INSPT_OBJ_2', INSPT_OBJ_2) || ' / ' ||
+	       SCC_CODE_NM('INSPT_OBJ_3', INSPT_OBJ_3) || ' / ' ||
+	       SCC_CODE_NM('INSPT_OBJ_4', INSPT_OBJ_4) AS INSPT_OBJ    /* 검사대상 */
+	     , A.ACCEPTDD
+	     , TO_CHAR((
+	           TO_DATE(A.ACCEPTDD, 'YYYYMMDD') + TO_NUMBER((
+	                                                       SELECT MAX(TA.TAKE_TERM)
+	                                                         FROM LRM_TEST_INFO X
+	                                                            , LCM_TEST_ARTICLE TA
+	                                                        WHERE X.ARTICLE_CD = TA.ARTICLE_CD
+	                                                          AND X.REQ_NUM = A.REQ_NUM
+	                                                          AND X.ACCEPT_NUM = A.ACCEPT_NUM
+	                                                      ))
+	       ), 'YYYYMMDD') AS TEST_SCHE_DD    /* 완료예정일(접수일로 부터 최대 소요기간 산정) */
+	     , (
+	         SELECT MAX(TA.ARTICLE_NM) || ' 외 ' || (COUNT(1) - 1) || '항목'
+	           FROM LRM_TEST_INFO X
+	              , LCM_TEST_ARTICLE TA
+	          WHERE X.ARTICLE_CD = TA.ARTICLE_CD
+	            AND X.REQ_NUM =  A.REQ_NUM
+	            AND X.ACCEPT_NUM = A.ACCEPT_NUM
+	            AND X.LEGAL_BASIS = 'Y'
+	       ) AS LEGAL_BASIS  /* 검사항목(내부기준) */
+	     , (
+	         SELECT MAX(TA.ARTICLE_NM) || ' 외 ' || (COUNT(1) - 1) || '항목'
+	           FROM LRM_TEST_INFO X
+	              , LCM_TEST_ARTICLE TA
+	          WHERE X.ARTICLE_CD = TA.ARTICLE_CD
+	            AND X.REQ_NUM =  A.REQ_NUM
+	            AND X.ACCEPT_NUM = A.ACCEPT_NUM
+	            AND X.INSIDE_BASIS = 'Y'
+	       ) AS INSIDE_BASIS /* 검사항목(내부기준) */
+	  FROM LRM_SPECM_INFO A
+	 WHERE A.REQ_NUM = :reqNum
+	 ]]></statement>
+	
+	<!-- 각종팀장승인(추가발주 승인시 승인여부체크) 목록을 조회한다. --> 
+	<statement name="saveChk001" type="select">
+	/*+ com.hwfs.ms.mtm.teamLeaderAppDAO.saveChk001 */
+	<![CDATA[
+	SELECT APRV_YN
+	FROM   FSA_PR_CHECK
+	WHERE  START_DATE = :fromDt
+	AND    END_DATE   = :toDt
+	AND    PR_DATE    = :prDate
+	AND    UPJANG     = :upjang
+	]]></statement>
+	
+	<!-- 각종팀장승인(마감취소 승인시 승인여부체크) 목록을 조회한다. --> 
+    <statement name="saveChk002" type="select">
+    /*+ com.hwfs.ms.mtm.teamLeaderAppDAO.saveChk002 */
+    <![CDATA[ 
+    SELECT  APPRV_GUBUN AS APPRV_GUBUN
+    	  , TEAM_MST_CONGUBN AS TEAM_MST_CONGUBN
+	FROM    MAS_CLOSE_MODIFYREQ
+	WHERE   (
+	             1=1
+	        )
+	AND     REQ_ID   = :reqId
+	]]></statement>
+	
+	<!-- 각종팀장승인(식권폐기 승인시 승인여부체크) 목록을 조회한다. --> 
+	<statement name="saveChk005" type="select">
+	/*+ com.hwfs.ms.mtm.teamLeaderAppDAO.saveChk005 */
+	<![CDATA[
+	SELECT APPROV_CONGUBN,
+	       APPROV_RETURN_CONGUBN,
+	       TEAM_MST_CONGUBN,
+	       TEAM_MST_RETURN_CONGUBN
+	  FROM (
+	        SELECT
+	              DECODE((SELECT COUNT(*) FROM MAS_TICKET_MST WHERE TICKET_SEQ = :ticketSeq AND APPROV_CONGUBN   = 'N'), 0, 'Y','N') APPROV_CONGUBN,
+	              DECODE((SELECT COUNT(*) FROM MAS_TICKET_MST WHERE TICKET_SEQ = :ticketSeq AND APPROV_CONGUBN   = 'R'), 0, 'N','Y') APPROV_RETURN_CONGUBN,
+	              DECODE((SELECT COUNT(*) FROM MAS_TICKET_MST WHERE TICKET_SEQ = :ticketSeq AND TEAM_MST_CONGUBN = 'N'), 0, 'Y','N') TEAM_MST_CONGUBN,
+	              DECODE((SELECT COUNT(*) FROM MAS_TICKET_MST WHERE TICKET_SEQ = :ticketSeq AND TEAM_MST_CONGUBN = 'R'), 0, 'N','Y') TEAM_MST__RETURN_CONGUBN
+	        FROM DUAL
+	       )
+	]]></statement>
+	
+	<!-- 각종팀장승인(추가발주 승인처리). --> 
+    <statement name="update001" type="update">
+    /*+ com.hwfs.ms.mtm.teamLeaderAppDAO.update001 */
+    <![CDATA[
+    UPDATE FSA_PR_CHECK
+	SET    START_DATE = :fromDt
+	     , END_DATE   = :toDt
+	     , APRV_YN    = DECODE(:chk,'1'
+	                         ,'Y'
+	                         ,'N')
+	     , UUSER      = :loginSabun
+	     , UDATE      = SYSDATE
+	WHERE  UPJANG     = :upjang
+	AND    START_DATE = :fromDt
+	AND    END_DATE   = :toDt
+	]]></statement>
+	
+	<!-- 각종팀장승인(마감취소 승인처리_기획). --> 
+    <statement name="updateApprov002" type="update">
+    /*+ com.hwfs.ms.mtm.teamLeaderAppDAO.updateApprov002 */
+    <![CDATA[
+    UPDATE MAS_CLOSE_MODIFYREQ
+	SET    APPROV_SABUN   = :loginSabun
+		 , APPRV_GUBUN    = DECODE(:chk, '1', 'Y', 'N')
+		 , APPRV_DATE     = SYSDATE
+	WHERE  REQ_ID = :reqId
+    ]]></statement>
+
+ 	<!-- 각종팀장승인(마감취소 승인처리_팀장). --> 
+    <statement name="updateTeamMst002" type="update">
+    /*+ com.hwfs.ms.mtm.teamLeaderAppDAO.updateTeamMst002 */
+    <![CDATA[
+    UPDATE MAS_CLOSE_MODIFYREQ
+    SET    TEAM_MST_SABUN   = :loginSabun
+     	 , TEAM_MST_CONGUBN = DECODE(:chk, '1', 'Y', 'N')
+    	 , TEAM_MST_DATE    = DECODE(:chk, '1', SYSDATE, NULL)
+    	  --팀장승인 시 완료처리 20200818 (정지희 요청) 011 건별취소(급식)만 완료처리, 001,006,008,009는 마감취소 프로세스 추가 필요하여 제외
+     	 , APPROV_SABUN     = DECODE(CLOSE_GUBUN,'011',:loginSabun, DECODE(:clsGubn, 'Y', :loginSabun, APPROV_SABUN))
+     	 , APPRV_GUBUN      = DECODE(CLOSE_GUBUN,'011',DECODE(:chk, '1', 'Y', 'N'), DECODE(:clsGubn, 'Y', DECODE(:chk, '1', 'Y', 'N'), APPRV_GUBUN))
+     	 , APPRV_DATE       = DECODE(CLOSE_GUBUN,'011',DECODE(:chk, '1', SYSDATE, NULL), DECODE(:clsGubn, 'Y', DECODE(:chk, '1', SYSDATE, NULL), APPRV_DATE))
+     	 , ATTR03 = :loginSabun
+     	 , ATTR04 = SYSDATE
+     	 , ATTR05 = 'TeamLeaderApp'
+     	 --, APPROV_SABUN     = DECODE(:clsGubn, 'Y', :loginSabun, APPROV_SABUN)
+     	 --, APPRV_GUBUN      = DECODE(:clsGubn, 'Y', DECODE(:chk, '1', 'Y', 'N'), APPRV_GUBUN)
+     	 --, APPRV_DATE       = DECODE(:clsGubn, 'Y', DECODE(:chk, '1', SYSDATE, NULL), APPRV_DATE)
+ 	WHERE REQ_ID = :reqId
+ 	]]></statement>
+ 	
+ 	<!-- 각종팀장승인(기기기물_케터링 승인처리). --> 
+	<statement name="update003" type="update">
+	/*+ com.hwfs.ms.mtm.teamLeaderAppDAO.update003 */
+	<![CDATA[
+	UPDATE FSC_CATERINGCELE_ALLC SET
+	       ALLC_SABUN        = <#if allcSabun?exists> :allcSabun <#else> null </#if>               /* 배정 담당 사번     */
+	     , ALLC_REASON       = <#if allcReason?exists> :allcReason <#else> null </#if>             /* 배정사유           */
+	     , ALLC_STATUS       = <#if allcStatus?exists> :allcStatus <#else> null </#if>             /* 배정상태           */
+	
+	     , FIRST_SIGN_PRCG_EMP = <#if firstSignPrcgEmp?exists> :firstSignPrcgEmp <#else> null </#if>    /* 1차 결재자 사번    */
+	     , FIRST_SIGN_STATUS   = <#if firstSignStatus?exists> :firstSignStatus <#else> null </#if>    /* 1차 결재 진행상태  */
+	     , FIRST_RTN_REASON    = <#if firstRtnReason?exists> :firstRtnReason <#else> null </#if>   /* 1차 결재 반려사유  */
+	
+	     , UUSER             = :loginSabun             /* 수정자 사번        */
+	     , UDATE             = SYSDATE                 /* 수정일시           */
+	WHERE  REQUEST_UPJANG_CD = :requestUpjangCd        /* 신청업장코드       */
+	AND    REQUEST_ID        = :requestId              /* 신청ID             */
+	AND    SEQ               = :seq                    /* 신청ID 기준 순번   */
+	AND    ALLC_SEQ          = '1'                     /* 배정순번           */
+	AND    CATER_CLASS       = '003'
+	]]></statement>
+	
+	<!-- 각종팀장승인(기기기물_이벤트 승인처리). --> 
+	<statement name="update004" type="update">
+	/*+ com.hwfs.ms.mtm.teamLeaderAppDAO.update004 */
+	<![CDATA[
+	UPDATE FSE_EVNT_REQUEST
+	   SET SIGN_PRCG_SABUN       = :signPrcgSabun          /* 결재 담당자 사번 */
+	     , SIGN_STATUS           = DECODE(:chk, 1, '002', SIGN_STATUS)  /* 결재상태         */
+	<#if rtnReason?exists>
+	     , RTN_REASON            = :rtnReason              /* 반납_사유        */
+	</#if>
+	     , UUSER                 = :loginSabun             /* 수정자 사번      */
+	     , UDATE                 = SYSDATE                 /* 수정일시         */
+	WHERE  EVNT_ID           = :seq 
+	]]></statement>
+	
+	<!-- 각종팀장승인(기기기물_이벤트 반려처리). --> 
+    <statement name="updateReturn004" type="update">
+    /*+ com.hwfs.ms.mtm.teamLeaderAppDAO.updateReturn004 */
+    <![CDATA[
+    UPDATE FSE_EVNT_REQUEST
+	   SET SIGN_PRCG_SABUN       = :signPrcgSabun          /* 결재 담당자 사번 */
+	     , SIGN_STATUS           = DECODE(:chk, 1, '003', SIGN_STATUS)  /* 결재상태         */
+	<#if rtnReason?exists>
+	     , RTN_REASON            = :rtnReason              /* 반납_사유        */
+	</#if>
+	     , UUSER                 = :loginSabun             /* 수정자 사번      */
+	     , UDATE                 = SYSDATE                 /* 수정일시         */
+	WHERE  EVNT_ID           = :seq 
+	]]></statement>
+	
+	<!-- 각종팀장승인(식권폐기 승인처리_기획). --> 
+	<statement name="updateApprov005" type="update">
+	/*+ com.hwfs.ms.mtm.teamLeaderAppDAO.updateApprov005 */
+	<![CDATA[
+	UPDATE MAS_TICKET_MST
+	SET    SUBUL_YN               = DECODE(:chk, '1', SUBUL_YN, 'N'),
+	       CONGUBN                = DECODE(:chk, '1', CONGUBN,  'N'),
+	       APPROV_CONGUBN         = DECODE(:chk, '1', 'Y', 'N'),
+	       APPRV_DATE             = SYSDATE
+	WHERE (TICKET_SEQ = :ticketSeq)
+	]]></statement>  
+	
+	<!-- 각종팀장승인(식권폐기 반려처리_기획). --> 
+	<statement name="updateApprovReturn005" type="update">
+	/*+ com.hwfs.ms.mtm.teamLeaderAppDAO.updateApprovReturn005 */
+	<![CDATA[
+	UPDATE MAS_TICKET_MST
+	SET    SUBUL_YN               = DECODE(:chk, '1', 'N'),
+	       CONGUBN                = DECODE(:chk, '1', 'N'),
+	       APPROV_CONGUBN         = DECODE(:chk, '1', 'R', 'N'),
+	       APPRV_DATE             = SYSDATE,
+	       CONGUBN_DESC           = :teamMstCongubnDesc
+	WHERE (TICKET_SEQ = :ticketSeq)
+	]]></statement>
+	
+	<!-- 각종팀장승인(식권폐기 승인처리_팀장). --> 
+    <statement name="updateTeamMst005" type="update">
+    /*+ com.hwfs.ms.mtm.teamLeaderAppDAO.updateTeamMst005 */
+    <![CDATA[
+    UPDATE MAS_TICKET_MST
+	SET    SUBUL_YN               = DECODE(:chk, '1', 'Y', 'N'),
+	       CONGUBN                = DECODE(:chk, '1', 'Y', 'N'),
+	       TEAM_MST_CONGUBN       = DECODE(:chk, '1', 'Y', 'N'),
+	       TEAM_MST_DATE          = SYSDATE
+	WHERE (TICKET_SEQ = :ticketSeq)
+	]]></statement>
+	
+	<!-- 각종팀장승인(식권폐기 반려처리_팀장). --> 
+    <statement name="updateTeamMstReturn005" type="update">
+    /*+ com.hwfs.ms.mtm.teamLeaderAppDAO.updateTeamMstReturn005 */
+    <![CDATA[UPDATE MAS_TICKET_MST
+	SET    SUBUL_YN               = DECODE(:chk, '1', 'N'),
+	       CONGUBN                = DECODE(:chk, '1', 'N'),
+	       TEAM_MST_CONGUBN       = DECODE(:chk, '1', 'R', 'N'),
+	       TEAM_MST_DATE          = SYSDATE,
+	       TEAM_MST_CONGUBN_DESC  = :teamMstCongubnDesc
+	WHERE (TICKET_SEQ = :ticketSeq)
+	]]></statement>
+	
+	<!-- 각종팀장승인(마감취소시 기존건 삭제처리_팀장). --> 
+    <statement name="delete002" type="delete">
+    /*+ com.hwfs.ms.mtm.teamLeaderAppDAO.delete002 */
+    <![CDATA[ 
+    DELETE
+	FROM   MAS_CLOSE_MGMT
+	WHERE  UPJANG      = :upjang
+	AND    CLOSE_GUBUN = :gubun
+	AND    CLOSE_DATE BETWEEN :fromDt AND :toDt
+	]]></statement>
+	
+	<!-- 각종팀장승인(마감취소시 기존건 이력입력처리_팀장). --> 
+    <statement name="insertHst002" type="insert">
+    /*+ com.hwfs.ms.mtm.teamLeaderAppDAO.insertHst002 */
+    <![CDATA[
+    INSERT
+	INTO   MAS_CLOSE_MGMT_HST
+	       (
+	              HST_ID
+	            , UPJANG
+	            , CLOSE_GUBUN
+	            , CLOSE_FROM_DATE
+	            , CLOSE_TO_DATE
+	            , CLOSE_YN
+	            , USERID
+	            , WORK_SCR_GUBUN
+	            , CUSER
+	            , CDATE
+	            , UUSER
+	            , UDATE
+	       )
+	SELECT MAS_CLOSE_MGMT_HST_S.nextval
+	     , UPJANG
+	     , CLOSE_GUBUN
+	     , CLOSE_FROM_DATE
+	     , CLOSE_TO_DATE
+	     , CLOSE_YN
+	     , USERID
+	     , WORK_SCR_GUBUN
+	     , CUSER
+	     , CDATE
+	     , UUSER
+	     , UDATE
+	FROM   ( SELECT :upjang        AS UPJANG
+	             , :gubun          AS CLOSE_GUBUN
+	             , MIN(A.MM||B.DD) AS CLOSE_FROM_DATE
+	             , MAX(A.MM||B.DD) AS CLOSE_TO_DATE
+	             , 'N'             AS CLOSE_YN
+	             , :loginSabun     AS USERID
+	             , '취소신청기획승인'      AS WORK_SCR_GUBUN
+	             , :loginSabun     AS CUSER
+	             , SYSDATE         AS CDATE
+	             , :loginSabun     AS UUSER
+	             , SYSDATE         AS UDATE
+	       FROM    (SELECT SUBSTR(:fromDt, 1, 6) MM
+	               FROM    DUAL
+	               )
+	               A
+	             , (SELECT LPAD(ROWNUM,2,'0') DD
+	               FROM    DICT
+	               WHERE   ROWNUM <= 31
+	               )
+	               B
+	       WHERE   A.MM||B.DD BETWEEN :fromDt AND  :toDt
+	       )
+	]]></statement>          
+	
+	<!-- 각종팀장승인(팀장승인건 전체 조회). --> 
+	<statement name="selectCount001" type="select">
+	/*+ com.hwfs.ms.mtm.teamLeaderAppDAO.selectCount001 */
+	<![CDATA[
+	SELECT SUM(CNT) CNT
+	FROM  (
+	       -- 추가발주승인
+	       SELECT  NVL(COUNT(B.TM_CD), 0 ) CNT
+	       FROM    FSA_PR_CHECK A
+	             , MAC_UPJANG_V B
+	       WHERE   A.UPJANG  = B.UPJANG
+	       AND     B.TM_CD   = :tmCd
+	       AND     A.APRV_YN = 'N'
+	       AND     A.PR_DATE BETWEEN TO_CHAR(TO_DATE(SYSDATE) - 7,'YYYYMMDD') AND SYSDATE
+	
+	       UNION ALL
+	       -- 취소신청팀장승인
+	       SELECT NVL(COUNT(A.TM_CD), 0 ) CNT
+	       FROM   MAS_CLOSE_MODIFYREQ V
+	            , SCO_UPJANG_MST_V A
+	       WHERE  V.UPJANG           = A.UPJANG
+	       AND    V.TEAM_MST_CONGUBN = 'N'
+	       AND    A.TM_CD            = :tmCd
+	       AND    V.CLOSE_DATEFR BETWEEN TO_CHAR(TO_DATE(SYSDATE) - 7,'YYYYMMDD') AND SYSDATE
+	
+	       UNION ALL
+	       -- 케터링(기기/기물)
+	       SELECT NVL(COUNT(M.FIRST_SIGN_PRCG_EMP), 0 ) CNT
+	       FROM   FSC_CATERINGUTENSIL_REG M
+	            , FSC_CATERINGCELE_ALLC C
+	            , SCO_UPJANG_MST_V B
+	       WHERE  M.REQUEST_UPJANG_CD              = B.UPJANG
+	       AND    M.REQUEST_UPJANG_CD              = C.REQUEST_UPJANG_CD(+)
+	       AND    M.REQUEST_ID                     = C.REQUEST_ID(+)
+	       AND    B.FS_UPJANG                      = 'Y'
+	       AND    NVL( C.FIRST_SIGN_STATUS ,'001') = '001'
+	       AND    M.FIRST_SIGN_PRCG_EMP            = :sabun
+	
+	       UNION ALL
+	       -- 이벤트(기기/기물)
+	       SELECT NVL(COUNT(C.TM_CD), 0 ) CNT
+	       FROM   FS_MCLASS A
+	            , FS_SCLASS B
+	            , ( SELECT A.TM_CD      AS TM_CD
+	                    , B.LCLASS_CD   AS LCLASS_CD
+	                    , B.MCLASS_CD   AS MCLASS_CD
+	                    , B.SCLASS_CD   AS SCLASS_CD
+	                    , B.SIGN_STATUS AS SIGN_STATUS
+	              FROM    SCO_UPJANG_MST_V A
+	                    , SCO_UPJANG_MST_V Z
+	                    , FSE_EVNT_REQUEST B
+	                    , SCC_USERINFO I
+	                    , HR_PERSONAL M
+	              WHERE   A.UPJANG                = B.REQUEST_UPJANG_CD
+	              AND     Z.UPJANG                = B.REQUEST_UPJANG_CD
+	              AND     B.SIGN_STATUS IS NOT NULL
+	              AND     B.CUSER                 = I.SABUN(+)
+	              AND     I.SABUN                 = M.SABUN(+)
+	              AND     I.USE_YN                = 'Y'
+	              )
+	              C
+	       WHERE  A.LCLASS_CD = B.LCLASS_CD
+	       AND    A.MCLASS_CD = B.MCLASS_CD
+	       AND    B.LCLASS_CD = C.LCLASS_CD
+	       AND    B.MCLASS_CD = C.MCLASS_CD
+	       AND    B.SCLASS_CD = C.SCLASS_CD
+	       AND    SIGN_STATUS = '001'
+	       AND    C.TM_CD     = :tmCd
+	
+	       UNION ALL
+	       -- 식권폐기승인
+	       SELECT NVL(COUNT(A.TM_CD), 0 ) CNT
+	       FROM   MAS_TICKET_MST V
+	            , SCO_UPJANG_MST_V A
+	       WHERE  (
+	                     V.UPJANG = A.UPJANG
+	              )
+	       AND
+	              (
+	                     V.TRANS_TYPE = 'X'
+	              )
+	       AND
+	              (
+	                     A.TM_CD = :tmCd
+	              )
+	       AND
+	              (
+	                     V.TEAM_MST_CONGUBN = 'N'
+	              )
+	       AND
+	              (
+	                     V.APPROV_CONGUBN = 'Y'
+	              )
+	       AND
+	              (
+	                     V.TEAM_MST_SABUN = :sabun
+	              )
+	
+	       UNION ALL
+	       -- 시험접수승인
+	       SELECT NVL(COUNT(U.PROC_USER), 0 ) CNT
+	       FROM   LRM_TEST_REQ_ACCEPT A
+	            , ( SELECT PD.REQ_NUM
+	                    , PD.PROC_USER
+	                    , PD.PROCDD
+	                    , PD.PROC_REASON
+	                    , PD.PROC_CLASS
+	                    , PD.SEQ
+	              FROM    ( SELECT  Y.REQ_NUM
+	                             , Y.PROC_USER
+	                             , Y.PROCDD
+	                             , Y.PROC_REASON
+	                             , Y.PROC_CLASS
+	                             , Y.SEQ
+	                             , ROW_NUMBER() OVER (PARTITION BY Y.REQ_NUM ORDER BY Y.REQ_NUM, Y.SEQ DESC) AS RN
+	                      FROM     LRM_PROC_DESC Y
+	                      )
+	                      PD
+	              WHERE   RN = 1
+	              )
+	              U
+	       WHERE  1            = 1
+	       AND    A.REQ_NUM    = U.REQ_NUM(+)
+	       AND    U.PROC_CLASS = '130'
+	       AND    U.PROC_USER  = :sabun
+	       )
+	 ]]></statement>
+</hqml>

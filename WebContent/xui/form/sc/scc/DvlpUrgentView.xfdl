@@ -1,0 +1,328 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\..\..\default_typedef.xml"/>
+  <Form id="frm_This" classname="COMP_GUIDE_13" inheritanceid="" position="absolute 0 0 876 590" titletext="개발 긴급공지" scrollbars="autoboth" onload="form_onload">
+    <Layouts>
+      <Layout>
+        <Static id="Static05" class="sta_WFDA_Labelbg" position="absolute 0 95 862 539" anchor="left top right"/>
+        <Static id="Static01" class="sta_WFDA_Labelbg" position="absolute 0 69 862 96" anchor="left top right"/>
+        <Static id="Static49" class="sta_WFDA_Labelbg" position="absolute 0 43 862 70" anchor="left top right"/>
+        <Static id="Static06" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 862 0 877 710" anchor="top right"/>
+        <Static id="Static71" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 0 574 1252 589" anchor="left bottom"/>
+        <Div id="div_cmnBtn" anchor="left top right" taborder="1" url="cmn::CmnBtn.xfdl" text="Div00" scrollbars="none" position="absolute 0 0 862 30" visible="false"/>
+        <Static id="Static26" text="메시지 ID" class="sta_WFDA_Label01" position="absolute 0 43 94 70" anchor="left top"/>
+        <Static id="Static19" text="h13" class="Guide01_AreaRed" visible="false" position="absolute 0 30 450 43"/>
+        <Static id="Static00" text="메시지 제목" class="sta_WFDA_Label01" position="absolute 0 69 94 96" anchor="left top"/>
+        <Static id="Static02" text="작성자" class="sta_WFDA_Label01" position="absolute 293 43 387 70" anchor="left top"/>
+        <Static id="Static03" text="작성일자" class="sta_WFDA_Label01" position="absolute 596 43 690 70" anchor="left top"/>
+        <Edit id="edt_msgId" taborder="3" position="absolute 96 46 291 67" anchor="left top" readonly="false"/>
+        <Edit id="edt_msgWriteName" taborder="4" position="absolute 389 46 594 67" anchor="left top" readonly="false"/>
+        <Calendar id="cal_msgWriteDate" taborder="5" position="absolute 692 46 845 67" readonly="false"/>
+        <Edit id="edt_msgTitle" taborder="6" position="absolute 96 72 859 93" anchor="left top" readonly="false"/>
+        <Static id="Static04" text="메시지 내용" class="sta_WFDA_Label01" position="absolute 0 95 94 539" anchor="left top"/>
+        <TextArea id="txt_msgContents" taborder="7" position="absolute 96 98 859 536" readonly="false"/>
+        <CheckBox id="chk_ok" taborder="8" text="더 이상은 안보기." position="absolute 704 545 855 565" style="color:red;font:Gulim,11,bold;" truevalue="true" falsevalue="false" onclick="chk_ok_onclick"/>
+      </Layout>
+    </Layouts>
+    <Bind>
+      <BindItem id="item1" compid="edt_msgId" propid="value" datasetid="ds_msg" columnid="msgId"/>
+      <BindItem id="item2" compid="edt_msgWriteName" propid="value" datasetid="ds_msg" columnid="msgWriteName"/>
+      <BindItem id="item3" compid="cal_msgWriteDate" propid="value" datasetid="ds_msg" columnid="msgWriteDate"/>
+      <BindItem id="item4" compid="edt_msgTitle" propid="value" datasetid="ds_msg" columnid="msgTitle"/>
+      <BindItem id="item5" compid="txt_msgContents" propid="value" datasetid="ds_msg" columnid="msgContents"/>
+    </Bind>
+    <Objects>
+      <Dataset id="ds_cmnAuth" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="srcYn" type="STRING" size="256"/>
+          <Column id="insYn" type="STRING" size="256"/>
+          <Column id="delYn" type="STRING" size="256"/>
+          <Column id="savYn" type="STRING" size="256"/>
+          <Column id="prtYn" type="STRING" size="256"/>
+          <Column id="exlYn" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="srcYn">1</Col>
+            <Col id="insYn">0</Col>
+            <Col id="delYn">0</Col>
+            <Col id="savYn">0</Col>
+            <Col id="prtYn">0</Col>
+            <Col id="exlYn">0</Col>
+          </Row>
+        </Rows>
+      </Dataset>
+      <Dataset id="ds_msg" firefirstcount="0" firenextcount="0" useclientlayout="true" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="msgId" type="STRING" size="256"/>
+          <Column id="msgTitle" type="STRING" size="256"/>
+          <Column id="msgContents" type="STRING" size="256"/>
+          <Column id="msgWriteName" type="STRING" size="256"/>
+          <Column id="msgWriteDate" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/*
+
+  파일명 : 
+  설  명 : 
+           
+  수정일       수정자   수정내용
+  ----------   -------  --------------------------------------------------
+
+*/
+ 
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+************************************************************************************************/
+include "lib::lib_com.xjs";
+
+/************************************************************************************************
+ * FORM 변수 선언 영역 (필수)
+************************************************************************************************/
+
+/************************************************************************************************
+ * FORM EVENT 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Form Load (필수)
+ *---------------------------------------------------------------------------------------------*/
+function form_onload(obj:Form, e:LoadEventInfo)
+{	
+	// Form Load 시 공통 기능 처리(obj:Form, bCreateEvent:이벤트 생성 여부)
+	gfn_formOnLoad(this, false);
+	
+	// 초기값 셋팅
+	fn_init();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 초기값 셋팅
+ *---------------------------------------------------------------------------------------------*/
+function fn_init()
+{
+	fn_search();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 월력 값 변경시 호출되는 callBack 함수
+ *---------------------------------------------------------------------------------------------*/
+/*
+function fn_monthCallBack()
+{
+	trace("cal_month 값 : " + cal_month.fn_getValue());
+	trace(this.ds_search.saveXML());
+}
+*/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : calendar 값 변경시 호출되는 callBack 함수
+ *---------------------------------------------------------------------------------------------*/
+/*
+function fn_calendarCallBack()
+{
+	trace("cal_from 값 : " + cal_from.fn_getValue());
+	trace(this.ds_search.saveXML());
+}
+*/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 화면 닫기 전 변경 유무 체크 (필수-Frame에서 창 닫힐때 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_close()
+{			
+	// 변경사항 체크(입력 프로그램일때 변경되는 Dataset 전체 기술)
+	
+}
+
+/************************************************************************************************
+ * 공통기능 FUNCTION 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 조회 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_search()
+{
+	var strSvcID    = "search";
+    var strURL      = "sc/scc/dvlpUrgent/selectList.xdo";
+    var strInDs     = "";
+    var strOutDs    = "ds_msg=ds_msg";
+    var strArg      = "msgId="+wrapQuote(P_MSG_ID);
+    var strCallback = "fn_callBack";
+    var bAsync      = true;
+    
+//     var strSvcID    = "search";
+//     var strURL      = "sc/scc/dvlpUrgent/selectRead.xdo";
+//     var strInDs     = ""
+//     var strOutDs    = "";
+//     var strArg      = "ipAddr="+gfn_getIpAddr();
+//     var strCallback = "fn_callBack";
+//     var bAsync      = true;
+    
+    gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 신규 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_insert()
+{
+	ds_msg.addRow();
+	
+	/*var nRow = ds_list.addRow();	
+	
+	ds_list.setColumn(nRow, "GUBUN", 'AD');
+	ds_list.setColumn(nRow, "INPUT_USER", gfn_getUserId());
+	
+	// Grid 입력 cell 지정
+	grd_list.setFocus();
+	grd_list.setCellPos(1);*/
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 삭제 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_delete()
+{
+	var nRow = ds_msg.rowposition;
+	
+	if(ds_msg.rowposition == -1) 
+	{
+		gfn_alert("msg.err.grid.noselect", "삭제할 row");	// 선택된 항목이 없습니다.
+		return;
+	}
+
+	var rtVal = gfn_confirm("confirm.before.delete");	// 선택된 자료를 삭제 하시겠습니까?
+	if (rtVal == true) 
+	{	
+		ds_msg.deleteRow(nRow);
+		fn_save();
+	}
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 저장 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_save()
+{
+    var strSvcID    = "save";
+    var strURL      = "sc/scc/dvlpUrgent/saveRead.xdo";
+    var strInDs     = "";
+    var strOutDs    = "";
+    var strArg      = "msgId="+wrapQuote(edt_msgId.value)+" ipAddr="+gfn_getIpAddr();
+    var strCallback = "fn_callBack";
+    var bAsync      = true;
+    
+    gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 출력 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_print()
+{
+	
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 도움말 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_help()
+{
+	
+}
+
+/************************************************************************************************
+ * TRANSACTION 및 CallBack 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 트랜잭션 콜백 함수 (필수)
+ *---------------------------------------------------------------------------------------------*/
+function fn_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	// 에러시 gfn_callBack에서 메시지 제공, 화면별 특정 에러 발생시에만 사용하세요.
+	if (nErrorCode < 0) 
+	{
+		return;
+	}
+	
+    switch(strSvcID)
+    {
+        case "search" :    		// 코드분류 조회
+            break;
+        case "save" :			// 저장
+			this.close();
+            break;    
+    }
+}
+
+
+/************************************************************************************************
+ * 사용자 FUNCTION 영역 (필수)
+************************************************************************************************/
+
+
+/************************************************************************************************
+ * 각 COMPONENT 별 EVENT 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : form에서 Key Down시 단축키들 지정(공통에서 자동생성, 화면에 스크립트 작성시 화면 스크립트만 실행됨)
+ *---------------------------------------------------------------------------------------------*/
+// function form_onkeydown(obj:Form, e:KeyEventInfo)
+// {
+// 	gfn_formKeyDown(obj, e);
+// }
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Grid Header Click시 정렬(공통에서 자동생성, 화면에 스크립트 작성시 화면 스크립트만 실행됨)
+ *---------------------------------------------------------------------------------------------*/
+// function grd_list_onheadclick(obj:Grid, e:GridClickEventInfo)
+// {
+// 	gfn_gridSort(obj, e);
+// }
+
+
+/*----------------------------------------------------------------------------------------------
+ * 설명 : 메뉴별 권한정보를 조회하는 Popup을 호출한다.
+ *---------------------------------------------------------------------------------------------*/
+function tab_Info_tpg_MenuRole_btn_AuthByMenuPopup_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var arg = "IN_PARAM1=1 IN_PARAM2=2";
+	gfn_dialog("AuthByMenuRetvPop", "X_SCA::AuthByMenuRetvPop.xfdl", arg);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명 : 권한별 사용자정보를 조회하는 Popup을 호출한다.
+ *---------------------------------------------------------------------------------------------*/
+function btn_AuthByUserPopup_onclick(obj:Button,  e:ClickEventInfo)
+{
+	gfn_dialog("AuthByUserRetvPop", "X_SCA::AuthByUserRetvPop.xfdl");
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명 : 업장별 사용자를 조회하는 Popup을 호출한다.
+ *---------------------------------------------------------------------------------------------*/
+function tab_Info_tpg_useUpJang_btn_UpjangByUserRetvPop_onclick(obj:Button,  e:ClickEventInfo)
+{
+	gfn_dialog("UpjangByUserRetvPop", "X_SCU::UpjangByUserRetvPop.xfdl", null);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명 : 사용자별 업장을 조회하는 Popup을 호출한다.
+ *---------------------------------------------------------------------------------------------*/
+function tab_Info_tpg_useUpJang_btn_UserByUpjangRetvPop_onclick(obj:Button,  e:ClickEventInfo)
+{
+	gfn_dialog("UserByUpjangRetvPop", "X_SCU::UserByUpjangRetvPop.xfdl", null);
+}
+
+function chk_ok_onclick(obj:CheckBox,  e:ClickEventInfo)
+{
+	if (obj.value == "true")
+	{
+		if (gfn_confirm("더이상은 확인하지 않습니다"))
+		{
+			fn_save();
+		}
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

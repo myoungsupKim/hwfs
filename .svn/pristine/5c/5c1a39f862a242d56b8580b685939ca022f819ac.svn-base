@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT B.CENTER_NAME
+     , B.TM_NM
+     , B.JOB_NAME
+     , B.SUB_JOB_NAME
+     , B.UPJANGNM
+     , A.SUBINV_NAME
+     , A.HALL_NAME
+     , A.MENU_DATE AS NEED_DATE
+     , A.MEAL_NAME
+     , A.CORNER_NAME
+     , A.RECIPE_NAME
+<isEqual col="UNIT" value="1">
+     , SUM(ROUND(DECODE(DD.CATER_YN,'Y', AA.EXPECT_SALE_QTY, DECODE(DD.CAFE_YN,'Y', AA.EXPECT_SALE_QTY, CC.EXPECT_MEAL_QTY))*A.NEED_QTY/1000/C.KG_CONVERT_RATE,2)) AS NEED_QTY 
+</isEqual>
+<isEqual col="UNIT" value="0">
+     , SUM(ROUND(DECODE(DD.CATER_YN,'Y', AA.EXPECT_SALE_QTY, DECODE(DD.CAFE_YN,'Y', AA.EXPECT_SALE_QTY, CC.EXPECT_MEAL_QTY))*A.NEED_QTY/1000/C.KG_CONVERT_RATE*C.UOM_CONVERT_RATE,2)) AS NEED_QTY
+</isEqual>      
+  FROM (
+        SELECT /*+ INDEX(C FSM_REAL_MENU_MST_PK ) */ A.UPJANG
+             , C.HALL_CD
+             , (SELECT HALL_NAME FROM FSA_HALL_MST Z WHERE C.UPJANG = Z.UPJANG AND C.HALL_CD = Z.HALL_CD) AS HALL_NAME
+             , C.MEAL
+             , (SELECT CODE_NAME FROM SCC_COMMON_CODE Z WHERE C.MEAL = Z.CODE AND Z.GROUP_CODE = 'FS0023') AS MEAL_NAME
+             , C.CORNER
+             , (SELECT CODE_NAME FROM SCC_COMMON_CODE Z WHERE C.CORNER = Z.CODE AND Z.GROUP_CODE = 'FS0022') AS CORNER_NAME
+             , C.SUBINV_CODE
+             , (SELECT SUBINV_NAME FROM HLDC_PO_SUBINVENTORY Z WHERE C.SUBINV_CODE = Z.SUBINV_CODE) AS SUBINV_NAME
+             , A.RECIPE_CD
+             , (SELECT Z.RECIPE_NAME FROM FSM_REAL_RECIPE_MST Z WHERE A.UPJANG = Z.UPJANG AND A.MENU_CD = Z.MENU_CD AND A.RECIPE_CD = Z.RECIPE_CD) AS RECIPE_NAME
+             , A.NEED_DATE
+             , A.ITEM_CODE
+             , A.NEED_QTY
+             , A.UNIT_PRICE
+             , A.MENU_CD
+             , C.MENU_DATE
+          FROM FSM_REAL_RECIPE_ITEM A
+             , FSM_REAL_MENU_MST C
+         WHERE A.UPJANG = C.UPJANG
+           AND A.MENU_CD = C.MENU_CD
+           AND A.NEED_DATE BETWEEN #SDATE# AND #EDATE#
+       ) A
+     , (
+        SELECT A.UPJANG
+             , A.UPJANGNM
+             , A.DEPT_ID
+             , A.TM_CD
+             , A.TM_NM
+             , A.JOB_CD
+             , (SELECT JOB_NAME FROM MAS_JOB Z WHERE A.JOB_CD = Z.JOB_CD) AS JOB_NAME
+             , A.SUB_JOB_CD
+             , (SELECT SUB_JOB_NAME FROM MAS_JOB_SUB Z WHERE A.JOB_CD = Z.JOB_CD AND A.SUB_JOB_CD = Z.SUB_JOB_CD) AS SUB_JOB_NAME
+             , B.CENTER_CODE
+             , C.CENTER_NAME
+             , A.AP_UNITPRICE_UPJANG
+          FROM SCO_UPJANG_MST_V A
+             , HLDC_PO_UPJANG_CENTER B
+             , HLDC_PO_CENTER C
+         WHERE A.AP_UNITPRICE_UPJANG = B.UPJANG
+           AND B.CENTER_CODE = C.CENTER_CODE
+           AND A.FS_UPJANG = 'Y'
+       ) B
+     , HLDC_PO_ITEM_MST C
+     , FSA_HALL_MST DD
+     , FSM_REAL_RECIPE_MST AA
+     , FSM_REAL_MENU_MST CC     
+<isNotNull col="CUSTCD">
+     , PO_TREAT_UPJANG D
+</isNotNull>      
+ WHERE A.UPJANG    = B.UPJANG
+   AND A.ITEM_CODE = C.ITEM_CODE
+   AND A.UPJANG      = AA.UPJANG
+   AND A.MENU_CD     = AA.MENU_CD
+   AND A.RECIPE_CD   = AA.RECIPE_CD
+   AND A.UPJANG      = CC.UPJANG
+   AND A.MENU_CD     = CC.MENU_CD
+   AND CC.UPJANG     = DD.UPJANG
+   AND CC.HALL_CD    = DD.HALL_CD
+   AND A.ITEM_CODE   = #ITEM_CODE#
+<isNotNull col="CENTER_CODE">
+   AND B.CENTER_CODE = #CENTER_CODE#
+</isNotNull>
+<isNotNull col="TM_CD">
+   AND B.TM_CD = #TM_CD#
+</isNotNull>
+<isNotNull col="UPJANG">
+   AND B.UPJANG = #UPJANG#
+</isNotNull>
+<isNotNull col="CUSTCD">
+   AND B.AP_UNITPRICE_UPJANG      = D.UPJANG
+   AND A.ITEM_CODE   = D.ITEM_CODE
+   AND D.CUSTCD = #CUSTCD#
+</isNotNull>
+<isNotNull col="JOB_CD">
+   AND B.JOB_CD = #JOB_CD#
+</isNotNull>
+<isNotNull col="SUB_JOB_CD">
+   AND B.SUB_JOB_CD = #SUB_JOB_CD#
+</isNotNull>
+<isNotNull col="CLASS2">
+   AND C.ITEM_CLASS2 = #CLASS2#
+</isNotNull>
+<isNotNull col="CLASS3">
+   AND C.ITEM_CLASS3 = #CLASS3#
+</isNotNull>
+<isNotNull col="CLASS4">
+   AND C.ITEM_CLASS4 = #CLASS4#
+</isNotNull>
+<isNotNull col="ITEM">
+   AND ( C.ITEM_CODE LIKE '%' || #ITEM# || '%'  OR  C.ITEM_NAME LIKE '%' || #ITEM# || '%' )
+</isNotNull>
+ GROUP BY B.CENTER_NAME
+     , B.TM_NM
+     , B.JOB_NAME
+     , B.SUB_JOB_NAME
+     , B.UPJANGNM
+     , A.SUBINV_NAME
+     , A.HALL_NAME
+     , A.MENU_DATE
+     , A.MEAL_NAME
+     , A.CORNER_NAME
+     , A.RECIPE_NAME
+ ORDER BY B.CENTER_NAME
+     , B.TM_NM
+     , B.JOB_NAME
+     , B.SUB_JOB_NAME
+     , B.UPJANGNM
+     , A.SUBINV_NAME
+     , A.HALL_NAME
+     , A.MENU_DATE
+     , A.MEAL_NAME
+     , A.CORNER_NAME     
+</statement>
+	<input default-name="ds_condi">
+	</input>
+	<output default-name="ds_list2">
+	</output>
+</query>

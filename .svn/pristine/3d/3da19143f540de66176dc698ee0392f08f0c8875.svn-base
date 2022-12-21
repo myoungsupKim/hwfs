@@ -1,0 +1,230 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FSM00180V" onload="form_onload" titletext="기준대비 섭취비율 그래프" position="absolute 0 0 602 417" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <ActiveX progid="ShockwaveFlash.ShockwaveFlash.10" id="fu_ct01" position="absolute 10 10 593 408"/>
+        <Static id="Static09" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 0 0 602 10"/>
+        <Static id="Static10" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 10 417"/>
+        <Static id="Static04" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 592 0 602 417"/>
+        <Static id="Static19" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 0 627 1000 640"/>
+        <Static id="Static00" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 0 407 602 417"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_Chart">
+        <ColumnInfo>
+          <Column id="NM" size="256" type="STRING"/>
+          <Column id="RATE" size="256" type="STRING"/>
+          <Column id="TOOLTIP" size="256" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_List" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false"/>
+      <Dataset id="ds_NutStd" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 메뉴관리 > 식단관리 > 식단등록 > 영양평가
+ * 프로그램명   : FSM00180V.XML
+ * 기      능   : 기준대비 섭취율 그래프 팝업
+ * 작  성  자   : 손창덕
+ * 작성  일자   : 2008-01-08
+ * 비      고   : 
+ *		- ds_Chart				: [Main DS] 그래프
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "LIB::sc_comon.js";			// 시스템공통 함수
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js";
+//@@컨버터에서 주석처리 #include "LIB::tit_comm_0001.js";		// X-Framework Lib
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	// Fusion Chart DataSet Init
+	ds_Chart.clearData();
+	
+	// Temp Varialbes
+	var v_TempIndex = 0;
+	var v_TempValue = 0;
+	var v_Tooltip   = "";
+	
+	
+	ds_List.clear();
+	
+	ds_List.copyData(opener.ds_List);
+	
+	ds_NutStd.clear();
+	
+	ds_NutStd.copyData(opener.ds_NutStd);
+	
+	// Fusion Chart Data Setting
+	// 에너지
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "에너지");
+	v_TempValue = Math.round(((ds_List.getAvg("CAL") / ds_NutStd.getColumn(0, "CAL_QTY")) * 100), 1);
+	ds_Chart.setColumn(v_TempIndex, "RATE", v_TempValue);
+	v_Tooltip   = fn_StdDif("CAL", "CAL_QTY") + "kcal";
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip);
+	
+	// 당질
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "당질");
+	v_TempValue = Math.round(((ds_List.getAvg("CARBO") / ds_NutStd.getColumn(0, "CARBO_RCMD_QTY")) * 100), 1);
+	ds_Chart.setColumn(v_TempIndex, "RATE", v_TempValue);
+	v_Tooltip   = fn_StdDif("CARBO", "CARBO_RCMD_QTY") + "g";
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip);
+	
+	// 단백질
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "단백질");
+	v_TempValue = Math.round(((ds_List.getAvg("PROT") / ds_NutStd.getColumn(0, "PROT_QTY")) * 100), 1);
+	v_Tooltip   = "단백질 : " + Math.round(ds_List.getAvg("PROT"), 2) + "g";
+	ds_Chart.setColumn(v_TempIndex, "RATE", v_TempValue);
+	v_Tooltip   = fn_StdDif("PROT", "PROT_QTY") + "g";
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip);
+	
+	// 지질
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "지질");
+	v_TempValue = Math.round(((ds_List.getAvg("FAT") / ds_NutStd.getColumn(0, "FAT_RCMD_QTY")) * 100), 1);
+	v_Tooltip   = "지질 : " + Math.round(ds_List.getAvg("FAT"), 2) + "g";
+	ds_Chart.setColumn(v_TempIndex, "RATE", v_TempValue);
+	v_Tooltip   = fn_StdDif("FAT", "FAT_RCMD_QTY") + "g";
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip);
+	
+	// 비타민A
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "비타민A");
+	v_TempValue = Math.round(((ds_List.getAvg("VITA_A") / ds_NutStd.getColumn(0, "VITA_RCMD_QTY")) * 100), 1);
+	ds_Chart.setColumn(v_TempIndex, "RATE", v_TempValue);
+	v_Tooltip   = fn_StdDif("VITA_A", "VITA_RCMD_QTY") + "R.E";
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip);
+	
+	// 비타민B1
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "비타민B1");
+	v_TempValue = Math.round(((ds_List.getAvg("THIA") / ds_NutStd.getColumn(0, "THIA_RCMD_QTY")) * 100), 1);
+	ds_Chart.setColumn(v_TempIndex, "RATE", v_TempValue);
+	v_Tooltip   = fn_StdDif("THIA", "THIA_RCMD_QTY") + "mg";
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip);
+	
+	// 비타민B2
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "비타민B2");
+	v_TempValue = Math.round(((ds_List.getAvg("RIBO") / ds_NutStd.getColumn(0, "RIBO_RCMD_QTY")) * 100), 1);
+	ds_Chart.setColumn(v_TempIndex, "RATE", v_TempValue);
+	v_Tooltip   = fn_StdDif("RIBO", "RIBO_RCMD_QTY") + "mg";
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip);
+	
+	// 비타민C
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "비타민C");
+	v_TempValue = Math.round(((ds_List.getAvg("VITA_C") / ds_NutStd.getColumn(0, "VITAC_RCMD_QTY")) * 100), 1);
+	ds_Chart.setColumn(v_TempIndex, "RATE", v_TempValue);
+	v_Tooltip   = fn_StdDif("VITA_C", "VITAC_RCMD_QTY") + "mg";
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip);
+	
+	// 칼슘
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "칼슘");
+	v_TempValue = Math.round(((ds_List.getAvg("CA") / ds_NutStd.getColumn(0, "CA_RCMD_QTY")) * 100), 1);
+	ds_Chart.setColumn(v_TempIndex, "RATE", v_TempValue);
+	v_Tooltip   = fn_StdDif("CA", "CA_RCMD_QTY") + "mg";
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip);
+	
+	// 철
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "철");
+	v_TempValue = Math.round(((ds_List.getAvg("FE") / ds_NutStd.getColumn(0, "FE_RCMD_QTY")) * 100), 1);
+	ds_Chart.setColumn(v_TempIndex, "RATE", v_TempValue);
+	v_Tooltip   = fn_StdDif("FE", "FE_RCMD_QTY") + "mg";
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip);
+	
+	// chart셋팅
+	//fu_ct01.clear();
+	
+	// FusionChart XML Create
+	var v_ChartXML = "\n<chart formatNumberScale='0' numberSuffix='%' showNames='1' useRoundEdges='1' baseFontSize ='11' setAdaptiveYMin='1' yAxisMaxValue='110'>";
+	for( var i=0; i<ds_Chart.getRowCount(); i++ ) {
+		v_ChartXML += "\n	<set label='" + ds_Chart.getColumn(i, "NM") + "' value='" + ds_Chart.getColumn(i, "RATE") + "' toolText='" + ds_Chart.getColumn(i, "TOOLTIP") + "'/> ";
+	}
+	v_ChartXML += "\n<trendLines>";
+	v_ChartXML += "\n	<line startValue='100' thickness ='3' color='009933' displayvalue='100%' showOnTop='1'/>";
+	v_ChartXML += "\n</trendLines>";
+	v_ChartXML += "\n</chart>";
+	
+	// Chart Component Setting
+	//var strDir = AliasToRealPath("%COMPONENT%");
+	//fu_ct01.Movie = strDir + "\\F_Chart\\Bar2D.swf";
+	fu_ct01.Movie = gv_chartPath + "Bar2D.swf";	// Chart 종류설정
+	
+	fu_ct01.SetVariable('dataXML',     v_ChartXML    );
+	fu_ct01.SetVariable('chartWidth',  fu_ct01.position.width );	// chart size 지정
+	fu_ct01.SetVariable('chartHeight', fu_ct01.position.height);	// chart size 지정
+	//fu_ct01.SetVariable('debugMode',   "0"           );	// 디버그모드
+	
+	fu_ct01.Rewind();
+	fu_ct01.Play();
+}
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_StdDif(strColumnId, strStdColumnId)
+ * 입      력   : strColumnId : 영양소 컬럼 아이디
+                  strStdColumnId : 영양소 기준 컬럼 아이디
+ * 반      환   : 기준대비 차이량
+ * 기      능   : 기준대비 차이량 계산
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2008-02-01
+ ******************************************************************************************
+ */
+function fn_StdDif(strColumnId, strStdColumnId)
+{
+	if( ds_List.getRowCount() > 0 && ds_NutStd.getRowCount() > 0 ) {
+		var iDif = numFormat(ds_List.getAvg(strColumnId) - ds_NutStd.getColumn(0, strStdColumnId), 2);
+		if( iDif > 0 )
+			return "+" + gfn_toString(iDif);			// 기준 대비 +인경우 '+' 추가
+		else
+			return gfn_toString(iDif);
+	} else {
+		return "-";
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

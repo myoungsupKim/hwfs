@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[담보확보율현황]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+	    X.MAIN_UPJANG
+      , X.MAIN_UPJANG_NM	
+      , X.UPJANG
+      , X.UPJANG_NM
+      , X.CUST_TYPE
+      , X.CUSTCD
+      , X.MU_CD
+      , X.MU_NM
+      , X.TM_CD
+      , X.TM_NM
+      , X.UPJANG_TYPE
+      , NVL(X.CREDIT_AMOUNT,0) AS CREDIT_AMOUNT
+      , X.PART_SALES_SABUN
+      , X.PART_SALES_SABUN_NM
+      , NVL(X.AMT_TOT,0) AS ORG_AMT_TOT		/* 원_담보합계 금액 */
+	  , CASE WHEN NVL(X.AMT_TOT,0)  > NVL(X.CREDIT_AMOUNT,0) 
+				THEN NVL(X.CREDIT_AMOUNT,0)
+				ELSE NVL(X.AMT_TOT,0) END AS AMT_TOT		/* 기본여신금액보다 크면 기본여심금액으로 SET */
+      , NVL(X.AMT1,0) AS AMT1
+      , NVL(X.AMT2,0) AS AMT2
+      , NVL(X.AMT3,0) AS AMT3
+FROM
+(
+	SELECT
+		UJ.MAIN_UPJANG
+	      , UJ2.UPJANGNM  AS MAIN_UPJANG_NM	
+	      , UJ.UPJANG
+	      , UJ.UPJANGNM  AS UPJANG_NM
+	      , UJ.CUST_TYPE
+	      , UJ.CUSTCD
+	      , C.MU_CD
+	      , C.MU_NM
+	      , C.TM_CD
+	      , C.TM_NM
+	      , CASE WHEN UJ.MAIN_UPJANG=UJ.UPJANG THEN '본사'
+		ELSE '사업장' END AS UPJANG_TYPE
+	      , UJ.CREDIT_AMOUNT
+	      , UJ.PART_SALES_SABUN
+	      , HR.NM_KOR AS PART_SALES_SABUN_NM
+	      , (S.AMT1 + S.AMT2 + S.AMT3) AS AMT_TOT
+	      , S.AMT1
+	      , S.AMT2
+	      , S.AMT3
+	FROM FMS_UPJANG_V UJ INNER JOIN FMS_UPJANG_V UJ2 ON UJ.MAIN_UPJANG = UJ2.UPJANG
+					    LEFT JOIN HLDC_SC_DEPT_V C ON UJ.DEPT_ID = C.DEPT_ID
+					    LEFT JOIN HLDC_HR_PERSONAL HR ON UJ.PART_SALES_SABUN = HR.SABUN
+					    LEFT JOIN (
+						/* 보증보험 */
+						SELECT
+							 A.UPJANG
+							,SUM(A.GUARAN_AMT) AS AMT1
+							,0 AS AMT2
+							,0 AS AMT3
+						FROM  FMS_SECURE_GUARANTEE A
+						WHERE  GUARAN_CANCEL_YN = 'N'
+						GROUP BY A.UPJANG
+						UNION ALL
+						/* 질권 */
+						SELECT
+							 A.UPJANG
+							,0 AS AMT1
+							,SUM(A.PLEDGER_AMT) AS AMT2
+							,0 AS AMT3
+						FROM  FMS_SECURE_PLEDGER A
+						WHERE  PLEDGER_CANCEL_YN = 'N'
+						GROUP BY A.UPJANG
+						UNION ALL
+						/* 근저당권 : 부동산 */
+						SELECT
+							 A.UPJANG
+							,0 AS AMT1
+							,0 AS AMT2
+							,SUM(A.LAND_AMT) AS AMT3
+						FROM  FMS_SECURE_LAND A
+						WHERE  LAND_CANCEL_YN = 'N'
+						GROUP BY A.UPJANG
+					    ) S ON UJ.UPJANG = S.UPJANG
+	WHERE UJ.USE_YN = 'Y'
+  ) X
+  WHERE 1 = 1
+<isNotNull col="MU_CD">
+	AND X.MU_CD = #MU_CD#
+</isNotNull>
+ <isNotNull col="TM_CD">
+ 	 AND X.TM_CD = #TM_CD#
+</isNotNull>
+ <isNotNull col="MAIN_UPJANG">
+ 	 AND X.MAIN_UPJANG = #MAIN_UPJANG#
+</isNotNull>
+ <isNotNull col="UPJANG">
+ 	 AND X.UPJANG = #UPJANG#
+</isNotNull>
+ <isNotNull col="PART_SALES_SABUN">
+ 	 AND X.PART_SALES_SABUN = #PART_SALES_SABUN#
+</isNotNull>
+ORDER BY UPJANG	</statement>
+<input default-name="ds_input">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

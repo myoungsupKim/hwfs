@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT /*+ ORDERED USE_HASH (B F D E) */
+       B.ITEM_CODE
+      ,B.ITEM_NAME
+      ,B.ITEM_SIZE
+      ,B.PO_UOM
+      ,E.FEATURE_NAME  AS ITEM_INFO
+      ,NVL(B.ITEM_PRICE,0) AS ITEM_PRICE
+      ,NVL(B.G_ITEM_PRICE,0) AS G_ITEM_PRICE
+      ,D.DISUSE_RATE AS DISUSE_RATE
+      ,DECODE(NVL(F.RESTRICT_SEQ,0),0,'N','Y') AS RESTRICT_YN   --금지
+      ,F.RESTRICT_START, F.RESTRICT_END, F.RESTRICT_REASON      --금지시작금지종료금지사유
+  FROM
+      (
+       SELECT  A.ITEM_CODE,
+              D.ITEM_NAME,
+              D.ITEM_SIZE,
+              D.PO_UOM,
+              A.CUSTCD,
+              DECODE(C.MARGIN_RATE, 0, A.CONTRACT_PRICE, ( ROUND( (A.CONTRACT_PRICE * (C.MARGIN_RATE+100) / 100 ) / 10) * 10 ) ) AS ITEM_PRICE,
+              KG_CONVERT_RATE,
+              ROUND((DECODE(C.MARGIN_RATE, 0, A.CONTRACT_PRICE, ( ROUND( (A.CONTRACT_PRICE * (C.MARGIN_RATE+100) / 100 ) / 10) * 10 ) ) )/KG_CONVERT_RATE/1000,2) AS G_ITEM_PRICE,
+              B.UPJANG
+         FROM ST_UPJANG B,
+              PO_UPJANG_CENTER F,
+              PO_TREAT_UPJANG C,
+              PO_CONTRACT_F A,
+              PO_ITEM_MST D
+        WHERE A.CENTER_CODE = C.CENTER_CODE
+          AND A.CUSTCD = C.CUSTCD
+          AND A.ITEM_CODE = C.ITEM_CODE
+          AND A.ITEM_CODE = D.ITEM_CODE
+          AND A.CENTER_CODE = F.CENTER_CODE
+          AND A.USE_YN = 'Y'
+          <isNotNull col="ITEM_CLASS2">AND  D.ITEM_CLASS2 =#ITEM_CLASS2#  </isNotNull>
+		  <isNotNull col="ITEM_CLASS3">AND  D.ITEM_CLASS3 =#ITEM_CLASS3#  </isNotNull>
+		  <isNotNull col="ITEM_CLASS4">AND  D.ITEM_CLASS4 =#ITEM_CLASS4#  </isNotNull>
+          AND D.ITEM_CODE BETWEEN '010100000001' AND '019999999999'          
+          AND A.CONTRACT_PRICE > 0
+          AND C.UPJANG = B.AP_UNITPRICE_UPJANG
+          AND C.USE_YN = 'Y'
+          AND B.AP_UNITPRICE_UPJANG = F.UPJANG
+          AND B.UPJANG = #UPJANG#  --[업장코드]
+          --AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN A.CONTRACT_START AND NVL(A.CONTRACT_END,'99999999')  --[메뉴일자]
+          AND #SDATE# BETWEEN A.CONTRACT_START AND NVL(A.CONTRACT_END,'99999999')  --[메뉴일자]
+        ) B
+	  ,(SELECT RESTRICT_SEQ, ITEM_CODE, RESTRICT_START, RESTRICT_END, RESTRICT_REASON
+          FROM FSI_RESTRICT_MST@FCUS_TO_FSUS
+         WHERE TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN RESTRICT_START AND RESTRICT_END
+           AND USE_YN = 'Y'
+       ) F
+      , FSI_ITEM_NUT@FCUS_TO_FSUS     D
+      ,(SELECT A.ITEM_CODE,
+		       (SELECT CODE_NAME FROM SCC_COMMON_CODE@FCUS_TO_FSUS WHERE GROUP_CODE = 'FS0033' AND CODE = A.ITEM_FEATURE) AS FEATURE_NAME
+				  FROM
+				       (
+				        SELECT CENTER_CODE, CUSTCD, ITEM_CODE, ITEM_FEATURE
+				          FROM FSI_ITEM_FEATURE@FCUS_TO_FSUS
+				         WHERE (1=1)
+				          AND  (CENTER_CODE, CUSTCD, ITEM_CODE, APPLY_DATE) IN (
+				                SELECT
+				                       CENTER_CODE, CUSTCD, ITEM_CODE, MAX(APPLY_DATE) AS APPLY_DATE
+				                  FROM  FSI_ITEM_FEATURE@FCUS_TO_FSUS
+				                 WHERE  CENTER_CODE  = (SELECT CENTER_CODE FROM PO_UPJANG_CENTER WHERE UPJANG = (SELECT AP_UNITPRICE_UPJANG FROM ST_UPJANG WHERE UPJANG = ''))
+						           AND  TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN APPLY_DATE AND TO_CHAR(ADD_MONTHS(TO_DATE(APPLY_DATE,'YYYYMMDD'),1)-1,'YYYYMMDD')
+						         GROUP BY CENTER_CODE, CUSTCD, ITEM_CODE
+				               )
+				        ) A,
+				        (
+				        SELECT CENTER_CODE, CUSTCD, ITEM_CODE
+				          FROM PO_TREAT_UPJANG
+				         WHERE UPJANG = (SELECT AP_UNITPRICE_UPJANG FROM ST_UPJANG WHERE UPJANG ='')
+				        ) B
+				 WHERE A.CENTER_CODE = B.CENTER_CODE
+				   AND A.CUSTCD = B.CUSTCD
+				   AND A.ITEM_CODE = B.ITEM_CODE
+		) E
+ WHERE B.UPJANG    = #UPJANG#
+   AND B.ITEM_CODE = F.ITEM_CODE(+)
+   AND B.ITEM_CODE = D.ITEM_CODE(+)
+   AND B.ITEM_CODE = E.ITEM_CODE(+)
+<isNotNull col="ITEM_NAME">  AND  B.ITEM_NAME LIKE '%'|| #ITEM_NAME# ||'%'  </isNotNull>
+ </statement>
+	<input default-name="ds_in">
+		<col name="ITEM_CLASS2" size="255" type="VARCHAR" description="" /> 
+		<col name="ITEM_CLASS3" size="255" type="VARCHAR" description="" /> 
+		<col name="ITEM_CLASS4" size="255" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAME" size="255" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="255" type="NUMERIC" description="" /> 
+	</input>
+	<output default-name="ds_SEARCH_ITEM">
+		<col name="ITEM_CODE" size="12" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAME" size="200" type="VARCHAR" description="" /> 
+		<col name="ITEM_SIZE" size="100" type="VARCHAR" description="" /> 
+		<col name="PO_UOM" size="10" type="VARCHAR" description="" /> 
+		<col name="ITEM_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="KG_CONVERT_RATE" size="22" type="NUMERIC" description="" /> 
+		<col name="G_ITEM_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="DISUSE_RATE" size="22" type="NUMERIC" description="" /> 
+	</output>
+</query>

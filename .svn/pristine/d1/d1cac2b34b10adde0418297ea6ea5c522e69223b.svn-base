@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.rrm.recipeMasterMgntDAO">
+	<desc>업장 레시피 코드 HQML Query</desc>
+
+	<!-- 업장 레시피 코드 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.rc.rrm.dao.RecipeMasterMgntDAO.selectList */
+		<![CDATA[
+		SELECT CHK,UPJANG_CD,UPJANG_NM,UPJANG_TYPE,UPJANG_TYPE_NM,STD_RECIPE_CD,MU_CD,MU_NM,RECIPE_NM,RECIPE_NM_ENGLISH,
+				RECIPE_NM_BYNM,STAND,STAND_NM,ORIGIN,OFFER_UNIT,OFER_UNIT,OFER_UNIT_NM,OFFER_UNIT_NM,COOK_UNIT,OFER_NO,
+				GOAL_CSTRAT,CSTRAT_DRCT_INPUT_YN,DRCT_INPUT_CST_RATE,STD_RECIPE_APPLY_BASIS,MCALSS_CD,SCLASS_CD,RECIPE_REG_AGED,
+				CASE WHEN SALE_PRICE_POS > 0
+					 THEN SALE_PRICE_POS 
+					 ELSE SALE_PRICE END AS SALE_PRICE, --포스 판매가가 있는경우 포스판매가 없는 경우 업장레시피 판매가로 가져옴				
+				RECIPE_DVLP_BY,RECIPE_UUSER,REMARK,REG_DATE,REF_SEQ,APPEND_SEQ,
+				REL_PATH,SAVE_FILE_NM,ORGNL_FILE_NM,UPJANG_MODIFY_ALLOW_YN,RECIPE_STATUS,USE_YN,CUSER,CDATE,UUSER,UDATE,
+				SUB_COUNT,SET_RECIPE_CD,OLD_SET_RECIPE_CD,CUSINE_CNT
+		
+		FROM (
+			SELECT '0' AS CHK,
+			       A.UPJANG_CD,
+				   F.UPJANGNM AS UPJANG_NM,
+				   A.UPJANG_TYPE,
+				   (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'UPJANG_TYPE' AND CODE = A.UPJANG_TYPE) UPJANG_TYPE_NM,
+			       A.STD_RECIPE_CD,
+			       A.MU_CD,
+			       (SELECT MU_NM FROM SCC_MU WHERE MU_CD = A.MU_CD) MU_NM,
+			       A.RECIPE_NM,
+			       A.RECIPE_NM_ENGLISH,
+			       A.RECIPE_NM_BYNM,
+			       A.STAND,
+			       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'STAND_TYPE' AND CODE = A.STAND) STAND_NM,
+			       A.ORIGIN,
+			       A.OFFER_UNIT,
+			       A.OFER_UNIT,
+			       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'OFER_UNIT' AND CODE = A.OFER_UNIT) OFER_UNIT_NM,
+			       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'OFFER_UNIT' AND CODE = A.OFFER_UNIT) OFFER_UNIT_NM,
+			       A.COOK_UNIT,
+			       A.OFER_NO,
+			       A.GOAL_CSTRAT,
+			       DECODE(A.CSTRAT_DRCT_INPUT_YN, 'Y', 1, 0) CSTRAT_DRCT_INPUT_YN,
+			       A.DRCT_INPUT_CST_RATE,
+			       A.STD_RECIPE_APPLY_BASIS,
+			       A.MCALSS_CD,
+			       A.SCLASS_CD,
+			       --B.SCLASS_CD_NM,
+			       --B.MCALSS_CD,
+			       --C.MCALSS_CD_NM,
+			       --C.MGRP_CD,
+			       --D.MGRP_CD_NM,
+			       A.RECIPE_REG_AGED,
+			       A.SALE_PRICE,        --업장레시피 판매가
+	           	   (SELECT NVL(AVG(APPLY_PRICE),0) FROM SLE_OUTLET_MENU G WHERE G.OUTLET_CD = A.UPJANG_CD AND A.STD_RECIPE_CD = G.RECP_CD AND G.USE_YN = 'Y') AS SALE_PRICE_POS, --포스판매가 
+			       A.RECIPE_DVLP_BY,
+			       A.RECIPE_UUSER,
+			       A.REMARK,
+			       A.REG_DATE,
+			       A.REF_SEQ,
+			       A.APPEND_SEQ,
+			       E.REL_PATH,
+			       E.SAVE_FILE_NM,
+			       E.ORGNL_FILE_NM,
+			       A.UPJANG_MODIFY_ALLOW_YN,
+			       A.RECIPE_STATUS,
+			       A.USE_YN,
+			       A.CUSER,
+			       A.CDATE,
+			       A.UUSER,
+			       A.UDATE,
+			       (SELECT DETAIL_COUNT FROM RSS_STD_RECIPE_CD_MST RSM WHERE RSM.STD_RECIPE_CD = A.STD_RECIPE_CD) SUB_COUNT,
+			       A.SET_RECIPE_CD,
+			       A.SET_RECIPE_CD AS OLD_SET_RECIPE_CD,
+			       DECODE((SELECT COUNT(*) FROM RSS_STD_RECIPE_CUISINE WHERE STD_RECIPE_CD = A.STD_RECIPE_CD),0,'N','Y') AS CUSINE_CNT
+			FROM   RSS_UPJANG_RECIPE_CD_MST A,
+				   --RSS_RECIPE_SCLASS_CD B,
+				   --RSS_RECIPE_MCALSS_CD C,
+				   --RSS_RECIPE_MGRP_CD D,
+				   SCC_APPEND_FILE E,
+				   SCO_UPJANG_MST_V F
+			WHERE  A.REF_SEQ = E.REF_SEQ(+)
+			AND	   A.APPEND_SEQ = E.APPEND_SEQ(+)
+			AND	   A.UPJANG_CD = F.UPJANG(+)
+			--AND	   A.SCLASS_CD = B.SCLASS_CD(+)
+			--AND	   B.MCALSS_CD = C.MCALSS_CD
+			--AND	   C.MGRP_CD = D.MGRP_CD
+			<#if muCd?has_content>
+			AND    A.MU_CD = :muCd
+			</#if>
+			<#if upjangCd?has_content>
+			AND	   A.UPJANG_CD = :upjangCd
+			</#if>
+			<#if recipeNm?has_content>
+			AND    UPPER(A.RECIPE_NM) LIKE '%' || UPPER(:recipeNm) || '%'
+			</#if>
+			<#if mcalssCd?has_content>
+			AND	   A.MCALSS_CD = :mcalssCd
+			</#if>
+			<#if sclassCd?has_content>
+			AND	   A.SCLASS_CD = :sclassCd
+			</#if>
+			<#if useYn?has_content>
+			AND	   A.USE_YN = :useYn
+			</#if>
+		) 
+		ORDER BY STD_RECIPE_CD ASC
+		]]>
+	</statement>
+
+	<!-- 업장 레시피 코드(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.rc.rrm.dao.RecipeMasterMgntDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 업장 레시피 코드(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.rc.rrm.dao.RecipeMasterMgntDAO.update */
+		<![CDATA[
+		UPDATE RSS_UPJANG_RECIPE_CD_MST 
+		SET    RECIPE_STATUS = :recipeStatus,
+		       SALE_PRICE = :salePrice,
+				<#if upjangType?has_content> UPJANG_TYPE = :upjangType,</#if>
+				<#if stdRecipeCd?has_content> STD_RECIPE_CD = :stdRecipeCd,</#if>
+				<#if recipeNm?has_content> RECIPE_NM = :recipeNm,</#if>
+				<#if recipeNmEnglish?has_content> RECIPE_NM_ENGLISH = :recipeNmEnglish,</#if>
+				<#if recipeNmBynm?has_content> RECIPE_NM_BYNM = :recipeNmBynm,</#if>
+				<#if stand?has_content> STAND = :stand,</#if>
+				<#if origin?has_content> ORIGIN = :origin,</#if>
+				<#if offerUnit?has_content> OFFER_UNIT = :offerUnit,</#if>
+				<#if oferUnit?has_content> OFER_UNIT = :oferUnit,</#if>
+				<#if cookUnit?has_content> COOK_UNIT = :cookUnit,</#if>
+				<#if goalCstrat?has_content> GOAL_CSTRAT = :goalCstrat,</#if>
+				<#if drctInputCstRate?has_content> DRCT_INPUT_CST_RATE = :drctInputCstRate,</#if>
+				<#if stdRecipeApplyBasis?has_content> STD_RECIPE_APPLY_BASIS = :stdRecipeApplyBasis,</#if>
+				<#if mcalss?has_content> MCALSS_CD = :mcalss,</#if>
+				<#if sclassCd?has_content> SCLASS_CD = :sclassCd,</#if>
+				<#if recipeRegAged?has_content> RECIPE_REG_AGED = :recipeRegAged,</#if>
+				<#if recipeDvlpBy?has_content> RECIPE_DVLP_BY = :recipeDvlpBy,</#if>
+				<#if recipeUuser?has_content> RECIPE_UUSER = :recipeUuser,</#if>
+				<#if remark?has_content> REMARK = :remark,</#if>
+				<#if appendSeq?has_content> APPEND_SEQ = :appendSeq,</#if>
+				<#if upjangModifyAllowYn?has_content> UPJANG_MODIFY_ALLOW_YN = :upjangModifyAllowYn,</#if>
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  STD_RECIPE_CD = :stdRecipeCd
+		AND	   UPJANG_CD = :upjangCd
+		]]>
+	</statement>
+
+	<!-- 업장 레시피 코드(을)를 삭제한다.(마스터) -->
+	<statement name="deleteMst" type="delete">
+		/*+ com.hwfs.rc.rrm.dao.RecipeMasterMgntDAO.delete */
+		<![CDATA[
+		DELETE
+		FROM   RSS_UPJANG_RECIPE_CD_MST
+		WHERE   UPJANG_CD = :upjangCd
+		AND    STD_RECIPE_CD = :stdRecipeCd
+		]]>
+	</statement>
+
+	<!-- 업장 레시피 코드(을)를 삭제한다.(디테일) -->
+	<statement name="deleteDetail" type="delete">
+		/*+ com.hwfs.rc.rrm.dao.RecipeMasterMgntDAO.delete */
+		<![CDATA[
+		DELETE
+		FROM   RSS_UPJANG_RECIPE_CD_DETAIL
+		WHERE   UPJANG_CD = :upjangCd
+		AND    STD_RECIPE_CD = :stdRecipeCd
+		]]>
+	</statement>
+
+</hqml>

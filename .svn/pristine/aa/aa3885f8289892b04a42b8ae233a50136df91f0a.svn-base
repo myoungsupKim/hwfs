@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT *
+FROM
+      (SELECT 
+               A.CUST_CD,
+               A.CUST_NM,
+               (SELECT SAUPNO FROM ST_CUST WHERE CUSTCD = A.CUST_CD) SAUPNO,
+               A.CC_CD,
+               (SELECT  CC_NM FROM SCC_CC WHERE CC_CD = A.CC_CD) AS CC_NM,
+               (SUM((SELECT NVL(SUM(AR_AMT),0) FROM SLA_AR_MST WHERE SUBSTR(OCCUR_DATE,1,4) &lt; SUBSTR(#TRX_DATE#,1,4) AND RECD_STATUS='L' AND SYS_CLASS='13')) -
+               SUM((SELECT NVL(SUM(RECEIVE_AMT),0) FROM SLA_AR_RECEIVE_DETAIL RD, SLA_AR_MST A WHERE RD.AR_NUM=A.AR_NUM AND SUBSTR(RD.RECEIVE_DATE,1,4) &lt; SUBSTR(#TRX_DATE#,1,4) AND RD.RECD_STATUS='L'))) AS IWOL_AMT,  
+               SUM(NVL(A.AR_AMT, 0)) DRAMT_AMT,
+               SUM(NVL((SELECT SUM(RECEIVE_AMT) FROM SLA_AR_RECEIVE_DETAIL RD WHERE RD.AR_NUM=A.AR_NUM AND SUBSTR(RD.RECEIVE_DATE,1,6) BETWEEN SUBSTR(#TRX_DATE#,1,4)||'01' AND #TRX_DATE# AND RD.RECD_STATUS='L' AND SYS_CLASS='13'),0)) CRAMT_AMT,               
+               ((SUM((SELECT NVL(SUM(AR_AMT),0) FROM SLA_AR_MST WHERE SUBSTR(OCCUR_DATE,1,4) &lt; SUBSTR(#TRX_DATE#,1,4) AND RECD_STATUS='L' AND SYS_CLASS='13')) -
+               SUM((SELECT NVL(SUM(RECEIVE_AMT),0) FROM SLA_AR_RECEIVE_DETAIL RD, SLA_AR_MST A WHERE RD.AR_NUM=A.AR_NUM AND SUBSTR(RD.RECEIVE_DATE,1,4) &lt; SUBSTR(#TRX_DATE#,1,4) AND RD.RECD_STATUS='L')))+
+               SUM(NVL(A.AR_AMT, 0))-
+               SUM(NVL((SELECT SUM(RECEIVE_AMT) FROM SLA_AR_RECEIVE_DETAIL RD WHERE RD.AR_NUM=A.AR_NUM AND SUBSTR(RD.RECEIVE_DATE,1,6) BETWEEN SUBSTR(#TRX_DATE#,1,4)||'01' AND #TRX_DATE# AND RD.RECD_STATUS='L' AND SYS_CLASS='13'),0))) JAN_AMT
+       FROM    SLA_AR_MST A
+       WHERE   SUBSTR(A.OCCUR_DATE,1,6) BETWEEN SUBSTR(#TRX_DATE#,1,4)||'01' AND #TRX_DATE#		
+         AND   SYS_CLASS = '13'
+         AND   RECD_STATUS = 'L'
+         AND   UPJANG_CD IS NOT NULL
+       <isNotNull col="chk_0"> 
+         AND   (EXISTS (
+                       SELECT 'X'
+                       FROM ST_UPJANG V1
+                       WHERE   V1.CUSTCD      =  A.CUST_CD
+                      ))
+       </isNotNull>   
+      GROUP BY A.CUST_CD, A.CUST_NM, A.CC_CD)
+
+WHERE (IWOL_AMT &lt;&gt; 0 OR DRAMT_AMT &lt;&gt; 0 OR CRAMT_AMT &lt;&gt; 0 OR JAN_AMT &lt;&gt; 0)
+
+<isNotNull col="MAIN_UPJANG">               
+AND   (CUST_CD IN (SELECT A.CUSTCD FROM HLDC_ST_UPJANG A, FMS_UPJANG B WHERE A.UPJANG = B.UPJANG AND B.MAIN_UPJANG = #MAIN_UPJANG#))
+</isNotNull>       
+              
+
+</statement>
+	<input default-name="ds_cond">
+		<col name="TRX_DATE" size="255" type="VARCHAR" description="" /> 
+		<col name="MAIN_UPJANG" size="255" type="VARCHAR" description="" /> 				
+		<col name="chk_0" size="255" type="VARCHAR" description="" /> 
+
+	</input>
+	<output default-name="ds_list">   
+
+
+	</output>
+</query>	

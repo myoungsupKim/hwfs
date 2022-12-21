@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>H&R FC 테이블 정보</title>
+
+<script src="http://code.jquery.com/jquery-1.7.js" type="text/javascript"></script>
+
+	<script type="text/javascript">
+	
+	function AjaxEx(){
+		
+         var sdata = "";
+sdata += "{                                             ";
+sdata += "    'txHeader': {                             ";
+sdata += "        'localIp': '128.0.0.1',               ";
+sdata += "        'tranDateTime': '20190121101010',     ";
+sdata += "        'txDiv': 'FNB_TABLE_CD',              ";
+sdata += "        'txId': 'IF_TEST',       ";
+sdata += "        'encoding': 'utf-8',                  ";
+sdata += "        'encYn': 'false'                      ";
+sdata += "    },                                        ";
+sdata += "    'txData': {                               ";
+sdata += "        'data':                               ";
+sdata += "        {                                     ";
+//전체
+sdata += "            'lastUpdt': '',                   ";
+//업데이트일자기준
+//sdata += "            'lastUpdt': '20190121',                   ";
+sdata += "            'outletCd': '114356',             ";
+//페이지당 100건 요청:결과건수가 100건이면 다음페이지 요청
+sdata += "            'pageNo': 1,                      ";
+sdata += "            'rowsPerPage': 100                ";
+sdata += "        }                                     ";
+sdata += "    },                                        ";
+sdata += "    'txResult': {                             ";
+sdata += "        'resultDateTime': '',                 ";
+sdata += "        'resultCode': '',                     ";
+sdata += "        'resultMessage': ''                   ";
+sdata += "    }                                         ";
+sdata += "}                                             ";
+			
+		$.ajax({
+		  //test hwfc
+			//url : "http://172.16.1.121:8091/sc/cmn/jsonCommon.jDo",
+			//test fcpos
+			//url : "http://172.16.1.121:8095/sc/cmn/jsonCommon.jDo",
+			//local
+			//url : "http://localhost:8080/sc/cmn/jsonCommon.jDo",
+			//real hwfc
+			url : "http://nfics.hanwhafoodist.co.kr/sc/cmn/jsonCommon.jDo",
+			type : "post",
+			data : sdata,
+			dataType : "json",
+			async : false,  //동기
+			success : function(json) {
+				var txResult = json.txResult;
+				var resultCode = txResult.resultCode;
+				var resultMessage = txResult.resultMessage;
+				
+				if(resultCode == 0) {
+  				var txData = json.txData.data;
+  				var jsonData = JSON.parse(txData);
+  				var resultCount = jsonData.resultCount;
+  				var resultData = jsonData.resultData;
+  				var dataList = JSON.parse(resultData);
+  
+  				var html = "";
+  				html += "<h1>결과건수 : "+ resultCount +"</h1>";
+  				html += "<table border=1>"
+  				for(var i = 0; i < dataList.length; i ++) {
+  				  if(i == 0) {
+  					html += "<tr>";
+  					html += "<td align='center' width='100'>페이지번호</td>";
+  					html += "<td align='center' width='100'>테이블코드</td>";
+  					html += "<td align='left' width='100'>테이블그룹</td>";
+  					html += "<td align='left' width='300'>테이블명</td>";
+  					html += "<td align='center' width='100'>생성일시</td>";
+  					html += "<td align='center' width='100'>수정일시</td>";
+  					html += "</tr>";
+  				  }
+  					html += "<tr>";
+  					html += "<td>" + dataList[i].pageNo + "</td>";
+  					html += "<td>" + dataList[i].tableCd + "</td>";
+  					html += "<td>" + dataList[i].tableGrp + "</td>";
+  					html += "<td>" + dataList[i].tableNm + "</td>";
+  					html += "<td>" + dataList[i].cdate + "</td>";
+  					html += "<td>" + dataList[i].udate + "</td>";
+  					html += "</tr>";
+  				}
+  				html += "</table>";
+  				$("#result").append(html);
+				}
+				else {
+				}
+
+			},
+
+			error : function(request) {
+
+			}
+		});
+
+		}
+	
+	</script>
+
+</head>
+
+<body onload="AjaxEx()">
+
+<form action="" name="check" method="post">
+<div id="result"></div>
+</form>
+
+</body>
+</html>

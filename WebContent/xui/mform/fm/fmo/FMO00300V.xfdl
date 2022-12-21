@@ -1,0 +1,462 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FMO00300V" onload="form_onload" titletext="운영일지 출력" position="absolute 0 0 988 640" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <WebBrowser id="wb" taborder="1" position="absolute 8 8 980 630"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_Input">
+        <ColumnInfo>
+          <Column id="UPJANG" size="256" type="INT"/>
+          <Column id="UPJANGNM" size="256" type="STRING"/>
+          <Column id="SUBINV_CODE" size="256" type="STRING"/>
+          <Column id="FROM_DATE" size="256" type="STRING"/>
+          <Column id="TO_DATE" size="256" type="STRING"/>
+          <Column id="CHK_NEW" size="256" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_List"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 구매관리 > 현황관리 > 생채소/과일의 세척 및 소독
+ * 프로그램명   : FMP00540V.XML
+ * 기      능   : 검색일지
+ * 작  성  자   : 노규완
+ * 작성  일자   : 2008-03-12
+ * 비      고   : 
+ *		- 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "LIB::sc_comon.js";			// 시스템공통 함수
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js";
+//@@컨버터에서 주석처리 #include "LIB::sc_sql_common.js";
+//@@컨버터에서 주석처리 #include "LIB::tit_comm_0001.js";		// X-Framework Lib
+//@@컨버터에서 주석처리 #include "lib::fm_common.js"			// FM공통
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	
+	var strParam="";
+	strParam = "FICS/oz.asp?title=운영일지";             	    //페이지 상단 타이틀
+
+	strParam += "&url=FICS/FMO00300V_운영일지.ozr";            	//OZ출력물 파일명
+
+	strParam += "&cnt=8";                             	//파라메터 갯수 
+	strParam += "&p1=" 		+ CHK_1;      // 선택1
+	strParam += "&p2=" 		+ CHK_2;      // 선택2
+	strParam += "&p3=" 		+ CHK_3;      // 선택3
+	strParam += "&p4=" 		+ CHK_4;      // 선택4
+	strParam += "&p5=" 		+ UPJANG; 	  // 업장
+	strParam += "&p6=" 		+ OP_DATE;    //운영일지 작성일
+	strParam += "&p7=" 		+ UPJANG_NM;    //업장명
+	strParam += "&p8=" 		+ WEATHER;    //날씨 정보	
+	strParam += "&zoom=150";                          	//화면 출력 크기    	
+	
+	wb.url = g_OzUrl +strParam;
+	
+	
+	
+	// 권한에 따른 작업 분기
+/*	if( g_UserKind == "본부" || g_UserKind == "본사" || g_UserKind == "사업장") {
+		ds_Input.SetColumn(0, "MAIN_UPJANG",   g_Main_Upjang  );
+		ds_Input.SetColumn(0, "MAIN_UPJANGNM", g_Main_UpjangNm);
+		ds_Input.SetColumn(0, "UPJANG",        g_Upjang       );
+		ds_Input.SetColumn(0, "UPJANGNM",      g_UpjangNm     );
+
+		// Default Focus Setting
+		ed_UpjangNm.SetFocus();
+	} else {
+		g_Message("EE", "사용자구분 정보가 존재하지 않습니다.\n관리자에게 문의하여 주십시요.");
+		this.Close();
+	}
+	
+	// Set Default Cursor
+	ed_UpjangNm.SetFocus();
+	
+*/	
+}
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Search()
+ * 기      능   : [조회버튼] 검색조건에 해당하는 정보를 조회
+ ******************************************************************************************
+ */
+function fn_search()
+{
+//	if( fn_SearchCheck() ) {
+//		ds_List.ClearData();
+//		tit_ClearActionInfo(this);
+//		tit_addSearchActionInfo(this,"fm/fmp:FMP00260V_S001");
+//		tit_CallService(this,"","","ds_Input=ds_Input","ds_List=ds_List","","fn_CallBackSearch");
+//	}
+
+//**** OZ REPORT PARAM DESC 
+//       - PARAM1 : UPJANG
+//       - PARAM2 : SDATE
+//       - PARAM3 : EDATE
+//       - PARAM4 : SUBINV_CODE
+
+	ds_Input.setColumn(0,"UPJANG",ed_Upjang.userdata);	
+	ds_Input.setColumn(0,"FROM_DATE",me_FromDate.value);
+	ds_Input.setColumn(0,"TO_DATE",me_ToDate.value);
+	ds_Input.setColumn(0,"SUBINV_CODE",ed_SubInv.userdata);
+	
+//-------------------- 파라메터 값 셋팅 완료.       
+	
+	if (chk_NEW.value == true) {
+		var v_PrintParams  = "";
+			v_PrintParams += "UPJANG="     + wrapQuote(ds_Input.getColumn(0, "UPJANG"));
+			v_PrintParams += " FROM_DATE=" + wrapQuote(ds_Input.getColumn(0, "FROM_DATE"));
+			v_PrintParams += " TO_DATE="   + wrapQuote(ds_Input.getColumn(0, "TO_DATE"));
+			v_PrintParams += " SUBINV_CODE="  + wrapQuote(ds_Input.getColumn(0, "UPJANGNM"));			
+			
+//		gfn_dialog("", "U_FMP::FMP00541V.xml", v_PrintParams);     
+//			ALERT("일단 새창에서 열기는 테스트 용~~");
+	} 
+	else {
+		var strParam = "";
+			strParam = "FICS/oz.asp?title=생채소/과일의 세척 및 소독";			// 페이지 상단 타이틀
+	
+			strParam += "&url=FICS/FMP00540V_생채소과일세척소독.ozr";	// OZ출력물 파일명
+	
+			strParam += "&cnt=4";										// 파라메터 갯수
+			strParam += "&p1=" + ds_Input.getColumn(0, "UPJANG");		// 업장코드
+			strParam += "&p2=" + ds_Input.getColumn(0, "FROM_DATE");	// 제공일 시작일
+			strParam += "&p3=" + ds_Input.getColumn(0, "TO_DATE");		// 제공일 종료일
+			strParam += "&p4=" + ds_Input.getColumn(0, "SUBINV_CODE");	// 식당			
+			strParam += "&zoom=150";									// 화면 출력 크기
+	
+		wb.url = g_OzUrl + strParam;
+		trace(wb.url);
+		/* Run은 지원되지 않는 메서드입니다.*/ wb.Run();
+	}
+//}
+//}
+
+}
+/*------------------------------------------------------------
+	1. Function    : fn_SearchCheck()
+	2. Description : 검색조건 체크
+	3. Arguments   : 
+	4. History     : 2008. 03. 10 - 최초작성
+*------------------------------------------------------------*/
+function fn_SearchCheck()
+{
+	// 필수 검색조건 체크
+	if( gfn_length(gfn_trim(ds_Input.getColumn(0, "UPJANG")))== 0 ) {
+		g_Message("EE", "사업장을 선택해 주세요.");
+		ed_UpjangNm.setFocus();
+		return false;
+	}
+	if( gfn_length(gfn_trim(ds_Input.getColumn(0, "FROM_DATE")))== 0 ) {
+		g_Message("EE", "제공일 시작일을 선택/입력해 주세요.");
+		me_FromDate.setFocus();
+		return false;
+	} else {
+		if( gfn_length(gfn_trim(ds_Input.getColumn(0, "FROM_DATE")))!= 8 ) {
+			g_Message("EE", "올바른 제공일 시작일을 선택/입력해 주세요.");
+			me_FromDate.setFocus();
+			return false;
+		}
+	}
+	if( gfn_length(gfn_trim(ds_Input.getColumn(0, "TO_DATE")))== 0 ) {
+		g_Message("EE", "제공일 종료일을 선택/입력해 주세요.");
+		me_ToDate.setFocus();
+		return false;
+	} else {
+		if( gfn_length(gfn_trim(ds_Input.getColumn(0, "TO_DATE")))!= 8 ) {
+			g_Message("EE", "올바른 제공일 종료일을 선택/입력해 주세요.");
+			me_ToDate.setFocus();
+			return false;
+		}
+	}
+	
+	if( G_fn_GapDay(ds_Input.getColumn(0, "FROM_DATE"), ds_Input.getColumn(0, "TO_DATE")) > 6 ) {
+		g_Message("EE", "최대 일주일 내의 데이터만 검색 가능합니다.\n제공일을 수정해 주세요.");
+		me_FromDate.setFocus();
+		return false;
+	}
+	
+	return true;
+}
+/*------------------------------------------------------------
+	1. Function    : fn_CallBackSearch(errCode, errMsg)
+	2. Description : fn_Search() CallBack Function
+	3. Arguments   : 
+	4. History     : 2008. 03. 10 - 최초작성
+*------------------------------------------------------------*/
+function fn_CallBackSearch(errCode, errMsg)
+{	
+	if( errCode != 0 ) {
+		return;
+	} else {
+		if( ds_List.getRowCount() == 0 ) {
+			g_Message("EE", "해당 제공일의 출력 내역이 존재하지 않습니다.");
+		} else {
+			if( ds_Input.getColumn(0, "CHK_NEW") ) {
+// 				var v_PrintParams  = "";
+// 					v_PrintParams += "UPJANG=" + wrapQuote(ds_Input.getColumn(0, "UPJANG"));
+// 					v_PrintParams += " UPJANGNM=" + wrapQuote(ds_Input.getColumn(0, "UPJANGNM"));
+// 					v_PrintParams += " USER_NAME=" + wrapQuote(ds_Input.getColumn(0, "USER_NAME"));
+// 					v_PrintParams += " FROM_DATE=" + wrapQuote(ds_Input.getColumn(0, "FROM_DATE"));
+// 					v_PrintParams += " TO_DATE=" + wrapQuote(ds_Input.getColumn(0, "TO_DATE"));
+				var v_PrintParams  = {UPJANG:wrapQuote(ds_Input.getColumn(0, "UPJANG")), UPJANGNM:wrapQuote(ds_Input.getColumn(0, "UPJANGNM")),
+										USER_NAME:wrapQuote(ds_Input.getColumn(0, "USER_NAME")), FROM_DATE:wrapQuote(ds_Input.getColumn(0, "FROM_DATE")),
+										TO_DATE:wrapQuote(ds_Input.getColumn(0, "TO_DATE"))};
+				
+				
+				gfn_dialog("", "U_FMP::FMP00261V.xfdl", v_PrintParams);
+			} else {
+				var strParam = "";
+					strParam = "FICS/oz.asp?title=검식일지";			// 페이지 상단 타이틀
+			
+					strParam += "&url=FICS/FMP00260V_검식일지.ozr";	// OZ출력물 파일명
+			
+					strParam += "&cnt=5";										// 파라메터 갯수
+					strParam += "&p1=" + ds_Input.getColumn(0, "UPJANG");		// 업장코드
+					strParam += "&p2=" + ds_Input.getColumn(0, "UPJANGNM");		// 업장명
+					strParam += "&p3=" + ds_Input.getColumn(0, "USER_NAME");	// 담당자
+					strParam += "&p4=" + ds_Input.getColumn(0, "FROM_DATE");	// 제공일 시작일
+					strParam += "&p5=" + ds_Input.getColumn(0, "TO_DATE");		// 제공일 종료일
+					strParam += "&zoom=150";									// 화면 출력 크기
+			
+				wb.url = g_OzUrl + strParam;
+				trace(wb.url);
+				/* Run은 지원되지 않는 메서드입니다.*/ wb.Run();
+			}
+		}
+	}
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Insert()
+ * 기      능   : [등록버튼] 등록 버튼 클릭 시 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_insert()
+{
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Save()
+ * 기      능   : [저장버튼] 저장 버튼 클릭 시 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_save()
+{
+}
+/* 
+ ******************************************************************************************
+ * 함  수  명   : fn_Delete()
+ * 기      능   : [삭제버튼] 삭제 시 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_delete(nRow)
+{
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Print()
+ * 기      능   : [출력버튼] 출력 시 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_print()
+{
+	fn_search();
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Close()
+ * 기      능   : [닫기버튼] 화면을 닫을때 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_Close()
+{
+	this.close();
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Help()
+ * 기      능   : [도움말버튼] 도움말
+ ******************************************************************************************
+ */
+function fn_help()
+{
+}
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+/*------------------------------------------------------------
+	1. Function    : fn_SetDate()
+	2. Description : 당일 자동 셋팅
+	3. Arguments   : 
+	4. History     : 2008. 03. 10 - 최초작성
+*------------------------------------------------------------*/
+function fn_SetDate()
+{
+	var v_CurMonth = gfn_today();
+	
+	ds_Input.setColumn(0, "FROM_DATE", v_CurMonth);
+	ds_Input.setColumn(0, "TO_DATE",   v_CurMonth);
+}
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+/*------------------------------------------------------------
+	1. Function    : btn_Upjang_OnClick(obj)
+	2. Description : 사업장 조회 팝업
+	3. Arguments   : 
+	4. History     : 2008. 03. 10 - 최초작성
+*------------------------------------------------------------*/
+function btn_Upjang_OnClick(obj)
+{
+	var v_RtnArr = gfn_dialog("", "U_FMM::FMM00032P.xfdl","", 432, 401, {StatusBar:false});
+		
+	if ( v_RtnArr != null ) {
+		ds_Input.setColumn(0, "UPJANG",   v_RtnArr[0]);
+		ds_Input.setColumn(0, "UPJANGNM", v_RtnArr[1]);
+		btn_Upjang.setFocus();
+	}
+}
+/*------------------------------------------------------------
+	1. Function    : btn_Date_OnClick(obj)
+	2. Description : 달력 팝업 호출
+	3. Arguments   : 
+	4. History     : 2008. 03. 10 - 최초작성
+*------------------------------------------------------------*/
+// function btn_Date_OnClick(obj)
+// {
+// 	var objme = eval(obj.userdata);
+// 	var retDate = gfn_dialog("", "U_SCC::SCC_CALENDAR.xfdl","fa_Date="+wrapQuote(objme.value),-1,-1,"Title=false Status=false");
+// 	objme.value  = retDate;
+// }
+/*------------------------------------------------------------
+	1. Function    : fn_Common_OnKeyDown(obj,nChar,bShift,bCtrl,bAlt,LLParam,HLParam)
+	2. Description : Common Enter Key Event
+	3. Arguments   : 
+	4. History     : 2008. 03. 10 - 최초작성
+*------------------------------------------------------------*/
+function fn_Common_OnKeyDown(obj,nChar,bShift,bCtrl,bAlt,LLParam,HLParam)
+{
+	switch(obj.name) {
+		case "ed_UpjangNm" :
+			if( nChar == "13" ) {
+				if( gfn_length(gfn_trim(ed_UpjangNm.text))== 0 )
+					btn_Upjang.click();
+				else
+					ed_UserName.setFocus();
+			} else if( nChar == "46" ) {
+				ds_Input.setColumn(0, "UPJANG",   "");
+				ds_Input.setColumn(0, "UPJANGNM", "");
+			}
+			break;
+		case "ed_UserName" :
+			if( nChar == "13" ) me_FromDate.setFocus();
+			break;
+		case "me_FromDate" :
+			if( nChar == "13" ) me_ToDate.setFocus();
+			break;
+		case "me_ToDate" :
+			if( nChar == "13" ) {
+				ds_Input.setColumn(0, "TO_DATE", me_ToDate.value);
+				fn_search();
+			}
+			break;
+		default :
+			break;
+	}
+}
+
+function fn_edBtn_OnKeyDown(obj,nChar,bShift,bCtrl, bAlt,LLParam,HLParam)
+{
+	ffn_ed_OnKeyDown(obj,nChar);
+	//Del의 경우 뒷처리
+	if (nChar == 46) fn_Trigger_edBtn(obj);
+	else if(nChar=="13")
+	{		
+		ed_SubInv.setFocus();
+	}					
+}
+
+function fn_edBtn_OnClick(obj)
+{
+	var sAddWhere = "";
+	
+	switch(obj.name)
+	{
+		case "btn_Upjang":
+			sAddWhere = " AND A.USE_YN = 'Y' AND A.MAIN_UPJANG = " + application.g_Main_Upjang;
+			//사업장인 경우 관리업장만 조회
+			if (application.g_UserKind == '사업장')
+				sAddWhere += " AND ( A.UPJANG = " + application.g_Upjang + " OR EXISTS (SELECT 1 FROM FMS_USER_UPJANG B WHERE B.USE_YN = 'Y' AND B.UPJANG = A.UPJANG AND B.SABUN = '" + application.g_EmpNo + "') )";
+
+			break;
+
+		case "btn_SubInv":
+			sAddWhere = " AND A.USE_YN = 'Y' AND A.UPJANG = " + ed_Upjang.userdata;
+				
+			break;			
+		
+		default:
+			break;
+	}
+	//fm공통 팝업클릭 호출
+	if (ffn_btn_OnClick(obj, sAddWhere)) fn_Trigger_edBtn(eval("ed_" + gfn_subStr(obj.name, 4)));	
+}
+//=========================================================================================
+// [ PART 7]
+// PART 4 에서 DEL 할 경우 처리 하는 부분.
+//
+//=========================================================================================
+function fn_Trigger_edBtn(obj)
+{
+	switch(obj)
+	{
+		case ed_Upjang:			
+
+			break;
+
+		case ed_SubInv:
+
+			break;			
+			
+		default:
+
+			break;
+	}
+}]]></Script>
+  </Form>
+</FDL>

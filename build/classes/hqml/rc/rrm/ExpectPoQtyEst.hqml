@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="rc.rrm.expectPoQtyEstDAO">
+	<desc>식재 예상구매량 추정 HQML Query</desc>
+
+	<!-- 레시피 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.rc.rrm.expectPoQtyEstDAO.selectList */
+		<![CDATA[
+		SELECT :avgDay AS AVG_DAY
+		     , T.UPJANG_CD
+		     , T.MENU_CD
+		     , S.MENU_NM
+		     , S.RECP_CD AS STD_RECIPE_CD
+		     , (T.SAL_QUANTITY * TO_NUMBER(:avgDay)) AS AVG_QTY
+		     , NVL((SELECT Z.EXPECT_QTY
+		              FROM RSS_UPJANG_MENU_MGMT Z
+		             WHERE Z.UPJANG_CD = :upjangCd
+		               AND Z.MENU_CD = T.MENU_CD
+		               AND Z.AVG_DAY = :avgDay), (T.SAL_QUANTITY * TO_NUMBER(:avgDay))) AS EXPECT_QTY
+		  FROM (
+		        SELECT UPJANG_CD
+		             , MENU_CD
+		             , CEIL(AVG(SAL_QUANTITY)) AS SAL_QUANTITY
+		          FROM (
+		                SELECT A.UPJANG_CD
+		                     , A.MENU_CD
+		                     , A.OCCUR_DATE
+		                     , SUM(A.SAL_QUANTITY) AS SAL_QUANTITY
+		                  FROM SLA_IF_UPJANG_SALS_DETAIL A
+		                     , SLA_IF_UPJANG_SALS_MST B
+		                     , SCO_UPJANG_V C
+		                 WHERE A.OCCUR_DATE = B.OCCUR_DATE(+)
+		                   AND A.SYS_CLASS = B.SYS_CLASS(+)
+		                   AND A.UPJANG_CD = B.UPJANG_CD(+)
+		                   AND A.RECEIPT_NUM = B.RECEIPT_NUM(+)
+		                   AND A.UPJANG_CD = C.UPJANG(+)
+		                   AND A.MENU_CD IS NOT NULL
+		                   AND A.MU_CD = :muCd
+		                   AND A.OCCUR_DATE BETWEEN :startDate AND :endDate
+		                   AND C.TM_CD = :tmCd
+		                   AND A.UPJANG_CD = :upjangCd
+		                 GROUP BY A.UPJANG_CD, A.MENU_CD, A.OCCUR_DATE
+		                HAVING SUM(A.SAL_QUANTITY) <> 0
+		               )
+		         GROUP BY UPJANG_CD, MENU_CD
+		       ) T
+		     , SLE_OUTLET_MENU S
+		     , RSS_UPJANG_RECIPE_CD_MST R
+		 WHERE T.UPJANG_CD = S.OUTLET_CD(+)
+		   AND T.MENU_CD = S.MENU_CD(+)
+		   AND S.OUTLET_CD = R.UPJANG_CD(+)
+		   AND S.RECP_CD = R.STD_RECIPE_CD(+)
+		   AND S.USE_YN(+) = 'Y'
+		<#if menuClass?has_content>
+		   AND R.SCLASS_CD = :menuClass
+		</#if>
+		 ORDER BY T.SAL_QUANTITY DESC
+		]]>
+	</statement>
+
+	<!-- 식재 목록을 조회한다. -->
+	<statement name="selectDetailList" type="select"><![CDATA[
+		/*+ com.hwfs.rc.rrm.expectPoQtyEstDAO.selectDetailList	*/
+		SELECT  S.UPJANG_CD
+		     , S.MATERIAL_CD
+		     , S.ITEM_NAME
+		     , S.PO_UOM
+		     , S.KG_CONVERT_RATE
+         , S.ITEM_PRICE		-- 구매단가
+         , NVL(ROUND((S.NEED_QTY / S.KG_CONVERT_RATE / 1000),2), 0) AS NEED_QTY -- 예상필요량
+        
+         , S.PHYSIC_QTY		-- 현재 실사 재고량
+         , CASE WHEN (NVL(ROUND((S.NEED_QTY / S.KG_CONVERT_RATE / 1000),2), 0)  - S.PHYSIC_QTY) < 0 THEN 0 ELSE NVL((ROUND((S.NEED_QTY / S.KG_CONVERT_RATE / 1000),2) - S.PHYSIC_QTY),0) END AS REAL_QTY -- 발주 필요량 = 예상필요량 - 현재 실사 재고량
+         , CASE WHEN (NVL(ROUND((S.NEED_QTY / S.KG_CONVERT_RATE / 1000),2), 0)  - S.PHYSIC_QTY) < 0 THEN 0 ELSE NVL(ROUND(S.ITEM_PRICE * (NVL((S.NEED_QTY / S.KG_CONVERT_RATE / 1000), 0) - S.PHYSIC_QTY)),0) END  AS NEED_AMT
+
+		FROM (
+			SELECT A.UPJANG_CD
+			     , A.MATERIAL_CD
+			     , B.ITEM_NAME
+			     , B.PO_UOM
+			     , B.KG_CONVERT_RATE
+			     , NVL(ROUND(A.ITEM_PRICE), 0) AS ITEM_PRICE
+			     -- , NVL(ROUND((A.NEED_QTY / B.KG_CONVERT_RATE / 1000),1), 0) AS NEED_QTY
+			     -- 소숫점 둘째자리까지 표시되게 변경  20161014 맹수영 (요청 : 이다미)
+			     --, NVL(ROUND((A.NEED_QTY / B.KG_CONVERT_RATE / 1000),2), 0) AS NEED_QTY
+			     , A.NEED_QTY AS NEED_QTY
+			     , NVL((SELECT SUM(PHYSIC_QTY) --같은 식자재가 2군데 이상 창고에 등록된 경우 합계를 가져옴 20161109 김호석 추가-(요청 : 이다미) 
+		         		FROM FSP_PHYSICAL_INVENTORY_STOCK FPIS
+		            	--WHERE FPIS.PHYSIC_DATE = TO_CHAR(sysdate-1, 'YYYYMMDD')
+		            	WHERE FPIS.PHYSIC_DATE = (SELECT MAX(Z.PHYSIC_DATE) FROM FSP_PHYSICAL_INVENTORY_STOCK Z
+		                                           --창고 선택하면 해당창고만 아니면 전체
+		                                           <#if subinvCd?has_content >
+			              								<#if subinvCd == 'ALL' >
+			              								 WHERE Z.SUBINV_CODE IN (
+				              								SELECT HPS.SUBINV_CODE
+					                                           FROM HLDC_PO_SUBINVENTORY HPS
+					                                            , HLDC_ST_UPJANG HSU
+					                                         WHERE HPS.UPJANG = HSU.UPJANG
+					                                           AND HPS.USE_YN = 'Y'
+					                                           AND HPS.STOCK_FLAG = 'Y'
+		                                           			   AND HSU.UPJANG = :upjangCd)
+	                                           			</#if>
+														<#if subinvCd != 'ALL' >
+															WHERE Z.SUBINV_CODE = :subinvCd
+														</#if>
+													</#if>
+		                                           
+		                                            )
+		              	AND FPIS.ITEM_CODE = A.MATERIAL_CD
+		              	--창고 선택하면 해당창고만 아니면 전체
+		              	<#if subinvCd?has_content >
+			              	<#if subinvCd == 'ALL' >
+			            		AND FPIS.SUBINV_CODE IN (SELECT HPS.SUBINV_CODE
+			                                           FROM HLDC_PO_SUBINVENTORY HPS
+			                                            , HLDC_ST_UPJANG HSU
+			                                         WHERE HPS.UPJANG = HSU.UPJANG
+			                                           AND HPS.USE_YN = 'Y'
+			                                           AND HPS.STOCK_FLAG = 'Y'
+			                                           AND HSU.UPJANG = :upjangCd)
+							</#if>
+							<#if subinvCd != 'ALL' >
+								AND FPIS.SUBINV_CODE = :subinvCd
+							</#if>
+						</#if>                                           
+		                                            ),0) AS PHYSIC_QTY
+			     --, NVL(ROUND(A.ITEM_PRICE * (A.NEED_QTY / B.KG_CONVERT_RATE / 1000)), 0) AS NEED_AMT
+			  FROM (
+			        SELECT A.UPJANG_CD
+			             , A.MATERIAL_CD
+			             , SUM(A.SAL_QUANTITY) AS SAL_QUANTITY
+			             , SUM(A.APPLY_QTY) AS APPLY_QTY
+			             , SUM(A.NEED_QTY) AS NEED_QTY
+			             , (SELECT DECODE(NVL(Z.MARGIN_RATE, 0), 0, Z.CONTRACT_PRICE, (ROUND((Z.CONTRACT_PRICE * (Z.MARGIN_RATE + 100) / 100 ) / 10) * 10)) AS ITEM_PRICE
+			                  --FROM HLDC_PO_CONTRACT_F Z
+                   	  		  FROM	EPROCUSR.VO_CONTRACT_F_RCP Z -- 논리적 분사이후 단가불러오는 뷰 변경 20200309
+			                 --WHERE Z.UPJANG = A.UPJANG_CD
+			                 -- 논리적 분사이후 신규조직 매핑 20200309
+			                 WHERE Z.UPJANG IN (SELECT C.N_CC_CD
+                                       			 FROM ST_UPJANGV B
+                                        		    , SAP_IF.SAP_IFC_CC_MAP C
+                                 		         WHERE B.UPJANG = :upjangCd
+	                                		        AND B.CC_CD = C.O_CC_CD)
+			                   AND Z.ITEM_CODE = A.MATERIAL_CD
+			                   AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN CONTRACT_START AND CONTRACT_END) AS ITEM_PRICE
+			          FROM (
+			                SELECT A.UPJANG_CD
+			                     , A.STD_RECIPE_CD
+			                     , B.MATERIAL_CD
+			                     , A.SAL_QUANTITY AS SAL_QUANTITY
+			                     , NVL(B.APPLY_QTY, 0) AS APPLY_QTY
+			                     , (A.SAL_QUANTITY * NVL(B.APPLY_QTY, 0)) AS NEED_QTY
+			                  FROM (
+			                        SELECT T.UPJANG_CD 
+			                             , R.STD_RECIPE_CD
+			                             , CEIL(AVG(T.SAL_QUANTITY)) AS SAL_QUANTITY
+			                          FROM (
+			                                SELECT A.UPJANG_CD
+			                                     , A.MENU_CD
+			                                     , A.OCCUR_DATE
+			                                     , DECODE(SUM(NVL(D.EXPECT_QTY, 0)),  0, (SUM(A.SAL_QUANTITY) * TO_NUMBER(:avgDay)), SUM(NVL(D.EXPECT_QTY, 0))) AS SAL_QUANTITY
+			                                  FROM SLA_IF_UPJANG_SALS_DETAIL A
+			                                     , SLA_IF_UPJANG_SALS_MST B
+			                                     , SCO_UPJANG_V C
+			                                     , RSS_UPJANG_MENU_MGMT D
+			                                 WHERE A.OCCUR_DATE = B.OCCUR_DATE(+)
+			                                   AND A.SYS_CLASS = B.SYS_CLASS(+)
+			                                   AND A.UPJANG_CD = B.UPJANG_CD(+)
+			                                   AND A.RECEIPT_NUM = B.RECEIPT_NUM(+)
+			                                   AND A.UPJANG_CD = C.UPJANG(+)
+			                                   AND A.UPJANG_CD = D.UPJANG_CD(+)
+			                                   AND A.MENU_CD = D.MENU_CD(+)
+			                                   AND A.MENU_CD IS NOT NULL
+			                                   AND A.MU_CD = :muCd
+			                                   AND A.OCCUR_DATE BETWEEN :startDate AND :endDate
+			                                   AND C.TM_CD = :tmCd
+			                                   AND A.UPJANG_CD = :upjangCd
+			                                 GROUP BY A.UPJANG_CD, A.MENU_CD, A.OCCUR_DATE
+			                                HAVING SUM(NVL(D.EXPECT_QTY, A.SAL_QUANTITY)) <> 0
+			                               ) T
+			                             , SLE_OUTLET_MENU S
+			                             , RSS_UPJANG_RECIPE_CD_MST R
+			                         WHERE T.UPJANG_CD = S.OUTLET_CD
+			                           AND T.MENU_CD = S.MENU_CD
+			                           AND S.OUTLET_CD = R.UPJANG_CD
+			                           AND S.RECP_CD = R.STD_RECIPE_CD
+			                           AND S.USE_YN = 'Y'
+			                        <#if menuClass?has_content>
+			                           AND R.SCLASS_CD = :menuClass
+			                        </#if>
+			                         GROUP BY T.UPJANG_CD, R.STD_RECIPE_CD
+			                       ) A
+			                     , (
+			                        SELECT UPJANG_CD
+			                             , MAIN_RECIPE_CD
+			                             , MATERIAL_CD
+			                             , APPLY_QTY
+			                          FROM RSS_UPJANG_RECIPE_DAILY_DTL
+			                         WHERE UPJANG_CD = :upjangCd
+			                           AND STD_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			                           AND SEMI_GOODS_YN = 'N'
+			                       ) B
+			                   WHERE A.UPJANG_CD = B.UPJANG_CD(+)
+			                     AND A.STD_RECIPE_CD = B.MAIN_RECIPE_CD(+)
+			               ) A
+			         GROUP BY A.UPJANG_CD, A.MATERIAL_CD
+			       ) A
+			     , HLDC_PO_ITEM_MST B
+			 WHERE A.MATERIAL_CD = B.ITEM_CODE(+)
+			   AND A.MATERIAL_CD IS NOT NULL
+     	 ) S
+		 ORDER BY S.MATERIAL_CD
+
+		]]></statement>
+
+	<!-- 예상판매량을 저장한다. -->
+	<statement name="saveList" type="insert">
+		/*+ com.hwfs.rc.rrm.expectPoQtyEstDAO.saveList */
+		<![CDATA[
+		MERGE INTO RSS_UPJANG_MENU_MGMT A
+		USING (
+		       SELECT :upjangCd AS UPJANG_CD
+		            , :menuCd AS MENU_CD
+		            , <#if stdRecipeCd?exists> :stdRecipeCd <#else> null </#if> AS STD_RECIPE_CD
+		            , <#if expectQty?exists> :expectQty <#else> 0 </#if> AS EXPECT_QTY
+		            , <#if avgDay?exists> :avgDay <#else> 1 </#if> AS AVG_DAY
+		         FROM DUAL
+		      ) B
+		   ON (
+		           A.UPJANG_CD = B.UPJANG_CD
+		       AND A.MENU_CD = B.MENU_CD
+		       AND A.AVG_DAY = B.AVG_DAY
+		      ) 
+		 WHEN MATCHED THEN
+		      UPDATE
+		         SET A.STD_RECIPE_CD = B.STD_RECIPE_CD
+		           , A.EXPECT_QTY = B.EXPECT_QTY
+		           , A.UUSER = :loginSabun
+		           , A.UDATE = SYSDATE
+		 WHEN NOT MATCHED THEN
+		      INSERT (
+		                A.UPJANG_CD
+		              , A.MENU_CD
+		              , A.STD_RECIPE_CD
+		              , A.EXPECT_QTY
+		              , A.CUSER
+		              , A.CDATE
+		              , A.UUSER
+		              , A.UDATE
+		              , A.AVG_DAY
+		             )
+		      VALUES (
+		                B.UPJANG_CD
+		              , B.MENU_CD
+		              , B.STD_RECIPE_CD
+		              , B.EXPECT_QTY
+		              , :loginSabun
+		              , SYSDATE
+		              , :loginSabun
+		              , SYSDATE
+		              , B.AVG_DAY
+		             )
+
+		]]>
+	</statement>
+
+	<!-- 예상판매량을 삭제한다. -->
+	<statement name="deleteList" type="delete">
+		/*+ com.hwfs.rc.rrm.expectPoQtyEstDAO.deleteList */
+		<![CDATA[
+		DELETE
+		  FROM RSS_UPJANG_MENU_MGMT
+		 WHERE UPJANG_CD = :upjangCd
+		   AND AVG_DAY = :avgDay
+
+		]]>
+	</statement>
+
+</hqml>

@@ -1,0 +1,195 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FMM00206P" onload="form_onload" titletext="기준대비 섭취비율 그래프" position="absolute 0 0 612 422" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <ActiveX progid="ShockwaveFlash.ShockwaveFlash.10" id="fu_ct01" position="absolute 15 10 598 408"/>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 607 10"/>
+        <Static id="Static06" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 1 15 414"/>
+        <Static id="Static13" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 597 1 612 414"/>
+        <Static id="Static20" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 15 407 615 422"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_Chart">
+        <ColumnInfo>
+          <Column id="NM" size="256" type="STRING"/>
+          <Column id="RATE" size="256" type="STRING"/>
+          <Column id="TOOLTIP" size="256" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/*
+ ******************************************************************************************
+ * 시스템구분   : 메뉴관리 > 식단관리 > 식단등록 > 영양평가
+ * 프로그램명   : FSM00170V.XML
+ * 기      능   : 기준대비 섭취율 그래프 팝업
+ * 작  성  자   : 손창덕
+ * 작성  일자   : 2008-01-08
+ * 비      고   : 
+ *		- ds_Chart				: [Main DS] 그래프
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+include "U_lib::lib_conversionCom.xjs";
+//@@컨버터에서 주석처리 #include "LIB::sc_comon.js";			// 시스템공통 함수
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js";
+//@@컨버터에서 주석처리 #include "LIB::tit_comm_0001.js";		// X-Framework Lib
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	// Fusion Chart DataSet Init
+	ds_Chart.clearData();
+	
+	// Temp Varialbes
+	var v_TempIndex = 0;
+	var v_TempValue = 0;
+	var v_Tooltip   = "";
+	
+	// Fusion Chart Data Setting
+	// 에너지
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "에너지");
+	v_TempValue = Math.round(((ds_List.getAvg("CAL") / ds_NutStd.getColumn(0, "CAL_QTY")) * 100), 2);
+	ds_Chart.setColumn(v_TempIndex, "RATE", v_TempValue);
+	v_Tooltip   = fn_StdDif("CAL", "CAL_QTY") + "kcal";
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip);
+	
+	
+	// 당질
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "당질");
+	v_TempValue = Math.round(((ds_List.getAvg("CARBO") / ds_NutStd.getColumn(0, "CARBO_RCMD_QTY")) * 100), 2);
+	ds_Chart.setColumn(v_TempIndex, "RATE", v_TempValue);
+	v_Tooltip   = fn_StdDif("CARBO", "CARBO_RCMD_QTY") + "g";
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip);
+	
+	// 단백질
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "단백질");
+	v_TempValue = Math.round(((ds_List.getAvg("PROT") / ds_NutStd.getColumn(0, "PROT_QTY")) * 100), 2);
+	v_Tooltip   = "단백질 : " + Math.round(ds_List.getAvg("PROT"), 2) + "g";
+	ds_Chart.setColumn(v_TempIndex, "RATE", v_TempValue);
+	v_Tooltip   = fn_StdDif("PROT", "PROT_QTY") + "g";
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip);
+	
+	// 지질
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "지질");
+	v_TempValue = Math.round(((ds_List.getAvg("FAT") / ds_NutStd.getColumn(0, "FAT_RCMD_QTY")) * 100), 2);
+	v_Tooltip   = "지질 : " + Math.round(ds_List.getAvg("FAT"), 2) + "g";
+	ds_Chart.setColumn(v_TempIndex, "RATE", v_TempValue);
+	v_Tooltip   = fn_StdDif("FAT", "FAT_RCMD_QTY") + "g";
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip);
+	
+	// 비타민A
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "비타민A");
+	v_TempValue = Math.round(((ds_List.getAvg("VITA_A") / ds_NutStd.getColumn(0, "VITA_RCMD_QTY")) * 100), 2);
+	ds_Chart.setColumn(v_TempIndex, "RATE", v_TempValue);
+	v_Tooltip   = fn_StdDif("VITA_A", "VITA_RCMD_QTY") + "R.E";
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip);
+	
+	// 비타민B1
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "비타민B1");
+	v_TempValue = Math.round(((ds_List.getAvg("THIA") / ds_NutStd.getColumn(0, "THIA_RCMD_QTY")) * 100), 2);
+	ds_Chart.setColumn(v_TempIndex, "RATE", v_TempValue);
+	v_Tooltip   = fn_StdDif("THIA", "THIA_RCMD_QTY") + "mg";
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip);
+	
+	// 비타민B2
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "비타민B2");
+	v_TempValue = Math.round(((ds_List.getAvg("RIBO") / ds_NutStd.getColumn(0, "RIBO_RCMD_QTY")) * 100), 2);
+	ds_Chart.setColumn(v_TempIndex, "RATE", v_TempValue);
+	v_Tooltip   = fn_StdDif("RIBO", "RIBO_RCMD_QTY") + "mg";
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip);
+	
+	// 비타민C
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "비타민C");
+	v_TempValue = Math.round(((ds_List.getAvg("VITA_C") / ds_NutStd.getColumn(0, "VITAC_RCMD_QTY")) * 100), 2);
+	ds_Chart.setColumn(v_TempIndex, "RATE", v_TempValue);
+	v_Tooltip   = fn_StdDif("VITA_C", "VITAC_RCMD_QTY") + "mg";
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip);
+	
+	// 칼슘
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "칼슘");
+	v_TempValue = Math.round(((ds_List.getAvg("CA") / ds_NutStd.getColumn(0, "CA_RCMD_QTY")) * 100), 2);
+	ds_Chart.setColumn(v_TempIndex, "RATE", v_TempValue);
+	v_Tooltip   = fn_StdDif("CA", "CA_RCMD_QTY") + "mg";
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip);
+	
+	// 철
+	v_TempIndex = ds_Chart.addRow();
+	ds_Chart.setColumn(v_TempIndex, "NM", "철");
+	v_TempValue = Math.round(((ds_List.getAvg("FE") / ds_NutStd.getColumn(0, "FE_RCMD_QTY")) * 100), 2);
+	ds_Chart.setColumn(v_TempIndex, "RATE", v_TempValue);
+	v_Tooltip   = fn_StdDif("FE", "FE_RCMD_QTY") + "mg";
+	ds_Chart.setColumn(v_TempIndex, "TOOLTIP", v_Tooltip);
+	
+	// chart셋팅
+	fu_ct01.Clear();
+	
+	// FusionChart XML Create
+	var v_ChartXML = "\n<chart formatNumberScale='0' numberSuffix='%' showNames='1' useRoundEdges='1'>";
+	for( var i=0; i<ds_Chart.getRowCount(); i++ ) {
+		v_ChartXML += "\n	<set label='" + ds_Chart.getColumn(i, "NM") + "' value='" + ds_Chart.getColumn(i, "RATE") + "' toolText='" + ds_Chart.getColumn(i, "TOOLTIP") + "'/> ";
+	}
+	v_ChartXML += "\n<trendLines>";
+	v_ChartXML += "\n	<line startValue='100' color='009933' displayvalue='100%'/>";
+	v_ChartXML += "\n</trendLines>";
+	v_ChartXML += "\n</chart>";
+	
+	// Chart Component Setting
+	var strDir = AliasToRealPath("%COMPONENT%");
+	fu_ct01.Movie = strDir + "\\F_Chart\\Bar2D.swf";
+	
+	fu_ct01.SetVariable('dataXML',     v_ChartXML    );
+	fu_ct01.SetVariable('chartWidth',  fu_ct01.position.width );	// chart size 지정
+	fu_ct01.SetVariable('chartHeight', fu_ct01.position.height);	// chart size 지정
+	//fu_ct01.SetVariable('debugMode',   "0"           );	// 디버그모드
+	
+	fu_ct01.Rewind();
+	fu_ct01.Play();
+}
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+]]></Script>
+  </Form>
+</FDL>

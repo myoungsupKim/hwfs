@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[담보정보현황]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.*
+  FROM (
+        SELECT A.UPJANG
+             , A.UPJANGNM_DISP AS UPJANG_NM
+             , E.GUBUN
+		     , DECODE(E.GUBUN,'채권양도',E.SETUP_DATE,DECODE(E.SETUP_DATE, NULL, '', TO_CHAR(TO_DATE(E.SETUP_DATE,'YYYYMMDD'),'YYYY-MM-DD'))) AS SETUP_DATE
+     		 , DECODE(E.GUBUN,'채권양도',E.EXPIRE_DATE,DECODE(E.EXPIRE_DATE, NULL, '', TO_CHAR(TO_DATE(E.EXPIRE_DATE,'YYYYMMDD'),'YYYY-MM-DD'))) AS EXPIRE_DATE
+             , E.SECURE_AMT
+             , A.CREDIT_AMOUNT
+             , CASE WHEN A.CREDIT_END &lt;= TO_CHAR(SYSDATE, 'YYYYMMDD') THEN A.CREDIT_OVER_AMOUNT ELSE 0 END AS OVER_AMOUNT
+             , C.TM_NM
+             , A.PART_SALES_SABUN
+             , C.TM_CD
+             , A.USE_YN
+             , E.CANCEL_YN
+             , DECODE(E.CANCEL_YN,'Y','해지','설정') AS CANCEL_YN_NM
+             , E.TRAN_YN
+             , E.PNAME
+             , E.JUMINNO
+             , (SELECT MAX(Y.CODE_NAME)||' '||MAX(PAY_DATE) FROM SCO_UPJANG_CUST Z, SCC_COMMON_CODE Y WHERE Y.GROUP_CODE = 'MA0015' AND Y.CODE = Z.PAY_GUBUN_CD 
+			 AND Z.UPJANG = A.UPJANG) AS PAY_GUBUN
+			 , A.MAIN_UPJANG
+			 , C.MU_CD
+			 , C.MU_NM
+			 , '[' || A.DEPT_ID || ']' || (SELECT Q.CC_NM FROM SCC_CC Q WHERE Q.CC_CD = A.DEPT_ID) AS CC_NM
+             , '[' || A.PART_SALES_SABUN || ']' || (SELECT P.NM_KOR FROM SCC_USERINFOV P WHERE P.SABUN = A.PART_SALES_SABUN) AS PART_SALES_NM
+             , A.CREDIT_END
+          FROM FMS_UPJANG A
+			 , FMS_UPJANG B
+             , HLDC_SC_DEPT_V C
+             , (
+                SELECT A.UPJANG
+                     , '부동산' AS GUBUN
+                     , A.LAND_SETUP_DATE AS SETUP_DATE
+                     , '' AS EXPIRE_DATE
+                     , A.LAND_AMT AS SECURE_AMT
+                     , A.LAND_CANCEL_YN AS CANCEL_YN
+                     , 'N' AS TRAN_YN
+                     , '' AS PNAME
+                     , '' AS JUMINNO
+                  FROM FMS_SECURE_LAND A
+                 UNION ALL
+                SELECT A.UPJANG
+                     , '보증보험' AS GUBUN
+                     , A.GUARAN_BEGIN_DATE AS SETUP_DATE
+                     , A.GUARAN_EXPIRE_DATE AS EXPIRE_DATE
+                     , A.GUARAN_AMT AS SECURE_AMT
+                     , A.GUARAN_CANCEL_YN AS CANCEL_YN
+                     , 'N' AS TRAN_YN
+                     , '' AS PNAME
+                     , '' AS JUMINNO
+                  FROM FMS_SECURE_GUARANTEE A
+                 UNION ALL
+                SELECT A.UPJANG
+                     , '인보증' AS GUBUN
+                     , A.PERSON_SETUP_DATE AS SETUP_DATE
+                     , '' AS EXPIRE_DATE
+                     , A.PERSON_LIMIT_AMT AS SECURE_AMT
+                     , A.PERSON_CANCEL_YN AS CANCEL_YN
+                     , 'N' AS TRAN_YN
+                     , A.PERSON_NAME AS PNAME
+                     --, A.PERSON_JUMINNO AS JUMINNO
+                     , SC_CRYPTO_FUN('DEC', A.PERSON_JUMINNO_ENC , '1') AS JUMINNO
+                  FROM FMS_SECURE_PERSON A
+                 UNION ALL
+                SELECT A.UPJANG
+                     , '현금보증' AS GUBUN
+                     , A.CASH_DEPOSIT_DATE AS SETUP_DATE
+                     , '' AS EXPIRE_DATE
+                     , A.CASH_AMT AS SECURE_AMT
+                     , A.CASH_CANCEL_YN AS CANCEL_YN
+                     , 'N' AS TRAN_YN
+                     , '' AS PNAME
+                     , '' AS JUMINNO
+                  FROM FMS_SECURE_CASH A
+                 UNION ALL
+                SELECT A.UPJANG
+                     , '질권' AS GUBUN
+                     , A.PLEDGER_BEGIN_DATE AS SETUP_DATE
+                     , A.PLEDGER_EXPIRE_DATE AS EXPIRE_DATE
+                     , A.PLEDGER_AMT AS SECURE_AMT
+                     , A.PLEDGER_CANCEL_YN AS CANCEL_YN
+                     , 'N' AS TRAN_YN
+                     , '' AS PNAME
+                     , '' AS JUMINNO
+                  FROM FMS_SECURE_PLEDGER A
+                 UNION ALL
+		        SELECT A.UPJANG
+		             , '채권양도' AS GUBUN
+		             , A.TRAN_COPY AS SETUP_DATE
+		             , A.TRAN_DESC AS EXPIRE_DATE
+		             , 0 AS SECURE_AMT
+		             , 'N' AS CANCEL_YN
+		             , 'Y' AS TRAN_YN
+		             , '' AS PNAME
+                     , '' AS JUMINNO
+		          FROM FMS_SECURE_TRANSFER A                     
+				UNION ALL
+                SELECT A.UPJANG
+                     , '예치보증금' AS GUBUN
+                     , A.GUARAN_BEGIN_DATE AS SETUP_DATE
+                     , A.GUARAN_EXPIRE_DATE AS EXPIRE_DATE
+                     , A.GUARAN_AMT AS SECURE_AMT
+                     , A.GUARAN_CANCEL_YN AS CANCEL_YN
+                     , 'N' AS TRAN_YN
+                     , '' AS PNAME
+                     , '' AS JUMINNO
+                  FROM FMS_SECURE_DEPO_GUARANTEE A
+               ) E
+         WHERE A.UPJANG = E.UPJANG(+)
+		    AND A.MAIN_UPJANG = B.UPJANG
+           AND A.DEPT_ID = C.DEPT_ID
+       ) A
+ WHERE GUBUN IS NOT NULL
+<isNotNull col="MU_CD">
+	AND A.MU_CD = #MU_CD#
+</isNotNull>
+ 
+<isNotNull col="TM_CD">
+ 
+	 AND A.TM_CD = #TM_CD#
+
+ </isNotNull>
+<isNotNull col="MAIN_UPJANG">
+	 AND A.MAIN_UPJANG = #MAIN_UPJANG#
+</isNotNull>
+<isNotNull col="GUBUN">
+	 AND A.GUBUN = #GUBUN#
+</isNotNull>
+<isNotNull col="EXPIRE_DAY">
+     AND A.EXPIRE_DATE IS NOT NULL
+	 AND (A.EXPIRE_DATE BETWEEN TO_CHAR(SYSDATE,'YYYY-MM-DD') AND TO_CHAR(SYSDATE+#EXPIRE_DAY#,'YYYY-MM-DD')) 
+</isNotNull>
+<isNotNull col="PART_SALES_SABUN">
+	 AND A.PART_SALES_SABUN = #PART_SALES_SABUN#
+</isNotNull>
+<isNotNull col="UPJANG">
+	 AND A.UPJANG = #UPJANG#
+</isNotNull>	
+<isNotNull col="CANCEL_YN">
+	 AND A.CANCEL_YN = #CANCEL_YN#
+</isNotNull>
+ORDER BY UPJANG_NM, GUBUN
+</statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_main">
+	</output>
+</query>

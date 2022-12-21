@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[대외비문서 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.DOC_NUM
+     , A.DOC_KIND_CD
+     , C.CODE_NAME AS DOC_KIND_NM
+     , A.UPJANG
+     , B.UPJANGNM
+     , A.STATUS_CD
+     , (SELECT COUNT(1) FROM MAS_DOC_MGMT_LOG
+         WHERE DOC_KIND_CD = A.DOC_KIND_CD
+           AND DOC_NUM = A.DOC_NUM) AS LOG_CNT
+     , A.CUSER
+     , A.CDATE
+     , A.UUSER
+     , A.UDATE
+  FROM MAS_DOC_MGMT A
+     , SCO_UPJANG_MST_V B
+     , SCC_COMMON_CODE C
+ WHERE A.UPJANG      = B.UPJANG(+)
+   AND C.GROUP_CODE  = 'FS0100'
+   AND A.DOC_KIND_CD = C.CODE
+<isNotEqual col="DOC_KIND_CD" value="000">
+   AND A.DOC_KIND_CD = #DOC_KIND_CD#
+</isNotEqual>   
+<isNotEqual col="STATUS_CD" value="00">
+   AND A.STATUS_CD = #STATUS_CD#
+</isNotEqual>
+<isNotEqual col="UPJANG" value="0">
+  AND A.UPJANG = #UPJANG#
+</isNotEqual>
+<isNotEqual col="DOC_NUM" value="0">
+   AND A.DOC_NUM = #DOC_NUM#
+</isNotEqual>   
+ ORDER BY DOC_KIND_CD, DOC_NUM
+</statement>
+	<input default-name="ds_Cond">
+	</input>
+	<output default-name="ds_DocList">
+	</output>
+</query>

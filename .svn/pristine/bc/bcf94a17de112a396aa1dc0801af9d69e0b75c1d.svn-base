@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[업장별 일손익관리(일별)]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+-- 일별실적
+SELECT /*+ INDEX_DESC(A MAS_UPJANG_DAILY_IC_PK) */
+       TO_CHAR(TO_DATE(W_DATE, 'yyyy-mm-dd'), 'yyyy-mm-dd') AS W_DATE /* 일자 */
+     , A.SALE_AMT /* 매출액 */
+     , A.RAW_AMT /* 재료비 */
+     , A.EMPLOYEE_AMT /* 노무비 */
+     , A.EXPENSE_AMT /* 경비 */
+     , A.RAW_AMT + A.EMPLOYEE_AMT + A.EXPENSE_AMT AS SALE_COST_AMT/* 매출원가 */
+     , A.SALE_AMT - (A.RAW_AMT + A.EMPLOYEE_AMT + A.EXPENSE_AMT) AS SALE_PROFIT_AMT/* 매출이익 */
+  FROM MAS_UPJANG_DAILY_IC A
+ WHERE 1 = 1
+   AND A.UPJANG = #UPJANG#
+   AND A.W_DATE BETWEEN SUBSTR(#W_DATE#, 1, 6) || '01' AND #W_DATE#
+   AND A.INPUT_GUBUN = '30'  
+
+   </statement>
+	<input default-name="ds_in">
+	   <col name="UPJANG" size="6" 	type="NUMERIC" description="업장" />
+	   <col name="W_DATE" size="10" type="VARCHAR" description="조회일자" />
+	</input>
+
+	<output default-name="ds_daily_out">
+	   <col name="W_DATE" 		    size="20"  type="VARCHAR" description="" />
+	   <col name="SALE_AMT" 		size="22"  type="NUMERIC" description="" /> 
+	   <col name="RAW_AMT" 			size="22"  type="NUMERIC" description="" /> 
+	   <col name="EMPLOYEE_AMT" 	size="22"  type="NUMERIC" description="" />
+	   <col name="EXPENSE_AMT" 		size="22"  type="NUMERIC" description="" />
+	   <col name="SALE_COST_AMT" 	size="22"  type="NUMERIC" description="" />
+	   <col name="SALE_PROFIT_AMT" 	size="22"  type="NUMERIC" description="" />
+	</output>
+</query>

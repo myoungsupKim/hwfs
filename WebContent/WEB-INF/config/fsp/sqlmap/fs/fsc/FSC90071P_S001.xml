@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[점검이력조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.TABLE_TYPE
+     , A.FORM_CD
+     , A.UPJANG
+     , B.UPJANGNM
+     , A.CHECK_DATE
+     , A.CHECK_TYPE
+     , C.CODE_NAME AS CHECK_TYPE_NM
+     , A.CHECK_SABUN
+     , A.TEAM_MST_SABUN
+     , A.SUBTEAM_MST_SABUN
+     , A.CHARGE_SABUN
+     , A.RESP_SABUN1
+     , A.RESP_SABUN2
+     , A.RESP_SABUN3
+     ,(SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN =  A.TEAM_MST_SABUN) AS TEAM_MST_SABUN_NM
+     ,(SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN =  A.SUBTEAM_MST_SABUN) AS SUBTEAM_MST_SABUN_NM
+     ,(SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN =  A.CHARGE_SABUN) AS CHARGE_SABUN_NM
+     , A.SCORE     
+     , A.NOT_FIT_YN
+     , A.NOT_FIT_TOT_CNT
+     , A.ATTR01
+     , CASE WHEN A.SCORE >= 90 THEN 'A'
+	          WHEN A.SCORE >= 80 THEN 'B'
+	          WHEN A.SCORE >= 70 THEN 'C'
+		        WHEN A.SCORE >= 60 THEN 'D'
+            ELSE 'E'
+       END AS GRADE     
+  FROM FSC_SAFE_RESULT_MST A
+     , SCO_UPJANG_MST_V B
+     , SCC_COMMON_CODE C
+ WHERE A.UPJANG = B.UPJANG
+   AND A.CHECK_DATE BETWEEN #START_DATE# AND #END_DATE#
+<isEqual col="SABUN_GUBUN" value="TEAM">
+   AND A.TEAM_MST_SABUN = #SABUN#
+</isEqual>
+<isEqual col="SABUN_GUBUN" value="SUBTEAM">
+   AND A.SUBTEAM_MST_SABUN = #SABUN#
+</isEqual>   
+<isEqual col="SABUN_GUBUN" value="CHARGE">
+   AND A.CHARGE_SABUN = #SABUN#
+</isEqual>   
+<isEqual col="SABUN_GUBUN" value="RESP">
+   AND A.RESP_SABUN1 || '-' || A.RESP_SABUN2 || '-' || A.RESP_SABUN3 LIKE '%' || #SABUN# || '%'
+</isEqual>   
+   AND C.GROUP_CODE = 'FS0042'
+   AND A.CHECK_TYPE = C.CODE
+ ORDER BY A.CHECK_DATE DESC
+    </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

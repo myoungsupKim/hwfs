@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>insert</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+INSERT INTO FMM_RECIPE_ITEM
+(
+    UPJANG, MENU_CD, RECIPE_CD, ITEM_CODE, ITEM_SEQ, NEED_QTY, EDIBLE_QTY, ORDER_YN, PR_ID
+    , PR_QTY, NEED_DATE, UNIT_PRICE, OP_RATE, OP_PRICE, CUSER, CDATE
+)
+SELECT A.UPJANG
+       , #MENU_CD# MENU_CD
+       , A.RECIPE_CD
+       , A.ITEM_CODE
+       , A.ITEM_SEQ
+       , A.NEED_QTY
+       , ROUND(A.NEED_QTY * (100 - NVL(B.DISUSE_RATE,0)) / 100,2) EDIBLE_QTY
+       , A.ORDER_YN
+       , A.PR_ID
+       , A.PR_QTY
+       , #MENU_DATE# - (SELECT D_DAYS FROM FMS_MEAL_CORNER WHERE SUBINV_CODE=#SUBINV_CODE# AND MEAL = #MEAL# AND CORNER = #CORNER#) AS NEED_DATE
+       , A.UNIT_PRICE
+       , A.OP_RATE
+       , A.OP_PRICE
+       , #g_EmpNo# UUSER
+       , SYSDATE
+  FROM FMM_RECIPE_ITEM A,
+       (SELECT A.ITEM_CODE,B.DISUSE_RATE
+                  FROM (SELECT B.ITEM_CODE, B.ITEM_NAME, B.ITEM_SIZE, B.PO_UOM, B.TAX_CODE,B.KG_CONVERT_RATE
+                          FROM HLDC_PO_ITEM_MST B, HLDC_PO_TREAT_UPJANG A
+                         WHERE A.ITEM_CODE = B.ITEM_CODE
+                           AND B.ITEM_CODE BETWEEN '010000000000' AND '019999999999'
+                           AND A.UPJANG = (SELECT C.AP_UNITPRICE_UPJANG FROM HLDC_ST_UPJANG C WHERE C.UPJANG = #UPJANG#)
+                           AND A.USE_YN = 'Y' AND B.USE_YN = 'Y'
+                         UNION ALL
+                        SELECT A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.PO_UOM, A.TAX_CODE,A.KG_CONVERT_RATE
+                          FROM FMP_OTCUST_ITEM A, FMP_OTCUST_PRICE_AVA_V B
+                             ,(SELECT UPJANG, ITEM_CODE, MAX(SDATE) AS SDATE
+                                 FROM FMP_OTCUST_PRICE_AVA_V
+                                WHERE UPJANG = (SELECT Z.OTCUST_PRICE_UPJANG FROM FMS_UPJANG Z WHERE Z.UPJANG = #UPJANG#)
+                                  AND SDATE <= NVL('',TO_CHAR(SYSDATE,'YYYYMMDD'))
+                                GROUP BY UPJANG, ITEM_CODE) C
+                         WHERE A.ITEM_CODE = B.ITEM_CODE
+                           AND B.UPJANG = C.UPJANG
+                           AND B.SDATE = C.SDATE
+                           AND B.ITEM_CODE = C.ITEM_CODE
+                           AND A.USE_YN = 'Y' AND B.USE_YN = 'Y') A,
+                       (SELECT ITEM_CODE, CAL, WATER, PROT, FAT, CARBO, FIBER, ASH, CA, P, FE, NA, K, VITA_A, RETIN, B_CAROT, THIA, RIBO, NIACIN, VITA_C, CHOLE, DISUSE_RATE
+                          FROM FMP_ITEM_NUT WHERE UPJANG = #UPJANG#
+                         UNION ALL
+                       (SELECT ITEM_CODE, CAL, WATER, PROT, FAT, CARBO, FIBER, ASH, CA, P, FE, NA, K, VITA_A, RETIN, B_CAROT, THIA, RIBO, NIACIN, VITA_C, CHOLE, DISUSE_RATE
+                          FROM FSI_ITEM_NUT
+                         MINUS
+                        SELECT ITEM_CODE, CAL, WATER, PROT, FAT, CARBO, FIBER, ASH, CA, P, FE, NA, K, VITA_A, RETIN, B_CAROT, THIA, RIBO, NIACIN, VITA_C, CHOLE, DISUSE_RATE
+                          FROM FMP_ITEM_NUT WHERE UPJANG = #UPJANG#)) B
+                    WHERE A.ITEM_CODE = B.ITEM_CODE
+       ) B
+ WHERE A.UPJANG    =#UPJANG#
+ AND A.ITEM_CODE=B.ITEM_CODE(+)
+   AND MENU_CD   = #CMENU_CD#
+   AND RECIPE_CD = #RECIPE_CD#	]]></statement>
+	<input default-name="ds_Copy">
+	</input>
+	<output default-name="ds_out">
+	</output>
+</query>

@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="sm.sar.arSettleDescInquiryDAO">
+	<desc>후불 결제내역 조회 HQML Query</desc>
+
+	<!-- 후불 결제내역 조회 목록을 조회한다. -->
+	<statement name="selectList" type="select"><![CDATA[
+		SELECT A.MU_CD,
+		       (SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE MU.MU_CD = A.MU_CD)  AS MU_NM,
+		       A.CC_CD,
+		       (SELECT  CC_NM FROM SCC_CC WHERE CC_CD = A.CC_CD) AS CC_NM,
+		       A.ADJUST_DATE AS OCCUR_DATE,
+		       A.CUST_CD,
+		       A.CUST_NM,
+		       A.UPJANG_CD,
+		       C.UPJANGNM AS UPJANG_NM,
+		       A.WITHDRAW_AMT,
+		       --A.WITHDRAW_SCHD_DATE,
+		       A.RECEIPT_NUM,
+		       A.SYS_CLASS,
+		       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'SYS_CLASS' AND CODE = A.SYS_CLASS) SYS_CLASS_NM,
+		       A.REMARK,
+		       A.DDDD_CLOSE_YN
+		FROM   SLA_IF_AR_PAY_ADJUST_AR A,
+		       SCO_UPJANG_MST_V C
+		WHERE  1=1
+		AND    A.UPJANG_CD   = C.UPJANG(+)
+		AND    A.RECD_STATUS = 'L'
+--		AND    A.DDDD_CLOSE_YN = 'N'    --일마감전
+		<#if occurDateFr?has_content>AND    A.ADJUST_DATE >= :occurDateFr</#if>
+		<#if occurDateTo?has_content>AND    A.ADJUST_DATE <= :occurDateTo</#if>
+		<#if muCd?has_content>AND    A.MU_CD = :muCd</#if>
+		<#if custCdFr?has_content>AND    A.CUST_CD = :custCd</#if>
+		<#if ccCd?has_content>AND    A.CC_CD = :ccCd</#if>
+		<#if tmCd?has_content>
+			AND     A.CC_CD IN (
+			                SELECT  A.CC_CD
+			                FROM    SCC_CC A
+			                        ,HLDC_SC_DEPT_V B
+			                WHERE   B.CC_CD = A.CC_CD
+			                AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+			                AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+			                AND     B.TM_CD = :tmCd
+			                )
+        </#if>
+        <#if sysClass?has_content>AND    A.SYS_CLASS = :sysClass</#if>
+		ORDER BY A.MU_CD, A.CC_CD, A.ADJUST_DATE, A.CUST_CD ASC
+		
+		]]></statement>
+
+	<!-- 후불 결제내역 조회(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sm.sar.dao.ArSettleDescInquiryDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+
+	<!-- 후불 결제내역 조회(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sm.sar.dao.ArSettleDescInquiryDAO.update */
+		<![CDATA[
+		UPDATE TABLE_NAME 
+		SET    COLUMN_NAME1 = :columnName1,
+		       COLUMN_NAME2 = :columnName2,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+	<!-- 후불 결제내역 조회(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.sm.sar.dao.ArSettleDescInquiryDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>

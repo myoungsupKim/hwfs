@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="ft.fsi.itemDAO">
+	<desc>품목 조회 HQML Query</desc>
+
+	<!-- 품목 조회 목록을 조회한다. -->
+	<statement name="selectList" type="select"><![CDATA[
+        SELECT
+            ITEM_CODE
+            ,ITEM_CLASS1
+            ,ITEM_CLASS2
+            ,ITEM_CLASS3
+            ,ITEM_CLASS4
+            ,ITEM_NAME
+            ,ITEM_SIZE
+            ,ITEM_SIZE2
+            ,UOM_CODE
+            ,PO_UOM
+            ,UOM_CONVERT_RATE
+            ,KG_CONVERT_RATE
+            ,MIN_ORD_QTY
+            ,MAX_ORD_QTY
+            ,MULTIPLIER_QTY
+            ,MAKER
+            ,DECODE(A.TAX_CODE,'100','Y','N') AS TAX_CODE
+            ,B.CODE_NAME TAX_CODE_NM
+            ,USE_YN
+            ,ORIGIN_NAT
+        FROM   HLDC_PO_ITEM_MST A,
+               (SELECT CODE,CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'TAX_YN'  ) B
+        WHERE  1=1
+        <#if defaultYn == '1'>
+        	AND A.ITEM_CLASS2 ='F29'	--식자재(가공식품)
+        <#else>
+        	AND A.ITEM_CLASS2 ='F28'	--식자재(도매유통)
+        </#if>
+        
+        AND DECODE(A.TAX_CODE,'100','Y','N') = B.CODE(+)
+        AND A.UOM_CODE = A.PO_UOM
+        <#if itemNm?has_content>
+            AND ( ITEM_NAME LIKE '%'||:itemNm||'%' OR ITEM_CODE LIKE '%'||:itemNm||'%' )
+        </#if>
+        AND USE_YN='Y'
+        ORDER BY ITEM_CODE DESC
+        ]]></statement>
+
+	<!-- 품목 조회(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.ft.fsi.dao.ItemDAO.insert */
+		<![CDATA[
+        INSERT INTO TABLE_NAME
+        (
+               COLUMN_NAME1,
+               COLUMN_NAME2,
+               CUSER,
+               CDATE
+        )
+        VALUES
+        (
+               :columnName1,
+               <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+               :loginSabun,
+               SYSDATE
+        )
+        ]]>
+	</statement>
+
+	<!-- 품목 조회(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.ft.fsi.dao.ItemDAO.update */
+		<![CDATA[
+        UPDATE TABLE_NAME
+        SET    COLUMN_NAME1 = :columnName1,
+               COLUMN_NAME2 = :columnName2,
+               UUSER = :loginSabun,
+               UDATE = SYSDATE
+        WHERE  COLUMN_NAME = :columnName
+        ]]>
+	</statement>
+
+	<!-- 품목 조회(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.ft.fsi.dao.ItemDAO.delete */
+		<![CDATA[
+        DELETE
+        FROM   TABLE_NAME
+        WHERE  COLUMN_NAME = :columnName
+        ]]>
+	</statement>
+
+	<!-- 과세유형 조회 목록을 조회한다. -->
+	<statement name="selectTaxTypeList" type="select">
+		/*+ com.hwfs.ft.fsi.dao.ItemDAO.selectTaxTypeList */
+		<![CDATA[
+         SELECT A.GROUP_CODE,
+               A.CODE TAX_TYPE,
+               A.CODE_NAME TAX_TYPE_NM,
+               A.CONTENTS  TAX_TYPE_CONTENT,
+               A.SORT_SEQ,
+               DECODE(NVL(A.SYSTEM_YN, '0'), 'Y', '1', '0') AS SYSTEM_YN,
+               A.SET1,
+               A.SET2,
+               A.SET3,
+               A.SET4,
+               A.SET5,
+               DECODE(NVL(A.USE_YN, '0'), 'Y', '1', '0') AS USE_YN,
+               A.ATTR01,
+               A.ATTR02,
+               A.ATTR03,
+               A.ATTR04,
+               A.ATTR05,
+               A.ATTR06,
+               A.ATTR07,
+               A.ATTR08,
+               A.ATTR09,
+               A.ATTR10,
+               DECODE(NVL(A.POS_YN, '0'), 'Y', '1', '0') AS POS_YN,
+               (SELECT DISTINCT NM_KOR FROM SCC_USERINFO WHERE SABUN = A.UUSER) AS USER_NAME,
+               TO_CHAR(A.UDATE, 'YYYY-MM-DD HH24:MI:SS') AS LAST_DATE
+        FROM   SCC_COMMON_CODE A
+        WHERE  A.GROUP_CODE = :groupCode
+        <#if taxType?has_content>
+            AND ( A.CODE_NAME LIKE '%'||:taxType||'%' OR A.CODE LIKE '%'||:taxType||'%' )
+        </#if>
+        AND    A.USE_YN = 'Y'
+        ORDER BY A.SORT_SEQ, A.CODE
+        ]]>
+	</statement>
+</hqml>

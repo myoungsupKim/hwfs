@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.roa.partTimeReportDAO">
+	<desc>용역 업체별 용역제공 내역 HQML Query</desc>
+
+	<!-- 용역 업체별 용역제공 내역 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.rc.roa.dao.PartTimeReportDAO.selectList */
+		<![CDATA[
+		SELECT B.CUST_CD,
+               C.CODE_NAME AS CUST_NM,
+               D.TM_CD,
+               D.TM_NM,
+               A.UPJANG,
+               D.UPJANGNM AS UPJANG_NM,
+			   SUM(A.TOTAL_DUTY_TIME) TOTAL_DUTY_TIME,
+			   SUM(A.DEDUC_TIME) DEDUC_TIME,
+			   SUM(A.DUTY_TIME) DUTY_TIME,
+			   SUM(A.NGHT_DUTY_TIME) NGHT_DUTY_TIME,
+			   SUM(A.EXTENSION_DUTY_TIME) EXTENSION_DUTY_TIME,
+			   SUM(A.DUTY_AMT)+SUM(A.NGHT_ADD_AMT)+SUM(A.EXTENSION_ADD_AMT) AS TOTAL_DUTY_AMT,
+			   SUM(A.DUTY_AMT) DUTY_AMT,
+			   SUM(A.NGHT_ADD_AMT) NGHT_ADD_AMT,
+			   SUM(A.EXTENSION_ADD_AMT) EXTENSION_ADD_AMT
+		FROM   RSS_PART_TIME_INFO A,
+			   RSS_PART_TIME_TRGLST_INFO B,
+			   SCC_COMMON_CODE C,
+			   SCO_UPJANG_MST_V D
+		WHERE  A.PART_TIME_EMP_SABUN = B.PART_TIME_EMP_SABUN(+)
+		AND	   B.CUST_CD = C.CODE(+)
+		AND	   A.UPJANG = D.UPJANG(+)
+		AND	   C.GROUP_CODE = 'PART_TIME_CUST_CD'
+		<#if muCd?has_content>
+		AND	   D.MU_CD = :muCd
+		</#if>
+		<#if tmCd?has_content>
+		AND	   D.TM_CD = :tmCd
+		</#if>
+		<#if occurDateFrom?has_content>
+		AND    A.OCCUR_DATE >= :occurDateFrom
+		</#if>
+		<#if occurDateTo?has_content>
+		AND    A.OCCUR_DATE <= :occurDateTo
+		</#if>
+		<#if upjang?has_content>
+		AND    A.UPJANG = :upjang
+		</#if>
+		GROUP BY B.CUST_CD, C.CODE_NAME, D.TM_CD, D.TM_NM, A.UPJANG, D.UPJANGNM
+		ORDER BY B.CUST_CD ASC, D.TM_CD, A.UPJANG
+		]]>
+	</statement>
+
+</hqml>

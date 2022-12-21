@@ -1,0 +1,254 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\..\..\default_typedef.xml"/>
+  <Form id="form" classname="COMP_GUIDE_13" inheritanceid="" position="absolute 0 0 723 310" titletext="테스트 결과서(첨부)" scrollbars="autoboth" onload="form_onload" onclose="form_onclose">
+    <Layouts>
+      <Layout>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 531 10"/>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 341"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 708 0 723 341"/>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 15 295 531 310"/>
+        <Static id="sta_title" text="테스트 결과서" class="sta_WF_Title" position="absolute 15 16 215 40"/>
+        <Static id="Static00" text="h06" class="Guide01_AreaRed" visible="false" position="absolute 15 10 215 16"/>
+        <Button id="btn_save" taborder="13" text="UPLOAD" onclick="fn_save" class="btn_WF_CRUD" anchor="top right" position="absolute 590 10 661 35" positiontype="position"/>
+        <Button id="btn_close" taborder="14" text="닫기" class="btn_WF_CRUD" anchor="top right" position="absolute 663 10 708 35" positiontype="position" onclick="btn_close_onclick"/>
+        <ObjAtchFile id="ObjAtchFile" anchor="all" titletext="Attach File Object" taborder="15" position="absolute 15 35 708 295"/>
+      </Layout>
+    </Layouts>
+    <Bind/>
+    <Objects>
+      <Dataset id="ds_file" preload="true" firefirstcount="0" firenextcount="0" useclientlayout="true" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep">
+        <ColumnInfo>
+          <Column id="refSeq" type="STRING" size="256"/>
+          <Column id="appendSeq" type="STRING" size="256"/>
+          <Column id="orgnlPath" type="STRING" size="256"/>
+          <Column id="orgnlFileNm" type="STRING" size="256"/>
+          <Column id="saveFileNm" type="STRING" size="256"/>
+          <Column id="relPath" type="STRING" size="256"/>
+          <Column id="fileSize" type="STRING" size="256"/>
+          <Column id="fileExt" type="STRING" size="256"/>
+          <Column id="encYn" type="STRING" size="256"/>
+          <Column id="fileDesc" type="STRING" size="256"/>
+          <Column id="fileUploadNm" type="STRING" size="256"/>
+          <Column id="chk" type="INT" size="1"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : Template
+  파 일 명 : Template.xfdl
+  기    능 : Design 및 Script Template 
+
+    수정일    수정자                  수정내용
+  ----------   -------  --------------------------------------------------
+  2014.11.01   김윤기   최초 생성
+*/
+
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+************************************************************************************************/
+include "lib::lib_com.xjs";
+
+var fv_objColInfo;	//데이터셋 컬럼정보
+
+/************************************************************************************************
+ * FORM 변수 선언 영역 (필수)
+************************************************************************************************/
+var fv_sToday = gfn_today();
+var fv_RefSeq;
+
+/************************************************************************************************
+ * FORM EVENT 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Form Load (필수)
+ *---------------------------------------------------------------------------------------------*/
+function form_onload(obj:Form, e:LoadEventInfo)
+{	
+	// Form Load 시 공통 기능 처리(obj:Form, bCreateEvent:이벤트 생성 여부)
+	gfn_formOnLoad(this);
+	
+	// 초기값 셋팅
+	fn_init();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 초기값 셋팅
+ *---------------------------------------------------------------------------------------------*/
+function fn_init()
+{	
+	// 첨부파일 제한사이즈 셋팅(Mbyte 단위로, default : 10 MB)
+	//ObjAtchFile.setMaxFileSize(-1);
+	
+	// 첨부파일 다운로드 Web 방식 지정 (생략시 httpobject 방식으로 저장)
+	//ObjAtchFile.setWebDown(true);
+	
+	// 파일 확장자 지정하기 - 확장자의 종류 : XLS, DOC, PPT, IMAGE (지정하지 않을 경우 All(*)로 선택됨)
+	//ObjAtchFile.setExtention("XLS");
+	
+	// 단일 첨부파일 지정하기(true/false)
+	//ObjAtchFile.setSingleFile(true);
+	
+	// 버튼 inVisible 속성 제어(true/false)
+	//ObjAtchFile.setVisibleButton(true);
+	
+	// readonly 여부
+	//ObjAtchFile.setReadOnly(true);
+
+	// 컬럼 제거하는 함수 : 컬럼 ID ( no, orgnlFileNm, fileDesc, fileSize )
+	//ObjAtchFile.setInvisibleColumn("fileDesc");
+	
+	// 파일 Size를 KB로 처리
+	//ObjAtchFile.viewKB(true);
+
+	// 첨부파일 연결
+    ObjAtchFile.setDataset("ds_file");
+    fn_search();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 화면 닫기 전 변경 유무 체크 (필수-Frame에서 창 닫힐때 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_close()
+{
+	// v_ds_check 미사용시 변경사항 체크
+	if (gfn_dsIsUpdated(ds_list) == true || gfn_dsIsUpdated(ds_file) == true) 
+	{
+		// 변경된 데이터가 있습니다. 현재 화면을 닫겠습니까?
+        if (!gfn_confirm("confirm.before.movepage")) return false;
+	}
+    
+	// 조회프로그램에도 Return true; 기술해 주세요!
+	return true;
+}
+
+
+/************************************************************************************************
+ * 공통기능 FUNCTION 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 조회 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_search()
+{
+	if (P_FILE_REF_SEQ == undefined || P_FILE_REF_SEQ == 0) return;
+	
+    var strSvcID    = "search";
+    var strURL      = "sc/scc/scc99999p/selectAttachFile.xdo";
+    var strInDs     = "";
+    var strOutDs    = "ds_file=ds_file";
+    var strArg      = "fileRefSeq=" + wrapQuote(P_FILE_REF_SEQ)
+    var strCallback = "fn_callBack";
+    var bAsync      = true;
+
+    gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 신규 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_insert()
+{	
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 삭제 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_delete()
+{
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 저장 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_save()
+{
+	// v_ds_check 미사용시 변경사항 체크
+	if (gfn_dsIsUpdated(ds_file) == false) 
+	{
+		gfn_alert("msg.save.nochange");	// 변경된 내역이 없습니다.
+		return;
+	}
+		
+	// 첨부 파일 추가가 있을때만
+	if(ObjAtchFile.fn_countDs("insert") > 0)
+	{	
+		var rtn = ObjAtchFile.fn_uploadFile();		
+		if (rtn < 0)	return;
+	}
+	
+    var strSvcID    = "save";
+    var strURL      = "sc/scc/scc99999p/saveAttachFile.xdo";
+    var strInDs     = "ds_file=ds_file:A";	//(중요)첨부파일 참조일련번호로 인해 ds_list:A, ds_file:A로 설정해야 함
+    var strOutDs    = "ds_file=ds_file";
+    var strArg      = "";
+    var strCallback = "fn_callBack";
+    var bAsync      = true;
+    
+    gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 출력 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_print()
+{
+	
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 도움말 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_help()
+{
+	
+}
+
+/************************************************************************************************
+ * TRANSACTION 및 CallBack 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 트랜잭션 콜백 함수 (필수)
+ *---------------------------------------------------------------------------------------------*/
+function fn_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	// 에러시 gfn_callBack에서 메시지 제공, 화면별 특정 에러 발생시에만 사용하세요.
+	if (nErrorCode < 0) 
+	{
+		return;
+	}
+	
+    switch(strSvcID)
+    {
+		// 조회
+        case "search" :
+            break;
+        
+        // 저장
+        case "save" :
+			// 첨부파일 저장시 첨부파일 참조일련번호가 전달됨
+			gfn_alert("테스트 문서가 첨부되었습니다.");	// 저장 되었습니다.
+			this.close(fv_RefSeq);
+            break;    
+    }
+}
+
+/************************************************************************************************
+ * 사용자 FUNCTION 영역 (필수)
+************************************************************************************************/
+
+
+/************************************************************************************************
+ * 각 COMPONENT 별 EVENT 영역 (필수)
+************************************************************************************************/
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	this.close(-1);
+}
+
+function form_onclose(obj:Form, e:CloseEventInfo)
+{
+}
+]]></Script>
+  </Form>
+</FDL>

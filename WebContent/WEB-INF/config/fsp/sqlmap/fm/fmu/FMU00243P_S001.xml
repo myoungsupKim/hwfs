@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT #UPJANG# AS UPJANG, B.ITEM_CLASS4, E.CLASS_NAME AS CLASS_NAME4
+     , (SELECT CLASS_NAME FROM HLDC_PO_ITEM_CLASS WHERE CLASS_CODE = B.ITEM_CLASS2) AS CLASS_NAME2    
+     , A.ITEM_CODE, B.ITEM_NAME, B.ITEM_SIZE, B.PO_UOM
+     , A.SALE_PRICE, D.OP_RATE, D.SDATE, D.EDATE, B.ORIGIN_TYPE, '0' AS CHK  
+  FROM HLDC_PO_CONTRACT_FSALE A, HLDC_PO_ITEM_MST B, HLDC_ST_UPJANG C, FMU_OP_RATE D, HLDC_PO_ITEM_CLASS E  
+ WHERE A.ITEM_CODE = B.ITEM_CODE 
+   AND A.UPJANG = C.AP_UNITPRICE_UPJANG 
+   AND A.AP_UNITPRICE_UPJANG = C.AP_UNITPRICE_UPJANG
+   AND C.UPJANG = #UPJANG#
+   AND C.UPJANG = D.UPJANG 
+   AND D.ITEM_TYPE = 'C' 
+   AND B.ITEM_CLASS4 = D.ITEM_CODE
+   AND B.ITEM_CLASS1 = 'F'
+   AND D.ITEM_CODE = E.CLASS_CODE
+   AND E.CLASS_TYPE = 'D'
+   --AND #SDATE# BETWEEN D.SDATE AND NVL(D.EDATE,'99991231')
+   AND D.SDATE = #SDATE# 
+   AND #SDATE# BETWEEN A.CONTRACT_START AND NVL(A.CONTRACT_END,'99999999') 
+   AND A.USE_YN = 'Y' 
+   AND A.SALE_PRICE > 0 
+   <isNotNull col="ITEM_CODE">
+   AND ( 0, A.ITEM_CODE )IN ( #ITEM_CODE+# )
+   </isNotNull>
+   <isNotNull col="ITEM_NAME">
+   AND ( B.ITEM_NAME LIKE '%' || #ITEM_NAME# || '%' OR  B.ITEM_CODE LIKE '%' || #ITEM_NAME# || '%' )
+   </isNotNull>
+   <isNotNull col="ITEM_CLASS2">
+   AND B.ITEM_CLASS2 = #ITEM_CLASS2#
+   </isNotNull>
+   <isNotNull col="ITEM_CLASS3">
+   AND B.ITEM_CLASS3 = #ITEM_CLASS3#
+   </isNotNull>
+   <isNotNull col="ITEM_CLASS4">
+   AND B.ITEM_CLASS4 = #ITEM_CLASS4#
+   </isNotNull> 
+ ORDER BY B.ITEM_CLASS4, A.ITEM_CODE 
+ 
+    </statement>
+	<input default-name="ds_Cond">
+	</input>
+	<output default-name="ds_ListItem">
+	</output>
+</query>

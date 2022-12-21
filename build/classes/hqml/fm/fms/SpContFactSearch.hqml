@@ -1,0 +1,338 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fm.fms.spContFactSearchDAO">
+	<desc>특약사항조회 HQML Query</desc>
+
+	<!-- 업장별 창고리스트 목록을 조회한다. : 특약사항 존재 -->
+	<statement name="selectSubinv" type="select">
+		/*+ com.hwfs.fm.fms.dao.SpContFactDAO.selectSubinv */
+		<![CDATA[
+		SELECT
+			A.SUBINV_CODE,
+			DECODE(A.USE_YN,'N','폐장') || A.SUBINV_CODE || ' ' || A.SUBINV_NAME AS SUBINV_NAME
+		FROM VO_SUBINVENTORY A INNER JOIN ST_UPJANG B ON A.UPJANG = B.UPJANG
+		WHERE A.UPJANG = :schUpjang
+		AND    EXISTS (
+								SELECT 1
+								FROM FMS_SALE_RATE
+								WHERE UPJANG = A.UPJANG
+							    AND    ROWNUM <= 1
+								UNION 
+								SELECT 1
+								FROM FMS_ITEM_SALE_RATE
+								WHERE UPJANG = A.UPJANG
+							    AND    ROWNUM <= 1
+							)
+		ORDER BY A.SUBINV_CODE ASC
+		]]>
+	</statement>
+
+
+
+	<!-- 특약사항 관련 업장을 조회한다 -->
+	<statement name="selectSpUpjang" type="select">
+		/*+ com.hwfs.fm.fms.dao.SpContFactSearchDAO.selectSpUpjang */
+		<![CDATA[
+		SELECT 
+			  DISTINCT
+			<#if schGubun=='1'>
+			  A.MAIN_UPJANG AS UPJANG
+			<#else>
+			  A.UPJANG
+			</#if>
+			, B.UPJANGNM AS UPJANG_NM
+		FROM FMS_UPJANG A INNER JOIN ST_UPJANG B ON 1 = 1
+																		<#if schName?has_content>
+		 																 AND B.UPJANGNM LIKE  '%' || :schName || '%'			
+																		</#if>
+																		<#if schGubun=='1'>
+																		  AND A.MAIN_UPJANG = B.UPJANG
+																		<#else>
+																		  AND A.UPJANG = B.UPJANG
+																		</#if>
+		WHERE A.USE_YN = 'Y'
+		<#if schMainUpjang?has_content>
+		 AND A.MAIN_UPJANG = :schMainUpjang
+		</#if>
+		AND    EXISTS (
+								SELECT 1
+								FROM FMS_SALE_RATE
+								WHERE UPJANG = A.UPJANG
+							    AND    ROWNUM <= 1
+								UNION 
+								SELECT 1
+								FROM FMS_ITEM_SALE_RATE
+								WHERE UPJANG = A.UPJANG
+							    AND    ROWNUM <= 1
+							 )
+		<#if schCode?has_content>
+		AND     A.UPJANG LIKE '%' || :schCode || '%'
+		</#if>
+		ORDER BY 2 ASC
+		]]>
+	</statement>
+
+
+	<!-- 특약사항조회 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.fm.fms.dao.SpContFactSearchDAO.selectList */
+		<![CDATA[
+		SELECT
+		  	  RS.ITEM_CLASS4 AS ITEM_CLASS4
+			, CASE WHEN SUBSTR(RS.ITEM_CODE, 1, 1) = '7'  THEN '보정분'  ELSE C.CLASS_NAME2  END AS CLASS_NAME2  /* 중분류  */
+			, CASE WHEN SUBSTR(RS.ITEM_CODE, 1, 1) = '7'  THEN '보정분'  ELSE C.CLASS_NAME4  END AS CLASS_NAME4  /* 세분류  */
+			, RS.ITEM_CODE
+			, RS.ITEM_NAME
+			, RS.ITEM_SIZE
+			, RS.PO_UOM
+			, RS.TRANS_QTY
+			, CASE WHEN RS.TRANS_QTY = 0 THEN 0 ELSE ROUND(RS.TRANS_SUM / RS.TRANS_QTY, 0) END AS TRANS_MPRICE		/* 평균_원가*/
+			, CASE WHEN RS.TRANS_QTY = 0 THEN 0 ELSE ROUND(RS.SALE_SUM / RS.TRANS_QTY, 0) END AS SALE_PRICE		/* 평균_판매단가*/
+			, RS.SALE_SUM + RS.SALE_VAT AS SALE_AMT			/* 총매출액 */
+			, RS.SALE_SUM  AS SALE_AMOUNT				/* 순매출액 */
+			, RS.SALE_SUM - RS.TRANS_SUM AS RMN_AMT		/* 이익액 */
+			, CASE WHEN NVL(RS.SALE_SUM, 0) = 0 THEN 0
+		  	  ELSE ROUND((RS.SALE_SUM - RS.TRANS_SUM)  / RS.SALE_SUM * 100, 2) END AS SALE_RATE    /* 매익율 */
+         	, RS.CK_RATE
+         	, RS.JI_RATE
+         	, RS.SE_RATE
+			, RS.CK_SALE_SUM
+			, RS.JI_SALE_SUM
+			--, RS.SE_SALE_SUM
+			, (RS.SALE_SUM - RS.SALE_SUM1) AS SE_SALE_SUM
+			, RS.SALE_SUM - RS.TRANS_SUM - (RS.CK_SALE_SUM + RS.JI_SALE_SUM + (RS.SALE_SUM - RS.SALE_SUM1)) AS CALC_AMT    /* 직접이익 */
+			, CASE WHEN RS.SALE_SUM = 0 THEN 0
+		 	  ELSE ROUND(((RS.SALE_SUM - RS.TRANS_SUM - (RS.CK_SALE_SUM + RS.JI_SALE_SUM + (RS.SALE_SUM - RS.SALE_SUM1))) / RS.SALE_SUM * 100), 2) END AS CALC_RATE
+		FROM 
+				(
+					SELECT
+			  			  X.ITEM_CLASS4
+		        		, X.ITEM_CODE
+		        		, X.ITEM_NAME
+		        		, X.ITEM_SIZE
+		        		, X.PO_UOM
+						, SUM(X.TRANS_QTY) AS TRANS_QTY
+						--, SUM(ROUND(X.SALE_AMOUNT * DECODE(SUBSTR(X.TRANS_TYPE,1,1), 'I', 1, -1)))          AS SALE_SUM
+						, SUM(DECODE(SUBSTR(X.TRANS_TYPE,1,1),'I',1,-1) * ROUND(X.SALE_PRICE * X.TRANS_QTY)) AS SALE_SUM 
+			        	, SUM(DECODE(SUBSTR(X.TRANS_TYPE,1,1),'I',1,-1) * ROUND(X.TRANS_QTY * ROUND(X.SALE_PRICE / (1 + X.SE_RATE/100)))) AS SALE_SUM1
+						, SUM(ROUND(X.TRANS_MAMOUNT * DECODE(SUBSTR(X.TRANS_TYPE,1,1), 'I', 1, -1)))     AS TRANS_SUM  
+             			--, SUM(DECODE(X.TAX_CODE,100,ROUND(X.SALE_VAT * DECODE(SUBSTR(X.TRANS_TYPE,1,1), 'I', 1, -1)),0))           AS SALE_VAT			/* 수불 부가세 필드 이용 */
+						, SUM(
+							CASE WHEN X.FLAG = '1' THEN
+								DECODE(SUBSTR(X.TRANS_TYPE,1,1),'I',1,-1) * ROUND(DECODE(X.TAX_CODE,'100',0.1,0) * ROUND(X.SALE_PRICE * X.TRANS_QTY))
+							ELSE
+								DECODE(SUBSTR(X.TRANS_TYPE,1,1),'I',1,-1) * ROUND(DECODE(X.TAX_CODE,'100',1,0) * X.SALE_VAT)
+							END
+							) AS SALE_VAT 
+						, SUM(ROUND(X.CK_AMOUNT * DECODE(SUBSTR(X.TRANS_TYPE,1,1), 'I', 1, -1)))          AS CK_SALE_SUM
+						, SUM(ROUND(X.JI_AMOUNT * DECODE(SUBSTR(X.TRANS_TYPE,1,1), 'I', 1, -1)))          AS JI_SALE_SUM
+						, MAX(X.CK_RATE) AS CK_RATE
+						, MAX(X.JI_RATE) AS JI_RATE
+						, MAX(X.SE_RATE) AS SE_RATE
+					FROM
+							(
+								SELECT
+									  T.TRANS_UPJANG
+			     					, T.SUBINV_CODE
+			      					, T.TRANS_DATE
+			      					, T.ITEM_CODE
+			      					, T.ITEM_NAME
+			      					, T.ITEM_SIZE
+			      					, T.TRANS_UOM AS PO_UOM
+			      					, T.TRANS_TYPE
+			      					, T.TRANS_QTY
+			      					, T.TRANS_MPRICE
+			     				    , T.TRANS_MAMOUNT
+			     				    , T.TRANS_MVAT
+			      				    , T.SALE_PRICE
+			      					, T.SALE_AMOUNT
+			      					, T.SALE_VAT
+			      					, T.TAX_CODE
+			      					, T.FLAG
+			      					, T.ITEM_CLASS4
+			      					, CASE WHEN NVL(T.C_SALE_RATE, 0) = 0 THEN NVL(T.C1_SALE_RATE, 0) ELSE NVL(T.C_SALE_RATE, 0) END AS CK_RATE
+			      					, CASE WHEN NVL(T.J_SALE_RATE, 0) = 0 THEN NVL(T.J1_SALE_RATE, 0) ELSE NVL(T.J_SALE_RATE, 0) END AS JI_RATE
+			      					, CASE WHEN NVL(T.S_SALE_RATE, 0) = 0 THEN NVL(T.S1_SALE_RATE, 0) ELSE NVL(T.S_SALE_RATE, 0) END AS SE_RATE
+		     			    		, CASE WHEN NVL(T.SALE_AMOUNT, 0) = 0 THEN 0
+							  		  ELSE
+			    							CASE WHEN NVL(T.C_SALE_RATE, 0) = 0 THEN  
+												CASE WHEN NVL(T.C1_SALE_RATE, 0) = 0 THEN 0 
+                                        		ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.C1_SALE_RATE,0) / 100)))) END			    					
+			    							ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.C_SALE_RATE,0) / 100))))
+			    							END 
+							  		   END AS CK_AMOUNT
+		      						, CASE WHEN NVL(T.SALE_AMOUNT, 0) = 0 THEN 0
+							  		  ELSE
+			    								CASE WHEN NVL(T.J_SALE_RATE, 0) = 0 THEN 
+													CASE WHEN NVL(T.J1_SALE_RATE, 0) = 0 THEN 0 
+                                        			ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.J1_SALE_RATE,0) / 100)))) END			    					
+			    					  			ELSE (T.SALE_AMOUNT - ROUND(T.SALE_AMOUNT / (1 + (NVL(T.J_SALE_RATE,0) / 100))))
+			    					  			END 
+							  		  END AS JI_AMOUNT
+								FROM
+										(
+				    					 SELECT
+				    					 		/*+ PUSH_PRED(A) */
+					    						  A.TRANS_UPJANG
+					  							, A.SUBINV_CODE
+					  							, A.TRANS_DATE
+					  							, A.ITEM_CODE
+					  							, A.ITEM_NAME
+					  							, A.ITEM_SIZE
+					  							, A.TRANS_UOM
+					  							, A.TRANS_TYPE
+					  							, A.TRANS_QTY
+					  							, A.TRANS_MPRICE
+					  							, A.TRANS_MAMOUNT
+					  							, A.TRANS_MVAT
+					  							, A.SALE_PRICE
+					  							, A.SALE_AMOUNT
+					  							, A.SALE_VAT
+					  							, A.TAX_CODE
+					  							, A.FLAG
+					  							, M.ITEM_CLASS4
+					  							, CASE WHEN A.TAX_CODE = '100' THEN
+														(CASE WHEN NVL(C2.FM_SALE_RATE, 0) = 0 THEN NVL(C1.FM_SALE_RATE, 0)
+														 ELSE NVL(C2.FM_SALE_RATE, 0)
+														 END)
+					    						 ELSE 
+														(CASE WHEN NVL(C2.FM_NOSALE_RATE, 0) = 0 THEN NVL(C1.FM_NOSALE_RATE, 0)
+														ELSE NVL(C2.FM_NOSALE_RATE, 0)
+														END)
+					    						 END AS C1_SALE_RATE                                    /* 분류 기준 CK 물류비율 */    
+					  							, CASE WHEN A.TAX_CODE = '100' THEN
+														(CASE WHEN NVL(J2.FM_SALE_RATE, 0) = 0 THEN NVL(J1.FM_SALE_RATE, 0)
+														ELSE NVL(J2.FM_SALE_RATE, 0)
+														END)
+					    						 ELSE 
+														(CASE WHEN NVL(J2.FM_NOSALE_RATE, 0) = 0 THEN NVL(J1.FM_NOSALE_RATE, 0)
+														ELSE NVL(J2.FM_NOSALE_RATE, 0)
+														END)
+					    						END AS J1_SALE_RATE                                    /* 분류 기준 지급수수료 비율 */
+					    						/*장려금 세분류 0 인식이 안되서 0보다 작을때 중분류 가져옴*/
+					  							, CASE WHEN A.TAX_CODE = '100' THEN
+														(CASE WHEN NVL(S2.FM_SALE_RATE, 0) < 0 THEN NVL(S1.FM_SALE_RATE, 0)
+														 ELSE NVL(S2.FM_SALE_RATE, 0)
+														 END)
+					     						 ELSE 
+														(CASE WHEN NVL(S2.FM_NOSALE_RATE, 0) < 0 THEN NVL(S1.FM_NOSALE_RATE, 0)
+														 ELSE NVL(S2.FM_NOSALE_RATE, 0)
+														 END)
+					    						END AS S1_SALE_RATE                                    /* 분류 기준 장려금 비율 */    
+					 						, FMS_ITEM_SALE_RATE_CODE_FUN(A.TAX_CODE, A.TRANS_UPJANG, A.SUBINV_CODE, '001', A.ITEM_CODE, A.TRANS_DATE) AS C_SALE_RATE        /* 자재별 장려금 비율 */
+					  						, FMS_ITEM_SALE_RATE_CODE_FUN(A.TAX_CODE, A.TRANS_UPJANG, A.SUBINV_CODE, '002', A.ITEM_CODE, A.TRANS_DATE) AS J_SALE_RATE        /* 자재별 지급수수료 비율 */
+					  						, FMS_ITEM_SALE_RATE_CODE_FUN(A.TAX_CODE, A.TRANS_UPJANG, A.SUBINV_CODE, '003', A.ITEM_CODE, A.TRANS_DATE) AS S_SALE_RATE        /* 자재별 장려금 비율 */
+ 									FROM FMS_TRANSACTION_V A
+																			INNER JOIN ST_UPJANG B2 ON 1 = 1
+      																										AND B2.UPJANG IN (SELECT UPJANG FROM FMS_UPJANG WHERE  MAIN_UPJANG = :schMainUpjang)
+            																								 /*검색 조건 : 사업장*/
+           																									<#if schUpjang?has_content>
+           																									AND B2.UPJANG = :schUpjang
+           																									</#if>
+																											 AND A.TRANS_UPJANG = B2.UPJANG
+																											 AND EXISTS (
+																																SELECT 1
+																																FROM FMS_SALE_RATE
+																																WHERE UPJANG = B2.UPJANG
+							   																									AND    ROWNUM <= 1
+																																UNION 
+																																SELECT 1
+																																FROM FMS_ITEM_SALE_RATE
+																																WHERE UPJANG = B2.UPJANG
+							   	 																								AND    ROWNUM <= 1
+																																 )
+							    												LEFT JOIN HLDC_PO_ITEM_MST M ON SUBSTR(M.ITEM_CODE, 1, 1) = 'F'
+										    																				 AND A.ITEM_CODE = M.ITEM_CODE
+							    												-- 추가 : 특약사항관련 : 중분류, 소분류
+							    												LEFT JOIN FMS_SALE_RATE C1 ON C1.UPJANG = A.TRANS_UPJANG
+																														AND C1.SUBINV_CODE = A.SUBINV_CODE
+																														AND C1.CASH_CODE = '001'            /* CK물류비(001) */
+																														AND A.TRANS_DATE BETWEEN C1.SDATE AND C1.EDATE
+																														AND M.ITEM_CLASS3 = C1.ITEM_CLASS /* 중분류 */
+							    												LEFT JOIN FMS_SALE_RATE C2 ON C2.UPJANG = A.TRANS_UPJANG
+																														AND C2.SUBINV_CODE = A.SUBINV_CODE
+																														AND C2.CASH_CODE = '001'            /* CK물류비(001) */
+																														AND A.TRANS_DATE BETWEEN C2.SDATE AND C2.EDATE
+																														AND M.ITEM_CLASS4 = C2.ITEM_CLASS    /* 소분류 */
+							    												LEFT JOIN FMS_SALE_RATE J1 ON J1.UPJANG = A.TRANS_UPJANG
+																														AND J1.SUBINV_CODE = A.SUBINV_CODE
+																														AND J1.CASH_CODE = '002'            /* 지급수수료(002) */
+																														AND A.TRANS_DATE BETWEEN J1.SDATE AND J1.EDATE
+																														AND M.ITEM_CLASS3 = J1.ITEM_CLASS /* 중분류 */
+							    												LEFT JOIN FMS_SALE_RATE J2 ON J2.UPJANG = A.TRANS_UPJANG
+																														AND J2.SUBINV_CODE = A.SUBINV_CODE
+																														AND J2.CASH_CODE = '002'            /* 지급수수료(002) */
+																														AND A.TRANS_DATE BETWEEN J2.SDATE AND J2.EDATE
+																														AND M.ITEM_CLASS4 = J2.ITEM_CLASS    /* 소분류 */
+							    												LEFT JOIN FMS_SALE_RATE S1 ON S1.UPJANG = A.TRANS_UPJANG
+																														AND S1.SUBINV_CODE = A.SUBINV_CODE
+																														AND S1.CASH_CODE = '003'            /* 장려금(003) */
+																														AND A.TRANS_DATE BETWEEN S1.SDATE AND S1.EDATE
+																														AND M.ITEM_CLASS3 = S1.ITEM_CLASS /* 중분류 */
+							    												LEFT JOIN FMS_SALE_RATE S2 ON S2.UPJANG = A.TRANS_UPJANG
+																														AND S2.SUBINV_CODE = A.SUBINV_CODE
+																														AND S2.CASH_CODE = '003'            /* 장려금(003) */
+																														AND A.TRANS_DATE BETWEEN S2.SDATE AND S2.EDATE
+																														AND M.ITEM_CLASS4 = S2.ITEM_CLASS /* 소분류 */
+				    				WHERE SUBSTR(A.SUBINV_CODE, 1, 2) = 'S1'
+				    				AND (A.TRANS_TYPE IN '_002' OR A.TRANS_TYPE = 'I001' )
+            						AND A.TRANS_DATE2 BETWEEN :schFromDate AND :schToDate        -- 조건 : 기간
+       								<#if schSubinvCode?has_content> 
+            						AND A.SUBINV_CODE          = :schSubinvCode
+       								</#if>
+							) T	
+					) X
+				GROUP BY 	X.ITEM_CLASS4
+		        , X.ITEM_CODE
+		        , X.ITEM_NAME
+		        , X.ITEM_SIZE
+		        , X.PO_UOM
+			) RS  LEFT JOIN HLDC_PO_ITEM_CLASS_V C ON RS.ITEM_CLASS4 = C.CLASS_CODE4
+			ORDER BY 1, 2, 3
+		]]>
+	</statement>
+
+	<!-- 특약사항조회(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.fm.fms.dao.SpContFactSearchDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 특약사항조회(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.fm.fms.dao.SpContFactSearchDAO.update */
+		<![CDATA[
+		UPDATE TABLE_NAME 
+		SET    COLUMN_NAME1 = :columnName1,
+		       COLUMN_NAME2 = :columnName2,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+	<!-- 특약사항조회(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.fm.fms.dao.SpContFactSearchDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>

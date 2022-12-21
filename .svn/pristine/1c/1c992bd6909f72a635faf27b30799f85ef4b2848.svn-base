@@ -1,0 +1,119 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="GwViewIfPop" classname="COMP_GUIDE_13" inheritanceid="" position="absolute 0 0 166 108" titletext="결재상세" scrollbars="none" onload="form_onload" style="border:1 solid #808080ff ;">
+    <Layouts>
+      <Layout>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 915 10"/>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 570"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 153 -9 168 575"/>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute -70 95 830 110"/>
+        <WebBrowser id="gwIfBrowser" text="gwIfBrowser" taborder="1" style="border:1 solid #808080ff ;" cookiesynctype="always" onloadcompleted="gwIfBrowser_onloadcompleted" anchor="default" position="absolute 170 81 187 95" positiontype="position" onusernotify="gwIfBrowser_onusernotify"/>
+        <Static id="Static00" text="그룹웨어 연계 처리 중" position="absolute 20 4 145 28"/>
+        <ImageViewer id="imgProcess" taborder="2" position="absolute 40 23 128 101" image="URL('theme://Images\processing.gif')" style="border:1 none #cacacaff ;"/>
+      </Layout>
+    </Layouts>
+    <Bind/>
+    <Objects/>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : GwViewIfPop
+  파 일 명 : GwViewIfPop.xfdl
+  설    명 : 그룹웨어 상세 및 상태 보기 팝업 
+           
+  수정일       수정자   수정내용
+  ----------   -------  --------------------------------------------------
+  2015.06.17    kksoo    최초작성 : XPLATFORM 팝업으로 처리 중 표시하고 실행되도록 구성 (WebBrowser 컴포넌트를 이용)
+*/
+ 
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+************************************************************************************************/
+include "lib::lib_com.xjs";
+
+/************************************************************************************************
+ * FORM 변수 선언 영역 (필수)
+************************************************************************************************/
+
+/************************************************************************************************
+ * FORM EVENT 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Form Load (필수)
+ *---------------------------------------------------------------------------------------------*/
+function form_onload(obj:Form, e:LoadEventInfo)
+{	
+	// 초기값 셋팅
+	fn_init();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 초기값 셋팅
+ *---------------------------------------------------------------------------------------------*/
+function fn_init()
+{
+	//그룹웨어 결재상세, 결재진행상태 보기	호출
+	var strURL = application.services.get_item("svc").url + "common/linkBizwellGwViewIF.jsp";
+	gwIfBrowser.url = strURL;
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 화면 닫기
+ *---------------------------------------------------------------------------------------------*/
+function fn_close()
+{
+	this.close();
+}
+
+/**
+ * 그룹웨어 IF 페이지 생성이 완료되면
+ * WebBrowser에 표시된 파라미터를 설정한다.
+ * @param obj WebBrowser
+ * @param e WebLoadCompEventInfo
+ * @return none
+ */
+ function gwIfBrowser_onloadcompleted(obj:WebBrowser, e:WebLoadCompEventInfo)
+{
+	sendViewPop ();
+}
+
+function sendViewPop () 
+{
+	var doc = gwIfBrowser.document ;				// Webbrowser dom document
+	
+	var objText = doc.getElementById("instanceId");	// Instance Id 객체
+	if(objText){
+		objText.value = arrParams[SCGw.GW_INSTANCE_ID];
+	}else {
+		gfn_alert("InstanceId element is not defined!");
+		return;
+	}
+	
+	objText = doc.getElementById("viewMode");		// View Mode 객체
+	if(objText){
+		objText.value = arrParams[SCGw.GW_MODE];
+	}else {
+		gfn_alert("Mode element is no defined!");
+		return;
+	}
+
+	var objCall = doc.getElementById("btnCall");		//IF 모듈 호출 객체
+	//alert ("IF Call 버튼 클릭 시작...");
+	objCall.click();	//WebBrowser 이벤트 호출 
+	//alert ("IF Call 버튼 클릭 종료");	//WebBrowser 이벤트 호출 후 발생함
+}
+
+/**
+ * 그룹웨어 연계 결재상세 페이지로부터 전달되는 데이터를 처리한다.
+ * @param obj WebBrowser
+ * @param e WebLoadCompEventInfo
+ * @return none
+ */
+function gwIfBrowser_onusernotify(obj:WebBrowser, e:WebUserNotifyEventInfo)
+{
+	//trace(e.userdata);
+	if (e.userdata == "CLOSE")
+		this.close();
+}
+]]></Script>
+  </Form>
+</FDL>

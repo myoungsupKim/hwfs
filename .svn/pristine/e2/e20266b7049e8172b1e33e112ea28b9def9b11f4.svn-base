@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.rcg.couponSaleReportDAO">
+	<desc>전표별 쿠폰판매내역 조회 HQML Query</desc>
+
+	<!-- 전표별 쿠폰판매내역 조회 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.rc.rcg.dao.CouponSaleReportDAO.selectList */
+		<![CDATA[
+		SELECT A.SALE_DATE,
+		       A.CC_CD,
+		       (SELECT  CC_NM FROM SCC_CC WHERE CC_CD = A.CC_CD) AS CC_NM,
+		       B.RECEIPT_NUM,
+		       A.COUPON_KIND_CD,
+		       C.COUPON_KIND_NM,
+		       A.COUPON_NUM,
+		       A.COUPON_AMT,
+		       A.COUPON_STATUS,
+		       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'COUPON_STATUS' AND CODE = A.COUPON_STATUS) AS COUPON_STATUS_NM,
+		       A.USE_DATE,
+		       A.PUBLISH_DATE,
+		       A.SUPPLY_AMT,
+		       A.VAT_AMT,
+		       B.JOURNALZ_NUM
+		FROM   SLA_COUPON_NUM_MST A,
+		       SLA_COUPON_PROC_MST B,
+		       SLA_COUPON_KIND_MST C
+		WHERE  1=1
+		AND    A.COUPON_PROC_NUM = B.COUPON_PROC_NUM
+		AND    A.COUPON_KIND_CD  = C.COUPON_KIND_CD
+		AND    A.USE_YN = 'Y'
+		AND    B.RECD_STATUS = 'L'
+		AND    C.RECD_STATUS = 'L'
+		AND    A.COUPON_STATUS IN ('3','5')
+		<#if journalzNum?has_content> AND    B.JOURNALZ_NUM = :journalzNum </#if>
+		<#if couponKindCd?has_content> AND   A.COUPON_KIND_CD = :couponKindCd </#if>
+		<#if couponNumFr?has_content> AND   A.COUPON_NUM >= :couponNumFr </#if>
+		<#if couponNumTo?has_content> AND   A.COUPON_NUM <= :couponNumTo </#if>
+		<#if saleDateFr?has_content> AND   A.SALE_DATE >= :saleDateFr </#if>
+		<#if saleDateTo?has_content> AND   A.SALE_DATE <= :saleDateTo </#if>
+		<#if ccCd?has_content> AND   A.CC_CD = :ccCd </#if>
+		ORDER BY SALE_DATE ASC
+		]]>
+	</statement>
+
+	<!-- 전표별 쿠폰판매내역 조회(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.rc.rcg.dao.CouponSaleReportDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 전표별 쿠폰판매내역 조회(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.rc.rcg.dao.CouponSaleReportDAO.update */
+		<![CDATA[
+		UPDATE TABLE_NAME 
+		SET    COLUMN_NAME1 = :columnName1,
+		       COLUMN_NAME2 = :columnName2,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+	<!-- 전표별 쿠폰판매내역 조회(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.rc.rcg.dao.CouponSaleReportDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>

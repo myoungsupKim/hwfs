@@ -1,0 +1,344 @@
+package com.hwfs.batch.fm.fmo.dao;
+
+import hone.core.util.record.Record;
+import hone.core.util.record.RecordMetadata;
+import hone.core.util.record.RecordSet;
+
+import java.sql.Types;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.codehaus.jackson.map.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.SqlOutParameter;
+import org.springframework.jdbc.core.SqlParameter;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
+
+import com.hwfs.batch.defaults.DefaultBatchDAO;
+import com.hwfs.cmn.exception.BizException;
+import com.hwfs.cmn.service.PropertiesService;
+import com.hwfs.fm.fmo.dao.HubmekaSysInterfaceSqlDAO;
+
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+
+
+
+
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.util.*;
+
+import javax.crypto.*;
+/**
+ * Hubmeka JOB Schedule Dao Class
+ *
+ * @ClassName hubmekaSysInterfaceDAO.java
+ * @Description hubmekaSysInterfaceDAO Class
+ * @Modification-Information
+ * <pre>
+ *    수정일       수정자              수정내용
+ *  ----------   ----------   -------------------------------
+ *  
+ * </pre>
+ * @author hye.jin94
+ * @since 2022. 06. 13.
+ * @version 1.0
+ * @see
+ * <pre>
+ *  Copyright (C) 2020 by HANWHA S&C CO.,LTD. All right reserved.
+ * </pre>
+ */
+@Repository("/batch/fm/fmo/hubmekaSysInterfaceDAO")
+public class HubmekaSysInterfaceDAO extends DefaultBatchDAO {
+
+    /**
+     * 
+     * @param parameter
+     * @return
+     * @throws Exception
+     */
+	
+	@Resource(name = "propertiesService")
+	protected PropertiesService propertiesService;
+
+	/** MoadamSysInterfaceSqlDAO Bean 생성 */
+	@Resource(name = "/fm/fmo/hubmekaSysInterfaceSqlDAO")
+	private HubmekaSysInterfaceSqlDAO hubmekaSysInterfaceSqlDAO;
+	
+	@Resource(name ="transactionManager")
+	private PlatformTransactionManager txManger;
+	
+    /** LogService */
+	private final static Logger logger = LoggerFactory.getLogger(HubmekaSysInterfaceDAO.class);
+
+	//허브메카 주문정보 받아오기
+	@SuppressWarnings("unchecked")
+	public Integer batchJobSuspense(Map<String, Object> mapParam) throws Exception {
+		int tmp1 = 0;
+		int tmp2 = 0;
+		int rtn = 0;
+		
+		TransactionStatus txStatus = txManger.getTransaction(new DefaultTransactionDefinition());
+		
+	        try {
+	        	
+				ObjectMapper mapper=new ObjectMapper();
+				HashMap<String, Object> resultMap = new HashMap();
+			
+				//조회 날짜 생성
+				Map<String, Object> temp = new HashMap<String, Object>(); 
+				RecordSet rs = hubmekaSysInterfaceSqlDAO.selectUserList(temp); //고객리스트 조회해오기
+				
+				temp.put("piStat", "R"); 
+				tmp1 += hubmekaSysInterfaceSqlDAO.updateUserList(temp); //고객 인터페이스 상태 R 일괄변경
+				
+				for ( int j=0; j < rs.size(); j++ ) {
+	
+					Record r = rs.get(j);
+					
+					String ServiceGubun = r.getString("serviceGubun");
+					String UserId = r.getString("userid");
+		
+					SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+					Calendar c0 = Calendar.getInstance(); 
+					c0.add(Calendar.DATE, 1); // 오늘날짜로부터 +1  
+					String sday = sdf.format(c0.getTime()); // String으로 저장 
+					
+					Calendar c1 = Calendar.getInstance(); 
+					c1.add(Calendar.DATE, 5); // 오늘날짜로부터 +5 
+					String eday = sdf.format(c1.getTime()); // String으로 저장  
+			   	
+					//String sday = "20220622"; // String으로 저장
+					//String eday = "20220624"; // String으로 저장
+					//System.out.println(sday);
+					//System.out.println(eday);
+					
+					StringBuilder urlBuilder = new StringBuilder(propertiesService.getString("hubmeka.Orderurl"));
+					
+					JSONObject data = new JSONObject();
+					
+					data.put("in_apikey", "T7DB-SMY3-KCXN-GR37-XLLNX7Q27M"); // 
+					data.put("in_url", ServiceGubun); // 서비스구분
+					data.put("in_userId", UserId); // user id
+					data.put("in_stockInDay", sday); // 발주시작일자
+					data.put("in_endstockInDay", eday); // 발주종료일자
+					
+					
+					System.out.println("Hubmeka Order Url="+urlBuilder);
+					System.out.println("json="+data);
+				
+					String json = data.toString();
+					
+					URL url = new URL(urlBuilder.toString());
+					HttpURLConnection conn1 = (HttpURLConnection) url.openConnection();
+					conn1.setDoOutput(true);
+					conn1.setRequestMethod("POST");
+					conn1.setRequestProperty("Content-Type", "application/json");
+					conn1.setRequestProperty("Accept-Charset", "UTF-8");
+					
+					conn1.setConnectTimeout(300000);//주문정보 받아오기 - 커넥션 타임아웃 5분 
+					conn1.setReadTimeout(300000); //주문정보 받아오기 - 컨텐츠조회 타임아웃 5분
+				
+					OutputStream os = conn1.getOutputStream();
+					os.write(json.getBytes("UTF-8"));
+					os.flush(); // 리턴된 결과 읽기
+				
+					//System.out.println("ResponseCode : " + conn1.getResponseCode());
+
+		            if (conn1.getResponseCode() != 200) { 
+		            	rtn = -1;
+		                System.out.println("Failed: HTTP error code : " + conn1.getResponseCode());
+		            	throw new RuntimeException("Failed: HTTP error code : " + conn1.getResponseCode());
+		            } else {
+		                System.out.println("Sucess");
+		                //jsonObject = getJsonObjectString(in);
+		            }
+		            
+		            String inputLine = null; 
+		    		StringBuffer outResult = new StringBuffer();
+		            
+		            BufferedReader in = new BufferedReader(new InputStreamReader(conn1.getInputStream(),"UTF-8"));
+	
+					while ((inputLine = in.readLine()) != null) {
+					outResult.append(inputLine);
+					}
+					
+					
+					String res=outResult.toString();
+					in.close();   
+					conn1.disconnect();
+	
+					System.out.println(res);
+					
+					System.out.println("******##Parsing##*******");
+			        JSONParser parser = new JSONParser();
+			
+			        // 따옴표 변환 필요
+			        res = res.replace("'", "\"");
+			        Object obj = parser.parse( res );
+			        
+			       
+			        JSONObject jsonObj = (JSONObject) obj;
+					JSONArray array = (JSONArray)jsonObj.get("orderList");
+					
+			        System.out.println("array : " + array);
+			        System.out.println("**Array Size: " + array.size());
+			       
+			        
+			        for (int i = 0; i < array.size(); i ++){
+			       
+			        	Map<String, Object> parameter = new HashMap<String, Object>();
+			        	 
+			        	System.out.println("@Array("+i+"):" +array.get(i));
+			        	
+			        	obj = array.get(i);
+			            JSONObject nObj = (JSONObject) obj;
+			           // System.out.println("**nObj:"+nObj);
+			    		logger.debug("nObj=>"+nObj);
+			    		
+			            String if_userid = (String) nObj.get("if_userid");
+			            String if_key = (String) nObj.get("if_key");
+			            String if_code = (String) nObj.get("if_code");
+			            String if_orderDay = (String) nObj.get("if_orderDay");
+			            String if_stockInDay = (String) nObj.get("if_stockInDay");
+			            String if_materialCode = (String) nObj.get("if_materialCode");
+			            String if_materialName = (String) nObj.get("if_materialName");
+			            Double if_qty = (Double) nObj.get("if_qty");
+			            String if_remark = (String) nObj.get("if_remark");
+			            String if_dotYN = (String) nObj.get("if_dotYN");
+			            String if_stopYN = (String) nObj.get("if_stopYN");
+			            String if_deletionYN = (String) nObj.get("if_deletionYN");    
+			            String if_unit = (String) nObj.get("if_unit");   
+			            String if_spec = (String) nObj.get("if_spec");   
+			            String if_vatYN = (String) nObj.get("if_vatYN");   
+			            String if_leadTime = (String) nObj.get("if_leadTime");   
+			            String if_modifierdate = (String) nObj.get("if_modifierdate");   
+			            
+			    		parameter.put("if_userid", if_userid); //USER ID
+			    		parameter.put("if_key", if_key);//KEY값
+			    		parameter.put("if_code", if_code);//창고코드
+			    		parameter.put("if_orderDay", if_orderDay);//주문일자
+			    		parameter.put("if_stockInDay", if_stockInDay);//입고일자
+			    		parameter.put("if_materialCode", if_materialCode);//상품코드
+			    		parameter.put("if_materialName", if_materialName);//상품명
+			    		parameter.put("if_qty", if_qty);//수량
+			    		parameter.put("if_remark", if_remark);//비고
+			    		parameter.put("if_dotYN", if_dotYN);//소숫점발주가능여부
+			    		parameter.put("if_stopYN", if_stopYN);//블용여부
+			    		parameter.put("if_deletionYN", if_deletionYN);//발주규제품목여부
+			    		
+			    		parameter.put("if_unit", if_unit);//단위
+			    		parameter.put("if_spec", if_spec);//규격
+			    		parameter.put("if_vatYN", if_vatYN);//과세여부
+			    		parameter.put("if_leadTime", if_leadTime);//리드타임
+			    		parameter.put("if_modifierdate", if_modifierdate);//수정일시
+			    	
+			    		parameter.put("sday", sday); // 발주시작일자 -- API호출인자
+			    		parameter.put("eday", eday); // 발주종료일자 -- API호출인자
+			    		
+			    		//임시테이블 저장
+			    		//System.out.println("******DB *******");
+			    		logger.debug("parameter=>"+parameter);
+			    		
+			    		if (i == 0) {
+				        	//해당 고객&기간 주문TEMP테이블 데이터 삭제
+				        	tmp2 += hubmekaSysInterfaceSqlDAO.deleteOrderTempList(parameter);
+				        }
+			    		
+			    		rtn += hubmekaSysInterfaceSqlDAO.updateOrderList(parameter); //주문TEMP테이블 INSERT
+			    		
+			    		System.out.println("******rtn =" + rtn);
+			    		//System.out.println("******end*******");
+			        }
+			        
+			       
+			        //merge프로시저 호출
+			        Map<String, Object> rowData = new HashMap<String, Object>();
+			        
+			        rowData.put("userId", UserId);
+			        rowData.put("sday", sday);
+			        rowData.put("eday", eday);
+			        
+			        //tmp2 += hubmekaSysInterfaceSqlDAO.mergeOrderList(rowData); //주문정보 merge
+			        //tmp2 += hubmekaSysInterfaceSqlDAO.updateZeroList(rowData); //삭제내역 0처리
+			        Map<String, Object> returnVal = new HashMap<String, Object>();
+			        
+			        
+			        rowData.put("userId", UserId);
+			        rowData.put("sday", sday);
+			        rowData.put("eday", eday);
+			        
+			        returnVal = ifmerge(rowData); //프로시저 호출
+
+					rowData.put("rtnMsg", returnVal.get("O_RTNMSG").toString());
+		            rowData.put("rtnCd", returnVal.get("O_RTN").toString());
+					
+					if(!"TRUE".equals(returnVal.get("O_RTN").toString())){
+						if(returnVal.get("O_RTNMSG") == null)returnVal.put("O_RTNMSG","오류가 발생하였습니다.\n시스템 관리자에게 문의하세요.");
+						throw new BizException(returnVal.get("O_RTNMSG").toString());
+					}
+			        
+			        Map<String, Object> temp1 = new HashMap<String, Object>(); 
+					temp1.put("piStat", "S"); 
+					temp1.put("userId", UserId); 
+					tmp1 += hubmekaSysInterfaceSqlDAO.updateUserList(temp1); //고객 인터페이스 상태 S변경
+					
+				}
+		        txManger.commit(txStatus);
+	
+	        } catch(Exception e){
+	        /*	logger.error(e.getMessage(), e);
+				e.printStackTrace();*/
+				txManger.rollback(txStatus);
+				throw e;
+			}
+	        
+	        return rtn;
+	}
+
+	
+	/**
+	 * 주문내역 MERGE 프로시저 호출
+	 *
+	 * @param list
+	 *            DataSetMap XPLATFORM에서 전달된 Dataset 데이터
+	 * @return 처리건수
+	 * @throws Exception
+	*/
+	public Map<String, Object> ifmerge(Map<String, Object> rowData) throws Exception {
+		
+		Map<String, Object> pMap = new HashMap<String, Object>();
+		//IF_HUB_ORDER_TEMP_PRO
+	
+		pMap.put("p_userid", 	  String.valueOf(rowData.get("userId"))); //고객아이디
+		pMap.put("p_sdate", 	  String.valueOf(rowData.get("sday"))); //발주시작일자
+		pMap.put("p_edate",  	  String.valueOf(rowData.get("eday"))); //발주종료일자
+	
+		return hubmekaSysInterfaceSqlDAO.if_hub_order_temp_pro(pMap);
+	}
+	
+	
+	
+}

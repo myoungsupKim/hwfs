@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.roa.partTimeDeductionTimeDAO">
+	<desc>용역 공제 시간 관리 HQML Query</desc>
+
+	<!-- 용역 공제 시간 관리 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.rc.roa.dao.PartTimeDeductionTimeDAO.selectList */
+		<![CDATA[
+            SELECT  DEDUC_BASIS_CD
+                    ,DEDUC_START_TIME
+                    ,DEDUC_END_TIME
+                    ,DEDUC_TIME
+                    ,USE_YN
+                    ,DECODE(USE_YN,'Y','예','아니오') USE_YN_NM
+                    ,SORT_ORDER
+                    ,CUSER
+                    ,CDATE
+                    ,UUSER
+                    ,UDATE
+            FROM    RSS_PART_TIME_DEDUCTIME
+            WHERE   1=1
+        <#if useYn?has_content>
+            AND     USE_YN = :useYn
+        </#if>
+            ORDER BY SORT_ORDER
+		]]>
+	</statement>
+
+    <!-- 용역 공제 시간 중복체크. -->
+    <statement name="selectExists" type="select">
+        /*+ com.hwfs.rc.roa.dao.PartTimeDeductionTimeDAO.selectExists */
+        <![CDATA[
+            SELECT  COUNT(*) AS EXISTS_CNT
+            FROM    RSS_PART_TIME_DEDUCTIME
+            WHERE   DEDUC_BASIS_CD = :deducBasisCd
+        ]]>
+    </statement>
+    
+	<!-- 용역 공제 시간 관리(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.rc.roa.dao.PartTimeDeductionTimeDAO.insert */
+		<![CDATA[
+            INSERT INTO RSS_PART_TIME_DEDUCTIME (
+                DEDUC_BASIS_CD
+                ,DEDUC_START_TIME
+                ,DEDUC_END_TIME
+                ,DEDUC_TIME
+                ,USE_YN
+                ,SORT_ORDER
+                ,CUSER
+                ,CDATE
+            ) VALUES (
+                :deducBasisCd	--SELECT LPAD(MAX(TO_NUMBER(NVL(DEDUC_BASIS_CD,'0')))+1,2,'0') FROM FCUS.RSS_PART_TIME_DEDUCTIME
+                ,:deducStartTime
+                ,:deducEndTime
+                ,:deducTime
+                ,:useYn
+                ,:sortOrder
+                ,:loginSabun
+                ,SYSDATE
+            )
+		]]>
+	</statement>
+	
+	<!-- 용역 공제 시간 관리(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.rc.roa.dao.PartTimeDeductionTimeDAO.update */
+		<![CDATA[
+            UPDATE  RSS_PART_TIME_DEDUCTIME
+            SET     DEDUC_START_TIME    = :deducStartTime
+                    ,DEDUC_END_TIME     = :deducEndTime
+                    ,DEDUC_TIME         = :deducTime
+                    ,USE_YN             = :useYn
+                    ,SORT_ORDER         = :sortOrder
+                    ,UUSER              = :loginSabun
+                    ,UDATE              = SYSDATE
+            WHERE   DEDUC_BASIS_CD      = :deducBasisCd
+		]]>
+	</statement>
+
+	<!-- 용역 공제 시간 관리(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.rc.roa.dao.PartTimeDeductionTimeDAO.delete */
+		<![CDATA[
+            DELETE
+            FROM    RSS_PART_TIME_DEDUCTIME
+            WHERE   DEDUC_BASIS_CD  = :deducBasisCd
+		]]>
+	</statement>
+
+</hqml>

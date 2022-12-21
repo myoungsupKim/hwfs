@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="rc.rcg.discPromotionDAO">
+	<desc>쿠폰 생성 관리 HQML Query</desc>
+
+	<!-- 쿠폰 생성 관리 목록을 조회한다. -->
+	<statement name="selectList" type="select"><![CDATA[		SELECT A.DISCNT_NO
+             , B.CODE_NAME AS DISCNT_NM
+		     , A.DISCNT_NUM
+		     , A.START_DATE
+		     , A.USE_DATE
+		     , A.USE_DEPT
+		     , A.USE_CUST
+		     , A.USE_YN
+		     , A.OUTLET_CD
+		     , C.OUTLET_NM
+		     , A.RECEIPT_NUM
+		     , A.DISCNT_MNGR
+		  FROM SLA_DISCNT_TICKET A
+		     , SCC_COMMON_CODE   B
+		     , SLE_OUTLET_MST    C
+		WHERE 1=1
+		  AND A.DISCNT_NO = B.CODE
+		  AND B.GROUP_CODE = 'POS_DISC_PRM_CD'
+		<#if discKindCd?has_content>	AND    A.DISCNT_NO = :discKindCd	</#if>
+		<#if discCreationDateFr?has_content>AND    A.START_DATE >= :discCreationDateFr</#if>
+		<#if discCreationDateTo?has_content>AND    A.START_DATE <= :discCreationDateTo</#if>
+		<#if discCntNum?has_content>AND    A.DISCNT_NUM LIKE '%'||:discCntNum||'%'</#if>
+		<#if discUseYn?has_content>	AND    A.USE_YN = :discUseYn	</#if>
+          AND A.OUTLET_CD = C.OUTLET_CD(+)
+		ORDER BY A.DISCNT_NO DESC, A.DISCNT_NUM ASC]]></statement>
+
+	<!-- 쿠폰 생성 관리(을)를 등록한다. -->
+	<statement name="insert" type="insert"><![CDATA[INSERT INTO SLA_DISCNT_TICKET (
+       DISCNT_NO,
+       DISCNT_NUM,
+       START_DATE,
+       USE_DEPT,
+       USE_CUST,
+       CUSER,
+       CDATE )
+VALUES (
+       :DiscNo,
+       :DiscNo||TO_CHAR(:DiscNum,'FM000000'),
+       :StartDate,
+       :useDept,
+       :useCust,
+       :loginSabun,
+       SYSDATE )]]></statement>
+
+	<!-- 쿠폰 생성 관리(을)를 수정한다. -->
+	<statement name="update" type="update"><![CDATA[
+		UPDATE SLA_DISCNT_TICKET 
+		SET    USE_YN = :useYn
+		    , UUSER = :loginSabun
+		    , UDATE = SYSDATE
+		WHERE  DISCNT_NO = :discntNo
+			AND DISCNT_NUM = :discntNum
+		]]></statement>
+
+
+
+	<!-- 쿠폰 생성 관리(을)를 삭제한다. -->
+	<statement name="delete" type="update"><![CDATA[
+		DELETE FROM SLA_DISCNT_TICKET
+		WHERE  DISCNT_NO = :discntNo
+			AND DISCNT_NUM = :discntNum
+		]]></statement>
+
+	<!-- 쿠폰 생성 관리(을)를 사용된 쿠폰 카운트를 확인한다. -->
+
+
+	<!-- 쿠폰 생성 관리(을)를 삭제후 쿠폰을 폐기처리 한다. -->
+
+
+
+	<!-- 쿠폰 생성 관리(을)를 번호를 생성 한다. -->
+
+
+
+	<!-- 쿠폰 미생성된 중복 번호를 체크 한다. -->
+
+
+	<!-- 쿠폰 번호를 조회 한다. -->
+
+
+	<!-- 쿠폰 번호가 중복인지 조회 한다. -->
+
+
+
+	<statement name="selectDiscNo"><![CDATA[/* 80 + YY + 년도별시퀀스(3) */
+SELECT '80'||TO_CHAR(SYSDATE,'YY')||TO_CHAR(NVL(TO_NUMBER(MAX(SUBSTRB(CODE,5,3))) + 1,1),'FM000')
+  FROM SCC_COMMON_CODE
+ WHERE GROUP_CODE = 'POS_DISC_PRM_CD'
+   AND CODE LIKE '80'||TO_CHAR(SYSDATE,'YY')||'%']]></statement>
+	<statement name="createDiscNo"><![CDATA[INSERT INTO SCC_COMMON_CODE(GROUP_CODE,CODE,CODE_NAME,CONTENTS,SYSTEM_YN,POS_YN,USE_YN,CUSER,CDATE)
+VALUES('POS_DISC_PRM_CD',:DiscNo,:discPrmNm,:publishCnt,'Y','N','Y',:loginSabun,SYSDATE)]]></statement>
+	<statement name="insertRow"><![CDATA[INSERT INTO SLA_DISCNT_TICKET (
+       DISCNT_NO,
+       DISCNT_NUM,
+       START_DATE,
+       USE_DEPT,
+       USE_CUST,
+       USE_YN,
+       CUSER,
+       CDATE )
+VALUES (
+       :discntNo,
+       (SELECT :discntNo||TO_CHAR(NVL(TO_NUMBER(MAX(SUBSTRB(DISCNT_NUM,8)))+1,1),'FM000000') FROM SLA_DISCNT_TICKET WHERE DISCNT_NO = :discntNo),
+       :startDate,
+       <#if useDept?has_content> :useDept, <#else> null, </#if>
+       <#if useCust?has_content> :useCust, <#else> null, </#if>
+       :useYn,
+       :loginSabun,
+       SYSDATE )]]></statement>
+</hqml>

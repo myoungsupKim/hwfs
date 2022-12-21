@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fs.fso.bidMgntDAO">
+	<desc>입찰관리 HQML Query</desc>
+
+	<!-- 사업부명을 조회한다. -->
+	<statement name="selectMuNm" type="select">
+		/*+ com.hwfs.fs.fso.dao.BidMgntDAO.selectMuNm */
+		<![CDATA[
+		SELECT MU_CD, MU_NM FROM HLDC_SC_MU
+		]]>
+	</statement>
+
+	<!-- 입찰관리 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.fs.fso.dao.BidMgntDAO.selectList */
+		<![CDATA[
+		SELECT
+	             T.BID_NUM
+	            ,T.EXPIRE_DATE
+	            ,T.URL_INFO
+	            ,T.OBJECT_CLASS
+	            ,(SELECT MU_NM FROM HLDC_SC_MU WHERE MU_CD=T.OBJECT_CLASS) AS OBJECT_CLASS_NM
+	            ,T.OBJECT_LOC
+	            ,T.OBJECT_NM
+	            ,T.OBJECT_CONTENTS
+	            ,T.FILE_ID
+	            ,(SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = T.CUSER) AS CUSER
+	            ,(SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = T.UUSER) AS UUSER
+		FROM   FSO_ACC_ORDER_BID_MASTER T       
+		WHERE 1=1
+		<#if muCd?has_content>
+		AND T.OBJECT_CLASS = :muCd
+		</#if>
+		<#if objNm?has_content>
+		AND T.OBJECT_NM LIKE '%' || :objNm || '%'
+		</#if>
+		<#if dayType?has_content && dayType=='001' && stDate?has_content>
+		AND TO_CHAR(T.CDATE,'YYYYMMDD') >= :stDate
+		</#if>
+		<#if dayType?has_content && dayType=='001' && edDate?has_content>
+		AND TO_CHAR(T.CDATE,'YYYYMMDD') <= :edDate
+		</#if>
+		<#if dayType?has_content && dayType=='002' && stDate?has_content>
+		AND T.EXPIRE_DATE >= :stDate
+		</#if>
+		<#if dayType?has_content && dayType=='002' && edDate?has_content>
+		AND T.EXPIRE_DATE <= :edDate
+		</#if>
+		<#if bidNum?has_content>
+		AND T.BID_NUM = :bidNum
+		</#if>
+		ORDER BY T.EXPIRE_DATE ASC
+		]]>
+	</statement>
+
+	<!-- 입찰관리(을)를 등록한다. -->
+	<statement name="insertBid" type="insert">
+		/*+ com.hwfs.fs.fso.dao.BidMgntDAO.insert */
+		<![CDATA[
+		INSERT INTO FSO_ACC_ORDER_BID_MASTER 
+		(
+		       BID_NUM
+	          ,EXPIRE_DATE
+	          ,URL_INFO
+	          ,OBJECT_CLASS
+	          ,OBJECT_LOC
+	          ,OBJECT_NM
+	          ,OBJECT_CONTENTS
+	          ,FILE_ID
+	          ,CUSER
+	          ,CDATE
+		)
+		VALUES
+		(
+		       FSO_ACC_ORDER_BID_MASTER_S.NEXTVAL
+			  ,<#if expireDate?has_content> :expireDate <#else> null </#if>
+			  ,<#if urlInfo?has_content> :urlInfo <#else> null </#if>
+			  ,<#if objectClass?has_content> :objectClass <#else> null </#if>
+			  ,<#if objectLoc?has_content> :objectLoc <#else> null </#if>
+			  ,<#if objectNm?has_content> :objectNm <#else> null </#if>
+			  ,<#if objectContents?has_content> :objectContents <#else> null </#if>
+			  ,<#if fileId?has_content> :fileId <#else> null </#if>
+		      ,:loginSabun
+		      ,SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 입찰관리(을)를 수정한다. -->
+	<statement name="updateBid" type="update">
+		/*+ com.hwfs.fs.fso.dao.BidMgntDAO.update */
+		<![CDATA[
+		UPDATE FSO_ACC_ORDER_BID_MASTER 
+		SET EXPIRE_DATE = <#if expireDate?has_content> :expireDate <#else> null </#if>
+	       ,URL_INFO = <#if urlInfo?has_content> :urlInfo <#else> null </#if>
+	       ,OBJECT_LOC = <#if objectLoc?has_content> :objectLoc <#else> null </#if>
+	       ,OBJECT_NM = <#if objectNm?has_content> :objectNm <#else> null </#if>
+	       ,OBJECT_CONTENTS = <#if objectContents?has_content> :objectContents <#else> null </#if>
+	       ,FILE_ID = <#if fileId?has_content> :fileId <#else> null </#if>
+	       ,UUSER = :loginSabun
+	       ,UDATE = SYSDATE
+		WHERE  BID_NUM = :bidNum
+		]]>
+	</statement>
+
+	<!-- 입찰관리(을)를 삭제한다. -->
+	<statement name="deleteBid" type="delete">
+		/*+ com.hwfs.fs.fso.dao.BidMgntDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   FSO_ACC_ORDER_BID_MASTER 
+		WHERE   BID_NUM = :bidNum
+		]]>
+	</statement>
+
+</hqml>

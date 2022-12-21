@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.sle.matlCodeListDAO">
+	<desc>자재코드리스트</desc>
+
+	<!--  자재코드리스트  -->
+	
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.rc.sle.matlCodeListDAO.selectList */
+		<![CDATA[
+		SELECT
+		        0 AS CHK_YN 
+			  ,  ITEM_CODE
+			  , ITEM_NAME
+			  , ITEM_SIZE
+			  , UOM_CODE
+			  , BARCODE
+		FROM HLDC_PO_ITEM_MST ITEM
+		 
+		WHERE ITEM_CLASS1= 'G'
+		<#if menuYn?has_content>
+		AND ITEM_CODE NOT IN (SELECT MENU_CD FROM SLE_MENU_POOL) 
+		</#if>
+		<#if gubun?has_content>  AND MENU.MENU_CD IS NULL </#if>
+		<#if itemNm?has_content>  AND ( ITEM_CODE  LIKE  :itemNm  || '%' OR ITEM_NAME LIKE  '%' || :itemNm || '%' ) </#if>
+
+		]]>
+	</statement>	
+		
+		<statement name="selectItemList" type="select">
+	/*+ com.hwfs.rc.sle.matlCodeListDAO.selectItemList */
+		<![CDATA[
+			SELECT 0 AS CHK_YN, SUBINV_NAME,M_CLASS,S_CLASS,ITEM_CODE,ITEM_NAME,ITEM_SIZE,PO_UOM,PO_STOCK_QTY,MENU_CD
+				FROM
+				(
+				SELECT A.SUBINV_NAME AS SUBINV_NAME     -- 구매창고 
+				     , A.M_CLASS AS M_CLASS             -- 중분류
+				     , A.S_CLASS AS S_CLASS             -- 대분류
+				     , A.ITEM_CODE AS ITEM_CODE         -- 자재코드
+				     , A.ITEM_NAME AS ITEM_NAME         -- 자재명
+				     , A.ITEM_SIZE AS ITEM_SIZE         -- 규격
+				     , A.PO_UOM AS PO_UOM               -- 구매단위
+				     , A.PO_STOCK_QTY AS PO_STOCK_QTY   -- 재고량
+				     , B.MENU_CD
+				  FROM ( 
+				        SELECT D.CLASS_CODE AS M_CODE 
+				             , C.CLASS_CODE AS S_CODE 
+				             , D.CLASS_NAME AS M_CLASS 
+				             , C.CLASS_NAME AS S_CLASS 
+				             , E.SUBINV_NAME AS SUBINV_NAME 
+				             , A.ITEM_CODE AS ITEM_CODE 
+				             , A.ITEM_NAME AS ITEM_NAME 
+				             , A.ITEM_SIZE AS ITEM_SIZE 
+				             , A.PO_UOM AS PO_UOM 
+				             , SUM(B.TRANS_QTY / A.UOM_CONVERT_RATE) AS PO_STOCK_QTY 
+				          FROM HLDC_PO_ITEM_MST A 
+				             , HLDC_PO_SUBINVENTORY E 
+				             , HLDC_PO_ITEM_CLASS_HLDC_V C 
+				             , HLDC_PO_ITEM_CLASS_HLDC_V D 
+				             , ( SELECT C.SUBINV_CODE AS SUBINV_CODE 
+				                      , C.ITEM_CODE AS ITEM_CODE 
+				                      , C.ONHAND_QTY AS TRANS_QTY 
+				                   FROM HLDC_PO_ONHAND_MONTH C 
+				                  WHERE C.ONHAND_YM   = (SELECT MAX(ONHAND_YM) FROM HLDC_PO_ONHAND_MONTH 
+				                                                                                      WHERE  SUBINV_CODE IN (SELECT SUBINV_CODE FROM SLE_POS_SET 
+				                                                                                                                         <#if outletCd?has_content>  WHERE OUTLET_CD = :outletCd </#if>  ) )
+				                    AND C.SUBINV_CODE IN (SELECT SUBINV_CODE FROM SLE_POS_SET 
+				                    								<#if outletCd?has_content>  WHERE OUTLET_CD = :outletCd </#if> )
+				                 UNION ALL 
+				                 SELECT D.SUBINV_CODE AS SUBINV_CODE 
+				                      , D.ITEM_CODE AS ITEM_CODE 
+				                      , SUM(DECODE(SUBSTR(D.TRANS_TYPE, 1, 1), 'I', 1, -1) * D.UOM_QTY) AS TRANS_QTY 
+				                   FROM HLDC_PO_TRANSACTION D 
+				                  WHERE D.TRANS_DATE BETWEEN (SELECT NVL(MAX(ONHAND_YM),'201510') || '01' 
+				                  							    FROM HLDC_PO_ONHAND_MONTH 
+				                                                WHERE  SUBINV_CODE IN (SELECT SUBINV_CODE FROM SLE_POS_SET) ) AND TO_CHAR(SYSDATE, 'YYYYMMDD') 
+				                    AND D.SUBINV_CODE IN (SELECT SUBINV_CODE FROM SLE_POS_SET )
+				                    AND D.TRANS_UPJANG IN (SELECT OUTLET_CD FROM SLE_OUTLET_MST MST WHERE  OUTLET_TYPE ='FM'
+				                                                        <#if outletCd?has_content>  AND OUTLET_CD = :outletCd </#if> )
+				                 GROUP BY D.SUBINV_CODE, D.ITEM_CODE 
+				                ) B 
+				         WHERE C.CLASS_CODE =  A.ITEM_CLASS3 
+				           AND C.CLASS_TYPE = 'S' 
+				           AND D.CLASS_CODE = A.ITEM_CLASS2 
+				           AND D.CLASS_TYPE = 'M' 
+				           AND B.SUBINV_CODE = E.SUBINV_CODE 
+				           AND A.ITEM_CODE = B.ITEM_CODE 
+				           AND SUBSTR(A.ITEM_CODE,1,1) = 'G'
+				         GROUP BY A.ITEM_CODE, D.CLASS_CODE, C.CLASS_CODE, D.CLASS_NAME, C.CLASS_NAME 
+				                , A.ITEM_NAME, E.SUBINV_NAME ,A.ITEM_SIZE, A.PO_UOM, A.UOM_CODE 
+				        HAVING SUM(B.TRANS_QTY) <> 0 
+				     ) A,
+				     (SELECT MENU.MENU_CD 
+				        FROM SLE_OUTLET_MENU MENU
+				        INNER JOIN SLE_OUTLET_MST MST ON MST.OUTLET_CD = MENU.OUTLET_CD AND OUTLET_TYPE ='FM'
+				                                                       <#if outletCd?has_content>  AND OUTLET_CD = :outletCd </#if> 
+				        										--매점만
+				        
+				     ) B
+				WHERE A.ITEM_CODE = B.MENU_CD(+)
+				)
+				WHERE SUBSTR(ITEM_CODE,1,1) ='G' AND MENU_CD IS NULL
+				<#if itemNm?has_content>  AND ( ITEM_CODE  LIKE  :itemNm  || '%' OR ITEM_NAME LIKE  '%' || :itemNm || '%' ) </#if>
+
+	]]>
+	</statement>
+</hqml>			

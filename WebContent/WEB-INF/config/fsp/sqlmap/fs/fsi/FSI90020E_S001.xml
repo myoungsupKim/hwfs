@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT U.ITEM_CODE                               /* 자재코드 */
+     , I.ITEM_NAME                               /* 자재명 */
+     , I.ITEM_SIZE                               /* 자재규격 */
+     , I.PO_UOM                                  /* 자재단위 */
+     , '' ITEM_INFO                              /* 자재특성 */
+     , NVL(P.ITEM_PRICE, 0) AS ITEM_PRICE        /* 단가 */
+     , NVL(P.G_ITEM_PRICE, 0) AS G_ITEM_PRICE    /* G당 단가 */
+     , NVL(N.DISUSE_RATE, 0) AS DISUSE_RATE      /* 폐기율 */
+     , DECODE(NVL(R.RESTRICT_SEQ, 0), 0, 'N', 'Y') AS RESTRICT_YN /* 금지자재여부 */
+     , R.RESTRICT_START                          /* 금지시작일 */
+     , R.RESTRICT_END                            /* 금지종료일 */
+     , R.RESTRICT_REASON                         /* 금지사유 */
+     , CASE WHEN P.G_ITEM_PRICE > 0 AND P.G_ITEM_PRICE > MIN(P.G_ITEM_PRICE) OVER(PARTITION BY I.ITEM_CLASS4 ORDER BY P.G_ITEM_PRICE) THEN 'Y'
+            ELSE 'N'
+       END AS LOW_PRICE_YN                       /* 최저단가여부 */
+     , TO_CHAR(SYSDATE,'YYYYMMDD') AS TODAY
+     -- PB_YN을 계약에서 가져옴 (2015.08.29)
+     , FN_ITEM_FEATURE_ICON(I.DUTY_YN, P.PB_YN, I.ECO_ITEM, I.MANUF_CD) AS FEATURE_ICON
+     , I.MTG_UNS
+     , I.MTG_STP
+     , I.UNUSE_YN
+  FROM (SELECT DISTINCT ITEM_CODE
+          FROM FSR_UPJANG_RECIPE_ITEM
+         WHERE UPJANG = #UPJANG#
+<isNotNull col="RECIPE_CLASS">
+           AND SUBSTR(RECIPE_CD, 1, 1) IN (#RECIPE_CLASS$#)
+</isNotNull>
+<isNotNull col="HALL_CLASS">
+           AND HALL_CLASS = #HALL_CLASS#
+</isNotNull>
+       ) U
+     , (SELECT ITEM_CODE
+             , ITEM_NAME
+             , ITEM_CLASS2
+             , ITEM_CLASS3
+             , ITEM_CLASS4
+             , NVL(KG_CONVERT_RATE, 0) AS KG_CONVERT_RATE
+             , PO_UOM
+             , ITEM_SIZE
+             , EPROCUSR.FN_ITEM_PROCURE_MTG_UNS('100', ITEM_CODE) AS MTG_UNS -- 불용자재체크
+             , EPROCUSR.FN_ITEM_PROCURE_MTG_STP('100', ITEM_CODE, '01') AS MTG_STP -- 중지자재체크(Q-STOP)
+             , ECO_ITEM
+             , MANUF_CD
+             , UNUSE_YN
+             , (SELECT CASE WHEN COUNT(1) > 0 THEN 'Y' ELSE 'N' END
+				  FROM FSI_DUTY_MST
+				 WHERE ITEM_CODE = A.ITEM_CODE
+				   AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN START_DATE AND END_DATE
+				   AND USE_YN = 'Y') AS DUTY_YN
+          FROM HLDC_PO_ITEM_MST A
+         WHERE ITEM_CLASS1 = 'F'
+       ) I
+     , (SELECT B.ITEM_CODE
+             , A.PB_YN
+             , ROUND(A.CONTRACT_PRICE_M / 10) * 10 AS ITEM_PRICE
+             , ROUND(ROUND(A.CONTRACT_PRICE_M / 10) * 10 / B.KG_CONVERT_RATE / 1000, 2) AS G_ITEM_PRICE
+          FROM HLDC_PO_CONTRACT_F A
+             , HLDC_PO_ITEM_MST B
+             , HLDC_ST_UPJANG C
+         WHERE A.ITEM_CODE = B.ITEM_CODE
+           AND A.UPJANG = C.AP_UNITPRICE_UPJANG
+           AND A.USE_YN = 'Y'
+           AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.CONTRACT_START AND A.CONTRACT_END
+           AND ((B.ITEM_CLASS2 BETWEEN 'F10' AND 'F26') OR B.ITEM_CLASS2 = 'F29')
+           AND C.UPJANG = #UPJANG#
+       ) P
+     , (SELECT ITEM_CODE
+             , RESTRICT_SEQ
+             , RESTRICT_START
+             , RESTRICT_END
+             , RESTRICT_REASON
+          FROM FSI_RESTRICT_MST
+         WHERE TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN RESTRICT_START AND RESTRICT_END
+           AND USE_YN = 'Y') R
+     , FSI_ITEM_NUT N
+ WHERE U.ITEM_CODE = I.ITEM_CODE
+   AND ((I.ITEM_CLASS2 BETWEEN 'F10' AND 'F26') OR I.ITEM_CLASS2 = 'F29')
+   AND U.ITEM_CODE = P.ITEM_CODE(+)
+   AND U.ITEM_CODE = N.ITEM_CODE(+)
+   AND U.ITEM_CODE = R.ITEM_CODE(+)
+<isNotNull col="ITEM_CLASS2">
+   AND I.ITEM_CLASS2 = #ITEM_CLASS2#
+</isNotNull>
+<isNotNull col="ITEM_CLASS3">
+   AND I.ITEM_CLASS3 = #ITEM_CLASS3#
+</isNotNull>
+<isNotNull col="ITEM_CLASS4">
+   AND I.ITEM_CLASS4 = #ITEM_CLASS4#
+</isNotNull>
+<isNotNull col="ITEM_NAME">
+ --AND I.ITEM_NAME LIKE '%'|| #ITEM_NAME# ||'%'
+ --REGEXP_LIKE 함수의 변수값이 200자 넘으면 에러 발생 substr함수로 200자 제한 추가 김호석 CH201703_00107
+ AND REGEXP_LIKE(I.ITEM_NAME, (SELECT SUBSTR(TRIM(LISTAGG(REPLACE(T.ITEM_NAME, ',', '|'), '|') WITHIN GROUP(ORDER BY ITEM_GROUP)),0,200) AS ITEM_NAME
+                             FROM
+                                 (SELECT REPLACE(REPLACE(REPLACE(#ITEM_NAME#, '(', '\\('), ')', '\\)'), ' ', '|') AS ITEM_NAME
+                                       , '1' AS ITEM_GROUP
+                                    FROM DUAL
+                                  UNION ALL
+                                  --정규식에서 괄호가 한쪽만 있으면 에러 발생하기때문에 치환처리
+                                  SELECT REPLACE(REPLACE(REPLACE(KEYWORD||'|'||SIM_TXT, '(', ''), ')', ''), ' ', '|') AS ITEM_NAME
+                                       , '1' AS ITEM_GROUP
+                                    FROM EPROCUSR.VO_ITEM_SIM_WORD
+                                   --WHERE REGEXP_LIKE(KEYWORD, REPLACE(REPLACE(REPLACE(#ITEM_NAME#, '(', '\\('), ')', '\\)'), ' ', '|'))
+                                   --유사어에 등록된 키워드는 일치검색으로 변경
+                                   WHERE KEYWORD = REPLACE(REPLACE(REPLACE(#ITEM_NAME#, '(', '\\('), ')', '\\)'), ' ', '|')
+                                   
+                                 ) T
+                           )
+             )
+</isNotNull>
+<isEqual col="ZERO_PRICE" value="1">
+   AND (NVL(P.ITEM_PRICE, 0) = 0 OR I.MTG_UNS = 'UK' OR I.MTG_STP = 'TK')
+</isEqual>
+    </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_itemList">
+	</output>
+</query>

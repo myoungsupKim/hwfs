@@ -1,0 +1,524 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="fs.fsa.adoptionReqListDAO">
+	<desc>채용인력요청 HQML Query</desc>
+
+	<!-- 우편번호별 지역을 조회한다. -->
+	<statement name="searchUpjangAddr" type="select">
+		/*+ com.hwfs.fs.fsa.dao.AdoptionReqListDAO.searchUpjangAddr */
+		<![CDATA[
+		SELECT
+		     POST_NO
+		    ,UPJANG_ADDR
+		    ,SCC_TELNO_SPLIT_FUN(UPJANG_TEL, 1) AS TEL_NO1
+		    ,SCC_TELNO_SPLIT_FUN(UPJANG_TEL, 2) AS TEL_NO2
+		    ,SCC_TELNO_SPLIT_FUN(UPJANG_TEL, 3) AS TEL_NO3
+		 FROM(
+				SELECT 
+						B.POST_NO
+                       ,B.ADDR AS UPJANG_ADDR
+                       ,A.UPJANG_TEL_ENC
+                       ,SCC_CRYPTO.DEC_FUN(A.UPJANG_TEL_ENC) as UPJANG_TEL
+             	FROM SCO_UPJANG_MST A, HLDC_ST_UPJANG B, HLDC_SC_DEPT_V C
+                WHERE (A.UPJANG = B.UPJANG) AND (B.DEPT_ID = C.DEPT_ID)
+				<#if upjangCd?has_content>
+				AND A.UPJANG = :upjangCd
+				</#if>
+			 )
+		]]>
+	</statement>
+
+	<!-- 채용인력요청 목록을 조회한다. -->
+	<statement name="selectReqList" type="select"><![CDATA[
+		SELECT
+		        MU_CD
+               ,MU_NM
+               ,TM_CD
+               ,TM_NM
+		       ,REQUEST_UPJANG_CD
+		       ,REQUEST_UPJANG_NM 
+		       ,REQUEST_NUM
+		       ,REQUEST_DATE
+		       ,CLOSE_DATE
+		       ,REQUEST_PERIOD
+		       ,PROGRESS_STATUS
+		       ,GENDER
+		       ,AGE
+		       ,NEED_NO_MAN
+		       ,NEED_DUTY1
+		       ,NEED_DUTY2
+		       ,NEED_DUTY_ETC
+		       ,CAREER_YN
+		       ,CAREER_YY
+		       ,ADDR_KEY
+		       ,ADDR_INFO
+		       ,DUTY_COND
+		       ,DUTY_COND_ETC_CONTENTS
+		       ,MEAL_QTY_BFST
+		       ,MEAL_QTY_LUN
+		       ,MEAL_QTY_DIN
+		       ,DUTY_START_TIME1
+		       ,DUTY_START_MINUTE1
+		       ,DUTY_START_TIME2
+		       ,DUTY_START_MINUTE2
+		       ,NON_DUTY_START_TIME
+		       ,NON_DUTY_START_MINUTE
+		       ,DUTY_END_TIME1
+		       ,DUTY_END_MINUTE1
+		       ,DUTY_END_TIME2
+		       ,DUTY_END_MINUTE2
+		       ,NON_DUTY_END_TIME
+		       ,NON_DUTY_END_MINUTE
+		       ,SALARY_KIND
+		       ,SALARY_AMT
+		       ,SALARY_MM_AVG_AMT
+		       ,ETC
+		       ,REQ_USERNM
+		       ,REQ_USER_TELNO
+		       ,SCC_TELNO_SPLIT_FUN(REQ_USER_TELNO, 1) AS TEL_NO1
+		       ,SCC_TELNO_SPLIT_FUN(REQ_USER_TELNO, 2) AS TEL_NO2
+		       ,SCC_TELNO_SPLIT_FUN(REQ_USER_TELNO, 3) AS TEL_NO3
+		       ,REQ_USER_HANDPHONE_NUM
+		       ,SCC_TELNO_SPLIT_FUN(REQ_USER_HANDPHONE_NUM, 1) AS HP_NO1
+		       ,SCC_TELNO_SPLIT_FUN(REQ_USER_HANDPHONE_NUM, 2) AS HP_NO2
+		       ,SCC_TELNO_SPLIT_FUN(REQ_USER_HANDPHONE_NUM, 3) AS HP_NO3
+		       ,LAST_CLOSE_DATE
+		       ,H_REQUEST_UPJANG_CD
+		       , POSS_DUTY
+		       , POSS_DUTY_ETC
+		FROM(
+				SELECT 
+				        MU_CD
+		               ,MU_NM
+		               ,TM_CD
+		               ,TM_NM
+		               ,REQUEST_UPJANG_CD
+				       ,UPJANGNM AS REQUEST_UPJANG_NM 
+				       ,REQUEST_NUM
+				       ,REQUEST_DATE
+				       ,CLOSE_DATE
+				       ,TO_DATE(CLOSE_DATE,'YYYYMMDD')-TO_DATE(REQUEST_DATE,'YYYYMMDD') AS REQUEST_PERIOD
+				       ,PROGRESS_STATUS
+				       ,GENDER
+				       ,AGE
+				       ,NEED_NO_MAN
+				       ,NEED_DUTY1
+				       ,NEED_DUTY2
+				       ,NEED_DUTY_ETC
+				       ,CAREER_YN
+				       ,CAREER_YY
+				       ,ADDR_KEY
+				       ,SCC_ADDR_FUN(ADDR_KEY, :loginPersMask, :maskAuth) AS ADDR_INFO
+				       ,DUTY_COND
+				       ,DUTY_COND_ETC_CONTENTS
+				       ,MEAL_QTY_BFST
+				       ,MEAL_QTY_LUN
+				       ,MEAL_QTY_DIN
+				       ,DUTY_START_TIME1
+				       ,DUTY_START_MINUTE1
+				       ,DUTY_START_TIME2
+				       ,DUTY_START_MINUTE2
+				       ,NON_DUTY_START_TIME
+				       ,NON_DUTY_START_MINUTE
+				       ,DUTY_END_TIME1
+				       ,DUTY_END_MINUTE1
+				       ,DUTY_END_TIME2
+				       ,DUTY_END_MINUTE2
+				       ,NON_DUTY_END_TIME
+				       ,NON_DUTY_END_MINUTE
+				       ,SALARY_KIND
+				       ,SALARY_AMT
+				       ,SALARY_MM_AVG_AMT
+				       ,ETC
+				       ,REQ_USERNM
+				       ,SCC_CRYPTO.MASKAUTH_FUN (REQ_USER_TELNO_ENC,9,:loginPersMask,:maskAuth) AS REQ_USER_TELNO
+				       ,SCC_CRYPTO.MASKAUTH_FUN (REQ_USER_HANDPHONE_NUM_ENC,8,:loginPersMask,:maskAuth) AS REQ_USER_HANDPHONE_NUM
+				       ,LAST_CLOSE_DATE
+				       ,REQUEST_UPJANG_CD AS H_REQUEST_UPJANG_CD
+				       , POSS_DUTY
+				       , POSS_DUTY_ETC
+				FROM   FSA_POOL_REQ T
+					  ,(SELECT MU_CD, MU_NM, TM_CD, TM_NM, UPJANG, UPJANGNM  FROM SCO_UPJANG_MST_V) T2
+				WHERE  T.REQUEST_UPJANG_CD = T2.UPJANG
+				<#if admin?has_content>
+				AND PROGRESS_STATUS NOT IN ('W')
+				</#if>
+		)
+		WHERE  1=1
+		<#if muCd?has_content>
+		AND MU_CD = :muCd
+		</#if>
+		<#if tmCd?has_content>
+		AND TM_CD = :tmCd
+		</#if>
+		<#if upjangCd?has_content>
+		AND REQUEST_UPJANG_CD = :upjangCd
+		</#if>
+		<#if progressStatus?has_content>
+		AND PROGRESS_STATUS = :progressStatus
+		</#if>
+		<#if fromDay?has_content>
+		AND REQUEST_DATE BETWEEN :fromDay AND :toDay
+		</#if>
+		<#if sex?has_content>
+		AND GENDER =  :sex
+		</#if>
+		ORDER BY REQUEST_UPJANG_CD ASC, REQUEST_NUM DESC
+		]]></statement>
+
+	<!-- 배정인력 목록을 조회한다. -->
+	<statement name="selectUpjangPoolList" type="select">
+		/*+ com.hwfs.fs.fsa.dao.AdoptionReqListDAO.selectUpjangPoolList
+		*/
+		<![CDATA[
+		SELECT
+		        ADOPTION_NUM                                                      /* 채용번호             */
+		      , REQUEST_UPJANG_CD
+		      , REQUEST_NUM 
+		      , NAME                                                              /* 성명                 */      
+		      , AGE                                                               /* 나이                 */
+		      , ADOPTION_STATUS                                                   /* 채용상태(공통코드)   */
+		      , ADOPTION_STATUS_NM                                                
+		      , BRTH_YEAR                                                         /* 생년                 */  
+		      , GENDER                                                            /* 그룹공통코드(성별)   */  
+		      , GENDER_NM                                                            /* 그룹공통코드(성별)   */  
+		      , SCC_TELNO_SPLIT_FUN(TELNO, 1)||'-'||SCC_TELNO_SPLIT_FUN(TELNO, 2)||'-'||SCC_TELNO_SPLIT_FUN(TELNO, 3) AS TELNO  
+		      , SCC_TELNO_SPLIT_FUN(TELNO, 1) AS TELNO1
+		      , SCC_TELNO_SPLIT_FUN(TELNO, 2) AS TELNO2
+		      , SCC_TELNO_SPLIT_FUN(TELNO, 3) AS TELNO3                                                           /* 전화번호_지역_암호화 */  
+		      , SCC_TELNO_SPLIT_FUN(HANDPHONE_NUM, 1) AS HANDPHONE_NUM1
+		      , SCC_TELNO_SPLIT_FUN(HANDPHONE_NUM, 2) AS HANDPHONE_NUM2
+		      , SCC_TELNO_SPLIT_FUN(HANDPHONE_NUM, 3) AS HANDPHONE_NUM3
+		      , SCC_TELNO_SPLIT_FUN(HANDPHONE_NUM, 1)||'-'||SCC_TELNO_SPLIT_FUN(HANDPHONE_NUM, 2)||'-'||SCC_TELNO_SPLIT_FUN(HANDPHONE_NUM, 3) AS HANDPHONE_NUM                                                     /*                      */  
+		      , EMAIL                                                             /* 이메일주소           */  
+		      , ADDR_KEY												          /* 우편번호             */  
+		      , ADDR_INFO                                                         /* 주소 암호화          */  
+		      , ADOPTION_PRTC                                                     /* 채용_경위            */  
+		      , PERS_INFO_AGREE_DATE                                              /* 개인정보 동의일자    */  
+		      , PERS_INFO_EDATE                                                   /* 개인정보_만료일자    */  
+		      , PERS_INFO_DSTRY_SABUN                                             /* 개인정보_파기자_사번 */  
+		      , PERS_INFO_DSTRY_DATE                                              /* 년/월/일 시분초      */  
+		      , SUP_DUTY                                                          /* 지원직무             */  
+		      , SUP_DUTY_NM
+		      , SUP_DUTY_ETC
+		      , SUP_DUTY_GROUP
+		      , SUP_DUTY_GROUP ||' - '|| SUP_DUTY_NM AS SUP_DUTY_DUAL
+		      , POSS_DUTY                                                         /* 가능직무             */  
+		      , POSS_DUT_NM
+		      , POSS_DUTY_ETC 
+		      , POSS_DUTY_GROUP                                                    /* 가능직무             */  
+		      , POSS_DUTY_GROUP ||' - '|| POSS_DUT_NM AS POSS_DUTY_DUAL
+		      , REMARK                                                            /* 비고                 */  
+		      , CDATE
+		      , FILE_ID
+		      , GOOD_YN
+      		  , REJECT_REASON
+      		  , FS_CAREER_YN
+      		  , LOC
+		FROM (
+		      SELECT  A.ADOPTION_NUM 
+		      		, A.REQUEST_UPJANG_CD
+		      		, A.REQUEST_NUM                                               /* 채용번호             */
+		            , M.NAME                                                        /* 성명                 */      
+		            , TO_NUMBER( TO_CHAR( SYSDATE ,'YYYY') ) - TO_NUMBER( SUBSTR( M.BRTH_DATE,0,4))   AS AGE   /* 나이                 */
+		            , M.ADOPTION_STATUS                                             /* 채용상태(공통코드)   */
+		            , (SELECT CODE_NAME 
+		                 FROM SCC_COMMON_CODE
+		                WHERE GROUP_CODE = 'SIGN_STATUS'
+		                  AND CODE = M.ADOPTION_STATUS
+		                  AND ROWNUM = 1
+		              ) AS ADOPTION_STATUS_NM
+		            , TO_NUMBER( SUBSTR( M.BRTH_DATE,0,4)) AS BRTH_YEAR                                                  /* 생년                 */
+		            , M.GENDER
+		            , (SELECT CODE_NAME FROM SCC_COMMON_CODE 
+				       WHERE GROUP_CODE = 'GENDER_TYPE' AND USE_YN = 'Y'
+				       AND CODE = M.GENDER) AS GENDER_NM                                                     /* 그룹공통코드(성별)   */
+		            , SCC_CRYPTO.MASKAUTH_FUN (M.TELNO_ENC,9,:loginPersMask,:maskAuth) AS TELNO            /* 전화번호_지역_암호화 */
+		            , SCC_CRYPTO.MASKAUTH_FUN (M.HANDPHONE_NUM_ENC,8,:loginPersMask,:maskAuth) AS HANDPHONE_NUM    /*                      */
+		            , SCC_CRYPTO.MASKAUTH_FUN(M.EMAIL_ENC, 7, :loginPersMask, :maskAuth) AS EMAIL            /* 이메일주소           */
+		            , M.ADDR_KEY											           /* 주소 암호화          */
+		            , SCC_ADDR_FUN(M.ADDR_KEY, :loginPersMask, :maskAuth) AS ADDR_INFO             /* 주소 암호화          */
+		            , M.ADOPTION_PRTC                                              /* 채용_경위            */
+		            , M.PERS_INFO_AGREE_DATE                                       /* 개인정보 동의일자    */
+		            , M.PERS_INFO_EDATE                                              /* 개인정보_만료일자    */
+		            , M.PERS_INFO_DSTRY_SABUN                                      /* 개인정보_파기자_사번 */
+		            , M.PERS_INFO_DSTRY_DATE                                       /* 년/월/일 시분초      */
+		            , M.SUP_DUTY                                                   /* 지원직무             */
+		            , M.SUP_DUTY_ETC                                                   /* 지원직무             */
+		            , (SELECT CODE_NAME 
+		                 FROM SCC_COMMON_CODE
+		                WHERE GROUP_CODE = 'DUTY_TYPE'
+		                  AND CODE = M.SUP_DUTY
+		                  AND ROWNUM = 1            
+		              ) AS SUP_DUTY_NM
+		            , (SELECT CASE WHEN SET1 = '1' THEN 
+		            			'조리사'
+		                      ELSE
+		                      	'조리원'
+		                      END
+		                 FROM SCC_COMMON_CODE
+		                WHERE GROUP_CODE = 'DUTY_TYPE'
+		                  AND CODE = M.SUP_DUTY
+		                  AND ROWNUM = 1            
+		              ) AS SUP_DUTY_GROUP
+		            , M.POSS_DUTY                                                  /* 가능직무             */
+		            , (SELECT CASE WHEN SET1 = '1' THEN 
+		            			'조리사'
+		                      ELSE
+		                      	'조리원'
+		                      END
+		                 FROM SCC_COMMON_CODE
+		                WHERE GROUP_CODE = 'DUTY_TYPE'
+		                  AND CODE = SUBSTR(M.POSS_DUTY,0,3)
+		                  AND ROWNUM = 1            
+		              ) AS POSS_DUTY_GROUP
+		            , C.POSS_DUT_NM
+		            , M.POSS_DUTY_ETC                                                  /* 가능직무             */
+		            , M.REMARK                                                     /* 비고                 */
+		            , TO_CHAR( M.CDATE,'YYYYMMDD') AS CDATE
+		            , M.FILE_ID
+		            , A.GOOD_YN
+      		  		, A.REJECT_REASON
+      		  		, FS_CAREER_YN
+      		  		, LOC
+		        FROM  FSA_POOL_MASTER M
+		        	 ,FSA_POOL_ASSIGN A
+		        	 ,(SELECT Y.ADOPTION_NUM, 
+		        	 		LISTAGG(DECODE(X.CODE_NAME,'기타','기타('||Y.POSS_DUTY_ETC||')',X.CODE_NAME), ',') 
+		        	 		WITHIN GROUP (ORDER BY X.CODE) AS POSS_DUT_NM
+                      FROM  SCC_COMMON_CODE X,
+                      		(
+                      		-- 주석처리 20150804
+                      		-- SELECT DISTINCT ADOPTION_NUM,POSS_DUTY_ETC, REGEXP_SUBSTR(POSS_DUTY, '[^,]+', 1, LEVEL) POSS_DUTY
+                             -- FROM FSA_POOL_MASTER
+                             -- CONNECT BY LEVEL <= LENGTH(REGEXP_REPLACE(POSS_DUTY, '[^,]+', '')) + 1
+                             SELECT DISTINCT A.ADOPTION_NUM, A.POSS_DUTY_ETC, REGEXP_SUBSTR(A.POSS_DUTY,'[^\,]+',1,B.LV) POSS_DUTY
+                              FROM (SELECT ADOPTION_NUM,POSS_DUTY_ETC, POSS_DUTY,REGEXP_COUNT(POSS_DUTY,'\,') + 1 CNT FROM FSA_POOL_MASTER ) A
+                                   INNER JOIN (SELECT LEVEL LV FROM DUAL CONNECT BY LEVEL <= 100) B
+                                   ON B.LV <= A.CNT 
+                            ) Y
+                      WHERE X.GROUP_CODE = 'DUTY_TYPE'
+                      AND X.CODE = Y.POSS_DUTY
+                      GROUP BY Y.ADOPTION_NUM
+                      ) C
+		       WHERE M.ADOPTION_NUM = A.ADOPTION_NUM
+		       AND   M.ADOPTION_NUM = C.ADOPTION_NUM(+)
+		        <#if name?has_content>
+			   AND    M.NAME LIKE '%' || :name || '%'
+		       </#if>
+		       <#if duty?has_content>
+			   AND    M.SUP_DUTY = :duty 
+		       </#if>
+		       <#if sex?has_content>
+			   AND    M.GENDER = :sex 
+		       </#if>
+		     ) K 
+		WHERE 1 = 1
+		AND   REQUEST_UPJANG_CD = <#if requestUpjangCd?has_content> :requestUpjangCd <#else> null </#if>
+		AND   REQUEST_NUM = <#if requestNum?has_content> :requestNum <#else> null </#if>
+		<#if ageStart?has_content>
+		AND    AGE >= :ageStart 
+		</#if>
+		<#if ageEnd?has_content>
+		AND    AGE <= :ageEnd 
+		</#if>
+		 ORDER BY ADOPTION_STATUS,NAME   
+		]]>
+	</statement>
+
+	<!-- 채용인력요청(을)를 등록한다. -->
+	<statement name="insertReq" type="insert">
+		/*+ com.hwfs.fs.fsa.dao.AdoptionReqListDAO.insertReq */
+		<![CDATA[
+		INSERT INTO FSA_POOL_REQ(
+		        REQUEST_UPJANG_CD
+		       ,REQUEST_NUM
+		       ,REQUEST_DATE
+		       ,CLOSE_DATE
+		       ,PROGRESS_STATUS
+		       ,GENDER
+		       ,AGE
+		       ,NEED_NO_MAN
+		       ,NEED_DUTY1
+		       ,NEED_DUTY2
+		       ,NEED_DUTY_ETC
+		       , POSS_DUTY
+		       , POSS_DUTY_ETC
+		       ,CAREER_YN
+		       ,CAREER_YY
+		       ,ADDR_KEY
+		       ,ZIP_CODE
+		       ,JOB_SITE_ADDR
+		       ,JOB_SITE_ADDR_ENC
+		       ,DUTY_COND
+		       ,DUTY_COND_ETC_CONTENTS
+		       ,MEAL_QTY_BFST
+		       ,MEAL_QTY_LUN
+		       ,MEAL_QTY_DIN
+		       ,DUTY_START_TIME1
+		       ,DUTY_START_MINUTE1
+		       ,DUTY_START_TIME2
+		       ,DUTY_START_MINUTE2
+		       ,NON_DUTY_START_TIME
+		       ,NON_DUTY_START_MINUTE
+		       ,DUTY_END_TIME1
+		       ,DUTY_END_MINUTE1
+		       ,DUTY_END_TIME2
+		       ,DUTY_END_MINUTE2
+		       ,NON_DUTY_END_TIME
+		       ,NON_DUTY_END_MINUTE
+		       ,SALARY_KIND
+		       ,SALARY_AMT
+		       ,SALARY_MM_AVG_AMT
+		       ,ETC
+		       ,REQ_USERNM
+		       ,REQ_USER_TELNO_ENC
+		       ,REQ_USER_HANDPHONE_NUM_ENC
+		       ,APPRAISAL
+		       ,CUSER
+		       ,CDATE
+		)VALUES(
+				:requestUpjangCd
+               ,FSA_POOL_REQ_S.NEXTVAL
+               ,<#if requestDate?has_content> :requestDate <#else> null </#if>
+               ,<#if closeDate?has_content> :closeDate <#else> null </#if>
+               ,<#if progressStatus?has_content> :progressStatus <#else> null </#if>
+               ,<#if gender?has_content> :gender <#else> null </#if>
+               ,<#if age?has_content> :age <#else> null </#if>
+               ,<#if needNoMan?has_content> :needNoMan <#else> null </#if>
+               ,<#if needDuty1?has_content> :needDuty1 <#else> null </#if>
+               ,<#if needDuty2?has_content> :needDuty2 <#else> null </#if>
+               ,<#if needDutyEtc?has_content> :needDutyEtc <#else> null </#if>
+               ,<#if possDuty?has_content> :possDuty <#else> null </#if>
+               ,<#if possDutyEtc?has_content> :possDutyEtc <#else> null </#if>
+               ,<#if careerYn?has_content> :careerYn <#else> null </#if>
+               ,<#if careerYy?has_content> :careerYy <#else> null </#if>
+               ,<#if addrKey?has_content> :addrKey <#else> null </#if>
+               ,<#if zipCode?has_content> :zipCode <#else> null </#if>
+               ,<#if jobSiteAddr?has_content> :jobSiteAddr <#else> null </#if>
+               ,<#if jobSiteAddrEnc?has_content> SCC_CRYPTO.ENC_FUN(:jobSiteAddrEnc) <#else> null </#if>
+               ,<#if dutyCond?has_content> :dutyCond <#else> null </#if>
+               ,<#if dutyCondEtcContents?has_content> :dutyCondEtcContents <#else> null </#if>
+               ,<#if mealQtyBfst?has_content> :mealQtyBfst <#else> null </#if>
+               ,<#if mealQtyLun?has_content> :mealQtyLun <#else> null </#if>
+               ,<#if mealQtyDin?has_content> :mealQtyDin <#else> null </#if>
+               ,<#if dutyStartTime1?has_content> :dutyStartTime1 <#else> null </#if>
+               ,<#if dutyStartMinute1?has_content> :dutyStartMinute1 <#else> null </#if>
+               ,<#if dutyStartTime2?has_content> :dutyStartTime2 <#else> null </#if>
+               ,<#if dutyStartMinute2?has_content> :dutyStartMinute2 <#else> null </#if>
+               ,<#if nonDutyStartTime?has_content> :nonDutyStartTime <#else> null </#if>
+               ,<#if nonDutyStartMinute?has_content> :nonDutyStartMinute <#else> null </#if>
+               ,<#if dutyEndTime1?has_content> :dutyEndTime1 <#else> null </#if>
+               ,<#if dutyEndMinute1?has_content> :dutyEndMinute1 <#else> null </#if>
+               ,<#if dutyEndTime2?has_content> :dutyEndTime2 <#else> null </#if>
+               ,<#if dutyEndMinute2?has_content> :dutyEndMinute2 <#else> null </#if>
+               ,<#if nonDutyEndTime?has_content> :nonDutyEndTime <#else> null </#if>
+               ,<#if nonDutyEndMinute?has_content> :nonDutyEndMinute <#else> null </#if>
+               ,<#if salaryKind?has_content> :salaryKind <#else> null </#if>
+               ,<#if salaryAmt?has_content> :salaryAmt <#else> null </#if>
+               ,<#if salaryMmAvgAmt?has_content> :salaryMmAvgAmt <#else> null </#if>
+               ,<#if etc?has_content> :etc <#else> null </#if>
+               ,<#if reqUsernm?has_content> :reqUsernm <#else> null </#if>
+               ,<#if telNo1?has_content || telNo2?has_content || telNo3?has_content> SCC_CRYPTO.ENC_FUN(:telNo1 || '-' || :telNo2 || '-' || :telNo3 ) <#else> null </#if>
+               ,<#if hpNo1?has_content || hpNo2?has_content || hpNo3?has_content> SCC_CRYPTO.ENC_FUN(:hpNo1 || '-' || :hpNo2 || '-' || :hpNo3 ) <#else> null </#if>
+               ,'001'
+               ,:loginSabun
+               ,SYSDATE
+		)        
+		]]>
+	</statement>
+
+	<!-- 채용인력요청(을)를 수정한다. -->
+	<statement name="updateReq" type="update">
+		/*+ com.hwfs.fs.fsa.dao.AdoptionReqListDAO.updateReq */
+		<![CDATA[
+		UPDATE  FSA_POOL_REQ
+		SET     REQUEST_UPJANG_CD = :requestUpjangCd
+               ,REQUEST_DATE = <#if requestDate?has_content> :requestDate <#else> null </#if>
+               ,CLOSE_DATE = <#if closeDate?has_content> :closeDate <#else> null </#if>
+               ,PROGRESS_STATUS = <#if progressStatus?has_content> :progressStatus <#else> null </#if>
+               ,GENDER = <#if gender?has_content> :gender <#else> null </#if>
+               ,AGE = <#if age?has_content> :age <#else> null </#if>
+               ,NEED_NO_MAN = <#if needNoMan?has_content> :needNoMan <#else> null </#if>
+               ,NEED_DUTY1 = <#if needDuty1?has_content> :needDuty1 <#else> null </#if>
+               ,NEED_DUTY2 = <#if needDuty2?has_content> :needDuty2 <#else> null </#if>
+               ,NEED_DUTY_ETC = <#if needDutyEtc?has_content> :needDutyEtc <#else> null </#if>
+               ,POSS_DUTY 	= 	<#if possDuty?has_content> :possDuty <#else> null </#if>
+               ,POSS_DUTY_ETC	=	<#if possDutyEtc?has_content> :possDutyEtc <#else> null </#if>
+               ,CAREER_YN = <#if careerYn?has_content> :careerYn <#else> null </#if>
+               ,CAREER_YY = <#if careerYy?has_content> :careerYy <#else> null </#if>
+               ,ADDR_KEY = <#if addrKey?has_content> :addrKey <#else> null </#if>
+               ,ZIP_CODE = <#if zipCode?has_content> :zipCode <#else> null </#if>
+               ,JOB_SITE_ADDR = <#if jobSiteAddr?has_content> :jobSiteAddr <#else> null </#if>
+               ,JOB_SITE_ADDR_ENC = <#if jobSiteAddrEnc?has_content> SCC_CRYPTO.ENC_FUN(:jobSiteAddrEnc) <#else> null </#if>
+               ,DUTY_COND = <#if dutyCond?has_content> :dutyCond <#else> null </#if>
+               ,DUTY_COND_ETC_CONTENTS = <#if dutyCondEtcContents?has_content> :dutyCondEtcContents <#else> null </#if>
+               ,MEAL_QTY_BFST = <#if mealQtyBfst?has_content> :mealQtyBfst <#else> null </#if>
+               ,MEAL_QTY_LUN = <#if mealQtyLun?has_content> :mealQtyLun <#else> null </#if>
+               ,MEAL_QTY_DIN = <#if mealQtyDin?has_content> :mealQtyDin <#else> null </#if>
+               ,DUTY_START_TIME1 = <#if dutyStartTime1?has_content> :dutyStartTime1 <#else> null </#if>
+               ,DUTY_START_MINUTE1 = <#if dutyStartMinute1?has_content> :dutyStartMinute1 <#else> null </#if>
+               ,DUTY_START_TIME2 = <#if dutyStartTime2?has_content> :dutyStartTime2 <#else> null </#if>
+               ,DUTY_START_MINUTE2 = <#if dutyStartMinute2?has_content> :dutyStartMinute2 <#else> null </#if>
+               ,NON_DUTY_START_TIME = <#if nonDutyStartTime?has_content> :nonDutyStartTime <#else> null </#if>
+               ,NON_DUTY_START_MINUTE = <#if nonDutyStartMinute?has_content> :nonDutyStartMinute <#else> null </#if>
+               ,DUTY_END_TIME1 = <#if dutyEndTime1?has_content> :dutyEndTime1 <#else> null </#if>
+               ,DUTY_END_MINUTE1 = <#if dutyEndMinute1?has_content> :dutyEndMinute1 <#else> null </#if>
+               ,DUTY_END_TIME2 = <#if dutyEndTime2?has_content> :dutyEndTime2 <#else> null </#if>
+               ,DUTY_END_MINUTE2 = <#if dutyEndMinute2?has_content> :dutyEndMinute2 <#else> null </#if>
+               ,NON_DUTY_END_TIME = <#if nonDutyEndTime?has_content> :nonDutyEndTime <#else> null </#if>
+               ,NON_DUTY_END_MINUTE = <#if nonDutyEndMinute?has_content> :nonDutyEndMinute <#else> null </#if>
+               ,SALARY_KIND = <#if salaryKind?has_content> :salaryKind <#else> null </#if>
+               ,SALARY_AMT = <#if salaryAmt?has_content> :salaryAmt <#else> null </#if>
+               ,SALARY_MM_AVG_AMT = <#if salaryMmAvgAmt?has_content> :salaryMmAvgAmt <#else> null </#if>
+               ,ETC = <#if etc?has_content> :etc <#else> null </#if>
+               ,REQ_USERNM = <#if reqUsernm?has_content> :reqUsernm <#else> null </#if>
+               ,REQ_USER_TELNO_ENC = <#if telNo1?has_content || telNo2?has_content || telNo3?has_content> SCC_CRYPTO.ENC_FUN(:telNo1 || '-' || :telNo2 || '-' || :telNo3 ) <#else> null </#if>
+               ,REQ_USER_HANDPHONE_NUM_ENC = <#if hpNo1?has_content || hpNo2?has_content || hpNo3?has_content> SCC_CRYPTO.ENC_FUN(:hpNo1 || '-' || :hpNo2 || '-' || :hpNo3 ) <#else> null </#if>
+               ,LAST_CLOSE_DATE = <#if lastCloseDate?has_content> :lastCloseDate <#else> null </#if>
+               ,UUSER = :loginSabun
+               ,UDATE = SYSDATE
+		WHERE REQUEST_UPJANG_CD = :hRequestUpjangCd         
+		AND REQUEST_NUM = :requestNum      
+		]]>
+	</statement>
+
+	<!-- 합격여부를 저장한다. -->
+	<statement name="updateAssign" type="update">
+		/*+ com.hwfs.fs.fsa.dao.AdoptionReqListDAO.updateAssign */
+		<![CDATA[
+		UPDATE FSA_POOL_ASSIGN 
+		SET     GOOD_YN = <#if goodYn?has_content> :goodYn <#else> null </#if>
+		       ,REJECT_REASON = <#if rejectReason?has_content> :rejectReason <#else> null </#if>
+		       ,UUSER = :loginSabun
+		       ,UDATE = SYSDATE
+		WHERE  REQUEST_UPJANG_CD = :requestUpjangCd
+		AND	   REQUEST_NUM = :requestNum
+		AND	   ADOPTION_NUM = :adoptionNum
+		]]>
+	</statement>
+
+	<!-- 인력 상태를 변경처리한다. -->
+	<statement name="updateEnd" type="update">
+		/*+ com.hwfs.fs.fsa.dao.AdoptionReqListDAO.updateEnd */
+		<![CDATA[
+		UPDATE FSA_POOL_MASTER
+		SET    ADOPTION_STATUS = :adoptionStatus
+		      ,UUSER = :loginSabun
+		      ,UDATE = SYSDATE
+		WHERE ADOPTION_NUM = :adoptionNum 
+		]]>
+	</statement>
+
+	<!-- 채용인력요청(을)를 삭제한다. -->
+	<statement name="deleteReq" type="delete">
+		/*+ com.hwfs.fs.fsa.dao.AdoptionReqListDAO.deleteReq */
+		<![CDATA[
+		DELETE 
+		FROM   FSA_POOL_REQ 
+		WHERE  REQUEST_UPJANG_CD = :requestUpjangCd
+		AND	   REQUEST_NUM = :requestNum
+		]]>
+	</statement>
+
+</hqml>

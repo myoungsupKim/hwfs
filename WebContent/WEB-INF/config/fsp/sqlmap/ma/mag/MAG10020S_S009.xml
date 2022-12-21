@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+-- 선수금 발생TAB
+-- 발생일자, 식권종류, 자재명, 창고명, 고객사, 결재유형(카드/국민), 단가, 식수, 금액, 적요, 잔액, 매출, 대체, 발행, 자동, 일마감, 월마감
+SELECT CC.OCCUR_DATE,
+		CC.ADVANCE_CLASS_NM,CC.ADVANCE_CLASS,
+		CC.ITEM_NM,
+        CC.ITEM_NM || DECODE(CC.TICKET_STARTNUM,NULL,NULL,'; '||CC.TICKET_STARTNUM||'~'||CC.TICKET_ENDNUM) AS ITEM_NM2,
+        CC.ITEM_CD,
+        POS_GUESTINFO_NM,
+        POS_GUESTINFO,
+        CC.CUST_NM,
+        CC.CUST_CD,
+        SETTLE_CLASS_NM,
+        CC.SETTLE_CLASS,
+        CC.UPRICE,
+        CC.QTY,
+        --세금계산서 발행 식권인 경우 공급가액만 표시되도록 수정 20160523  처리자 : 맹수영
+        --AMT,
+        DECODE(CC.TAX_YN , 'Y', (AMT-VAT_AMT),AMT) AMT,
+        CC.REMARK,
+        CC.OCCUR_ADVANCE_NUM,
+        CC.ADVANCE_NUM,
+        CC.APPLY_AMT,
+        --세금계산서 발행 식권인 경우 공급가액만 표시되도록 수정 20160523  처리자 : 맹수영
+        --CC.BAL_AMT,
+        CC.BAL_AMT - DECODE(CC.TAX_YN , 'Y', VAT_AMT,0) BAL_AMT, 
+        CC.SALS_YN,
+        CC.ALT_YN,
+        DECODE(CC.SALS_YN||CC.ALT_YN,'NN','N','Y') SALS_ALT_YN,
+        CC.TAX_YN,DDDD_CLOSE_YN,
+        CC.JOURNALZ_YN,
+        CC.TICKET_STARTNUM,
+		CC.TICKET_ENDNUM,
+		CC.TAX_SHET_PUBLISH_YN
+FROM
+(
+			SELECT  ZZ.OCCUR_DATE
+			        ,ZZ.ADVANCE_CLASS_NM
+			        ,ZZ.ADVANCE_CLASS
+			        ,ZZ.ITEM_NM
+			        ,ZZ.ITEM_CD
+			        ,ZZ.POS_GUESTINFO_NM
+			        ,ZZ.POS_GUESTINFO
+			        ,ZZ.CUST_NM
+			        ,ZZ.CUST_CD
+			        ,ZZ.SETTLE_CLASS
+			        ,CASE WHEN ZZ.CARD_COM_CD &lt;&gt; ' ' THEN (
+			            SELECT  CODE_NAME||'('||ZZ.BUYCPNY_NM||')'
+			            FROM    SCC_COMMON_CODE
+			            WHERE   GROUP_CODE      = 'ADVANCE_SIGN_CLASS'
+			            AND     ZZ.SETTLE_CLASS = SET1
+			            )
+			        ELSE (
+			            SELECT  CODE_NAME
+			            FROM    SCC_COMMON_CODE
+			            WHERE   GROUP_CODE      = 'ADVANCE_SIGN_CLASS'
+			            AND     ZZ.SETTLE_CLASS = SET1
+			            )
+			        END SETTLE_CLASS_NM
+			        ,ZZ.UPRICE
+			        ,ZZ.QTY
+			        ,ZZ.AMT
+			        ,M.OCCUR_AMT
+			        ,NVL((
+			        SELECT  NVL(SUM(AD.ALT_SUPPLY_AMT),0) + NVL(SUM(AD.ALT_VAT_AMT),0)
+			        FROM    SLA_ADVANCE_ALT_DETAIL AD
+			        WHERE   AD.RECD_STATUS  = 'L'
+			        AND     AD.ADVANCE_NUM  = M.ADVANCE_NUM
+			        ),0) APPLY_AMT
+			        ,ZZ.REMARK
+			        ,ZZ.OCCUR_ADVANCE_NUM
+			        ,M.ADVANCE_NUM
+			        --세금계산서 발행 식권인 경우 공급가액만 표시되도록 수정 20160523  처리자 : 맹수영
+			        ,NVL(ZZ.AMT,0) - NVL((
+			        SELECT  NVL(SUM(AD.ALT_SUPPLY_AMT),0) + NVL(SUM(AD.ALT_VAT_AMT),0)
+			        FROM    SLA_ADVANCE_ALT_DETAIL AD
+			        WHERE   AD.RECD_STATUS  = 'L'
+			        AND     AD.ADVANCE_NUM  = M.ADVANCE_NUM
+			        ),0) BAL_AMT        -- 선수금잔액
+			        ,(
+			        SELECT  DECODE(COUNT(AD.ADVANCE_NUM),0,'N','Y')
+			        FROM    SLA_ADVANCE_ALT_MST AM
+			                ,SLA_ADVANCE_ALT_DETAIL AD
+			        WHERE   AM.ALT_NUM = AD.ALT_NUM
+			        AND     AM.RECD_STATUS  = 'L'
+			        AND     AD.RECD_STATUS  = 'L'
+			        AND     AD.ADVANCE_NUM  = M.ADVANCE_NUM
+			        AND     AM.ALT_TYPE_CD IN ('G05')
+			        ) SALS_YN           -- 매출대체
+			        ,(
+			        SELECT  DECODE(COUNT(AD.ADVANCE_NUM),0,'N','Y')
+			        FROM    SLA_ADVANCE_ALT_MST AM
+			                ,SLA_ADVANCE_ALT_DETAIL AD
+			        WHERE   AM.ALT_NUM = AD.ALT_NUM
+			        AND     AM.RECD_STATUS  = 'L'
+			        AND     AD.RECD_STATUS  = 'L'
+			        AND     AD.ADVANCE_NUM  = M.ADVANCE_NUM
+			        AND     AM.ALT_TYPE_CD NOT IN ('G05')
+			        ) ALT_YN            -- 대체(매출제외)
+			        ,(
+			        SELECT  DECODE(COUNT(TAX.ADVANCE_NUM),0,'N','Y')
+			        FROM    SLA_TAX_SHET_OCCUR_OBJ TAX
+			        WHERE   TAX.RECD_STATUS = 'L'
+			        AND     TAX.ADVANCE_NUM = M.ADVANCE_NUM
+			        ) TAX_YN            -- 세금계산서발행여부
+			        ,ZZ.DDDD_CLOSE_YN   -- 일마감여부
+			        ,DECODE(M.JOURNALZ_YN, 'J', 'Y','N') AS JOURNALZ_YN    -- 전표생성여부
+			        ,ZZ.TICKET_STARTNUM
+			        ,ZZ.TICKET_ENDNUM
+			        ,ZZ.TAX_SHET_PUBLISH_YN
+			        ,ZZ.VAT_AMT
+			FROM    (
+			        SELECT  M.ADVANCE_CLASS
+			                ,M.OCCUR_ADVANCE_NUM
+			                ,(
+			                SELECT  CODE_NAME
+			                FROM    SCC_COMMON_CODE
+			                WHERE   GROUP_CODE  = 'ADVANCE_CLASS'
+			                AND     USE_YN      = 'Y'
+			                AND     CODE        = M.ADVANCE_CLASS
+			                ) ADVANCE_CLASS_NM
+			                ,M.SYS_CLASS
+			                ,M.SALE_DATE OCCUR_DATE
+			                ,M.UPJANG_CD
+			                ,M.RECEIPT_NUM
+			                ,M.WH_NUM AS POS_GUESTINFO
+			                ,M.WH_NM AS POS_GUESTINFO_NM
+			                ,M.WH_CD
+			                ,M.ITEM_CD
+			                ,(
+			                SELECT  A.ITEM_NAME|| '; ' ||A.ITEM_SIZE || '; ' || A.PO_UOM AS ITEM_NAME
+			                FROM    MAS_TICKET_STD V
+			                        ,HLDC_PO_ITEM_MST A
+			                WHERE   V.ITEM_CODE = A.ITEM_CODE
+			                AND     V.ITEM_CODE = M.ITEM_CD
+			                AND     V.UPJANG    = #UPJANG#
+			                ) ITEM_NM
+			                ,M.MEAL_TICKET_PCNT QTY
+			                ,M.MEAL_TICKET_UPRICE UPRICE
+			                ,M.MEAL_TICKET_AMT AMT
+			                -- ,M.VAT_CD VAT
+			                ,M.SUPPLY_AMT
+			                ,M.VAT_AMT
+			                ,M.MU_CD
+			                ,M.DDDD_CLOSE_YN
+			                ,M.DDDD_CLOSE_DATE
+			                ,M.CC_CD
+			                ,W.REMARK
+			                ,W.SETTLE_CLASS
+			                ,W.SETTLE_REF_INFO
+			                ,W.SETTLE_AMT
+			                ,W.CUST_CD
+			                ,W.CUST_NM
+			                ,W.ENC_SETTLEINFO
+			                ,W.SEQ
+			                ,C.CARD_COM_CD
+			                ,C.ENC_CARD_NUM
+			                ,(
+			                SELECT  A.BUYCPNY_NM  -- 매입사명
+			                FROM    SLA_BUY_CPNY_MGMT A
+			                        ,SLA_FRNC_STOR_MGMT B
+			                WHERE   A.RECD_STATUS   = 'L'
+			                AND     B.RECD_STATUS   = 'L'
+			                AND     A.BUYCPNY_CD    = B.BUYCPNY_CD
+			                AND     A.BUYCPNY_CD    = C.BUYCPNY_CD
+			                AND     B.UPJANG_CD     = #UPJANG#
+			                AND 	  ROWNUM = 1
+			                ) BUYCPNY_NM
+			                ,(SELECT MIN(TICKET_STARTNUM) FROM MAS_TICKET_MST WHERE RECEIPT_NUM = M.RECEIPT_NUM AND UPJANG = #UPJANG#) TICKET_STARTNUM
+			                ,(SELECT MAX(TICKET_ENDNUM) FROM MAS_TICKET_MST WHERE RECEIPT_NUM =  M.RECEIPT_NUM AND UPJANG = #UPJANG#) TICKET_ENDNUM
+			                ,(SELECT D.TAX_SHET_PUBLISH_YN FROM MAS_TICKET_STD D WHERE D.ITEM_CODE = M.ITEM_CD AND D.USE_YN = 'Y' AND D.UPJANG = #UPJANG#) TAX_SHET_PUBLISH_YN
+			                ,DECODE((
+			                    SELECT  COUNT(X.ADVANCE_NUM)                   -- 선수금 번호
+			                    FROM    SLA_ADVANCE_MST X
+			                    WHERE   X.RECD_STATUS   = 'L'
+			                    AND     X.CUST_CD       = W.CUST_CD
+			                    AND     X.MU_CD         = #MU_CD#
+			                    AND     X.CC_CD IN (
+			                                        SELECT  A.CC_CD
+			                                        FROM    SCC_CC A
+			                                                ,HLDC_SC_DEPT_V B
+			                                        WHERE   B.CC_CD = A.CC_CD
+			                                        AND     A.START_DATE &lt;= TO_CHAR(SYSDATE,'YYYYMMDD')
+			                                        AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+			                                        AND     B.TM_CD = #TM_CD#
+			                                        )
+			                    AND     X.UPJANG_CD = #UPJANG#
+			                    AND     X.OCCUR_AMT > 0
+			                    AND     X.RECEIPT_NUM = M.RECEIPT_NUM
+			                ),0,'N','Y') SALE_OCCUR_YN  --매출발생여부
+			                ,C.FRNC_STOR_NUM
+			                ,C.BUYCPNY_CD
+			                ,C.DEAL_TYPE
+			                ,DECODE(W.SETTLE_CLASS,'3',M.MEAL_TICKET_AMT,0) VAR_SUS_AMT
+			                ,NULL TMP_SEQ
+			        FROM    SLA_IF_MEAL_TICKET_SAL_MST M
+			                ,SLA_IF_MEAL_TICKET_SETTLE_WAY W
+			                ,SLA_IF_CARD_APPRV_INFO C
+			        WHERE   M.SYS_CLASS     = W.SYS_CLASS
+			        AND     M.SALE_DATE     = W.SALE_DATE
+			        AND     M.UPJANG_CD     = W.UPJANG_CD
+			        AND     M.RECEIPT_NUM   = W.RECEIPT_NUM
+			        AND     W.MU_CD         = C.MU_CD(+)
+			        AND     W.RECEIPT_NUM   = C.RECEIPT_NUM(+)
+			        AND     W.SEQ           = C.SEQ(+)
+			        AND     W.UPJANG_CD     = C.UPJANG_CD(+)
+			        AND     W.SYS_CLASS     = C.SYS_CLASS(+)
+			        <isEqual col="MU_CD" value="2002">
+			        AND     M.SYS_CLASS     = '11'
+			        </isEqual>
+			        <isEqual col="MU_CD" value="2003">
+			        AND     M.SYS_CLASS     = '12'
+			        </isEqual>
+			        AND     M.MU_CD         = #MU_CD#
+			        AND     M.SALE_DATE  BETWEEN TO_CHAR(#DATEFR#||'01') AND TO_CHAR(LAST_DAY(TO_DATE((#DATETO#||'01'),'YYYYMMDD')),'YYYYMMDD')
+			        AND     M.UPJANG_CD     = #UPJANG#
+			        UNION ALL
+			        SELECT  M.ADVANCE_CLASS
+			                ,M.OCCUR_ADVANCE_NUM
+			                ,(
+			                SELECT  CODE_NAME
+			                FROM    SCC_COMMON_CODE
+			                WHERE   GROUP_CODE  = 'ADVANCE_CLASS'
+			                AND     USE_YN      = 'Y'
+			                AND     CODE        = M.ADVANCE_CLASS
+			                ) ADVANCE_CLASS_NM
+			                ,M.SYS_CLASS
+			                ,M.OCCUR_DATE
+			                ,M.UPJANG_CD
+			                ,M.RECEIPT_NUM
+			                ,M.POS_GUESTINFO
+			                ,(
+			                SELECT  SUBINV_NAME
+			                FROM    HLDC_PO_SUBINVENTORY
+			                WHERE   UPJANG      = M.UPJANG_CD
+			                AND     SUBINV_CODE = POS_GUESTINFO
+			                ) POS_GUESTINFO_NM --AND  SALE_FLAG='Y'
+			                ,NULL WH_CD
+			                ,NULL ITEM_CD
+			                ,NULL ITEM_NM
+			                ,M.SAL_QUANTITY QTY
+			                ,M.UPRICE UPRICE
+			                ,M.AMT AMT
+			                --,TO_CHAR(M.VAT_AMT) VAT
+			                ,M.SUPPLY_AMT
+			                ,M.VAT_AMT
+			                ,M.MU_CD
+			                ,M.DDDD_CLOSE_YN
+			                ,M.DDDD_CLOSE_DATE
+			                ,M.CC_CD
+			                ,W.REMARK
+			                ,W.SETTLE_CLASS
+			                ,W.SETTLE_REF_INFO
+			                ,W.SETTLE_AMT
+			                ,W.CUST_CD
+			                ,W.CUST_NM
+			                ,W.ENC_SETTLE_INFO
+			                ,W.SEQ
+			                ,C.CARD_COM_CD
+			                ,C.ENC_CARD_NUM
+			                ,(
+			                SELECT  A.BUYCPNY_NM  -- 매입사명
+			                FROM    SLA_BUY_CPNY_MGMT A
+			                        ,SLA_FRNC_STOR_MGMT B
+			                WHERE   A.RECD_STATUS   = 'L'
+			                AND     B.RECD_STATUS   = 'L'
+			                AND     A.BUYCPNY_CD    = B.BUYCPNY_CD
+			                AND     A.BUYCPNY_CD    = C.BUYCPNY_CD
+			                AND     B.UPJANG_CD     = #UPJANG#
+			                AND 	  ROWNUM = 1
+			                ) BUYCPNY_NM
+			                ,NULL TICKET_STARTNUM
+			                ,NULL TICKET_ENDNUM
+			                ,NULL TAX_SHET_PUBLISH_YN
+			                ,DECODE((
+			                    SELECT  COUNT(X.ADVANCE_NUM)    -- 선수금 번호
+			                    FROM    SLA_ADVANCE_MST X
+			                    WHERE   X.RECD_STATUS   = 'L'
+			                    AND     X.CUST_CD       = W.CUST_CD
+			                    AND     X.MU_CD         = #MU_CD#
+			                    AND     X.CC_CD IN (
+			                                        SELECT  A.CC_CD
+			                                        FROM    SCC_CC A
+			                                                ,HLDC_SC_DEPT_V B
+			                                        WHERE   B.CC_CD = A.CC_CD
+			                                        AND     A.START_DATE &lt;= TO_CHAR(SYSDATE,'YYYYMMDD')
+			                                        AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+			                                        AND     B.TM_CD = #TM_CD#
+			                                        )
+			                    AND     X.UPJANG_CD     = #UPJANG#
+			                    AND     X.OCCUR_AMT     > 0
+			                    AND     X.RECEIPT_NUM   = M.RECEIPT_NUM
+			                ),0,'N','Y') AS SALE_OCCUR_YN   -- 매출발생여부
+			                ,C.FRNC_STOR_NUM
+			                ,C.BUYCPNY_CD
+			                ,C.DEAL_TYPE
+			                ,DECODE(W.SETTLE_CLASS,'3',M.AMT,0) VAR_SUS_AMT
+			                ,NULL TMP_SEQ
+			        FROM    SLA_IF_ADVANCE_OCCUR M
+			                ,SLA_IF_ADVANCE_SETTLE_WAY W
+			                ,SLA_IF_CARD_APPRV_INFO C
+			        WHERE   M.SYS_CLASS     = W.SYS_CLASS
+			        AND     M.OCCUR_DATE    = W.OCCUR_DATE
+			        AND     M.UPJANG_CD     = W.UPJANG_CD
+			        AND     M.RECEIPT_NUM   = W.RECEIPT_NUM
+			        AND     W.OCCUR_DATE    = C.OCCUR_DATE(+)
+			        AND     W.MU_CD         = C.MU_CD(+)
+			        AND     W.RECEIPT_NUM   = C.RECEIPT_NUM(+)
+			        AND     W.SEQ           = C.SEQ(+)
+			        AND     W.UPJANG_CD     = C.UPJANG_CD(+)
+			        AND     W.SYS_CLASS     = C.SYS_CLASS(+)
+			        <isEqual col="MU_CD" value="2002">
+			        AND     M.SYS_CLASS     = '11'
+			        </isEqual>
+			        <isEqual col="MU_CD" value="2003">
+			        AND     M.SYS_CLASS     = '12'
+			        </isEqual>
+			        AND     M.MU_CD         = #MU_CD#
+			        AND     M.OCCUR_DATE BETWEEN TO_CHAR(#DATEFR#||'01') AND  TO_CHAR(LAST_DAY(TO_DATE((#DATETO#||'01'),'YYYYMMDD')),'YYYYMMDD')
+			        AND     M.UPJANG_CD     = #UPJANG#
+			        ) ZZ
+			        ,SLA_ADVANCE_MST M
+			WHERE   ZZ.OCCUR_ADVANCE_NUM = M.OCCUR_ADVANCE_NUM (+)
+			AND     M.RECD_STATUS (+) = 'L'
+			-- AND    ZZ.DDDD_CLOSE_YN = 'Y' /* 미마감된 데이터도 보여지게 다시 수정 : 2015.11.03 (윤지혜 매니저 요청) */
+			ORDER BY ZZ.RECEIPT_NUM , ZZ.SEQ
+ )CC
+</statement>
+	<input default-name="ds_cond">
+		<col name="UPJANG" size="6" type="NUMERIC" description="업장코드" /> 
+		<col name="DATEFR" size="255" type="VARCHAR" description="" /> 
+		<col name="TM_CD" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_listDetail5">
+	</output>
+</query>

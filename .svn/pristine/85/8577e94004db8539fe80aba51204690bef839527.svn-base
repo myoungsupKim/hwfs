@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fs.fsa.adoptionDelListDAO">
+	<desc>개인정보 HQML Query</desc>
+
+	<!-- 파기대상 목록을 조회한다. -->
+	<statement name="selectDelList" type="select">
+		/*+ com.hwfs.fs.fsa.dao.AdoptionDelListDAO.selectList */
+		<![CDATA[
+		SELECT
+	             ADOPTION_NUM
+	            ,NAME
+	            ,BRTH_DATE
+	            ,AGE
+	            ,GENDER
+	            ,GENDER_NAME
+	            ,SCC_TELNO_SPLIT_FUN(TELNO, 1)||'-'||SCC_TELNO_SPLIT_FUN(TELNO, 2)||'-'||SCC_TELNO_SPLIT_FUN(TELNO, 3) AS TELNO
+	            ,SCC_TELNO_SPLIT_FUN(HANDPHONE_NUM, 1)||'-'||SCC_TELNO_SPLIT_FUN(HANDPHONE_NUM, 2)||'-'||SCC_TELNO_SPLIT_FUN(HANDPHONE_NUM, 3) AS HANDPHONE_NUM
+	            ,SUP_DUTY_GROUP
+	            ,SUP_DUTY_NM
+	            ,POSS_DUTY_GROUP
+	            ,POSS_DUTY_NM
+	            ,PERS_INFO_AGREE_DATE
+	            ,PERS_INFO_EDATE
+	            ,CDATE
+	            ,ADOPTION_STATUS
+		FROM 
+			(SELECT
+			         T1.ADOPTION_NUM  
+			        ,T1.NAME
+			        ,T1.BRTH_DATE
+			        ,TO_NUMBER( TO_CHAR( SYSDATE ,'YYYY') ) - TO_NUMBER( SUBSTR( T1.BRTH_DATE,0,4)) AS AGE
+			        ,T1.GENDER
+			        ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'GENDER_TYPE' AND CODE=T1.GENDER) AS GENDER_NAME
+			        ,SCC_CRYPTO.MASKAUTH_FUN (T1.TELNO_ENC,9,:loginPersMask,:maskAuth) AS TELNO
+			        ,SCC_CRYPTO.MASKAUTH_FUN (T1.HANDPHONE_NUM_ENC,8,:loginPersMask,:maskAuth) AS HANDPHONE_NUM     
+			         , (SELECT CASE WHEN SET1 = '1' THEN 
+			                    '조리사'
+			                  ELSE
+			                      '조리원'
+			                  END
+			             FROM SCC_COMMON_CODE
+			            WHERE GROUP_CODE = 'DUTY_TYPE'
+			              AND CODE = T1.SUP_DUTY
+			              AND ROWNUM = 1            
+			          ) AS SUP_DUTY_GROUP
+			        ,(SELECT CODE_NAME 
+			         FROM SCC_COMMON_CODE
+			         WHERE GROUP_CODE = 'DUTY_TYPE'
+			         AND CODE = T1.SUP_DUTY
+			         AND ROWNUM = 1            
+			         ) AS SUP_DUTY_NM
+			        , (SELECT CASE WHEN SET1 = '1' THEN 
+			                '조리사'
+			              ELSE
+			                  '조리원'
+			              END
+			         FROM SCC_COMMON_CODE
+			        WHERE GROUP_CODE = 'DUTY_TYPE'
+			          AND CODE = SUBSTR(T1.POSS_DUTY,0,3)
+			          AND ROWNUM = 1            
+			      ) AS POSS_DUTY_GROUP 
+			        ,T2.POSS_DUTY_NM 
+			        ,T1.PERS_INFO_AGREE_DATE
+			        ,T1.PERS_INFO_EDATE
+			        ,TO_CHAR(T1.CDATE,'YYYYMMDD') AS CDATE
+			        ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'ALLC_TYPE' AND CODE=T1.ADOPTION_STATUS) AS ADOPTION_STATUS 
+			FROM FSA_POOL_MASTER T1
+			           ,(SELECT Y.ADOPTION_NUM, 
+			              LISTAGG(DECODE(X.CODE_NAME,'기타','기타('||Y.POSS_DUTY_ETC||')',X.CODE_NAME), ',') 
+			              WITHIN GROUP (ORDER BY X.CODE) AS POSS_DUTY_NM
+			            FROM  SCC_COMMON_CODE X,
+			              (
+			              -- 강제주석 20150804
+			              --SELECT DISTINCT ADOPTION_NUM,POSS_DUTY_ETC, REGEXP_SUBSTR(POSS_DUTY, '[^,]+', 1, LEVEL) POSS_DUTY
+			                --  FROM FSA_POOL_MASTER
+			                  --CONNECT BY LEVEL <= LENGTH(REGEXP_REPLACE(POSS_DUTY, '[^,]+', '')) + 1
+			                   SELECT DISTINCT A.ADOPTION_NUM, A.POSS_DUTY_ETC, REGEXP_SUBSTR(A.POSS_DUTY,'[^\,]+',1,B.LV) POSS_DUTY
+                               FROM (SELECT ADOPTION_NUM,POSS_DUTY_ETC, POSS_DUTY,REGEXP_COUNT(POSS_DUTY,'\,') + 1 CNT FROM FSA_POOL_MASTER ) A
+                                    INNER JOIN (SELECT LEVEL LV FROM DUAL CONNECT BY LEVEL <= 100) B
+                                    ON B.LV <= A.CNT
+			               ) Y
+			            WHERE X.GROUP_CODE = 'DUTY_TYPE'
+			            AND X.CODE = Y.POSS_DUTY
+			            GROUP BY Y.ADOPTION_NUM
+			            ) T2
+			WHERE T1.ADOPTION_NUM=T2.ADOPTION_NUM
+			AND T1.PERS_INFO_DSTRY_SABUN IS NULL
+			AND T1.PERS_INFO_DSTRY_DATE IS NULL
+			)
+		WHERE 1=1
+		<#if stDate?has_content>
+		AND PERS_INFO_EDATE >= :stDate
+		</#if>
+        <#if edDate?has_content>
+		AND PERS_INFO_EDATE <= :edDate
+		 </#if>
+		]]>
+	</statement>
+
+	<!-- 파기된 목록을 조회한다. -->
+	<statement name="selectBrkdList" type="select">
+		/*+ com.hwfs.fs.fsa.dao.AdoptionDelListDAO.selectBrkdList */
+		<![CDATA[
+		SELECT
+	             T.ADOPTION_NUM
+	            ,T.NAME
+	            ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'GENDER_TYPE' AND CODE=T.GENDER) AS GENDER_NAME
+	            ,T.PERS_INFO_AGREE_DATE
+	            ,T.PERS_INFO_EDATE
+	            ,T.PERS_INFO_DSTRY_SABUN
+	            ,(SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = T.PERS_INFO_DSTRY_SABUN) AS PERS_INFO_DSTRY_NAME
+	            ,TO_CHAR(T.PERS_INFO_DSTRY_DATE,'YYYYMMDD') AS PERS_INFO_DSTRY_DATE
+	            ,TO_CHAR(T.PERS_INFO_DSTRY_DATE,'HH24:MI:SS') AS PERS_INFO_DSTRY_TIME  
+		FROM FSA_POOL_MASTER T
+		WHERE T.PERS_INFO_DSTRY_SABUN IS NOT NULL
+		AND T.PERS_INFO_DSTRY_DATE IS NOT NULL
+		<#if breaker?has_content>
+		AND T.PERS_INFO_DSTRY_SABUN = :breaker
+		</#if>
+		<#if brkStDate?has_content>
+		AND TO_CHAR(T.PERS_INFO_DSTRY_DATE,'YYYYMMDD') >= :brkStDate
+		</#if>
+        <#if brkEdDate?has_content>
+		AND TO_CHAR(T.PERS_INFO_DSTRY_DATE,'YYYYMMDD') <= :brkEdDate
+		 </#if>
+		]]>
+	</statement>
+
+	<!-- 개인정보(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.fs.fsa.dao.AdoptionDelListDAO.delete */
+		<![CDATA[
+		UPDATE FSA_POOL_MASTER 
+		SET  TELNO_ENC = NULL
+			,HANDPHONE_NUM_ENC = NULL
+			,EMAIL_ENC = NULL
+			,ADDR_ENC = NULL
+			,PERS_INFO_DSTRY_SABUN = :loginSabun
+			,PERS_INFO_DSTRY_DATE = SYSDATE
+			,UUSER = :loginSabun
+		    ,UDATE = SYSDATE
+		WHERE  ADOPTION_NUM = :adoptionNum
+		]]>
+	</statement>
+
+</hqml>

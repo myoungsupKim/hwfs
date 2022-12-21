@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[최종 발주정보]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.NEED_DATE, COUNT(*) AS CNT
+ --운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 맹수영 20150919 시작
+ /*
+     , SUM(ROUND(A.PR_QTY * CASE WHEN C.OP_PRICE IS NOT NULL OR C.OP_RATE IS NOT NULL 
+							     THEN DECODE(SIGN(NVL(C.OP_PRICE,0) ),0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE) 
+							     WHEN D.OP_PRICE IS NOT NULL OR D.OP_RATE IS NOT NULL 
+							     THEN DECODE(SIGN(NVL(D.OP_PRICE,0) ),0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(D.OP_RATE,0) / 100),D.CEIL_VAL), D.OP_PRICE) 
+						    ELSE A.SALE_PRICE END)) AS AMT
+*/
+     --,  DECODE(SUM(A.OP_PRICE), 0, SUM(A.SALE_PRICE), SUM(A.OP_PRICE)) AS AMT --운영단가
+     , SUM(ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * A.PR_QTY)+ROUND(ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * A.PR_QTY)*DECODE(A.TAX_CODE,100,0.1,0))) AS AMT --운영단가
+ --운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 맹수영 20150919 끝
+  FROM 
+ --운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 맹수영 20150919 시작
+ /*
+      (SELECT UPJANG, ITEM_CODE, OP_RATE, OP_PRICE, CEIL_VAL, SDATE ,EDATE 
+         FROM FMU_OP_RATE 
+        WHERE USE_YN = 'Y' 
+          AND ITEM_TYPE = 'M' 
+       ) C 
+     ,(SELECT UPJANG, ITEM_CODE, OP_RATE, OP_PRICE, CEIL_VAL, SDATE ,EDATE 
+         FROM FMU_OP_RATE 
+        WHERE USE_YN = 'Y' 
+          AND ITEM_TYPE = 'C' 
+       ) D 
+*/
+ --운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 맹수영 20150919 끝
+     (SELECT A.RC_UPJANG AS UPJANG, A.ITEM_CODE, A.NEED_DATE, A.TAX_CODE, A.PR_QTY, A.SALE_PRICE, A.OP_PRICE, C.ITEM_CLASS4
+          FROM SO_PR A, HLDC_PO_ITEM_MST C
+            ,(SELECT /*+ INDEX_DESC(SO_PR SO_PR_I2) */
+                     NEED_DATE, SUBINV_CODE
+                FROM SO_PR
+               WHERE SUBINV_CODE = #SUBINV_CODE#
+                 AND DOCU_SOURCE IN (#DOCU_SOURCE#,#DocSrc1#,#DocSrc2#)
+                 AND LINE_STATUS NOT IN ('003','999') --신청취소
+                 AND NEED_DATE BETWEEN TO_CHAR(SYSDATE-15,'YYYYMMDD') AND TO_CHAR(SYSDATE+15,'YYYYMMDD') --현재일 기준 전후1달만 조회하자.
+                 AND ROWNUM <= 1) B
+         WHERE A.NEED_DATE = B.NEED_DATE
+           AND A.SUBINV_CODE = B.SUBINV_CODE
+           AND A.ITEM_CODE = C.ITEM_CODE           
+           AND A.LINE_STATUS NOT IN ('003','999') --신청취소
+         UNION ALL
+        SELECT A.UPJANG, A.ITEM_CODE, A.NEED_DATE, A.TAX_CODE, A.PR_QTY, A.SALE_PRICE,A.OP_PRICE, C.ITEM_CLASS4
+          FROM FMP_OTCUST_PR A, FMP_OTCUST_ITEM C
+            ,(SELECT /*+ INDEX_DESC(FMP_OTCUST_PR FMP_OTCUST_PR_IE2) */
+                     NEED_DATE, SUBINV_CODE
+                FROM FMP_OTCUST_PR
+               WHERE SUBINV_CODE = #SUBINV_CODE#
+                 AND DOCU_SOURCE IN (#DOCU_SOURCE#,#DocSrc1#,#DocSrc2#)
+                 AND LINE_STATUS NOT IN ('003','999') --신청취소
+                 AND NEED_DATE BETWEEN TO_CHAR(SYSDATE-15,'YYYYMMDD') AND TO_CHAR(SYSDATE+15,'YYYYMMDD') --현재일 기준 전후1달만 조회하자.
+                 AND ROWNUM <= 1) B
+         WHERE A.NEED_DATE = B.NEED_DATE
+           AND A.SUBINV_CODE = B.SUBINV_CODE
+           AND A.ITEM_CODE = C.ITEM_CODE
+           AND A.LINE_STATUS NOT IN ('003','999') --신청취소
+       ) A 
+ --운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 맹수영 20150919 시작
+ /*
+ WHERE A.UPJANG = C.UPJANG(+)
+   AND A.UPJANG = D.UPJANG(+)
+   AND A.NEED_DATE BETWEEN C.SDATE(+) AND C.EDATE(+)
+   AND A.NEED_DATE BETWEEN D.SDATE(+) AND D.EDATE(+)
+   AND A.ITEM_CODE = C.ITEM_CODE(+)
+   AND A.ITEM_CLASS4 = D.ITEM_CODE(+)
+*/
+ --운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 맹수영 20150919 끝
+ GROUP BY A.NEED_DATE	
+ ORDER BY A.NEED_DATE
+]]></statement>
+	<input default-name="ds_Cond">
+		<col name="SUBINV_CODE" size="8" type="VARCHAR" description="" /> 
+		<col name="NEED_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="DOCU_SOURCE" size="50" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_List">
+		<col name="NEED_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="CNT" size="27" type="VARCHAR" description="" /> 
+		<col name="AMT" size="22" type="VARCHAR" description="" /> 
+	</output>
+</query>

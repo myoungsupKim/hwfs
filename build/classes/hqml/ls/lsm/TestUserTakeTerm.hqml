@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="ls.lsm.testUserTakeTermDAO">
+    <desc>검사자 검사준수 현황</desc>
+
+    <!-- 목록 DATA를 조회한다. -->
+    <statement name="selectList" type="select">
+        /*+ com.hwfs.ls.lsm.dao.TestUserTakeTermDAO.selectList */
+        <![CDATA[
+/* 목록 조회 */
+SELECT A.SABUN  /* 담당자 사번 */
+     , (SELECT NM_KOR
+          FROM SCC_USERINFO
+         WHERE SABUN = A.SABUN) AS NM_KOR   /* 담당자 */
+     , SCC_CODE_NM('INSPT_FLD', A.INSPT_FLD) AS INSPT_FLD_NM /* 담당구분 */
+     , A.USE_YN
+     , (SELECT COUNT(1)
+          FROM LRM_TEST_REQ_ACCEPT Z
+             , LRM_TEST_INFO TI
+             , LTM_TEST_DIARY TD
+         WHERE Z.REQ_NUM = TI.REQ_NUM
+           AND TI.REQ_NUM = TD.REQ_NUM(+)
+           AND TI.ACCEPT_NUM = TD.ACCEPT_NUM(+)
+           AND TI.ARTICLE_CD = TD.ARTICLE_CD(+)
+           <#if procClass?has_content>
+             <#if procClass == '101'>AND TD.LAST_DECISION IS NOT NULL</#if> /* 완료 */
+             <#if procClass == '102'>AND (TD.TECHRESP_USER IS NOT NULL AND TD.LAST_DECISION IS NULL)</#if>  /* 처리중 */
+             <#if procClass == '103'>
+               AND NOT EXISTS (
+                               SELECT 1
+                                 FROM LTM_TEST_DIARY
+                                WHERE TI.REQ_NUM = REQ_NUM
+                                  AND TI.ACCEPT_NUM = ACCEPT_NUM
+                                  AND TI.ARTICLE_CD = ARTICLE_CD
+                              )
+             </#if> /* 미처리 */
+           </#if>
+           AND NOT EXISTS (
+                           SELECT 1
+                             FROM LRM_PROC_DESC
+                            WHERE REQ_NUM = Z.REQ_NUM
+                              AND PROC_CLASS IN ('140')
+                          )
+           AND Z.REQ_DATE BETWEEN :fromDay AND :toDay
+           AND TI.SABUN = A.SABUN
+           AND TI.INSPT_FLD = A.INSPT_FLD) AS TEST_CNT  /* 검사항목 수 */
+     , (SELECT NVL(SUM(TA.TAKE_TERM), 0)
+          FROM LRM_TEST_REQ_ACCEPT Z
+             , LRM_TEST_INFO TI
+             , LTM_TEST_DIARY TD
+             , LCM_TEST_ARTICLE TA
+         WHERE Z.REQ_NUM = TI.REQ_NUM
+           AND TI.REQ_NUM = TD.REQ_NUM(+)
+           AND TI.ACCEPT_NUM = TD.ACCEPT_NUM(+)
+           AND TI.ARTICLE_CD = TD.ARTICLE_CD(+)
+           AND TI.ARTICLE_CD = TA.ARTICLE_CD
+           <#if procClass?has_content>
+             <#if procClass == '101'>AND TD.LAST_DECISION IS NOT NULL</#if> /* 완료 */
+             <#if procClass == '102'>AND (TD.TECHRESP_USER IS NOT NULL AND TD.LAST_DECISION IS NULL)</#if>  /* 처리중 */
+             <#if procClass == '103'>
+               AND NOT EXISTS (
+                               SELECT 1
+                                 FROM LTM_TEST_DIARY
+                                WHERE TI.REQ_NUM = REQ_NUM
+                                  AND TI.ACCEPT_NUM = ACCEPT_NUM
+                                  AND TI.ARTICLE_CD = ARTICLE_CD
+                              )
+             </#if> /* 미처리 */
+           </#if>
+           AND NOT EXISTS (
+                           SELECT 1
+                             FROM LRM_PROC_DESC
+                            WHERE REQ_NUM = Z.REQ_NUM
+                              AND PROC_CLASS IN ('140')
+                          )
+           AND Z.REQ_DATE BETWEEN :fromDay AND :toDay
+           AND TI.SABUN = A.SABUN
+           AND TI.INSPT_FLD = A.INSPT_FLD) AS TAKE_TERM /* 소요일수 */
+     , (SELECT CASE WHEN NVL(SUM(TA.TAKE_TERM), 0) = 0 THEN 0
+               ELSE
+                   NVL(SUM(TRUNC(TO_DATE(TD.TESTDD, 'YYYYMMDD') - TO_DATE(Z.REQ_DATE,'YYYYMMDD') + 1)), 0)
+               END
+          FROM LRM_TEST_REQ_ACCEPT Z
+             , LRM_TEST_INFO TI
+             , LTM_TEST_DIARY TD
+             , LCM_TEST_ARTICLE TA
+         WHERE Z.REQ_NUM = TI.REQ_NUM
+           AND TI.REQ_NUM = TD.REQ_NUM(+)
+           AND TI.ACCEPT_NUM = TD.ACCEPT_NUM(+)
+           AND TI.ARTICLE_CD = TD.ARTICLE_CD(+)
+           AND TI.ARTICLE_CD = TA.ARTICLE_CD
+           <#if procClass?has_content>
+             <#if procClass == '101'>AND TD.LAST_DECISION IS NOT NULL</#if> /* 완료 */
+             <#if procClass == '102'>AND (TD.TECHRESP_USER IS NOT NULL AND TD.LAST_DECISION IS NULL)</#if>  /* 처리중 */
+             <#if procClass == '103'>
+               AND NOT EXISTS (
+                               SELECT 1
+                                 FROM LTM_TEST_DIARY
+                                WHERE TI.REQ_NUM = REQ_NUM
+                                  AND TI.ACCEPT_NUM = ACCEPT_NUM
+                                  AND TI.ARTICLE_CD = ARTICLE_CD
+                              )
+             </#if> /* 미처리 */
+           </#if>
+           AND EXISTS (
+                        SELECT 1
+                          FROM LCM_TEST_ARTICLE
+                         WHERE TD.ARTICLE_CD = ARTICLE_CD
+                           AND TO_NUMBER(NVL(TAKE_TERM, 0)) != 0
+                       )
+           AND NOT EXISTS (
+                           SELECT 1
+                             FROM LRM_PROC_DESC
+                            WHERE REQ_NUM = Z.REQ_NUM
+                              AND PROC_CLASS IN ('140')
+                          )
+           AND Z.REQ_DATE BETWEEN :fromDay AND :toDay
+           AND (TO_CHAR(TO_DATE(TD.TESTDD, 'YYYYMMDD'), 'd') != '1' AND TO_CHAR(TO_DATE(TD.TESTDD, 'YYYYMMDD'), 'd') != '7')
+           AND TI.SABUN = A.SABUN
+           AND TI.INSPT_FLD = A.INSPT_FLD) AS TEST_TAKE_TERM /* 검사일수(휴일제외) */
+      , CASE WHEN (SELECT NVL(SUM(TA.TAKE_TERM), 0)
+                     FROM LRM_TEST_REQ_ACCEPT Z
+                        , LRM_TEST_INFO TI
+                        , LTM_TEST_DIARY TD
+                        , LCM_TEST_ARTICLE TA
+                    WHERE Z.REQ_NUM = TI.REQ_NUM
+                      AND TI.REQ_NUM = TD.REQ_NUM(+)
+                      AND TI.ACCEPT_NUM = TD.ACCEPT_NUM(+)
+                      AND TI.ARTICLE_CD = TD.ARTICLE_CD(+)
+                      AND TI.ARTICLE_CD = TA.ARTICLE_CD
+                      <#if procClass?has_content>
+                        <#if procClass == '101'>AND TD.LAST_DECISION IS NOT NULL</#if> /* 완료 */
+                        <#if procClass == '102'>AND (TD.TECHRESP_USER IS NOT NULL AND TD.LAST_DECISION IS NULL)</#if>  /* 처리중 */
+                        <#if procClass == '103'>
+                          AND NOT EXISTS (
+                                          SELECT 1
+                                            FROM LTM_TEST_DIARY
+                                           WHERE TI.REQ_NUM = REQ_NUM
+                                             AND TI.ACCEPT_NUM = ACCEPT_NUM
+                                             AND TI.ARTICLE_CD = ARTICLE_CD
+                                         )
+                        </#if> /* 미처리 */
+                      </#if>
+                      AND NOT EXISTS (
+                                      SELECT 1
+                                        FROM LRM_PROC_DESC
+                                       WHERE REQ_NUM = Z.REQ_NUM
+                                         AND PROC_CLASS IN ('140')
+                                     )
+                      AND Z.REQ_DATE BETWEEN :fromDay AND :toDay
+                      AND (TO_CHAR(TO_DATE(TD.TESTDD, 'YYYYMMDD'), 'd') != '1' AND TO_CHAR(TO_DATE(TD.TESTDD, 'YYYYMMDD'), 'd') != '7')
+                      AND TI.SABUN = A.SABUN
+                      AND TI.INSPT_FLD = A.INSPT_FLD) = 0 THEN 0
+        ELSE ROUND(
+            ((SELECT NVL(SUM(TA.TAKE_TERM), 0)
+                FROM LRM_TEST_REQ_ACCEPT Z
+                   , LRM_TEST_INFO TI
+                   , LTM_TEST_DIARY TD
+                   , LCM_TEST_ARTICLE TA
+               WHERE Z.REQ_NUM = TI.REQ_NUM
+                 AND TI.REQ_NUM = TD.REQ_NUM(+)
+                 AND TI.ACCEPT_NUM = TD.ACCEPT_NUM(+)
+                 AND TI.ARTICLE_CD = TD.ARTICLE_CD(+)
+                 AND TI.ARTICLE_CD = TA.ARTICLE_CD(+)
+                 <#if procClass?has_content>
+                   <#if procClass == '101'>AND TD.LAST_DECISION IS NOT NULL</#if> /* 완료 */
+                   <#if procClass == '102'>AND (TD.TECHRESP_USER IS NOT NULL AND TD.LAST_DECISION IS NULL)</#if>  /* 처리중 */
+                   <#if procClass == '103'>
+                     AND NOT EXISTS (
+                                     SELECT 1
+                                       FROM LTM_TEST_DIARY
+                                      WHERE TI.REQ_NUM = REQ_NUM
+                                        AND TI.ACCEPT_NUM = ACCEPT_NUM
+                                        AND TI.ARTICLE_CD = ARTICLE_CD
+                                    )
+                   </#if> /* 미처리 */
+                 </#if>
+                 AND NOT EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC
+                                  WHERE REQ_NUM = Z.REQ_NUM
+                                    AND PROC_CLASS IN ('140')
+                                )
+                 AND Z.REQ_DATE BETWEEN :fromDay AND :toDay
+                 AND TI.SABUN = A.SABUN
+                 AND TI.INSPT_FLD = A.INSPT_FLD) /
+             (SELECT CASE WHEN NVL(SUM(TA.TAKE_TERM), 0) = 0 THEN 0
+                     ELSE
+                         NVL(SUM(TRUNC(TO_DATE(TD.TESTDD, 'YYYYMMDD') - TO_DATE(Z.REQ_DATE,'YYYYMMDD') + 1)), 0)
+                     END
+                FROM LRM_TEST_REQ_ACCEPT Z
+                   , LRM_TEST_INFO TI
+                   , LTM_TEST_DIARY TD
+                   , LCM_TEST_ARTICLE TA
+               WHERE Z.REQ_NUM = TI.REQ_NUM
+                 AND TI.REQ_NUM = TD.REQ_NUM(+)
+                 AND TI.ACCEPT_NUM = TD.ACCEPT_NUM(+)
+                 AND TI.ARTICLE_CD = TD.ARTICLE_CD(+)
+                 AND TI.ARTICLE_CD = TA.ARTICLE_CD
+                 <#if procClass?has_content>
+                   <#if procClass == '101'>AND TD.LAST_DECISION IS NOT NULL</#if> /* 완료 */
+                   <#if procClass == '102'>AND (TD.TECHRESP_USER IS NOT NULL AND TD.LAST_DECISION IS NULL)</#if>  /* 처리중 */
+                   <#if procClass == '103'>
+                     AND NOT EXISTS (
+                                     SELECT 1
+                                       FROM LTM_TEST_DIARY
+                                      WHERE TI.REQ_NUM = REQ_NUM
+                                        AND TI.ACCEPT_NUM = ACCEPT_NUM
+                                        AND TI.ARTICLE_CD = ARTICLE_CD
+                                    )
+                   </#if> /* 미처리 */
+                 </#if>
+                 AND EXISTS (
+                             SELECT 1
+                               FROM LCM_TEST_ARTICLE
+                              WHERE TD.ARTICLE_CD = ARTICLE_CD
+                                AND TO_NUMBER(NVL(TAKE_TERM, 0)) != 0
+                            )
+                 AND NOT EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC
+                                  WHERE REQ_NUM = Z.REQ_NUM
+                                    AND PROC_CLASS IN ('140')
+                                )
+                 AND Z.REQ_DATE BETWEEN :fromDay AND :toDay
+                 AND (TO_CHAR(TO_DATE(TD.TESTDD, 'YYYYMMDD'), 'd') != '1' AND TO_CHAR(TO_DATE(TD.TESTDD, 'YYYYMMDD'), 'd') != '7')
+                 AND TI.SABUN = A.SABUN
+                 AND TI.INSPT_FLD = A.INSPT_FLD) * 100), 1)
+       END AS TEST_TERM_RATE    /* 준수율 */
+  FROM LCM_USER A
+ WHERE A.AUTH_CD = '101'
+<#if insptFld?has_content> AND A.INSPT_FLD = :insptFld </#if>
+<#if testUser?has_content> AND A.SABUN = :testUser </#if>
+ ORDER BY 3, 2, A.USE_YN DESC
+        ]]>
+    </statement>
+
+</hqml>

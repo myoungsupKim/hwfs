@@ -1,0 +1,609 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="ls.lsm.testUserSpecmArticleInqueryDAO">
+    <desc>검사자 검사항목 현황</desc>
+
+    <!-- 검사구분별 조회한다. -->
+    <statement name="selectList" type="select">
+        /*+ com.hwfs.ls.lsm.dao.TestUserSpecmArticleInqueryDAO.selectList */
+        <![CDATA[
+/* 검사구분별 조회 */
+SELECT A.TEST_GUBUN
+     , A.TEST_GUBUN_NM
+     , NVL(B.CNT, 0) AS TOT_CNT
+  FROM (
+         SELECT '101' AS TEST_GUBUN, '미생물' AS TEST_GUBUN_NM FROM DUAL
+         UNION ALL
+         SELECT '102' AS TEST_GUBUN, '이화학' AS TEST_GUBUN_NM FROM DUAL
+       ) A
+     , (
+         SELECT TI.INSPT_FLD
+              , COUNT(1) AS CNT
+           FROM LRM_TEST_REQ_ACCEPT TR
+              , LRM_TEST_INFO TI
+              , LTM_TEST_DIARY TD
+              , LCM_TEST_ARTICLE TA
+              , LCM_USER LU
+          WHERE TR.REQ_NUM = TI.REQ_NUM
+            AND TI.REQ_NUM = TD.REQ_NUM(+)
+            AND TI.ACCEPT_NUM = TD.ACCEPT_NUM(+)
+            AND TI.ARTICLE_CD = TD.ARTICLE_CD(+)
+            <#if procClass?has_content>
+              <#if procClass == '101'>AND TD.LAST_DECISION IS NOT NULL</#if> /* 완료 */
+              <#if procClass == '102'>AND (TD.TECHRESP_USER IS NOT NULL AND TD.LAST_DECISION IS NULL)</#if>  /* 처리중 */
+              <#if procClass == '103'>
+                AND NOT EXISTS (
+                                SELECT 1
+                                  FROM LTM_TEST_DIARY
+                                 WHERE TI.REQ_NUM = REQ_NUM
+                                   AND TI.ACCEPT_NUM = ACCEPT_NUM
+                                   AND TI.ARTICLE_CD = ARTICLE_CD
+                               )
+              </#if> /* 미처리 */
+            </#if>
+            AND TR.REQ_DATE BETWEEN :fromDay AND :toDay
+            AND TI.ARTICLE_CD = TA.ARTICLE_CD
+            <#if insptFld?has_content>AND TI.INSPT_FLD = :insptFld </#if>
+            <#if testUser?has_content>AND TI.SABUN = :testUser </#if>
+            <#if articleNm?has_content>AND TA.ARTICLE_NM LIKE '%' || :articleNm || '%' </#if>
+            AND TI.SABUN = LU.SABUN
+            AND TI.INSPT_FLD = LU.INSPT_FLD
+            AND NOT EXISTS (
+                            SELECT 1
+                              FROM LRM_PROC_DESC
+                             WHERE REQ_NUM = TR.REQ_NUM
+                               AND PROC_CLASS IN ('140')
+                           )
+          GROUP BY TI.INSPT_FLD
+       ) B
+ WHERE A.TEST_GUBUN = B.INSPT_FLD(+)
+ ORDER BY A.TEST_GUBUN
+        ]]>
+    </statement>
+
+    <!-- 검사 담당자별 조회한다. -->
+    <statement name="selectList1" type="select">
+        /*+ com.hwfs.ls.lsm.dao.TestUserSpecmArticleInqueryDAO.selectList1 */
+        <![CDATA[
+/* 검사 담당자별 조회 */
+SELECT A.SABUN
+     , (SELECT NM_KOR
+          FROM SCC_USERINFO
+         WHERE SABUN = A.SABUN) AS NM_KOR
+     , SCC_CODE_NM('INSPT_FLD', A.INSPT_FLD) AS INSPT_FLD_NM /* 담당구분 */
+     , A.USE_YN
+     , NVL(B.CNT, 0) AS TOT_CNT
+  FROM LCM_USER A
+     , (
+         SELECT TI.INSPT_FLD
+              , TI.SABUN
+              , COUNT(1) AS CNT
+           FROM LRM_TEST_REQ_ACCEPT TR
+              , LRM_TEST_INFO TI
+              , LTM_TEST_DIARY TD
+              , LCM_TEST_ARTICLE TA
+          WHERE TR.REQ_NUM = TI.REQ_NUM
+            AND TI.REQ_NUM = TD.REQ_NUM(+)
+            AND TI.ACCEPT_NUM = TD.ACCEPT_NUM(+)
+            AND TI.ARTICLE_CD = TD.ARTICLE_CD(+)
+            <#if procClass?has_content>
+              <#if procClass == '101'>AND TD.LAST_DECISION IS NOT NULL</#if> /* 완료 */
+              <#if procClass == '102'>AND (TD.TECHRESP_USER IS NOT NULL AND TD.LAST_DECISION IS NULL)</#if>  /* 처리중 */
+              <#if procClass == '103'>
+                AND NOT EXISTS (
+                                SELECT 1
+                                  FROM LTM_TEST_DIARY
+                                 WHERE TI.REQ_NUM = REQ_NUM
+                                   AND TI.ACCEPT_NUM = ACCEPT_NUM
+                                   AND TI.ARTICLE_CD = ARTICLE_CD
+                               )
+              </#if> /* 미처리 */
+            </#if>
+            AND TR.REQ_DATE BETWEEN :fromDay AND :toDay
+            AND TI.ARTICLE_CD = TA.ARTICLE_CD
+            <#if insptFld?has_content>AND TI.INSPT_FLD = :insptFld </#if>
+            <#if testUser?has_content>AND TI.SABUN = :testUser </#if>
+            <#if articleNm?has_content>AND TA.ARTICLE_NM LIKE '%' || :articleNm || '%' </#if>
+            AND NOT EXISTS (
+                            SELECT 1
+                              FROM LRM_PROC_DESC
+                             WHERE REQ_NUM = TR.REQ_NUM
+                               AND PROC_CLASS IN ('140')
+                           )
+          GROUP BY TI.INSPT_FLD, TI.SABUN
+       ) B
+ WHERE A.AUTH_CD = '101'
+   AND A.INSPT_FLD = B.INSPT_FLD(+)
+   AND A.SABUN = B.SABUN(+)
+ ORDER BY 3, 2, A.USE_YN DESC
+        ]]>
+    </statement>
+
+    <!-- 검사분야 현황 조회 -->
+    <statement name="selectDetailList" type="select">
+        /*+ com.hwfs.ls.lsm.dao.TestUserSpecmArticleInqueryDAO.selectDetailList */
+        <![CDATA[
+/* 검사분야 현황 조회 */
+SELECT RE.INSPT_FLD_NM
+     , RE.SABUN
+     , RE.NM_KOR
+     , RE.ARTICLE_NM
+     , SUM(RE.TEST_HIST_CNT) AS TEST_HIST_CNT
+     , (
+        SELECT LISTAGG(T.NOT_FIT_CLSFI_NM||' '||T.NOT_FIT_CNT||'('||X.INSPT_CNT||')건', ',') WITHIN GROUP(ORDER BY T.NOT_FIT_CLSFI_NM) AS ITEM_NOT_FIT_HISTORY
+            FROM (
+                  SELECT LT.INSPT_FLD
+                       , LT.SABUN
+                       , LA.ARTICLE_NM
+                       , COUNT(SPECM_CD) AS INSPT_CNT
+                    FROM LRM_TEST_REQ_ACCEPT LR
+                       , LRM_SPECM_INFO LI
+                       , LRM_TEST_INFO LT
+                       , LTM_TEST_DIARY LD
+                       , LCM_TEST_ARTICLE LA
+                   WHERE LR.REQ_DATE BETWEEN :fromDay AND :toDay
+                     AND LR.REQ_NUM = LI.REQ_NUM
+                     AND LI.REQ_NUM = LT.REQ_NUM
+                     AND LI.ACCEPT_NUM = LT.ACCEPT_NUM
+                     AND LT.REQ_NUM = LD.REQ_NUM(+)
+                     AND LT.ACCEPT_NUM = LD.ACCEPT_NUM(+)
+                     AND LT.ARTICLE_CD = LD.ARTICLE_CD(+)
+                     AND LD.ARTICLE_CD = LA.ARTICLE_CD
+                     AND LT.SABUN = LD.SABUN
+                     AND LT.INSPT_FLD = :insptFldDtl
+                     <#if procClass?has_content>
+                      <#if procClass == '101'>AND LD.LAST_DECISION IS NOT NULL</#if> /* 완료 */
+                      <#if procClass == '102'>AND (LD.TECHRESP_USER IS NOT NULL AND LD.LAST_DECISION IS NULL)</#if>  /* 처리중 */
+                      <#if procClass == '103'>
+                        AND NOT EXISTS (
+                                        SELECT 1
+                                          FROM LTM_TEST_DIARY
+                                         WHERE LT.REQ_NUM = REQ_NUM
+                                           AND LT.ACCEPT_NUM = ACCEPT_NUM
+                                           AND LT.ARTICLE_CD = ARTICLE_CD
+                                       )
+                      </#if> /* 미처리 */
+                    </#if>
+                    <#if insptFld?has_content>AND LT.INSPT_FLD = :insptFld </#if>
+                    <#if testUser?has_content>AND LT.SABUN = :testUser </#if>
+                    <#if articleNm?has_content>AND LA.ARTICLE_NM LIKE '%' || :articleNm || '%' </#if>
+                    AND NOT EXISTS (
+                                    SELECT 1
+                                      FROM LRM_PROC_DESC
+                                     WHERE REQ_NUM = LR.REQ_NUM
+                                       AND PROC_CLASS IN ('140')
+                                   )
+                   GROUP BY LT.INSPT_FLD
+                       , LT.SABUN
+                       , LA.ARTICLE_NM
+                 ) X
+               , (
+                  SELECT LT.INSPT_FLD
+                       , LT.SABUN
+                       , LA.ARTICLE_NM
+                       , H.NOT_FIT_CLSFI_NM
+                       , COUNT(SPECM_CD) AS NOT_FIT_CNT
+                    FROM LRM_TEST_REQ_ACCEPT LR
+                       , LRM_SPECM_INFO LI
+                       , LRM_TEST_INFO LT
+                       , LTM_TEST_DIARY LD
+                       , LCM_TEST_ARTICLE LA
+                       , (
+                          SELECT /*+ INDEX_SS(Y) */
+                                 Y.REQ_NUM
+                               , Y.ACCEPT_NUM
+                               , Y.ARTICLE_CD
+                               , P.ARTICLE_NM
+                               , SCC_CODE_NM('NOT_FIT_CLSFI', P.NOT_FIT_CLSFI) AS NOT_FIT_CLSFI_NM
+                               , X.INSPT_FLD
+                               , X.SABUN
+                               , ROW_NUMBER() OVER(PARTITION BY Y.REQ_NUM, Y.ACCEPT_NUM ORDER BY Y.REQ_NUM, Y.ACCEPT_NUM, P.NOT_FIT_CLSFI DESC) AS RN
+                            FROM LRM_TEST_INFO X
+                               , LTM_TEST_DIARY Y
+                               , LCM_TEST_ARTICLE P
+                           WHERE 1 = 1
+                             AND X.REQ_NUM = Y.REQ_NUM
+                             AND X.ACCEPT_NUM = Y.ACCEPT_NUM
+                             AND X.ARTICLE_CD = Y.ARTICLE_CD
+                             AND Y.ARTICLE_CD = P.ARTICLE_CD
+                             AND Y.LAST_DECISION <> '101'
+                         ) H
+                   WHERE LR.REQ_DATE BETWEEN :fromDay AND :toDay
+                     AND LR.REQ_NUM = LI.REQ_NUM
+                     AND LI.REQ_NUM = LT.REQ_NUM
+                     AND LI.ACCEPT_NUM = LT.ACCEPT_NUM
+                     AND LT.REQ_NUM = LD.REQ_NUM(+)
+                     AND LT.ACCEPT_NUM = LD.ACCEPT_NUM(+)
+                     AND LT.ARTICLE_CD = LD.ARTICLE_CD(+)
+                     AND LD.ARTICLE_CD = LA.ARTICLE_CD
+                     AND LT.SABUN = LD.SABUN
+                     AND LT.REQ_NUM = H.REQ_NUM
+                     AND LT.ACCEPT_NUM = H.ACCEPT_NUM
+                     AND LT.ARTICLE_CD = H.ARTICLE_CD
+                     AND LTM_TEST_LAST_DECISION_FUN(LI.REQ_NUM, LI.ACCEPT_NUM) <> '101'
+                     AND LT.INSPT_FLD = :insptFldDtl
+                     <#if procClass?has_content>
+                      <#if procClass == '101'>AND LD.LAST_DECISION IS NOT NULL</#if> /* 완료 */
+                      <#if procClass == '102'>AND (LD.TECHRESP_USER IS NOT NULL AND LD.LAST_DECISION IS NULL)</#if>  /* 처리중 */
+                      <#if procClass == '103'>
+                        AND NOT EXISTS (
+                                        SELECT 1
+                                          FROM LTM_TEST_DIARY
+                                         WHERE LT.REQ_NUM = REQ_NUM
+                                           AND LT.ACCEPT_NUM = ACCEPT_NUM
+                                           AND LT.ARTICLE_CD = ARTICLE_CD
+                                       )
+                      </#if> /* 미처리 */
+                    </#if>
+                    <#if insptFld?has_content>AND LT.INSPT_FLD = :insptFld </#if>
+                    <#if testUser?has_content>AND LT.SABUN = :testUser </#if>
+                    <#if articleNm?has_content>AND LA.ARTICLE_NM LIKE '%' || :articleNm || '%' </#if>
+                    AND NOT EXISTS (
+                                    SELECT 1
+                                      FROM LRM_PROC_DESC
+                                     WHERE REQ_NUM = LR.REQ_NUM
+                                       AND PROC_CLASS IN ('140')
+                                   )
+                   GROUP BY LT.INSPT_FLD, LT.SABUN, LA.ARTICLE_NM, H.NOT_FIT_CLSFI_NM
+                 ) T
+           WHERE X.INSPT_FLD = T.INSPT_FLD
+             AND X.SABUN = T.SABUN
+             AND X.ARTICLE_NM = T.ARTICLE_NM
+             AND T.INSPT_FLD = RE.INSPT_FLD
+             AND T.SABUN = RE.SABUN
+             AND T.ARTICLE_NM = RE.ARTICLE_NM
+           GROUP BY X.INSPT_FLD, X.SABUN, X.ARTICLE_NM
+       ) AS NOT_FIT
+     , SUM(NVL(RE."01", 0)) AS "01"
+     , SUM(NVL(RE."02", 0)) AS "02"
+     , SUM(NVL(RE."03", 0)) AS "03"
+     , SUM(NVL(RE."04", 0)) AS "04"
+     , SUM(NVL(RE."05", 0)) AS "05"
+     , SUM(NVL(RE."06", 0)) AS "06"
+     , SUM(NVL(RE."07", 0)) AS "07"
+     , SUM(NVL(RE."08", 0)) AS "08"
+     , SUM(NVL(RE."09", 0)) AS "09"
+     , SUM(NVL(RE."10", 0)) AS "10"
+     , SUM(NVL(RE."11", 0)) AS "11"
+     , SUM(NVL(RE."12", 0)) AS "12"
+  FROM (
+        SELECT B.INSPT_FLD
+             , SCC_CODE_NM('INSPT_FLD', B.INSPT_FLD) AS INSPT_FLD_NM
+             , B.SABUN
+             , (SELECT NM_KOR
+                  FROM SCC_USERINFO
+                 WHERE SABUN = B.SABUN) AS NM_KOR
+             , C.ARTICLE_NM
+             , SUM(NVL((
+                 SELECT 1
+                   FROM LRM_TEST_REQ_ACCEPT TR
+                      , LRM_SPECM_INFO SI
+                      , LRM_TEST_INFO TI
+                      , LTM_TEST_DIARY TD
+                      , LCM_TEST_ARTICLE TA
+                  WHERE TR.REQ_DATE BETWEEN :fromDay AND :toDay
+                    AND TR.REQ_NUM = SI.REQ_NUM
+                    AND SI.REQ_NUM = TI.REQ_NUM
+                    AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                    AND TI.REQ_NUM = TD.REQ_NUM(+)
+                    AND TI.ACCEPT_NUM = TD.ACCEPT_NUM(+)
+                    AND TI.ARTICLE_CD = TD.ARTICLE_CD(+)
+                    AND TI.SABUN = TD.SABUN(+)
+                    AND TI.ARTICLE_CD = TA.ARTICLE_CD
+                    AND TA.ARTICLE_NM = C.ARTICLE_NM
+                    AND TI.SABUN = B.SABUN
+                    AND TI.INSPT_FLD = B.INSPT_FLD
+                    AND TI.INSPT_FLD = :insptFldDtl
+                    <#if procClass?has_content>
+                     <#if procClass == '101'>AND TD.LAST_DECISION IS NOT NULL</#if> /* 완료 */
+                     <#if procClass == '102'>AND (TD.TECHRESP_USER IS NOT NULL AND TD.LAST_DECISION IS NULL)</#if>  /* 처리중 */
+                     <#if procClass == '103'>
+                       AND NOT EXISTS (
+                                       SELECT 1
+                                         FROM LTM_TEST_DIARY
+                                        WHERE TI.REQ_NUM = REQ_NUM
+                                          AND TI.ACCEPT_NUM = ACCEPT_NUM
+                                          AND TI.ARTICLE_CD = ARTICLE_CD
+                                      )
+                     </#if> /* 미처리 */
+                   </#if>
+                   <#if insptFld?has_content>AND TI.INSPT_FLD = :insptFld </#if>
+                   <#if testUser?has_content>AND TI.SABUN = :testUser </#if>
+                   <#if articleNm?has_content>AND TA.ARTICLE_NM LIKE '%' || :articleNm || '%' </#if>
+                   AND NOT EXISTS (
+                                   SELECT 1
+                                     FROM LRM_PROC_DESC
+                                    WHERE REQ_NUM = TR.REQ_NUM
+                                      AND PROC_CLASS IN ('140')
+                                  )
+                  GROUP BY TI.INSPT_FLD, TI.SABUN, TA.ARTICLE_NM
+               ), 0)) AS TEST_HIST_CNT
+             , DECODE(SUBSTR(SI.ACCEPTDD, 5, 2), '01', COUNT(1), 0) AS "01"
+             , DECODE(SUBSTR(SI.ACCEPTDD, 5, 2), '02', COUNT(1), 0) AS "02"
+             , DECODE(SUBSTR(SI.ACCEPTDD, 5, 2), '03', COUNT(1), 0) AS "03"
+             , DECODE(SUBSTR(SI.ACCEPTDD, 5, 2), '04', COUNT(1), 0) AS "04"
+             , DECODE(SUBSTR(SI.ACCEPTDD, 5, 2), '05', COUNT(1), 0) AS "05"
+             , DECODE(SUBSTR(SI.ACCEPTDD, 5, 2), '06', COUNT(1), 0) AS "06"
+             , DECODE(SUBSTR(SI.ACCEPTDD, 5, 2), '07', COUNT(1), 0) AS "07"
+             , DECODE(SUBSTR(SI.ACCEPTDD, 5, 2), '08', COUNT(1), 0) AS "08"
+             , DECODE(SUBSTR(SI.ACCEPTDD, 5, 2), '09', COUNT(1), 0) AS "09"
+             , DECODE(SUBSTR(SI.ACCEPTDD, 5, 2), '10', COUNT(1), 0) AS "10"
+             , DECODE(SUBSTR(SI.ACCEPTDD, 5, 2), '11', COUNT(1), 0) AS "11"
+             , DECODE(SUBSTR(SI.ACCEPTDD, 5, 2), '12', COUNT(1), 0) AS "12"
+          FROM LRM_TEST_REQ_ACCEPT A
+             , LRM_SPECM_INFO SI
+             , LRM_TEST_INFO B
+             , LTM_TEST_DIARY E
+             , LCM_TEST_ARTICLE C
+             , LCM_USER D
+         WHERE A.REQ_DATE BETWEEN :fromDay AND :toDay
+           AND A.REQ_NUM = SI.REQ_NUM
+           AND SI.REQ_NUM = B.REQ_NUM
+           AND SI.ACCEPT_NUM = B.ACCEPT_NUM
+           AND B.ARTICLE_CD = C.ARTICLE_CD
+           AND B.REQ_NUM = E.REQ_NUM(+)
+           AND B.ACCEPT_NUM = E.ACCEPT_NUM(+)
+           AND B.ARTICLE_CD = E.ARTICLE_CD(+)
+           AND D.AUTH_CD = '101'
+           AND B.INSPT_FLD = D.INSPT_FLD
+           AND B.SABUN = D.SABUN
+           AND B.INSPT_FLD = :insptFldDtl
+           <#if procClass?has_content>
+             <#if procClass == '101'>AND E.LAST_DECISION IS NOT NULL</#if> /* 완료 */
+             <#if procClass == '102'>AND (E.TECHRESP_USER IS NOT NULL AND E.LAST_DECISION IS NULL)</#if>  /* 처리중 */
+             <#if procClass == '103'>
+               AND NOT EXISTS (
+                               SELECT 1
+                                 FROM LTM_TEST_DIARY
+                                WHERE B.REQ_NUM = REQ_NUM
+                                  AND B.ACCEPT_NUM = ACCEPT_NUM
+                                  AND B.ARTICLE_CD = ARTICLE_CD
+                              )
+             </#if> /* 미처리 */
+           </#if>
+           <#if insptFld?has_content>AND B.INSPT_FLD = :insptFld </#if>
+           <#if testUser?has_content>AND B.SABUN = :testUser </#if>
+           <#if articleNm?has_content>AND C.ARTICLE_NM LIKE '%' || :articleNm || '%' </#if>
+           AND NOT EXISTS (
+                           SELECT 1
+                             FROM LRM_PROC_DESC
+                            WHERE REQ_NUM = A.REQ_NUM
+                              AND PROC_CLASS IN ('140')
+                          )
+         GROUP BY B.INSPT_FLD, B.SABUN, SI.ACCEPTDD, C.ARTICLE_NM
+       ) RE
+ WHERE 1 = 1
+ GROUP BY RE.INSPT_FLD
+     , RE.INSPT_FLD_NM
+     , RE.NM_KOR
+     , RE.SABUN
+     , RE.ARTICLE_NM
+ ORDER BY 3, 4
+        ]]>
+    </statement>
+
+    <!-- 검사 담당자별 조회한다. -->
+    <statement name="selectDetailViewList" type="select">
+        /*+ com.hwfs.ls.lsm.dao.TestUserSpecmArticleInqueryDAO.selectDetailViewList */
+        <![CDATA[
+/* 검사분야 현황 상세 조회 */
+SELECT /*+ INDEX_SS(B) INDEX_FFS(D) */
+       B.REQ_DATE,
+       A.REQ_NUM,
+       A.ACCEPT_NUM,
+       A.ACCEPTDD,
+       A.SPECM_CD,                      /* 검체 코드 */
+       A.SPECM_CLASS,               /* 검체 분류 */
+       A.SPECM_NM,                      /* 검체명 */
+       A.SPECM_TYPE,                    /* 검체유형(공전유형) */
+       SCC_CODE_NM('SPECM_TYPE', A.SPECM_TYPE) AS SPECM_TYPE_NM,    /* 검체유형(공전유형)명 */
+       A.MGRP_CD,                   /* 검체유형 대분류 */
+       A.MCALSS_CD,                     /* 검체유형 중분류 */
+       A.SCLASS_CD,                     /* 검체유형 소분류 */
+       ((SELECT X.MGRP_NM FROM LCM_SPECM_TYPE_MGRP X WHERE X.SPECM_TYPE = A.SPECM_TYPE AND X.MGRP_CD = A.MGRP_CD AND X.USE_YN = 'Y') || ' / ' ||
+        (SELECT X.MCALSS_NM FROM LCM_SPECM_TYPE_MCALSS X WHERE X.SPECM_TYPE = A.SPECM_TYPE AND X.MCALSS_CD = A.MCALSS_CD AND X.USE_YN = 'Y') || ' / ' ||
+        (SELECT X.SCLASS_NM FROM LCM_SPECM_TYPE_SCLASS X WHERE X.SPECM_TYPE = A.SPECM_TYPE AND X.SCLASS_CD = A.SCLASS_CD AND X.USE_YN = 'Y'))
+       AS SPECM_TYPE_DESC,              /* 검체 유형명 ( 대분류명 / 중분류명 / 소분류명 ) */
+       A.INSPT_MTOD,                    /* 검사방법 */
+       SCC_CODE_NM('INSPT_MTOD', A.INSPT_MTOD) AS INSPT_MTOD_NM,
+       A.INSPT_CLASS,               /* 검사구분 */
+       SCC_CODE_NM('INSPT_CLASS', A.INSPT_CLASS) AS INSPT_CLASS_NM,
+       A.INSPT_PURP_1,                  /* 검사목적1 */
+       SCC_CODE_NM('INSPT_PURP_1', A.INSPT_PURP_1) AS INSPT_PURP_1_NM,
+       A.INSPT_PURP_2,                  /* 검사목적2 */
+       SCC_CODE_NM('INSPT_PURP_2', A.INSPT_PURP_2) AS INSPT_PURP_2_NM,
+       A.INSPT_PURP_3,                  /* 검사목적3 */
+       SCC_CODE_NM('INSPT_PURP_3', A.INSPT_PURP_3) AS INSPT_PURP_3_NM,
+       A.LONGSTORAGE_YN,                /* 장기보존여부 */
+       SCC_CODE_NM('LONGSTORAGE_YN', A.LONGSTORAGE_YN) AS LONGSTORAGE_YN_NM,
+       A.INSPT_OBJ_1,                   /* 검사대상1 */
+       SCC_CODE_NM('INSPT_OBJ_1', A.INSPT_OBJ_1) AS INSPT_OBJ_1_NM,
+       A.INSPT_OBJ_2,                   /* 검사대상2 */
+       SCC_CODE_NM('INSPT_OBJ_2', A.INSPT_OBJ_2) AS INSPT_OBJ_2_NM,
+       A.INSPT_OBJ_3,                   /* 검사대상3 */
+       SCC_CODE_NM('INSPT_OBJ_3', A.INSPT_OBJ_3) AS INSPT_OBJ_3_NM,
+       A.INSPT_OBJ_4,                   /* 검사대상4 */
+       SCC_CODE_NM('INSPT_OBJ_4', A.INSPT_OBJ_4) AS INSPT_OBJ_4_NM,
+       A.ORIGIN                        /* 원산지 */
+     , CASE WHEN (SELECT COUNT(1) FROM LRM_TEST_INFO WHERE REQ_NUM = A.REQ_NUM) =
+                 (SELECT COUNT(1) FROM LTM_TEST_DIARY WHERE REQ_NUM = A.REQ_NUM AND LAST_DECISION IS NOT NULL)
+            THEN
+              (SELECT TO_CHAR(MAX(UDATE), 'YYYYMMDD')
+                 FROM LTM_TEST_DIARY
+                WHERE REQ_NUM = A.REQ_NUM)
+            ELSE
+              ''
+       END AS COMPLETE_DD /* 시험완료일자 */
+     , (SELECT X.NM_KOR
+          FROM SCC_USERINFO X
+         WHERE X.SABUN = C.SABUN) AS USER_NM        /* 담당자 */
+     , D.DECISION /* 판정 */
+     , SCC_CODE_NM('DECISION', D.DECISION) AS DECISION_NM
+     , D.LAST_DECISION  /* 최종 판정 */
+     , SCC_CODE_NM('LAST_DECISION', D.LAST_DECISION) AS LAST_DECISION_NM
+     , B.UPJANG_NM
+     , SCC_CODE_NM('ACCEPT_CLASS', B.ACCEPT_CLASS) AS ACCEPT_CLASS
+     , C.INSPT_FLD
+     , SCC_CODE_NM('INSPT_FLD', C.INSPT_FLD) AS INSPT_FLD_NM    /* 검사분야 */
+     , C.ARTICLE_CD
+     , (SELECT ARTICLE_NM FROM LCM_TEST_ARTICLE WHERE C.ARTICLE_CD = ARTICLE_CD) AS TEST_ARTICLE_NM   /* 시험항목명 */
+     , C.INSPT_METHOD
+     , SCC_CODE_NM('INSPT_METHOD', C.INSPT_METHOD) AS INSPT_METHOD_NM /* 검사방법 */
+     , U.PROC_CLASS AS PROGRESS_STATUS  /* 진행상태 */
+     , SCC_CODE_NM('PROGRESS_STATUS', U.PROC_CLASS) AS PROGRESS_STATUS_NM /* 진행상황 */
+     , C.SABUN
+     , CASE WHEN U.PROC_CLASS >= '200' THEN   /* 시험완료 승인 */
+          'Y'
+       ELSE
+          'N'
+       END AS COMPLETE_YN /* 시험완료승인 */
+     , C.BASIS_STAND      /* 기준규격 */
+     , D.RESULT             /* 시험일지결과 */
+     , (
+         SELECT COUNT(1)
+           FROM LEM_INSPECT_RPT_ISSUE_LOG
+          WHERE REQ_NUM = A.REQ_NUM
+            AND PUBLISHDD IS NOT NULL
+       ) AS PUBLISH_CNT   /* 발급횟수 */
+     , DECODE(B.INSPECT_RPT_ISSUE, NULL, 'N', B.INSPECT_RPT_ISSUE) AS INSPECT_RPT_ISSUE    /* 성적서 발급 여부 */
+     , H.INSPT_FLD_NM || '/' || H.NOT_FIT_CLSFI_NM AS NOT_FIT_CLSFI_NM    /* 검사분야 / 부적합분류 */
+     , NVL(C.LEGAL_BASIS, 'N') AS LEGAL_BASIS
+     , NVL(C.INSIDE_BASIS, 'N') AS INSIDE_BASIS
+     , A.DISUSE_YN      /* 폐기 여부 */
+     , A.DISUSE_DATE    /* 폐기 일자 */
+     , (
+        SELECT NVL(SUM(DECODE(Y.COMM_1_USE_YN, 'Y', SUM(Y.COMM_1), 0)) +
+                   SUM(DECODE(Y.COMM_2_USE_YN, 'Y', SUM(Y.COMM_2), 0)) +
+                   SUM(DECODE(Y.COMM_3_USE_YN, 'Y', SUM(Y.COMM_3), 0)) +
+                   SUM(DECODE(Y.COMM_4_USE_YN, 'Y', SUM(Y.COMM_4), 0)) +
+                   SUM(DECODE(Y.COMM_5_USE_YN, 'Y', SUM(Y.COMM_5), 0)), 0)
+          FROM LRM_TEST_REQ_ACCEPT B
+             , LRM_SPECM_INFO X
+             , LRM_TEST_INFO Y
+             , LTM_TEST_DIARY TD
+             , LCM_TEST_ARTICLE TA
+         WHERE 1 = 1
+           AND B.REQ_DATE BETWEEN :fromDay AND :toDay
+           AND B.REQ_NUM = A.REQ_NUM
+           AND B.REQ_NUM = X.REQ_NUM
+           AND X.ACCEPT_NUM = A.ACCEPT_NUM
+           AND X.REQ_NUM = Y.REQ_NUM
+           AND X.ACCEPT_NUM = Y.ACCEPT_NUM
+           AND Y.REQ_NUM = C.REQ_NUM
+           AND Y.ACCEPT_NUM = C.ACCEPT_NUM
+           AND Y.ARTICLE_CD = C.ARTICLE_CD
+           AND Y.REQ_NUM = TD.REQ_NUM(+)
+           AND Y.ACCEPT_NUM = TD.ACCEPT_NUM(+)
+           AND Y.ARTICLE_CD = TD.ARTICLE_CD(+)
+           AND Y.ARTICLE_CD = TA.ARTICLE_CD
+           <#if procClass?has_content>
+             <#if procClass == '101'>AND TD.LAST_DECISION IS NOT NULL</#if> /* 완료 */
+             <#if procClass == '102'>AND (TD.TECHRESP_USER IS NOT NULL AND TD.LAST_DECISION IS NULL)</#if>  /* 처리중 */
+             <#if procClass == '103'>
+               AND NOT EXISTS (
+                               SELECT 1
+                                 FROM LTM_TEST_DIARY
+                                WHERE Y.REQ_NUM = REQ_NUM
+                                  AND Y.ACCEPT_NUM = ACCEPT_NUM
+                                  AND Y.ARTICLE_CD = ARTICLE_CD
+                              )
+             </#if> /* 미처리 */
+           </#if>
+           AND NOT EXISTS (
+                           SELECT 1
+                             FROM LRM_PROC_DESC
+                            WHERE REQ_NUM = B.REQ_NUM
+                              AND PROC_CLASS IN ('140')
+                          )
+           AND Y.INSPT_FLD = :insptFldDtl
+           AND Y.SABUN = :sabun
+           AND TA.ARTICLE_NM = :articleNmDtl
+           AND Y.SABUN = C.SABUN
+           AND Y.INSPT_FLD = C.INSPT_FLD
+         GROUP BY Y.COMM_1_USE_YN, Y.COMM_2_USE_YN, Y.COMM_3_USE_YN, Y.COMM_4_USE_YN, Y.COMM_5_USE_YN
+       ) AS COMM_TOT_AMT
+     , SCC_CODE_NM('URGENT_YN', A.MFG_VENDOR) AS URGENT_YN  /* 긴급여부 */
+FROM   LRM_SPECM_INFO A
+     , LRM_TEST_REQ_ACCEPT B
+     , LRM_TEST_INFO C
+     , LTM_TEST_DIARY D
+     , LCM_TEST_ARTICLE TA
+     , (
+        SELECT PD.REQ_NUM
+             , PD.PROC_USER
+             , PD.PROCDD
+             , PD.PROC_REASON
+             , PD.PROC_CLASS
+             , PD.SEQ
+          FROM (
+                SELECT Y.REQ_NUM
+                     , Y.PROC_USER
+                     , Y.PROCDD
+                     , Y.PROC_REASON
+                     , Y.PROC_CLASS
+                     , Y.SEQ
+                     , ROW_NUMBER() OVER (PARTITION BY Y.REQ_NUM ORDER BY Y.REQ_NUM, Y.SEQ DESC) AS RN
+                  FROM LRM_PROC_DESC Y
+               ) PD
+         WHERE RN = 1
+       ) U
+     , (
+         SELECT /*+ INDEX_FFS(Y) */
+                Y.REQ_NUM
+              , Y.ACCEPT_NUM
+              , Y.ARTICLE_CD
+              , P.INSPT_FLD
+              , SCC_CODE_NM('INSPT_FLD', P.INSPT_FLD) AS INSPT_FLD_NM
+              , Y.LAST_DECISION
+              , P.ARTICLE_NM
+              , P.NOT_FIT_CLSFI
+              , SCC_CODE_NM('NOT_FIT_CLSFI', P.NOT_FIT_CLSFI) AS NOT_FIT_CLSFI_NM
+              , ROW_NUMBER() OVER(PARTITION BY Y.REQ_NUM, Y.ACCEPT_NUM ORDER BY Y.REQ_NUM, Y.ACCEPT_NUM, P.NOT_FIT_CLSFI DESC) AS RN
+           FROM LTM_TEST_DIARY Y
+              , LCM_TEST_ARTICLE P
+          WHERE 1 = 1
+            AND Y.ARTICLE_CD = P.ARTICLE_CD
+            AND Y.LAST_DECISION <> '101'
+       ) H
+WHERE  1 = 1
+  --AND  B.REQ_NUM = :reqNum
+  AND  B.REQ_DATE BETWEEN :fromDay AND :toDay
+  AND  A.REQ_NUM = B.REQ_NUM
+  AND  A.REQ_NUM = C.REQ_NUM
+  AND  A.ACCEPT_NUM = C.ACCEPT_NUM
+  AND  A.REQ_NUM = U.REQ_NUM
+  AND  C.REQ_NUM = H.REQ_NUM(+)
+  AND  C.ACCEPT_NUM = H.ACCEPT_NUM(+)
+  AND  C.ARTICLE_CD = H.ARTICLE_CD(+)
+  AND  C.REQ_NUM = D.REQ_NUM(+)
+  AND  C.ACCEPT_NUM = D.ACCEPT_NUM(+)
+  AND  C.ARTICLE_CD = D.ARTICLE_CD(+)
+  AND  C.SABUN = D.SABUN(+)
+  AND  C.ARTICLE_CD = TA.ARTICLE_CD
+  AND  C.INSPT_FLD = :insptFldDtl
+  <#if procClass?has_content>
+    <#if procClass == '101'>AND D.LAST_DECISION IS NOT NULL</#if> /* 완료 */
+    <#if procClass == '102'>AND (D.TECHRESP_USER IS NOT NULL AND D.LAST_DECISION IS NULL)</#if>  /* 처리중 */
+    <#if procClass == '103'>
+      AND NOT EXISTS (
+                      SELECT 1
+                        FROM LTM_TEST_DIARY
+                       WHERE C.REQ_NUM = REQ_NUM
+                         AND C.ACCEPT_NUM = ACCEPT_NUM
+                         AND C.ARTICLE_CD = ARTICLE_CD
+                     )
+    </#if> /* 미처리 */
+  </#if>
+  AND  B.REQ_DATE BETWEEN :fromDay AND :toDay
+  AND C.SABUN = :sabun
+  AND TA.ARTICLE_NM = :articleNmDtl
+  AND NOT EXISTS (
+                  SELECT 1
+                    FROM LRM_PROC_DESC
+                   WHERE REQ_NUM = B.REQ_NUM
+                     AND PROC_CLASS IN ('140')
+                 )
+ORDER  BY A.REQ_NUM, A.ACCEPT_NUM, C.ARTICLE_CD
+        ]]>
+    </statement>
+
+</hqml>

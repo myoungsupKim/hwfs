@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[최종 발주정보]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.NEED_DATE, COUNT(*) AS CNT
+     , SUM(ROUND(A.PR_QTY * DECODE(NVL(B.OP_PRICE,0),0,SCC_CEIL(A.SALE_PRICE + ROUND(A.SALE_PRICE * NVL(B.OP_RATE,0) / 100),B.CEIL_VAL),B.OP_PRICE))) AS AMT
+  FROM FMU_OP_RATE B
+     ,(SELECT A.RC_UPJANG AS UPJANG, A.ITEM_CODE, A.NEED_DATE, A.PR_QTY, A.SALE_PRICE
+          FROM HLDC_PO_PR A
+            ,(SELECT /*+ INDEX_DESC(HLDC_PO_PR PO_PR_I2) */
+                     NEED_DATE, SUBINV_CODE
+                FROM HLDC_PO_PR
+               WHERE SUBINV_CODE = #SUBINV_CODE#
+                 AND DOCU_SOURCE IN (#DOCU_SOURCE#,#DocSrc1#,#DocSrc2#)
+                 AND LINE_STATUS <> '003' --신청취소
+                 AND NEED_DATE BETWEEN TO_CHAR(SYSDATE-15,'YYYYMMDD') AND TO_CHAR(SYSDATE+15,'YYYYMMDD') --현재일 기준 전후1달만 조회하자.
+                 AND ROWNUM <= 1) B
+         WHERE A.NEED_DATE = B.NEED_DATE
+           AND A.SUBINV_CODE = B.SUBINV_CODE
+           AND A.LINE_STATUS <> '003' --신청취소
+         UNION ALL
+        SELECT A.UPJANG, A.ITEM_CODE, A.NEED_DATE, A.PR_QTY, A.SALE_PRICE
+          FROM FMP_OTCUST_PR A
+            ,(SELECT /*+ INDEX_DESC(FMP_OTCUST_PR FMP_OTCUST_PR_IE2) */
+                     NEED_DATE, SUBINV_CODE
+                FROM FMP_OTCUST_PR
+               WHERE SUBINV_CODE = #SUBINV_CODE#
+                 AND DOCU_SOURCE IN (#DOCU_SOURCE#,#DocSrc1#,#DocSrc2#)
+                 AND LINE_STATUS <> '003' --신청취소
+                 AND NEED_DATE BETWEEN TO_CHAR(SYSDATE-15,'YYYYMMDD') AND TO_CHAR(SYSDATE+15,'YYYYMMDD') --현재일 기준 전후1달만 조회하자.
+                 AND ROWNUM <= 1) B
+         WHERE A.NEED_DATE = B.NEED_DATE
+           AND A.SUBINV_CODE = B.SUBINV_CODE
+           AND A.LINE_STATUS <> '003') A --신청취소
+ WHERE A.UPJANG = B.UPJANG(+)
+   AND A.NEED_DATE BETWEEN B.SDATE(+) AND B.EDATE(+)
+   AND A.ITEM_CODE = B.ITEM_CODE(+)
+   AND B.USE_YN(+) = 'Y'
+ GROUP BY A.NEED_DATE	]]></statement>
+	<input default-name="ds_Cond">
+		<col name="SUBINV_CODE" size="8" type="VARCHAR" description="" /> 
+		<col name="NEED_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="DOCU_SOURCE" size="50" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_List">
+		<col name="NEED_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="CNT" size="27" type="VARCHAR" description="" /> 
+		<col name="AMT" size="22" type="VARCHAR" description="" /> 
+	</output>
+</query>

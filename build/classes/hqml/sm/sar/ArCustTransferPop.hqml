@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sm.sar.arCustTransferPopDAO">
+	<desc>채권 거래처/업장 이관 처리 HQML Query</desc>
+
+	<!-- 채권 거래처/업장 이관 처리 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sm.sar.dao.ArCustTransferPopDAO.selectList */
+		<![CDATA[
+		SELECT COLUMN_NAME1,
+		       COLUMN_NAME2
+		FROM   TABLE_NAME
+		WHERE  1=1
+		<#if columnName?has_content>
+		AND    COLUMN_NAME = :columnName
+		</#if>
+		ORDER BY COLUMN_NAME ASC
+		]]>
+	</statement>
+	
+	<!-- 채권 거래처/업장 이관 처리 시 거래처에 해당되는 업장 목록을 조회한다. -->
+	<statement name="selectUpjangList" type="select">
+		<![CDATA[
+		/*+ com.hwfs.sm.sar.dao.ArCustTransferPopDAO.selectUpjangList */
+		
+		SELECT UPJANG AS UPJANG_CD,
+		       UPJANGNM AS UPJANG_NM
+		FROM   ST_UPJANG
+		WHERE  1=1
+		<#if custCd?has_content>
+		AND    CUSTCD = :custCd
+		</#if>
+		ORDER BY UPJANG_CD DESC
+		]]>
+	</statement>
+
+	<!-- 채권 거래처/업장 이관 처리(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sm.sar.dao.ArCustTransferPopDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 업장매출번호를 조회한다. -->
+	<statement name="selectMaxUpjangSalsNum" type="select">
+		/*+ com.hwfs.sm.sar.dao.ArCustTransferPopDAO.selectMaxUpjangSalsNum */
+		<![CDATA[
+			SELECT :salsDate || SLA_UPJANG_SALS_ISRC_S.NEXTVAL as maxUpjangSalsNum FROM DUAL
+			
+			--SELECT :salsDate || SUBSTR('000000' || (NVL(MAX(TO_NUMBER(SUBSTR(UPJANG_SALS_NUM,9,6))),0)+1), -6) AS maxUpjangSalsNum
+			--FROM SLA_UPJANG_SALS_ISRC WHERE SUBSTR(UPJANG_SALS_NUM,1,8) = :salsDate
+		]]>
+	</statement>
+	
+	<!-- 업장매출확보를 등록한다. -->
+	<statement name="insertUpjangSals" type="insert">
+		/*+ com.hwfs.sm.sar.dao.ArCustTransferPopDAO.insertUpjangSals */
+		<![CDATA[
+		INSERT INTO SLA_UPJANG_SALS_ISRC
+		(
+		 UPJANG_SALS_NUM,
+		 UPJANG_CD,
+		 SYS_CLASS,
+		 SALS_DATE,
+		 MU_CD,
+		 CC_CD,
+		 SALS_CLASS,
+		 OCCUR_CLASS,
+		 ACCT_CD,
+		 CUST_CD,
+		 NET_AMT,
+		 VAT_AMT,
+		 SALS_AMT,
+		 SAL_QUANTITY,
+		 VAT_CLASS,
+		 JOURNALZ_YN,
+		 JOURNALZ_NUM,
+		 TAX_SHET_PUBLISH_AMT,
+		 RECEIVE_NUM,
+		 MODIFY_SALS_YN,
+		 DATA_CLASS,
+		 RECD_STATUS,
+		 CUSER,
+		 CDATE,
+		 UUSER,
+		 UDATE
+		) VALUES (
+		 :upjangSalsNum,
+		<#if upjangCd?exists> :upjangCd, <#else> null, </#if>
+		<#if sysClass?exists> :sysClass, <#else> null, </#if>
+		 :salsDate,
+		<#if muCd?exists> :muCd, <#else> null, </#if>
+		<#if ccCd?exists> :ccCd, <#else> null, </#if>
+		 :salsClass,
+		<#if occurClass?exists> :occurClass, <#else> null, </#if>
+		 :acctCd,
+		<#if custCd?exists> :custCd, <#else> null, </#if>
+		<#if salsAmt?exists> <#if seq?exists> DECODE(:seq,'0',ROUND(:salsAmt / 1.1),ROUND(:salsAmt/1.1) * -1), <#else>:salsAmt,</#if> <#else> null, </#if>
+		<#if salsAmt?exists> <#if seq?exists> DECODE(:seq,'0',:salsAmt - ROUND(:salsAmt / 1.1), (:salsAmt - ROUND(:salsAmt/1.1)) * -1), <#else>:salsAmt,</#if> <#else> null, </#if>
+		<#if salsAmt?exists> <#if seq?exists> DECODE(:seq,'0',:salsAmt,:salsAmt * -1), <#else>:salsAmt,</#if> <#else> null, </#if>
+		<#if salQuantity?exists> :salQuantity, <#else> null, </#if>
+		<#if vatClass?exists> :vatClass, <#else> '20', </#if>
+		<#if journalzYn?exists> DECODE(:journalzYn, '1', 'Y', 'N'), <#else> null, </#if>
+		<#if journalzNum?exists> :journalzNum, <#else> null, </#if>
+		<#if salsAmt?exists> <#if seq?exists> DECODE(:seq,'0',:salsAmt,:salsAmt * -1), <#else>:salsAmt,</#if> <#else> null, </#if>
+		<#if receiveNum?exists>:receiveNum, <#else> null, </#if>
+		<#if modifySalsYn?exists> DECODE(:modifySalsYn, '1', 'Y', 'N'), <#else> null, </#if>
+		<#if dataClass?exists> :dataClass, <#else> null, </#if>
+		<#if recdStatus?exists> :recdStatus, <#else> null, </#if>
+		 :loginSabun,
+		 SYSDATE,
+		 :loginSabun,
+		 SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 업장매출확보(을)를 수정한다. -->
+	<statement name="updateUpjangSals" type="update">
+		/*+ com.hwfs.sm.sar.dao.ArCustTransferPopDAO.updateUpjangSals */
+		<![CDATA[
+		UPDATE SLA_UPJANG_SALS_ISRC SET
+		<#if upjangCd?exists> UPJANG_CD = :upjangCd, </#if>
+		<#if sysClass?exists> SYS_CLASS = :sysClass, </#if>
+		       SALS_DATE = :salsDate,
+		<#if muCd?exists> MU_CD = :muCd, </#if>
+		<#if ccCd?exists> CC_CD = :ccCd, </#if>
+		       SALS_CLASS = :salsClass,
+		<#if occurClass?exists> OCCUR_CLASS = :occurClass, </#if>
+		       ACCT_CD = :acctCd,
+		<#if custCd?exists> CUST_CD = :custCd, </#if>
+		<#if netAmt?exists> NET_AMT = :netAmt, </#if>
+		<#if vatAmt?exists> VAT_AMT = :vatAmt, </#if>
+		<#if salsAmt?exists> SALS_AMT = :salsAmt, </#if>
+		<#if salQuantity?exists> SAL_QUANTITY = :salQuantity, </#if>
+		<#if vatClass?exists> VAT_CLASS = :vatClass, </#if>
+		<#if journalzYn?exists> JOURNALZ_YN = DECODE(:journalzYn, '1', 'Y', 'N'), </#if>
+		<#if journalzNum?exists> JOURNALZ_NUM = :journalzNum, </#if>
+		<#if taxShetPublishAmt?exists> TAX_SHET_PUBLISH_AMT = :taxShetPublishAmt, </#if>
+		<#if modifySalsYn?exists> MODIFY_SALS_YN = DECODE(:modifySalsYn, '1', 'Y', 'N'), </#if>
+		<#if dataClass?exists> RECEIVE_NUM = :receiveNum, </#if>
+		<#if dataClass?exists> DATA_CLASS = :dataClass, </#if>
+		<#if recdStatus?exists> RECD_STATUS = :recdStatus, </#if>
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  UPJANG_SALS_NUM = :upjangSalsNum
+		]]>
+	</statement>
+	
+	<!-- 채권 거래처/업장 이관 처리(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sm.sar.dao.ArCustTransferPopDAO.deleteUpjangSals */
+		<![CDATA[
+		UPDATE SLA_UPJANG_SALS_ISRC 
+		SET    RECD_STATUS = 'D',
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  RECEIVE_NUM = :receiveNum
+		]]>
+	</statement>
+
+	<!-- 채권 거래처/업장 이관 처리(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.sm.sar.dao.ArCustTransferPopDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>

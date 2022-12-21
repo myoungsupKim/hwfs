@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>insert</type>
+	<description><![CDATA[레시피 포함 복사 - 조리법 복사]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+INSERT INTO FSM_REAL_RECIPE_CUISINE
+           (UPJANG, MENU_CD, RECIPE_CD, CUISINE_SEQ, CUISINE_DESC, PHOTO_PATH, SPHOTO_PATH
+            ,CUSER, CDATE, UUSER, UDATE)
+SELECT
+       #UPJANG# UPJANG -- 선택 사업장
+      ,#MENU_CD# MENU_CD -- 상단의 예상인원이 등록된 MENU_CD
+      ,A.RECIPE_CD
+      ,B.CUISINE_SEQ
+      ,B.CUISINE_DESC
+      , B.PHOTO_PATH --사진파일을 복사한 후 복사한 파일명이 저장되어야 한다.(UPJANG-MENU_CD-RECIPE_CD-CUISINE_SEQ 로 파일명 생성)
+      , B.SPHOTO_PATH 
+      ,#g_EmpNo# CUSER -- 복사하는 USER
+      ,SYSDATE CDATE
+      ,#g_EmpNo# UUSER -- 복사하는 USER
+      ,SYSDATE UDATE
+  FROM FSM_SINGLE_MENU_RECIPE A
+      ,FSR_STD_RECIPE_CUISINE B
+ WHERE A.RECIPE_CD = B.RECIPE_CD
+   AND A.RECIPE_CD IN (#RECIPE_CD$#) -- 복수개의 선택된 레시피 코드를 INPUT으로 입력 받는다.
+   AND A.SINGLE_MENU_CD = #SINGLE_MENU_CD#
+   AND NOT EXISTS (
+               SELECT 1
+                 FROM FSM_REAL_RECIPE_MST C
+                WHERE C.UPJANG = #UPJANG#  -- 선택 사업장
+                  AND C.MENU_CD = #MENU_CD#  -- 상단의 예상인원이 등록된 MENU_CD
+                  AND C.RECIPE_CD = A.RECIPE_CD
+               )	</statement>
+	<input default-name="ds_list">
+		<col name="UPJANG" size="6" type="NUMERIC" description="" /> 
+		<col name="MENU_CD" size="255" type="VARCHAR" description="" /> 
+		<col name="g_EmpNo" size="255" type="VARCHAR" description="" /> 
+		<col name="RECIPE_CD" size="255" type="VARCHAR" description="" /> 
+		<col name="SINGLE_MENU_CD" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

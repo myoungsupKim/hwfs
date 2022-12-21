@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sm.ssi.acctMgntbyMenuDAO">
+	<desc>사업장별 메뉴코드별 계정 HQML Query</desc>
+
+	<!-- 사업장별 메뉴코드별 계정 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sm.ssi.dao.AcctMgntbyMenuDAO.selectList */
+		<![CDATA[
+		SELECT 
+		        UPJANG_CD
+		       ,(SELECT UPJANGNM FROM SCO_UPJANG_V WHERE UPJANG=T.UPJANG_CD) AS UPJANG_NM
+		       ,MENU_CD
+		       ,(SELECT MENU_NM FROM SLE_OUTLET_MENU  WHERE OUTLET_CD=T.UPJANG_CD AND MENU_CD=T.MENU_CD)AS MENU_NM
+		       ,ACCT_CD
+		       ,(SELECT ACCTNM6 FROM ST_ACCOUNT  WHERE ACCTCD = T.ACCT_CD AND BU_CD='2000' ) AS ACCT_NM
+		       ,RECD_STATUS
+		       ,UPJANG_CD AS H_UPJANG_CD
+		       ,MENU_CD AS H_MENU_CD
+		FROM   SLA_POS_MENU_ACCT_MST T
+		ORDER BY UPJANG_CD ASC
+		]]>
+	</statement>
+
+	<!-- 사업장별 메뉴코드별 계정(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sm.ssi.dao.AcctMgntbyMenuDAO.insert */
+		<![CDATA[
+		INSERT INTO SLA_POS_MENU_ACCT_MST(
+		UPJANG_CD
+		,MENU_CD
+		,ACCT_CD
+		,RECD_STATUS
+		,CUSER
+		,CDATE
+		)VALUES(
+		:upjangCd
+		,:menuCd
+		,:acctCd
+		,'L'
+		,:loginSabun
+		,SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 사업장별 메뉴코드별 계정(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sm.ssi.dao.AcctMgntbyMenuDAO.update */
+		<![CDATA[
+		UPDATE SLA_POS_MENU_ACCT_MST 
+		SET    UPJANG_CD = :upjangCd
+		       ,MENU_CD = :menuCd
+		       ,ACCT_CD = :acctCd
+		       ,UUSER = :loginSabun
+		       ,UDATE = SYSDATE
+		WHERE  UPJANG_CD = :hUpjangCd
+		AND    MENU_CD = :hMenuCd
+		]]>
+	</statement>
+
+	<!-- 사업장별 메뉴코드별 계정(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.sm.ssi.dao.AcctMgntbyMenuDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   SLA_POS_MENU_ACCT_MST 
+		WHERE  UPJANG_CD = :hUpjangCd
+		AND    MENU_CD = :hMenuCd
+		]]>
+	</statement>
+
+</hqml>

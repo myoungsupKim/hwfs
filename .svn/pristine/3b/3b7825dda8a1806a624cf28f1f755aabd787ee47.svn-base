@@ -1,0 +1,728 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.sle.posMenuKeyMgmtDAO">
+	<desc>TABLE 코드 등록 관리</desc>
+ 
+	
+	
+	<!--  GRP DATA를 조회한다. -->
+	<statement name="selectGrpList" type="select">
+	/*+ com.hwfs.rc.sle.dao.posMenuKeyMgmtDAO.selectGrpList */
+	<![CDATA[
+		SELECT MST.OUTLET_CD, SHOP.OUTLET_NM AS OUTLET_NM,
+		       MST.POS_NUM,
+		       MST.PIC_PLACE_GRP,
+		       MST.PIC_PLACE_SUB_GRP,
+		       
+		       MST.PIC_PLACE_GRP_NM,
+		       MST.PIC_PLACE, 
+		       MST.IMGE_FILE1,
+			   MST.IMGE_FILE2,
+		       
+		       SUBSTR(MST.PIC_PLACE,1,2) AS PIC_PAGE,
+		       SUBSTR(MST.PIC_PLACE,3,2) AS PIC_CNT,
+		        
+		       DECODE(MST.USE_YN, 'Y', 1, 0) AS USE_YN 
+			   
+
+		FROM        SLE_ASSIGN_KEY_GRP 	MST
+		INNER  JOIN SLE_OUTLET_MST      SHOP   ON SHOP.OUTLET_CD   = MST.OUTLET_CD  -- 업장 코드
+		WHERE  1 = 1
+		
+		<#if outletCd?has_content>  	 AND   MST.OUTLET_CD         = :outletCd  </#if>
+		<#if posNum?has_content>  	     AND   MST.POS_NUM           = :posNum  </#if>
+		<#if picPlaceGrp?has_content>  	 AND   MST.PIC_PLACE_GRP     = :picPlaceGrp  </#if>
+		<#if picPlaceSubGrp?has_content> AND   MST.PIC_PLACE_SUB_GRP = :picPlaceSubGrp  </#if>
+		<#if useYn?has_content>  		 AND   MST.USE_YN  	         = DECODE(:useYn, '1', 'Y', MST.USE_YN)  </#if>
+		<#if grpPage?has_content> 		 AND   SUBSTR(MST.PIC_PLACE,1,2) = :grpPage  </#if>
+		<#if subGrp?has_content> 		 AND   PIC_PLACE_SUB_GRP = :subGrp  </#if>
+		
+		ORDER BY MST.OUTLET_CD,  MST.POS_NUM, MST.PIC_PLACE_GRP, MST.PIC_PLACE_SUB_GRP, MST.PIC_PLACE_GRP_NM
+
+	]]>
+	</statement>
+	
+ 
+	<!--  DATA를 조회한다. -->
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.rc.sle.dao.posMenuKeyMgmtDAO.selectList */
+	<![CDATA[
+ 
+		SELECT MST.OUTLET_CD, SHOP.OUTLET_NM AS OUTLET_NM,
+		       MST.POS_NUM,
+		       MST.PIC_PLACE_GRP,
+		       MST.PIC_PLACE_SUB_GRP,
+		       
+		       GRP.PIC_PLACE_GRP_NM,
+		       GRP.PIC_PLACE 			AS GRP_PIC, 
+		       
+       		   MST.PIC_PLACE,
+               MST.CD_CLASS,
+               MST.CD_NUM,    MENU.MENU_NM AS CD_NUM_NM,
+		       MST.IMGE_FILE1,
+			   MST.IMGE_FILE2,
+			   
+		       DECODE(MST.USE_YN, 'Y', 1, 0) AS USE_YN 
+		       
+		FROM        SLE_ASSIGN_KEY   	MST
+		INNER  JOIN SLE_OUTLET_MST      SHOP   ON SHOP.OUTLET_CD   		= MST.OUTLET_CD  -- 업장 코드
+		
+		INNER  JOIN SLE_ASSIGN_KEY_GRP  GRP    ON GRP.OUTLET_CD    		= MST.OUTLET_CD
+											  AND GRP.POS_NUM      		= MST.POS_NUM
+											  AND GRP.PIC_PLACE_GRP     = MST.PIC_PLACE_GRP
+											  AND GRP.PIC_PLACE_SUB_GRP = MST.PIC_PLACE_SUB_GRP
+		INNER JOIN SLE_OUTLET_MENU MENU        ON MENU.OUTLET_CD    	= MST.OUTLET_CD
+											  AND MENU.MENU_CD          = MST.CD_NUM
+		WHERE  1 = 1
+		
+		<#if outletCd?has_content>  		AND   MST.OUTLET_CD = :outletCd  </#if>
+		<#if posNum?has_content>  			AND   MST.POS_NUM = :posNum  </#if>
+		<#if picPlaceGrp?has_content>  		AND   MST.PIC_PLACE_GRP = :picPlaceGrp  </#if>
+		<#if picPlaceSubGrp?has_content>  	AND   MST.PIC_PLACE_SUB_GRP = :picPlaceSubGrp  </#if>
+		<#if picPlace?has_content>  	    AND   MST.PIC_PLACE = :picPlace  </#if>
+
+		<#if useYn?has_content>  		AND   MST.USE_YN  	= DECODE(:useYn, '1', 'Y', MST.USE_YN)  </#if>
+			 	 
+		ORDER BY MST.OUTLET_CD, MST.POS_NUM, MST.PIC_PLACE_GRP, MST.PIC_PLACE_SUB_GRP, GRP.PIC_PLACE, 
+       		   MST.PIC_PLACE,   MST.CD_NUM 
+
+	]]>
+	</statement>
+	
+	<!--  DATA를 조회한다. -->
+	<statement name="selectListNew" type="select">
+	/*+ com.hwfs.rc.sle.dao.posMenuKeyMgmtDAO.selectListNew */
+	<![CDATA[
+ 
+ 	SELECT OUTLET_CD, OUTLET_NM,
+		       POS_NUM,
+		       PIC_PLACE_GRP,
+		       PIC_PLACE_SUB_GRP,
+		       
+		       NVL(PIC_PLACE_GRP_NM,CD_NUM_NM) AS PIC_PLACE_GRP_NM,
+		       
+		       GRP_PIC,
+		       
+       		   PIC_PLACE,
+               CD_CLASS,
+               CD_NUM,    CD_NUM_NM,  APPLY_PRICE,
+		       IMGE_FILE1,
+			   IMGE_FILE2,
+			   
+			   SUBSTR(PIC_PLACE,1,2) AS PIC_PAGE,
+		       SUBSTR(PIC_PLACE,3,2) AS PIC_CNT,
+			   
+		       USE_YN 
+		       
+	FROM (
+		SELECT MST.OUTLET_CD, SHOP.OUTLET_NM AS OUTLET_NM,
+		       MST.POS_NUM,
+		       MST.PIC_PLACE_GRP,
+		       MST.PIC_PLACE_SUB_GRP,
+		       
+		       GRP.PIC_PLACE_GRP_NM,
+		       GRP.PIC_PLACE 			AS GRP_PIC, 
+		       
+       		   MST.PIC_PLACE,
+               MST.CD_CLASS,
+               MST.CD_NUM,    MENU.MENU_ABBR AS CD_NUM_NM, MENU.APPLY_PRICE,
+		       MST.IMGE_FILE1,
+			   MST.IMGE_FILE2,
+			   
+		       DECODE(MST.USE_YN, 'Y', 1, 0) AS USE_YN 
+		       
+		FROM        SLE_ASSIGN_KEY   	MST
+		INNER  JOIN SLE_OUTLET_MST      SHOP   ON SHOP.OUTLET_CD   		= MST.OUTLET_CD  -- 업장 코드
+		
+		INNER  JOIN SLE_ASSIGN_KEY_GRP  GRP    ON GRP.OUTLET_CD    		= MST.OUTLET_CD
+											  AND GRP.POS_NUM      		= MST.POS_NUM
+											  AND GRP.PIC_PLACE_GRP     = MST.PIC_PLACE_GRP
+											  AND GRP.PIC_PLACE_SUB_GRP = MST.PIC_PLACE_SUB_GRP
+		INNER JOIN SLE_OUTLET_MENU MENU        ON MENU.OUTLET_CD    	= MST.OUTLET_CD
+											  AND MENU.MENU_CD          = MST.CD_NUM
+		WHERE MST.USE_YN  	    = 'Y' 
+		AND   MST.OUTLET_CD     = :outletCd   
+		AND   MST.POS_NUM       = :posNum   
+		AND   MST.PIC_PLACE_GRP = :picPlaceGrp   
+		AND SUBSTR(MST.PIC_PLACE,1,2) = :menuPage
+		 
+		<#if picPlaceSubGrp?has_content>  
+			AND   MST.PIC_PLACE_SUB_GRP = :picPlaceSubGrp
+	 
+				
+		<#else>  
+			 AND   MST.PIC_PLACE_SUB_GRP = '00'
+			 UNION ALL
+        
+	        SELECT SGRP.OUTLET_CD, SHOP.OUTLET_NM AS OUTLET_NM,
+			       SGRP.POS_NUM,
+			       SGRP.PIC_PLACE_GRP,
+			       SGRP.PIC_PLACE_SUB_GRP,
+			       
+			       '' AS PIC_PLACE_GRP_NM, 
+			       '' AS GRP_PIC, 
+			       
+	       		   SGRP.PIC_PLACE,
+	               '' AS CD_CLASS,
+	               '' AS CD_NUM,    SGRP.PIC_PLACE_GRP_NM AS CD_NUM_NM,  0 AS APPLY_PRICE,
+			       SGRP.IMGE_FILE1,
+				   SGRP.IMGE_FILE2,
+				   
+			       DECODE(SGRP.USE_YN, 'Y', 1, 0) AS USE_YN 
+	        
+	        FROM SLE_ASSIGN_KEY_GRP  SGRP
+	        INNER  JOIN SLE_OUTLET_MST      SHOP   ON SHOP.OUTLET_CD   		= SGRP.OUTLET_CD  -- 업장 코드
+	        WHERE SGRP.USE_YN ='Y'
+	          AND SGRP.OUTLET_CD    	= :outletCd
+			  AND SGRP.POS_NUM      	= :posNum 
+			  AND SGRP.PIC_PLACE_GRP    = :picPlaceGrp
+			  AND SGRP.PIC_PLACE_SUB_GRP <> '00'  --대그룹이 아닌경우 하위 그룹인경우
+	          AND LENGTH(SGRP.PIC_PLACE) = 4
+	          AND SUBSTR(SGRP.PIC_PLACE,1,2) = :menuPage
+	          
+		
+		</#if>
+		
+		) DUAL
+		  
+		ORDER BY OUTLET_CD, POS_NUM, PIC_PLACE_GRP, PIC_PLACE_SUB_GRP, PIC_PLACE, CD_NUM 
+
+	]]>
+	</statement>
+	 
+		
+	<!-- GRP DATA를 저장한다. -->
+	<statement name="insertGrpData" type="insert">
+	/*+ com.hwfs.rc.sle.dao.posMenuKeyMgmtDAO.insertGrpData */
+		<![CDATA[
+		
+		MERGE INTO SLE_ASSIGN_KEY_GRP  
+		USING DUAL
+		ON (		   OUTLET_CD         = :outletCd
+				AND    POS_NUM           = :posNum
+				AND    PIC_PLACE_GRP     = :picPlaceGrp
+				AND    PIC_PLACE_SUB_GRP = :picPlaceSubGrp
+				
+		)
+		WHEN MATCHED THEN
+		    UPDATE SET
+		    	<#if picPlaceGrpNm?exists> 	PIC_PLACE_GRP_NM = :picPlaceGrpNm, 		          </#if>
+				<#if picPlace?exists> 		PIC_PLACE        = :picPlace, 					  </#if>
+				<#if imgeFile1?exists> 		IMGE_FILE1       = :imgeFile1, 				      </#if>
+				<#if imgeFile2?exists> 		IMGE_FILE2       = :imgeFile2, 				      </#if>
+				<#if useYn?exists> 			USE_YN           = DECODE(:useYn, '1', 'Y', 'N'), </#if>
+									       	UUSER            = :loginSabun,
+									       	UDATE            = SYSDATE
+	 	WHEN NOT MATCHED THEN
+	 		INSERT (
+	 				 OUTLET_CD,
+					 POS_NUM,
+					 PIC_PLACE_GRP,
+					 PIC_PLACE_SUB_GRP,
+					 PIC_PLACE_GRP_NM,
+					 PIC_PLACE,
+					 IMGE_FILE1,
+					 IMGE_FILE2,
+					 USE_YN,
+					 CUSER,
+					 CDATE,
+					 UUSER,
+					 UDATE
+				) VALUES (
+					 :outletCd,
+					 :posNum,
+					 :picPlaceGrp,
+					 :picPlaceSubGrp,
+					<#if picPlaceGrpNm?exists> 	:picPlaceGrpNm, 		<#else> null, </#if>
+					<#if picPlace?exists> 		:picPlace, 				<#else> null, </#if>
+					<#if imgeFile1?exists> 		:imgeFile1, 			<#else> null, </#if>
+					<#if imgeFile2?exists> 		:imgeFile2, 			<#else> null, </#if>
+					<#if useYn?exists>   DECODE(:useYn, '1', 'Y', 'N'), <#else> null, </#if>
+					 :loginSabun,
+					 SYSDATE,
+					 :loginSabun,
+					 SYSDATE
+				)
+
+		
+		]]>
+	</statement>
+	
+	
+	<!-- GRP DATA를 수정한다. -->
+	<statement name="updateGrpData" type="update">
+	/*+ com.hwfs.rc.sle.dao.posMenuKeyMgmtDAO.updateGrpData */
+		<![CDATA[
+		UPDATE SLE_ASSIGN_KEY_GRP SET
+			<#if picPlaceGrpNm?exists> 	PIC_PLACE_GRP_NM = :picPlaceGrpNm, 		</#if>
+			<#if picPlace?exists> 		PIC_PLACE = :picPlace, 					</#if>
+			<#if imgeFile1?exists> 		IMGE_FILE1 = :imgeFile1, 				</#if>
+			<#if imgeFile2?exists> 		IMGE_FILE2 = :imgeFile2, 				</#if>
+			<#if useYn?exists> 			USE_YN = DECODE(:useYn, '1', 'Y', 'N'), </#if>
+								       	UUSER = :loginSabun,
+								       	UDATE = SYSDATE
+		WHERE  OUTLET_CD 		 = :outletCd
+		AND    POS_NUM 			 = :posNum
+		AND    PIC_PLACE_GRP 	 = :picPlaceGrp
+		AND    PIC_PLACE_SUB_GRP = :picPlaceSubGrp
+
+		]]>
+	</statement>
+	
+	
+	<!--  DATA를 저장한다. -->
+	<statement name="insertData" type="insert">
+	/*+ com.hwfs.rc.sle.dao.posMenuKeyMgmtDAO.insertData */
+		<![CDATA[
+		MERGE INTO SLE_ASSIGN_KEY A
+		USING DUAL
+		ON (		   OUTLET_CD         = :outletCd
+				AND    POS_NUM           = :posNum
+				AND    PIC_PLACE_GRP     = :picPlaceGrp
+				AND    PIC_PLACE_SUB_GRP = :picPlaceSubGrp
+				AND    PIC_PLACE         = :picPlace
+		)
+		WHEN MATCHED THEN
+		    UPDATE SET
+			    <#if cdClass?exists> 	CD_CLASS   = :cdClass, 					    </#if>
+				<#if cdNum?exists> 	    CD_NUM     = :cdNum, 						</#if>
+				<#if imgeFile1?exists>  IMGE_FILE1 = :imgeFile1, 				    </#if>
+				<#if imgeFile2?exists>  IMGE_FILE2 = :imgeFile2,				    </#if>
+				<#if useYn?exists> 		USE_YN     = DECODE(:useYn, '1', 'Y', 'N'), </#if>
+								        UUSER      = :loginSabun,
+								        UDATE      = SYSDATE
+		
+	 	WHEN NOT MATCHED THEN
+	 		INSERT (
+						 OUTLET_CD,
+						 POS_NUM,
+						 PIC_PLACE_GRP,
+						 PIC_PLACE_SUB_GRP,
+						 PIC_PLACE,
+						 CD_CLASS,
+						 CD_NUM,
+						 IMGE_FILE1,
+						 IMGE_FILE2,
+						 USE_YN,
+						 CUSER,
+						 CDATE,
+						 UUSER,
+						 UDATE
+					) VALUES (
+						 :outletCd,
+						 :posNum,
+						 :picPlaceGrp,
+						 :picPlaceSubGrp,
+						 :picPlace,
+						<#if cdClass?exists> 	  :cdClass,					<#else> null, </#if>
+						<#if cdNum?exists> 		  :cdNum, 					<#else> null, </#if>
+						<#if imgeFile1?exists> 	  :imgeFile1, 				<#else> null, </#if>
+						<#if imgeFile2?exists> 	  :imgeFile2, 				<#else> null, </#if>
+						<#if useYn?exists> DECODE(:useYn, '1', 'Y', 'N'), 	<#else> null, </#if>
+						 :loginSabun,
+						 SYSDATE,
+						 :loginSabun,
+						 SYSDATE
+					)
+
+				 
+		
+		]]>
+	</statement>
+	
+	
+	
+	 <!--  DATA를 수정한다. -->
+	<statement name="updateData" type="update">
+	/*+ com.hwfs.rc.sle.dao.posMenuKeyMgmtDAO.updateData */
+		<![CDATA[
+	  	UPDATE SLE_ASSIGN_KEY SET
+			<#if cdClass?exists> 	CD_CLASS = :cdClass, 					</#if>
+			<#if cdNum?exists> 	    CD_NUM = :cdNum, 						</#if>
+			<#if imgeFile1?exists>  IMGE_FILE1 = :imgeFile1, 				</#if>
+			<#if imgeFile2?exists>  IMGE_FILE2 = :imgeFile2,				</#if>
+			<#if useYn?exists> 		USE_YN = DECODE(:useYn, '1', 'Y', 'N'), </#if>
+							        UUSER = :loginSabun,
+							        UDATE = SYSDATE
+		WHERE  OUTLET_CD         = :outletCd
+		AND    POS_NUM           = :posNum
+		AND    PIC_PLACE_GRP     = :picPlaceGrp
+		AND    PIC_PLACE_SUB_GRP = :picPlaceSubGrp
+		AND    PIC_PLACE 		 = :picPlace
+
+ 
+		]]>
+	</statement>
+	
+	
+	
+	
+	<!-- 상위 코드가 수정 되는 경우 하위코드를 모두 수정한다. -->
+	<statement name="updateUseAllData" type="update">
+	/*+ com.hwfs.rc.sle.dao.posMenuKeyMgmtDAO.updateUseAllData */
+		<![CDATA[
+		UPDATE SLE_ASSIGN_KEY
+		SET    USE_YN = DECODE(:useYn, '1', 'Y', 'N'),
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		       
+		WHERE  OUTLET_CD 		 = :outletCd
+		AND    POS_NUM 			 = :posNum
+		AND    PIC_PLACE_GRP 	 = :picPlaceGrp
+		AND    PIC_PLACE_SUB_GRP = :picPlaceSubGrp
+
+		]]>
+	</statement>
+	
+	
+	
+	<!-- 상위 메뉴 이동하는 경우 -->
+	
+	<!-- 상위 코드가 수정 되는 경우 하위코드를 모두 수정한다. -->
+	<statement name="updateListData" type="update">
+	/*+ com.hwfs.rc.sle.dao.posMenuKeyMgmtDAO.updateListData */
+		<![CDATA[
+		UPDATE SLE_ASSIGN_KEY
+		SET    PIC_PLACE_GRP = :picPlaceGrp,
+		       UUSER         = :loginSabun,
+		       UDATE         = SYSDATE
+		       
+		WHERE  OUTLET_CD 	 = :outletCd
+		AND    POS_NUM 		 = :posNum
+		AND    PIC_PLACE_GRP = :picPlaceGrpOld        
+
+		]]>
+	</statement>
+	
+	<!-- 그룹을 신규코드로 변경해준다 단 서브가 00 인것만 이미 신규는 적장 되었기 때무에 -->
+	<statement name="updateListDataGrp" type="update">
+	/*+ com.hwfs.rc.sle.dao.posMenuKeyMgmtDAO.updateGrpData */
+		<![CDATA[
+		UPDATE SLE_ASSIGN_KEY_GRP SET
+			    PIC_PLACE_GRP    = :picPlaceGrp, 
+			    PIC_PLACE        = DECODE(PIC_PLACE_SUB_GRP,'00', :picPlace,PIC_PLACE_SUB_GRP),
+		       	UUSER            = :loginSabun,
+		       	UDATE            = SYSDATE
+		WHERE  OUTLET_CD 		 = :outletCd
+		AND    POS_NUM 			 = :posNum
+		AND    PIC_PLACE_GRP 	 = :picPlaceGrpOld
+		 
+
+		]]>
+	</statement>
+	
+	
+	<!-- 이전 그룹은 모두 삭제 처리 한다. -->
+	<statement name="deleteGrpDataMove" type="delete">
+	
+	/*+ com.hwfs.rc.sle.dao.posMenuKeyMgmtDAO.deleteGrpDataMove */
+	
+		<![CDATA[
+	
+			UPDATE SLE_ASSIGN_KEY_GRP
+	
+			SET PIC_PLACE_GRP_NM = '',
+				PIC_PLACE = '', 
+				IMGE_FILE1 = '',
+				IMGE_FILE2 = '',
+				USE_YN ='N',
+				UUSER = :loginSabun,
+			    UDATE = SYSDATE
+  
+			WHERE  OUTLET_CD 		 = :outletCd
+			AND    POS_NUM 			 = :posNum
+			AND    PIC_PLACE_GRP 	 = :picPlaceGrpOld
+		   
+ 
+		]]>
+	</statement>
+	
+	 <!--  DATA를 수정한다. -->
+	<statement name="deleteSubDataMove" type="delete">
+	/*+ com.hwfs.rc.sle.dao.posMenuKeyMgmtDAO.deleteSubDataMove */
+		<![CDATA[
+	  	UPDATE SLE_ASSIGN_KEY  
+	  	SET CD_CLASS ='',
+			CD_NUM = '',
+			IMGE_FILE1 ='',
+			IMGE_FILE2 ='',
+			USE_YN ='N',
+			UUSER = :loginSabun,
+		    UDATE = SYSDATE
+			 
+		WHERE  OUTLET_CD        = :outletCd
+		AND    POS_NUM          = :posNum
+		AND    PIC_PLACE_GRP    = :picPlaceGrpOld
+	 
+		]]>
+	</statement>
+	
+	<!-- 그룹 이동 처리 완료 -->
+	
+	
+	<!-- 소그룹이 이동 하면 메뉴내역의 소그룹을 변경해준다. -->
+	
+	<statement name="updateDataSubList" type="update">
+	/*+ com.hwfs.rc.sle.dao.posMenuKeyMgmtDAO.updateDataSubList */
+		<![CDATA[
+		UPDATE SLE_ASSIGN_KEY
+		SET    PIC_PLACE_SUB_GRP = :picPlace,		--신규좌표
+		       UUSER             = :loginSabun,
+		       UDATE             = SYSDATE
+		       
+		WHERE  OUTLET_CD 		 = :outletCd
+		AND    POS_NUM 			 = :posNum
+		AND    PIC_PLACE_GRP 	 = :picPlaceGrp
+		AND    PIC_PLACE_SUB_GRP = :picPlaceSubGrpOld
+
+		]]>
+	</statement>
+	
+	
+	
+	
+	
+	
+
+	<!-- GRP DATA를 삭제한다. -->
+	<statement name="deleteGrpData" type="delete">
+	
+	/*+ com.hwfs.rc.sle.dao.posMenuKeyMgmtDAO.deleteGrpData */
+	
+		<![CDATA[
+	
+			UPDATE SLE_ASSIGN_KEY_GRP
+	
+			SET PIC_PLACE_GRP_NM = '',
+				PIC_PLACE        = '', 
+				IMGE_FILE1       = '',
+				IMGE_FILE2       = '',
+			    USE_YN           = 'N',
+				UUSER            = :loginSabun,
+			    UDATE            = SYSDATE
+  
+			WHERE  OUTLET_CD 	 = :outletCd
+			AND    POS_NUM 		 = :posNum
+			
+ 			<#if picPlaceGrp?has_content>  		AND   PIC_PLACE_GRP     = :picPlaceGrp  </#if>
+			<#if picPlaceSubGrp?has_content>  	AND   PIC_PLACE_SUB_GRP = :picPlaceSubGrp  </#if>
+		]]>
+	</statement>
+	
+	 <!--  DATA를 수정한다. -->
+	<statement name="deleteSubData" type="delete">
+	/*+ com.hwfs.rc.sle.dao.posMenuKeyMgmtDAO.deleteSubData */
+		<![CDATA[
+	  	UPDATE SLE_ASSIGN_KEY  
+	  	SET CD_CLASS   = '',
+			CD_NUM     = '',
+			IMGE_FILE1 = '',
+			IMGE_FILE2 = '',
+			USE_YN     = 'N', 
+			UUSER      = :loginSabun,
+		    UDATE      = SYSDATE
+			 
+		WHERE OUTLET_CD         = :outletCd
+		AND   POS_NUM           = :posNum
+		
+		<#if picPlaceGrp?has_content>  		AND   PIC_PLACE_GRP     = :picPlaceGrp  </#if>
+		<#if picPlaceSubGrp?has_content>  	AND   PIC_PLACE_SUB_GRP = :picPlaceSubGrp  </#if>
+		<#if picPlace?has_content>  	    AND   PIC_PLACE         = :picPlace  </#if>
+		 
+		]]>
+	</statement>
+	
+	
+	
+	<statement name="deleteAllData" type="delete">
+	/*+ com.hwfs.rc.sle.dao.posMenuKeyMgmtDAO.deleteAllData */
+		<![CDATA[
+		UPDATE SLE_ASSIGN_KEY  
+	  	SET CD_CLASS   = '',
+			CD_NUM     = '',
+			IMGE_FILE1 = '',
+			IMGE_FILE2 = '',
+	        USE_YN     = 'N',
+			UUSER      = :loginSabun,
+		    UDATE      = SYSDATE
+		 
+		WHERE  OUTLET_CD 		 = :outletCd
+		AND    POS_NUM 			 = :posNum
+		AND    PIC_PLACE_GRP 	 = :picPlaceGrp
+		AND    PIC_PLACE_SUB_GRP = :picPlaceSubGrp
+ 
+		]]>
+	</statement>
+	
+	
+	
+	<!-- 메뉴 코드를 조회 한다.-->
+	<statement name="selectListMenu" type="select">
+	/*+ com.hwfs.rc.sle.dao.posMenuKeyMgmtDAO.selectListMenu */
+	<![CDATA[
+	
+	SELECT  0 AS CHK_YN, MENU.MENU_CD,
+	        MENU.OUTLET_CD, SHOP.OUTLET_NM AS OUTLET_NM,
+	        MENU.MENU_CLASS,
+	        MENU.MENU_CLSFI,
+	        MENU.MENU_SCLASS,
+	        MENU.MENU_NM,
+	        MENU.MENU_ABBR,
+	        MENU.LANGAE1,
+	        MENU.LANGAE2,
+	        MENU.LANGAE3,
+	        MENU.BASIS_PRICE,
+	        NVL(MENU.CST,0) AS CST,
+	        MENU.APPLY_DD,
+	        NVL(MENU.APPLY_PRICE,0) AS APPLY_PRICE,
+	        MENU.END_DD,
+	      
+	        DECODE(MENU.USE_CLASS, 'Y', 1, 0) AS USE_CLASS,
+	        MENU.CONVERT_QUANTITY,
+	        MENU.EXPL,
+	        MENU.UNIT,
+	        MENU.DPST_CD,
+	        
+	        DECODE(MENU.UPRICE_CHG_POSS_YN, 'Y', 1, 0) AS UPRICE_CHG_POSS_YN,
+	        
+	        MENU.SESN_APPLY_YN,
+	        MENU.MENU_TYPE,
+	        MENU.BAR_CD,
+	        
+	        MENU.MATERIAL_CD,		--자재코드
+	        MATERIAL.ITEM_NAME AS MATERIAL_CD_NM,
+	        
+	        MENU.RECP_CD,		--레시피코드
+	        (SELECT RECIPE_NM  FROM   RSS_UPJANG_RECIPE_CD_MST WHERE UPJANG_CD = MENU.OUTLET_CD AND STD_RECIPE_CD = MENU.RECP_CD) AS RECP_CD_NM,
+	        
+	           
+	        MENU.PIC_PLACE,
+	        MENU.TAX_YN,
+	        MENU.CAL_METHOD,
+	        MENU.SVC,
+	        MENU.SPEC_TAX,
+	        MENU.EDU_TAX,
+	        MENU.FF_TAX,
+	        MENU.VAT,
+	        MENU.FUND,
+	        MENU.DISCNT_POSS_YN,
+	        MENU.TICKET_PRINT_YN,
+	        
+	        MENU.KTCN_PRINT_NM,
+
+	        MENU.KTCN_PRINT_YN1,
+	        MENU.KTCN_PRINT_YN2,
+	        MENU.KTCN_PRINT_YN3,
+	        MENU.KTCN_PRINT_YN4,
+	        
+	        MENU.KTCN_PRTR_CD1,
+	        MENU.KTCN_PRTR_CD2,
+	        MENU.KTCN_PRTR_CD3,
+	        MENU.KTCN_PRTR_CD4,
+	        
+	        KTCN1.KTCN_PRTR_NM AS KTCN_PRTR_CD1_NM,
+	        KTCN2.KTCN_PRTR_NM AS KTCN_PRTR_CD2_NM,
+	        KTCN3.KTCN_PRTR_NM AS KTCN_PRTR_CD3_NM,
+	        KTCN4.KTCN_PRTR_NM AS KTCN_PRTR_CD4_NM,
+	        
+	        MENU.CUST_CD,
+	        MENU.COMM_RAT,
+	    	MENU.OTHER_BU_MENU_CD,
+	        DECODE(MENU.USE_YN, 'Y', 1, 0) AS USE_YN,
+	          
+	        SCLAS.MENU_CLSFI_NM AS MENU_SCLASS_NM,
+	        CLSFI.MENU_CLSFI_NM AS MENU_CLSFI_NM,
+	        CLASS.MENU_CLSFI_NM AS MENU_CLASS_NM,
+	
+	        USECLASS.CODE_NAME  AS USE_CLASS_NM,
+	        UNIT.CODE_NAME      AS UNIT_NM,
+	        MENUTYPE.CODE_NAME  AS MENU_TYPE_NM,
+	        SESNYN.CODE_NAME    AS SESN_APPLY_YN_NM,
+	        TAXYN.CODE_NAME     AS TAX_YN_NM,
+	        CALMETHOD.CODE_NAME AS CAL_METHOD_NM,
+	        DISPOSYN.CODE_NAME  AS DISCNT_POSS_YN_NM,
+	        PRIPOSYN.CODE_NAME  AS UPRICE_CHG_POSS_YN_NM,
+	        KTCNYN1.CODE_NAME   AS KTCN_PRINT_YN1_NM,
+	        KTCNYN2.CODE_NAME   AS KTCN_PRINT_YN2_NM,
+	        KTCNYN3.CODE_NAME   AS KTCN_PRINT_YN3_NM,
+	        KTCNYN4.CODE_NAME   AS KTCN_PRINT_YN4_NM,
+	        TICKER.CODE_NAME    AS TICKET_PRINT_YN_NM,
+	        USEYN.CODE_NAME     AS USE_YN_NM,
+			MENU.RELEASE_TYPE   AS RELEASE_TYPE
+	
+	FROM SLE_OUTLET_MENU MENU
+	INNER      JOIN SLE_OUTLET_MST  SHOP  ON SHOP.OUTLET_CD    = MENU.OUTLET_CD  -- 업장 코드
+	LEFT OUTER JOIN SLE_OUTLET_MENU_GRP SCLAS  ON SCLAS.OUTLET_CD   = MENU.OUTLET_CD
+	                                     AND SCLAS.MENU_CLASS  = MENU.MENU_CLASS
+	                                     AND SCLAS.MENU_CLSFI  = MENU.MENU_CLSFI
+	                                     AND SCLAS.MENU_SCLASS = MENU.MENU_SCLASS
+	                                     AND SCLAS.MENU_SCLASS <> '00'
+	INNER JOIN SLE_OUTLET_MENU_GRP CLSFI  ON CLSFI.OUTLET_CD   = MENU.OUTLET_CD
+	                                     AND CLSFI.MENU_CLASS  = MENU.MENU_CLASS
+	                                     AND CLSFI.MENU_CLSFI  = MENU.MENU_CLSFI
+	                                     AND CLSFI.MENU_SCLASS = '00'
+	INNER JOIN SLE_OUTLET_MENU_GRP CLASS  ON CLASS.OUTLET_CD   = MENU.OUTLET_CD
+	                                     AND CLASS.MENU_CLASS  = MENU.MENU_CLASS
+	                                     AND CLASS.MENU_CLSFI  = '00'
+	                                     AND CLASS.MENU_SCLASS = '00'
+	                                     
+	INNER JOIN SCC_COMMON_CODE USECLASS   ON USECLASS.GROUP_CODE  = 'SLE_0003' AND USECLASS.CODE  = DECODE(MENU.USE_CLASS, 'Y', 1, 0)
+	INNER JOIN SCC_COMMON_CODE MENUTYPE   ON MENUTYPE.GROUP_CODE  = 'SLE_0005' AND MENUTYPE.CODE  = MENU.MENU_TYPE
+	INNER JOIN SCC_COMMON_CODE SESNYN     ON SESNYN.GROUP_CODE    = 'SLE_0008' AND SESNYN.CODE    = MENU.SESN_APPLY_YN
+	INNER JOIN SCC_COMMON_CODE TAXYN      ON TAXYN.GROUP_CODE     = 'SLE_0006' AND TAXYN.CODE     = MENU.TAX_YN
+	INNER JOIN SCC_COMMON_CODE CALMETHOD  ON CALMETHOD.GROUP_CODE = 'SLE_0002' AND CALMETHOD.CODE = MENU.CAL_METHOD
+	INNER JOIN SCC_COMMON_CODE DISPOSYN   ON DISPOSYN.GROUP_CODE  = 'SLE_0008' AND DISPOSYN.CODE  = MENU.DISCNT_POSS_YN
+	INNER JOIN SCC_COMMON_CODE PRIPOSYN   ON PRIPOSYN.GROUP_CODE  = 'SLE_0003' AND PRIPOSYN.CODE  = DECODE(MENU.UPRICE_CHG_POSS_YN, 'Y', 1, 0) 
+	INNER JOIN SCC_COMMON_CODE KTCNYN1    ON KTCNYN1.GROUP_CODE   = 'SLE_0004' AND KTCNYN1.CODE   = MENU.KTCN_PRINT_YN1
+	INNER JOIN SCC_COMMON_CODE KTCNYN2    ON KTCNYN2.GROUP_CODE   = 'SLE_0004' AND KTCNYN2.CODE   = MENU.KTCN_PRINT_YN2
+	INNER JOIN SCC_COMMON_CODE KTCNYN3    ON KTCNYN3.GROUP_CODE   = 'SLE_0004' AND KTCNYN3.CODE   = MENU.KTCN_PRINT_YN3
+	INNER JOIN SCC_COMMON_CODE KTCNYN4    ON KTCNYN4.GROUP_CODE   = 'SLE_0004' AND KTCNYN4.CODE   = MENU.KTCN_PRINT_YN4
+	INNER JOIN SCC_COMMON_CODE TICKER     ON TICKER.GROUP_CODE    = 'SLE_0004' AND TICKER.CODE    = MENU.TICKET_PRINT_YN
+	INNER JOIN SCC_COMMON_CODE USEYN      ON USEYN.GROUP_CODE     = 'SLE_0003' AND USEYN.CODE     = DECODE(MENU.USE_YN, 'Y', 1, 0)  
+	
+	LEFT OUTER JOIN SCC_COMMON_CODE UNIT  ON UNIT.GROUP_CODE      = 'SLE_0007' AND UNIT.CODE      = MENU.UNIT
+	
+	LEFT OUTER JOIN (SELECT OUTLET_CD,  KTCN_PRTR_CD,  MAX(KTCN_PRTR_NM) AS KTCN_PRTR_NM   
+						FROM            SLE_KTCN_PRTR GROUP BY OUTLET_CD,  KTCN_PRTR_CD
+					) KTCN1 ON KTCN1.OUTLET_CD = MENU.OUTLET_CD AND KTCN1.KTCN_PRTR_CD = MENU.KTCN_PRTR_CD1
+					
+	LEFT OUTER JOIN (SELECT OUTLET_CD,  KTCN_PRTR_CD,  MAX(KTCN_PRTR_NM) AS KTCN_PRTR_NM   
+						FROM            SLE_KTCN_PRTR GROUP BY OUTLET_CD,  KTCN_PRTR_CD
+					) KTCN2 ON KTCN2.OUTLET_CD = MENU.OUTLET_CD AND KTCN2.KTCN_PRTR_CD = MENU.KTCN_PRTR_CD2
+					
+	LEFT OUTER JOIN (SELECT OUTLET_CD,  KTCN_PRTR_CD,  MAX(KTCN_PRTR_NM) AS KTCN_PRTR_NM   
+						FROM            SLE_KTCN_PRTR GROUP BY OUTLET_CD,  KTCN_PRTR_CD
+					) KTCN3 ON KTCN3.OUTLET_CD = MENU.OUTLET_CD AND KTCN3.KTCN_PRTR_CD = MENU.KTCN_PRTR_CD3
+					
+	LEFT OUTER JOIN (SELECT OUTLET_CD,  KTCN_PRTR_CD,  MAX(KTCN_PRTR_NM) AS KTCN_PRTR_NM   
+						FROM            SLE_KTCN_PRTR GROUP BY OUTLET_CD,  KTCN_PRTR_CD
+					) KTCN4 ON KTCN4.OUTLET_CD = MENU.OUTLET_CD AND KTCN4.KTCN_PRTR_CD = MENU.KTCN_PRTR_CD4
+					
+	LEFT OUTER JOIN  HLDC_PO_ITEM_MST MATERIAL ON MATERIAL.ITEM_CLASS1= 'G' AND MATERIAL.ITEM_CODE = MENU.MATERIAL_CD 
+	
+	
+	
+	
+	WHERE MENU.USE_YN    = 'Y'  
+	  AND MENU.OUTLET_CD = :outletCd  
+ 
+	<#if serchBtnYn?has_content>  
+	 
+		 AND NOT EXISTS   (SELECT * FROM SLE_ASSIGN_KEY K 
+                        WHERE MENU.OUTLET_CD = K.OUTLET_CD
+                          AND MENU.MENU_CD = K.CD_NUM AND K.USE_YN ='Y'
+                          AND K.POS_NUM = :posNum)
+	</#if>
+	   
+	<#if menuClass?has_content>   AND  MENU.MENU_CLASS     = :menuClass         </#if>
+	<#if menuClsfi?has_content>   AND  MENU.MENU_CLSFI     = :menuClsfi         </#if>
+	<#if menuSclass?has_content>  AND  MENU.MENU_SCLASS    = :menuSclass    </#if>
+	<#if menuNm?has_content>  	  AND  (MENU.MENU_NM     LIKE '%' || :menuNm || '%' OR MENU.MENU_CD LIKE '%' || :menuNm || '%' ) </#if>
+	 
+	
+	  
+	]]>
+	</statement>
+	
+	
+	
+</hqml>	

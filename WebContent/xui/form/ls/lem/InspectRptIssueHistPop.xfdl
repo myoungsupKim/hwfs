@@ -1,0 +1,227 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\..\..\default_typedef.xml"/>
+  <Form id="InspectRptIssueHistPop" classname="COMP_GUIDE_13" inheritanceid="" position="absolute 0 0 546 340" titletext="성적서발급이력조회" scrollbars="autoboth" onload="form_onload">
+    <Layouts>
+      <Layout>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 531 10"/>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 341"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 531 0 546 341"/>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 15 326 531 341"/>
+        <Button id="btn_cancel" taborder="2" text="취소" class="btn_POP_Default" position="absolute 481 301 531 326" anchor="right bottom" onclick="btn_cancel_onclick"/>
+        <Static id="Static16" text="w2" class="Guide01_AreaRed" visible="false" position="absolute 479 301 481 326"/>
+        <Static id="Static17" text="h10" visible="false" position="absolute 15 291 531 301" style="background:#ff000055;align:center middle;"/>
+        <Static id="sta_title" text="성적서발급목록" class="sta_WF_Title" position="absolute 15 16 215 40"/>
+        <Static id="Static00" text="h06" class="Guide01_AreaRed" visible="false" position="absolute 15 10 215 16"/>
+        <Static id="Static04" text="h05" class="Guide01_AreaRed" visible="false" position="absolute 284 35 531 40"/>
+        <Button id="btn_close" taborder="1" text="닫기" class="btn_WF_CRUD" anchor="top right" position="absolute 486 10 531 35" positiontype="position" onclick="btn_close_onclick"/>
+        <Static id="Static05" text="아이콘기준 h08" class="Guide01_AreaRed" visible="false" position="absolute 15 32 215 40"/>
+        <Static id="Static20" text="W102" visible="false" position="absolute 484 10 486 35" anchor="top right" style="background:#ff000055;align:center middle;"/>
+        <Grid id="grd_inspectRptHistory" taborder="0" binddataset="ds_inspectRptHistory" autoenter="select" useinputpanel="false" cellsizingtype="col" autofittype="none" fillareatype="none" position="absolute 15 40 531 292" moveX="0" moveY="0" resizeX="50" resizeY="100">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="44"/>
+                <Column size="125"/>
+                <Column size="90"/>
+                <Column size="88"/>
+                <Column size="88"/>
+                <Column size="88"/>
+                <Column size="88"/>
+                <Column size="200"/>
+              </Columns>
+              <Rows>
+                <Row size="27" band="head"/>
+                <Row size="22"/>
+              </Rows>
+              <Band id="head">
+                <Cell class="head_Excel"/>
+                <Cell col="1" text="발행번호"/>
+                <Cell col="2" text="발행일자"/>
+                <Cell col="3" text="요청자"/>
+                <Cell col="4" text="요청일자"/>
+                <Cell col="5" text="승인자"/>
+                <Cell col="6" text="승인일자"/>
+                <Cell col="7" text="재발급사유"/>
+              </Band>
+              <Band id="body">
+                <Cell text="expr:currow+1"/>
+                <Cell col="1" edittype="none" text="bind:publishNum"/>
+                <Cell col="2" displaytype="date" text="bind:publishdd" calendardisplaynulltype="none"/>
+                <Cell col="3" text="bind:reqUserNm"/>
+                <Cell col="4" displaytype="date" text="bind:reqDate" calendardisplaynulltype="none"/>
+                <Cell col="5" edittype="none" text="bind:approvUserNm" editautoselect="true"/>
+                <Cell col="6" displaytype="date" text="bind:approvDate" calendardisplaynulltype="none"/>
+                <Cell col="7" displaytype="text" text="bind:issueReason"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="sta_reqNo" text="의뢰번호 : " position="absolute 189 17 368 31" style="font:굴림,10,bold;"/>
+      </Layout>
+    </Layouts>
+    <Bind/>
+    <Objects>
+      <Dataset id="ds_inspectRptHistory" useclientlayout="true">
+        <ColumnInfo>
+          <Column id="publishNum" type="STRING" size="256"/>
+          <Column id="publishdd" type="STRING" size="256"/>
+          <Column id="reqUserNm" type="STRING" size="256"/>
+          <Column id="reqDate" type="STRING" size="256"/>
+          <Column id="approvUserNm" type="STRING" size="256"/>
+          <Column id="approvDate" type="STRING" size="256"/>
+          <Column id="issueReason" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_search" firefirstcount="0" firenextcount="0" useclientlayout="true" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="reqNum" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row/>
+        </Rows>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : InspectRptIssueHistPop
+  파 일 명 : InspectRptIssueHistPop.xfdl
+  기    능 : 성적서발급이력조회 POPUP
+
+    수정일    수정자                  수정내용
+  ----------   -------  --------------------------------------------------
+  2015.04.07   jshoon   최초 생성
+*/
+
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+************************************************************************************************/
+include "lib::lib_com.xjs";
+include "lib::LimsUtil.xjs";
+
+/****************************************************************************************
+ * FORM 변수 선언 영역
+ ****************************************************************************************/
+var fv_iProcessCnt = 0;  	// 저장건수를 저장한다.(Controller Class에서만 할당함.)
+var argArgs;
+
+/************************************************************************************************
+ * FORM EVENT 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Form Load (필수)
+ *---------------------------------------------------------------------------------------------*/
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+    // Form Load 시 공통 기능 처리(obj:Form, bCreateEvent:이벤트 생성 여부)
+    gfn_formOnLoad(this);		// 검체유형 GRID에는 공통 이벤트 제외
+
+    argArgs = this.getOwnerFrame().fv_Contents;
+    if (typeof argArgs == "undefined" || argArgs == null || argArgs == "" || gfn_getObjkeyLength(argArgs) == 0)
+    {
+		gfn_alert("의뢰번호가 없습니다.");
+		fn_Close();
+    }
+
+    // 초기값 셋팅
+	fn_init();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 초기값 셋팅
+ *---------------------------------------------------------------------------------------------*/
+function fn_init()
+{
+	sta_reqNo.text = "의뢰번호 : " + argArgs[0];
+	fn_search();
+}
+
+/************************************************************************************************
+ * 공통기능 FUNCTION 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 조회 버튼 클릭 시
+ *---------------------------------------------------------------------------------------------*/
+function fn_search()
+{
+	fn_doSearch();	// 조회
+}
+
+/************************************************************************************************
+ * TRANSACTION 및 CallBack 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 트랜잭션 콜백 함수 (필수)
+ *---------------------------------------------------------------------------------------------*/
+function fn_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	// 에러시 gfn_callBack에서 메시지 제공, 화면별 특정 에러 발생시에만 사용하세요.
+	if (nErrorCode < 0)
+	{
+		return;
+	}
+
+    switch(strSvcID)
+    {
+		// 전체 조회
+        case "selectList" :
+            break;
+    }
+}
+
+/************************************************************************************************
+ * 사용자 FUNCTION 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 조회 처리
+ *---------------------------------------------------------------------------------------------*/
+function fn_doSearch()
+{
+ 	// Grid sort 표시 초기화(필수)
+    gfn_clearSortMark(grd_inspectRptHistory);
+
+    //DataSet을 초기화한다.
+ 	ds_inspectRptHistory.clearData();
+ 	
+ 	ds_search.setColumn(0, "reqNum", argArgs[0]);
+
+ 	//trace(ds_search.saveXML());
+
+    var strSvcID    = "selectList";
+    var strURL      = "ls/lem/inspectRptIssueInquery/selectInspectRptIssueHistList.xdo";
+    var strInDs     = "ds_search=ds_search:A";
+    var strOutDs    = "ds_inspectRptHistory=ds_inspectRptHistory";
+    var strArg      = "";
+    var strCallback = "fn_callBack";
+    var bAsync      = true;
+
+    gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 취소버튼 클릭
+ *---------------------------------------------------------------------------------------------*/
+function btn_cancel_onclick(obj:Button,  e:ClickEventInfo)
+{
+	this.close();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 그리드 선택된 값을 부모창으로 전달한다.
+ *---------------------------------------------------------------------------------------------*/
+function fn_Close()
+{
+    //var arr = LimsUtil.setPopupParam(ds_specmTypeArticleList);
+	//this.close(arr);
+	this.close();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 닫기버튼 클릭
+ *---------------------------------------------------------------------------------------------*/
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	this.close();
+}
+]]></Script>
+  </Form>
+</FDL>

@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fm.fms.custSysInterfaceSISDAO">
+    <desc>고객시스템 Interface HQML Query</desc>
+
+	<!-- SIS상품 단가정보조회 -->
+    <statement name="selectItemBatch" type="select">
+        /*+ com.hwfs.fm.fms.dao.fm.fms.custSysInterfaceSISDAO.selectItem */
+        <![CDATA[
+        	SELECT B.UPJANG
+			     , B.UPJANGNM
+			     , B.CONTRACT_START AS START_DATE
+			     , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.UOM_CODE
+			     , DECODE(A.TAX_CODE,'100','과세','210','면세','220','영세') AS TAX_CODE
+			     , B.SALE_PRICE AS UNIT_PRICE
+			     , CEIL(DECODE(A.TAX_CODE,'100',0.1,0) * B.SALE_PRICE) AS UNIT_VAT
+			     , B.CONTRACT_PRICE AS CONTRACT_PRICE
+			     , CEIL(DECODE(A.TAX_CODE,'100',0.1,0) * B.CONTRACT_PRICE) AS CONTRACT_VAT
+			     , NVL((SELECT Z.D_DAYS FROM PO_PREORDER_LIST Z
+			         WHERE Z.CENTER_CODE = B.CENTER_CODE
+			           AND Z.ITEM_CODE = B.ITEM_CODE),0) /*+ 1*/ AS DELIVER_DAY
+			     , (SELECT CLASS_CODE FROM HLDC_PO_ITEM_CLASS_HLDC_V WHERE CLASS_TYPE = 'M' AND CLASS_CODE = A.ITEM_CLASS2 ) AS CLASS1_CODE
+                 , (SELECT CLASS_NAME FROM HLDC_PO_ITEM_CLASS_HLDC_V WHERE CLASS_TYPE = 'M' AND CLASS_CODE = A.ITEM_CLASS2 ) AS CLASS1_NAME
+                 , (SELECT CLASS_CODE FROM HLDC_PO_ITEM_CLASS_HLDC_V WHERE CLASS_TYPE = 'S' AND CLASS_CODE = A.ITEM_CLASS3 ) AS CLASS2_CODE
+                 , (SELECT CLASS_NAME FROM HLDC_PO_ITEM_CLASS_HLDC_V WHERE CLASS_TYPE = 'S' AND CLASS_CODE = A.ITEM_CLASS3 ) AS CLASS2_NAME
+                 , (SELECT CLASS_CODE FROM HLDC_PO_ITEM_CLASS_HLDC_V WHERE CLASS_TYPE = 'D' AND CLASS_CODE = A.ITEM_CLASS4 ) AS CLASS3_CODE
+                 , (SELECT CLASS_NAME FROM HLDC_PO_ITEM_CLASS_HLDC_V WHERE CLASS_TYPE = 'D' AND CLASS_CODE = A.ITEM_CLASS4 ) AS CLASS3_NAME
+                 , (SELECT 'https://nfics.hanwhafoodist.co.kr/upload/hwpo/' || MAX(IMG_PATH) FROM EPROCUSR.MV_ITEM_IMG WHERE ITEM_CODE = A.ITEM_CODE ) AS IMG_PATH
+                 , A.ORIGIN_TYPE, A.ORIGIN_NAT, A.ORIGIN_DTL
+			  	 --, (SELECT WIN_ITEM_CD FROM EPROCUSR.ESMMTGL WHERE SYS_ID = '100' AND ITEM_CD = A.ITEM_CODE) AS SIS_ITEM_CD
+			  	 , C.WIN_ITEM_CD AS SIS_ITEM_CD
+			  FROM HLDC_PO_ITEM_MST A
+			     ,(SELECT C.CENTER_CODE, C.UPJANG, E.UPJANGNM, C.ITEM_CODE, C.SALE_PRICE, C.CONTRACT_START, C.CONTRACT_PRICE
+			         FROM PO_CONTRACT_FSALE C
+			            , (SELECT /*+ INDEX(E PO_CONTRACT_FSALE_PK) */
+			                      E.CENTER_CODE, E.UPJANG, E.ITEM_CODE, MAX(E.CONTRACT_START) AS CONTRACT_START
+			                 FROM PO_CONTRACT_FSALE E
+			                WHERE E.CENTER_CODE IN (SELECT Y.CENTER_CODE FROM HLDC_PO_UPJANG_CENTER Y 
+			                                         WHERE EXISTS (SELECT 1 FROM SCC_COMMON_CODE Z WHERE Z.GROUP_CODE = 'FM002' 
+			                                         AND Z.SET1 = 'SIS' 
+			                                         AND Z.USE_YN = 'Y'
+			                                         AND Y.UPJANG = Z.CODE)) 
+			                  AND TO_CHAR(SYSDATE+1, 'YYYYMMDD') BETWEEN E.CONTRACT_START AND E.CONTRACT_END
+			                  AND EXISTS (SELECT 1 FROM SCC_COMMON_CODE Z
+			                               WHERE Z.GROUP_CODE = 'FM002'
+			                                 AND Z.SET1 = 'SIS'
+			                                 AND Z.USE_YN = 'Y'
+			                                 AND Z.CODE = E.UPJANG)
+			                  AND E.ITEM_CODE LIKE 'F%'
+			                  AND E.USE_YN = 'Y'
+			                GROUP BY E.CENTER_CODE, E.UPJANG, E.ITEM_CODE) D
+			            , ST_UPJANG E
+			        WHERE C.CENTER_CODE    = D.CENTER_CODE
+			          AND C.UPJANG         = D.UPJANG
+			          AND C.ITEM_CODE      = D.ITEM_CODE
+			          AND C.CONTRACT_START = D.CONTRACT_START
+			          AND C.UPJANG = E.UPJANG
+			          AND EXISTS (SELECT 1 FROM PO_CONTRACT_FSALE F
+			                       WHERE F.UPJANG = C.UPJANG
+			                         AND F.ITEM_CODE = C.ITEM_CODE)
+			          AND C.CONTRACT_PRICE > 0
+			          AND C.SALE_PRICE > 0
+			          AND C.USE_YN = 'Y') B   
+                 , EPROCUSR.ESMMTGL C               
+			 WHERE A.ITEM_CODE = B.ITEM_CODE
+			   AND A.USE_YN = 'Y'
+               AND A.ITEM_CODE = C.ITEM_CD
+			   AND C.SYS_ID = '100'
+               AND C.WIN_ITEM_CD IS NOT NULL
+        ]]>
+    </statement>
+
+	<!-- 창고정보 -->
+    <statement name="selectSubinvBatch" type="select">
+        /*+ com.hwfs.fm.fms.dao.fm.fms.custSysInterfaceSISDAO.selectSubinvBatch */
+        <![CDATA[
+        	SELECT
+        		TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:mi:ss') AS SND_DATE
+        		, 'N' AS SND_DIV 
+        		, C.INTERFACE_ATTR01 AS CUSTMR_CD
+        		, A.UPJANG AS FD_CUSTMR_CD
+				, A.SUBINV_CODE AS FD_LOCATION_CD
+				, B.AP_UNITPRICE_UPJANG AS FD_PRICE_CD
+				, REPLACE(SCC_CRYPTO.DEC_FUN(B.BANK_ACCT_NO_ENC), '-','') AS ACNT_NO
+				, '' AS LOGIN_SABUN
+				, '' AS LOGIN_USERID
+				, '' AS LOGIN_PERS_MASK
+			FROM HLDC_PO_SUBINVENTORY A
+				, ST_UPJANG B
+				, FMS_UPJANG C
+			WHERE B.UPJANG = C.UPJANG 
+			AND A.UPJANG = B.UPJANG
+			AND C.INTERFACE_ATTR01 IS NOT NULL		
+			AND A.USE_YN = 'Y'	   
+        ]]>
+    </statement>
+    
+    <!-- 입금정보 -->
+    <statement name="selectSuspenseBatch" type="select">
+        /*+ com.hwfs.fm.fms.dao.fm.fms.custSysInterfaceSISDAO.selectSuspenseBatch */
+        <![CDATA[
+        	SELECT
+        		TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:mi:ss') AS SND_DATE
+        		, 'N' AS SND_DIV 
+        		, C.INTERFACE_ATTR01 AS CUSTMR_CD
+        		, B.UPJANG_CD AS FD_CUSTMR_CD
+        		, A.BANK_CD
+        		, '2' AS INOUT_GUBUN -- 1: 출금, 2: 입금
+        		, A.RECEIVE_DATE AS ACCT_DATE
+        		, TO_CHAR(A.ADDTIME, 'HH24MISS') AS ACCT_TIME
+        		, A.SAP_SUSPENSE_NUM AS ACCT_SEQ
+		 		, A.RECEIVE_AMT AS ACCT_AMT 
+		 		, '' AS LOGIN_SABUN
+				, '' AS LOGIN_USERID
+				, '' AS LOGIN_PERS_MASK
+		 FROM SLA_SAP_SUSPENSE_INFO A
+		 	, SLA_SAP_BANK_ACCT_NO B
+		 	, FMS_UPJANG C
+		 WHERE A.BANK_ACCT_NO = B.BANK_ACCT_NO  
+		    AND B.UPJANG_CD = C.UPJANG  
+		    AND C.INTERFACE_ATTR01 IS NOT NULL
+		    AND B.BANK_ACCT_TYPE = 'V'
+		    AND A.RECD_STATUS = 'L'  
+		    AND A.RECEIVE_AMT > 0
+		    AND A.RECEIVE_DATE >= TO_CHAR(SYSDATE-1, 'YYYYMMDD')
+        ]]>
+    </statement>
+</hqml>
+

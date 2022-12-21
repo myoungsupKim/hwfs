@@ -1,0 +1,787 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="sc.cmn.upjangSearchDAO">
+	<desc>시스템에서 업장정보를 조회한다.</desc>
+
+	<!-- RoleSetId : ScoAuthLevel -->
+	<statement name="selectScoAuthLevel" type="select"><![CDATA[
+SELECT TO_CHAR(A.UPJANG) AS UPJANG_CODE,
+       A.UPJANGNM AS UPJANG_NAME,
+       A.UPJANG,
+       A.UPJANGNM,
+       A.CC_CD,
+       A.CC_NM,
+       A.TM_CD,
+       A.TM_NM,
+       A.MU_CD,
+       A.MU_NM,
+       NVL(A.CUSTCD, 0) AS CUSTCD,
+       A.CUSTNM,
+       A.SAP_CUST_CD,
+       A.JONGSAUPNO
+FROM   SCO_UPJANG_MST_V A
+WHERE  1=1
+<#if upjangCode?has_content>
+AND    A.UPJANG LIKE '%' || :upjangCode || '%'
+</#if>
+<#if upjangName?has_content>
+AND  UPPER(A.UPJANGNM) LIKE '%' || UPPER(:upjangName) || '%' --2019.01.17 김명섭 upper적용
+</#if>
+<#if isUpjangControl?has_content>
+	<#if isUpjangControl == "Y">
+AND  A.UPJANG NOT IN (SELECT TO_NUMBER(CODE) FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0048' AND USE_YN = 'Y')
+	</#if>
+</#if>
+<#if closeYn?has_content>
+	<#if closeYn == "Y">
+AND  CASE WHEN A.CLOSE_DATE IS NULL THEN 'N' ELSE CASE WHEN A.CLOSE_DATE = '99991231' THEN 'N' ELSE 'Y' END END = 'N'
+	</#if>
+</#if>
+<#if oldDeptYn?has_content>
+	<#if oldDeptYn == "Y">
+AND  A.CC_CD IN (SELECT CC_CD FROM SCC_CC WHERE ORG_LEVEL_CD10 NOT LIKE '%Z')
+	</#if>
+</#if>
+<#if applyAuthKind == "default">
+	<#if muCd?has_content>
+AND A.MU_CD = :muCd
+	</#if>
+	<#if tmCd?has_content>
+AND (A.TM_CD = :tmCd OR A.PT_CD = :tmCd)
+	</#if>
+<#elseif applyAuthKind == "upjangRole">
+	<#if muCd?has_content>
+AND A.MU_CD = :muCd
+	</#if>
+	<#if tmCd?has_content>
+AND (A.TM_CD = :tmCd OR A.PT_CD = :tmCd)
+	</#if>
+	<#if authLevel == "12">
+AND A.LEADER_SABUN = :sabun
+	<#elseif authLevel == "14">
+AND A.SUBTEAM_MST_SABUN = :sabun
+	<#elseif authLevel == "16">
+AND A.TEAM_MST_SABUN = :sabun
+	<#else>
+	</#if>
+<#elseif applyAuthKind == "exception">
+${query}
+</#if>
+		]]></statement>
+
+	<!-- RoleSetId : ScoAuthLevel -->
+	<statement name="selectScoUpjangMst" type="select"><![CDATA[
+SELECT TO_CHAR(A.UPJANG) AS UPJANG_CODE,
+       A.UPJANGNM AS UPJANG_NAME,
+       A.UPJANG,
+       A.UPJANGNM,
+       A.CC_CD,
+       A.CC_NM,
+       A.TM_CD,
+       A.TM_NM,
+       A.MU_CD,
+       A.MU_NM,
+       A.JONGSAUPNO
+FROM   SCO_UPJANG_MST_V A
+WHERE  1=1
+<#if upjangCode?has_content>
+AND    A.UPJANG LIKE '%' || :upjangCode || '%'
+</#if>
+<#if upjangName?has_content>
+AND  UPPER(A.UPJANGNM) LIKE '%' || UPPER(:upjangName) || '%' --2019.01.17 김명섭 upper적용
+</#if>
+<#if isUpjangControl?has_content>
+	<#if isUpjangControl == "Y">
+AND  A.UPJANG NOT IN (SELECT TO_NUMBER(CODE) FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0048' AND USE_YN = 'Y')
+	</#if>
+</#if>
+<#if closeYn?has_content>
+	<#if closeYn == "Y">
+AND  CASE WHEN A.CLOSE_DATE IS NULL THEN 'N' ELSE CASE WHEN A.CLOSE_DATE = '99991231' THEN 'N' ELSE 'Y' END END = 'N'
+	</#if>
+</#if>
+<#if oldDeptYn?has_content>
+	<#if oldDeptYn == "Y">
+AND  A.CC_CD IN (SELECT CC_CD FROM SCC_CC WHERE ORG_LEVEL_CD10 NOT LIKE '%Z') 
+	</#if>
+</#if>
+<#if muCd?has_content>
+AND A.MU_CD = :muCd
+</#if>
+<#if tmCd?has_content>
+AND (A.TM_CD = :tmCd OR A.PT_CD = :tmCd)
+</#if>
+		]]></statement>
+
+
+	<!-- RoleSetId : ScoAuthLevel -->
+	<statement name="selectFmsMainUpjangAuthLevel" type="select"><![CDATA[
+SELECT TO_CHAR(A.UPJANG) AS UPJANG_CODE,
+       A.UPJANGNM_DISP AS UPJANG_NAME,
+       A.UPJANG,
+       A.UPJANGNM_DISP,
+       B.CC_CD,
+       C.CC_NM,
+       B.CUSTCD,
+       C.TM_CD,
+       C.TM_NM,
+       B.JONGSAUPNO
+FROM   FMS_UPJANG A,
+       ST_UPJANG B,
+       HLDC_SC_DEPT_V C
+WHERE A.UPJANG = A.MAIN_UPJANG
+AND   B.UPJANG  = A.UPJANG
+AND   B.CC_CD = C.CC_CD
+AND   B.VIRTURE_UPJANG_YN <> 'Y'
+<#if closeYn?has_content>
+	<#if closeYn == "Y">
+	AND    A.USE_YN = 'Y'
+	</#if>
+</#if>
+<#if upjangCode?has_content>
+AND    A.UPJANG LIKE '%' || :upjangCode || '%'
+</#if>
+<#if upjangName?has_content>
+AND  UPPER(A.UPJANGNM_DISP) LIKE '%' || UPPER(:upjangName) || '%' --2019.01.17 김명섭 upper적용
+</#if>
+<#if isUpjangControl?has_content>
+	<#if isUpjangControl == "Y">
+AND  A.UPJANG NOT IN (SELECT TO_NUMBER(CODE) FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0048' AND USE_YN = 'Y')
+	</#if>
+</#if>
+<#if applyAuthKind == "default">
+	<#if muCd?has_content>
+AND C.MU_CD = :muCd
+	</#if>
+	<#if tmCd?has_content>
+AND (C.TM_CD = :tmCd OR C.PT_CD = :tmCd)
+	</#if>
+<#elseif applyAuthKind == "upjangRole">
+<#elseif applyAuthKind == "exception">
+${query}
+</#if>
+		]]></statement>
+
+	<!-- RoleSetId : FmsUpjang (식재사업장을 조회한다.) -->
+	<statement name="selectFmsUpjangAuthLevel" type="select"><![CDATA[
+SELECT TO_CHAR(A.UPJANG) AS UPJANG_CODE,
+       A.UPJANGNM_DISP AS UPJANG_NAME,
+       A.UPJANG,
+       A.UPJANGNM_DISP,
+       B.CC_CD,
+       C.CC_NM,
+       B.CUSTCD,
+       C.TM_CD,
+       C.TM_NM,
+       B.JONGSAUPNO
+FROM   FMS_UPJANG A,
+       ST_UPJANG B,
+       HLDC_SC_DEPT_V C
+WHERE B.UPJANG = A.UPJANG
+AND   B.CC_CD = C.CC_CD
+AND   B.VIRTURE_UPJANG_YN <> 'Y'
+<#if closeYn?has_content>
+	<#if closeYn == "Y">
+	AND    A.USE_YN = 'Y'
+	</#if>
+</#if>
+<#if upjangCode?has_content>
+AND    A.UPJANG LIKE '%' || :upjangCode || '%'
+</#if>
+<#if upjangName?has_content>
+AND  UPPER(A.UPJANGNM_DISP) LIKE '%' || UPPER(:upjangName) || '%' --2019.01.17 김명섭 upper적용
+</#if>
+<#if isUpjangControl?has_content>
+	<#if isUpjangControl == "Y">
+AND  A.UPJANG NOT IN (SELECT TO_NUMBER(CODE) FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0048' AND USE_YN = 'Y')
+	</#if>
+</#if>
+<#if applyAuthKind == "default">
+	<#if muCd?has_content>
+AND C.MU_CD = :muCd
+	</#if>
+	<#if tmCd?has_content>
+AND (C.TM_CD = :tmCd OR C.PT_CD = :tmCd)
+	</#if>
+	<#if mainUpjang?has_content>
+AND A.MAIN_UPJANG = :mainUpjang
+	</#if>
+<#elseif applyAuthKind == "upjangRole">
+<#elseif applyAuthKind == "exception">
+${query}
+</#if>
+ORDER BY A.UPJANG
+		]]></statement>
+
+	<!-- RoleSetId : OutletUpjang -->
+	<statement name="selectOutletUpjang" type="select"><![CDATA[
+SELECT TO_CHAR(A.UPJANG) AS UPJANG_CODE,
+       A.UPJANGNM AS UPJANG_NAME,
+       A.UPJANG,
+       A.UPJANGNM,
+       A.CC_CD,
+       A.CC_NM,
+       A.MU_CD,
+       A.MU_NM,
+       A.TM_CD,
+       A.TM_NM,
+       A.JONGSAUPNO
+FROM   SCO_UPJANG_V A,
+       SLE_OUTLET_MST B
+WHERE TO_NUMBER(B.OUTLET_CD) = A.UPJANG
+<#if upjangCode?has_content>
+AND    A.UPJANG LIKE '%' || :upjangCode || '%'
+</#if>
+<#if upjangName?has_content>
+AND  UPPER(A.UPJANGNM) LIKE '%' || UPPER(:upjangName) || '%' --2019.01.17 김명섭 upper적용
+</#if>
+<#if isUpjangControl?has_content>
+	<#if isUpjangControl == "Y">
+AND  A.UPJANG NOT IN (SELECT TO_NUMBER(CODE) FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0048' AND USE_YN = 'Y')
+	</#if>
+</#if>
+<#if closeYn?has_content>
+	<#if closeYn == "Y">
+AND  CASE WHEN A.CLOSE_DATE IS NULL THEN 'N' ELSE CASE WHEN A.CLOSE_DATE = '99991231' THEN 'N' ELSE 'Y' END END = 'N'
+	</#if>
+</#if>
+<#if oldDeptYn?has_content>
+	<#if oldDeptYn == "Y">
+AND  A.CC_CD IN (SELECT CC_CD FROM SCC_CC WHERE ORG_LEVEL_CD10 NOT LIKE '%Z') 
+	</#if>
+</#if>
+<#if applyAuthKind == "default">
+	<#if muCd?has_content>
+AND A.MU_CD = :muCd
+	</#if>
+	<#if tmCd?has_content>
+AND (A.TM_CD = :tmCd OR A.PT_CD = :tmCd)
+	</#if>
+<#elseif applyAuthKind == "upjangRole">
+<#elseif applyAuthKind == "exception">
+${query}
+</#if>
+ORDER BY A.UPJANG
+		]]></statement>
+
+
+	<!-- RoleSetId : ScoAuthLevel01 -->
+	<statement name="selectScoAuthLevel01" type="select"><![CDATA[
+SELECT TO_CHAR(A.UPJANG) AS UPJANG_CODE,
+       A.UPJANGNM AS UPJANG_NAME,
+       A.UPJANG,
+       A.UPJANGNM,
+       A.CC_CD,
+       A.CC_NM,
+       A.JONGSAUPNO
+FROM   SCO_UPJANG_MST_V A
+WHERE  1=1
+AND    A.FICS_YN = 'N'
+<#if upjangCode?has_content>
+AND    A.UPJANG LIKE '%' || :upjangCode || '%'
+</#if>
+<#if upjangName?has_content>
+AND  UPPER(A.UPJANGNM) LIKE '%' || UPPER(:upjangName) || '%' --2019.01.17 김명섭 upper적용
+</#if>
+<#if isUpjangControl?has_content>
+	<#if isUpjangControl == "Y">
+AND  A.UPJANG NOT IN (SELECT TO_NUMBER(CODE) FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0048' AND USE_YN = 'Y')
+	</#if>
+</#if>
+<#if closeYn?has_content>
+	<#if closeYn == "Y">
+AND  CASE WHEN A.CLOSE_DATE IS NULL THEN 'N' ELSE CASE WHEN A.CLOSE_DATE = '99991231' THEN 'N' ELSE 'Y' END END = 'N'
+	</#if>
+</#if>
+<#if oldDeptYn?has_content>
+	<#if oldDeptYn == "Y">
+AND  A.CC_CD IN (SELECT CC_CD FROM SCC_CC WHERE ORG_LEVEL_CD10 NOT LIKE '%Z') 
+	</#if>
+</#if>
+<#if muCd?has_content>
+AND A.MU_CD = :muCd
+</#if>
+<#if tmCd?has_content>
+AND (A.TM_CD = :tmCd OR A.PT_CD = :tmCd)
+</#if>
+
+		]]></statement>
+
+	<!-- RoleSetId : FmsMainUpjang (식재 본사사업장을 조회한다.) -->
+	<statement name="selectFmsMainUpjang" type="select"><![CDATA[
+SELECT TO_CHAR(A.UPJANG) AS UPJANG_CODE,
+       A.UPJANGNM_DISP AS UPJANG_NAME,
+       A.UPJANG,
+       A.UPJANGNM_DISP,
+       B.CC_CD,
+       C.CC_NM,
+       B.CUSTCD,
+       C.TM_CD,
+       C.TM_NM,
+       B.JONGSAUPNO
+FROM   FMS_UPJANG A,
+       ST_UPJANG B,
+       HLDC_SC_DEPT_V C
+WHERE  A.MAIN_UPJANG = A.UPJANG
+AND    B.UPJANG = A.UPJANG
+AND    C.CC_CD = B.CC_CD
+AND    A.USE_YN = 'Y'
+AND    B.VIRTURE_UPJANG_YN <> 'Y'
+<#if upjangCode?has_content>
+AND    A.UPJANG LIKE '%' || :upjangCode || '%'
+</#if>
+<#if upjangName?has_content>
+AND  UPPER(A.UPJANGNM_DISP) LIKE '%' || UPPER(:upjangName) || '%' --2019.01.17 김명섭 upper적용
+</#if>
+<#if isUpjangControl?has_content>
+	<#if isUpjangControl == "Y">
+AND  A.UPJANG NOT IN (SELECT TO_NUMBER(CODE) FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0048' AND USE_YN = 'Y')
+	</#if>
+</#if>
+<#if muCd?has_content>
+AND  C.MU_CD = :muCd
+</#if>
+<#if tmCd?has_content>
+AND  (C.TM_CD = :tmCd OR C.PT_CD = :tmCd)
+</#if>
+ORDER BY A.UPJANG
+		]]></statement>
+
+	<!-- RoleSetId : FmsUpjang (식재사업장을 조회한다.) -->
+	<statement name="selectFmsUpjang" type="select"><![CDATA[
+SELECT TO_CHAR(A.UPJANG) AS UPJANG_CODE,
+       A.UPJANGNM_DISP AS UPJANG_NAME,
+       A.UPJANG,
+       A.UPJANGNM_DISP,
+       B.CC_CD,
+       C.CC_NM,
+       B.CUSTCD,
+       D.SAP_CUST_CD,
+       C.TM_CD,
+       C.TM_NM,
+       B.JONGSAUPNO
+FROM   FMS_UPJANG A,
+       ST_UPJANG B,
+       HLDC_SC_DEPT_V C,
+       ST_CUST D
+WHERE  B.UPJANG = A.UPJANG
+AND    C.CC_CD = B.CC_CD
+AND    D.CUSTCD = B.CUSTCD
+AND    A.USE_YN = 'Y'
+AND    B.VIRTURE_UPJANG_YN <> 'Y'
+<#if upjangCode?has_content>
+AND    A.UPJANG LIKE '%' || :upjangCode || '%'
+</#if>
+<#if upjangName?has_content>
+AND  UPPER(A.UPJANGNM_DISP) LIKE '%' || UPPER(:upjangName) || '%' --2019.01.17 김명섭 upper적용
+</#if>
+<#if isUpjangControl?has_content>
+	<#if isUpjangControl == "Y">
+AND  A.UPJANG NOT IN (SELECT TO_NUMBER(CODE) FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0048' AND USE_YN = 'Y')
+	</#if>
+</#if>
+<#if mainUpjang?has_content>
+AND    A.MAIN_UPJANG = :mainUpjang
+</#if>
+<#if muCd?has_content>
+AND    C.MU_CD = :muCd
+</#if>
+<#if tmCd?has_content>
+AND    (C.TM_CD = :tmCd OR C.PT_CD = :tmCd)
+</#if>
+ORDER BY A.UPJANG
+		]]></statement>
+
+	<!-- RoleSetId : ScoUpjang (외식영업을 조회한다.) -->
+	<statement name="selectScoUpjang" type="select"><![CDATA[
+SELECT DISTINCT TO_CHAR(A.UPJANG) AS UPJANG_CODE,
+       A.UPJANGNM AS UPJANG_NAME,
+       A.UPJANG,
+       A.UPJANGNM,
+       A.SAUPNO,
+       A.DEPT_ID,
+       A.BU_CD,
+       A.BU_NM,
+       A.MU_CD,
+       A.MU_NM,
+       A.CC_CD,
+       A.CC_NM,
+       A.JONGSAUPNO
+FROM   SCO_UPJANG_V A
+WHERE  START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+AND    END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+<#if upjangCode?has_content>
+AND    A.UPJANG LIKE '%' || :upjangCode || '%'
+</#if>
+<#if upjangName?has_content>
+AND  UPPER(A.UPJANGNM) LIKE '%' || UPPER(:upjangName) || '%' --2019.01.17 김명섭 upper적용
+</#if>
+<#if isUpjangControl?has_content>
+	<#if isUpjangControl == "Y">
+AND  A.UPJANG NOT IN (SELECT TO_NUMBER(CODE) FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0048' AND USE_YN = 'Y')
+	</#if>
+</#if>
+<#if closeYn?has_content>
+	<#if closeYn == "Y">
+AND  CASE WHEN A.CLOSE_DATE IS NULL THEN 'N' ELSE CASE WHEN A.CLOSE_DATE = '99991231' THEN 'N' ELSE 'Y' END END = 'N' 
+	</#if>
+</#if>
+<#if oldDeptYn?has_content>
+	<#if oldDeptYn == "Y">
+AND  A.CC_CD IN (SELECT CC_CD FROM SCC_CC WHERE ORG_LEVEL_CD10 NOT LIKE '%Z') 
+	</#if>
+</#if>
+<#if buCd?has_content>
+AND    A.BU_CD = :buCd
+</#if>
+<#if muCd?has_content>
+AND    A.MU_CD = :muCd
+</#if>
+<#if tmCd?has_content>
+AND    (A.TM_CD = :tmCd OR A.PT_CD = :tmCd)
+</#if>
+<#if ccCd?has_content>
+AND    A.CC_CD = :ccCd
+</#if>
+ORDER BY A.UPJANG
+		]]></statement>
+
+	<!-- RoleSetId : StUpjang -->
+	<statement name="selectStUpjang" type="select"><![CDATA[
+SELECT TO_CHAR(A.UPJANG) AS UPJANG_CODE,
+       A.UPJANGNM AS UPJANG_NAME,
+       A.UPJANG,
+       A.UPJANGNM,
+       A.DRNAME,
+       A.SAUPNO,
+       A.UP_JONG,
+       A.UP_TAE,
+       A.ADDR,
+       A.CC_CD,
+       B.CC_NM,
+       A.JONGSAUPNO
+FROM ST_UPJANG A,
+     HLDC_SC_DEPT_V B,
+     FMS_UPJANG C		-- 식재사업장 추가(2016-01-11)
+WHERE B.CC_CD = A.CC_CD
+AND    A.UPJANG = C.UPJANG(+)
+--AND A.UPJANG NOT IN (SELECT UPJANG FROM SCO_UPJANG_MST WHERE CASE WHEN CLOSE_DATE IS NULL THEN 'N' ELSE CASE WHEN CLOSE_DATE = '99991231' THEN 'N' ELSE 'Y' END END = 'Y')
+<#if muCd?has_content>
+AND  B.MU_CD = :muCd
+</#if>
+<#if tmCd?has_content>
+AND   (B.TM_CD = :tmCd OR B.PT_CD = :tmCd)
+</#if>
+<#if upjangCode?has_content>
+AND    A.UPJANG LIKE '%' || :upjangCode || '%'
+</#if>
+<#if upjangName?has_content>
+AND  UPPER(A.UPJANGNM) LIKE '%' || UPPER(:upjangName) || '%' --2019.01.17 김명섭 upper적용
+</#if>
+<#if isUpjangControl?has_content>
+	<#if isUpjangControl == "Y">
+AND  A.UPJANG NOT IN (SELECT TO_NUMBER(CODE) FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0048' AND USE_YN = 'Y')
+	</#if>
+</#if>
+<#if virtureUpjang?has_content>
+	<#if virtureUpjang != "Y">
+AND A.VIRTURE_UPJANG_YN <> 'Y'
+	</#if>
+<#else>
+AND A.VIRTURE_UPJANG_YN <> 'Y'
+</#if>
+AND (C.UPJANG IS NULL OR C.USE_YN = 'Y')	-- 식재사업장의 경우 사용여부(Y)인 업장만 조회되게 처리 
+ORDER BY A.UPJANG
+		]]></statement>
+
+	<!-- RoleSetId : VatUpjang -->
+	<statement name="selectVatUpjang" type="select"><![CDATA[
+SELECT TO_CHAR(B.UPJANG) AS UPJANG_CODE,
+       B.UPJANGNM AS UPJANG_NAME,
+       B.UPJANG,
+       B.UPJANGNM,
+       B.CUSTCD,
+       B.SAUPNO,
+       B.CORP_REG_NUM,
+       B.UP_JONG,
+       B.UP_TAE,
+       B.DRNAME,
+       B.SHOP_TYP_CD,
+       B.VAT_GUBUN,
+       SCC_GET_ADDR_FUN('CLASS' , B.ADDR_KEY, '', '') AS ADDR_GUBUN,
+       SCC_GET_ADDR_FUN('ZIP'   , B.ADDR_KEY, '', '') AS POST_NO,
+       SCC_GET_ADDR_FUN('BASE'  , B.ADDR_KEY, '', '') AS ADDR,
+       SCC_GET_ADDR_FUN('DETAIL', B.ADDR_KEY, :loginPersMask, '0') AS DETAIL_ADDR_ENC,
+       B.TEL_NO_ENC,
+       B.FAX_NO_ENC,
+       B.DEPT_ID,
+       B.CC_CD,
+       B.FM_SALES_MANAGER,
+       B.FM_START_DATE,
+       B.VATUPJANGNM,
+       B.VAT_TYPE,
+       B.VAT_UPJANG,
+       B.TAXOFFICE_CODE,
+       B.ACC_OPENDATE,
+       B.ACC_CLOSEDATE,
+       B.AP_UNITPRICE_UPJANG,
+       B.SCHOOL_YN,
+       B.CLASS_CD,
+       B.ADVANCE_BANKCD,
+       B.ADVANCE_ACNTCD,
+       B.ADVANCE_ACNTCD_ENC,
+       B.C_BANK_DRNM,
+       B.WINCMS_RCP_YN,
+       B.SCHOOL_YN_CUSTCD,
+       B.ADDR_KEY,
+       C.CC_NM,
+       B.JONGSAUPNO
+FROM   (SELECT DISTINCT VAT_UPJANG FROM ST_UPJANG WHERE VAT_UPJANG IS NOT NULL) A,
+       ST_UPJANG B,
+       HLDC_SC_DEPT_V C
+WHERE  B.UPJANG = A.VAT_UPJANG
+AND    C.CC_CD = B.CC_CD
+AND    B.VIRTURE_UPJANG_YN <> 'Y'
+<#if upjangCode?has_content>
+AND    B.UPJANG LIKE '%' || :upjangCode || '%'
+</#if>
+<#if upjangName?has_content>
+AND    UPPER(B.UPJANGNM) LIKE '%' || UPPER(:upjangName) || '%' --2019.01.17 김명섭 upper적용
+</#if>
+<#if isUpjangControl?has_content>
+	<#if isUpjangControl == "Y">
+AND  B.UPJANG NOT IN (SELECT TO_NUMBER(CODE) FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0048' AND USE_YN = 'Y')
+	</#if>
+</#if>
+<#if muCd?has_content>
+AND    C.MU_CD = :muCd
+</#if>
+<#if tmCd?has_content>
+AND    (C.TM_CD = :tmCd OR C.PT_CD = :tmCd)
+</#if>
+ORDER BY B.UPJANG
+		]]></statement>
+
+	<!-- RoleSetId : InlineFmsUpjang(소속의 메인업장에 있는 업장들) -->
+	<statement name="selectInlineFmsUpjang" type="select"><![CDATA[
+SELECT TO_CHAR(A.UPJANG) AS UPJANG_CODE,
+       B.UPJANGNM AS UPJANG_NAME,
+       C.CC_NM,
+       B.JONGSAUPNO
+FROM   FMS_UPJANG A,
+       ST_UPJANG B,
+       HLDC_SC_DEPT_V C
+WHERE  B.UPJANG = A.UPJANG
+AND    C.CC_CD = B.CC_CD
+AND    A.USE_YN = 'Y'
+AND    B.VIRTURE_UPJANG_YN <> 'Y'
+AND    A.MAIN_UPJANG IN (SELECT MAIN_UPJANG
+                         FROM   FMS_UPJANG
+                         WHERE  UPJANG = :sosokUpjang)
+<#if upjangCode?has_content>
+AND    B.UPJANG LIKE '%' || :upjangCode || '%'
+</#if>
+<#if upjangName?has_content>
+AND    UPPER(B.UPJANGNM) LIKE '%' || UPPER(:upjangName) || '%' --2019.01.17 김명섭 upper적용
+</#if>
+<#if isUpjangControl?has_content>
+	<#if isUpjangControl == "Y">
+AND  B.UPJANG NOT IN (SELECT TO_NUMBER(CODE) FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0048' AND USE_YN = 'Y')
+	</#if>
+</#if>
+ORDER BY A.UPJANG
+		]]></statement>
+
+	<!-- RoleSetId : CostCenter -->
+	<statement name="selectCostCenter" type="select"><![CDATA[
+SELECT DISTINCT
+       A.CC_CD AS UPJANG_CODE,
+       A.CC_NM AS UPJANG_NAME,
+       A.CC_CD,
+       A.CC_NM,
+       A.MU_CD,
+       A.MU_NM,
+       A.TM_CD,
+       A.TM_NM,
+       A.SUB_UPJANG_NUM
+FROM   HLDC_SC_DEPT_V A
+WHERE  1 = 1
+<#if muCd?has_content>
+AND    A.MU_CD = :muCd
+</#if>
+<#if tmCd?has_content>
+AND    (A.TM_CD = :tmCd OR A.PT_CD = :tmCd)
+</#if>
+<#if upjangCode?has_content>
+AND    A.CC_CD LIKE '%' || :upjangCode || '%'
+</#if>
+<#if upjangName?has_content>
+AND    UPPER(A.CC_NM) LIKE '%' || UPPER(:upjangName) || '%' --2019.01.17 김명섭 upper적용
+</#if>
+
+<#if oldDeptYn?has_content>
+	<#if oldDeptYn == "Y">
+AND  A.CC_CD NOT IN (SELECT CC_CD FROM SCC_CC WHERE ORG_LEVEL_CD10 LIKE '%Z')
+	</#if>
+</#if>
+
+ORDER BY A.CC_CD
+		]]></statement>
+
+	<statement name="selectPart" type="select">
+		<![CDATA[
+			/*+ com.hwfs.cmn.dao.UpjangSearchDAO.selectPartList */
+  			SELECT DISTINCT B.MAIN_UPJANG, A.SABUN, 'N' AS chk FROM SCC_USERINFO A, FMS_UPJANG B
+  				WHERE 1=1
+  				AND A.SABUN = B.PART_SALES_SABUN
+  				AND A.SABUN = :SALE_SABUN
+  				<#if USE_YN?has_content>
+				AND B.USE_YN = :USE_YN
+				</#if>
+  				
+  				ORDER BY B.MAIN_UPJANG
+		]]>
+	</statement>
+	<statement name="selectAccobjList"><![CDATA[SELECT DISTINCT 
+       TM_CD, 
+       TM_NM, 
+       BU_CD, 
+       BU_NM, 
+       MU_CD, 
+       MU_NM,
+       UPJANG_CD,
+       UPJANG_NM,
+       CC_CD,
+       CC_NM
+  FROM FSO_ACC_OBJECT_V
+ WHERE 1=1
+   AND UPJANG_CD IS NOT NULL
+<#if upjangCode?has_content>
+AND    UPJANG_CD LIKE :upjangCode || '%'
+</#if>
+<#if upjangName?has_content>
+AND    (UPPER(UPJANG_NM) LIKE '%' || UPPER(:upjangName) || '%')
+</#if>
+<#if tmCd?has_content>
+AND    TM_CD = :tmCd
+</#if>
+<#if baseYy?has_content>
+AND    ACC_MON LIKE :baseYy || '%'
+</#if>
+ORDER BY TM_CD, UPJANG_CD]]></statement>
+
+<!-- RoleSetId : BrandUpjang (브랜드유통 사업장을 조회한다.) -->
+<statement name="selectBrandUpjang" type="select">
+<![CDATA[
+/*+ com.hwfs.cmn.dao.UpjangSearchDAO.selectBrandUpjang */
+SELECT TO_CHAR(A.UPJANG) AS UPJANG_CODE,
+       A.UPJANGNM_DISP AS UPJANG_NAME,
+       A.UPJANG,
+       A.UPJANGNM_DISP,
+       B.CC_CD,
+       C.CC_NM,
+       B.CUSTCD,
+       D.SAP_CUST_CD,
+       C.TM_CD,
+       C.TM_NM,
+       B.JONGSAUPNO,
+       A.RTN_YN
+FROM   FMS_UPJANG A,
+       ST_UPJANG B,
+       HLDC_SC_DEPT_V C,
+       ST_CUST D
+WHERE  B.UPJANG = A.UPJANG
+AND    C.CC_CD = B.CC_CD
+AND    D.CUSTCD = B.CUSTCD
+AND    A.USE_YN = 'Y'
+AND    B.VIRTURE_UPJANG_YN <> 'Y'
+AND	   C.BU_CD = '2000' 
+AND    C.MU_CD = '2004' 
+AND    (C.TM_CD LIKE 'CI%' OR A.DEPT_ID IN ( SELECT INV.CC_CD FROM HLDC_SC_DEPT_V INV WHERE INV.DEPT_ID IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'BRAND_UPJANG_POP_ETC')) ) -- 브랜드유통사업장 식별
+<#if upjangCode?has_content>
+AND    A.UPJANG LIKE '%' || :upjangCode || '%'
+</#if>
+<#if upjangName?has_content>
+AND  UPPER(A.UPJANGNM_DISP) LIKE '%' || UPPER(:upjangName) || '%' --2019.01.17 김명섭 upper적용
+</#if>
+<#if isUpjangControl?has_content>
+	<#if isUpjangControl == "Y">
+	AND A.RTN_YN = 'Y'
+	</#if>
+</#if>
+<#if muCd?has_content>
+AND    C.MU_CD = :muCd
+</#if>
+ORDER BY A.UPJANG
+]]></statement>
+
+
+<!-- RoleSetId : BrandMainUpjang (브랜드유통 본사사업장을 조회한다.) -->
+<statement name="selectBrandMainUpjang" type="select">
+<![CDATA[
+/*+ com.hwfs.cmn.dao.UpjangSearchDAO.selectBrandMainUpjang */
+SELECT TO_CHAR(A.UPJANG) AS UPJANG_CODE,
+       A.UPJANGNM_DISP AS UPJANG_NAME,
+       A.UPJANG,
+       A.UPJANGNM_DISP,
+       B.CC_CD,
+       C.CC_NM,
+       B.CUSTCD,
+       D.SAP_CUST_CD,
+       C.TM_CD,
+       C.TM_NM,
+       B.JONGSAUPNO,
+       A.RTN_YN
+FROM   FMS_UPJANG A,
+       ST_UPJANG B,
+       HLDC_SC_DEPT_V C,
+       ST_CUST D
+WHERE  A.UPJANG = A.MAIN_UPJANG
+AND    B.UPJANG = A.UPJANG
+AND    C.CC_CD = B.CC_CD
+AND    D.CUSTCD = B.CUSTCD
+AND    A.USE_YN = 'Y'
+AND    B.VIRTURE_UPJANG_YN <> 'Y'
+AND	   C.BU_CD = '2000' 
+AND    C.MU_CD = '2004' 
+AND    (C.TM_CD LIKE 'CI%' OR A.DEPT_ID IN ( SELECT INV.CC_CD FROM HLDC_SC_DEPT_V INV WHERE INV.DEPT_ID IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'BRAND_UPJANG_POP_ETC')) ) -- 브랜드유통사업장 식별
+<#if upjangCode?has_content>
+AND    A.UPJANG LIKE '%' || :upjangCode || '%'
+</#if>
+<#if upjangName?has_content>
+AND  UPPER(A.UPJANGNM_DISP) LIKE '%' || UPPER(:upjangName) || '%' --2019.01.17 김명섭 upper적용
+</#if>
+<#if isUpjangControl?has_content>
+	<#if isUpjangControl == "Y">
+AND  A.UPJANG NOT IN (SELECT TO_NUMBER(CODE) FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0048' AND USE_YN = 'Y')
+	</#if>
+</#if>
+<#if muCd?has_content>
+AND    C.MU_CD = :muCd
+</#if>
+ORDER BY A.UPJANG
+]]>
+</statement>
+
+	<!-- RoleSetId : HnrUpjang (HNR 본사사업장을 조회한다.) -->
+	<statement name="selectHnrUpjang" type="select">
+	<![CDATA[
+		/*+ com.hwfs.cmn.dao.UpjangSearchDAO.selectHnrUpjang */
+		SELECT TO_CHAR(A.UPJANG) AS UPJANG_CODE,
+			   A.UPJANGNM_DISP AS UPJANG_NAME,
+			   A.UPJANG,
+			   A.UPJANGNM_DISP
+		FROM FMS_UPJANG A
+		WHERE A.MAIN_UPJANG IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'API_HNR_CUST_INFO' AND USE_YN = 'Y')
+		AND    A.USE_YN = 'Y'
+		<#if upjangCode?has_content>
+		AND    A.UPJANG LIKE '%' || :upjangCode || '%'
+		</#if>
+		<#if upjangName?has_content>
+		AND  UPPER(A.UPJANGNM_DISP) LIKE '%' || UPPER(:upjangName) || '%' --2019.01.17 김명섭 upper적용
+		</#if>
+		ORDER BY A.UPJANG
+	]]>
+	</statement>
+		
+</hqml>

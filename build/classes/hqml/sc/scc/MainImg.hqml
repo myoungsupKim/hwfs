@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.scc.mainImgDAO">
+	<desc>메인화면 이미지 HQML Query</desc>
+
+	<!-- 메인화면 이미지 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sc.scc.dao.MainImgDAO.selectList */
+		<![CDATA[
+SELECT A.MAIN_TYPE
+     , A.SEQ
+     , TO_CHAR(A.CREATE_DATE, 'YYYY-MM-DD HH24:MI:SS') AS CREATE_DATE
+     , A.FILE_NAME
+     , (SELECT NM_KOR FROM SCC_USERINFO WHERE SABUN = A.UUSER) AS UPDATE_USER
+  FROM SCC_MAIN_IMG A
+ WHERE A.MAIN_TYPE = :mainType
+ ORDER BY A.CREATE_DATE DESC, A.SEQ DESC
+		]]>
+	</statement>
+
+	<!-- 메인화면 이미지(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sc.scc.dao.MainImgDAO.insert */
+		<![CDATA[
+INSERT INTO SCC_MAIN_IMG (
+    MAIN_TYPE
+  , SEQ
+  , CREATE_DATE
+  , FILE_NAME
+  , CUSER
+  , CDATE
+  , UUSER
+  , UDATE
+) (
+SELECT :mainType
+     , NVL(MAX(SEQ), 0) + 1
+     , SYSDATE
+     , :fileName
+     , :loginSabun
+     , SYSDATE
+     , :loginSabun
+     , SYSDATE
+  FROM SCC_MAIN_IMG
+ WHERE MAIN_TYPE = :mainType
+)
+		]]>
+	</statement>
+	
+	<!-- 메인화면 이미지(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sc.scc.dao.MainImgDAO.update */
+		<![CDATA[
+UPDATE SCC_MAIN_IMG
+   SET FILE_NAME = :fileName
+     , CREATE_DATE = SYSDATE
+     , UUSER = :loginSabun
+     , UDATE = SYSDATE
+ WHERE MAIN_TYPE = :mainType
+   AND SEQ = :seq
+		]]>
+	</statement>
+
+	<!-- 메인화면 이미지(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.sc.scc.dao.MainImgDAO.delete */
+		<![CDATA[
+DELETE
+  FROM SCC_MAIN_IMG
+ WHERE MAIN_TYPE = :mainType
+   AND SEQ = :seq
+		]]>
+	</statement>
+
+</hqml>

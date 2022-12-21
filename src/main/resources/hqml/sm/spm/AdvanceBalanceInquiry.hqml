@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="sm.spm.advanceBalanceInquiryDAO">
+	<desc>선수금잔액을 조회 HQML Query</desc>
+
+	<!-- 선수금잔액을 조회한다. -->
+	<statement name="selectList" type="select"><![CDATA[
+            SELECT  M.ADVANCE_NUM                   -- 선수금 번호
+                    ,M.SEQ                          -- 순번
+                    ,M.OCCUR_DATE                   -- 발생 일자
+                    ,M.FISCAL_DATE                  -- 회계일자
+                    ,M.ADVANCE_OCCUR_CLASS          -- 선수금 발생 구분
+                    ,M.ADVANCE_TYPE_CD              -- 선수금 유형 코드
+                    ,M.CUST_CD                      -- 거래처 코드
+                    ,M.SYS_CLASS                    -- 시스템 구분
+                    ,M.MU_CD                        -- MU 코드
+                    ,(SELECT DISTINCT TM.TM_CD FROM HLDC_SC_DEPT_V TM WHERE M.CC_CD = TM.CC_CD) TM_CD
+                    ,M.CC_CD                        -- CC 코드
+                    ,M.ACCT_CD                      -- 계정 코드
+                    ,M.BATCH_ID                     -- BATCH ID
+                    --세금계산서 발행 식권인 경우 공급가액만 표시되도록 수정 20160523  처리자 : 맹수영
+                    ,CASE WHEN M.ADVANCE_TYPE_CD = 'F05' OR M.ADVANCE_TYPE_CD = 'F10' THEN
+                            	--M.OCCUR_SUPPLY_AMT + M.OCCUR_VAT_AMT - NVL((
+                            	NVL(M.OCCUR_SUPPLY_AMT,0) - NVL((
+	                               --SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0)
+	                               -- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 함
+	                               --SELECT  DECODE(M.TAX_SHET_PUBLISH_YN,'N', NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0),NVL(SUM(DD.APPLY_AMT),0))
+	                               -- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 하고 계산서 발행 아닌 식권도 부가세는 없으므로 SUPPLY_AMT만 적용해야함
+	                               SELECT  NVL(SUM(DD.APPLY_AMT),0)  
+                            	     FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0) + NVL((
+	                                --SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0)
+	                                SELECT  NVL(SUM(DD.APPLY_AMT),0) 
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0)                            	
+                            ELSE
+                            	--외식 선수금선매출 부가세발생 선수금은 공급가액만 표시되도록 수정 20200331 김호석
+                    			CASE WHEN M.MU_CD = '2003' AND M.VAT_CD = '20' THEN
+                            		NVL(M.OCCUR_SUPPLY_AMT,0) - NVL((
+	                               		-- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 하고 계산서 발행 아닌 식권도 부가세는 없으므로 SUPPLY_AMT만 적용해야함
+	                               		SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0)  
+                            	     		FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                		WHERE   DD.RECD_STATUS = 'L'
+	                                		AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            		),0) + NVL((
+	                                		SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0) 
+	                                		FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                		WHERE   DD.RECD_STATUS = 'L'
+	                                		AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            		),0)                      
+	                            
+	                            ELSE 
+                            		
+	   	                         	M.OCCUR_AMT - NVL((
+	   	                            	SELECT  NVL(SUM(DD.APPLY_AMT),0)
+	   	                            	FROM    SLA_ADVANCE_ALT_DETAIL DD
+	   	                            	WHERE   DD.RECD_STATUS = 'L'
+	   	                            	AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	   	                        	),0) + NVL((
+	   	                            	SELECT  NVL(SUM(DD.APPLY_AMT),0)      
+	   	                            	FROM    SLA_ADVANCE_ALT_DETAIL DD
+		                                WHERE   DD.RECD_STATUS = 'L'
+		                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            	),0)
+	                            END 
+	                        END OCCUR_AMT
+	                                                       	
+                    ,   
+                    --외식 선수금선매출 부가세발생 선수금은 공급가액만 표시되도록 수정 20200331 김호석
+                    CASE WHEN M.MU_CD = '2003' AND M.VAT_CD = '20' THEN
+                       NVL((
+	                        SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0)
+	                        FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                        WHERE   DD.RECD_STATUS = 'L'
+	                        AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                        AND		DD.ALT_DATE <= :occurDateFrom
+	                    ),0)
+                    
+                    ELSE 
+                       NVL((
+	                        SELECT  NVL(SUM(DD.APPLY_AMT),0)
+	                        FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                        WHERE   DD.RECD_STATUS = 'L'
+	                        AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                        AND		DD.ALT_DATE <= :occurDateFrom
+	                    ),0) 
+	                 END APPLY_AMT
+	                      
+	                , NVL((select NVL(SUM(a.coupon_amt - a.use_amt),0)
+                        from SLA_COUPON_WITHDRAW_INFO a,
+                              SLA_COUPON_NUM_MST b
+                        where 1=1
+                        and a.mu_cd IN ('2001','2003')
+                        and (a.coupon_amt - a.use_amt) <> 0 and a.recd_status = 'L' 
+                        and a.occur_date <= :occurDateFrom
+                        and a.coupon_kind_grp_cd in (select coupon_kind_grp_cd from SLA_COUPON_KIND_MST where COUPON_GRP_CD = '2' AND FOC_CLASS = '1')
+                        and a.coupon_num = b.coupon_num(+)
+                        and b.advance_num IN (M.advance_num, M.MNGMV_ADVANCE_NUM)),0) AS EXCH_AMT --상품권 거스름돈 추가 20200219  
+                          
+	                ,CASE WHEN M.ADVANCE_TYPE_CD = 'F05' OR M.ADVANCE_TYPE_CD = 'F10' THEN
+                            	-- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 하고 계산서 발행 아닌 식권도 부가세는 없으므로 SUPPLY_AMT만 적용해야함                  	
+                            	NVL(M.OCCUR_SUPPLY_AMT,0) - NVL((
+	                           SELECT  NVL(SUM(DD.APPLY_AMT),0) 
+                            	FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                        		AND		DD.ALT_DATE <= :occurDateFrom
+	                            ),0)  
+                            ELSE
+                            	 --외식 선수금선매출 부가세발생 선수금은 공급가액만 표시되도록 수정 20200331 김호석
+                    			CASE WHEN M.MU_CD = '2003' AND M.VAT_CD = '20' THEN
+                            		NVL(M.OCCUR_SUPPLY_AMT,0) - NVL((SELECT  SUM(DD.ALT_SUPPLY_AMT) 
+                            		FROM SLA_ADVANCE_ALT_DETAIL DD 
+                            		WHERE   DD.RECD_STATUS = 'L'  
+                            		AND DD.ADVANCE_NUM = M.ADVANCE_NUM 
+		                        	AND		DD.ALT_DATE <= :occurDateFrom
+		                        	),0) - NVL((select NVL(SUM(a.coupon_amt - a.use_amt),0)
+                 					       from SLA_COUPON_WITHDRAW_INFO a,
+                 					             SLA_COUPON_NUM_MST b
+               				    	     where 1=1
+               				    	     and a.mu_cd IN ('2001','2003')
+              				    	      and (a.coupon_amt - a.use_amt) <> 0 and a.recd_status = 'L' 
+               				    	     and a.occur_date <= :occurDateFrom
+               				    	     and a.coupon_kind_grp_cd in (select coupon_kind_grp_cd from SLA_COUPON_KIND_MST where COUPON_GRP_CD = '2' AND FOC_CLASS = '1')
+               				     	    and a.coupon_num = b.coupon_num(+)
+                				 	       and b.advance_num IN (M.advance_num, M.MNGMV_ADVANCE_NUM)),0)  --상품권 거스름돈 추가 20200219
+                            	
+                            	ELSE 
+                            	
+                            		NVL(M.OCCUR_AMT,0) - NVL((SELECT  SUM(DD.APPLY_AMT) 
+                            		FROM SLA_ADVANCE_ALT_DETAIL DD 
+                            		WHERE   DD.RECD_STATUS = 'L'  
+                            		AND DD.ADVANCE_NUM = M.ADVANCE_NUM 
+		                        	AND		DD.ALT_DATE <= :occurDateFrom
+		                        	),0) - NVL((select NVL(SUM(a.coupon_amt - a.use_amt),0)
+                 					       from SLA_COUPON_WITHDRAW_INFO a,
+                 					             SLA_COUPON_NUM_MST b
+               				    	     where 1=1
+               				    	     and a.mu_cd IN ('2001','2003')
+              				    	      and (a.coupon_amt - a.use_amt) <> 0 and a.recd_status = 'L' 
+               				    	     and a.occur_date <= :occurDateFrom
+               				    	     and a.coupon_kind_grp_cd in (select coupon_kind_grp_cd from SLA_COUPON_KIND_MST where COUPON_GRP_CD = '2' AND FOC_CLASS = '1')
+               				     	    and a.coupon_num = b.coupon_num(+)
+                				 	       and b.advance_num IN (M.advance_num, M.MNGMV_ADVANCE_NUM)),0)  --상품권 거스름돈 추가 20200219
+                				END
+                 			END BAL_AMT
+                          	
+	                ,CASE WHEN M.ADVANCE_TYPE_CD = 'F05' OR M.ADVANCE_TYPE_CD = 'F10' THEN
+                            	-- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 하고 계산서 발행 아닌 식권도 부가세는 없으므로 SUPPLY_AMT만 적용해야함                  	
+                            	NVL(M.OCCUR_SUPPLY_AMT,0) - NVL((
+	                           SELECT  NVL(SUM(DD.APPLY_AMT),0) 
+                            	FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                        		AND		DD.ALT_DATE <= :occurDateFrom
+	                            ),0)  
+                            ELSE
+                            	NVL(M.OCCUR_AMT,0) - NVL((SELECT  SUM(DD.APPLY_AMT) 
+                            	FROM SLA_ADVANCE_ALT_DETAIL DD 
+                            	WHERE   DD.RECD_STATUS = 'L'  
+                            	AND DD.ADVANCE_NUM = M.ADVANCE_NUM 
+		                        AND		DD.ALT_DATE <= :occurDateFrom
+		                        ),0) - NVL((select NVL(SUM(a.coupon_amt - a.use_amt),0)
+                 				       from SLA_COUPON_WITHDRAW_INFO a,
+                 				             SLA_COUPON_NUM_MST b
+               				         where 1=1
+               				         and a.mu_cd IN ('2001','2003')
+              				          and (a.coupon_amt - a.use_amt) <> 0 and a.recd_status = 'L' 
+               				         and a.occur_date <= :occurDateFrom
+               				         and a.coupon_kind_grp_cd in (select coupon_kind_grp_cd from SLA_COUPON_KIND_MST where COUPON_GRP_CD = '2' AND FOC_CLASS = '1')
+               				         and a.coupon_num = b.coupon_num(+)
+                				        and b.advance_num IN (M.advance_num, M.MNGMV_ADVANCE_NUM)),0)  --상품권 거스름돈 추가 20200219
+                 			END BAL_AMT2 --부가세포함(잔액)  20200608 요청자:김유나
+                    ,M.OCCUR_SUPPLY_AMT             -- 발생 공급가액
+                    ,M.OCCUR_VAT_AMT                -- 발생 부가세 금액
+                    ,M.APPLY_SUPPLY_AMT             -- 적용 공급가액
+                    ,M.APPLY_VAT_AMT                -- 적용 부가세 금액
+                    ,M.VAT_CD                       -- 부가세 코드
+                    ,M.NEWHGHT_UPJANG               -- 신고 사업장
+                    ,M.RESERV_NUM                   -- 예약번호
+                    ,M.RESERV_DATE                  -- 예약 일자
+                    ,M.CUST_NM                      -- 거래처 명
+                    ,M.GUEST_TEL_NUM                -- 고객 전화 번호
+                    ,M.JOURNALZ_YN                  -- 분개여부
+                    ,M.JOURNALZ_NUM                 -- 분개번호
+                    ,M.UPJANG_CD                    -- 업장코드
+                    ,(SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = M.UPJANG_CD) AS UPJANG_NM                    -- 업장코드
+                    ,M.RECEIPT_NUM                  -- 영수증 번호
+                    ,M.MNGMV_ADVANCE_NUM            -- 이관 선수금 번호
+                    ,M.REF_NUM                        -- 참조번호
+                    ,M.COUPON_PROC_NUM              -- 쿠폰 처리 번호
+                    ,M.RECD_STATUS                  -- 레코드 상태
+                    ,M.REMARK
+                    ,SCC_COMMON_CODE_NAME_FUN('ADVANCE_OCCUR_CLASS',M.ADVANCE_OCCUR_CLASS) ADVANCE_OCCUR_CLASS_NM
+                    ,(SELECT TP.TYPE_NM FROM SLA_TYPE_CD_MST TP WHERE TP.TYPE_GRP_CD = '006' AND TP.TYPE_CD = M.ADVANCE_TYPE_CD) ADVANCE_TYPE_CD_NM
+                    ,SCC_COMMON_CODE_NAME_FUN('SYS_CLASS',M.SYS_CLASS) SYS_CLASS_NM
+                    ,(SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE M.MU_CD = MU.MU_CD) MU_NM
+                    ,(SELECT DISTINCT TM.TM_NM FROM HLDC_SC_DEPT_V TM WHERE M.CC_CD = TM.CC_CD) TM_NM
+                    ,(SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE M.CC_CD = CC.CC_CD) CC_NM
+                    ,(SELECT DISTINCT ACCT.ACCTNM FROM HLDC_ST_ACCOUNT_V ACCT WHERE M.ACCT_CD = ACCT.ACCTCD) ACCT_NM
+            FROM    SLA_ADVANCE_MST M
+            WHERE   M.RECD_STATUS = 'L'
+        <#if occurDateFrom?has_content>
+            AND     M.OCCUR_DATE <= :occurDateFrom
+        </#if>
+        <#if muCd?has_content>
+            AND     M.MU_CD = :muCd
+        </#if>
+        <#if tmCd?has_content>
+            AND     M.CC_CD IN (
+                            SELECT  A.CC_CD
+                            FROM    SCC_CC A
+                                    ,HLDC_SC_DEPT_V B
+                            WHERE   B.CC_CD = A.CC_CD
+                            AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+                            AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+                            AND     (B.TM_CD = :tmCd OR B.PT_CD = :tmCd)
+                            )
+        </#if>
+        <#if ccCd?has_content>
+            AND     M.CC_CD = :ccCd
+        </#if>
+        <#if upjang?has_content>
+            AND     M.UPJANG_CD = :upjang
+        </#if>
+        <#if custCd?has_content>
+            AND     M.CUST_CD = :custCd
+        </#if>
+        <#if altNum?has_content>
+            AND     M.ALT_NUM LIKE '%'||:altNum||'%'
+        </#if>
+        <#if advanceOccurClass?has_content>
+            AND     M.ADVANCE_OCCUR_CLASS = :advanceOccurClass
+        </#if>
+        <#if advanceTypeCd?has_content>
+            AND     M.ADVANCE_TYPE_CD = :advanceTypeCd
+        </#if>
+		<#if zeroIncludeYn?has_content && zeroIncludeYn == 'N'>
+		    AND     NVL(M.OCCUR_AMT,0) - NVL((
+                        SELECT  NVL(SUM(DD.APPLY_AMT),0)
+                        FROM    SLA_ADVANCE_ALT_DETAIL DD
+                        WHERE   DD.RECD_STATUS = 'L'
+                        AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+                        AND		DD.ALT_DATE <= :occurDateFrom
+                    ),0) <> 0
+		</#if>
+            ORDER BY M.ADVANCE_NUM DESC
+		]]></statement>
+
+</hqml>

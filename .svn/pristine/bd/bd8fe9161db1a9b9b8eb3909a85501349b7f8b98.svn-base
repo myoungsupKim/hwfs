@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	    /* 영업-회계잔액조회 영업수입 현금 잔액 탭 */
+	SELECT 
+		       A.UPJANG_CD,
+		       A.MU_CD,
+		       C.MU_NM,
+		       C.TM_CD,
+		       C.TM_NM,
+		       A.CC_CD,
+		       (SELECT  CC_NM FROM SCC_CC WHERE CC_CD = A.CC_CD) AS CC_NM,
+		       A.ACCT_CD,
+		       A.CUST_CD,
+		       D.CUSTNM AS CUST_NM,
+		       SUM((NVL(A.OCCUR_AMT,0) - NVL((SELECT SUM(RECEIVE_AMT) FROM SLA_SALES_CASH_ALT_DETAIL WHERE SALES_CASH_NUM = A.SALES_CASH_NUM AND ALT_DATE &lt;= #OCCUR_DATE# AND RECD_STATUS = 'L'), 0))) AS BAL_AMT,
+		       0 AS IRIS_AMT
+		FROM   SLA_SALES_CASH_OCCUR_INFO A,
+			   HLDC_SC_DEPT_V C,
+			   ST_CUST D
+		WHERE  A.CC_CD = C.CC_CD(+)
+		AND	   A.CUST_CD = D.CUSTCD(+)
+		AND    A.RECD_STATUS = 'L'
+				 AND     A.CC_CD IN (
+							         SELECT  A.CC_CD
+							         FROM    SCC_CC A
+							                 ,HLDC_SC_DEPT_V B
+							         WHERE   B.CC_CD = A.CC_CD
+							         AND     A.START_DATE &lt;= TO_CHAR(SYSDATE,'YYYYMMDD')
+							         AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+							         AND     B.TM_CD = #TM_CD#
+        							 )
+		<isNotNull col="UPJANG_CD">
+		AND A.CC_CD = (
+								SELECT CC_CD FROM SCO_UPJANG_MST_V
+                 			    WHERE UPJANG = #UPJANG_CD#
+                 			  )
+		</isNotNull>
+		AND    A.OCCUR_DATE &lt;= #OCCUR_DATE#
+		AND NVL(A.OCCUR_AMT,0) - NVL((SELECT SUM(RECEIVE_AMT) FROM SLA_SALES_CASH_ALT_DETAIL WHERE SALES_CASH_NUM = A.SALES_CASH_NUM AND ALT_DATE &lt;= #OCCUR_DATE# AND RECD_STATUS = 'L'), 0) > 0
+		GROUP BY cust_cd,A.UPJANG_CD,
+		       A.MU_CD,
+		       C.MU_NM,
+		       C.TM_CD,
+		       C.TM_NM,
+		       A.CC_CD,
+		       CC_NM,
+		       A.ACCT_CD,
+		       A.CUST_CD,
+		       D.CUSTNM
+       -- ORDER BY A.SALES_CASH_NUM DESC
+        
+
+</statement>
+	<input default-name="ds_cond">
+	  <col name="TM_CD" size="255" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="6" type="NUMERIC" description="업장코드" /> 
+		<col name="SUNSU_YN" size="255" type="VARCHAR" description="" /> 
+		<col name="TRX_DATE" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">   
+	</output>
+</query>

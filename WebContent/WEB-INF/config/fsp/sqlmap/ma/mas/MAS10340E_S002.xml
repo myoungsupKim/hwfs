@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+    SELECT 
+           V.ACCTCD,
+           (SELECT ACCTNM6 FROM HLDC_ST_ACCOUNT WHERE ACCTCD = V.ACCTCD) ACCTCDNM,
+           (SELECT DEPT_ID FROM HLDC_ST_UPJANG WHERE UPJANG = V.UPJANG) RTNDEPT_ID,
+           (SELECT MU_NM||' '||CC_NM FROM HLDC_SC_DEPT_V WHERE DEPT_ID = (SELECT DEPT_ID FROM HLDC_ST_UPJANG WHERE UPJANG = V.UPJANG)) RTNDEPT_IDNM,
+           V.BUDDEPT_ID BUDDEPT_ID,
+           (SELECT MU_NM||' '||CC_NM FROM HLDC_SC_DEPT_V WHERE DEPT_ID = V.BUDDEPT_ID) BUDDEPT_IDNM,
+           V.ADITEM1,
+           V.ADITEM2,
+           V.ADITEM3,
+           V.ADITEM4,
+           V.PROJECT_ID,
+           V.BUD_CLS,
+           DECODE(TRIM(V.BUD_CLS), NULL, '', (SELECT BUDCLS_NM FROM HLDC_PL_BUDCLS WHERE ACCTCD = V.ACCTCD AND BUD_CLS = V.BUD_CLS)) BUD_CLS_NM,
+           (CASE WHEN V.ACCTCD IN ('5051819') THEN 'Y' 
+                 WHEN V.ACCTCD IN ('5050191', '5050122', '5050116', '5050193') AND SUBSTR(#TRX_DATE#, 1, 4) >= '2012' THEN 'Y' 
+                 ELSE 'N' END) YAESAN_CHK,
+           (CASE WHEN V.ACCTCD IN ('5051819') THEN HLDC_PL_BUDGET_REMAIND(SUBSTR(#TRX_DATE#, 1, 4), SUBSTR(#TRX_DATE#, 5, 2), V.BUDDEPT_ID, V.ACCTCD, NVL(V.PROJECT_ID, ' '), NVL(V.BUD_CLS, ' ')) 
+                 WHEN V.ACCTCD IN ('5050191', '5050122', '5050116', '5050193') AND SUBSTR(#TRX_DATE#, 1, 4) >= '2012' THEN HLDC_PL_BUDGET_REMAIND(SUBSTR(#TRX_DATE#, 1, 4), SUBSTR(#TRX_DATE#, 5, 2), V.BUDDEPT_ID, V.ACCTCD, NVL(V.PROJECT_ID, ' '), NVL(V.BUD_CLS, ' '))
+                 ELSE 0 END) YAESAN_JAN,           
+           NVL(V.ADJ_AMT, 0) ADJ_AMT,
+           NVL(V.VAT, 0) VAT,
+           NVL(V.NOPAY_AMT, 0)  NOPAY_AMT,
+           V.ADJ_DESC DESCRIPTION_NM,
+           (SELECT VAT_UPJANG FROM HLDC_ST_UPJANG WHERE UPJANG = V.UPJANG) VAT_UPJANG,
+           V.CUSTCD,
+           V.TAX_DATE,
+           V.RCP_GUBUN,
+           DECODE(TRIM(V.RCP_GUBUN), NULL, 0, 1) RCP_CNT,
+           V.RCP_AMT,
+           V.SVC_AMT,
+           V.RCP_CUSTNM,
+           V.RCP_SAUPNO,
+           V.RCP_ADDR,
+           V.RCP_DRNAME,
+           DECODE(TRIM(V.RCP_GUBUN), NULL, '', V.ADJ_DATE) RCP_BALDATE,
+           DECODE(TRIM((SELECT SCHOOL_YN FROM HLDC_ST_UPJANG WHERE UPJANG = V.UPJANG)), NULL, 'N', (SELECT SCHOOL_YN FROM HLDC_ST_UPJANG WHERE UPJANG = V.UPJANG)) SCHOOL_YN,
+           V.ADV_KIND, 
+           V.ADJ_KIND, 
+           NVL(TRIM(V.BULGONG_YN), 'N') BULGONG_YN,            
+           V.ADV_ID,
+           V.GAMU,
+           V.GADATE,
+           V.GANO,
+           V.TAXNO,
+           V.TAX_IF_GB,
+           --DECODE(V.TAX_IF_GB, 'N', '1', V.TAX_SEND_GB) TAX_SEND_GB	
+           '1' TAX_SEND_GB	
+    FROM MAS_ADVANCE V
+    WHERE (V.ADJ_DATE BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE#, 'YYYYMMDD'), DECODE(SUBSTR(#TRX_DATE#, 7, 2), '25', -1, 0)), 'YYYYMM')||'26' AND #TRX_DATE#)
+    AND   (DECODE(SUBSTR(#TRX_DATE#, 7, 2), '25', '001',  DECODE(V.ACCTCD, '9410119', '001', V.ADJ_KIND)) IN ('001', '002', '009', '008')) /* 20140418 FC회계팀 이숙자 요청 (잡이익'008'도 분기말에 넘기기로 한다.) */
+    AND   (TRIM(V.GAMU) IS NULL)
+    AND   (V.UPJANG = #UPJANG#)
+    ORDER BY V.ACCTCD, V.ADJ_DATE, V.ADV_ID 
+</statement>
+	<input default-name="ds_cond">
+	<col name="UPJANG" size="" type="NUMERIC" description="" /> 
+	<col name="TRX_DATE" size="255" type="VARCHAR" description="" /> 		
+	</input>
+	<output default-name="ds_listSource">
+    <col name="ACCTCD" size="255" type="VARCHAR" description="" /> 		
+    <col name="ACCTCDNM" size="255" type="VARCHAR" description="" /> 	
+    <col name="RTNDEPT_ID" size="" type="NUMERIC" description="" /> 
+    <col name="RTNDEPT_IDNM" size="255" type="VARCHAR" description="" /> 		    
+    <col name="BUDDEPT_ID" size="" type="NUMERIC" description="" /> 
+    <col name="BUDDEPT_IDNM" size="255" type="VARCHAR" description="" /> 		
+    <col name="ADITEM1" size="255" type="VARCHAR" description="" /> 	
+    <col name="ADITEM2" size="255" type="VARCHAR" description="" /> 	
+    <col name="ADITEM3" size="255" type="VARCHAR" description="" /> 	
+    <col name="ADITEM4" size="255" type="VARCHAR" description="" /> 	
+    <col name="PROJECT_ID" size="255" type="VARCHAR" description="" /> 	
+    <col name="BUD_CLS" size="255" type="VARCHAR" description="" /> 	    				
+    <col name="BUD_CLS_NM" size="255" type="VARCHAR" description="" />
+    <col name="YAESAN_CHK" size="255" type="VARCHAR" description="" />        
+    <col name="YAESAN_JAN" size="" type="NUMERIC" description="" />          	    				    
+    <col name="ADJ_AMT" size="" type="NUMERIC" description="" /> 
+    <col name="VAT" size="" type="NUMERIC" description="" /> 
+    <col name="NOPAY_AMT" size="" type="NUMERIC" description="" /> 
+    <col name="DESCRIPTION_NM" size="255" type="VARCHAR" description="" /> 	
+    <col name="VAT_UPJANG" size="" type="NUMERIC" description="" /> 	        		
+    <col name="CUSTCD" size="" type="NUMERIC" description="" /> 
+    <col name="TAX_DATE" size="255" type="VARCHAR" description="" /> 		
+    <col name="RCP_GUBUN" size="255" type="VARCHAR" description="" /> 		
+    <col name="RCP_CNT" size="" type="NUMERIC" description="" /> 	
+    <col name="RCP_AMT" size="" type="NUMERIC" description="" /> 	
+    <col name="SVC_AMT" size="" type="NUMERIC" description="" /> 	    
+    <col name="RCP_CUSTNM" size="255" type="VARCHAR" description="" /> 	
+    <col name="RCP_SAUPNO" size="255" type="VARCHAR" description="" /> 	
+    <col name="RCP_ADDR" size="255" type="VARCHAR" description="" /> 	
+    <col name="RCP_DRNAME" size="255" type="VARCHAR" description="" /> 	
+    <col name="RCP_BALDATE" size="255" type="VARCHAR" description="" /> 	
+    <col name="SCHOOL_YN" size="255" type="VARCHAR" description="" /> 	
+    <col name="ADV_KIND" size="255" type="VARCHAR" description="" /> 	
+    <col name="ADJ_KIND" size="255" type="VARCHAR" description="" /> 	
+    <col name="BULGONG_YN" size="255" type="VARCHAR" description="" /> 	
+    <col name="ADV_ID" size="" type="NUMERIC" description="" /> 
+	<col name="GAMU" size="2" type="VARCHAR" description="" /> 
+	<col name="GADATE" size="8" type="VARCHAR" description="" /> 
+	<col name="GANO" size="22" type="NUMERIC" description="" /> 	
+	
+		<col name="TAXNO" size="20" type="VARCHAR" description="" /> 	
+		<col name="TAX_IF_GB" size="20" type="VARCHAR" description="" /> 	
+		<col name="TAX_SEND_GB" size="20" type="VARCHAR" description="" /> 			    
+	</output>
+</query>

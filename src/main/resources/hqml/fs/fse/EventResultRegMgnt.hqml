@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fs.fse.eventResultRegMgntDAO">
+    <desc>이벤트 결과등록 관리 HQML Query</desc>
+
+    <!-- 이벤트 분류 목록을 조회한다. -->
+    <statement name="selectCboList" type="select">
+    /*+ com.hwfs.fs.fse.dao.EventResultRegMgntDAO.selectCboList */
+    <![CDATA[
+            SELECT  ''     AS MU_CD
+                  , ''     AS LCLASS_CD
+                  , ''     AS MCLASS_CD
+                  , '전체' AS MCLASS_NM
+                  , 2      AS LEV
+                  , 'Y'    AS USE_YN
+              FROM  DUAL
+
+         UNION ALL
+
+            SELECT  MU_CD
+                  , LCLASS_CD
+                  , MCLASS_CD
+                  , MCLASS_NM
+                  , LEV
+                  , USE_YN
+              FROM  FS_MCLASS
+             WHERE  LCLASS_CD = 'E01'
+               AND  USE_YN    = 'Y'
+          ORDER BY  MU_CD DESC, LCLASS_CD, MCLASS_CD
+        ]]>
+    </statement>
+
+    <!-- 이벤트 Theme 목록을 조회한다. -->
+    <statement name="selectThemeList" type="select">
+    /*+ com.hwfs.fs.fse.dao.EventResultRegMgntDAO.selectThemeList */
+    <![CDATA[
+            SELECT  ''     AS MCLASS_CD
+                  , '전체' AS MCLASS_NM
+                  , ''     AS SCLASS_CD
+                  , '전체' AS SCLASS_NM
+              FROM  DUAL
+         UNION ALL
+            SELECT  A.MCLASS_CD
+                  , A.MCLASS_NM
+                  , B.SCLASS_CD
+                  , B.SCLASS_NM
+              FROM  FS_MCLASS A, FS_SCLASS B
+             WHERE  A.MU_CD     = B.MU_CD
+               AND  A.LCLASS_CD = B.LCLASS_CD
+               AND  A.MCLASS_CD = B.MCLASS_CD
+               AND  A.LCLASS_CD = 'E01'
+               AND  A.USE_YN    = 'Y'
+               AND  B.USE_YN    = 'Y'
+               AND  A.MCLASS_CD = :mclassCd
+        ]]>
+    </statement>
+
+    <!-- 이벤트 결과등록 관리 목록을 조회한다. -->
+    <statement name="selectList" type="select">
+    /*+ com.hwfs.fs.fse.dao.EventResultRegMgntDAO.selectList */
+    <![CDATA[
+            SELECT  D.MU_CD        AS MU_CD
+                  , D.MU_NM        AS MU_NM
+                  , D.TM_CD        AS TM_CD
+                  , D.TM_NM        AS TM_NM
+                  , D.UPJANG       AS UPJANG_CD
+                  , D.UPJANGNM     AS UPJANG_NM
+                --, A.USE_YN       AS USE_YN_A
+                --, B.USE_YN       AS USE_YN_B
+                  , A.LCLASS_CD    AS LCLASS_CD
+                  , A.MCLASS_CD    AS MCLASS_CD
+                  , A.MCLASS_NM    AS MCLASS_NM
+                  , B.SCLASS_CD    AS SCLASS_CD
+                  , B.SCLASS_NM    AS SCLASS_NM
+                  , C.EVNT_ID      AS EVNT_ID
+                  , C.EVNT_TITLE   AS EVNT_TITLE
+                  , C.SIGN_STATUS  AS SIGN_STATUS
+                  , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'EVENT_SIGN_STATUS' AND CODE = C.SIGN_STATUS) AS SIGN_STATUS_NM
+                  , C.PROGRESS_DATE   AS PROGRESS_DATE
+                  , C.CUSER           AS CUSER
+                --, (SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = C.CUSER AND ROWNUM = 1)  AS CUSER_NM
+                  , NVL(M.NM_KOR,   I.NM_KOR)  AS CUSER_NM
+              FROM  FS_MCLASS A, FS_SCLASS B, FSE_EVNT_REQUEST C, SCO_UPJANG_MST_V D
+                  , SCC_USERINFO I, HR_PERSONAL M, FSE_EVNT_RESULT E
+             WHERE  A.LCLASS_CD         = B.LCLASS_CD
+               AND  A.MCLASS_CD         = B.MCLASS_CD
+               AND  B.LCLASS_CD         = C.LCLASS_CD
+               AND  B.MCLASS_CD         = C.MCLASS_CD
+               AND  B.SCLASS_CD         = C.SCLASS_CD
+               AND  C.REQUEST_UPJANG_CD = E.REQUEST_UPJANG_CD(+)
+               AND  C.EVNT_ID           = E.EVNT_ID(+)
+               AND  A.USE_YN            = 'Y'
+               AND  B.USE_YN            = 'Y'
+               AND  C.REQUEST_UPJANG_CD = D.UPJANG
+               AND  C.SIGN_STATUS  IS NOT NULL
+               AND  C.CUSER             = I.SABUN(+)
+               AND  I.SABUN             = M.SABUN(+)
+               AND  I.USE_YN            = 'Y'
+             <#if muCd?has_content>
+               AND  D.MU_CD             = :muCd
+             </#if>
+             <#if tmCd?has_content>
+               AND  D.TM_CD             = :tmCd
+             </#if>
+             <#if upjangCd?has_content>
+               AND  D.UPJANG            = :upjangCd
+             </#if>
+             <#if signStatus?has_content>
+               AND  C.SIGN_STATUS       = :signStatus
+             </#if>
+             <#if mclassCd?has_content>
+               AND  A.MCLASS_CD         = :mclassCd
+             </#if>
+             <#if sclassCd?has_content>
+               AND  B.SCLASS_CD         = :sclassCd
+             </#if>
+             <#if avgMealQtyFr?has_content>
+               AND  E.AVG_MEAL_QTY      >= :avgMealQtyFr
+             </#if>
+             <#if avgMealQtyTo?has_content>
+               AND  E.AVG_MEAL_QTY      <= :avgMealQtyTo
+             </#if>
+             <#if eventTitle?has_content>
+               AND  C.EVNT_TITLE     LIKE '%' ||:eventTitle|| '%'
+             </#if>
+        --ORDER BY  A.MCLASS_CD, B.SCLASS_CD
+          ORDER BY  C.EVNT_ID DESC  -- 나중에 등록된 이벤트가 위로 올라오도록 정렬
+        ]]>
+    </statement>
+
+    <!-- 이벤트 결과정보를 조회한다. -->
+    <statement name="selectResult" type="select">
+    /*+ com.hwfs.fs.fse.dao.EventResultRegMgntDAO.selectResult */
+    <![CDATA[
+            SELECT  REQUEST_UPJANG_CD   AS REQUEST_UPJANG_CD
+                  , EVNT_ID             AS EVNT_ID
+                  , PBR_OFFER_PLAN      AS PBR_OFFER_PLAN
+                  , FREE_GIFT_OFFER     AS FREE_GIFT_OFFER
+                  , FREE_GIFT_INTD      AS FREE_GIFT_INTD
+                  , TOT_TAKE_EXPENSE    AS TOT_TAKE_EXPENSE
+                  , AVG_MEAL_QTY        AS AVG_MEAL_QTY
+                  , CELE_DD_MEAL_QTY    AS CELE_DD_MEAL_QTY
+                  , INC_DEC_RAT         AS INC_DEC_RAT
+                  , AVG_SALS            AS AVG_SALS
+                  , CELE_DD_SALS        AS CELE_DD_SALS
+                  , GUEST_SATISFAC      AS GUEST_SATISFAC
+                  , CUST_RESPONSE_EVAL  AS CUST_RESPONSE_EVAL
+                  , AFTER_PLAN          AS AFTER_PLAN
+                  , FILE_ID             AS FILE_ID
+              FROM  FSE_EVNT_RESULT
+             WHERE  1=1
+             <#if evntId?has_content>
+               AND  EVNT_ID        = :evntId
+             </#if>
+        ]]>
+    </statement>
+
+    <!-- 이벤트 결과등록 관리(을)를 등록한다. -->
+    <statement name="insertForm" type="insert">
+    /*+ com.hwfs.fs.fse.dao.EventResultRegMgntDAO.insertForm */
+    <![CDATA[
+            INSERT INTO FSE_EVNT_RESULT (
+                      REQUEST_UPJANG_CD
+                    , EVNT_ID
+                    , PBR_OFFER_PLAN
+                    , FREE_GIFT_OFFER
+                    , FREE_GIFT_INTD
+                    , TOT_TAKE_EXPENSE
+                    , AVG_MEAL_QTY
+                    , CELE_DD_MEAL_QTY
+                    , INC_DEC_RAT
+                    , AVG_SALS
+                    , CELE_DD_SALS
+                    , GUEST_SATISFAC
+                    , CUST_RESPONSE_EVAL
+                    , AFTER_PLAN
+                    , FILE_ID
+                    , CUSER
+                    , CDATE
+            ) VALUES (
+                      :requestUpjangCd
+                    , :evntId
+                    , :pbrOfferPlan
+                    , :freeGiftOffer
+                    , :freeGiftIntd
+                    , :totTakeExpense
+                    , :avgMealQty
+                    , :celeDdMealQty
+                    , :incDecRat
+                    , :avgSals
+                    , :celeDdSals
+                    , :guestSatisfac
+                    , :custResponseEval
+                    , :afterPlan
+                    , :fileId
+                    , :loginSabun
+                    , SYSDATE
+            )
+        ]]>
+    </statement>
+
+    <!-- 이벤트 결과등록 관리(을)를 수정한다. -->
+    <statement name="updateForm" type="update">
+    /*+ com.hwfs.fs.fse.dao.EventResultRegMgntDAO.updateForm */
+    <![CDATA[
+            UPDATE FSE_EVNT_RESULT
+               SET PBR_OFFER_PLAN        = :pbrOfferPlan
+                 , FREE_GIFT_OFFER       = :freeGiftOffer
+                 , FREE_GIFT_INTD        = :freeGiftIntd
+                 , TOT_TAKE_EXPENSE      = :totTakeExpense
+                 , AVG_MEAL_QTY          = :avgMealQty
+                 , CELE_DD_MEAL_QTY      = :celeDdMealQty
+                 , INC_DEC_RAT           = :incDecRat
+                 , AVG_SALS              = :avgSals
+                 , CELE_DD_SALS          = :celeDdSals
+                 , GUEST_SATISFAC        = :guestSatisfac
+                 , CUST_RESPONSE_EVAL    = :custResponseEval
+                 , AFTER_PLAN            = :afterPlan
+                 , FILE_ID               = :fileId
+                 , UUSER                 = :loginSabun
+                 , UDATE                 = SYSDATE
+            WHERE  EVNT_ID = :evntId
+        ]]>
+    </statement>
+
+</hqml>

@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="ls.lsm.intergInqueryDAO">
+	<desc>통합 목록 조회</desc>
+
+	<!-- 통합조회목록 DATA를 조회한다. -->
+	<statement name="selectList" type="select"><![CDATA[
+/* 통합목록 조회 */ 
+SELECT /*+ INDEX_SS(B) INDEX_FFS(D) */
+       B.REQ_DATE,
+       A.REQ_NUM,
+       A.ACCEPT_NUM,
+       A.ACCEPTDD,
+       A.SPECM_CD,						/* 검체 코드 */
+       A.SPECM_CLASS,					/* 검체 분류 */
+       A.SPECM_NM,						/* 검체명 */
+       A.SPECM_TYPE,					/* 검체유형(공전유형) */
+       SCC_CODE_NM('SPECM_TYPE', A.SPECM_TYPE) AS SPECM_TYPE_NM,	/* 검체유형(공전유형)명 */
+       A.MGRP_CD,						/* 검체유형 대분류 */
+       A.MCALSS_CD,						/* 검체유형 중분류 */
+       A.SCLASS_CD,						/* 검체유형 소분류 */
+       ((SELECT X.MGRP_NM FROM LCM_SPECM_TYPE_MGRP X WHERE X.SPECM_TYPE = A.SPECM_TYPE AND X.MGRP_CD = A.MGRP_CD AND X.USE_YN = 'Y') || ' / ' ||
+        (SELECT X.MCALSS_NM FROM LCM_SPECM_TYPE_MCALSS X WHERE X.SPECM_TYPE = A.SPECM_TYPE AND X.MCALSS_CD = A.MCALSS_CD AND X.USE_YN = 'Y') || ' / ' ||
+        (SELECT X.SCLASS_NM FROM LCM_SPECM_TYPE_SCLASS X WHERE X.SPECM_TYPE = A.SPECM_TYPE AND X.SCLASS_CD = A.SCLASS_CD AND X.USE_YN = 'Y'))
+       AS SPECM_TYPE_DESC,				/* 검체 유형명 ( 대분류명 / 중분류명 / 소분류명 ) */
+       A.INSPT_MTOD,					/* 검사방법 */
+       SCC_CODE_NM('INSPT_MTOD', A.INSPT_MTOD) AS INSPT_MTOD_NM,
+       A.INSPT_CLASS,					/* 검사구분 */
+       SCC_CODE_NM('INSPT_CLASS', A.INSPT_CLASS) AS INSPT_CLASS_NM,
+       A.INSPT_PURP_1,					/* 검사목적1 */
+       SCC_CODE_NM('INSPT_PURP_1', A.INSPT_PURP_1) AS INSPT_PURP_1_NM,
+       A.INSPT_PURP_2,					/* 검사목적2 */
+       SCC_CODE_NM('INSPT_PURP_2', A.INSPT_PURP_2) AS INSPT_PURP_2_NM,
+       A.INSPT_PURP_3,					/* 검사목적3 */
+       SCC_CODE_NM('INSPT_PURP_3', A.INSPT_PURP_3) AS INSPT_PURP_3_NM,
+       A.LONGSTORAGE_YN,                /* 장기보존여부 */
+       SCC_CODE_NM('LONGSTORAGE_YN', A.LONGSTORAGE_YN) AS LONGSTORAGE_YN_NM,
+       A.INSPT_OBJ_1,                   /* 검사대상1 */
+       SCC_CODE_NM('INSPT_OBJ_1', A.INSPT_OBJ_1) AS INSPT_OBJ_1_NM,
+       A.INSPT_OBJ_2,                   /* 검사대상2 */
+       SCC_CODE_NM('INSPT_OBJ_2', A.INSPT_OBJ_2) AS INSPT_OBJ_2_NM,
+       A.INSPT_OBJ_3,                   /* 검사대상3 */
+       SCC_CODE_NM('INSPT_OBJ_3', A.INSPT_OBJ_3) AS INSPT_OBJ_3_NM,
+       A.INSPT_OBJ_4,                   /* 검사대상4 */
+       SCC_CODE_NM('INSPT_OBJ_4', A.INSPT_OBJ_4) AS INSPT_OBJ_4_NM,
+       A.ORIGIN                        /* 원산지 */
+     , CASE WHEN (SELECT COUNT(1) FROM LRM_TEST_INFO WHERE REQ_NUM = A.REQ_NUM) =
+                 (SELECT COUNT(1) FROM LTM_TEST_DIARY WHERE REQ_NUM = A.REQ_NUM AND LAST_DECISION IS NOT NULL)
+            THEN
+              (SELECT TO_CHAR(MAX(UDATE), 'YYYYMMDD')
+                 FROM LTM_TEST_DIARY
+                WHERE REQ_NUM = A.REQ_NUM)
+            ELSE
+              ''
+       END AS COMPLETE_DD	/* 시험완료일자 */
+     , (SELECT X.NM_KOR
+          FROM SCC_USERINFO X
+         WHERE X.SABUN = C.SABUN) AS USER_NM		/* 담당자 */
+     , D.DECISION	/* 판정 */
+     , SCC_CODE_NM('DECISION', D.DECISION) AS DECISION_NM
+     , D.LAST_DECISION	/* 최종 판정 */
+     , SCC_CODE_NM('LAST_DECISION', D.LAST_DECISION) AS LAST_DECISION_NM
+     , B.UPJANG_NM
+     , SCC_CODE_NM('ACCEPT_CLASS', B.ACCEPT_CLASS) AS ACCEPT_CLASS
+     , C.INSPT_FLD
+     , SCC_CODE_NM('INSPT_FLD', C.INSPT_FLD) AS INSPT_FLD_NM	/* 검사분야 */
+     , C.ARTICLE_CD
+     , (SELECT ARTICLE_NM FROM LCM_TEST_ARTICLE WHERE C.ARTICLE_CD = ARTICLE_CD) AS TEST_ARTICLE_NM	/* 시험항목명 */
+     , C.INSPT_METHOD
+     , SCC_CODE_NM('INSPT_METHOD', C.INSPT_METHOD) AS INSPT_METHOD_NM	/* 검사방법 */
+     , U.PROC_CLASS AS PROGRESS_STATUS	/* 진행상태 */
+     , SCC_CODE_NM('PROGRESS_STATUS', U.PROC_CLASS) AS PROGRESS_STATUS_NM	/* 진행상황 */
+     , C.SABUN
+     , CASE WHEN U.PROC_CLASS >= '200' THEN	/* 시험완료 승인 */
+          'Y'
+       ELSE
+          'N'
+       END AS COMPLETE_YN	/* 시험완료승인 */
+     , C.BASIS_STAND      /* 기준규격 */
+     , D.RESULT				/* 시험일지결과 */
+     , (
+         SELECT COUNT(1)
+           FROM LEM_INSPECT_RPT_ISSUE_LOG
+          WHERE REQ_NUM = A.REQ_NUM
+            AND PUBLISHDD IS NOT NULL
+       ) AS PUBLISH_CNT	/* 발급횟수 */
+     , DECODE(B.INSPECT_RPT_ISSUE, NULL, 'N', B.INSPECT_RPT_ISSUE) AS INSPECT_RPT_ISSUE    /* 성적서 발급 여부 */
+     , H.INSPT_FLD_NM || '/' || H.NOT_FIT_CLSFI_NM AS NOT_FIT_CLSFI_NM    /* 검사분야 / 부적합분류 */
+     , NVL(C.LEGAL_BASIS, 'N') AS LEGAL_BASIS
+     , NVL(C.INSIDE_BASIS, 'N') AS INSIDE_BASIS
+     , A.DISUSE_YN		/* 폐기 여부 */
+     , A.DISUSE_DATE	/* 폐기 일자 */
+     , (
+        SELECT NVL(SUM(DECODE(Y.COMM_1_USE_YN, 'Y', SUM(Y.COMM_1), 0)) +
+                   SUM(DECODE(Y.COMM_2_USE_YN, 'Y', SUM(Y.COMM_2), 0)) +
+                   SUM(DECODE(Y.COMM_3_USE_YN, 'Y', SUM(Y.COMM_3), 0)) +
+                   SUM(DECODE(Y.COMM_4_USE_YN, 'Y', SUM(Y.COMM_4), 0)) +
+                   SUM(DECODE(Y.COMM_5_USE_YN, 'Y', SUM(Y.COMM_5), 0)), 0)
+          FROM LRM_TEST_REQ_ACCEPT Z
+             , LRM_SPECM_INFO X
+             , LRM_TEST_INFO Y
+             , LTM_TEST_DIARY TD
+         WHERE 1 = 1
+           AND Z.REQ_NUM = B.REQ_NUM
+           AND X.REQ_NUM = A.REQ_NUM
+           AND X.ACCEPT_NUM = A.ACCEPT_NUM
+           AND Y.REQ_NUM = C.REQ_NUM
+           AND Y.ACCEPT_NUM = C.ACCEPT_NUM
+           AND Y.ARTICLE_CD = C.ARTICLE_CD
+           AND TD.REQ_NUM = D.REQ_NUM
+           AND TD.ACCEPT_NUM = D.ACCEPT_NUM
+           AND TD.ARTICLE_CD = D.ARTICLE_CD
+           AND X.REQ_NUM = Z.REQ_NUM
+           AND X.REQ_NUM = Y.REQ_NUM
+           AND X.ACCEPT_NUM = Y.ACCEPT_NUM
+           --AND X.COST_CLASS = '102' -- 유상
+           AND Y.REQ_NUM = TD.REQ_NUM
+           AND Y.ACCEPT_NUM = TD.ACCEPT_NUM
+           AND Y.ARTICLE_CD = TD.ARTICLE_CD
+           AND TD.LAST_DECISION IS NOT NULL
+         GROUP BY Y.COMM_1_USE_YN, Y.COMM_2_USE_YN, Y.COMM_3_USE_YN, Y.COMM_4_USE_YN, Y.COMM_5_USE_YN
+       ) AS COMM_TOT_AMT
+     , SCC_CODE_NM('URGENT_YN', A.MFG_VENDOR) AS URGENT_YN  /* 긴급여부 */
+     , A.MFGWON MFGWON /*제조업체*/
+     , D.TESTDD /*판정일자*/
+FROM   LRM_SPECM_INFO A
+     , LRM_TEST_REQ_ACCEPT B
+     , LRM_TEST_INFO C
+     , LTM_TEST_DIARY D
+     , (
+        SELECT PD.REQ_NUM
+             , PD.PROC_USER
+             , PD.PROCDD
+             , PD.PROC_REASON
+             , PD.PROC_CLASS
+             , PD.SEQ
+          FROM (
+                SELECT Y.REQ_NUM
+                     , Y.PROC_USER
+                     , Y.PROCDD
+                     , Y.PROC_REASON
+                     , Y.PROC_CLASS
+                     , Y.SEQ
+                     , ROW_NUMBER() OVER (PARTITION BY Y.REQ_NUM ORDER BY Y.REQ_NUM, Y.SEQ DESC) AS RN
+                  FROM LRM_PROC_DESC Y
+               ) PD
+         WHERE RN = 1
+       ) U
+     , (
+         SELECT /*+ INDEX_SS(Y) */
+                Y.REQ_NUM
+              , Y.ACCEPT_NUM
+              , Y.ARTICLE_CD
+              , P.INSPT_FLD
+              , SCC_CODE_NM('INSPT_FLD', P.INSPT_FLD) AS INSPT_FLD_NM
+              , Y.LAST_DECISION
+              , P.ARTICLE_NM
+              , P.NOT_FIT_CLSFI
+              , SCC_CODE_NM('NOT_FIT_CLSFI', P.NOT_FIT_CLSFI) AS NOT_FIT_CLSFI_NM
+           FROM LTM_TEST_DIARY Y
+              , LCM_TEST_ARTICLE P
+          WHERE 1 = 1
+            AND Y.ARTICLE_CD = P.ARTICLE_CD
+            AND Y.LAST_DECISION <> '101'
+       ) H
+WHERE  1 = 1
+  AND  A.REQ_NUM = B.REQ_NUM
+  AND  A.REQ_NUM = C.REQ_NUM
+  AND  A.ACCEPT_NUM = C.ACCEPT_NUM
+  AND  A.REQ_NUM = U.REQ_NUM(+)
+  AND  C.REQ_NUM = H.REQ_NUM(+)
+  AND  C.ACCEPT_NUM = H.ACCEPT_NUM(+)
+  AND  C.ARTICLE_CD = H.ARTICLE_CD(+)
+  AND  C.REQ_NUM = D.REQ_NUM(+)
+  AND  C.ACCEPT_NUM = D.ACCEPT_NUM(+)
+  AND  C.ARTICLE_CD = D.ARTICLE_CD(+)
+  AND  C.SABUN = D.SABUN(+)
+<#if mfgWon?has_content> AND A.MFGWON LIKE '%' || :mfgWon || '%' </#if>
+<#if toDay?has_content> AND B.REQ_DATE BETWEEN :fromDay AND :toDay </#if>
+<#if progressStatus?has_content> AND U.PROC_CLASS IN ( :progressStatus ) </#if>
+<#if reqNum?has_content> AND A.REQ_NUM = :reqNum </#if>
+<#if insptClass?has_content> AND A.INSPT_CLASS = :insptClass </#if>
+<#if insptObj1?has_content> AND A.INSPT_OBJ_1 = :insptObj1 </#if>
+<#if insptObj2?has_content> AND A.INSPT_OBJ_2 = :insptObj2 </#if>
+<#if insptObj3?has_content> AND A.INSPT_OBJ_3 = :insptObj3 </#if>
+<#if insptObj4?has_content> AND A.INSPT_OBJ_4 = :insptObj4 </#if>
+<#if specmType?has_content> AND A.SPECM_TYPE = :specmType </#if>
+<#if insptPurp1?has_content> AND A.INSPT_PURP_1 = :insptPurp1 </#if>
+<#if insptPurp2?has_content> AND A.INSPT_PURP_2 = :insptPurp2 </#if>
+<#if insptPurp3?has_content> AND A.INSPT_PURP_3 = :insptPurp3 </#if>
+<#if longstorageYn?has_content> AND A.LONGSTORAGE_YN = :longstorageYn </#if>
+<#if acceptNum?has_content> AND A.ACCEPT_NUM LIKE '%' || :acceptNum || '%' </#if>
+<#if acceptNm?has_content> AND B.ACCEPTNM LIKE '%' || :acceptNm || '%' </#if>
+<#if upjang?has_content> AND B.UPJANG = :upjang </#if>
+<#if upjangNm?has_content> AND B.UPJANG_NM LIKE '%' || :upjangNm || '%' </#if>
+<#if origin?has_content> AND A.ORIGIN LIKE '%' || :origin || '%' </#if>
+<#if insptFld?has_content> AND C.INSPT_FLD = :insptFld </#if>
+<#if insptMethod?has_content> AND C.INSPT_METHOD = :insptMethod </#if>
+<#if acceptdd?has_content> AND A.ACCEPTDD = :acceptdd </#if>
+<#if disuseYn?has_content && disuseYn = '0'> AND (A.DISUSE_YN IS NULL OR A.DISUSE_YN = 'N') --AND A.DISUSE_YN = 'Y' </#if>   /* 폐기제외 */
+<#if completeDd?has_content>
+  AND (CASE WHEN (SELECT COUNT(1) FROM LRM_TEST_INFO WHERE REQ_NUM = A.REQ_NUM) =
+                 (SELECT COUNT(1) FROM LTM_TEST_DIARY WHERE REQ_NUM = A.REQ_NUM AND LAST_DECISION IS NOT NULL)
+            THEN
+              (SELECT TO_CHAR(MAX(UDATE), 'YYYYMMDD')
+                 FROM LTM_TEST_DIARY
+                WHERE REQ_NUM = A.REQ_NUM)
+            ELSE
+              ''
+       END) = :completeDd
+</#if>
+<#if specmNm?has_content> AND A.SPECM_NM LIKE '%' || :specmNm || '%' </#if>
+<#if testArticleNm?has_content>
+   AND EXISTS (SELECT 1
+                 FROM LRM_TEST_INFO TI
+                    , LCM_TEST_ARTICLE TA
+                WHERE A.REQ_NUM = TI.REQ_NUM
+                  AND TI.ARTICLE_CD = TA.ARTICLE_CD
+                  AND TA.ARTICLE_NM LIKE '%' || :testArticleNm || '%')
+</#if>
+<#if testUser?has_content>
+   AND C.SABUN = :testUser
+</#if>
+<#if decision?has_content>
+  AND D.DECISION = :decision
+</#if>
+<#if lastDecision?has_content>
+  AND D.LAST_DECISION = :lastDecision
+</#if>
+<#if result?has_content>
+  AND D.RESULT LIKE '%' || :result || '%'
+</#if>
+<#if sclassArr?has_content>
+  AND A.SCLASS_CD IN ( :sclassArr )
+</#if> 
+<#if mclassArr?has_content>
+  AND A.MCALSS_CD IN ( :mclassArr )
+</#if>
+<#if mgrpArr?has_content>
+  AND A.MGRP_CD IN ( :mgrpArr )
+</#if>
+ORDER  BY A.REQ_NUM, A.ACCEPT_NUM, C.ARTICLE_CD
+        ]]></statement>
+
+	<!-- 검체유형항목 대분류 DATA를 조회한다. -->
+	<statement name="selectMgrpList" type="select">
+		/*+ com.hwfs.ls.lsm.dao.IntergInqueryDAO.selectMgrpList */
+		<![CDATA[
+/* 검체유형항목 대분류 조회 */
+SELECT '0' AS CHK,
+       SPECM_TYPE,
+       MGRP_CD,
+       MGRP_NM,
+       CUSER,
+       CDATE,
+       UUSER,
+       UDATE
+FROM   LCM_SPECM_TYPE_MGRP
+WHERE  SPECM_TYPE = :specmType
+AND    USE_YN = 'Y'
+<#if edtSearch?has_content> AND MGRP_NM LIKE '%' || :edtSearch || '%' </#if>
+        ]]>
+	</statement>
+
+	<!-- 검체유형항목 중분류 DATA를 조회한다. -->
+	<statement name="selectMcalssList" type="select">
+		/*+ com.hwfs.ls.lsm.dao.IntergInqueryDAO.selectMcalssList */
+		<![CDATA[
+/* 검체유형항목 중분류 조회 */
+SELECT '0' AS CHK,
+       SPECM_TYPE,
+       MGRP_CD,
+       MCALSS_CD,
+       MCALSS_NM,
+       CUSER,
+       CDATE,
+       UUSER,
+       UDATE
+FROM   LCM_SPECM_TYPE_MCALSS
+WHERE  SPECM_TYPE = :specmType
+AND    MGRP_CD IN ( :mgrpCd )
+AND    USE_YN = 'Y'
+        ]]>
+	</statement>
+
+	<!-- 검체유형항목 소분류 DATA를 조회한다. -->
+	<statement name="selectSclassList" type="select">
+		/*+ com.hwfs.ls.lsm.dao.IntergInqueryDAO.selectSclassList */
+		<![CDATA[
+/* 검체유형항목 소분류 조회 */
+SELECT '0' AS CHK,
+       SPECM_TYPE,
+       MGRP_CD,
+       MCALSS_CD,
+       SCLASS_CD,
+       SCLASS_NM,
+       CUSER,
+       CDATE,
+       UUSER,
+       UDATE
+FROM   LCM_SPECM_TYPE_SCLASS
+WHERE  SPECM_TYPE = :specmType
+AND    MGRP_CD IN ( :mgrpCd )
+AND    MCALSS_CD IN ( :mcalssCd )
+AND    USE_YN = 'Y'
+        ]]>
+	</statement>
+
+</hqml>

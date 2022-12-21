@@ -1,0 +1,132 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="GwViewIfPop" classname="COMP_GUIDE_13" inheritanceid="" position="absolute 0 0 166 108" titletext="결재상세" scrollbars="none" onload="form_onload" style="border:1 solid #808080ff ;">
+    <Layouts>
+      <Layout>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 915 10"/>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 570"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 153 -9 168 575"/>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute -70 95 830 110"/>
+        <Static id="Static00" text="그룹웨어 연계 처리 중" position="absolute 20 4 145 28"/>
+        <ImageViewer id="imgProcess" taborder="2" position="absolute 40 23 128 101" image="URL('theme://Images\processing.gif')" style="border:1 none #cacacaff ;"/>
+        <ActiveX id="gwIfBrowser" progid="Shell.Explorer.2" useautobitmapcache="1" taborder="3" DocumentComplete="gwIfBrowser_DocumentComplete" NavigateError=" " anchor="default" position="absolute 175 80 185 90" positiontype="position" TitleChange="gwIfBrowser_TitleChange" NavigateComplete="gwIfBrowser_NavigateComplete" NavigateComplete2="gwIfBrowser_NavigateComplete2"/>
+        <WebBrowser id="gwIfB" text="gwIfBrowser" position="absolute 170 33 187 47" anchor="default" taborder="4" style="border:1 solid #808080ff ;" cookiesynctype="always" onloadcompleted="gwIfBrowser_onloadcompleted" onusernotify="gwIfBrowser_onusernotify"/>
+      </Layout>
+    </Layouts>
+    <Bind/>
+    <Objects/>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : GwViewIfPop
+  파 일 명 : GwViewIfPop.xfdl
+  설    명 : 그룹웨어 상세 및 상태 보기 팝업
+           
+  수정일       수정자   수정내용
+  ----------   -------  --------------------------------------------------
+  2015.06.17    kksoo    최초작성 : XPLATFORM 팝업으로 처리 중 표시하고 실행되도록 구성(MSIE이용) 
+*/
+ 
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+************************************************************************************************/
+include "lib::lib_com.xjs";
+
+/************************************************************************************************
+ * FORM 변수 선언 영역 (필수)
+************************************************************************************************/
+var fv_isIfPage;
+
+/************************************************************************************************
+ * FORM EVENT 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Form Load (필수)
+ *---------------------------------------------------------------------------------------------*/
+function form_onload(obj:Form, e:LoadEventInfo)
+{	
+	// 초기값 셋팅
+	fn_init();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 초기값 셋팅
+ *---------------------------------------------------------------------------------------------*/
+function fn_init()
+{
+	fv_isIfPage = true;
+
+	//그룹웨어 결재상세, 결재진행상태 보기	호출
+	var objBuffer = new Buffer;
+	objBuffer.appendText("JSESSIONID=" + JSESSIONID); //세션공유를 위해 세션값 넘김	
+	var sHeaders = "Content-Type: application/x-www-form-urlencoded";
+	//var strURL = application.services.get_item("svc").url + "common/linkBizwellGwViewIF.jsp";
+	var strURL = "http://" + ( gv_runMode == 'D' ? 'gwdev' : 'gw' ) +".efoodist.com/xclickr3_foodist/dispatcherSalesView.jsp?instanceId="+arrParams[SCGw.GW_INSTANCE_ID]+"&sabun="+g_EmpNo;
+	//gwIfBrowser.Navigate2(strURL, "", "_self", objBuffer.data, sHeaders);
+	//gwIfBrowser.Navigate2("javascript:window.open('"+strURL+"','전자결재','top=0px,left=0px,height=800px,width=1070px')"); 
+	//gwIfBrowser00.url = "javascript:window.open('http://naver.com')";
+	gwIfB.url = "about:blank";
+	gwIfB.url = "javascript:window.open('"+strURL+"','전자결재','top=0px,left=0px,height=800px,width=1070px')";
+	this.close();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 화면 닫기
+ *---------------------------------------------------------------------------------------------*/
+function fn_close()
+{
+	this.close();
+}
+
+/**
+ * 그룹웨어 IF 페이지 생성이 완료되면
+ * WebBrowser에 표시된 파라미터를 설정한다.
+ * @param obj WebBrowser
+ * @param e WebLoadCompEventInfo
+ * @return none
+ */
+function gwIfBrowser_DocumentComplete(obj:ActiveX, e)
+{
+	return;
+	if (!fv_isIfPage) return;
+	fv_isIfPage = false;
+	
+	sendViewPop ();
+}
+
+function sendViewPop () 
+{
+	var doc = gwIfBrowser.Document.all;		// Webbrowser dom document
+	var objText = doc["instanceId"];	// Instance Id 객체
+	if(objText){
+		objText.value = arrParams[SCGw.GW_INSTANCE_ID];
+	}else {
+		gfn_alert("InstanceId element is not defined!");
+		return;
+	}
+	
+	objText = doc["viewMode"];			// View Mode 객체
+	if(objText){
+		objText.value = arrParams[SCGw.GW_MODE];
+	}else {
+		gfn_alert("Mode element is no defined!");
+		return;
+	}
+
+	var objCall = doc["btnCall"];		//IF 모듈 호출 객체
+	//alert ("IF Call 버튼 클릭 시작...");
+	objCall.click();	//WebBrowser 이벤트 호출 
+	//alert ("IF Call 버튼 클릭 종료");	//WebBrowser 이벤트 호출 후 발생함
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : IF 페이지에서 결과를 수신
+ *---------------------------------------------------------------------------------------------*/
+function gwIfBrowser_TitleChange(obj:ActiveX, e)
+{
+	//trace(e.Text);
+	if (e.Text == "CLOSE")
+		this.close();
+}
+]]></Script>
+  </Form>
+</FDL>

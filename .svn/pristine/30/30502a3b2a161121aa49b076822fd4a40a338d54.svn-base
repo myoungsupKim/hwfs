@@ -1,0 +1,180 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\..\..\default_typedef.xml"/>
+  <Form id="SCC90000P" onkeydown="SCC90000P_OnKeyDown" onload="form_onload" titletext="창고코드조회" position="absolute 0 0 434 509" scrollbars="none" style="border:2 solid dimgray ;bordertype:normal 0 0 ;">
+    <Layouts>
+      <Layout>
+        <Grid binddataset="ds_List" selecttype="row" cellsizingtype="both" enable="true" id="grid_Slip" useinputpanel="false" onheadclick="grid_Slip_OnHeadClick" onkeydown="grid_Slip_OnKeyDown" taborder="3" tabstop="true" autosizingtype="none" usecontextmenu="true" useselcolor="true" visible="true" wheelscrollrow="1" position="absolute 14 50 420 459" readonly="true" autofittype="col" oncelldblclick="grid_Slip_oncelldblclick">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="101"/>
+                <Column size="147"/>
+                <Column size="87"/>
+                <Column size="53"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="text" text="상품코드"/>
+                <Cell col="1" displaytype="text" text="상품명"/>
+                <Cell col="2" text="사이즈"/>
+                <Cell col="3" text="규격"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" style="align:center;" text="bind:ITEM_CODE"/>
+                <Cell col="1" displaytype="text" style="align:left;" text="bind:ITEM_NAME"/>
+                <Cell col="2" displaytype="normal" text="bind:ITEM_SIZE"/>
+                <Cell col="3" text="bind:UOM_CODE"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 434 10"/>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 508"/>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 15 494 434 509"/>
+        <Static id="Static11" text="h15" visible="false" position="absolute 15 35 434 50" style="background:#ff000055;align:center middle;"/>
+        <Button id="btn_close" taborder="5" text="취소" class="btn_POP_Default" position="absolute 369 469 419 494" anchor="right bottom" onclick="btn_close_OnClick"/>
+        <Button id="btn_confirm" taborder="4" text="확인" class="btn_POP_Default" position="absolute 317 469 367 494" anchor="right bottom" onclick="btn_confirm_onclick"/>
+        <Static id="Static16" text="w2" class="Guide01_AreaRed" visible="false" position="absolute 367 469 369 494"/>
+        <Static id="Static17" text="h10" visible="false" position="absolute 15 459 434 469" style="background:#ff000055;align:center middle;"/>
+        <Button id="btn_search" taborder="2" text="조회" onclick="btn_search_OnClick" class="btn_WF_searchCm" position="absolute 360 10 419 35"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 419 0 434 508"/>
+        <Edit id="ed_ItemName" taborder="6" position="absolute 70 12 210 32" onkeydown="ed_ItemCode_onkeydown" imemode="hangul"/>
+        <Static id="Static3" text="상품명" onclick="Static3_onclick" class="sta_WFSA_label" position="absolute 20 13 82 34" userdata="strQuery_FMUpjang"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_Cond">
+        <ColumnInfo>
+          <Column id="ITEM_NAME" size="256" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_List">
+        <ColumnInfo>
+          <Column id="ITEM_CODE" size="256" type="STRING"/>
+          <Column id="ITEM_NAME" size="256" type="STRING"/>
+          <Column id="ITEM_SIZE" type="STRING" size="256"/>
+          <Column id="UOM_CODE" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_SubinvType1" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="CODE" type="STRING" size="256"/>
+          <Column id="NAME" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="CODE">S</Col>
+            <Col id="NAME">일반식당</Col>
+          </Row>
+          <Row>
+            <Col id="CODE">A</Col>
+            <Col id="NAME">소모품식당</Col>
+          </Row>
+          <Row>
+            <Col id="CODE">C</Col>
+            <Col id="NAME">공통식당</Col>
+          </Row>
+        </Rows>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+//@@컨버터에서 주석처리 #include "LIB::sc_comon.js";
+//@@컨버터에서 주석처리 #include "LIB::sc_sql_common.js";
+
+
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	ed_ItemName.setFocus();
+}
+
+
+function btn_search_OnClick(obj:Button, e:ClickEventInfo)
+{
+	//fn_search();
+}
+
+function fn_search(pUpjang)
+{
+	//필수항목 
+	
+	// 초기화
+	ds_Cond.clearData();
+	ds_Cond.addRow();
+	ds_Cond.setColumn(0, "ITEM_NAME"	,	ed_ItemName.text);
+
+	// 조회	
+	var strSvcID, strURL, strInDatasets, strOutDatasets, strArgument, strCallbackFunc;
+	// 경로 설정
+	strSvcID = "FMP00032P_T001";
+	strURL   = "U_svc::" + "fm/fmp/FMP00032P_T001.jsp";
+	// 데이터셋 설정
+	strInDatasets  = "ds_Cond=ds_Cond";
+	strOutDatasets = "ds_List=ds_List";
+	// 파라메터 설정
+	strArgument  = "g_Upjang=" + wrapQuote(g_Upjang);
+	strArgument += " g_EmpNo=" + wrapQuote(g_EmpNo);
+	// 콜백함수 지정
+	strCallbackFunc = "fn_CallBack_Search";
+	// 서버 호출 
+	Transaction(strSvcID, strURL, strInDatasets, strOutDatasets, strArgument, strCallbackFunc);
+
+}
+
+//콜백
+function fn_CallBack_Search(SvcID, errCode, errMsg)
+{
+	if (errCode == 0)
+	{
+		//trace(ds_List.saveXML());
+		if (ds_List.rowcount < 1)
+			g_Message("EE","조회된 자료가 없습니다.");
+		else
+			grid_Slip.setFocus();
+	}
+	else
+		g_Message("EE",fn_AlertMsg("002"));
+}
+
+function btn_confirm_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+function btn_close_OnClick(obj:Button,  e:ClickEventInfo)
+{
+	close();
+}
+
+function grid_Slip_oncelldblclick(obj:Grid, e:GridClickEventInfo)
+{
+	// Return할 Array 설정
+	var arr = new Array();
+ 	var nRow = ds_List.rowposition;
+ 	
+ 	for ( var i = 0; i < ds_List.getColCount(); i++ ) {
+ 		arr[ds_List.getColID(i)] = ds_List.getColumn(nRow, i);
+ 	}
+
+ 	this.close(arr);
+}
+
+function ed_ItemCode_onkeydown(obj:Edit, e:KeyEventInfo)
+{
+	if (e.keycode == 13) {
+		fn_search();
+	}
+}
+
+function grid_Slip_OnKeyDown(obj:Grid, e:KeyEventInfo)
+{
+	if (e.keycode == 13) {
+		grid_Slip_oncelldblclick();
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

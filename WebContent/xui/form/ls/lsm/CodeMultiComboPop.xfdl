@@ -1,0 +1,250 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\..\..\default_typedef.xml"/>
+  <Form id="CodeMultiComboPop" classname="COMP_GUIDE_13" inheritanceid="" position="absolute 0 0 203 219" titletext="공통코드 멀티콤보 레이어팝업" scrollbars="autoboth" onload="form_onload">
+    <Layouts>
+      <Layout>
+        <Grid id="grd_codeList" taborder="0" binddataset="ds_cboList" autoenter="select" useinputpanel="false" cellsizingtype="col" nodataimage="URL('theme://images/grd_WF_NoDataImg.png')" position="absolute 1 1 201 170" anchor="all" autofittype="col" useselcolor="true" class="grd_WF_LineNone">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="29"/>
+                <Column size="53"/>
+                <Column size="101"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="checkbox" edittype="checkbox"/>
+                <Cell col="1" text="코드"/>
+                <Cell col="2" text="코드명"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="checkbox" edittype="checkbox" text="bind:chk"/>
+                <Cell col="1" text="bind:code"/>
+                <Cell col="2" displaytype="text" text="bind:codeName"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 1 204 199 219"/>
+        <Static id="Static17" text="h10" visible="false" position="absolute 0 170 196 180" style="background:#ff000055;align:center middle;"/>
+        <Button id="btn_confirm" taborder="1" text="확인" onclick="btn_confirm_onclick" class="btn_POP_Default" position="absolute 86 179 134 204" anchor="right bottom"/>
+        <Button id="btn_cancel" taborder="2" text="취소" onclick="btn_cancel_onclick" class="btn_POP_Default" position="absolute 138 179 186 204" anchor="right bottom"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 188 172 201 217"/>
+      </Layout>
+    </Layouts>
+    <Bind/>
+    <Objects>
+      <Dataset id="ds_cboList" firefirstcount="0" firenextcount="0" useclientlayout="true" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="chk" type="STRING" size="256"/>
+          <Column id="code" type="STRING" size="256"/>
+          <Column id="codeName" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row/>
+        </Rows>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : CodeMultiComboPop
+  파 일 명 : CodeMultiComboPop.xfdl
+  기    능 : 공통코드 멀티콤보
+
+    수정일    수정자                  수정내용
+  ----------   -------  --------------------------------------------------
+  2015.04.30   jshoon   최초 생성
+*/
+
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+************************************************************************************************/
+include "lib::lib_com.xjs";
+include "lib::LimsUtil.xjs";
+
+/****************************************************************************************
+ * FORM 변수 선언 영역
+****************************************************************************************/
+var fv_iProcessCnt = 0;  	// 저장건수를 저장한다.(Controller Class에서만 할당함.)
+var vObjInput;
+var vObjInputFuc;
+var vParam;
+
+/************************************************************************************************
+ * FORM EVENT 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Form Load (필수)
+ *---------------------------------------------------------------------------------------------*/
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+    // Form Load 시 공통 기능 처리(obj:Form, bCreateEvent:이벤트 생성 여부)
+    gfn_formOnLoad(this);		// 검체유형 GRID에는 공통 이벤트 제외
+    
+    // 초기값 셋팅
+	fn_init();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 초기값 셋팅
+ *---------------------------------------------------------------------------------------------*/
+function fn_init()
+{
+}
+
+/************************************************************************************************
+ * TRANSACTION 및 CallBack 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 트랜잭션 콜백 함수 (필수)
+ *---------------------------------------------------------------------------------------------*/
+function fn_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	// 에러시 gfn_callBack에서 메시지 제공, 화면별 특정 에러 발생시에만 사용하세요.
+	if (nErrorCode < 0)
+	{
+		return;
+	}
+
+    switch(strSvcID)
+    {
+        case "selectCodeList" :
+			fn_setNultiComboCallback();
+            break;
+    }
+}
+
+/***************************************************************************
+ * 설명   : LayerPopup에서 받을 공통 함수
+ ***************************************************************************/
+function fn_setPopupParameter(sObjParam)
+{
+    if (typeof sObjParam != "undefined" && sObjParam != null) 
+    {
+		vParam = sObjParam;
+		
+		// DataSet이 넘어오지 않은경우 직접 Code를 조회 한다.
+		//trace(vParam.outDs + " , " + typeof vParam.outDs);
+		if (vParam.outDs == null)
+		{
+			// 공통코드 Parameter
+			var strParamArg = {
+				groupCode: vParam.sSccGroupCd, 
+				useYn: "Y"
+			};
+			// Controller로 전송할 Parameter를 설정한다.
+			var parameter = {
+				qid : "ComCode",
+				comboId : "ds_cboList",
+				addStr : "NVL",
+				outDs : ds_cboList.name,
+				option : strParamArg,
+				triggerEvent : "NVL"
+			};
+
+			var strSvcID    = "selectCodeList";
+			var strURL      = "/sc/cmn/binding/select.xdo";
+			var strInDs     = "";
+			var strOutDs    = "ds_cboList=output";
+			var strArg      = "input="+wrapQuote(gfn_jsonObjectToString(parameter));
+			var strCallback = "fn_callBack";
+			var bAsync      = true;
+			
+			gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync, false);
+		}
+		else	// DataSet이 넘어온 경우
+		{
+			ds_cboList.copyData(vParam.outDs);
+			fn_setNultiComboCallback();
+		}
+    }
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 코드 셋팅
+ *---------------------------------------------------------------------------------------------*/
+function fn_setNultiComboCallback()
+{
+	vObjInput = vParam.sParam1.split("∮");	// 부모창에서 넘어온 파라미터1
+	vObjInputFuc = eval(vParam.sObjInputFuc);	// callback Function
+	var isAll = false;
+	
+	if (typeof vParam.sParam2 != "undefined" && vParam.sParam2 != null && vParam.sParam2 != "" && vParam.sParam2 == "ALL")
+	{
+		isAll = true;
+	}
+	// 첫 전체 또는 조회 총 코드수와 부모창에서 넘어온 데이터가 동일하면 전체박스에 체크표시
+	if (isAll == true && gfn_isNull(vObjInput) || vObjInput.length == ds_cboList.rowcount)
+	{
+		grd_codeList.setCellProperty("head", 0, "text", '1');
+	}
+	
+	for (var i = 0, iLen = ds_cboList.rowcount; i < iLen; i++)
+	{
+		if (isAll == true && gfn_isNull(vObjInput))
+		{
+			for (var j = 0, iArrLen = ds_cboList.rowcount; j < iArrLen; j++)
+			{
+				ds_cboList.setColumn(i, "chk", '1');
+			}
+		}
+		else
+		{
+			for (var j = 0, iArrLen = vObjInput.length; j < iArrLen; j++)
+			{
+				if (ds_cboList.getColumn(i, "code") == vObjInput[j])
+				{
+					ds_cboList.setColumn(i, "chk", '1');
+				}
+			}
+		}
+	}
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 취소버튼 클릭 시
+ *---------------------------------------------------------------------------------------------*/
+function btn_cancel_onclick(obj:Button,  e:ClickEventInfo)
+{
+	this.closePopup();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 확인버튼 클릭 시
+ *---------------------------------------------------------------------------------------------*/
+function btn_confirm_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var codeArr = "";
+	var codeNameArr = "";
+	var iCnt = 0;
+	for (var i = 0, iLen = ds_cboList.rowcount; i < iLen; i++)
+	{
+		if (ds_cboList.getColumn(i, "chk") == '1')
+		{
+			codeArr += ds_cboList.getColumn(i, "code") + "∮";
+			codeNameArr += ds_cboList.getColumn(i, "codeName") + "∮";
+			iCnt++;
+		}
+	}
+	if (iCnt == ds_cboList.rowcount || iCnt == 0)
+	{
+		codeArr = "";
+		codeNameArr = "전체";
+	}
+	else
+	{
+		// 마지막 구분자를 제거한다.
+		codeArr = codeArr.substring(0, codeArr.length-1);
+		codeNameArr = codeNameArr.substring(0, codeNameArr.length-1);
+	}
+	// 부모창의 callback Function을 호출한다.
+	vObjInputFuc(codeArr, codeNameArr);
+	
+	this.closePopup();
+}
+]]></Script>
+  </Form>
+</FDL>

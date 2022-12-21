@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.sca.authByMenuRetvDAO">
+	<desc>메뉴별 권한정보 HQML Query</desc>
+
+	<!-- 메뉴별 권한정보 메뉴목록을 조회한다. -->
+	<statement name="selectMenuList" type="select">
+		/*+ com.hwfs.sc.sca.dao.AuthByMenuRetvDAO.selectMenuList */
+		<![CDATA[
+SELECT A.MENU_KEY,
+       A.MENU_ID,
+       A.MENU_NAME,
+       A.PARENT_MENU_KEY,
+       A.SORT_SEQ,
+       LEVEL AS LVL,
+       A.MENU_TYPE
+FROM   (SELECT NVL(SORT_SEQ, -1) * 9191919 AS MENU_KEY,
+               CODE AS MENU_ID,
+               CODE_NAME AS MENU_NAME,
+               NULL AS PARENT_MENU_KEY,
+               SORT_SEQ,
+               'M' AS MENU_TYPE
+        FROM   SCC_COMMON_CODE
+        WHERE  GROUP_CODE = '시스템구분'
+        AND    USE_YN = 'Y'
+        AND    CODE IN (SELECT SYS_TYPE
+                        FROM   SCC_SYSTEM
+                        WHERE  1=1
+<#if sysId?has_content>
+                        AND    SYS_ID = :sysId
+</#if>
+<#if sysType?has_content>
+                        AND    CODE = :sysType
+</#if>
+                       )
+        UNION ALL
+
+        SELECT A.SYS_ID * 8181818 AS MENU_KEY,
+               TO_CHAR(A.SYS_ID) AS MENU_ID,
+               SYS_NAME AS MENU_NAME,
+               NVL(B.SORT_SEQ, -1) * 9191919 AS PARENT_MENU_KEY,
+               A.SORT_SEQ,
+               'M' AS MENU_TYPE
+        FROM   SCC_SYSTEM A,
+               SCC_COMMON_CODE B
+        WHERE  B.CODE = A.SYS_TYPE
+        AND    B.GROUP_CODE = '시스템구분'
+        AND    B.USE_YN = 'Y'
+        AND    A.USE_YN = 'Y'
+<#if sysId?has_content>
+        AND    A.SYS_ID = :sysId
+</#if>
+<#if sysType?has_content>
+        AND    A.SYS_TYPE = :sysType
+        AND    B.CODE = :sysType
+</#if>
+        UNION ALL
+
+        SELECT A.MENU_ID AS MENU_KEY,
+               TO_CHAR(A.MENU_ID) AS MENU_ID,
+               A.MENU_NAME AS MENU_NAME,
+               CASE WHEN A.PARENT_MENU_ID IS NULL THEN A.SYS_ID * 8181818 ELSE A.PARENT_MENU_ID END AS PARENT_MENU_KEY,
+               A.SORT_SEQ,
+               A.MENU_TYPE AS MENU_TYPE
+        FROM   SCC_MENU A
+        WHERE  A.USE_YN = 'Y'
+<#if sysId?has_content>
+        AND    A.SYS_ID = :sysId
+</#if>
+<#if sysType?has_content>
+        AND    A.SYS_ID IN (SELECT SYS_ID
+                            FROM   SCC_SYSTEM
+                            WHERE  SYS_TYPE = :sysType)
+</#if>
+        ) A
+START WITH A.PARENT_MENU_KEY IS NULL
+CONNECT BY PRIOR A.MENU_KEY = A.PARENT_MENU_KEY
+ORDER SIBLINGS BY A.SORT_SEQ
+
+		]]>
+	</statement>
+
+	<!-- 메뉴별 권한정보 권한목록을 조회한다. -->
+	<statement name="selectRoleList" type="select">
+		/*+ com.hwfs.sc.sca.dao.AuthByMenuRetvDAO.selectRoleList */
+		<![CDATA[
+SELECT A.USE_CD,
+       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'USE_CD' AND CODE = A.USE_CD) AS USE_NAME,
+       A.SYS_TYPE,
+       A.ROLE,
+       A.ROLE_NAME
+FROM   SCC_ROLE A,
+       SCC_ROLE_MENU B
+WHERE  B.SYS_TYPE = A.SYS_TYPE
+AND    B.ROLE = A.ROLE
+AND    A.SYS_TYPE = :sysType
+AND    B.MENU_ID = :menuId
+AND    A.USE_YN = 'Y'
+AND    B.USE_YN = 'Y'
+ORDER BY A.USE_CD, A.ROLE
+		]]>
+	</statement>
+
+	<!-- 메뉴별 권한정보 사용자목록을 조회한다. -->
+	<statement name="selectUserList" type="select">
+		/*+ com.hwfs.sc.sca.dao.AuthByMenuRetvDAO.selectUserList */
+		<![CDATA[
+SELECT A.SABUN,
+       A.USERID,
+       A.NM_KOR
+FROM   (
+SELECT A.SABUN,
+       A.USERID,
+       TRIM(A.NM_KOR) AS NM_KOR
+FROM   SCC_USERINFO A
+WHERE  CC_CD IN (SELECT CC_CD
+                 FROM   SCC_DEPT_ROLE A
+                 WHERE  (A.SYS_TYPE, A.ROLE) IN (SELECT SYS_TYPE,
+                                                        ROLE
+                                                 FROM   SCC_ROLE_MENU
+                                                 WHERE  MENU_ID = :menuId
+                                                 AND    SYS_TYPE = :sysType))
+
+UNION
+SELECT A.SABUN,
+       A.USERID,
+       TRIM(A.NM_KOR) AS NM_KOR
+FROM   SCC_USERINFO A
+WHERE  A.USER_GROUP IN (SELECT USER_GROUP
+                        FROM   SCC_USER_GROUP_ROLE A
+                        WHERE  (A.SYS_TYPE, A.ROLE) IN (SELECT SYS_TYPE,
+                                                               ROLE
+                                                        FROM   SCC_ROLE_MENU
+                                                        WHERE  MENU_ID = :menuId
+                                                        AND    SYS_TYPE = :sysType))
+UNION
+SELECT A.SABUN,
+       A.USERID,
+       TRIM(A.NM_KOR) AS NM_KOR
+FROM   SCC_USERINFO A,
+       (SELECT SABUN
+        FROM   SCC_USER_ROLE A
+        WHERE  (A.SYS_TYPE, A.ROLE) IN (SELECT SYS_TYPE,
+                                               ROLE
+                                        FROM   SCC_ROLE_MENU
+                                        WHERE  MENU_ID = :menuId
+                                        AND    SYS_TYPE = :sysType)) B
+WHERE  B.SABUN = A.SABUN) A
+ORDER BY A.NM_KOR
+		]]>
+	</statement>
+</hqml>

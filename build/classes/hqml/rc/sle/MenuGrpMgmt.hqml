@@ -1,0 +1,328 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.sle.menuGrpMgmtDAO">
+	<desc>아이템 그룹 등록 관리</desc>
+ 
+	
+	
+	<!--  DATA를 조회한다. -->
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.rc.sle.dao.menuGrpMgmtDAO.selectList */
+	<![CDATA[
+
+	SELECT   TREE_KEY,  DSPL_CD ,
+			 MENU_CLASS, MENU_CLASS_NM,
+			 MENU_CLSFI, MENU_CLSFI_NAME,
+			 MENU_SCLASS,
+			 MENU_CLSFI_NM,
+			 CLASS_PIC,
+             CLSFI_PIC,
+             SCLASS_PIC,
+             PIC_PLACE,
+			 LANGAE1,
+			 LANGAE2,
+			 LANGAE3
+	
+	FROM (
+		SELECT  '0' AS TREE_KEY,   '00' AS DSPL_CD ,
+				'00' AS MENU_CLASS, '' AS MENU_CLASS_NM,
+				'00' AS MENU_CLSFI, '' AS MENU_CLSFI_NAME,
+				'00' AS MENU_SCLASS,
+				'Item Group' AS MENU_CLSFI_NM,
+				'0' AS CLASS_PIC,
+                '0' AS CLSFI_PIC,
+                '0' AS SCLASS_PIC,
+                '0' AS PIC_PLACE,
+				'' AS LANGAE1,
+				'' AS LANGAE2,
+				'' AS LANGAE3
+		FROM DUAL
+		UNION ALL
+        SELECT DECODE(NVL(MENU_SCLASS, '00'), '00', DECODE(NVL(MENU_CLSFI, '00'), '00','1' ,'2'),'3') AS TREE_KEY,
+               DECODE(NVL(MENU_SCLASS, '00'), '00', DECODE(NVL(MENU_CLSFI, '00'), '00',MENU_CLASS ,MENU_CLSFI) , MENU_SCLASS) AS  DSPL_CD,
+               MENU_CLASS, A.MENU_CLASS_NM,
+               MENU_CLSFI, 
+               B.MENU_CLSFI_NAME,
+        						
+               MENU_SCLASS,
+               MENU_CLSFI_NM,
+        			
+               CLASS_PIC,
+               DECODE(NVL(MENU_CLSFI, '00'),  '00','0',MENU_CLSFI) AS CLSFI_PIC,
+               DECODE(NVL(MENU_SCLASS, '00'), '00','0',PIC_PLACE)  AS SCLASS_PIC,
+               PIC_PLACE,
+               LANGAE1, 
+               LANGAE2, 
+               LANGAE3 
+               
+        FROM (
+            	SELECT MENU_CLASS, 
+                       MENU_CLSFI, 
+                       MENU_SCLASS, 
+                       MENU_CLSFI_NM, 
+                       LANGAE1, 
+                       LANGAE2, 
+                       LANGAE3, 
+                       PIC_PLACE 
+                  FROM 
+                   (SELECT A.MENU_CLASS,  
+                           A.MENU_CLSFI, 
+                           A.MENU_SCLASS,
+                           A.MENU_CLSFI_NM, 
+                           A.LANGAE1, 
+                           A.LANGAE2, 
+                           A.LANGAE3,
+                           A.PIC_PLACE 
+                       FROM SLE_MENU_CLSFI A
+                       WHERE NOT EXISTS (SELECT MENU_CLASS, MENU_CLSFI, MENU_SCLASS
+                                           FROM SLE_OUTLET_MENU_GRP B 
+                                          WHERE A.MENU_CLASS  = B.MENU_CLASS 
+                                            AND A.MENU_CLSFI  = B.MENU_CLSFI 
+                                            AND A.MENU_SCLASS = B.MENU_SCLASS      			
+                                            AND B.OUTLET_CD   = :outletCd 
+                                            AND B.USE_YN='Y'  
+                                          )
+                       AND A.USE_YN = 'Y' 
+                       UNION ALL
+                       SELECT A.MENU_CLASS, 
+                              A.MENU_CLSFI,
+                              A.MENU_SCLASS,  
+                              A.MENU_CLSFI_NM, 
+                              A.LANGAE1, 
+                              A.LANGAE2, 
+                              A.LANGAE3, 
+                              A.PIC_PLACE 
+                           FROM SLE_MENU_CLSFI A 
+                           INNER JOIN (SELECT MENU_CLASS 
+                                         FROM SLE_MENU_CLSFI AA 
+                                        WHERE NOT EXISTS (SELECT MENU_CLASS, MENU_CLSFI, MENU_SCLASS 
+                                                            FROM SLE_OUTLET_MENU_GRP BB 
+                                                           WHERE AA.MENU_CLASS  = BB.MENU_CLASS 
+                                                             AND AA.MENU_CLSFI  = BB.MENU_CLSFI 
+                                                             AND AA.MENU_SCLASS = BB.MENU_SCLASS 
+                                                             AND BB.OUTLET_CD = :outletCd
+                                                             AND BB.USE_YN ='Y'   
+                                                         )  
+        		                        AND AA.USE_YN = 'Y' 
+        		                        GROUP BY MENU_CLASS        						
+                                       ) B ON  A.MENU_CLASS = B.MENU_CLASS 
+                                           AND A.MENU_CLSFI ='00' 
+                                           AND A.MENU_SCLASS ='00'
+                                           AND A.USE_YN ='Y'
+                       UNION ALL
+                       SELECT A.MENU_CLASS, 
+                              A.MENU_CLSFI, 
+                              A.MENU_SCLASS, 
+                              A.MENU_CLSFI_NM, 
+                              A.LANGAE1, 
+                              A.LANGAE2, 
+                              A.LANGAE3, 
+                              A.PIC_PLACE  
+                          FROM SLE_MENU_CLSFI A 
+                          INNER JOIN (SELECT MENU_CLASS, MENU_CLSFI 
+                                        FROM SLE_MENU_CLSFI AA 
+                                       WHERE NOT EXISTS (SELECT MENU_CLASS, MENU_CLSFI, MENU_SCLASS 
+                                                           FROM SLE_OUTLET_MENU_GRP BB 
+                                                          WHERE AA.MENU_CLASS  = BB.MENU_CLASS 
+                                                            AND AA.MENU_CLSFI  = BB.MENU_CLSFI 
+                                                            AND AA.MENU_SCLASS = BB.MENU_SCLASS 
+                                                            AND BB.OUTLET_CD = :outletCd
+                                                            AND BB.USE_YN = 'Y'    
+                                                        ) 
+                                        AND AA.USE_YN = 'Y' 
+                                        GROUP BY MENU_CLASS , MENU_CLSFI 
+        		                                 					  
+                                      ) B ON  A.MENU_CLASS  = B.MENU_CLASS 
+                                          AND A.MENU_CLSFI  = B.MENU_CLSFI 
+                                          AND A.MENU_SCLASS ='00'  
+                                          AND A.USE_YN ='Y'               
+               	) GROUP BY MENU_CLASS, MENU_CLSFI, MENU_SCLASS, MENU_CLSFI_NM, LANGAE1, LANGAE2, LANGAE3, PIC_PLACE
+               
+            ) DUAL
+                --대분류
+                INNER JOIN (SELECT  MENU_CLASS AS CLASS_CD , PIC_PLACE AS CLASS_PIC, 
+                                    MENU_CLSFI_NM AS MENU_CLASS_NM 
+                                FROM SLE_MENU_CLSFI  
+                                WHERE MENU_CLSFI = '00' 
+                                  AND MENU_SCLASS   = '00') A ON  A.CLASS_CD = MENU_CLASS 
+                --중부류               
+                INNER JOIN (SELECT 	MENU_CLASS AS CLASS_CD , MENU_CLSFI AS CLSFI_CD, PIC_PLACE AS CLSFI_PIC,
+                                    MENU_CLSFI_NM AS MENU_CLSFI_NAME 
+                                FROM SLE_MENU_CLSFI  
+                                WHERE MENU_SCLASS = '00') B ON B.CLASS_CD = MENU_CLASS  AND B.CLSFI_CD = MENU_CLSFI
+                                
+                
+	)
+		ORDER BY CLASS_PIC, CLSFI_PIC, SCLASS_PIC, MENU_CLASS, MENU_CLSFI, MENU_SCLASS           
+
+	]]>
+	</statement>
+	
+
+	<!--  DATA를 조회한다. -->
+	<statement name="searchList" type="select">
+	/*+ com.hwfs.rc.sle.dao.menuGrpMgmtDAO.searchList */
+	<![CDATA[
+	 
+	SELECT  TREE_KEY,  DSPL_CD , :outletCd AS OUTLET_CD,
+			 MENU_CLASS, MENU_CLASS_NM,
+			 MENU_CLSFI, MENU_CLSFI_NAME,
+			 MENU_SCLASS,
+			 MENU_CLSFI_NM,
+			 CLASS_PIC,
+             CLSFI_PIC,
+             SCLASS_PIC,
+             PIC_PLACE,
+			 LANGAE1,
+			 LANGAE2,
+			 LANGAE3
+	
+	FROM (
+		SELECT  '0' AS TREE_KEY,   '00' AS DSPL_CD ,
+				'00' AS MENU_CLASS, '' AS MENU_CLASS_NM,
+				'00' AS MENU_CLSFI, '' AS MENU_CLSFI_NAME,
+				'00' AS MENU_SCLASS,
+				'Item Group' AS MENU_CLSFI_NM,
+				'0' AS CLASS_PIC,
+                '0' AS CLSFI_PIC,
+                '0' AS SCLASS_PIC,
+                '0' AS PIC_PLACE,
+				'' AS LANGAE1,
+				'' AS LANGAE2,
+				'' AS LANGAE3
+		FROM DUAL
+		UNION ALL
+		SELECT
+			DECODE(NVL(MENU_SCLASS, '00'), '00', DECODE(NVL(MENU_CLSFI, '00'), '00','1' ,'2'),'3') AS TREE_KEY,
+			DECODE(NVL(MENU_SCLASS, '00'), '00', DECODE(NVL(MENU_CLSFI, '00'), '00',MENU_CLASS ,MENU_CLSFI) , MENU_SCLASS) AS  DSPL_CD,
+			MENU_CLASS, A.MENU_CLASS_NM,
+			MENU_CLSFI, 
+			B.MENU_CLSFI_NAME,
+						
+			MENU_SCLASS,
+			MENU_CLSFI_NM,
+			
+			CLASS_PIC,
+            DECODE(NVL(MENU_CLSFI, '00'),  '00','0',MENU_CLSFI) AS CLSFI_PIC,
+            DECODE(NVL(MENU_SCLASS, '00'), '00','0',PIC_PLACE)  AS SCLASS_PIC,
+			PIC_PLACE, 
+			LANGAE1,
+			LANGAE2,
+			LANGAE3
+  
+		FROM  SLE_OUTLET_MENU_GRP 
+		
+		--대분류
+		INNER JOIN (SELECT  MENU_CLASS AS CLASS_CD , PIC_PLACE AS CLASS_PIC, 
+        					MENU_CLSFI_NM AS MENU_CLASS_NM 
+        				FROM SLE_OUTLET_MENU_GRP  
+                        WHERE MENU_CLSFI = '00' 
+                          AND MENU_SCLASS   = '00'
+                          AND OUTLET_CD = :outletCd
+                   ) A ON  A.CLASS_CD = MENU_CLASS 
+        --중부류               
+		INNER JOIN (SELECT 	MENU_CLASS AS CLASS_CD , MENU_CLSFI AS CLSFI_CD, PIC_PLACE AS CLSFI_PIC,
+        					MENU_CLSFI_NM AS MENU_CLSFI_NAME 
+        				FROM SLE_OUTLET_MENU_GRP  
+                        WHERE MENU_SCLASS = '00'
+                          AND OUTLET_CD = :outletCd
+                   ) B ON B.CLASS_CD = MENU_CLASS  AND B.CLSFI_CD = MENU_CLSFI
+                        
+		WHERE USE_YN    = 'Y'
+		  AND OUTLET_CD = :outletCd
+	)
+		ORDER BY CLASS_PIC, CLSFI_PIC, SCLASS_PIC, MENU_CLASS, MENU_CLSFI, MENU_SCLASS
+
+	]]>
+	</statement>
+	
+		
+	<!--  DATA를 저장한다. -->
+	<statement name="insertData" type="insert">
+	/*+ com.hwfs.rc.sle.dao.menuGrpMgmtDAO.insertData */
+		<![CDATA[
+	 INSERT INTO SLE_OUTLET_MENU_GRP
+		(
+		 OUTLET_CD,
+		 MENU_CLASS,
+		 MENU_CLSFI,
+		 MENU_SCLASS,
+		 MENU_CLSFI_NM,
+		 PIC_PLACE,
+		 LANGAE1,
+		 LANGAE2,
+		 LANGAE3,
+		 
+		 USE_YN,
+		 CDATE,
+		 CUSER,
+		 UDATE,
+		 UUSER
+		) VALUES (
+		 :outletCd,
+		 :menuClass,
+		 :menuClsfi,
+		 :menuSclass,
+		 :menuClsfiNm, 
+		<#if picPlace?exists> :picPlace, <#else> null, </#if> 
+		<#if langae1?exists> :langae1, <#else> null, </#if>
+		<#if langae2?exists> :langae2, <#else> null, </#if>
+		<#if langae3?exists> :langae3, <#else> null, </#if>
+
+		<#if useYn?exists> DECODE(:useYn, '1', 'Y', 'N'), <#else> null, </#if>
+		 SYSDATE,
+		 :loginSabun,
+		 SYSDATE,
+		 :loginSabun
+		
+		)
+		]]>
+	</statement>
+	
+	<!--  DATA를 수정한다. -->
+	<statement name="updateData" type="update">
+	/*+ com.hwfs.rc.sle.dao.menuGrpMgmtDAO.updateData */
+		<![CDATA[
+		
+ 	UPDATE SLE_OUTLET_MENU_GRP SET
+		<#if menuClsfiNm?exists> MENU_CLSFI_NM = :menuClsfiNm,  </#if>
+		<#if picPlace?exists> PIC_PLACE = :picPlace, </#if>
+		<#if langae1?exists> LANGAE1 = :langae1, </#if>
+		<#if langae2?exists> LANGAE2 = :langae2, </#if>
+		<#if langae3?exists> LANGAE3 = :langae3, </#if>
+		<#if useYn?exists> USE_YN = DECODE(:useYn, '1', 'Y', 'N'), </#if>
+		 UDATE = SYSDATE,
+		 UUSER = :loginSabun
+		 
+		WHERE  OUTLET_CD   = :outletCd
+		AND    MENU_CLASS  = :menuClass
+		AND    MENU_CLSFI  = :menuClsfi
+		AND    MENU_SCLASS = :menuSclass
+ 
+		]]>
+	</statement>
+	
+	<!--  DATA를 삭제한다. -->
+	<statement name="deleteData" type="update">
+	/*+ com.hwfs.rc.sle.dao.menuGrpMgmtDAO.deleteData */
+		<![CDATA[
+ 	DELETE FROM SLE_OUTLET_MENU_GRP 
+		WHERE  OUTLET_CD   = :outletCd
+		AND    MENU_CLASS  = :menuClass
+		AND    MENU_CLSFI  = :menuClsfi
+		AND    MENU_SCLASS = :menuSclass
+ 
+		]]>
+	</statement>
+	  
+	<statement name="selectMenuCnt" type="select">
+	/*+ com.hwfs.rc.sle.dao.menuGrpMgmtDAO."selectMenuCnt" */
+		<![CDATA[
+	 	SELECT   COUNT(MENU_CD) AS MENU_CNT FROM SLE_OUTLET_MENU 
+			WHERE  OUTLET_CD   = :outletCd
+			AND    MENU_CLASS  = :menuClass
+			AND    MENU_CLSFI  = :menuClsfi
+			AND    MENU_SCLASS = :menuSclass
+	 
+		]]>
+	</statement>
+</hqml>	

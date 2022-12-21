@@ -1,0 +1,250 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FMO00501V" onload="form_onload" titletext="모니터링 결과 그래프" position="absolute 0 0 1002 631" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <ActiveX progid="ShockwaveFlash.ShockwaveFlash.10" id="fu_ct01" position="absolute 4 36 995 266"/>
+        <ActiveX progid="ShockwaveFlash.ShockwaveFlash.10" id="fu_ct02" position="absolute 4 274 995 610"/>
+        <Static id="st_title1" position="absolute 19 6 103 31"/>
+        <Static id="st_title2" position="absolute 158 6 662 31" style="align:right middle;"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_Chart1">
+        <ColumnInfo>
+          <Column id="UPJANG" type="STRING" size="256"/>
+          <Column id="OP_DATE" type="STRING" size="256"/>
+          <Column id="GUBUN" type="STRING" size="256"/>
+          <Column id="CNT" type="STRING" size="256"/>
+          <Column id="GBN_NM" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_Chart2">
+        <ColumnInfo>
+          <Column id="CLASS_CODE" type="STRING" size="256"/>
+          <Column id="CLASS_NAME" type="STRING" size="256"/>
+          <Column id="GUBUN_CODE" type="STRING" size="256"/>
+          <Column id="GUBUN_NAME" type="STRING" size="256"/>
+          <Column id="CNT" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_Class_Copy1" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="CD" type="STRING" size="256"/>
+          <Column id="NM" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_in" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="UPJANG" type="STRING" size="256"/>
+          <Column id="OP_DATE" type="STRING" size="256"/>
+          <Column id="MEAL" type="STRING" size="256"/>
+          <Column id="GUBUN" type="STRING" size="256"/>
+          <Column id="CLASS" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row/>
+        </Rows>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 운영관리 > 급식운영관리
+ * 프로그램명   : FMO00481V.XML
+ * 기      능   : 기간별 식수 그래프
+ * 작  성  자   : 윤상혁
+ * 작성  일자   : 2008-02-28
+ * 비      고   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "LIB::sc_comon.js";			// 시스템공통 함수
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js";
+//@@컨버터에서 주석처리 #include "LIB::tit_comm_0001.js";		// X-Framework Lib
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	// X-Framework : Action 정보 생성 
+	fsp_init(this);
+	
+	st_title1.text="총 "+opener.ds_List.getRowCount()+"건";
+	st_title2.text="사업장 : "+opener.ds_List.getColumn(0,"UPJANGNM") + "    날짜 : "+gfn_subStr(opener.ds_List.getColumn(0,"OP_DATE"),0,4)+"년 "+gfn_subStr(opener.ds_List.getColumn(0,"OP_DATE"),4,2)+"월";
+	
+	var argArgs = this.getOwnerFrame().sParam;
+	
+	ds_in.setColumn(0,"UPJANG",argArgs[0]);
+	ds_in.setColumn(0,"OP_DATE",argArgs[1]);
+	ds_in.setColumn(0,"MEAL",argArgs[2]);
+	ds_in.setColumn(0,"GUBUN",argArgs[3]);
+	ds_in.setColumn(0,"CLASS",argArgs[4]);
+	
+    ds_Chart1.clearData();	
+	fsp_clear(this);
+	
+	fsp_addSearch(this, "fm/fmo:FMO00501V_S001");
+	fsp_callService(this, "", "", "ds_in=ds_in", "ds_Chart1=ds_Chart1", "", "fn_callBackSearch1");
+}
+  
+function fn_getChart2()
+{
+// 	ds_in.setColumn(0,"MEAL","");
+// 	ds_in.setColumn(0,"GUBUN","");
+// 	ds_in.setColumn(0,"CLASS","");
+	
+	fsp_addSearch(this, "fm/fmo:FMO00501V_S002");
+	fsp_callService(this, "", "", "ds_in=ds_in", "ds_Chart2=ds_Chart2", "", "fn_callBackSearch2");
+}
+
+function fn_callBackSearch1(errCode, errMsg)
+{
+	if(errCode!=0)
+	{
+		g_Message("EE", "서비스 오류:시스템 관리자에게 문의하십시오!");
+		return;
+	}
+	else 
+	{
+		if(ds_Chart1.getRowCount()==0)
+		{
+			ds_Chart1.addRow();
+			ds_Chart1.setColumn(0,"CNT","0");
+			ds_Chart1.setColumn(0,"GBN_NM","칭찬");
+			ds_Chart1.setColumn(0,"GUBUN","001");
+			ds_Chart1.addRow();
+			ds_Chart1.setColumn(1,"CNT","0");
+			ds_Chart1.setColumn(1,"GBN_NM","불만");
+			ds_Chart1.setColumn(1,"GUBUN","002");		
+		}
+		if(ds_Chart1.getRowCount()==1)
+		{
+			if(ds_Chart1.findRow("GUBUN","001")==-1)
+			{
+				ds_Chart1.addRow();
+				ds_Chart1.setColumn(1,"CNT","0");
+				ds_Chart1.setColumn(1,"GBN_NM","칭찬");
+				ds_Chart1.setColumn(1,"GUBUN","001");			
+			}
+			if(ds_Chart1.findRow("GUBUN","002")==-1)
+			{
+				ds_Chart1.addRow();
+				ds_Chart1.setColumn(1,"CNT","0");
+				ds_Chart1.setColumn(1,"GBN_NM","불만");
+				ds_Chart1.setColumn(1,"GUBUN","002");			
+			}
+		}
+		
+		var v_ChartXML = "\n<chart baseFont='굴림' baseFontSize='12' formatNumberScale='0' numberSuffix='건' showValues='1' showNames='1' useRoundEdges='1'>";
+		v_ChartXML += "\n	<set label='" + ds_Chart1.getColumn(1, "GBN_NM") + "' value='" + ds_Chart1.getColumn(1, "CNT") + "'/> ";
+		v_ChartXML += "\n	<set label='" + ds_Chart1.getColumn(0, "GBN_NM") + "' value='" + ds_Chart1.getColumn(0, "CNT") + "'/> ";
+		v_ChartXML += "\n</chart>";
+		
+		// Chart Component Setting
+		var strDir = AliasToRealPath("%COMPONENT%");
+		fu_ct01.Movie = gv_chartPath + "Bar2D" + ".swf";
+		
+		fu_ct01.SetVariable('dataXML',     v_ChartXML    );
+		fu_ct01.SetVariable('chartWidth',  fu_ct01.position.width );	// chart size 지정
+		fu_ct01.SetVariable('chartHeight', fu_ct01.position.height);	// chart size 지정
+		//fu_ct01.SetVariable('debugMode',   "1"           );	// 디버그모드
+		
+		fu_ct01.Rewind();
+		fu_ct01.Play();
+		
+		fn_getChart2();
+	}
+}
+
+
+function fn_callBackSearch2(errCode, errMsg)
+{
+	if(errCode!=0)
+	{
+		g_Message("EE", "서비스 오류:시스템 관리자에게 문의하십시오!");
+		return;
+	}
+	else 
+	{
+		Copy(ds_Class_Copy1,opener.ds_Class);
+		
+		v_ChartXML ="";
+		v_ChartXML = "\n<chart baseFont='굴림' baseFontSize='12' showValues='1' showNames='1' numberSuffix='건' useRoundEdges='1'>";
+
+		v_ChartXML += "\n<categories>";
+		for( var i = 0; i < ds_Class_Copy1.rowcount; i ++ ) {
+			//if ( i == 0 ) continue;
+			v_ChartXML += "\n<category label='"+ds_Class_Copy1.getColumn(i, 'NM')+"' />";
+		}
+		v_ChartXML += "\n</categories>";
+		
+		v_ChartXML += "\n<dataset seriesName='칭찬'>";
+		for	( var j = 0; j < ds_Class_Copy1.rowcount; j ++ ) { 
+			for( var i = 0; i < ds_Chart2.rowcount; i ++ ) {
+				if ((ds_Class_Copy1.getColumn(j, 'CD') == ds_Chart2.getColumn(i, 'CLASS_CODE')) && 
+						ds_Chart2.getColumn(i, 'GUBUN_CODE')=="001"){
+					v_ChartXML += "\n<set value='"+ds_Chart2.getColumn(i, 'CNT')+"' />";
+				} 			
+			}
+		}	
+		v_ChartXML += "\n</dataset>";
+
+		v_ChartXML += "\n<dataset seriesName='불만'>";
+		for	( var j = 0; j < ds_Class_Copy1.rowcount; j ++ ) { 
+			for( var i = 0; i < ds_Chart2.rowcount; i ++ ) {
+				if ((ds_Class_Copy1.getColumn(j, 'CD') == ds_Chart2.getColumn(i, 'CLASS_CODE')) && 
+						ds_Chart2.getColumn(i, 'GUBUN_CODE')=="002"){
+					v_ChartXML += "\n<set value='"+ds_Chart2.getColumn(i, 'CNT')+"' />";
+				} 
+			}
+		}
+		v_ChartXML += "\n</dataset>"; 
+
+		v_ChartXML += "\n</chart>";
+
+		// Chart Component Setting
+		var strDir = AliasToRealPath("%COMPONENT%");
+		fu_ct02.Movie = gv_chartPath + "MSColumn2D" + ".swf";
+
+		fu_ct02.SetVariable('dataXML',     v_ChartXML    );
+		fu_ct02.SetVariable('chartWidth',  fu_ct02.position.width );	// chart size 지정
+		fu_ct02.SetVariable('chartHeight', fu_ct02.position.height);	// chart size 지정
+		//fu_ct01.SetVariable('debugMode',   "0"           );	// 디버그모드
+
+		fu_ct02.Rewind();
+		fu_ct02.Play();	
+	}
+}
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+]]></Script>
+  </Form>
+</FDL>

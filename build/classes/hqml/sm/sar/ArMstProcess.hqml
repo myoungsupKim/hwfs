@@ -1,0 +1,428 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sm.sar.arMstProcessDAO">
+	<desc>채권마스터프로세스처리 HQML Query</desc>
+
+	<!-- 채권마스터프로세스처리 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sm.sar.dao.ArMstProcessDAO.selectList */
+		<![CDATA[
+		SELECT '0' AS CHK,
+			   AR_NUM,
+		       OCCUR_DATE,
+		       FISCAL_DATE,
+		       AR_OCCUR_CLASS,
+		       AR_TYPE_CD,
+		       (SELECT TYPE_NM FROM SLA_TYPE_CD_MST WHERE TYPE_GRP_CD = '001' AND TYPE_CD = A.AR_TYPE_CD) AS AR_TYPE_NM,
+		       ACCT_CD,
+		       SYS_CLASS,
+		       MU_CD,
+		       (SELECT DISTINCT MU_NM FROM   HLDC_SC_DEPT_V WHERE MU_CD = A.MU_CD)  AS MU_NM,
+		       CC_CD,
+		       (SELECT  CC_NM FROM SCC_CC WHERE CC_CD = A.CC_CD) AS CC_NM,
+		       CUST_CD,
+		       AR_AMT,
+		       NVL(WITHDRAW_AMT, 0) AS WITHDRAW_AMT,
+		       (NVL(A.AR_AMT,0) - NVL((SELECT SUM(RECEIVE_AMT) FROM SLA_AR_RECEIVE_DETAIL RD WHERE RD.AR_NUM=A.AR_NUM AND RD.RECD_STATUS='L'),0)) AS AR_BAL_AMT,
+		       0 AS RECEIVE_AMT,
+		       0 AS BAL_AMT,
+		       DECODE(TAX_SHET_PUBLISH_YN, 'Y', 1, 0) AS TAX_SHET_PUBLISH_YN,
+		       BATCH_ID,
+		       CUST_NM,
+		       RESERV_TYPE_CD,
+		       RESERV_NUM,
+		       CONTRACT_TYPE_CD,
+		       CONTRACT_NUM,
+		       PAY_CLASS_CD,
+		       DECODE(BILLING_PUBLISH_YN, 'Y', 1, 0) AS BILLING_PUBLISH_YN,
+		       WITHDRAW_SCHD_DATE,
+		       RECEIVE_END_DATE,
+		       AR_INCHARGE,
+		       REMARK,
+		       RECEIPT_NUM,
+		       REF_NUM,
+		       DECODE(JOURNALZ_YN, 'Y', 1, 0) AS JOURNALZ_YN,
+		       JOURNALZ_NUM,
+		       RECD_STATUS,
+		       CUSER,
+		       CDATE,
+		       UUSER,
+		       UDATE,
+		       '0' AS AR_ALT_NUM
+		FROM   SLA_AR_MST A
+		WHERE  1=1
+		AND    RECD_STATUS = 'L'
+			<#if arNum?has_content>AND AR_NUM = :arNum</#if>
+			<#if occurDate?has_content>AND OCCUR_DATE = :occurDate</#if>
+			<#if fiscalDateFr?has_content>AND    FISCAL_DATE >= :fiscalDateFr</#if>
+			<#if fiscalDateTo?has_content>AND    FISCAL_DATE <= :fiscalDateTo</#if>
+			<#if fiscalDate?has_content>AND      FISCAL_DATE  = :fiscalDate</#if>
+			<#if arTypeCd?has_content>AND        AR_TYPE_CD = :arTypeCd</#if>
+			<#if custCdFr?has_content>AND        CUST_CD >= :custCdFr</#if>
+			<#if custCdTo?has_content>AND        CUST_CD <= :custCdTo</#if>
+			<#if moveRequestProcUser?has_content>AND    AR_INCHARGE = :moveRequestProcUser</#if>
+			<#if muCd?has_content>AND    MU_CD = :muCd</#if>
+			<#if ccCd?has_content>AND    CC_CD = :ccCd</#if>
+			<#if custCd?has_content>AND    CUST_CD = :custCd</#if>			
+			<#if inqueryStartDate?has_content>AND    FISCAL_DATE >= :inqueryStartDate</#if>
+			<#if inqueryEndDate?has_content>AND    FISCAL_DATE <= :inqueryEndDate</#if>
+			<#if inqueryMuCd?has_content>AND    MU_CD = :inqueryMuCd</#if>
+			<#if inqueryCcCd?has_content>AND    CC_CD = :inqueryCcCd</#if>
+			<#if inqueryCustCd?has_content>AND    CUST_CD = :inqueryCustCd</#if>			
+			<#if inqueryArNum?has_content>AND AR_NUM = :inqueryArNum</#if>
+			--AND NVL(AR_AMT,0) - NVL(WITHDRAW_AMT,0) > 0
+			AND (NVL(A.AR_AMT,0) - NVL((SELECT SUM(RECEIVE_AMT) FROM SLA_AR_RECEIVE_DETAIL RD WHERE RD.AR_NUM=A.AR_NUM AND RD.RECD_STATUS='L'),0)) <> 0
+
+		]]>
+	</statement>
+	<!-- <#if zeroAmtYn?has_content><#if zeroAmtYn =="N">AND NVL(AR_AMT,0) - 
+		NVL(WITHDRAW_AMT,0) > 0</#if></#if> -->
+
+	<!-- 채권마스터 생성번호를 조회한다. -->
+	<statement name="selectMaxArNum" type="select">
+		/*+ com.hwfs.sm.sar.dao.ArMstProcessDAO.selectMaxArNum */
+		<![CDATA[
+			SELECT :occurDate || SUBSTR('000000' || (NVL(MAX(TO_NUMBER(SUBSTR(AR_NUM,9,6))),0)+1), -6) AS maxArNum
+			FROM SLA_AR_MST WHERE SUBSTR(AR_NUM,1,8) = :occurDate
+		]]>
+	</statement>
+
+	<!-- 채권마스터프로세스처리(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sm.sar.dao.ArMstProcessDAO.insert */
+		<![CDATA[
+			INSERT INTO SLA_AR_MST
+			(
+				 AR_NUM,
+				 OCCUR_DATE,
+				 FISCAL_DATE,
+				 AR_OCCUR_CLASS,
+				 AR_TYPE_CD,
+				 ACCT_CD,
+				 SYS_CLASS,
+				 MU_CD,
+				 CC_CD,
+				 UPJANG_CD,
+				 CUST_CD,
+				 AR_AMT,
+				 WITHDRAW_AMT,
+				 TAX_SHET_PUBLISH_YN,
+				 BATCH_ID,
+				 CUST_NM,
+				 RESERV_TYPE_CD,
+				 RESERV_NUM,
+				 CONTRACT_TYPE_CD,
+				 CONTRACT_NUM,
+				 PAY_CLASS_CD,
+				 BILLING_PUBLISH_YN,
+				 WITHDRAW_SCHD_DATE,
+				 RECEIVE_END_DATE,
+				 AR_INCHARGE,
+				 REMARK,
+				 RECEIPT_NUM,
+				 MNGMV_AR_NUM,
+				 REF_NUM,
+				 JOURNALZ_YN,
+				 JOURNALZ_NUM,
+				 RECD_STATUS,
+				 CUSER,
+				 CDATE,
+				 UUSER,
+				 UDATE
+			) VALUES (
+			 :arNum,
+				<#if occurDate?exists> :occurDate, <#else> null, </#if>
+				<#if fiscalDate?exists> :fiscalDate, <#else> null, </#if>
+				<#if arOccurClass?exists> :arOccurClass, <#else> null, </#if>
+				<#if arTypeCd?exists> :arTypeCd, <#else> null, </#if>
+				<#if acctCd?exists> :acctCd, <#else> null, </#if>
+				<#if sysClass?exists> :sysClass, <#else> null, </#if>
+				<#if muCd?exists> :muCd, <#else> null, </#if>
+				<#if ccCd?exists> :ccCd, <#else> null, </#if>
+			<#if muCd == '2004' && arTypeCd == 'A03'>
+				null,
+			<#else>
+				<#if upjangCd?exists> :upjangCd, <#else><#if ccCd?exists>(SELECT MAX(UPJANG) FROM ST_UPJANG WHERE CC_CD = :ccCd), <#else> null, </#if></#if>
+			</#if>
+				<#if custCd?exists> :custCd, <#else> null, </#if>
+				<#if arAmt?exists> :arAmt, <#else> null, </#if>
+				<#if withdrawAmt?exists> :withdrawAmt, <#else> 0, </#if>
+				<#if taxShetPublishYn?exists> DECODE(:taxShetPublishYn, '1', 'Y', 'N'), <#else> null, </#if>
+				<#if batchId?exists> :batchId, <#else> null, </#if>
+				<#if custNm?exists> :custNm, <#else><#if custCd?exists>(SELECT MAX(CUSTNM) FROM ST_CUST WHERE CUSTCD = :custCd), <#else> null, </#if></#if>
+				<#if reservTypeCd?exists> :reservTypeCd, <#else> null, </#if>
+				<#if reservNum?exists> :reservNum, <#else> null, </#if>
+				<#if contractTypeCd?exists> :contractTypeCd, <#else> null, </#if>
+				<#if contractNum?exists> :contractNum, <#else> null, </#if>
+				<#if payClassCd?exists> :payClassCd, <#else> null, </#if>
+				<#if billingPublishYn?exists> DECODE(:billingPublishYn, '1', 'Y', 'N'), <#else> null, </#if>
+				<#if withdrawSchdDate?exists> :withdrawSchdDate, <#else> null, </#if>
+				<#if receiveEndDate?exists> :receiveEndDate, <#else> null, </#if>
+				<#if arIncharge?exists> :arIncharge, <#else> null, </#if>
+				<#if remark?exists> :remark, <#else> null, </#if>
+				<#if receiptNum?exists> :receiptNum, <#else> null, </#if>
+				<#if mngmvArNum?exists> :mngmvArNum, <#else> null, </#if>
+				<#if refNum?exists> :refNum, <#else> null, </#if>
+				<#if journalzYn?exists> DECODE(:journalzYn, '1', 'Y', 'N'), <#else> 'N', </#if>
+				<#if journalzNum?exists> :journalzNum, <#else> null, </#if>
+				'L',
+				 :loginSabun,
+				 SYSDATE,
+				 :loginSabun,
+				 SYSDATE
+			)
+
+		]]>
+	</statement>
+
+	<!-- 채권마스터프로세스처리(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sm.sar.dao.ArMstProcessDAO.update */
+		<![CDATA[
+			UPDATE SLA_AR_MST SET
+				<#if occurDate?exists> OCCUR_DATE = :occurDate, </#if>
+				<#if fiscalDate?exists> FISCAL_DATE = :fiscalDate, </#if>
+				<#if arOccurClass?exists> AR_OCCUR_CLASS = :arOccurClass, </#if>
+				<#if arTypeCd?exists> AR_TYPE_CD = :arTypeCd, </#if>
+				<#if acctCd?exists> ACCT_CD = :acctCd, </#if>
+				<#if sysClass?exists> SYS_CLASS = :sysClass, </#if>
+				<#if muCd?exists> MU_CD = :muCd, </#if>
+				<#if ccCd?exists> CC_CD = :ccCd, </#if>
+				<#if custCd?exists> CUST_CD = :custCd, </#if>
+				<#if arAmt?exists> AR_AMT = :arAmt, </#if>
+				<#if withdrawAmt?exists> WITHDRAW_AMT = :withdrawAmt, </#if>
+				<#if taxShetPublishYn?exists> TAX_SHET_PUBLISH_YN = DECODE(:taxShetPublishYn, '1', 'Y', 'N'), </#if>
+				<#if batchId?exists> BATCH_ID = :batchId, </#if>
+				<#if custNm?exists> CUST_NM = :custNm, </#if>
+				<#if reservTypeCd?exists> RESERV_TYPE_CD = :reservTypeCd, </#if>
+				<#if reservNum?exists> RESERV_NUM = :reservNum, </#if>
+				<#if contractTypeCd?exists> CONTRACT_TYPE_CD = :contractTypeCd, </#if>
+				<#if contractNum?exists> CONTRACT_NUM = :contractNum, </#if>
+				<#if payClassCd?exists> PAY_CLASS_CD = :payClassCd, </#if>
+				<#if billingPublishYn?exists> BILLING_PUBLISH_YN = DECODE(:billingPublishYn, '1', 'Y', 'N'), </#if>
+				<#if withdrawSchdDate?exists> WITHDRAW_SCHD_DATE = :withdrawSchdDate, </#if>
+				<#if receiveEndDate?exists> RECEIVE_END_DATE = :receiveEndDate, </#if>
+				<#if arIncharge?exists> AR_INCHARGE = :arIncharge, </#if>
+				<#if remark?exists> REMARK = :remark, </#if>
+				<#if receiptNum?exists> RECEIPT_NUM = :receiptNum, </#if>
+				<#if mngmvArNum?exists> MNGMV_AR_NUM = :mngmvArNum, </#if>
+				<#if refNum?exists> REF_NUM = :refNum, </#if>
+				<#if journalzYn?exists> JOURNALZ_YN = DECODE(:journalzYn, '1', 'Y', 'N'), </#if>
+				<#if journalzNum?exists> JOURNALZ_NUM = :journalzNum, </#if>
+				<#if recdStatus?exists> RECD_STATUS = :recdStatus, </#if>
+			       UUSER = :loginSabun,
+			       UDATE = SYSDATE
+			WHERE  AR_NUM = :arNum
+
+		]]>
+	</statement>
+
+	<!-- 채권마스터프로세스처리에서 입금 처리를 수정한다. -->
+	<statement name="updateReceive" type="update">
+		/*+ com.hwfs.sm.sar.dao.ArMstProcessDAO.updateReceive */
+		<![CDATA[
+		UPDATE SLA_AR_MST SET
+			WITHDRAW_AMT = (SELECT SUM(RECEIVE_AMT) FROM SLA_AR_RECEIVE_DETAIL WHERE AR_NUM = :arNum AND RECD_STATUS='L'),
+			MNGMV_AMT = (SELECT SUM(A.AR_AMT) FROM SLA_AR_MST A WHERE A.MNGMV_AR_NUM = :arNum AND A.RECD_STATUS='L'),
+			<#if batchId?exists> BATCH_ID = :batchId, </#if>
+	       UUSER = :loginSabun,
+	       UDATE = SYSDATE
+		WHERE  AR_NUM = :arNum
+
+		]]>
+	</statement>
+
+	<!-- 채권마스터프로세스처리(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.sm.sar.dao.ArMstProcessDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   SLA_AR_MST 
+		WHERE AR_NUM = :arNum
+		]]>
+	</statement>
+
+	<!-- 채권마스터프로세스처리(을)를 취소한다. -->
+	<statement name="cancelArMst" type="delete">
+		/*+ com.hwfs.sm.sar.dao.ArMstProcessDAO.cancelArMst */
+		<![CDATA[
+		UPDATE  SLA_AR_MST SET
+		    RECD_STATUS = 'D',
+		    UUSER = :loginSabun,
+		    UDATE = SYSDATE
+		WHERE AR_NUM = :arNum
+		]]>
+	</statement>
+
+
+	<!-- 채권이관 처리를 위해 insert Select 처리를 한다. -->
+	<statement name="insertTransSelect" type="insert"><![CDATA[
+			INSERT INTO SLA_AR_MST
+			(
+				 AR_NUM,
+				 OCCUR_DATE,
+				 FISCAL_DATE,
+				 AR_OCCUR_CLASS,
+				 AR_TYPE_CD,
+				 ACCT_CD,
+				 SYS_CLASS,
+				 MU_CD,
+				 CC_CD,
+				 CUST_CD,
+				 AR_AMT,
+				 WITHDRAW_AMT,
+				 TAX_SHET_PUBLISH_YN,
+				 BATCH_ID,
+				 CUST_NM,
+				 UPJANG_CD, 
+				 RESERV_TYPE_CD,
+				 RESERV_NUM,
+				 CONTRACT_TYPE_CD,
+				 CONTRACT_NUM,
+				 PAY_CLASS_CD,
+				 BILLING_PUBLISH_YN,
+				 WITHDRAW_SCHD_DATE,
+				 RECEIVE_END_DATE,
+				 AR_INCHARGE,
+				 REMARK,
+				 RECEIPT_NUM,
+				 MNGMV_AR_NUM,
+				 REF_NUM,
+				 JOURNALZ_YN,
+				 JOURNALZ_NUM,
+				 RECD_STATUS,
+				 CUSER,
+				 CDATE,
+				 UUSER,
+				 UDATE
+			) 
+			SELECT 			
+			 	:arNum,
+				OCCUR_DATE,
+				:fiscalDate, 
+				:arOccurClass,
+				AR_TYPE_CD,
+				ACCT_CD, 
+				SYS_CLASS,
+				<#if muCd?exists> :muCd, <#else> MU_CD, </#if>
+				--20180605 김호석 CC코드 안들어가는 문제 방지
+				<#if arOccurClass == 'AO03'> 
+					<#if ccCd?exists> :ccCd, <#else> CC_CD, </#if>				
+				<#else>
+					CC_CD,
+				</#if>
+				<#if custCd?exists> :custCd, <#else> CUST_CD, </#if>
+				:arAmt,
+				<#if withdrawAmt?exists> :withdrawAmt, <#else> 0, </#if>
+				TAX_SHET_PUBLISH_YN,
+				<#if batchId?exists> BATCH_ID, <#else> BATCH_ID, </#if>
+				--고객사명 가져오는 방식 수정 20180608 김호석 20180831 추가 수정
+				<#if custCd?exists> 
+					(SELECT B.CUSTNM FROM ST_CUST B WHERE B.CUSTCD = :custCd),
+				<#else> 
+					CUST_NM, 
+				</#if>				
+				--식재사업부 고객사이관 시 업장은 필수선택으로 변경 20180516 김호석 
+				<#if arOccurClass == 'AO03'> 
+			    	--타부서 이관 시
+			    	<#if muCd?exists && muCd == '2004'>
+			    		--기존 채권 업장코드 사용(업장과 CC코드 N:1)
+						A.UPJANG_CD,
+					<#else>
+						--변경되는 CC의 업장코드(업장과 CC코드 1:1)
+			       		<#if ccCd?exists>(SELECT MAX(UPJANG) FROM ST_UPJANG WHERE CC_CD = :ccCd), <#else> (SELECT MAX(UPJANG) FROM ST_UPJANG WHERE CC_CD = A.CC_CD), </#if>
+					</#if>
+			    <#else>
+			    	--고객사 이관 시			    			
+					<#if muCd?exists && muCd == '2004'>
+						:upjangCd,
+					<#else>
+						<#if ccCd?exists>(SELECT MAX(UPJANG) FROM ST_UPJANG WHERE CC_CD = :ccCd), <#else> (SELECT MAX(UPJANG) FROM ST_UPJANG WHERE CC_CD = A.CC_CD), </#if>
+					</#if>				        	
+		        </#if>		
+				<#if reservTypeCd?exists> :reservTypeCd, <#else> RESERV_TYPE_CD, </#if>
+				<#if reservNum?exists> :reservNum, <#else> RESERV_NUM, </#if>
+				<#if contractTypeCd?exists> :contractTypeCd, <#else> CONTRACT_TYPE_CD, </#if>
+				<#if contractNum?exists> :contractNum, <#else> CONTRACT_NUM, </#if>
+				<#if payClassCd?exists> :payClassCd, <#else> PAY_CLASS_CD, </#if>
+				<#if billingPublishYn?exists> DECODE(:billingPublishYn, '1', 'Y', 'N'), <#else> 'N', </#if>
+				<#if withdrawSchdDate?exists> :withdrawSchdDate, <#else> null, </#if>
+				<#if receiveEndDate?exists> :receiveEndDate, <#else> null, </#if>
+				<#if arIncharge?exists> :arIncharge, <#else> AR_INCHARGE, </#if>
+				<#if remark?exists> :remark, <#else> null, </#if>
+				<#if receiptNum?exists> :receiptNum, <#else> RECEIPT_NUM, </#if>
+				<#if mngmvArNum?exists> :mngmvArNum, <#else> null, </#if>
+				<#if refNum?exists> :refNum, <#else> null, </#if>
+				<#if journalzYn?exists> DECODE(:journalzYn, '1', 'Y', 'N'), <#else> 'N', </#if>
+				<#if journalzNum?exists> :journalzNum, <#else> null, </#if>
+				<#if recdStatus?exists> :recdStatus, <#else> 'L', </#if>
+				 :loginSabun,
+				 SYSDATE,
+				 :loginSabun,
+				 SYSDATE
+			FROM SLA_AR_MST A
+			WHERE AR_NUM = :mngmvArNum
+
+		]]></statement>
+
+	<!-- 채권 거래처/업장 이관 처리에서 신규로 이관된 채권을 수정 한다.. -->
+	<statement name="updateTrans" type="update">
+		/*+ com.hwfs.sm.sar.dao.ArMstProcessDAO.updateTrans */
+		<![CDATA[
+			UPDATE SLA_AR_MST A SET
+			<#if occurDate?exists> OCCUR_DATE = OCCUR_DATE, </#if>
+			<#if fiscalDate?exists> FISCAL_DATE = :fiscalDate, </#if>
+			<#if arOccurClass?exists> AR_OCCUR_CLASS = :arOccurClass, </#if>
+			<#if arTypeCd?exists> AR_TYPE_CD = :arTypeCd, </#if>
+			<#if acctCd?exists> ACCT_CD = :acctCd, </#if>
+			<#if sysClass?exists> SYS_CLASS = :sysClass, </#if>
+			<#if muCd?exists> MU_CD = :muCd, </#if>
+			<#if ccCd?exists> CC_CD = :ccCd, </#if>
+			<#if custCd?exists> CUST_CD = :custCd, </#if>
+			<#if arAmt?exists> AR_AMT = :arAmt, </#if>
+			<#if withdrawAmt?exists> WITHDRAW_AMT = :withdrawAmt, </#if>
+			<#if taxShetPublishYn?exists> TAX_SHET_PUBLISH_YN = DECODE(:taxShetPublishYn, '1', 'Y', 'N'), </#if>
+			<#if batchId?exists> --BATCH_ID = :batchId, </#if>
+			<#if custNm?exists> CUST_NM = :custNm, </#if>
+			<#if upjangCd?exists> UPJANG_CD = :upjangCd, <#else><#if ccCd?exists> UPJANG_CD = (SELECT MAX(UPJANG) FROM ST_UPJANG WHERE CC_CD = :ccCd), <#else> UPJANG_CD = (SELECT MAX(UPJANG) FROM ST_UPJANG WHERE CC_CD = A.CC_CD), </#if></#if>
+			<#if reservTypeCd?exists> RESERV_TYPE_CD = :reservTypeCd, </#if>
+			<#if reservNum?exists> RESERV_NUM = :reservNum, </#if>
+			<#if contractTypeCd?exists> CONTRACT_TYPE_CD = :contractTypeCd, </#if>
+			<#if contractNum?exists> CONTRACT_NUM = :contractNum, </#if>
+			<#if payClassCd?exists> PAY_CLASS_CD = :payClassCd, </#if>
+			<#if billingPublishYn?exists> BILLING_PUBLISH_YN = DECODE(:billingPublishYn, '1', 'Y', 'N'), </#if>
+			<#if withdrawSchdDate?exists> WITHDRAW_SCHD_DATE = :withdrawSchdDate, </#if>
+			<#if receiveEndDate?exists> RECEIVE_END_DATE = :receiveEndDate, </#if>
+			<#if arIncharge?exists> AR_INCHARGE = :arIncharge, </#if>
+			<#if remark?exists> REMARK = :remark, </#if>
+			<#if receiptNum?exists> RECEIPT_NUM = :receiptNum, </#if>
+			<#if journalzYn?exists> JOURNALZ_YN = DECODE(:journalzYn, '1', 'Y', 'N'), </#if>
+			<#if journalzNum?exists> JOURNALZ_NUM = :journalzNum, </#if>
+			<#if recdStatus?exists> RECD_STATUS = :recdStatus, </#if>
+			       UUSER = :loginSabun,
+			       UDATE = SYSDATE
+			WHERE  MNGMV_AR_NUM = :mngmvArNum AND REF_NUM = :refNum
+		]]>
+	</statement>
+
+	<!-- 채권 거래처/업장 이관 처리에서 신규로 이관된 채권을 삭제 한다.. -->
+	<statement name="deleteTrans" type="delete">
+		/*+ com.hwfs.sm.sar.dao.ArMstProcessDAO.deleteTrans */
+		<![CDATA[
+		DELETE 
+		FROM   SLA_AR_MST 
+		WHERE MNGMV_AR_NUM = :mngmvArNum AND REF_NUM = :refNum
+		]]>
+	</statement>
+
+	<!-- 채권 거래처/업장 이관을 취소 처리 한다. -->
+	<statement name="cancleTrans" type="update">
+		/*+ com.hwfs.sm.sar.dao.ArMstProcessDAO.cancleTrans */
+		<![CDATA[
+			UPDATE SLA_AR_MST SET
+				RECD_STATUS = 'D',
+			    UUSER = :loginSabun,
+			    UDATE = SYSDATE		
+			WHERE MNGMV_AR_NUM = :mngmvArNum AND REF_NUM = :refNum
+		]]>
+	</statement>
+</hqml>

@@ -1,0 +1,398 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="btn_DetailView" onkeydown="fn_form_OnKeyDown" onload="form_onload" titletext="매점상품운영리스트" position="absolute 0 0 1252 725" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Tab id="Tab_UPJANG" onchanged="Tab_UPJANG_OnChanged" taborder="10" position="absolute 0 86 1237 710" showextrabutton="false" anchor="all">
+          <Tabpages>
+            <Tabpage id="tab1" taborder="1" text="운영리스트" position="absolute 2 24 969 558" scrollbars="none">
+              <Layouts>
+                <Layout>
+                  <Shape id="Search_Box" type="rectangle" position="absolute 10 9 1226 587"/>
+                  <WebBrowser id="wb_Report" taborder="2" position="absolute 11 10 1225 586" anchor="all"/>
+                </Layout>
+              </Layouts>
+            </Tabpage>
+          </Tabpages>
+        </Tab>
+        <Static id="Static06" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 1237 0 1252 710" anchor="top right"/>
+        <Static id="Static71" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 0 710 1252 725" anchor="left bottom"/>
+        <Div id="div_cmnBtn" anchor="left top right" taborder="12" url="cmn::CmnBtn.xfdl" text="Div00" scrollbars="none" position="absolute 0 0 1237 30"/>
+        <Static id="Static08" class="sta_WFSA_Labelbg" position="absolute 0 30 1237 71" anchor="left top right"/>
+        <Static id="Static09" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 0 30 93 40"/>
+        <Static id="Static05" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 0 61 93 71"/>
+        <Static id="Static10" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 40 15 61"/>
+        <Static id="Static14" text="글자간격기준 w10" class="Guide01_AreaRed" visible="false" position="absolute 47 40 57 61"/>
+        <Static id="Static13" text="w30" class="Guide01_AreaRed" visible="false" position="absolute 167 40 197 61"/>
+        <Static id="Static01" text="글자간격기준 w10" class="Guide01_AreaRed" visible="false" position="absolute 283 40 293 61"/>
+        <Static id="Static02" text="w30" class="Guide01_AreaRed" visible="false" position="absolute 209 40 239 61"/>
+        <Static id="Static5" text="조회월" position="absolute 239 40 287 61" class="sta_WFSA_label"/>
+        <MaskEdit id="me_DateFr" mask="####-##" ontextchanged="me_DateFr_OnChanged" oneditclick="g_Date_OnFocus" onsetfocus="g_Date_OnFocus" onkillfocus="g_Month_OnKillFocus" taborder="1" type="string" position="absolute 293 40 371 61" class="msk_WF_EssentialCal"/>
+        <Button id="edtBtn_Date" onclick="edtBtn_Date_OnClick" taborder="3" tabstop="false" userdata="me_DateFr" position="absolute 370 40 391 61" class="btn_WF_popSearchEssential" text="" image=""/>
+        <Edit id="edt_UPJANGQuery" imemode="native" ontextchanged="edt_UPJANGQuery_OnChanged" onkeydown="edt_UPJANGQuery_OnKeyDown" readonly="true" taborder="0" position="absolute 57 40 189 61" class="edt_WF_Essential"/>
+        <Button id="edtBtn_UPJANGQuery" onclick="edtBtn_UPJANGQuery_OnClick" taborder="4" tabstop="false" position="absolute 188 40 209 61" class="btn_WF_popSearchEssential" text="" image=""/>
+        <Static id="st_UPJANGQuery" text="업장" userdata="strMAQuery_Upjang" position="absolute 15 40 55 61" class="sta_WFSA_label"/>
+        <Static id="Static00" text="h15" class="Guide01_AreaRed" visible="false" position="absolute -2 71 1250 86" anchor="left bottom"/>
+        <Static id="Static03" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 8 113 1223 123"/>
+        <Static id="Static19" text="w10" class="Guide01_AreaRed" visible="false" position="absolute 1 113 11 709"/>
+        <Static id="Static04" text="w10" class="Guide01_AreaRed" visible="false" position="absolute 1226 112 1236 708"/>
+        <Static id="Static21" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 11 699 1226 709"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_cond"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : FS시스템/시스템공통/템플릿 1
+ * 프로그램명   : Sam_Form_Basic1.XML
+ * 기      능   : 표준 UI Form
+ * 작  성  자   : 구종화
+ * 작성  일자   : 2007-11-16
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "lib::sc_comon.js"
+//@@컨버터에서 주석처리 #include "lib::sc_sql_common.js"
+//@@컨버터에서 주석처리 #include "lib::tit_comm_0001.js"
+//@@컨버터에서 주석처리 #include "lib::ma_common.js"
+
+
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+var f_Saved_ID,
+	f_CurrDate;
+
+var onWork = false,
+    onHeaderClick = false;
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+    var F_ArrCol          = new Array(-1);
+    var F_ArrColType      = new Array(-1);
+    
+	//init_btn_setup();	// Button 초기화
+	fsp_init(this);
+
+
+	/*
+	#############################################################################################################
+	공통코드 SETTING
+	#############################################################################################################
+	*/
+			
+	edt_UPJANGQuery.userdata    = g_Upjang;
+	edt_UPJANGQuery.value        = g_UpjangNm;
+			
+    f_CurrDate = fn_CurrDateWeek();
+	//me_TRANS_MONTHFR.Value   = Substr(f_CurrDate, 0, 6) + "01";		
+	me_DateFr.value   = gfn_subStr(f_CurrDate, 0, 6);			  
+		  
+    //사업장 권한 셋팅#############################################################################
+	fn_SetAuth("","","edt_UPJANGQuery", "edtBtn_UPJANGQuery");
+    //사업장 권한 셋팅#############################################################################    
+    
+	/*
+	#############################################################################################################
+	공통코드 SETTING
+	#############################################################################################################
+	*/
+}
+
+
+
+
+
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+function fn_search()
+{
+
+
+
+}
+
+function fn_insert()
+{
+
+}
+
+function fn_delete()
+{
+
+}
+
+function fn_save()
+{
+  
+}
+
+
+function fn_print()
+{	
+	if (!before_SelectCheck())
+		return;
+
+	strParam = "IFIS/oz.asp?title=매점상품운영리스트";			// Page Title
+	strParam += "&url=IFIS/MAS10370S_매점상품운영리스트.ozr";	// OZ Report File Name
+	strParam += "&cnt=2";									// Parameters Count
+	strParam += "&p1=" + edt_UPJANGQuery.userdata;	     // 업장코드
+	strParam += "&p2=" + me_DateFr.value;			    // 해당월
+	strParam += "&zoom=150";						    // 화면 출력 크기
+
+	Tab_UPJANG.tab1.wb_Report.url = g_OzUrl + strParam;
+	/* Run은 지원되지 않는 메서드입니다.*/ Tab_UPJANG.tab1.wb_Report;
+				
+}
+function fn_Close()
+{
+	this.close();
+}
+function fn_help()
+{
+}
+
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+
+function fn_SearchDetail(int_TabIndex)
+{
+
+}
+
+function before_SelectCheck()
+{
+
+	
+	if (gfn_length(edt_UPJANGQuery.userdata)== 0)
+	{
+	
+		gfn_alert("업장을 지정하여 주십시요.");
+		edt_UPJANGQuery.setFocus();
+		return false;
+	}
+	    
+	if (gfn_length(me_DateFr.value)== 0)
+	{
+	
+		gfn_alert("기준월을 지정하여 주십시요.");
+		me_DateFr.setFocus();
+		return false;
+	}
+	
+	return true;
+}
+
+
+function before_SaveCheck(str_Gubun)
+{
+ 
+}
+
+
+function fn_AfterSaveSearch(errCode, errMsg)
+{
+
+	if (errCode != 0){
+		
+		g_Message("EE");		
+		return;
+	}
+		
+    g_Message("03");		
+	
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : Common_Btn_common_OnClick
+ * 입      력   : obj  = Form Component
+ * 반      환   : 없음
+ * 기      능   : 
+ * 작  성  자   : 구종화
+ * 작성  일자   : 2007-11-16
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+
+function Common_Btn_common_OnClick(obj)
+{
+
+	switch(obj.name)
+	{
+		case "btn_search":
+		    //alert("d");
+			fn_search();
+			break;
+		case "btn_ins":
+			fn_insert();
+			break;
+		case "btn_del":
+			fn_delete();
+			break;
+		case "btn_save":
+			fn_save();
+			break;
+		case "btn_Print":
+			//fn_Print();
+			break;
+		case "btn_close":
+			fn_Close();
+			break;
+		case "btn_Help":
+			//fn_Help();
+			break;
+		default:
+			break;
+	}
+
+}
+
+
+function WorkForm_OnKeyDown(obj,objSenderObj,nChar,bShift,bControl,bAlt,nLLParam,nHLParam)
+{
+	
+	gfn_formKeyDown(obj, e); //(obj,objSenderObj,nChar,bShift,bControl,bAlt,nLLParam,nHLParam);
+}
+
+
+
+
+
+function edt_UPJANGQuery_OnKeyDown(obj:Edit, e:KeyEventInfo)
+{
+	fn_edt_OnKeyDown(obj,e.keycode);	
+			
+			
+	if (e.keycode == 46){
+	
+		fn_DataSetAllClear();
+			   	
+	}
+}
+
+
+function fn_DataSetAllClear()
+{
+
+		
+}	
+
+
+
+
+
+function edtBtn_UPJANGQuery_OnClick(obj:Button, e:ClickEventInfo)
+{
+  
+  fn_edtBtn_OnClick(obj);
+	
+  fn_DataSetAllClear();			
+}
+
+
+
+
+
+
+
+
+function edt_UPJANGQuery_OnChanged(obj:Edit, e:TextChangedEventInfo)
+{
+	fn_DataSetAllClear();		
+}
+
+
+
+
+
+
+//마감항목 배경색처리###############################################################
+function fn_GetBackColorClose(str_rowtype, ColorGubun)
+{
+
+   	if (str_rowtype == "logical")
+   	{
+		return "user0";
+	}
+	else
+	{
+		if (ColorGubun == "1")
+		return "white";
+		else
+		return "#F6FCFC";
+	}
+
+}
+
+
+//마감항목 배경색처리###############################################################
+
+
+
+
+
+
+
+
+
+function edtBtn_Date_OnClick(obj:Button, e:ClickEventInfo)
+{
+	g_CalButton_OnClick(obj);
+	fn_DataSetAllClear();		
+}
+
+
+
+
+
+
+
+
+function me_Date_OnChanged(obj,strText)
+{
+	fn_DataSetAllClear();		
+}
+
+
+
+
+
+
+function me_DateFr_OnChanged(obj:MaskEdit, e:TextChangedEventInfo)
+{
+	
+}
+]]></Script>
+  </Form>
+</FDL>

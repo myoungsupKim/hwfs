@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[상품변경 이력정보 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+ SELECT COUNT(CHG_DATE) AS RECIPE_CNT
+	  , CHG_DATE
+	  , NM_KOR
+	  , B.RECIPE_NAME AS RECIPE_CLASS_NAME
+      , B_ITEM_CODE
+	  , B_ITEM_NAME
+	  , B_ITEM_SIZE
+	  , B_ITEM_PRICE
+	  , B_G_ITEM_PRICE
+	  , B_NEED_QTY
+      , A_ITEM_CODE
+	  , A_ITEM_NAME
+	  , A_ITEM_SIZE
+	  , A_ITEM_PRICE
+	  , A_G_ITEM_PRICE
+	  , A_NEED_QTY
+	  , B_ORIGIN_TYPE
+	  , A_ORIGIN_TYPE
+FROM  (
+	   SELECT B.NM_KOR
+			, CHG_DATE
+			, RECIPE_CD
+			, SUBSTR(RECIPE_CD,1,1) AS RECIPE_CLASS
+			, B_ITEM_CODE
+			, B_ITEM_NAME
+			, B_ITEM_SIZE
+			, B_ITEM_PRICE
+			, B_G_ITEM_PRICE
+			, B_NEED_QTY
+			, A_ITEM_CODE
+			, A_ITEM_NAME
+			, A_ITEM_SIZE
+			, A_ITEM_PRICE
+			, A_G_ITEM_PRICE
+			, A_NEED_QTY
+			, C.ORIGIN_TYPE AS B_ORIGIN_TYPE 
+			, D.ORIGIN_TYPE AS A_ORIGIN_TYPE
+         FROM FMM_BATCHG_LOG A
+            , SCC_USERINFO B
+            , FMS_ITEM_V C
+            , FMS_ITEM_V D
+        WHERE A.SABUN = B.SABUN(+)
+		  AND A.CHG_DATE BETWEEN #FROM_DT#  AND #TO_DT#
+	  	  AND A.WORK_TYPE = #WORK_TYPE#
+		  AND A.UPJANG = #UPJANG#
+		  AND A.B_ITEM_CODE = C.ITEM_CODE(+)
+		  AND A.A_ITEM_CODE = D.ITEM_CODE(+)
+<isEqual col="S_GBN" value="B">
+		  AND A.A_ITEM_CODE &lt;&gt; A.B_ITEM_CODE
+</isEqual>
+<isEqual col="S_GBN" value="C">
+		  AND A.A_NEED_QTY &lt;&gt; A.B_NEED_QTY
+</isEqual>
+      ) A,
+	  (
+	    SELECT UPJANG,RECIPE_CD,RECIPE_NAME
+	      FROM FMM_STD_RECIPE_MST
+	     WHERE UPJANG = #UPJANG#
+	     UNION
+	    SELECT UPJANG,RECIPE_CD,RECIPE_NAME
+	      FROM FMM_UPJANG_RECIPE_MST
+	     WHERE UPJANG = #UPJANG#
+	  ) B
+ WHERE A.RECIPE_CD = B.RECIPE_CD
+ GROUP BY CHG_DATE
+	    , NM_KOR
+	    , RECIPE_CLASS
+	    , B.RECIPE_NAME
+	    , B_ITEM_CODE
+	    , B_ITEM_NAME
+	    , B_ITEM_SIZE
+	    , B_ITEM_PRICE
+	    , B_G_ITEM_PRICE
+	    , B_NEED_QTY
+        , A_ITEM_CODE
+	    , A_ITEM_NAME
+	    , A_ITEM_SIZE
+	    , A_ITEM_PRICE
+	    , A_G_ITEM_PRICE
+	    , A_NEED_QTY	
+	    , B_ORIGIN_TYPE
+	    , A_ORIGIN_TYPE
+ ORDER BY CHG_DATE, NM_KOR, B.RECIPE_NAME, B_ITEM_CODE	    
+</statement>
+	<input default-name="ds_cond">
+		<col name="FROM_DT" size="8" type="VARCHAR" description="" /> 
+		<col name="TO_DT" size="8" type="VARCHAR" description="" /> 
+		<col name="WORK_TYPE" size="1" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="6" type="NUMERIC" description="" /> 
+		<col name="S_GBN" size="1" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="A_G_ITEM_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="A_ITEM_CODE" size="50" type="VARCHAR" description="" /> 
+		<col name="A_ITEM_NAME" size="200" type="VARCHAR" description="" /> 
+		<col name="A_ITEM_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="A_ITEM_SIZE" size="100" type="VARCHAR" description="" /> 
+		<col name="A_NEED_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="B_G_ITEM_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="B_ITEM_CODE" size="50" type="VARCHAR" description="" /> 
+		<col name="B_ITEM_NAME" size="200" type="VARCHAR" description="" /> 
+		<col name="B_ITEM_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="B_ITEM_SIZE" size="100" type="VARCHAR" description="" /> 
+		<col name="B_NEED_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="CHG_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="NM_KOR" size="20" type="VARCHAR" description="" /> 
+		<col name="RECIPE_CLASS_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="RECIPE_CNT" size="22" type="NUMERIC" description="" /> 
+	</output>
+</query>

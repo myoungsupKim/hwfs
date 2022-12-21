@@ -1,0 +1,335 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FMO00061P" onkeydown="fn_FormKeyDown" onload="form_onload" titletext="보건증/자격증 갱신알림" position="absolute 0 0 572 233" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Static id="st_Header" text="보건증 갱신 알림" position="absolute 15 9 215 33" class="sta_WF_Title"/>
+        <Static id="st_PoUom" position="absolute 739 43 774 56"/>
+        <TextArea id="ta_Sql" readonly="true" taborder="5" position="absolute 437 7 551 43"/>
+        <Grid autoenter="select" binddataset="ds_List" cellmovingtype="col" cellsizingtype="both" enable="true" id="gd_list" useinputpanel="false" selecttype="row" onexpanddown="gd_list_OnExpandEdit" onheadclick="gd_list_OnHeadClick" taborder="6" tabstop="true" usecontextmenu="true" useselcolor="true" visible="true" wheelscrollrow="1" position="absolute 15 54 557 186" readonly="true" autofittype="col">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="125"/>
+                <Column size="80"/>
+                <Column size="100"/>
+                <Column size="100"/>
+                <Column size="100"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="사업장"/>
+                <Cell col="1" text="성명"/>
+                <Cell col="2" text="보건증 시작일"/>
+                <Cell col="3" text="보건증 종료일"/>
+                <Cell col="4" text="종료D-day"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" style="align:left;" text="bind:UPJANGNM_DISP"/>
+                <Cell col="1" displaytype="text" edittype="normal" style="align:center;" text="bind:LICENCER" editimemode="native"/>
+                <Cell col="2" displaytype="date" edittype="date" style="align:center;" text="bind:LICEN_DATE"/>
+                <Cell col="3" displaytype="date" edittype="date" style="align:center;" text="bind:EXPIRE_DATE" expandchar="..."/>
+                <Cell col="4" displaytype="number" style="align:center;" text="bind:D_DAYS"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="st_Title" text="보건증을 갱신해야 할 대상이 0명 있습니다." position="absolute 15 32 253 47" class="sta_WF_DiscInfo"/>
+        <CheckBox id="chk_Stop" taborder="9" text="오늘 한번만 보기" position="absolute 375 196 490 216" value="true" style="buttonalign:right;"/>
+        <Button id="Button0" onclick="Button0_OnClick" taborder="10" text="취소" position="absolute 505 196 557 218" class="btn_POP_Default" image=""/>
+        <Static id="Static00" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 226"/>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 485 10"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 557 0 572 226"/>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 30 218 555 233"/>
+        <Static id="Static04" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 323 186 555 196"/>
+        <Static id="Static25" class="Guide01_AreaRed" visible="false" position="absolute 15 46 242 54"/>
+        <Static id="Static05" class="Guide01_AreaRed" visible="false" position="absolute 15 24 242 32"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_List">
+        <ColumnInfo>
+          <Column id="UPJANG" size="22" type="BIGDECIMAL"/>
+          <Column id="UPJANGNM_DISP" size="100" type="STRING"/>
+          <Column id="LICENCER" size="20" type="STRING"/>
+          <Column id="LICEN_DATE" size="8" type="STRING"/>
+          <Column id="EXPIRE_DATE" size="8" type="STRING"/>
+          <Column id="D_DAYS" size="40" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 식재영업/급식운영관리
+ * 프로그램명   : FMO00061P.XML
+ * 기      능   : 보건증/자격증 갱신알림
+ * 작  성  자   : 박은규
+ * 작성  일자   : 2008-02-26
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+*/
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "lib::sc_comon.js"				// 시스템 공통
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js"		//JAVA 코딩시
+//@@컨버터에서 주석처리 #include "LIB::tit_comm_0001.js"		// X-Framework Lib
+//@@컨버터에서 주석처리 #include "lib::sc_sql_common.js"		// 공통팝업
+//@@컨버터에서 주석처리 #include "lib::fm_common.js"			// FM공통
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+var fa_Sql;
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	//초기화
+   	fsp_init(this);
+   	v_ds_check = "ds_List";
+   	ta_Sql.visible = (application.g_EmpNo == gfmsAdmin);
+	//화면설정
+	fn_SetDisp();
+	//자동조회
+	fn_search();
+}
+
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+/*------------------------------------------------------------(60)
+	1. Function ID : fn_Search()
+	2. 개       요 : 업무프로세스에 따른 조회작업
+	3. 기       능 : 검색조건에 해당하는 정보를 조회
+	4. 인 수 설 명 : 
+*/
+function fn_search()
+{
+	// 초기화
+	ds_List.clearData();
+	// 조회
+	var strSvcID, strURL, strInDatasets, strOutDatasets, strArgument, strCallbackFunc;
+	// 경로 설정
+	strSvcID = "FMO00061P_T001";
+	strURL   = "U_svc::" + "fm/fmo/FMO00061P_T001.jsp";
+	// 데이터셋 설정
+	strInDatasets  = "";
+	strOutDatasets = "ds_List=ds_List";
+	// 파라메터 설정
+	strArgument  = "g_Upjang=" + wrapQuote(application.g_Upjang);
+	strArgument += " g_EmpNo=" + wrapQuote(application.g_EmpNo);
+	strArgument += " g_SystemId=" + wrapQuote(application.g_SystemId);
+	// 콜백함수 지정
+	strCallbackFunc = "fn_CallBack_Search";
+	// 서버 호출 
+	Transaction(strSvcID, strURL, strInDatasets, strOutDatasets, strArgument, strCallbackFunc);
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Insert()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_insert()
+{
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Delete()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_delete()
+{
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Save()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_save()
+{
+	var strSvcID, strURL, strInDatasets, strOutDatasets, strArgument, strCallbackFunc;
+	// 경로 설정
+	strSvcID = "FMO00061P_T002";
+	strURL   = "U_svc::" + "fm/fmo/FMO00061P_T002.jsp";
+	// 데이터셋 설정U
+	strInDatasets  = "";
+	strOutDatasets = "";
+	// 파라메터 설정
+	strArgument  = "g_Upjang=" + wrapQuote(application.g_Upjang);
+	strArgument += " g_EmpNo=" + wrapQuote(application.g_EmpNo);
+	// 콜백함수 지정
+	strCallbackFunc = ""; //"fn_CallBack_Save";
+	// 서버 호출 
+	
+	Transaction(strSvcID, strURL, strInDatasets, strOutDatasets, strArgument, strCallbackFunc);
+	
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Print()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_print()
+{
+	//gd_listE.ExportExcelEx("단가표");
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Close()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_Close()
+{
+	if (chk_Stop.value) fn_save();
+	//
+	this.close();
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Help()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_help()
+{
+}
+
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+/*------------------------------------------------------------
+	1. Function ID : fn_AlertMsg(cd)
+	2. 개       요 : 메세지 처리
+	3. 기       능 : 화면에 나타나는 메시지 코드및 텍스트 리턴
+	4. 인 수 설 명 : cd : 원하는 메시지 코드
+*/
+function fn_AlertMsg(cd)
+{
+	var v_Msg="";
+	switch(cd)
+	{
+		case "000":
+			v_Msg= "이(가) 저장되었습니다.";
+			break;
+		case "001":
+			v_Msg= "버튼이 정의 되어 있지않습니다.";
+			break;
+		case "002":
+			v_Msg="서비스 오류:시스템 관리자에게 문의하십시오";
+			break;
+		case "003":
+			v_Msg="필수항목은 반드시 선택하시기 바랍니다.";
+			break;	
+		case "004":
+			v_Msg="작업대상 본사를 선택하세요.";
+			break;
+		case "005":
+			v_Msg="을(를) 입력하세요";
+			break;
+		case "006":
+			v_Msg="삭제할 데이터가 없습니다.";
+			break;
+		case "007":
+			v_Msg="변경된 데이터가 없습니다.";
+			break;
+		case "008":
+			v_Msg="시스템ID가 없습니다.";
+			break;			
+/*			
+		case "":
+			v_Msg="";
+			break;
+*/			
+		default:
+			break;			
+	}
+	return v_Msg;
+}
+
+//콜백
+function fn_CallBack_Search(SvcID, errCode, errMsg)
+{
+ta_Sql.value = fa_Sql;
+	if (errCode == 0)
+	{
+		if (g_SystemId == "FICS")
+			st_Title.text = "보건증을 갱신해야 할 대상이 " + numFormat(ds_List.rowcount)+ "명 있습니다.";
+		else
+			st_Title.text = "건강진단결과를 갱신해야 할 대상이 " + numFormat(ds_List.rowcount)+ "명 있습니다.";
+		if (ds_List.rowcount < 1)
+			//g_Message("EE","조회된 자료가 없습니다.");
+			fn_Close();
+		else
+			gd_list.setFocus();
+	}
+	else
+		g_Message("EE",fn_AlertMsg("002"));
+}
+
+function fn_FormKeyDown(obj:Form, e:KeyEventInfo)
+{
+	gfn_formKeyDown(obj, e); //(obj,e.fromreferenceobject,e.keycode,e.shiftKey,e.ctrlKey,e.altKey,-1,-1);
+	//ESC키는 닫기
+	if ( e.keycode == 27 ) fn_Close();
+}	
+
+function fn_SetDisp()
+{
+	if (g_SystemId == "FICS") return;
+	//
+	st_Header.text = "건강진단결과 갱신 알림";
+	st_Title.text  = "건강진단결과를 갱신해야 할 대상이 0명 있습니다.";
+	gd_list.setCellProperty("head",2,"text","진단일");
+	gd_list.setCellProperty("head",3,"text","완료일");
+	gd_list.setCellProperty("head",4,"text","남은 날");
+}
+
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+function gd_list_OnHeadClick(obj:Grid, e:GridClickEventInfo)
+{
+	if (obj.getCellProperty("head",e.cell,"backgroundimage") == "ico_Excel") gfn_exportExcel(obj, this.titletext);
+	else gfn_gridSort(obj, e); //(eval(obj.binddataset), obj, e.cell);
+}
+
+function Button0_OnClick(obj:Button, e:ClickEventInfo)
+{
+	fn_Close();
+}
+
+]]></Script>
+  </Form>
+</FDL>

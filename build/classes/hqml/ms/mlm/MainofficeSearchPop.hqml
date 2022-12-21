@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="ms.mlm.mainofficeSearchPopDAO">
+	<desc>본사검색 HQML Query</desc>
+
+	<!-- 본사검색 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.ms.mlm.mainofficeSearchPopDAO.selectList */
+	<![CDATA[
+	SELECT
+	       (SELECT UPJANG
+	       FROM    FMS_UPJANG AA
+	       WHERE   UPJANG =
+	               (SELECT MAIN_UPJANG
+	               FROM    FMS_UPJANG AA
+	               WHERE   AA.UPJANG = A.UPJANG
+	               )
+	       )
+	       AS MAIN_UPJANG
+	     , (SELECT UPJANGNM_DISP
+	       FROM    FMS_UPJANG AA
+	       WHERE   UPJANG =
+	               (SELECT MAIN_UPJANG
+	               FROM    FMS_UPJANG AA
+	               WHERE   AA.UPJANG = A.UPJANG
+	               )
+	       )
+	       AS MAIN_UPJANG_DISP
+	     , A.UPJANG
+	     , A.UPJANGNM_DISP
+	     , (SELECT HEAD_CREDIT_YN
+	       FROM    FMS_UPJANG AA
+	       WHERE   UPJANG =
+	               (SELECT MAIN_UPJANG
+	               FROM    FMS_UPJANG AA
+	               WHERE   AA.UPJANG = A.UPJANG
+	               )
+	       )AS HEAD_CREDIT_YN
+	FROM   FMS_UPJANG A
+	WHERE  (
+	              1=1
+	       )
+	AND    A.UPJANG = A.UPJANG
+	<#if upjangCd?has_content>
+	AND    A.UPJANG LIKE  '%' || :upjangCd || '%'
+	</#if>
+	<#if upjangNm?has_content>
+	AND    A.UPJANGNM_DISP LIKE  '%' || :upjangNm || '%'
+	</#if>
+	ORDER BY A.UPJANG
+	]]></statement>
+
+	<!-- 본사검색 목록을 조회한다. -->
+	<statement name="selectMainList" type="select">
+	/*+ com.hwfs.ms.mlm.mainofficeSearchPopDAO.selectMainList */
+	<![CDATA[
+	SELECT A.UPJANG
+	     , A.UPJANGNM_DISP
+	     , A.HEAD_CREDIT_YN
+	FROM   FMS_UPJANG A
+	WHERE  (
+	              1=1
+	       )
+	AND    A.MAIN_UPJANG = A.UPJANG
+	<#if upjangCd?has_content>
+	AND    A.UPJANG LIKE  '%' || :upjangCd || '%'
+	</#if>
+	<#if upjangNm?has_content>
+	AND    A.UPJANGNM_DISP LIKE  '%' || :upjangNm || '%'
+	</#if>
+	ORDER BY A.UPJANG
+	]]></statement>
+</hqml>

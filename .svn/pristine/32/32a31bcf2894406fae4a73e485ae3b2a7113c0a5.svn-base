@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fs.fsl.mealTicketPopupDAO">
+	<desc>식권팝업 HQML Query</desc>
+
+	<!-- 식권팝업 목록을 조회한다. -->
+		<statement name="insertList" type="select">
+		/*+ com.hwfs.fs.fsl.dao.MealTicketPopupDAO.insertList */
+		<![CDATA[
+			SELECT V.UPJANG,
+			       V.ITEM_TYPE,
+			       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0122' AND CODE = V.ITEM_TYPE) ITEM_TYPENM,
+			       V.ITEM_CODE,
+			       (SELECT ITEM_NAME || '; '  || ITEM_SIZE || '; ' || PO_UOM FROM HLDC_PO_ITEM_MST WHERE ITEM_CODE = V.ITEM_CODE) ITEM_CODENM,
+			       V.TAX_SHET_PUBLISH_YN,
+			       V.UPRICE,
+			       V.QTY,
+			       V.OO_QTY,       
+			       (V.ALT_QTY  + V.XC_QTY + V.XL_QTY + WR_QTY) - V.LINE_QTY ALT_QTY,
+			       0 WW_QTY,
+			       '' RECEIPT_NUM,
+			       '' TRANS_DD,
+			       '' REMARK_DESC,
+			       '' TICKET_GROUP_SEQ,
+			       '0' CHK
+			  FROM (
+			        SELECT V.UPJANG,
+			               V.ITEM_TYPE,
+			               V.ITEM_CODE,
+			               V.TAX_SHET_PUBLISH_YN,
+			               V.UPRICE,
+                     NVL(X.QTY, 0) AS QTY,
+                     NVL(Y.OO_QTY, 0) AS OO_QTY,
+                     NVL(Z.ALT_QTY, 0) AS ALT_QTY,
+                     0 AS XC_QTY,
+                     0 AS XL_QTY,
+                     0 AS WR_QTY,                        
+			              0 LINE_QTY  
+			          FROM MAS_TICKET_STD V
+                   , (SELECT A.ITEM_CODE, NVL(SUM(QTY), 0) AS QTY
+			                    FROM MAS_TICKET_MST A,
+			                         MAS_TICKET_CODE B
+			                WHERE A.TRANS_TYPE  = B.TRANS_TYPE
+			                AND   A.TRANS_GUBUN = B.TRANS_GUBUN
+			                AND   A.UPJANG      = :upjangCd
+			                AND   B.SET1        = 'I'
+			                AND   A.SUBUL_YN    = 'Y'
+                      GROUP BY A.ITEM_CODE) X
+                   , (SELECT A.ITEM_CODE, NVL(SUM(QTY), 0) AS OO_QTY
+			                    FROM MAS_TICKET_MST A,
+			                         MAS_TICKET_CODE B
+			                WHERE A.TRANS_TYPE  = B.TRANS_TYPE
+			                AND   A.TRANS_GUBUN = B.TRANS_GUBUN
+			                AND   A.UPJANG      = :upjangCd
+			                AND   B.TRANS_GUBUN = 'OO'
+			                AND   A.SUBUL_YN    = 'Y'
+                      GROUP BY A.ITEM_CODE) Y 
+                   , (SELECT A.ITEM_CODE, NVL(SUM(QTY), 0) AS ALT_QTY
+			                    FROM MAS_TICKET_MST A,
+			                         MAS_TICKET_CODE B
+			                WHERE A.TRANS_TYPE  = B.TRANS_TYPE
+			                AND   A.TRANS_GUBUN = B.TRANS_GUBUN
+			                AND   A.UPJANG      = :upjangCd
+			                AND   B.TRANS_GUBUN = 'WW'  
+			                AND   A.SUBUL_YN    = 'Y'
+                      GROUP BY A.ITEM_CODE ) Z     
+				 , (SELECT A.ITEM_CODE,
+                           NVL(SUM(DECODE(B.TRANS_GUBUN,'XC',QTY,0)), 0) AS XC_QTY, -- 교환
+                           NVL(SUM(DECODE(B.TRANS_GUBUN,'XL',QTY,0)), 0) AS XL_QTY, -- 로스
+                           NVL(SUM(DECODE(B.TRANS_GUBUN,'WR',QTY,0)), 0) AS WR_QTY --환불
+		                    FROM MAS_TICKET_MST A,
+		                         MAS_TICKET_CODE B
+		                WHERE A.TRANS_TYPE  = B.TRANS_TYPE
+		                AND   A.TRANS_GUBUN = B.TRANS_GUBUN
+		                AND   A.UPJANG      = :upjangCd
+		                AND   B.TRANS_GUBUN IN ('XC','XL','WR')  
+		                AND   A.SUBUL_YN    = 'Y'
+                     GROUP BY A.ITEM_CODE ) XX                           
+			        WHERE V.UPJANG      = :upjangCd
+								 <#if itemType?has_content>AND  V.ITEM_TYPE   = :itemType <#else> </#if>
+  			         AND  V.USE_YN      = 'Y'
+  			         AND  V.ITEM_CODE IS NOT NULL
+                 AND  V.ITEM_CODE = X.ITEM_CODE (+)
+                 AND  V.ITEM_CODE = Y.ITEM_CODE (+)
+                 AND  V.ITEM_CODE = Z.ITEM_CODE (+)
+                 AND  V.ITEM_CODE = XX.ITEM_CODE (+)
+			       ) V
+			   WHERE  V.OO_QTY <> 0
+			ORDER BY V.UPJANG, V.ITEM_TYPE, V.ITEM_CODE
+		]]>
+	</statement>
+		
+	<!-- 식권팝업 목록을 조회한다.(history) -->
+	<statement name="ticketHistory" type="select">
+		/*+ com.hwfs.fs.fsl.dao.MealTicketPopupDAO.ticketHistory */
+		<![CDATA[
+			SELECT V.UPJANG,
+			        V.ITEM_TYPE,
+			        (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0122' AND CODE = V.ITEM_TYPE) ITEM_TYPENM,
+			        V.ITEM_CODE,
+			        (SELECT ITEM_NAME|| '; '  ||ITEM_SIZE || '; ' || PO_UOM FROM HLDC_PO_ITEM_MST WHERE ITEM_CODE = V.ITEM_CODE) ITEM_CODENM,
+              SUM(NVL(ST_QTY, 0)),
+			       SUM(DECODE(A.TRANS_GUBUN, 'II', A.QTY, 0)) II_QTY,
+			       SUM(DECODE(A.TRANS_GUBUN, 'OO', A.QTY, 0)) OO_QTY,
+			       SUM(DECODE(A.TRANS_GUBUN, 'WW', A.QTY, 0)) WW_QTY,
+			       SUM(DECODE(A.TRANS_GUBUN, 'WR', A.QTY, 0)) WR_QTY,
+			       SUM(DECODE(A.TRANS_GUBUN, 'XO', A.QTY, 0)) XO_QTY,
+			       SUM(DECODE(A.TRANS_GUBUN, 'XL', A.QTY, 0)) XL_QTY,
+			       SUM(DECODE(A.TRANS_GUBUN, 'XW', A.QTY, 0)) XW_QTY,
+			       SUM(DECODE(A.TRANS_GUBUN, 'XR', A.QTY, 0)) XR_QTY,
+			       SUM(DECODE(A.TRANS_GUBUN, 'XC', A.QTY, 0)) XC_QTY,
+			       0 JAN_QTY
+			FROM MAS_TICKET_STD V,
+			     (SELECT * FROM MAS_TICKET_MST WHERE UPJANG = :upjangCd AND TRANS_DD BETWEEN :moccurDate||'01' AND :moccurDate||'31' AND SUBUL_YN = 'Y' AND CONGUBN     = 'Y') A,
+           (
+			        SELECT A.ITEM_TYPE, A.ITEM_CODE, NVL(SUM(DECODE(B.SET1, 'I', A.QTY, 0)), 0) - NVL(SUM(DECODE(B.SET1, 'O', A.QTY, 0)), 0) AS ST_QTY
+			          FROM MAS_TICKET_MST A,
+			               MAS_TICKET_CODE B
+			        WHERE (A.TRANS_TYPE  = B.TRANS_TYPE)
+			        AND   (A.TRANS_GUBUN = B.TRANS_GUBUN)
+			        AND   (A.UPJANG      = :upjangCd)
+			        AND   (A.TRANS_DD    BETWEEN '20071201' AND TO_CHAR(LAST_DAY(ADD_MONTHS(TO_DATE(:occurDate, 'YYYYMMDD'),-1)), 'YYYYMMDD'))
+			        AND   (A.SUBUL_YN    = 'Y')
+			        AND   (A.CONGUBN     = 'Y')
+              GROUP BY A.ITEM_TYPE, A.ITEM_CODE         
+			       ) Z
+			WHERE (V.UPJANG      = A.UPJANG(+))
+			AND   (V.ITEM_TYPE   = A.ITEM_TYPE(+))
+			AND   (V.ITEM_CODE   = A.ITEM_CODE(+))
+			AND   (V.UPJANG      = :upjangCd)
+			AND   (V.ITEM_TYPE   = Z.ITEM_TYPE(+))
+			AND   (V.ITEM_CODE   = Z.ITEM_CODE(+))
+			AND    V.ITEM_CODE IS NOT NULL
+			GROUP BY V.UPJANG, V.ITEM_TYPE, V.ITEM_CODE
+		]]>
+	</statement>
+
+</hqml>

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+		http://www.springframework.org/schema/batch http://www.springframework.org/schema/batch/spring-batch-2.1.xsd">
+
+	<import resource="../abstractBase/batchBase.xml" />
+	<!--*****************************************************************************
+			Job에 대한 상세한 설명을 여기에 표현한다. (주요 처리 내용)
+		*****************************************************************************-->
+
+	<job id="delimitedToDelimitedJob" parent="batchBaseJob"
+		xmlns="http://www.springframework.org/schema/batch">
+		<description>구분자로 분리되어 있는 파일을 읽어 데이터를 처리한 후 파일로 저장한다.</description>
+		<step id="delimitedToDelimitedStep" parent="batchBaseStep">
+			<tasklet>
+				<chunk
+					reader="delimitedToDelimitedJob.delimitedToDelimitedStep.delimitedItemReader"
+					processor="delimitedToDelimitedJob.delimitedToDelimitedStep.itemProcessor"
+					writer="delimitedToDelimitedJob.delimitedToDelimitedStep.delimitedItemWriter"
+					commit-interval="10" />	<!-- 10건 마다 commit -->
+			</tasklet>
+		</step>
+	</job>
+
+	<bean
+		id="delimitedToDelimitedJob.delimitedToDelimitedStep.delimitedItemReader"
+		class="org.springframework.batch.item.file.FlatFileItemReader" scope="step">
+		<property name="resource" value="#{jobParameters[inputFile]}" />
+		<!-- <property name="encoding" value="UTF-8"/> -->
+		<property name="lineMapper">
+			<bean
+				class="org.springframework.batch.item.file.mapping.DefaultLineMapper">
+				<property name="lineTokenizer">
+					<bean
+						class="org.springframework.batch.item.file.transform.DelimitedLineTokenizer">
+						<property name="delimiter" value="," />
+						<property name="names" value="name,credit" />
+					</bean>
+				</property>
+				<property name="fieldSetMapper">
+				    <bean class="org.springframework.batch.item.file.mapping.BeanWrapperFieldSetMapper">
+				    	<property name="targetType"  value="com.hwfs.batch.guide.sample.dto.CustomerCreditDTO"/>
+				    </bean>
+				</property>
+			</bean>
+		</property>
+	</bean>
+
+	<bean
+		id="delimitedToDelimitedJob.delimitedToDelimitedStep.delimitedItemWriter"
+		class="org.springframework.batch.item.file.FlatFileItemWriter" scope="step">
+		<property name="resource" value="#{jobParameters[outputFile]}" />
+		<property name="lineAggregator">
+			<bean
+				class="org.springframework.batch.item.file.transform.DelimitedLineAggregator">
+				<property name="delimiter" value="," />
+				<property name="fieldExtractor">
+					<bean
+						class="org.springframework.batch.item.file.transform.BeanWrapperFieldExtractor">
+						<property name="names" value="name,credit" />
+					</bean>
+				</property>
+			</bean>
+		</property>
+	</bean>
+
+	<bean id="delimitedToDelimitedJob.delimitedToDelimitedStep.itemProcessor"
+		class="com.hwfs.batch.guide.sample.CustomerCreditProcessor" />
+
+</beans>

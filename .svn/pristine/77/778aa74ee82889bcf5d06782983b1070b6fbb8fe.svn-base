@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[예상식수조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT  A.HALL_CD || A.MEAL || A.CORNER AS KEY
+       ,A.MENU_DATE||'-'||A.HALL_CD||A.MEAL||A.CORNER AS MENU_CD
+       ,A.MENU_DATE
+       ,A.MENU_DAYS
+       ,A.UPJANG
+       ,A.HALL_CD
+       ,A.MEAL
+       ,C.CODE_NAME AS MEAL_NAME
+       ,A.CORNER
+       ,D.CODE_NAME AS CORNER_NAME
+       ,A.SUBINV_CODE
+       ,A.SALE_PRICE
+       ,B.EXPECT_MEAL_QTY
+       ,B.REAL_MEAL_QTY
+       ,DECODE(B.REAL_MEAL_QTY, NULL, 'Y', 0, 'Y', 'N') AS MODIFY_YN1
+       ,(SELECT NVL(MAX(ORDER_YN),'Y') AS MODIFY_YN2 FROM FSM_REAL_RECIPE_ITEM
+		 WHERE UPJANG = A.UPJANG
+		 AND   MENU_CD = A.MENU_DATE||'-'||A.HALL_CD||A.MEAL||A.CORNER
+		 AND   ORDER_YN = 'Y') AS MODIFY_YN2
+       ,DECODE(B.MEAL,NULL,'I','S') AS FLAG
+      ,TO_CHAR(TO_DATE(A.MENU_DATE), 'd') AS WEEK
+      ,CASE WHEN TO_CHAR(SYSDATE, 'YYYYMMDD') &lt;= A.MENU_DATE THEN 1 ELSE 0 END AS LK        
+FROM
+      (
+       SELECT C.YMD         AS MENU_DATE
+             ,TO_CHAR(TO_DATE(C.YMD,'YYYYMMDD'),'DY','NLS_DATE_LANGUAGE=KOREAN') AS MENU_DAYS
+             ,A.UPJANG      AS UPJANG
+             ,A.HALL_CD     AS HALL_CD
+             ,B.MEAL        AS MEAL
+             ,B.CORNER      AS CORNER
+             ,A.SUBINV_CODE AS SUBINV_CODE
+             ,B.MEAL_UPRICE AS SALE_PRICE
+         FROM FSA_HALL_MST A
+             ,FSA_HALL_DTL B
+             ,SCC_COPY_YMD C
+        WHERE A.UPJANG  = #UPJANG#
+          AND A.HALL_CD = #HALL_CD#
+          <isNotNull col="CORNER">AND B.CORNER =  #CORNER#</isNotNull>
+          <isNotNull col="MEAL">AND B.MEAL =  #MEAL#</isNotNull>
+          AND A.USE_YN  = 'Y'
+          AND B.USE_YN  = 'Y'
+          AND A.UPJANG  = B.UPJANG
+          AND A.HALL_CD = B.HALL_CD
+          AND C.YMD BETWEEN #START_DATE# AND #END_DATE#
+       ) A,
+      (
+       SELECT  MENU_DATE
+              ,UPJANG
+              ,MENU_CD
+              ,HALL_CD
+              ,MEAL
+              ,CORNER
+              ,SUBINV_CODE
+              ,SALE_PRICE
+              ,EXPECT_MEAL_QTY
+              ,REAL_MEAL_QTY
+         FROM FSM_REAL_MENU_MST M_MST
+        WHERE UPJANG = #UPJANG#
+          AND HALL_CD = #HALL_CD#
+         <isNotNull col="CORNER">AND CORNER =  #CORNER#</isNotNull>
+         <isNotNull col="MEAL">AND MEAL =  #MEAL#</isNotNull> 
+          AND MENU_DATE BETWEEN #START_DATE#  AND #END_DATE#
+      )  B,
+         SCC_COMMON_CODE C,
+         SCC_COMMON_CODE D
+ WHERE A.UPJANG     = B.UPJANG(+)
+   AND A.HALL_CD    = B.HALL_CD(+)
+   AND A.MEAL       = B.MEAL(+)
+   AND A.CORNER     = B.CORNER(+)
+   AND A.MENU_DATE  = B.MENU_DATE(+)
+   AND A.MEAL       = C.CODE
+   AND A.CORNER     = D.CODE
+   AND C.GROUP_CODE = 'FS0023'
+   AND D.GROUP_CODE = 'FS0022'
+ ORDER BY MENU_DATE, CORNER, MEAL	</statement>
+	<input default-name="ds_in">
+	</input>
+	<output default-name="ds_EXPECT_MEAL">
+	</output>
+</query>

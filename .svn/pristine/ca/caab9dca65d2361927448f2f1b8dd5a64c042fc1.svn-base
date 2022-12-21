@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[담보정보관리]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.* FROM (	
+SELECT A.UPJANG
+     , A.UPJANGNM_DISP AS UPJANG_NM
+     , #BIZ_NAME# AS BIZ_GUBUN
+     , X.DRNAME1
+     , X.ADDR_KEY
+     , SCC_ADDR_FUN(X.ADDR_KEY, #g_PersInfoMask#, #p_MaskAuth#) AS ADDR_INFO
+     , X.POST_NO AS POST_NO
+     , X.ADDR
+     , X.ADDR_GUBUN AS ADDR_GUBUN
+     , E.GUBUN
+     , DECODE(E.GUBUN,'채권양도',E.SETUP_DATE,DECODE(E.SETUP_DATE, NULL, '', TO_CHAR(TO_DATE(E.SETUP_DATE,'YYYYMMDD'),'YYYY-MM-DD'))) AS SETUP_DATE
+     , DECODE(E.GUBUN,'채권양도',E.EXPIRE_DATE,DECODE(E.EXPIRE_DATE, NULL, '', TO_CHAR(TO_DATE(E.EXPIRE_DATE,'YYYYMMDD'),'YYYY-MM-DD'))) AS EXPIRE_DATE
+     , DECODE(E.GUBUN,'채권양도',E.CANCEL_DATE,DECODE(E.CANCEL_DATE, NULL, '', TO_CHAR(TO_DATE(E.CANCEL_DATE,'YYYYMMDD'),'YYYY-MM-DD'))) AS CANCEL_DATE
+     , E.SECURE_AMT
+     , H.SUM_AMT
+     , A.CREDIT_AMOUNT
+     , CASE WHEN A.CREDIT_END &lt;= TO_CHAR(SYSDATE, 'YYYYMMDD') THEN A.CREDIT_OVER_AMOUNT ELSE 0 END AS OVER_AMOUNT
+     , F.NM_KOR AS PART_SALES_NAME
+     , G.NM_KOR AS CS_NAME
+     , C.TM_NM
+     , B.UPJANGNM_DISP AS MAIN_UPJANG_NM
+     , X.SAUPNO
+     , DECODE(X.UP_TAE || X.UP_JONG, NULL, '', X.UP_TAE ||' / '|| X.UP_JONG) AS BIZ_CAT
+     , A.MAIN_UPJANG
+     , C.TM_CD
+     , A.USE_YN
+     , DECODE(A.UPJANG, A.MAIN_UPJANG, '본사', '사업장') AS BGUBUN
+	 , C.MU_CD
+	 , C.MU_NM
+	 , A.CREDIT_END
+  FROM FMS_UPJANG A
+     , FMS_UPJANG B
+     , HLDC_SC_DEPT_V C
+     , HLDC_ST_UPJANG D
+     , HLDC_ST_CUST X
+     , HLDC_HR_PERSONAL F
+     , HLDC_HR_PERSONAL G
+     , (
+        SELECT A.UPJANG
+             , '부동산' AS GUBUN
+             , A.LAND_SETUP_DATE AS SETUP_DATE
+             , '' AS EXPIRE_DATE
+             , A.LAND_CANCEL_DATE AS CANCEL_DATE
+             , A.LAND_AMT AS SECURE_AMT
+          FROM FMS_SECURE_LAND A
+         UNION ALL
+        SELECT A.UPJANG
+             , '보증보험' AS GUBUN
+             , A.GUARAN_BEGIN_DATE AS SETUP_DATE
+             , A.GUARAN_EXPIRE_DATE AS EXPIRE_DATE
+             , A.GUARAN_CANCEL_DATE AS CANCEL_DATE
+             , A.GUARAN_AMT AS SECURE_AMT
+          FROM FMS_SECURE_GUARANTEE A
+         UNION ALL
+        SELECT A.UPJANG
+             , '인보증' AS GUBUN
+             , A.PERSON_SETUP_DATE AS SETUP_DATE
+             , '' AS EXPIRE_DATE
+             , A.PERSON_CANCEL_DATE AS CANCEL_DATE
+             , A.PERSON_LIMIT_AMT AS SECURE_AMT
+          FROM FMS_SECURE_PERSON A
+         UNION ALL
+        SELECT A.UPJANG
+             , '현금보증' AS GUBUN
+             , A.CASH_DEPOSIT_DATE AS SETUP_DATE
+             , '' AS EXPIRE_DATE
+             , A.CASH_CANCEL_DATE AS CANCEL_DATE
+             , A.CASH_AMT AS SECURE_AMT
+          FROM FMS_SECURE_CASH A
+         UNION ALL
+        SELECT A.UPJANG
+             , '질권' AS GUBUN
+             , A.PLEDGER_BEGIN_DATE AS SETUP_DATE
+             , A.PLEDGER_EXPIRE_DATE AS EXPIRE_DATE
+             , A.PLEDGER_CANCEL_DATE AS CANCEL_DATE
+             , A.PLEDGER_AMT AS SECURE_AMT
+          FROM FMS_SECURE_PLEDGER A
+         UNION ALL
+        SELECT A.UPJANG
+             , '채권양도' AS GUBUN
+             , A.TRAN_COPY AS SETUP_DATE
+             , A.TRAN_DESC AS EXPIRE_DATE
+             , 'N' AS CANCEL_DATE
+             , 0 AS SECURE_AMT
+          FROM FMS_SECURE_TRANSFER A          
+		  UNION ALL
+        SELECT A.UPJANG
+             , '예치보증금' AS GUBUN
+             , A.GUARAN_BEGIN_DATE AS SETUP_DATE
+             , A.GUARAN_EXPIRE_DATE AS EXPIRE_DATE
+             , A.GUARAN_CANCEL_DATE AS CANCEL_DATE
+             , A.GUARAN_AMT AS SECURE_AMT
+          FROM FMS_SECURE_DEPO_GUARANTEE A
+       ) E
+     , (SELECT UPJANG, SUM(SUM_AMT) AS SUM_AMT
+          FROM (
+                SELECT UPJANG, SUM(LAND_AMT) AS SUM_AMT FROM FMS_SECURE_LAND WHERE LAND_CANCEL_YN = 'N' GROUP BY UPJANG
+                 UNION ALL
+                SELECT UPJANG, SUM(GUARAN_AMT) AS SUM_AMT FROM FMS_SECURE_GUARANTEE WHERE GUARAN_CANCEL_YN = 'N' GROUP BY UPJANG
+                 UNION ALL
+                SELECT UPJANG, SUM(PERSON_LIMIT_AMT) AS SUM_AMT FROM FMS_SECURE_PERSON WHERE PERSON_CANCEL_YN = 'N' GROUP BY UPJANG
+                 UNION ALL
+                SELECT UPJANG, SUM(CASH_AMT) AS SUM_AMT FROM FMS_SECURE_CASH WHERE CASH_CANCEL_YN = 'N' GROUP BY UPJANG
+                 UNION ALL
+                SELECT UPJANG, SUM(PLEDGER_AMT) AS SUM_AMT FROM FMS_SECURE_PLEDGER WHERE PLEDGER_CANCEL_YN = 'N' GROUP BY UPJANG
+                 UNION ALL
+                SELECT UPJANG, SUM(GUARAN_AMT) AS SUM_AMT FROM FMS_SECURE_DEPO_GUARANTEE WHERE GUARAN_CANCEL_YN = 'N' GROUP BY UPJANG
+               )
+         GROUP BY UPJANG
+       ) H
+ WHERE A.UPJANG = E.UPJANG(+)
+   AND A.UPJANG = H.UPJANG(+)
+   AND A.MAIN_UPJANG = B.UPJANG
+   AND A.DEPT_ID = C.DEPT_ID
+   AND A.UPJANG = D.UPJANG
+   AND D.CUSTCD = X.CUSTCD
+   AND A.PART_SALES_SABUN = F.SABUN(+)
+   AND A.CS_SABUN = G.SABUN(+)
+   ) A
+ WHERE (1=1)  
+<isNotNull col="MU_CD">
+	AND A.MU_CD = #MU_CD#
+</isNotNull>
+ 
+<isNotNull col="TM_CD">
+	 
+	AND A.TM_CD = #TM_CD#
+
+</isNotNull>
+<isNotNull col="MAIN_UPJANG">
+	 AND A.MAIN_UPJANG = #MAIN_UPJANG#
+</isNotNull>
+
+<isNotNull col="UPJANG">
+	 AND A.UPJANG = #UPJANG#
+</isNotNull>	
+<isNotNull col="USE_YN">
+	 AND A.USE_YN = #USE_YN#
+</isNotNull>
+ORDER BY MAIN_UPJANG_NM, UPJANG_NM, GUBUN
+</statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_main">
+	</output>
+</query>

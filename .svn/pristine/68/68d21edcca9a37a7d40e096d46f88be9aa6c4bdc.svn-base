@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+		SELECT C.UPJANGNM AS UPJANG
+		     , D.CODE_NAME AS CLOSE_GUBUN
+		     , TO_CHAR(TO_DATE(CLOSE_FROM_DATE, 'YYYY-MM-DD'), 'YYYY-MM-DD') || ' ~ ' || TO_CHAR(TO_DATE(A.CLOSE_TO_DATE, 'YYYY-MM-DD'), 'YYYY-MM-DD') AS CLOSE_DATE
+		     , A.CLOSE_YN
+		     , B.NM_KOR AS CHANGE_USER
+		     , TO_CHAR(A.CDATE, 'YYYY-MM-DD HH24:MI:SS') AS CHANGE_DATE
+		     , A.WORK_SCR_GUBUN
+		  FROM MAS_CLOSE_MGMT_HST 	A /* 마감이력 */
+		     , SCO_FS_HR_PERSONAL_V B /* 사용자정보 */
+		     , SCO_UPJANG_MST_V 	C /* 업장정보 */
+		     , SCC_COMMON_CODE 		D /* 공통코드 */
+		 WHERE 1=1
+		   AND A.USERID     = B.SABUN(+)
+		   AND A.UPJANG     = C.UPJANG
+		   AND D.GROUP_CODE = 'MA0035' /* 마감구분 */
+		   AND D.CODE       = A.CLOSE_GUBUN
+		   
+        <isNotNull col="UPJANG">
+           AND A.UPJANG     = #UPJANG#
+        </isNotNull>
+        <isNotNull col="MU_CD">
+           AND C.MU_CD     = #MU_CD#
+        </isNotNull>
+        <isNotNull col="TM_CD">
+           AND (C.TM_CD     = #TM_CD# OR C.PT_CD = #TM_CD#)
+        </isNotNull>
+        
+        <isNotNull col="GUBUN">
+           AND A.CLOSE_GUBUN     = #GUBUN#
+        </isNotNull>
+        
+        <isNotNull col="START_DATE">
+           AND (A.CLOSE_FROM_DATE &gt;= #START_DATE#
+        </isNotNull>
+        
+        <isNotNull col="END_DATE">
+                AND A.CLOSE_TO_DATE &lt;= #END_DATE#)
+        </isNotNull>
+        		   
+		 ORDER BY A.HST_ID
+    </statement>
+	<input default-name="ds_in">
+		<col name="START_DATE" 	size="8" 	type="VARCHAR" description="" /> 
+		<col name="END_DATE" 	size="8" 	type="VARCHAR" description="" /> 
+		<col name="UPJANG" 		size="256" 	type="VARCHAR" description="" />
+		<col name="GUBUN" 		size="1" 	type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_out">
+		<col name="UPJANG" 			size="256" type="VARCHAR" description="" />
+		<col name="CLOSE_GUBUN" 	size="256" type="VARCHAR" description="" /> 
+		<col name="CLOSE_DATE" 		size="256" type="VARCHAR" description="" /> 
+		<col name="CLOSE_YN" 		size="256" type="VARCHAR" description="" /> 
+		<col name="CHANGE_USER" 	size="256" type="VARCHAR" description="" /> 
+		<col name="CHANGE_DATE" 	size="256" type="VARCHAR" description="" />
+		<col name="WORK_SCR_GUBUN" 	size="256" type="VARCHAR" description="" />  
+	</output>
+</query>

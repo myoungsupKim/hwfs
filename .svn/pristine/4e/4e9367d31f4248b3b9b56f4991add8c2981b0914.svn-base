@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sm.ssi.taxCodeMgntDAO">
+	<desc>부가세 코드 HQML Query</desc>
+
+	<!-- 부가세 코드 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sm.ssi.dao.TaxCodeMgntDAO.selectList */
+		<![CDATA[
+		SELECT 
+		        VAT_CD                                  /*	부가세 코드	  			*/
+		       ,VAT_TYPE                                /*	부가세 유형	  			*/
+		       ,VAT_NM                                  /*	부가세명		  		*/
+		       ,ACCT_CD                                 /*	계정코드		  		*/
+		       ,(SELECT ACCTNM FROM HLDC_ST_ACCOUNT_V 
+		       	WHERE ACCTCD = T.ACCT_CD) AS ACCT_NM	/*	계정코드명		  		*/
+		       ,VAT_RATE                                /*	부가세율		  		*/
+		       ,ELCTNTAX_SHET_PUBLISHYN     			/*	전자세금계산서 발행 여부*/
+		       ,TAX_SHET_PUBLISH_YN            			/*	세금계산서 발행 여부	*/
+		       ,SAP_VAT_CD                            	/*	회계시스템 부가세 구분	*/
+		       ,RECD_STATUS                         	/*	레코드 상태				*/
+		       ,CUSER
+		       ,CDATE
+		       ,UUSER
+		       ,UDATE
+		       ,DECODE(VAT_RATE, NULL, 'N', 0, 'N', 'Y') VAT_RATE_YN
+		FROM SLA_VAT_CD_MST T
+		ORDER BY VAT_CD ASC
+		]]>
+	</statement>
+
+	<!-- 부가세 코드(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sm.ssi.dao.TaxCodeMgntDAO.insert */
+		<![CDATA[
+		INSERT INTO SLA_VAT_CD_MST
+		(
+		        VAT_CD                      
+		       ,VAT_TYPE                    
+		       ,VAT_NM                      
+		       ,ACCT_CD                     
+		       ,VAT_RATE                    
+		       ,ELCTNTAX_SHET_PUBLISHYN     
+		       ,TAX_SHET_PUBLISH_YN         
+		       ,SAP_VAT_CD                  
+		       ,RECD_STATUS                 
+		       ,CUSER
+		       ,CDATE
+		)VALUES(
+				:vatCd
+			   ,<#if vatType?has_content> :vatType <#else> null </#if>
+			   ,<#if vatNm?has_content> :vatNm <#else> null </#if>
+			   ,<#if acctCd?has_content> :acctCd <#else> null </#if>
+			   ,<#if vatRate?has_content> :vatRate <#else> null </#if>
+			   ,<#if elctntaxShetPublishyn?has_content> :elctntaxShetPublishyn <#else> null </#if>
+			   ,<#if taxShetPublishYn?has_content> :taxShetPublishYn <#else> null </#if>
+			   ,<#if sapVatCd?has_content> :sapVatCd <#else> null </#if>
+			   ,<#if recdStatus?has_content> :recdStatus <#else> null </#if>
+			   ,:loginSabun
+			   ,SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 부가세 코드(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sm.ssi.dao.TaxCodeMgntDAO.update */
+		<![CDATA[
+		UPDATE SLA_VAT_CD_MST 
+		SET    
+			    VAT_TYPE				= <#if vatType?has_content> :vatType <#else> null </#if>
+			   ,VAT_NM					= <#if vatNm?has_content> :vatNm <#else> null </#if>
+			   ,ACCT_CD					= <#if acctCd?has_content> :acctCd <#else> null </#if>
+			   ,VAT_RATE				= <#if vatRate?has_content> :vatRate <#else> null </#if>
+			   ,ELCTNTAX_SHET_PUBLISHYN	= <#if elctntaxShetPublishyn?has_content> :elctntaxShetPublishyn <#else> null </#if>
+			   ,TAX_SHET_PUBLISH_YN		= <#if taxShetPublishYn?has_content> :taxShetPublishYn <#else> null </#if>
+			   ,SAP_VAT_CD				= <#if sapVatCd?has_content> :sapVatCd <#else> null </#if>
+			   ,RECD_STATUS				= <#if recdStatus?has_content> :recdStatus <#else> null </#if>
+		       ,UUSER = :loginSabun
+		       ,UDATE = SYSDATE
+		WHERE  VAT_CD = :vatCd
+		]]>
+	</statement>
+
+</hqml>

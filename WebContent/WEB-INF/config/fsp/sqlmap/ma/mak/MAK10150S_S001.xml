@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.VISIT_DATE, 
+       A.VISIT_DAY ,
+       A.VISIT_PLACENM,
+       A.MGMT_SABUN, 
+       A.MGMT_SABUNNM,
+       V.DRIVING_ID,
+       V.CAR_CLASS,
+       V.CAR_NUMBER,
+       V.LOC_CD,
+       (SELECT (SELECT CODE_NAME FROM SCC_COMMON_CODE  WHERE (GROUP_CODE ='MA0040') AND (CODE = A.SET1))||' '||CODE_NAME CODE_NAME  FROM SCC_COMMON_CODE A  WHERE (GROUP_CODE ='MA0041') AND (CODE = V.LOC_CD)) LOC_CDNM,
+       V.SUB_LOC_CD,
+       (SELECT (SELECT CODE_NAME FROM SCC_COMMON_CODE  WHERE (GROUP_CODE ='MA0040') AND (CODE = A.SET1))||' '||CODE_NAME CODE_NAME  FROM SCC_COMMON_CODE A  WHERE (GROUP_CODE ='MA0041') AND (CODE = V.SUB_LOC_CD)) SUB_LOC_CDNM,
+       V.FROM_KM,
+       V.TO_KM,
+       V.INUSE_KM,
+       V.DISTANCE,
+       V.CAR_EXPENSE,
+       V.TOLL_EXPENSE,
+       V.GITA_EXPENSE,
+       NVL(V.CAR_EXPENSE, 0) + NVL(V.TOLL_EXPENSE, 0) + NVL(V.GITA_EXPENSE, 0) TOT_EXPENSE,
+       V.COMPANION,
+       V.GUBUN,
+       V.VISIT_ID,
+       '0' PRINT
+  FROM MAK_DRIVING_MGMT V,
+       MAK_VISIT_MGMT_TOT_V A,
+       HLDC_HR_PERSONAL B
+WHERE  (V.GUBUN      = A.GUBUN)
+AND    (V.VISIT_ID   = A.VISIT_ID)
+AND    (A.MGMT_SABUN = B.SABUN)
+AND    (A.VISIT_DATE BETWEEN #VISIT_DATEFR# AND #VISIT_DATETO#)
+
+  <isNotNull col="MGMT_DEPT_ID">
+ -- AND   (B.DEPT_ID = #MGMT_DEPT_ID#)
+ --팀 조건으로 변경 20170405 요청자:이혜은
+ --팀조건 삭제 20200226 요청자:김영욱
+ --   AND   (B.DEPT_ID IN (SELECT DEPT_ID FROM HLDC_SC_DEPT_V WHERE TM_CD = #MGMT_DEPT_ID#))
+  </isNotNull>
+  
+  <isNotNull col="MGMT_SABUN">
+  AND   (A.MGMT_SABUN = #MGMT_SABUN#)
+  </isNotNull>  
+
+ORDER BY B.DEPT_ID, A.MGMT_SABUN, A.VISIT_DATE, V.FROM_KM, V.TO_KM, A.VISIT_ID, V.DRIVING_ID
+
+</statement>
+	<input default-name="ds_cond">
+		<col name="VISIT_DATEFR" size="200" type="VARCHAR" description="" /> 
+		<col name="VISIT_DATETO" size="200" type="VARCHAR" description="" /> 
+		<col name="MGMT_DEPT_ID" size="22" type="NUMERIC" description="" />		
+		<col name="MGMT_SABUN" size="200" type="VARCHAR" description="" /> 	 		
+	</input>
+	<output default-name="ds_DRIVING_MGMT">
+	        <col name="VISIT_DATE" size="256" type="VARCHAR" description="" />
+	        <col name="VISIT_DAY" size="256" type="VARCHAR" description="" />
+	        <col name="VISIT_PLACENM" size="256" type="VARCHAR" description="" />
+	        <col name="MGMT_SABUN" size="256" type="VARCHAR" description="" />
+	        <col name="MGMT_SABUNNM" size="256" type="VARCHAR" description="" />
+				  <col name="DRIVING_ID" size="256" type="NUMERIC" description="" />
+					<col name="CAR_CLASS" size="256" type="VARCHAR" description="" />
+					<col name="CAR_NUMBER" size="256" type="VARCHAR" description="" />
+					<col name="LOC_CD" size="256" type="VARCHAR" description="" />
+					<col name="LOC_CDNM" size="256" type="VARCHAR" description="" />
+					<col name="SUB_LOC_CD" size="256" type="VARCHAR" description="" />
+					<col name="SUB_LOC_CDNM" size="256" type="VARCHAR" description="" />
+					<col name="FROM_KM" size="256" type="NUMERIC" description="" />
+					<col name="TO_KM" size="256" type="NUMERIC" description="" />
+					<col name="INUSE_KM" size="256" type="NUMERIC" description="" />
+					<col name="DISTANCE" size="256" type="NUMERIC" description="" />
+					<col name="CAR_EXPENSE" size="256" type="NUMERIC" description="" />
+					<col name="TOLL_EXPENSE" size="256" type="NUMERIC" description="" />
+					<col name="GITA_EXPENSE" size="256" type="NUMERIC" description="" />
+					<col name="COMPANION" size="256" type="VARCHAR" description="" />
+					<col name="GUBUN" size="256" type="VARCHAR" description="" />
+					<col name="VISIT_ID" size="256" type="NUMERIC" description="" />
+					<col name="TOT_EXPENSE" size="256" type="NUMERIC" description="" />
+					<col name="PRINT" size="60" type="VARCHAR" description="" /> 
+	</output>
+</query>

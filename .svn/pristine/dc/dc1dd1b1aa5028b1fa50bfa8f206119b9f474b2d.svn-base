@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="rc.sle.eventMenuSalesListDAO">
+	<desc>행사메뉴매출현황</desc>
+
+
+
+
+	<statement name="selectList" type="select"><![CDATA[
+			SELECT   OUTLET_CD
+			      ,  OUTLET_NM
+			      ,  RANKING
+			      ,  MENU_CD
+			      ,  MENU_NM
+			      ,  MENU_UCST
+			      ,  QTY
+			      ,  OCCR_AMT
+			      ,  DSCN_AMT
+			      ,  NET_AMT
+			      ,  SVC
+			      ,  VAT
+			      ,  TOT_AMT
+			      ,  PCT
+			  FROM (  
+			    SELECT C.OUTLET_CD AS OUTLET_CD, C.OUTLET_NM, C.RANKING AS RANKING, C.MENU_CD AS MENU_CD, TRIM(D.MENU_NM) AS MENU_NM, MENU_UCST,
+						       QTY, OCCR_AMT, DSCN_AMT, NET_AMT, SVC, VAT, TOT_AMT, PCT
+						  FROM
+						  (
+						  SELECT OUTLET_CD, OUTLET_NM, MENU_CD, RANKING, MENU_NM, MENU_UCST, QTY, OCCR_AMT, DSCN_AMT, NET_AMT, SVC, VAT, TOT_AMT,
+						         DECODE( :rankDiv , 'T' , NVL(ROUND((TOT_AMT / DECODE(NVL(B.GRAND_TOT, 0),0,NULL,NVL(B.GRAND_TOT, 0))) * 100,2),0)
+						                                , NVL(ROUND((QTY / DECODE(NVL(B.GRAND_TOT, 0),0,NULL,NVL(B.GRAND_TOT, 0))) * 100,2),0)
+						         		) AS PCT
+						    FROM
+						     (
+						     SELECT 1 AS GUBUN, OUTLET_CD, OUTLET_NM, MENU_CD, RANKING, MENU_NM, MENU_UCST, QTY, OCCR_AMT, DSCN_AMT, NET_AMT, SVC, VAT, TOT_AMT
+						       FROM (
+					             SELECT OUTLET_CD AS OUTLET_CD,  MAX(OUTLET_NM) AS OUTLET_NM, MENU_CD AS MENU_CD,
+					                    DECODE( :rankDiv , 'T' , RANK() OVER(ORDER BY SUM(TOT_AMT)  DESC)
+					                                           , RANK() OVER(ORDER BY SUM(QTY) DESC)
+		                                       ) AS RANKING,
+					                    MENU_NM AS MENU_NM,  MENU_UCST AS MENU_UCST,
+					                    SUM(QTY) AS QTY, SUM(OCCR_AMT) AS OCCR_AMT,
+		                                SUM(DSCN_AMT) AS DSCN_AMT,
+		                                SUM(NET_AMT) AS NET_AMT, SUM(SVC) AS SVC, SUM(VAT) AS VAT, SUM(NVL(TOT_AMT,0)) AS TOT_AMT
+					               FROM (
+				                      SELECT DECODE( :outletSet , 'SALE' , MST.OUTLET_CD, MST.ATTACH_OUTLET_CD ) AS OUTLET_CD,
+				                             MST.MENU_CD, MST.MENU_NM, MST.CST AS MENU_UCST, MST.QUANTITY AS QTY,
+				                             MST.OCCUR_AMT AS OCCR_AMT, MST.DISCNT_AMT AS DSCN_AMT,
+	                                         MST.NET_AMT, MST.SVC, MST.VAT, MST.TOT_AMT, OUTLET_TYPE, OUTLET_NM
+				                             FROM SLE_SALS_GOODS MST
+	                                         INNER JOIN SLE_OUTLET_MST LOC ON  DECODE( :outletSet , 'SALE' , MST.OUTLET_CD, MST.ATTACH_OUTLET_CD ) = LOC.OUTLET_CD
+				                            WHERE MST.RECEIPT_STATUS IN ('Q', 'R')
+				                              AND MST.SALS_CLASS = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+				                              AND MST.BC_CD = :bcCd		--지점
+				                              AND DECODE( :outletSet , 'SALE' , MST.OUTLET_CD, MST.ATTACH_OUTLET_CD ) = :outletCd  --업장
+	                                          AND MST.SALES_DATE BETWEEN :frSalesDt AND :toSalesDt						--매출일자
+	                              			  <#if adjtStat?has_content >   AND MST.MODIFY_STATUS = :adjtStat   </#if>	--0:매출 1:조정
+	                              			  <#if outletType?has_content > AND LOC.OUTLET_TYPE   = :outletType </#if>  --업장종류
+	                              			  <#if sellYn?has_content >     AND MST.SELL_YN = 'Y'	 			</#if>  --매출여부
+				                              <#if salsYn?has_content >     AND MST.SALS_YN = 'Y'  				</#if>  --판매여부  
+	                              			  
+	                              			  
+					                     ) GROUP BY OUTLET_CD, MENU_CD, MENU_NM, MENU_UCST
+					             )  WHERE 1=1
+					                 <#if rank?has_content >AND RANKING <= :rank </#if>
+						     )A
+			
+						  LEFT OUTER JOIN
+						    (
+						    SELECT 1 AS GUBUN, DECODE( :rankDiv , 'T' , SUM(TOT_AMT)  , SUM(QTY)  ) AS GRAND_TOT
+						      FROM (
+						       	 SELECT OUTLET_CD AS OUTLET_CD, MAX(OUTLET_NM) AS OUTLET_NM, MENU_CD AS MENU_CD,
+						               DECODE( :rankDiv, 'T' , RANK() OVER(ORDER BY SUM(TOT_AMT) DESC)
+						                                     , RANK() OVER(ORDER BY SUM(QTY) DESC)
+			                           		  ) AS RANKING,
+						              MENU_NM AS MENU_NM, MENU_UCST AS MENU_USCT,
+						              SUM(QTY) AS QTY, SUM(OCCR_AMT) AS OCCR_AMT,  SUM(DSCN_AMT) AS DSCN_AMT, 
+						              SUM(NET_AMT) AS NET_AMT, SUM(VAT) AS VAT, SUM(NVL(TOT_AMT,0)) AS TOT_AMT
+						         FROM (
+				                      SELECT DECODE( :outletSet , 'SALE' , MST.OUTLET_CD, MST.ATTACH_OUTLET_CD ) AS OUTLET_CD,
+				                             MST.MENU_CD, MST.MENU_NM, MST.CST AS MENU_UCST, MST.QUANTITY AS QTY,
+				                             MST.OCCUR_AMT AS OCCR_AMT, MST.DISCNT_AMT AS DSCN_AMT,
+	                                         MST.NET_AMT, MST.VAT, MST.TOT_AMT, OUTLET_TYPE, OUTLET_NM
+				                             FROM SLE_SALS_GOODS MST
+	                                         INNER JOIN SLE_OUTLET_MST LOC ON  DECODE( :outletSet , 'SALE' , MST.OUTLET_CD, MST.ATTACH_OUTLET_CD ) = LOC.OUTLET_CD
+				                            WHERE MST.RECEIPT_STATUS IN ('Q', 'R')
+				                              AND MST.SALS_CLASS = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+				                              AND MST.BC_CD = :bcCd		--지점
+				                              AND DECODE( :outletSet , 'SALE' , MST.OUTLET_CD, MST.ATTACH_OUTLET_CD ) = :outletCd  --업장
+	                                          AND MST.SALES_DATE BETWEEN :frSalesDt AND :toSalesDt					--매출일자
+	                              			  <#if adjtStat?has_content >   AND MST.MODIFY_STATUS = :adjtStat   </#if>	--0:매출 1:조정
+	                              			  <#if outletType?has_content > AND LOC.OUTLET_TYPE   = :outletType </#if>  --매장
+	                              			  <#if sellYn?has_content >     AND MST.SELL_YN = 'Y'	 			</#if>  --매출여부
+				                              <#if salsYn?has_content >     AND MST.SALS_YN = 'Y'  				</#if>  --판매여부
+	                                  
+						                    
+						               ) GROUP BY OUTLET_CD, MENU_CD, MENU_NM, MENU_UCST
+						       ) WHERE 1=1
+						         <#if rank?has_content >AND RANKING <= :rank </#if>
+						         
+						      )B ON A.GUBUN = B.GUBUN
+						  )C
+			
+						  LEFT OUTER JOIN
+						  (
+						  SELECT MENU_CD, MENU_NM
+						    FROM SLE_OUTLET_MENU  WHERE OUTLET_CD   = :outletCd
+						  )D
+						  ON C.MENU_CD = D.MENU_CD
+		
+					ORDER BY RANKING, OUTLET_CD
+			) DUAL
+	        ORDER BY RANKING, OUTLET_CD
+				   
+						
+	
+		]]></statement>
+
+
+
+</hqml>

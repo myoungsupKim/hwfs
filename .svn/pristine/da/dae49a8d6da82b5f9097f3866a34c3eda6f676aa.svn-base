@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+WITH UPJANG_INFO AS
+(
+ SELECT A.MU_CD
+      , A.MU_NM
+      , A.TM_CD
+      , A.TM_NM
+      , A.UPJANG
+      , A.UPJANGNM
+      , B.COST_TYPE
+      , NVL(B.USE_YN, 'N') AS USE_YN /*권장메뉴 대상점 여부*/
+      , NVL(B.COMP_YN, 'N') AS COMP_YN /*권장메뉴 강제 여부*/
+      , C.YY
+      , C.MM
+      , C.DD
+      , C.CD_WEEK
+      , C.CD_DATE
+      , C.CD_COLOR
+   FROM SCO_UPJANG_MST_V A
+      , (
+         SELECT A.COST_TYPE
+              , B.UPJANG
+              , B.USE_YN
+              , B.COMP_YN
+           FROM FSM_REC_UPJANG_GRP A
+              , FSM_REC_UPJANG B
+          WHERE A.GRP_SEQ = B.GRP_SEQ
+            AND A.USE_YN = 'Y'
+        ) B
+     , (
+        SELECT CD_SY AS YY
+             , CD_SM AS MM
+             , CD_SD AS DD
+             , CD_WEEK
+             , CD_SY || CD_SM || CD_SD AS CD_DATE
+             , DECODE(HOLIDAY, 1, 'RED', 2, 'RED', DECODE(CD_WEEK, '일', 'RED', '토', 'BLUE', 'WHITE')) AS CD_COLOR
+          FROM SCC_CALENDA_DATA
+         WHERE CD_SY||CD_SM||CD_SD &gt;= #FR_DT#
+           AND CD_SY||CD_SM||CD_SD &lt;= #TO_DT#
+       ) C
+  WHERE A.UPJANG = B.UPJANG(+)
+<isNotNull col = "MU">
+    AND A.MU_CD = #MU#
+</isNotNull>
+<isNotNull col = "TM_CD">
+    AND A.TM_CD = #TM_CD#
+</isNotNull>
+<isNotNull col = "UPJANG">
+    AND A.UPJANG = #UPJANG#
+</isNotNull>
+<isEqual col = "GBN" value = "1">
+    AND B.USE_YN(+) = 'Y'
+</isEqual>
+<isEqual col = "GBN" value = "2">
+    AND B.USE_YN(+) = 'N'
+</isEqual>
+<isNotNull col = "COST_TYPE">
+    AND B.COST_TYPE(+) = #COST_TYPE#
+</isNotNull>
+    AND A.CLOSE_DATE IS NULL
+)
+SELECT A.TM_CD
+     , DECODE(A.TM_CD, NULL, '계', B.TM_NM) AS TM_NM
+     , A.UPJANG
+     , CASE WHEN A.TM_CD IS NULL AND A.UPJANG IS NULL THEN ''
+            WHEN A.TM_CD IS NOT NULL AND A.UPJANG IS NULL THEN '계'
+            ELSE B.UPJANGNM
+        END AS UPJANGNM
+     , CASE WHEN A.COST_TYPE IS NOT NULL AND B.USE_YN IS NULL THEN '999'
+            ELSE A.COST_TYPE
+        END AS COST_TYPE
+     , CASE WHEN A.TM_CD IS NOT NULL AND A.UPJANG IS NOT NULL AND A.CD_DATE IS NOT NULL THEN B.USE_YN
+            WHEN A.TM_CD IS NULL OR A.UPJANG IS NULL THEN ''
+            ELSE '계'
+        END USE_YN
+     , DECODE(A.CD_DATE, NULL, NULL, B.COMP_YN) AS COMP_YN
+     , B.YY
+     , B.MM
+     , B.DD
+     , B.CD_WEEK
+     , B.CD_COLOR
+     , A.CD_DATE
+     , DECODE(A.CD_DATE, NULL, NULL, (SELECT DECODE(NVL(SUM(Z.EXPECT_MEAL_QTY), 0), 0, 'X', 'O')
+                                        FROM FSM_REAL_MENU_MST Z
+                                       WHERE Z.MENU_DATE = A.CD_DATE
+                                         AND Z.UPJANG = A.UPJANG)) AS EXPECT_MEAL_QTY
+     , DECODE(B.USE_YN, 'N', '', A.REC_CNT_01) AS REC_CNT_01
+     , DECODE(B.USE_YN, 'N', '', A.REC_CNT_02) AS REC_CNT_02
+     , DECODE(B.USE_YN, 'N', '', A.REC_CNT_03) AS REC_CNT_03
+     , DECODE(B.USE_YN, 'N', '', A.REC_CNT_SUM) AS REC_CNT_SUM
+     , DECODE(B.USE_YN, 'N', '', A.UPJANG_REC_CNT_01) AS UPJANG_REC_CNT_01
+     , DECODE(B.USE_YN, 'N', '', A.UPJANG_REC_CNT_02) AS UPJANG_REC_CNT_02
+     , DECODE(B.USE_YN, 'N', '', A.UPJANG_REC_CNT_03) AS UPJANG_REC_CNT_03
+     , DECODE(B.USE_YN, 'N', '', A.UPJANG_REC_CNT_SUM) AS UPJANG_REC_CNT_SUM
+     , DECODE(B.USE_YN, 'N', '', A.RATE_01) AS RATE_01
+     , DECODE(B.USE_YN, 'N', '', A.RATE_02) AS RATE_02
+     , DECODE(B.USE_YN, 'N', '', A.RATE_03) AS RATE_03
+     , DECODE(B.USE_YN, 'N', '', A.RATE_04) AS RATE_04
+  FROM (
+        SELECT A.TM_CD
+             , A.UPJANG
+             , A.COST_TYPE
+             , A.CD_DATE
+             , SUM(A.REC_CNT_01) AS REC_CNT_01
+             , SUM(A.REC_CNT_02) AS REC_CNT_02
+             , SUM(A.REC_CNT_03) AS REC_CNT_03
+             , SUM(A.REC_CNT_01) + SUM(A.REC_CNT_02) + SUM(A.REC_CNT_03) AS REC_CNT_SUM
+             , SUM(A.UPJANG_REC_CNT_01) AS UPJANG_REC_CNT_01
+             , SUM(A.UPJANG_REC_CNT_02) AS UPJANG_REC_CNT_02
+             , SUM(A.UPJANG_REC_CNT_03) AS UPJANG_REC_CNT_03
+             , SUM(A.UPJANG_REC_CNT_01) + SUM(A.UPJANG_REC_CNT_02) + SUM(A.UPJANG_REC_CNT_03) AS UPJANG_REC_CNT_SUM
+             , DECODE(SUM(A.REC_CNT_01), 0, 0, ROUND((SUM(A.UPJANG_REC_CNT_01) / SUM(A.REC_CNT_01)) * 100, 2)) AS RATE_01
+             , DECODE(SUM(A.REC_CNT_02), 0, 0, ROUND((SUM(A.UPJANG_REC_CNT_02) / SUM(A.REC_CNT_02)) * 100, 2)) AS RATE_02
+             , DECODE(SUM(A.REC_CNT_03), 0, 0, ROUND((SUM(A.UPJANG_REC_CNT_01) / SUM(A.REC_CNT_03)) * 100, 2)) AS RATE_03
+             , DECODE(SUM(A.REC_CNT_01 + A.REC_CNT_02 + A.REC_CNT_03), 0, 0, ROUND((SUM(A.UPJANG_REC_CNT_01 + A.UPJANG_REC_CNT_02 + A.UPJANG_REC_CNT_03) / SUM(A.REC_CNT_01 + A.REC_CNT_02 + A.REC_CNT_03) * 100), 2)) AS RATE_04
+          FROM (
+                SELECT A.TM_CD
+                     , A.UPJANG
+                     , A.COST_TYPE
+                     , A.CD_DATE
+                     , DECODE(A.USE_YN, 'N', 0, SUM(A.REC_NUM_01)) AS REC_NUM_01
+                     , DECODE(A.USE_YN, 'N', 0, SUM(A.REC_NUM_02)) AS REC_NUM_02
+                     , DECODE(A.USE_YN, 'N', 0, SUM(A.REC_NUM_03)) AS REC_NUM_03
+                     , DECODE(A.USE_YN, 'N', 0, SUM(B.REC_NUM_01)) AS UPJANG_REC_NUM_01
+                     , DECODE(A.USE_YN, 'N', 0, SUM(B.REC_NUM_02)) AS UPJANG_REC_NUM_02
+                     , DECODE(A.USE_YN, 'N', 0, SUM(B.REC_NUM_03)) AS UPJANG_REC_NUM_03
+                     , DECODE(A.USE_YN, 'N', 0, SUM(CASE WHEN A.REC_NUM_01 &gt; 0 THEN 1 ELSE 0 END)) AS REC_CNT_01
+                     , DECODE(A.USE_YN, 'N', 0, SUM(CASE WHEN A.REC_NUM_02 &gt; 0 THEN 1 ELSE 0 END)) AS REC_CNT_02
+                     , DECODE(A.USE_YN, 'N', 0, SUM(CASE WHEN A.REC_NUM_03 &gt; 0 THEN 1 ELSE 0 END)) AS REC_CNT_03
+                     , DECODE(A.USE_YN, 'N', 0, SUM(CASE WHEN A.REC_NUM_01 &gt; 0 AND A.REC_NUM_01 = B.REC_NUM_01 THEN 1 ELSE 0 END)) AS UPJANG_REC_CNT_01
+                     , DECODE(A.USE_YN, 'N', 0, SUM(CASE WHEN A.REC_NUM_02 &gt; 0 AND A.REC_NUM_02 = B.REC_NUM_02 THEN 1 ELSE 0 END)) AS UPJANG_REC_CNT_02
+                     , DECODE(A.USE_YN, 'N', 0, SUM(CASE WHEN A.REC_NUM_03 &gt; 0 AND A.REC_NUM_03 = B.REC_NUM_03 THEN 1 ELSE 0 END)) AS UPJANG_REC_CNT_03
+                  FROM (
+                        SELECT A.TM_CD
+                             , A.UPJANG
+                             , A.COST_TYPE
+                             , A.CD_DATE
+                             , A.USE_YN
+                             , B.CORNER
+                             , B.REC_NUM_01
+                             , B.REC_NUM_02
+                             , B.REC_NUM_03
+                          FROM UPJANG_INFO A
+                             , (
+                                SELECT A.MENU_DATE
+                                     , A.COST_TYPE
+                                     , A.CORNER
+                                     , SUM(CASE WHEN A.MEAL = '001' THEN TO_NUMBER(B.ATTR02) ELSE 0 END) AS REC_NUM_01
+                                     , SUM(CASE WHEN A.MEAL = '002' THEN TO_NUMBER(B.ATTR02) ELSE 0 END) AS REC_NUM_02
+                                     , SUM(CASE WHEN A.MEAL = '003' THEN TO_NUMBER(B.ATTR02) ELSE 0 END) AS REC_NUM_03
+                                  FROM FSM_TERM_MENU_MST A
+                                     , FSM_TERM_MENU_RECIPE B
+                                 WHERE A.TERM_MENU_CD = B.TERM_MENU_CD
+                                   AND A.USE_YN = 'Y'
+                                   AND A.MENU_DATE BETWEEN #FR_DT# AND #TO_DT#
+                                 GROUP BY A.MENU_DATE, A.COST_TYPE, A.CORNER
+                               ) B
+                         WHERE A.CD_DATE = B.MENU_DATE(+)
+                           AND A.COST_TYPE = B.COST_TYPE(+)
+                       ) A
+                     , (
+                        SELECT A.UPJANG
+                             , A.MENU_DATE
+                             , A.ATTR01 AS COST_TYPE
+                             , A.ATTR02 AS CORNER
+                             , SUM(CASE WHEN A.MEAL = '001' THEN TO_NUMBER(NVL(B.ATTR02, 0)) ELSE 0 END) AS REC_NUM_01
+                             , SUM(CASE WHEN A.MEAL = '002' THEN TO_NUMBER(NVL(B.ATTR02, 0)) ELSE 0 END) AS REC_NUM_02
+                             , SUM(CASE WHEN A.MEAL = '003' THEN TO_NUMBER(NVL(B.ATTR02, 0)) ELSE 0 END) AS REC_NUM_03
+                          FROM FSM_REAL_MENU_MST A
+                             , FSM_REAL_RECIPE_MST B
+                         WHERE A.UPJANG = B.UPJANG
+                           AND A.MENU_CD = B.MENU_CD
+                           AND A.MENU_DATE BETWEEN #FR_DT# AND #TO_DT#
+                           AND B.ORIGIN_RECIPE = '01'
+                       <isNotNull col = "UPJANG">
+                           AND A.UPJANG = #UPJANG#
+                       </isNotNull>
+                         GROUP BY A.UPJANG, A.MENU_DATE, A.ATTR01, A.ATTR02
+                       ) B
+                 WHERE A.UPJANG = B.UPJANG(+)
+                   AND A.CD_DATE = B.MENU_DATE(+)
+                   AND A.COST_TYPE = B.COST_TYPE(+)
+                   AND A.CORNER = B.CORNER(+)
+                 GROUP BY A.TM_CD, A.UPJANG, A.COST_TYPE, A.CD_DATE, A.USE_YN
+               ) A
+         GROUP BY ROLLUP(A.TM_CD, A.UPJANG, A.COST_TYPE, A.CD_DATE)
+       ) A
+     , UPJANG_INFO B
+ WHERE A.TM_CD = B.TM_CD(+)
+   AND A.UPJANG = B.UPJANG(+)
+   AND A.CD_DATE = B.CD_DATE(+)
+   AND A.COST_TYPE = B.COST_TYPE(+)
+ORDER BY A.TM_CD, A.UPJANG, A.COST_TYPE, A.CD_DATE
+
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

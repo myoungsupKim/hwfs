@@ -1,0 +1,1209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="ls.lsm.monthlyRptMgmtDAO">
+    <desc>월간보고 관리</desc>
+
+    <!-- 월간보고 조회 DATA를 조회한다. -->
+    <statement name="selectList" type="select">
+        /*+ com.hwfs.ls.lsm.dao.MonthlyRptMgmtDAO.selectList */
+        <![CDATA[
+/* 월간보고 조회 */
+SELECT T.*
+  FROM (
+        SELECT A.INSPT_OBJ_1
+             , A.INSPT_OBJ_1_NAME
+             , A.INSPT_OBJ_3
+             , A.INSPT_OBJ_3_NAME
+             , (
+                 SELECT INSPT_CONTENTS
+                   FROM LSM_MONTHLY_RPT_INSPT_DESC
+                  WHERE YEAR = SUBSTR(:yymm, 1, 4)
+                    AND MM = SUBSTR(:yymm, 5, 2)
+                    AND PLAN_CLSFI = A.INSPT_OBJ_1
+                    AND PLANCLASS = A.INSPT_OBJ_3
+               ) AS INSPT_CONTENTS
+             , (
+                 SELECT COUNT(1)
+                   FROM LSM_ANNUPLAN_DTL
+                  WHERE YEAR = SUBSTR(:yymm, 1, 4)
+                    AND MM = TO_NUMBER(SUBSTR(:yymm, 5, 2))
+                    AND PLAN_CLSFI = A.INSPT_OBJ_1
+                    AND PLANCLASS = A.INSPT_OBJ_3
+                    AND INSPT_YN = 'Y'
+               ) AS PLAN_MONTH   /* 계획 월 */
+             , (
+                 SELECT COUNT(1)
+                   FROM LSM_ANNUPLAN_DTL
+                  WHERE YEAR = SUBSTR(:yymm, 1, 4)
+                    AND PLAN_CLSFI = A.INSPT_OBJ_1
+                    AND PLANCLASS = A.INSPT_OBJ_3
+                    AND INSPT_YN = 'Y'
+               ) AS PLAN_YEAR    /* 계획 년 */
+             , (
+                 SELECT COUNT(1)
+                   FROM LRM_TEST_REQ_ACCEPT TR
+                      , LRM_SPECM_INFO SI
+                  WHERE TR.REQ_NUM = SI.REQ_NUM
+                    <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                    AND SI.ACCEPTDD BETWEEN :yymm || '01' AND :yymm || '31'
+                    AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                    AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+               ) AS CURR_MONTH /* 월 실적 */
+             , (
+                 SELECT COUNT(1)
+                   FROM LRM_TEST_REQ_ACCEPT TR
+                      , LRM_SPECM_INFO SI
+                  WHERE TR.REQ_NUM = SI.REQ_NUM
+                    <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                    AND SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                    AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                    AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+               ) AS CURR_SUM   /* 실적 누계 */
+             , (
+                 SELECT COUNT(1)
+                   FROM LRM_TEST_REQ_ACCEPT TR
+                      , LRM_SPECM_INFO SI
+                  WHERE TR.REQ_NUM = SI.REQ_NUM
+                    <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                    AND SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                    AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                    AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LTM_TEST_DIARY TD
+                                  WHERE SI.REQ_NUM = TD.REQ_NUM
+                                    AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                                    AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                               )
+               ) AS NOT_FIT_SPECM_CNT   /* 부적합 시료 건수 */
+             , '법적' AS NOT_FIT_NM
+             , (
+                 SELECT COUNT(1)
+                   FROM LRM_TEST_REQ_ACCEPT TR
+                      , LRM_SPECM_INFO SI
+                      , LRM_TEST_INFO TI
+                      , LTM_TEST_DIARY TD
+                  WHERE TR.REQ_NUM = SI.REQ_NUM
+                    <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                    AND SI.ACCEPTDD BETWEEN :yymm || '01' AND :yymm || '31'
+                    AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                    AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                    AND SI.REQ_NUM = TI.REQ_NUM
+                    AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                    AND TI.LEGAL_BASIS = 'Y'
+                    AND SI.REQ_NUM = TD.REQ_NUM
+                    AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                    AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                    AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+               ) AS NOT_FIT_MONTH_CNT   /* 법적 부적합 시험 항목 건수 */
+             , (
+                 SELECT COUNT(1)
+                   FROM LRM_TEST_REQ_ACCEPT TR
+                      , LRM_SPECM_INFO SI
+                      , LRM_TEST_INFO TI
+                      , LTM_TEST_DIARY TD
+                  WHERE TR.REQ_NUM = SI.REQ_NUM
+                    <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                    AND SI.ACCEPTDD BETWEEN :yymm || '01' AND :yymm || '31'
+                    AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                    AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                    AND SI.REQ_NUM = TI.REQ_NUM
+                    AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                    AND SI.REQ_NUM = TD.REQ_NUM
+                    AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                    AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                    AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+               ) AS NOT_FIT_MONTH_SUM   /* 월별 법적/내부 부적합 시험 항목 건수 */
+             , (
+                 SELECT COUNT(1)
+                   FROM LRM_TEST_REQ_ACCEPT TR
+                      , LRM_SPECM_INFO SI
+                      , LRM_TEST_INFO TI
+                      , LTM_TEST_DIARY TD
+                  WHERE TR.REQ_NUM = SI.REQ_NUM
+                    <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                    AND SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                    AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                    AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                    AND SI.REQ_NUM = TI.REQ_NUM
+                    AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                    AND TI.LEGAL_BASIS = 'Y'
+                    AND SI.REQ_NUM = TD.REQ_NUM
+                    AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                    AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                    AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+               ) AS NOT_FIT_SUM   /* 법적 부적합 시험 항목 누적 건수 */
+             , (
+                 SELECT COUNT(1)
+                   FROM LRM_TEST_REQ_ACCEPT TR
+                      , LRM_SPECM_INFO SI
+                      , LRM_TEST_INFO TI
+                      , LTM_TEST_DIARY TD
+                  WHERE TR.REQ_NUM = SI.REQ_NUM
+                    <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                    AND SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                    AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                    AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                    AND SI.REQ_NUM = TI.REQ_NUM
+                    AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                    AND SI.REQ_NUM = TD.REQ_NUM
+                    AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                    AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                    AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+               ) AS NOT_FIT_TOT_SUM   /* 법적/내부 부적합 시험 항목 누적 건수 */
+             , (CASE WHEN (
+                             SELECT COUNT(1)
+                               FROM LSM_ANNUPLAN_DTL
+                              WHERE YEAR = SUBSTR(:yymm, 1, 4)
+                                AND MM = TO_NUMBER(SUBSTR(:yymm, 5, 2))
+                                AND PLAN_CLSFI = A.INSPT_OBJ_1
+                                AND PLANCLASS = A.INSPT_OBJ_3
+                                AND INSPT_YN = 'Y'
+                           ) = 0 THEN 0
+               ELSE ROUND(
+                   (
+                     SELECT COUNT(1)
+                       FROM LRM_TEST_REQ_ACCEPT TR
+                          , LRM_SPECM_INFO SI
+                      WHERE TR.REQ_NUM = SI.REQ_NUM
+                        <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                        AND SI.ACCEPTDD BETWEEN :yymm || '01' AND :yymm || '31'
+                        AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                        AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                        AND EXISTS (
+                                     SELECT 1
+                                       FROM LRM_PROC_DESC PD
+                                      WHERE SI.REQ_NUM = PD.REQ_NUM
+                                        AND PD.PROC_CLASS >= '200'
+                                   )
+                   ) /
+                   (
+                     SELECT COUNT(1)
+                       FROM LSM_ANNUPLAN_DTL
+                      WHERE YEAR = SUBSTR(:yymm, 1, 4)
+                        AND MM = TO_NUMBER(SUBSTR(:yymm, 5, 2))
+                        AND PLAN_CLSFI = A.INSPT_OBJ_1
+                        AND PLANCLASS = A.INSPT_OBJ_3
+                        AND INSPT_YN = 'Y'
+                   ) * 100 , 1)
+               END
+               ) AS CURR_MONTH_RATE /* 월간 계획 대비 달성률 */
+             , (CASE WHEN (
+                             SELECT COUNT(1)
+                               FROM LSM_ANNUPLAN_DTL
+                              WHERE YEAR = SUBSTR(:yymm, 1, 4)
+                                AND PLAN_CLSFI = A.INSPT_OBJ_1
+                                AND PLANCLASS = A.INSPT_OBJ_3
+                                AND INSPT_YN = 'Y'
+                           ) = 0 THEN 0
+               ELSE ROUND(
+                   (
+                     SELECT COUNT(1)
+                       FROM LRM_TEST_REQ_ACCEPT TR
+                          , LRM_SPECM_INFO SI
+                      WHERE TR.REQ_NUM = SI.REQ_NUM
+                        <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                        AND SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                        AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                        AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                        AND EXISTS (
+                                     SELECT 1
+                                       FROM LRM_PROC_DESC PD
+                                      WHERE SI.REQ_NUM = PD.REQ_NUM
+                                        AND PD.PROC_CLASS >= '200'
+                                   )
+                   ) /
+                   (
+                     SELECT COUNT(1)
+                       FROM LSM_ANNUPLAN_DTL
+                      WHERE YEAR = SUBSTR(:yymm, 1, 4)
+                        AND PLAN_CLSFI = A.INSPT_OBJ_1
+                        AND PLANCLASS = A.INSPT_OBJ_3
+                        AND INSPT_YN = 'Y'
+                   ) * 100  , 1)
+               END
+               ) AS CURR_SUM_RATE /* 년간 계획 대비 달성율 */
+             , (CASE WHEN (
+                             SELECT COUNT(1)
+                               FROM LRM_TEST_REQ_ACCEPT TR
+                                  , LRM_SPECM_INFO SI
+                              WHERE TR.REQ_NUM = SI.REQ_NUM
+                                <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                                AND SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                                AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                                AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                                AND EXISTS (
+                                             SELECT 1
+                                               FROM LRM_PROC_DESC PD
+                                              WHERE SI.REQ_NUM = PD.REQ_NUM
+                                                AND PD.PROC_CLASS >= '200'
+                                           )
+                           ) = 0 THEN 0
+               ELSE ROUND(
+                   (
+                     SELECT COUNT(1)
+                       FROM LRM_TEST_REQ_ACCEPT TR
+                          , LRM_SPECM_INFO SI
+                      WHERE TR.REQ_NUM = SI.REQ_NUM
+                        <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                        AND SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                        AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                        AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                        AND EXISTS (
+                                     SELECT 1
+                                       FROM LRM_PROC_DESC PD
+                                      WHERE SI.REQ_NUM = PD.REQ_NUM
+                                        AND PD.PROC_CLASS >= '200'
+                                   )
+                        AND EXISTS (
+                                     SELECT 1
+                                       FROM LTM_TEST_DIARY TD
+                                      WHERE SI.REQ_NUM = TD.REQ_NUM
+                                        AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                                        AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                                   )
+                   ) /
+                   (
+                     SELECT COUNT(1)
+                       FROM LRM_TEST_REQ_ACCEPT TR
+                          , LRM_SPECM_INFO SI
+                      WHERE TR.REQ_NUM = SI.REQ_NUM
+                        <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                        AND SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                        AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                        AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                        AND EXISTS (
+                                     SELECT 1
+                                       FROM LRM_PROC_DESC PD
+                                      WHERE SI.REQ_NUM = PD.REQ_NUM
+                                        AND PD.PROC_CLASS >= '200'
+                                   )
+                   ) * 100  , 1)
+               END
+               ) AS NOT_FIT_SPECM_CNT_RATE /* 누계 대비 부적합 시료 율 */
+             , '내부' AS NOT_FIT_NM_RATE
+             , (
+                 SELECT COUNT(1)
+                   FROM LRM_TEST_REQ_ACCEPT TR
+                      , LRM_SPECM_INFO SI
+                      , LRM_TEST_INFO TI
+                      , LTM_TEST_DIARY TD
+                  WHERE TR.REQ_NUM = SI.REQ_NUM
+                    <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                    AND SI.ACCEPTDD BETWEEN :yymm || '01' AND :yymm || '31'
+                    AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                    AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                    AND SI.REQ_NUM = TI.REQ_NUM
+                    AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                    AND TI.INSIDE_BASIS = 'Y'
+                    AND SI.REQ_NUM = TD.REQ_NUM
+                    AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                    AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                    AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+               ) AS NOT_FIT_MONTH_CNT_RATE   /* 내부 부적합 시험 항목 건수 */
+             , (
+                 SELECT COUNT(1)
+                   FROM LRM_TEST_REQ_ACCEPT TR
+                      , LRM_SPECM_INFO SI
+                      , LRM_TEST_INFO TI
+                      , LTM_TEST_DIARY TD
+                  WHERE TR.REQ_NUM = SI.REQ_NUM
+                    <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                    AND SI.ACCEPTDD BETWEEN :yymm || '01' AND :yymm || '31'
+                    AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                    AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                    AND SI.REQ_NUM = TI.REQ_NUM
+                    AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                    AND SI.REQ_NUM = TD.REQ_NUM
+                    AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                    AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                    AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+               ) AS NOT_FIT_MONTH_SUM_RATE   /* 월별 부적합 시험 항목 건수 */
+             , (
+                 SELECT COUNT(1)
+                   FROM LRM_TEST_REQ_ACCEPT TR
+                      , LRM_SPECM_INFO SI
+                      , LRM_TEST_INFO TI
+                      , LTM_TEST_DIARY TD
+                  WHERE TR.REQ_NUM = SI.REQ_NUM
+                    <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                    AND SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                    AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                    AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                    AND SI.REQ_NUM = TI.REQ_NUM
+                    AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                    AND TI.INSIDE_BASIS = 'Y'
+                    AND SI.REQ_NUM = TD.REQ_NUM
+                    AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                    AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                    AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+               ) AS NOT_FIT_SUM_RATE   /* 내부 부적합 시험 항목 누적 건수 */
+             , (
+                 SELECT COUNT(1)
+                   FROM LRM_TEST_REQ_ACCEPT TR
+                      , LRM_SPECM_INFO SI
+                      , LRM_TEST_INFO TI
+                      , LTM_TEST_DIARY TD
+                  WHERE TR.REQ_NUM = SI.REQ_NUM
+                    <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                    AND SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                    AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                    AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                    AND SI.REQ_NUM = TI.REQ_NUM
+                    AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                    AND SI.REQ_NUM = TD.REQ_NUM
+                    AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                    AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                    AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+               ) AS NOT_FIT_TOT_SUM_RATE   /* 법적/내부 부적합 시험 항목 누적 건수 */
+             , CASE WHEN (
+                           SELECT COUNT(1)
+                             FROM LRM_TEST_REQ_ACCEPT TR
+                                , LRM_SPECM_INFO SI
+                                , LRM_TEST_INFO TI
+                                , LTM_TEST_DIARY TD
+                            WHERE TR.REQ_NUM = SI.REQ_NUM
+                              <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                              AND SI.ACCEPTDD BETWEEN :yymm || '01' AND :yymm || '31'
+                              AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                              AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                              AND SI.REQ_NUM = TI.REQ_NUM
+                              AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                              AND SI.REQ_NUM = TD.REQ_NUM
+                              AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                              AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                              AND TI.LEGAL_BASIS = 'Y'
+                              AND EXISTS (
+                                           SELECT 1
+                                             FROM LRM_PROC_DESC PD
+                                            WHERE SI.REQ_NUM = PD.REQ_NUM
+                                              AND PD.PROC_CLASS >= '200'
+                                         )
+                          ) = 0 THEN 0.0
+                ELSE
+                (  ROUND(  (
+                     SELECT COUNT(1)
+                       FROM LRM_TEST_REQ_ACCEPT TR
+                          , LRM_SPECM_INFO SI
+                          , LRM_TEST_INFO TI
+                          , LTM_TEST_DIARY TD
+                      WHERE TR.REQ_NUM = SI.REQ_NUM
+                        <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                        AND SI.ACCEPTDD BETWEEN :yymm || '01' AND :yymm || '31'
+                        AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                        AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                        AND SI.REQ_NUM = TI.REQ_NUM
+                        AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                        AND SI.REQ_NUM = TD.REQ_NUM
+                        AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                        AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                        AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                        AND TI.LEGAL_BASIS = 'Y'
+                        AND EXISTS (
+                                     SELECT 1
+                                       FROM LRM_PROC_DESC PD
+                                      WHERE SI.REQ_NUM = PD.REQ_NUM
+                                        AND PD.PROC_CLASS >= '200'
+                                   )
+                     ) /
+                     (
+                     SELECT COUNT(1)
+                       FROM LRM_TEST_REQ_ACCEPT TR
+                          , LRM_SPECM_INFO SI
+                          , LRM_TEST_INFO TI
+                          , LTM_TEST_DIARY TD
+                      WHERE TR.REQ_NUM = SI.REQ_NUM
+                        <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                        AND SI.ACCEPTDD BETWEEN :yymm || '01' AND :yymm || '31'
+                        AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                        AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                        AND SI.REQ_NUM = TI.REQ_NUM
+                        AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                        AND SI.REQ_NUM = TD.REQ_NUM
+                        AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                        AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                        AND TI.LEGAL_BASIS = 'Y'
+                        AND EXISTS (
+                                     SELECT 1
+                                       FROM LRM_PROC_DESC PD
+                                      WHERE SI.REQ_NUM = PD.REQ_NUM
+                                        AND PD.PROC_CLASS >= '200'
+                                   )
+                     ) * 100  , 1)
+               )
+               END AS NOT_FIT_MONTH_LEGAL_RATE   /* 월별 부적합 법적 비율 */
+             , CASE WHEN (
+                           SELECT COUNT(1)
+                             FROM LRM_TEST_REQ_ACCEPT TR
+                                , LRM_SPECM_INFO SI
+                                , LRM_TEST_INFO TI
+                                , LTM_TEST_DIARY TD
+                            WHERE TR.REQ_NUM = SI.REQ_NUM
+                              <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                              AND SI.ACCEPTDD BETWEEN :yymm || '01' AND :yymm || '31'
+                              AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                              AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                              AND SI.REQ_NUM = TI.REQ_NUM
+                              AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                              AND SI.REQ_NUM = TD.REQ_NUM
+                              AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                              AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                              AND TI.INSIDE_BASIS = 'Y'
+                              AND EXISTS (
+                                           SELECT 1
+                                             FROM LRM_PROC_DESC PD
+                                            WHERE SI.REQ_NUM = PD.REQ_NUM
+                                              AND PD.PROC_CLASS >= '200'
+                                         )
+                          ) = 0 THEN 0.0
+                ELSE
+                (  ROUND(  (
+                     SELECT COUNT(1)
+                       FROM LRM_TEST_REQ_ACCEPT TR
+                          , LRM_SPECM_INFO SI
+                          , LRM_TEST_INFO TI
+                          , LTM_TEST_DIARY TD
+                      WHERE TR.REQ_NUM = SI.REQ_NUM
+                        <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                        AND SI.ACCEPTDD BETWEEN :yymm || '01' AND :yymm || '31'
+                        AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                        AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                        AND SI.REQ_NUM = TI.REQ_NUM
+                        AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                        AND SI.REQ_NUM = TD.REQ_NUM
+                        AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                        AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                        AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                        AND TI.INSIDE_BASIS = 'Y'
+                        AND EXISTS (
+                                     SELECT 1
+                                       FROM LRM_PROC_DESC PD
+                                      WHERE SI.REQ_NUM = PD.REQ_NUM
+                                        AND PD.PROC_CLASS >= '200'
+                                   )
+                     ) /
+                     (
+                     SELECT COUNT(1)
+                       FROM LRM_TEST_REQ_ACCEPT TR
+                          , LRM_SPECM_INFO SI
+                          , LRM_TEST_INFO TI
+                          , LTM_TEST_DIARY TD
+                      WHERE TR.REQ_NUM = SI.REQ_NUM
+                        <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                        AND SI.ACCEPTDD BETWEEN :yymm || '01' AND :yymm || '31'
+                        AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                        AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                        AND SI.REQ_NUM = TI.REQ_NUM
+                        AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                        AND SI.REQ_NUM = TD.REQ_NUM
+                        AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                        AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                        AND TI.INSIDE_BASIS = 'Y'
+                        AND EXISTS (
+                                     SELECT 1
+                                       FROM LRM_PROC_DESC PD
+                                      WHERE SI.REQ_NUM = PD.REQ_NUM
+                                        AND PD.PROC_CLASS >= '200'
+                                   )
+                     ) * 100  , 1)
+               )
+               END AS NOT_FIT_MONTH_INSIDE_RATE   /* 월별 부적합 내부 비율 */
+             , CASE WHEN (
+                           SELECT COUNT(1)
+                             FROM LRM_TEST_REQ_ACCEPT TR
+                                , LRM_SPECM_INFO SI
+                                , LRM_TEST_INFO TI
+                                , LTM_TEST_DIARY TD
+                            WHERE TR.REQ_NUM = SI.REQ_NUM
+                              <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                              AND SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                              AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                              AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                              AND SI.REQ_NUM = TI.REQ_NUM
+                              AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                              AND SI.REQ_NUM = TD.REQ_NUM
+                              AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                              AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                              AND TI.LEGAL_BASIS = 'Y'
+                              AND EXISTS (
+                                           SELECT 1
+                                             FROM LRM_PROC_DESC PD
+                                            WHERE SI.REQ_NUM = PD.REQ_NUM
+                                              AND PD.PROC_CLASS >= '200'
+                                         )
+                          ) = 0 THEN 0.0
+                ELSE
+                (  ROUND(  (
+                     SELECT COUNT(1)
+                       FROM LRM_TEST_REQ_ACCEPT TR
+                          , LRM_SPECM_INFO SI
+                          , LRM_TEST_INFO TI
+                          , LTM_TEST_DIARY TD
+                      WHERE TR.REQ_NUM = SI.REQ_NUM
+                        <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                        AND SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                        AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                        AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                        AND SI.REQ_NUM = TI.REQ_NUM
+                        AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                        AND SI.REQ_NUM = TD.REQ_NUM
+                        AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                        AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                        AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                        AND TI.LEGAL_BASIS = 'Y'
+                        AND EXISTS (
+                                     SELECT 1
+                                       FROM LRM_PROC_DESC PD
+                                      WHERE SI.REQ_NUM = PD.REQ_NUM
+                                        AND PD.PROC_CLASS >= '200'
+                                   )
+                     ) /
+                     (
+                     SELECT COUNT(1)
+                       FROM LRM_TEST_REQ_ACCEPT TR
+                          , LRM_SPECM_INFO SI
+                          , LRM_TEST_INFO TI
+                          , LTM_TEST_DIARY TD
+                      WHERE TR.REQ_NUM = SI.REQ_NUM
+                        <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                        AND SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                        AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                        AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                        AND SI.REQ_NUM = TI.REQ_NUM
+                        AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                        AND SI.REQ_NUM = TD.REQ_NUM
+                        AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                        AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                        AND TI.LEGAL_BASIS = 'Y'
+                        AND EXISTS (
+                                     SELECT 1
+                                       FROM LRM_PROC_DESC PD
+                                      WHERE SI.REQ_NUM = PD.REQ_NUM
+                                        AND PD.PROC_CLASS >= '200'
+                                   )
+                     ) * 100  , 1)
+               )
+               END AS NOT_FIT_SUM_LEGAL_RATE   /* 누계 부적합 법적 비율 */
+             , CASE WHEN (
+                           SELECT COUNT(1)
+                             FROM LRM_TEST_REQ_ACCEPT TR
+                                , LRM_SPECM_INFO SI
+                                , LRM_TEST_INFO TI
+                                , LTM_TEST_DIARY TD
+                            WHERE TR.REQ_NUM = SI.REQ_NUM
+                              <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                              AND SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                              AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                              AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                              AND SI.REQ_NUM = TI.REQ_NUM
+                              AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                              AND SI.REQ_NUM = TD.REQ_NUM
+                              AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                              AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                              AND TI.INSIDE_BASIS = 'Y'
+                              AND EXISTS (
+                                           SELECT 1
+                                             FROM LRM_PROC_DESC PD
+                                            WHERE SI.REQ_NUM = PD.REQ_NUM
+                                              AND PD.PROC_CLASS >= '200'
+                                         )
+                          ) = 0 THEN 0.0
+                ELSE
+                (  ROUND(  (
+                     SELECT COUNT(1)
+                       FROM LRM_TEST_REQ_ACCEPT TR
+                          , LRM_SPECM_INFO SI
+                          , LRM_TEST_INFO TI
+                          , LTM_TEST_DIARY TD
+                      WHERE TR.REQ_NUM = SI.REQ_NUM
+                        <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                        AND SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                        AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                        AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                        AND SI.REQ_NUM = TI.REQ_NUM
+                        AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                        AND SI.REQ_NUM = TD.REQ_NUM
+                        AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                        AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                        AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                        AND TI.INSIDE_BASIS = 'Y'
+                        AND EXISTS (
+                                     SELECT 1
+                                       FROM LRM_PROC_DESC PD
+                                      WHERE SI.REQ_NUM = PD.REQ_NUM
+                                        AND PD.PROC_CLASS >= '200'
+                                   )
+                     ) /
+                     (
+                     SELECT COUNT(1)
+                       FROM LRM_TEST_REQ_ACCEPT TR
+                          , LRM_SPECM_INFO SI
+                          , LRM_TEST_INFO TI
+                          , LTM_TEST_DIARY TD
+                      WHERE TR.REQ_NUM = SI.REQ_NUM
+                        <#if acceptClass?has_content> AND TR.ACCEPT_CLASS = :acceptClass </#if>
+                        AND SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                        AND A.INSPT_OBJ_1 = SI.INSPT_OBJ_1
+                        AND A.INSPT_OBJ_3 = SI.INSPT_OBJ_3
+                        AND SI.REQ_NUM = TI.REQ_NUM
+                        AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                        AND SI.REQ_NUM = TD.REQ_NUM
+                        AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                        AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                        AND TI.INSIDE_BASIS = 'Y'
+                        AND EXISTS (
+                                     SELECT 1
+                                       FROM LRM_PROC_DESC PD
+                                      WHERE SI.REQ_NUM = PD.REQ_NUM
+                                        AND PD.PROC_CLASS >= '200'
+                                   )
+                     ) * 100  , 1)
+               )
+               END AS NOT_FIT_SUM_INSIDE_RATE   /* 누계 부적합 내부 비율 */
+          FROM (
+                SELECT X.CODE AS INSPT_OBJ_1
+                     , X.CODE_NAME AS INSPT_OBJ_1_NAME
+                     , Z.CODE AS INSPT_OBJ_3
+                     , Z.CODE_NAME AS INSPT_OBJ_3_NAME
+                  FROM (
+                           SELECT CODE
+                                , CODE_NAME
+                             FROM SCC_COMMON_CODE
+                            WHERE GROUP_CODE = 'INSPT_OBJ_1'
+                       ) X
+                     , (
+                           SELECT CODE
+                                , CODE_NAME
+                             FROM SCC_COMMON_CODE
+                            WHERE GROUP_CODE = 'INSPT_OBJ_3'
+                       ) Z
+                 ORDER BY X.CODE, Z.CODE
+               ) A
+    ) T
+  ORDER BY 1, 3, 10 DESC
+        ]]>
+    </statement>
+
+        <!-- 월간보고 합계 조회 DATA를 조회한다. -->
+    <statement name="selectListSum" type="select">
+        /*+ com.hwfs.ls.lsm.dao.MonthlyRptMgmtDAO.selectListSum */
+        <![CDATA[
+/* 월간보고 합계 조회 */
+SELECT T.*
+  FROM (
+        SELECT '' AS INSPT_OBJ_1
+             , '' AS INSPT_OBJ_1_NAME
+             , '' AS INSPT_OBJ_3
+             , '합계' AS INSPT_OBJ_3_NAME
+             , (
+                 SELECT COUNT(1)
+                   FROM LSM_ANNUPLAN_DTL
+                  WHERE YEAR = SUBSTR(:yymm, 1, 4)
+                    AND MM = TO_NUMBER(SUBSTR(:yymm, 5, 2))
+                    AND INSPT_YN = 'Y'
+               ) AS PLAN_MONTH   /* 계획 월 */
+             , (
+                 SELECT COUNT(1)
+                   FROM LSM_ANNUPLAN_DTL
+                  WHERE YEAR = SUBSTR(:yymm, 1, 4)
+                    AND INSPT_YN = 'Y'
+               ) AS PLAN_YEAR    /* 계획 년 */
+             , (
+                 SELECT COUNT(1)
+                   FROM LRM_SPECM_INFO SI
+                  WHERE SI.ACCEPTDD BETWEEN :yymm || '01' AND :yymm || '31'
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+               ) AS CURR_MONTH /* 월 실적 */
+             , (
+                 SELECT COUNT(1)
+                   FROM LRM_SPECM_INFO SI
+                  WHERE SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+               ) AS CURR_SUM   /* 실적 누계 */
+             , (
+                 SELECT COUNT(1)
+                   FROM LRM_SPECM_INFO SI
+                  WHERE SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LTM_TEST_DIARY TD
+                                  WHERE SI.REQ_NUM = TD.REQ_NUM
+                                    AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                                    AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                               )
+               ) AS NOT_FIT_SPECM_CNT   /* 부적합 시료 건수 */
+             , '법적' AS NOT_FIT_NM
+             , (
+                 SELECT COUNT(1)
+                   FROM LRM_SPECM_INFO SI
+                      , LRM_TEST_INFO TI
+                      , LTM_TEST_DIARY TD
+                  WHERE SI.ACCEPTDD BETWEEN :yymm || '01' AND :yymm || '31'
+                    AND SI.REQ_NUM = TI.REQ_NUM
+                    AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                    AND TI.LEGAL_BASIS = 'Y'
+                    AND SI.REQ_NUM = TD.REQ_NUM
+                    AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                    AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                    AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+               ) AS NOT_FIT_MONTH_CNT   /* 법적 부적합 시험 항목 건수 */
+             , (
+                 SELECT COUNT(1)
+                   FROM LRM_SPECM_INFO SI
+                      , LRM_TEST_INFO TI
+                      , LTM_TEST_DIARY TD
+                  WHERE SI.ACCEPTDD BETWEEN :yymm || '01' AND :yymm || '31'
+                    AND SI.REQ_NUM = TI.REQ_NUM
+                    AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                    AND SI.REQ_NUM = TD.REQ_NUM
+                    AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                    AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                    AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+               ) AS NOT_FIT_MONTH_SUM   /* 월별 부적합 시험 항목 건수 */
+             , (
+                 SELECT COUNT(1)
+                   FROM LRM_SPECM_INFO SI
+                      , LRM_TEST_INFO TI
+                      , LTM_TEST_DIARY TD
+                  WHERE SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                    AND SI.REQ_NUM = TI.REQ_NUM
+                    AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                    AND TI.LEGAL_BASIS = 'Y'
+                    AND SI.REQ_NUM = TD.REQ_NUM
+                    AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                    AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                    AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+               ) AS NOT_FIT_SUM   /* 법적 부적합 시험 항목 누적 건수 */
+             , (
+                 SELECT COUNT(1)
+                   FROM LRM_SPECM_INFO SI
+                      , LRM_TEST_INFO TI
+                      , LTM_TEST_DIARY TD
+                  WHERE SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                    AND SI.REQ_NUM = TI.REQ_NUM
+                    AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                    AND SI.REQ_NUM = TD.REQ_NUM
+                    AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                    AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                    AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+               ) AS NOT_FIT_TOT_SUM   /* 법적/내부 부적합 시험 항목 누적 건수 */
+             , (CASE WHEN (
+                             SELECT COUNT(1)
+                               FROM LSM_ANNUPLAN_DTL
+                              WHERE YEAR = SUBSTR(:yymm, 1, 4)
+                                AND MM = TO_NUMBER(SUBSTR(:yymm, 5, 2))
+                                AND INSPT_YN = 'Y'
+                           ) = 0 THEN 0
+               ELSE ROUND(
+                   (
+                     SELECT COUNT(1)
+                       FROM LRM_SPECM_INFO SI
+                      WHERE SI.ACCEPTDD BETWEEN :yymm || '01' AND :yymm || '31'
+                        AND EXISTS (
+                                     SELECT 1
+                                       FROM LRM_PROC_DESC PD
+                                      WHERE SI.REQ_NUM = PD.REQ_NUM
+                                        AND PD.PROC_CLASS >= '200'
+                                   )
+                   ) /
+                   (
+                     SELECT COUNT(1)
+                       FROM LSM_ANNUPLAN_DTL
+                      WHERE YEAR = SUBSTR(:yymm, 1, 4)
+                        AND MM = TO_NUMBER(SUBSTR(:yymm, 5, 2))
+                        AND INSPT_YN = 'Y'
+                   ) * 100 , 1)
+               END
+               ) AS CURR_MONTH_RATE /* 월간 계획 대비 달성률 */
+             , (CASE WHEN (
+                             SELECT COUNT(1)
+                               FROM LSM_ANNUPLAN_DTL
+                              WHERE YEAR = SUBSTR(:yymm, 1, 4)
+                                AND INSPT_YN = 'Y'
+                           ) = 0 THEN 0
+               ELSE ROUND(
+                   (
+                     SELECT COUNT(1)
+                       FROM LRM_SPECM_INFO SI
+                      WHERE SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                        AND EXISTS (
+                                     SELECT 1
+                                       FROM LRM_PROC_DESC PD
+                                      WHERE SI.REQ_NUM = PD.REQ_NUM
+                                        AND PD.PROC_CLASS >= '200'
+                                   )
+                   ) /
+                   (
+                     SELECT COUNT(1)
+                       FROM LSM_ANNUPLAN_DTL
+                      WHERE YEAR = SUBSTR(:yymm, 1, 4)
+                        AND INSPT_YN = 'Y'
+                   ) * 100  , 1)
+               END
+               ) AS CURR_SUM_RATE /* 년간 계획 대비 달성율 */
+             , (CASE WHEN (
+                             SELECT COUNT(1)
+                               FROM LRM_SPECM_INFO SI
+                              WHERE SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                                AND EXISTS (
+                                             SELECT 1
+                                               FROM LRM_PROC_DESC PD
+                                              WHERE SI.REQ_NUM = PD.REQ_NUM
+                                                AND PD.PROC_CLASS >= '200'
+                                           )
+                           ) = 0 THEN 0
+               ELSE ROUND(
+                   (
+                     SELECT COUNT(1)
+                       FROM LRM_SPECM_INFO SI
+                      WHERE SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                        AND EXISTS (
+                                     SELECT 1
+                                       FROM LRM_PROC_DESC PD
+                                      WHERE SI.REQ_NUM = PD.REQ_NUM
+                                        AND PD.PROC_CLASS >= '200'
+                                   )
+                        AND EXISTS (
+                                     SELECT 1
+                                       FROM LTM_TEST_DIARY TD
+                                      WHERE SI.REQ_NUM = TD.REQ_NUM
+                                        AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                                        AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                                   )
+                   ) /
+                   (
+                     SELECT COUNT(1)
+                       FROM LRM_SPECM_INFO SI
+                      WHERE SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                        AND EXISTS (
+                                     SELECT 1
+                                       FROM LRM_PROC_DESC PD
+                                      WHERE SI.REQ_NUM = PD.REQ_NUM
+                                        AND PD.PROC_CLASS >= '200'
+                                   )
+                   ) * 100  , 1)
+               END
+               ) AS NOT_FIT_SPECM_CNT_RATE /* 누계 대비 부적합 시료 율 */
+             , '내부' AS NOT_FIT_NM_RATE
+             , (
+                 SELECT COUNT(1)
+                   FROM LRM_SPECM_INFO SI
+                      , LRM_TEST_INFO TI
+                      , LTM_TEST_DIARY TD
+                  WHERE SI.ACCEPTDD BETWEEN :yymm || '01' AND :yymm || '31'
+                    AND SI.REQ_NUM = TI.REQ_NUM
+                    AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                    AND TI.INSIDE_BASIS = 'Y'
+                    AND SI.REQ_NUM = TD.REQ_NUM
+                    AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                    AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                    AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+               ) AS NOT_FIT_MONTH_CNT_RATE   /* 내부 부적합 시험 항목 건수 */
+             , (
+                 SELECT COUNT(1)
+                   FROM LRM_SPECM_INFO SI
+                      , LRM_TEST_INFO TI
+                      , LTM_TEST_DIARY TD
+                  WHERE SI.ACCEPTDD BETWEEN :yymm || '01' AND :yymm || '31'
+                    AND SI.REQ_NUM = TI.REQ_NUM
+                    AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                    AND SI.REQ_NUM = TD.REQ_NUM
+                    AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                    AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                    AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+               ) AS NOT_FIT_MONTH_SUM_RATE   /* 월별 부적합 시험 항목 건수 */
+             , (
+                 SELECT COUNT(1)
+                   FROM LRM_SPECM_INFO SI
+                      , LRM_TEST_INFO TI
+                      , LTM_TEST_DIARY TD
+                  WHERE SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                    AND SI.REQ_NUM = TI.REQ_NUM
+                    AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                    AND TI.INSIDE_BASIS = 'Y'
+                    AND SI.REQ_NUM = TD.REQ_NUM
+                    AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                    AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                    AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+               ) AS NOT_FIT_SUM_RATE   /* 내부 부적합 시험 항목 누적 건수 */
+             , (
+                 SELECT COUNT(1)
+                   FROM LRM_SPECM_INFO SI
+                      , LRM_TEST_INFO TI
+                      , LTM_TEST_DIARY TD
+                  WHERE SI.ACCEPTDD BETWEEN SUBSTR(:yymm, 1, 4) || '01' || '01' AND :yymm || '31'
+                    AND SI.REQ_NUM = TI.REQ_NUM
+                    AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                    AND SI.REQ_NUM = TD.REQ_NUM
+                    AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                    AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                    AND TD.LAST_DECISION IN ('102') /* 부적합 */
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+               ) AS NOT_FIT_TOT_SUM_RATE   /* 법적/내부 부적합 시험 항목 누적 건수 */
+          FROM DUAL A
+    ) T
+        ]]>
+    </statement>
+
+    <!-- 월간보고 검사내용 조회 DATA를 조회한다. -->
+    <statement name="selectSpecmDescList" type="select">
+        /*+ com.hwfs.ls.lsm.dao.MonthlyRptMgmtDAO.selectSpecmDescList */
+        <![CDATA[
+/* 월간보고 검사내용 조회 */
+SELECT NVL(B.YEAR, SUBSTR(:yymm, 1, 4)) AS YEAR
+     , NVL(B.MM, SUBSTR(:yymm, 5, 2)) AS MM
+     , A.INSPT_OBJ_1 AS PLAN_CLSFI
+     , A.INSPT_OBJ_1_NAME
+     , A.INSPT_OBJ_3 AS PLANCLASS
+     , A.INSPT_OBJ_3_NAME
+     , B.INSPT_CONTENTS
+  FROM (
+        SELECT X.CODE AS INSPT_OBJ_1
+             , X.CODE_NAME AS INSPT_OBJ_1_NAME
+             , Z.CODE AS INSPT_OBJ_3
+             , Z.CODE_NAME AS INSPT_OBJ_3_NAME
+          FROM (
+                   SELECT CODE
+                        , CODE_NAME
+                     FROM SCC_COMMON_CODE
+                    WHERE GROUP_CODE = 'INSPT_OBJ_1'
+               ) X
+             , (
+                   SELECT CODE
+                        , CODE_NAME
+                     FROM SCC_COMMON_CODE
+                    WHERE GROUP_CODE = 'INSPT_OBJ_3'
+               ) Z
+         ORDER BY X.CODE, Z.CODE
+       ) A
+     , (
+         SELECT YEAR
+              , MM
+              , PLAN_CLSFI
+              , PLANCLASS
+              , INSPT_CONTENTS
+           FROM LSM_MONTHLY_RPT_INSPT_DESC
+          WHERE YEAR = SUBSTR(:yymm, 1, 4)
+            AND MM = SUBSTR(:yymm, 5, 2)
+       ) B
+ WHERE A.INSPT_OBJ_1 = B.PLAN_CLSFI(+)
+   AND A.INSPT_OBJ_3 = B.PLANCLASS(+)
+ ORDER BY 3, 5
+        ]]>
+    </statement>
+
+    <!-- 월간보고 검사내용 생성한다. -->
+    <statement name="insertSpecmDescList" type="insert">
+        /*+ com.hwfs.ls.lsm.dao.MonthlyRptMgmtDAO.insertSpecmDescList */
+        <![CDATA[
+/* 월간보고 검사내용 생성 */
+MERGE INTO LSM_MONTHLY_RPT_INSPT_DESC
+USING DUAL
+ON (
+    YEAR = SUBSTR(:yymm, 1, 4)
+    AND MM = SUBSTR(:yymm, 5, 2)
+    AND PLAN_CLSFI = :planClsfi
+    AND PLANCLASS = :planclass
+)
+WHEN MATCHED THEN
+    UPDATE SET
+        <#if insptContents?exists> INSPT_CONTENTS = :insptContents, </#if>
+        UUSER = :loginSabun,
+        UDATE = SYSDATE
+WHEN NOT MATCHED THEN
+    INSERT (
+        YEAR
+       ,MM
+       ,PLAN_CLSFI
+       ,PLANCLASS
+       ,INSPT_CONTENTS
+       ,CUSER
+       ,CDATE
+       ,UUSER
+       ,UDATE
+    ) VALUES (
+        SUBSTR(:yymm, 1, 4),
+        SUBSTR(:yymm, 5, 2),
+        :planClsfi,
+        :planclass,
+        <#if insptContents?exists> :insptContents, <#else> null, </#if>
+        :loginSabun,
+        SYSDATE,
+        :loginSabun,
+        SYSDATE
+    )
+        ]]>
+    </statement>
+
+    <!-- 월간보고 검사내용 삭제 한다. -->
+    <statement name="deleteSpecmDescList" type="insert">
+        /*+ com.hwfs.ls.lsm.dao.MonthlyRptMgmtDAO.deleteSpecmDescList */
+        <![CDATA[
+/* 월간보고 검사내용 생성 */
+DELETE
+  FROM LSM_MONTHLY_RPT_INSPT_DESC
+ WHERE YEAR = SUBSTR(:yymm, 1, 4)
+   AND MM = SUBSTR(:yymm, 5, 2)
+        ]]>
+    </statement>
+
+    <!-- 월간보고 검사내용 복사 한다. -->
+    <statement name="copySpecmDescList" type="insert">
+        /*+ com.hwfs.ls.lsm.dao.MonthlyRptMgmtDAO.copySpecmDescList */
+        <![CDATA[
+/* 월간보고 검사내용  복사 */
+INSERT INTO LSM_MONTHLY_RPT_INSPT_DESC (
+    YEAR
+   ,MM
+   ,PLAN_CLSFI
+   ,PLANCLASS
+   ,INSPT_CONTENTS
+   ,CUSER
+   ,CDATE
+   ,UUSER
+   ,UDATE
+)
+SELECT SUBSTR(:yymm, 1, 4)
+     , SUBSTR(:yymm, 5, 2)
+     , PLAN_CLSFI
+     , PLANCLASS
+     , INSPT_CONTENTS
+     , :loginSabun
+     , SYSDATE
+     , :loginSabun
+     , SYSDATE
+  FROM LSM_MONTHLY_RPT_INSPT_DESC
+ WHERE YEAR = SUBSTR(TO_CHAR(ADD_MONTHS(TO_DATE(:yymm||'01'), -1), 'YYYYMMDD'), 1, 4)
+   AND MM = SUBSTR(TO_CHAR(ADD_MONTHS(TO_DATE(:yymm||'01'), -1), 'YYYYMMDD'), 5, 2)
+        ]]>
+    </statement>
+
+</hqml>

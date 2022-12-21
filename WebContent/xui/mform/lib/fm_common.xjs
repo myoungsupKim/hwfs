@@ -1,0 +1,552 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Script type="xscript4.0"><![CDATA[/*================================================================================
+ *  프로그램 설명 :FM 관련 공통 스크립트 
+ *  작성일자 : 2007/11/30
+ *  버전 : 1.0
+ *  변경 이력 
+    일자            작성자          비고
+    ------------------------------------------------------------
+    2007/11/30   조은영     최초 작성 
+================================================================================*/
+////@@컨버터에서 주석처리 #include "lib::sc_sql_common.js"		// 공통팝업
+/*===============================================================================
+*   상수 선언 
+================================================================================*/
+var gfmsImgPathH = "http://203.233.82.173/UpImages/item/";
+var gfmsImgPathO = "http://172.25.2.177/hwfs/upload/fm/item/";
+
+//공통팝업 상수############################################################################
+// 공통코드
+var strFMQuery_CommCode                 = " SELECT A.CODE, A.CODE_NAME FROM SCC_COMMON_CODE A WHERE (1=1)";
+var strFMQuery_CommCodeKeyField         = "A.CODE";
+var strFMQuery_CommCodeValueField       = "A.CODE_NAME";
+var strFMQuery_CommCodeKeyFieldNM       = "코드";
+var strFMQuery_CommCodeValueFieldNM     = "코드명"; 
+var strFMQuery_CommCodeCaption          = "공통코드";
+var strFMQuery_CommCodeAllField      = "CODE;CODE_NAME";
+// 자재특성
+var strFMQuery_ItemChar                 = " SELECT A.CODE, A.CODE_NAME FROM SCC_COMMON_CODE A WHERE A.GROUP_CODE = 'FS0033' AND A.SET1 = 'Y' AND A.USE_YN = 'Y' ";
+var strFMQuery_ItemCharKeyField         = "A.CODE";
+var strFMQuery_ItemCharValueField       = "A.CODE_NAME";
+var strFMQuery_ItemCharKeyFieldNM       = "특성코드";
+var strFMQuery_ItemCharValueFieldNM     = "특성명"; 
+var strFMQuery_ItemCharCaption          = "상품특성";
+// 계정과목
+var strFMQuery_AcctF                    = " SELECT A.ACCTCD, A.ACCTNMF FROM (SELECT A.*, '('||B.CODE_NAME||')'||A.ACCTNM AS ACCTNMF FROM FMO_ACCOUNT A, SCC_COMMON_CODE B WHERE A.ACCT_TYPE = B.CODE AND B.GROUP_CODE = 'FM0001' AND A.USE_YN = 'Y' AND B.USE_YN = 'Y') A WHERE (1=1) ";
+var strFMQuery_AcctFKeyField            = "A.ACCTCD";
+var strFMQuery_AcctFValueField          = "A.ACCTNMF";
+var strFMQuery_AcctFKeyFieldNM          = "계정코드";
+var strFMQuery_AcctFValueFieldNM        = "계정명"; 
+var strFMQuery_AcctFCaption             = "계정과목";
+var strFMQuery_AcctFAllField			= "ACCTCD;ACCTNMF";
+//식재사업장(전체%포함)
+var strFMQuery_FMAllUpjang              = " SELECT UPJANG, UPJANGNM_DISP FROM (SELECT '%' AS UPJANG, '전체 사업장' AS UPJANGNM_DISP, '%' AS MAIN_UPJANG, '%' AS CUST_TYPE, 'Y' AS USE_YN FROM DUAL UNION ALL SELECT TO_CHAR(A.UPJANG) AS UPJANG, A.UPJANGNM_DISP, TO_CHAR(A.MAIN_UPJANG) AS MAIN_UPJANG, A.CUST_TYPE, A.USE_YN FROM FMS_UPJANG A) A WHERE (1=1) ";
+var strFMQuery_FMAllUpjangKeyField      = "A.UPJANG";
+var strFMQuery_FMAllUpjangValueField    = "A.UPJANGNM_DISP";
+var strFMQuery_FMAllUpjangKeyFieldNM    = "사업장코드";
+var strFMQuery_FMAllUpjangValueFieldNM  = "사업장명"; 
+var strFMQuery_FMAllUpjangCaption       = "사업장조회";
+var strFMQuery_FMAllUpjangAllField      = "UPJANG;UPJANGNM_DISP";
+//사용자(Distinct)
+var strFMQuery_USERDIS               = " SELECT DISTINCT A.SABUN, A.NM_KOR AS SABUNNM FROM SCC_USERINFO A WHERE 1=1 ";
+var strFMQuery_USERDISKeyField       = "A.SABUN";
+var strFMQuery_USERDISValueField     = "A.NM_KOR";
+var strFMQuery_USERDISKeyFieldNM     = "사번";
+var strFMQuery_USERDISValueFieldNM   = "성명"; 
+var strFMQuery_USERDISCaption        = "사원조회";
+var strFMQuery_USERDISAllField       = "SABUN;SABUNNM";
+//사용자_업장포함
+var strFMQuery_USERUPJANG               = " SELECT A.SABUN, A.NM_FULL FROM (SELECT A.*, A.NM_KOR||'('||B.UPJANGNM_DISP||')' AS NM_FULL FROM SCC_USERINFO A, FMS_UPJANG B WHERE A.UPJANG = B.UPJANG) A WHERE 1=1 ";
+var strFMQuery_USERUPJANGKeyField       = "A.SABUN";
+var strFMQuery_USERUPJANGValueField     = "A.NM_FULL";
+var strFMQuery_USERUPJANGKeyFieldNM     = "사번";
+var strFMQuery_USERUPJANGValueFieldNM   = "성명"; 
+var strFMQuery_USERUPJANGCaption        = "사원조회";
+var strFMQuery_USERUPJANGAllField       = "SABUN;NM_FULL";
+//가맹점메뉴조회
+var strFMQuery_MENU               = " SELECT A.MENU_ID, A.MENU_NAME FROM FMO_MENU_MST A WHERE (1=1) ";
+var strFMQuery_MENUKeyField       = "A.MENU_ID";
+var strFMQuery_MENUValueField     = "A.MENU_NAME";
+var strFMQuery_MENUKeyFieldNM     = "메뉴";
+var strFMQuery_MENUValueFieldNM   = "메뉴명"; 
+var strFMQuery_MENUCaption        = "메뉴조회";
+var strFMQuery_MENUAllField       = "MENU_ID;MENU_NAME";
+
+/*===============================================================================
+*   메소드 선언 
+================================================================================*/
+/*
+ ******************************************************************************************
+ * 함  수  명   : ffn_openAcctWin
+ * 입      력   : sGubun = 화면에서 현재 입력한 값 구분 
+                           1 - 사업장 코드 
+                           2 - 사업장 명칭
+                  sWord = 구분에 따른 입력 값 
+                  ( sGubun 과 sWord가 존재할 경우 Popup이 Open됨과 동시에 조회 처리를 한다.  )
+                  mainUpjangOnly = 본부에서 본사만 조회해야 할 경우 Y 로 설정 
+                  mainUpjangCode = 조회해야 하는 본사 업장 코드 
+ * 반      환   :  배열로 
+                   0 - 사업장 코드 
+                   1 - 사업장 명칭
+                   2 - 계좌번호 
+ * 기      능   : 사업장  조회 화면 Open 
+ * 작  성  자   : 조은영
+ * 작성  일자   : 2007-11-30
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+*/
+function ffn_openUpjangWin(sGubun, sWord, mainUpjangOnly, mainUpjangCode) {
+    if ( gfn_length( mainUpjangOnly )== 0 ) {
+        mainUpjangOnly = "N";
+    }
+    if ( gfn_length(mainUpjangCode)== 0 ) {
+        mainUpjangCode = "";
+    }
+    
+//     var arg = " p_sGubun=" + wrapQuote(sGubun) + " p_sWord=" + wrapQuote(sWord) 
+//                 + " p_mainYN=" + wrapQuote(mainUpjangOnly)
+//                 + " p_mainUpjang=" + wrapQuote(mainUpjangCode);
+	var arg = {p_sGubun:sGubun, p_sWord:sWord, p_mainYN:mainUpjangOnly, p_mainUpjang:mainUpjangCode};
+	var arr = gfn_openPopup("U_FMZ::FMZ00100P.xfdl",true, -1, -1, arg);
+	
+	if ( arr == null || arr.length != 3 ) {
+        return null;
+	}
+    return arr; 
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : ffn_upjangEnter
+ * 입      력   : 
+ * 반      환   : 없음
+ * 기      능   : enter 시 계정 조회 Popup 띄우기 
+ * 작  성  자   : 조은영
+ * 작성  일자   : 2007-11-27
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function ffn_upjangEnter(obj,nChar,bShift,bCtrl, bAlt,LLParam,HLParam, mainUpjangOnly, mainUpjangCode)
+{
+	if( nChar == 13 && gfn_length( obj.value )> 0 ) {
+        var arr = ffn_openUpjangWin( "1", obj.value, mainUpjangOnly,mainUpjangCode );
+        return arr;
+	}
+	return;
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : ffn_upjangNmEnter
+ * 입      력   : 
+ * 반      환   : 없음
+ * 기      능   : enter 시 조회 Popup 띄우기 
+ * 작  성  자   : 조은영
+ * 작성  일자   : 2007-11-27
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function ffn_upjangNmEnter(obj,nChar,bShift,bCtrl, bAlt,LLParam,HLParam)
+{
+	if( nChar == 13 && gfn_length( obj.value )> 0 ) {
+        var arr = ffn_openUpjangWin("2", obj.value);
+        return arr;
+	}
+	return;
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : ffn_ed_OnKeyDown
+ * 입      력   : 
+ * 반      환   : 없음
+ * 기      능   : Popup Button Key에 따른 처리
+ * 작  성  자   : 박은규
+ * 작성  일자   : 2007-12-12
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function ffn_ed_OnKeyDown(obj, nChar, OnBoard)
+{
+	if(gfn_isNull(OnBoard)) OnBoard = gfn_nvl(OnBoard);
+	if (nChar == 13){
+        if (gfn_length(gfn_trim(obj.text))== 0)
+        {
+			eval(OnBoard + "btn_" + gfn_subStr(obj.name, 3)).click();
+			//GetNextComponent().setFocus();
+			return false; //트리거 발생여부
+		}
+	}
+	else if (nChar == 46){
+		//obj.UserData = "";
+		//obj.Text     = "";
+		eval(OnBoard + "ed_" + gfn_subStr(obj.name, 3)).userdata = "";
+		eval(OnBoard + "ed_" + gfn_subStr(obj.name, 3)).value    = "";
+		//eval(obj.id + "_OnChanged(" + obj.id + ", " + "" + ")");
+		return true; //트리거 발생여부
+	}
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : ffn_btn_OnClick
+ * 입      력   : 
+ * 반      환   : 없음
+ * 기      능   : edtBtn OnClick 가져오기
+ * 작  성  자   : 박은규
+ * 작성  일자   : 2007-12-12
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function ffn_btn_OnClick(obj, addWhere, OnBoard)
+{
+	if(gfn_isNull(OnBoard)) OnBoard = "";
+	
+	fn_sql_common_setup(eval(eval(OnBoard + "st_" + gfn_subStr(obj.name, 4)).userdata),
+						eval(eval(OnBoard + "st_" + gfn_subStr(obj.name, 4)).userdata + "KeyField"),
+						eval(eval(OnBoard + "st_" + gfn_subStr(obj.name, 4)).userdata + "ValueField"),
+						eval(eval(OnBoard + "st_" + gfn_subStr(obj.name, 4)).userdata + "KeyFieldNM"),
+						eval(eval(OnBoard + "st_" + gfn_subStr(obj.name, 4)).userdata + "ValueFieldNM"),
+						"",
+						"",
+						addWhere,
+						eval(eval(OnBoard + "st_" + gfn_subStr(obj.name, 4)).userdata + "Caption"),
+						eval(eval(OnBoard + "st_" + gfn_subStr(obj.name, 4)).userdata + "AllField"));
+
+	if (gfn_length(gfn_trim(gds_sql_common.getColumn(0, "ret_code")))!= 0 && gfn_length(gfn_trim(gds_sql_common.getColumn(0, "ret_code")))!= null)
+	{
+		eval(OnBoard + "ed_" + gfn_subStr(obj.name, 4)).userdata = gds_sql_common.getColumn(0, "ret_code");
+		eval(OnBoard + "ed_" + gfn_subStr(obj.name, 4)).value     = gds_sql_common.getColumn(0, "ret_name");
+		//obj.UserData = Object(OnBoard + "ed_" + Substr(obj.id, 4)).Text;
+		
+		eval(OnBoard + "ed_" + gfn_subStr(obj.name, 4)).setFocus();
+		return true; //트리거 발생여부
+	}
+	else
+	{
+		//object(OnBoard + "ed_" + Substr(obj.id, 4)).setFocus();
+		return false; //트리거 발생여부
+	}
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : ffn_Get_ColHeaderTitle
+ * 입      력   : 
+ * 반      환   : 없음
+ * 기      능   : Col ID로 Column Title 가져오기
+ * 작  성  자   : 박은규
+ * 작성  일자   : 2007-12-12
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function ffn_Get_ColHeaderTitle(Grid, nCell){
+
+	return Grid.getCellProperty("head",nCell,"text");
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : ffn_Get_HeaderTitleColIdx
+ * 입      력   : 
+ * 반      환   : 없음
+ * 기      능   : Column Title로 Col ID 가져오기
+ * 작  성  자   : 박은규
+ * 작성  일자   : 2007-12-12
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function ffn_Get_HeaderTitleColIdx(Grid, str_HeaderTitle){
+
+    for (i=0;i<Grid.getCellCount('Head')-1;i++){
+
+		if (Grid.getCellProperty('Head',i,"text") == str_HeaderTitle){
+
+			return i;
+		}
+    }
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : ffn_Get_CellToColId
+ * 입      력   : 
+ * 반      환   : 없음
+ * 기      능   : Column Title로 Col ID 가져오기
+ * 작  성  자   : 박은규
+ * 작성  일자   : 2007-12-12
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function ffn_Get_CellToColId(Grid, nCell){
+
+	return Grid.getCellProperty("body",nCell,"text");
+	
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : ffn_ChkNull
+ * 입      력   : 
+ * 반      환   : 없음
+ * 기      능   : null 체크
+ * 작  성  자   : 박은규
+ * 작성  일자   : 2007-12-12
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function ffn_ChkNull(strData){
+	return (gfn_length(gfn_trim(strData))== 0);
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : ffn_SetComboNull
+ * 입      력   : 
+ * 반      환   : 없음
+ * 기      능   : Combo 컴포넌트에서 delete키 누를때 선택없음 으로 변경 
+ * 작  성  자   : 박은규
+ * 작성  일자   : 2008-01-03
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function ffn_SetComboNull(obj, nChar){   
+	if (nChar==46) obj.index = "-1";
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : ffn_DayToWeek
+ * 입      력   : 
+ * 반      환   : 없음
+ * 기      능   : 해당 날짜에 대한 요일반환
+ * 작  성  자   : 박은규
+ * 작성  일자   : 2008-01-18
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function ffn_DayToWeek(day,tp)
+{
+    var aWeeksA = new Array(7);		
+    var aWeeksB = new Array(7);		
+    var aWeeksC = new Array(7);		
+    var aWeeksD = new Array(7);		
+    var ls_WeeksA = "일;월;화;수;목;금;토";
+    var ls_WeeksB = "SUN;MON;TUE;WED;THU;FRI;SAT";
+    var ls_WeeksC = "Sun;Mon;Tue;Wed;Thu;Fri;Sat";
+    var ls_WeeksD = "日;月;火;水;木;金;土";
+
+	aWeeksA = gfn_split(ls_WeeksA,";");	
+	aWeeksB = gfn_split(ls_WeeksB,";");	
+	aWeeksC = gfn_split(ls_WeeksC,";");	
+	aWeeksD = gfn_split(ls_WeeksD,";");	
+
+	switch(tp)
+	{
+		case "0":
+			return aWeeksA[gfn_getDay(day)];
+		case "1":
+			return aWeeksB[gfn_getDay(day)];
+		case "2":
+			return aWeeksC[gfn_getDay(day)];
+		case "3":
+			return aWeeksD[gfn_getDay(day)];
+		default:
+			return aWeeksA[gfn_getDay(day)];
+	}
+}
+
+//화면의 기본을 세팅한다.
+function ffn_FormInitSetting(objForm)
+{
+
+	var sToday = fn_CurrDateWeek();
+	var objComponent;
+
+	for (i=0; i < gfn_length(objForm.all); i++)
+	{
+		// Object를 구한다.
+		objComponent = objForm.all[i];
+		//날짜 오늘지정
+		if (gfn_subStr(objComponent.name, 0, 7)== "me_Date")
+		{
+			objComponent.value = sToday;
+		}
+	}
+}
+
+//날짜오류체크
+function ffn_Chk2Date(sDateF, sDateT)
+{
+	if ( ffn_ChkNull(sDateF) || (gfn_length(sDateF)< 8) )
+		return "시작일자(From)를 정확하게 입력하세요.";
+
+	if ( ffn_ChkNull(sDateT) || (gfn_length(sDateT)< 8) )
+		return "종료일자(To)를 정확하게 입력하세요.";
+
+	if ( sDateF > sDateT )
+		return "시작일(From)보다 종료일(To)이 늦습니다.";
+		
+	return "";
+}
+
+//에러메세지
+function ffn_AlertMsg(cd)
+{
+	var v_Msg="";
+	switch(cd)
+	{
+		case "000":
+			v_Msg= "이(가) 저장되었습니다.";
+			break;
+		case "001":
+			v_Msg= "버튼이 정의 되어 있지않습니다.";
+			break;
+		case "002":
+			v_Msg="서비스 오류:시스템 관리자에게 문의하십시오";
+			break;
+		case "003":
+			v_Msg="필수항목은 반드시 선택하시기 바랍니다.";
+			break;	
+		case "004":
+			v_Msg="작업대상 본사를 선택하세요.";
+			break;
+		case "005":
+			v_Msg="을(를) 입력하세요";
+			break;
+		case "006":
+			v_Msg="삭제할 데이터가 없습니다.";
+			break;
+		case "007":
+			v_Msg="변경된 데이터가 없습니다.";
+			break;
+		case "008":
+			v_Msg="시스템ID가 없습니다.";
+			break;			
+/*			
+		case "":
+			v_Msg="";
+			break;
+*/			
+		default:
+			break;			
+	}
+	return v_Msg;
+}
+
+/*----------------------------------------------------------------
+	1. 설명 : 폼을 로드 할때 권한을 체크해서 
+			  조회 [본사], [사업장]을 컨트롤한다.
+	2. 인자 :
+	3. 작성자 : 박용대
+	4. 작성일 : 2012.08.31
+	5. 사용예 : fn_chkAuth()
+----------------------------------------------------------------*/
+function fn_chkAuth()
+{
+	switch(g_UserKind)
+	{
+		case "본부" :
+			ed_MainUpjang.enable = true;
+			btn_MainUpjang.enable = true;
+			ed_Upjang.enable = true;
+			btn_Upjang.enable = true;
+			break;
+		case "본사" : 
+			ed_MainUpjang.enable = false;
+			btn_MainUpjang.enable = false;
+			ed_Upjang.enable = true;
+			btn_Upjang.enable = true;
+			break;
+		case "사업장" : 
+			ed_MainUpjang.enable = false;
+			btn_MainUpjang.enable = false;
+			ed_Upjang.enable = false;
+			btn_Upjang.enable = false;
+			break;
+		default:
+			alert("해당권한이 없습니다."); 
+	} 
+}
+
+/*------------------------------------------------------------
+	1. 설명 : 코드값을 가져와 데이터 셋에 담는다.
+			  먼저 코드를 담을 데이터셋을 만들고 
+			  거기에 들어갈 컬럼을 CD, CD_NM으로 추가한 후 
+			  첫번째 인자에 넣고 코드그룹의 코드를 두번째 인자에 넣은후
+			  세번째 인자는 true일 경우 "전체"를 가져오고 
+			  아닐경우 "전체"를 가져오지 않는다.
+	2. 인자 :  데이터 셋 명, 상위코드명, 전체여부
+	3. 작성자 : 박용대
+	4. 작성일 : 2012.08.31
+	5. 사용예 : fn_getComCode(ds_CODE,"FM0020",false);
+----------------------------------------------------------------*/
+function fn_getComCode(dsObj, grupCd, isAll)
+{
+	//Transaction 설정
+	var formObj			= this;
+	var strSvcID		= "COMCODE";
+	var strURL			= "U_svc::" + "fm/fmo/COMCODE.jsp";
+	var strInDatasets	= "";
+	var strOutDatasets	= dsObj.name + "=ds_List";
+	var strArgument		= "grupCd=" + wrapQuote(grupCd);
+	var strCallbackFunc	= "";
+	var isErrorNotCall	= false;
+	var isNotShow		= false;	//false 메세지 보여줌 --> sync일때 표현 안됨.
+	var isSync			= true;		//true 다실행하고 실행됨.(async)
+
+	//Transaction 호출
+	jsp_transaction(formObj, strSvcID, strURL, strInDatasets, strOutDatasets, strArgument, strCallbackFunc, isErrorNotCall, isNotShow, isSync);	
+	
+	if(isAll)
+	{
+		dsObj.insertRow(0);
+		dsObj.setColumn(0,"CD","");
+		dsObj.setColumn(0,"CD_NM","전체");
+	}
+	//trace(dsObj.SaveXML());
+}
+
+/*------------------------------------------------------------
+	1. 설명 : 해당하는 시퀀스 번호를 가져온다.
+	          먼저 코드를 담을 데이터셋을 만들고 
+	          거기에 들어갈 컬럼을 NEXTVAL로 추가한 후 
+	          첫번째 인자에 넣고 
+	          시퀀스 이름을 두번째 인자에 넣은후 사용
+	2. 인자 :  데이터 셋 명, 시퀀스 이름
+	3. 작성자 : 박용대
+	4. 작성일 : 2012.08.31
+	5. 사용예 : fn_getSeqNo(ds_SEQ, "FMO_PERSONAL_S");
+----------------------------------------------------------------*/
+
+function fn_getSeqNo(dsObj, seqName)
+{
+	//Transaction 설정
+	var formObj			= this;
+	var strSvcID		= "COMCODE";
+	var strURL			= "U_svc::" + "fm/fmo/GETSEQ.jsp";
+	var strInDatasets	= "";
+	var strOutDatasets	= dsObj.name + "=ds_List";
+	var strArgument		= "seqName=" + wrapQuote(seqName);
+	var strCallbackFunc	= "fn_CallBack_Seq";
+	var isErrorNotCall	= false;
+	var isNotShow		= false;	//false 메세지 보여줌 --> sync일때 표현 안됨.
+	var isSync			= true;		//true 다실행하고 실행됨.(async)
+
+	//Transaction 호출
+	jsp_transaction(formObj, strSvcID, strURL, strInDatasets, strOutDatasets, strArgument, strCallbackFunc, isErrorNotCall, isNotShow, isSync);	
+
+	//시퀀스값 반환
+	var rtnVal = dsObj.getColumn(0,"NEXTVAL");
+	
+	return rtnVal; 
+}]]></Script>

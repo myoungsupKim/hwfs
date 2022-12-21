@@ -1,0 +1,288 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="frm_FMO00701P" onkeydown="frm_FMO00701P_OnKeyDown" onload="form_onload" titletext="직원조회(팝업)" position="absolute 0 0 404 500" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Static id="Static04" class="sta_WFSA_Labelbg" position="absolute 15 40 389 81"/>
+        <Grid autoenter="select" autofittype="col" binddataset="ds_List" cellmovingtype="col" cellsizingtype="both" readonly="false" enable="true" id="gd_list" useinputpanel="false" autofitminwidth="100" selecttype="row" oncelldblclick="gd_list_OnCellDblClick" taborder="4" tabstop="false" usecontextmenu="true" useselcolor="true" visible="true" wheelscrollrow="1" position="absolute 15 104 389 485">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="73"/>
+                <Column size="57"/>
+                <Column size="139"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="text" text="사번"/>
+                <Cell col="1" displaytype="text" text="이름"/>
+                <Cell col="2" displaytype="text" text="업장"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" style="align:left;" text="bind:SABUN"/>
+                <Cell col="1" displaytype="text" style="align:left;" text="bind:NAME"/>
+                <Cell col="2" displaytype="text" style="align:left;" text="bind:UPJANGNM_DISP"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="st_MainUpjang" text="사번" userdata="strQuery_FMUpjang" position="absolute 30 50 65 71" class="sta_WFSA_label"/>
+        <Static id="Static0" text="이름" userdata="strQuery_FMUpjang" position="absolute 173 50 208 71" class="sta_WFSA_label"/>
+        <Button id="btn_search" onclick="btn_search_OnClick" taborder="1" tabstop="false" text="검색" position="absolute 330 10 389 35" class="btn_WF_searchCm" image=""/>
+        <Edit autoselect="true" id="edt_Sabun" onkeydown="edt_Sabun_OnKeyDown" taborder="2" position="absolute 71 50 143 71"/>
+        <Edit autoselect="true" id="edt_Name" onkeydown="edt_Name_OnKeyDown" taborder="3" position="absolute 215 50 280 71"/>
+        <CheckBox id="cb_All" taborder="5" text="전체업장" value="false" position="absolute 321 83 394 101"/>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 399"/>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 290 10"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 389 0 404 399"/>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 15 485 290 500"/>
+        <Static id="Static06" text="h05" class="Guide01_AreaRed" visible="false" position="absolute 15 35 290 40"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_Cond">
+        <ColumnInfo>
+          <Column id="SABUN" size="256" prop="default" type="STRING"/>
+          <Column id="NAME" size="256" prop="default" type="STRING"/>
+          <Column id="MAIN_UPJANG" size="256" prop="default" type="STRING"/>
+          <Column id="UPJANG" size="256" prop="default" type="STRING"/>
+          <Column id="REG_GB" size="256" prop="default" type="STRING"/>
+          <Column id="OPTION" size="256" prop="default" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_List">
+        <ColumnInfo>
+          <Column id="SABUN" size="256" type="STRING"/>
+          <Column id="NAME" size="256" type="STRING"/>
+          <Column id="UPJANG" size="256" type="STRING"/>
+          <Column id="UPJANGNM_DISP" size="256" type="STRING"/>
+          <Column id="WORK_TMA" size="256" type="STRING"/>
+          <Column id="WORK_TMB" size="256" type="STRING"/>
+          <Column id="WORK_TMC" size="256" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+ /*****************************************************************************************
+ * 시스템구분   : 
+ * 프로그램명   : FMO00701P.XML
+ * 기      능   : 직원조회
+ * 작  성  자   : 박용대
+ * 작성  일자   : 2012-08-16
+ * ----------------------------------------------------------------------------------------
+ * HISTORY      : 2012-08-16 최초작성
+ ******************************************************************************************/
+
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "lib::sc_comon.js"				// 시스템 공통
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js"		//JAVA 코딩시
+//@@컨버터에서 주석처리 #include "LIB::tit_comm_0001.js"		// X-Framework Lib
+//@@컨버터에서 주석처리 #include "lib::sc_sql_common.js"		// 공통팝업
+//@@컨버터에서 주석처리 #include "lib::fm_common.js"			// FM공통
+
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	btn_search_OnClick();
+	edt_Sabun.setFocus();
+	
+	//파출부 구분 파라미터를 가져온다. 파라미터는 선언하지 않고 바로 사용
+	//alert(regGb);
+}
+
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//=========================================================================================
+
+/*------------------------------------------------------------(60)
+	1. Function ID : fn_Search()
+	2. 개       요 : 업무프로세스에 따른 조회작업
+	3. 기       능 : 검색조건에 해당하는 정보를 조회
+	4. 인 수 설 명 : 
+*/
+function fn_search()
+{
+	
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Insert()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_insert()
+{
+	
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Delete()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_delete()
+{
+	
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Save()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_save()
+{
+
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Print()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_print()
+{
+	//gd_listE.ExportExcelEx("단가표");
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Close()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_Close()
+{
+	close(this);
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Help()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_help()
+{
+}
+
+//=========================================================================================
+// [ PART 5 ]
+// Callback Function 정의 
+//=========================================================================================
+function fn_CallBack_Search(errCode, errMsg)
+{
+}
+
+//=========================================================================================
+// [ PART 6 ]
+// Detail Process Event 정의 ( User Define function )
+//=========================================================================================
+
+
+//=========================================================================================
+// [ PART 7 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+
+
+function gd_list_OnCellDblClick(obj:Grid, e:GridClickEventInfo)
+{
+	var varArray = new Array();
+
+	varArray[0] = ds_List.getColumn(ds_List.rowposition,"SABUN");
+	varArray[1] = ds_List.getColumn(ds_List.rowposition,"NAME");
+	varArray[2] = ds_List.getColumn(ds_List.rowposition,"UPJANG");
+	varArray[3] = ds_List.getColumn(ds_List.rowposition,"WORK_TMA");
+	varArray[4] = ds_List.getColumn(ds_List.rowposition,"WORK_TMB");
+	varArray[5] = ds_List.getColumn(ds_List.rowposition,"WORK_TMC");
+	//용대야 형이 추가했3
+	varArray[6] = ds_List.getColumn(ds_List.rowposition,"UPJANGNM_DISP");
+	
+	close(varArray);
+}
+
+
+function btn_search_OnClick(obj:Button, e:ClickEventInfo)
+{
+	ds_Cond.clearData();
+	ds_Cond.addRow();
+	ds_Cond.setColumn(0,"SABUN"			,edt_Sabun.value);
+	ds_Cond.setColumn(0,"NAME"			,edt_Name.value);
+	ds_Cond.setColumn(0,"MAIN_UPJANG"	,opener.ed_MainUpjang.userdata);
+	ds_Cond.setColumn(0,"REG_GB"		,regGb);	//파출부 구분을 가져옴. (Y:파출부임, N:파출부 아님)
+	ds_Cond.setColumn(0,"OPTION"		,option);	//월급제 시급제 구분을 가져옴
+	
+	//전체업장에 체크가 되어있으면 업장값을 공백으로 넘겨 모두 조회가능하게
+	if(cb_All.value)
+	{
+		ds_Cond.setColumn(0,"UPJANG",'');
+	}else{
+		ds_Cond.setColumn(0,"UPJANG",opener.ed_Upjang.userdata);
+	}
+	
+	
+	//Transaction 설정
+	var formObj			= this;
+	var strSvcID		= "FMO00701P";
+	var strURL			= "U_svc::" + "fm/fmo/FMO00701P_T001.jsp";
+	var strInDatasets	= "inDs_Cond=ds_Cond";
+	var strOutDatasets	= "ds_List=ds_List";
+	var strArgument;	//= "name1=park name2=yongdae";
+	var strCallbackFunc	= "fn_CallBack_Search";
+	var isErrorNotCall	= false;
+	var isNotShow		= false;	//false 메세지 보여줌 --> sync일때 표현 안됨.
+	var isSync			= true;		//true 다실행하고 실행됨.(async)
+
+	//서버호출
+	jsp_transaction(formObj, strSvcID, strURL, strInDatasets, strOutDatasets, strArgument, strCallbackFunc, isErrorNotCall, isNotShow, isSync);	
+}
+
+function edt_Sabun_OnKeyDown(obj:Edit, e:KeyEventInfo)
+{
+	if(e.keycode == '13')
+	{
+		btn_search_OnClick();
+	}
+}
+
+function edt_Name_OnKeyDown(obj:Edit, e:KeyEventInfo)
+{
+	if(e.keycode == '13')
+	{
+		btn_search_OnClick();
+	}
+}
+
+function frm_FMO00701P_OnKeyDown(obj:Form, e:KeyEventInfo)
+{
+	//폼에 올라와있는 콤포넌트에 엔터키를 쳤을때 포커스로 넘어가는 함수
+	gfn_formKeyDown(obj, e); //(obj,e.fromreferenceobject,e.keycode,e.shiftKey,e.ctrlKey,e.altKey,-1,-1);
+}
+
+]]></Script>
+  </Form>
+</FDL>

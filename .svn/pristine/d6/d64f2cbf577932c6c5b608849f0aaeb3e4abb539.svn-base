@@ -1,0 +1,262 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\..\..\default_typedef.xml"/>
+  <Form id="FSP00015P2" classname="FSP00005P" inheritanceid="" position="absolute 0 0 390 322" titletext="카드 가맹점 조회" onload="form_onload" onbeforeclose="frm_onbeforeclose">
+    <Layouts>
+      <Layout>
+        <Static id="Static06" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 375 10"/>
+        <Static id="Static09" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 375 0 390 322"/>
+        <Static id="Static07" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 322"/>
+        <Static id="Static10" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 15 307 375 322"/>
+        <Static id="Static22" text="주문정보" class="sta_WF_Title01" position="absolute 15 20 89 38"/>
+        <Grid id="grd_list" taborder="10" useinputpanel="false" position="absolute 15 39 375 307" autofittype="col" binddataset="ds_list" oncelldblclick="grd_list_oncelldblclick">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="90"/>
+                <Column size="75"/>
+                <Column size="80"/>
+                <Column size="90"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="가맹점번호"/>
+                <Cell col="1" text="매입사명"/>
+                <Cell col="2" text="카드구분"/>
+                <Cell col="3" text="레코드상태"/>
+              </Band>
+              <Band id="body">
+                <Cell text="bind:FRNC_STOR_NUM"/>
+                <Cell col="1" text="bind:BUYCPNY_NM"/>
+                <Cell col="2" displaytype="combo" text="bind:CARD_CLASS" combodataset="ds_cardClass" combocodecol="CODE" combodatacol="CODE_NAME"/>
+                <Cell col="3" displaytype="combo" text="bind:RECD_STATUS" combodataset="ds_recdStatus" combocodecol="CODE" combodatacol="CODE_NAME"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Button id="btn_close" taborder="11" text="닫기" onclick="fn_Close" class="btn_WF_Custom" position="absolute 331 13 372 34"/>
+        <Button id="btn_confirm" taborder="12" text="선택" onclick="fn_confirm" class="btn_WF_Custom" position="absolute 287 13 328 34"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_list">
+        <ColumnInfo>
+          <Column id="FRNC_STOR_NUM" type="STRING" size="20"/>
+          <Column id="UPJANG_CD" type="BIGDECIMAL" size="39"/>
+          <Column id="UPJANG_NM" type="STRING" size="50"/>
+          <Column id="CARD_CLASS" type="STRING" size="18"/>
+          <Column id="CMIS_RATE" type="BIGDECIMAL" size="7"/>
+          <Column id="RECEIVE_CYCLE" type="BIGDECIMAL" size="39"/>
+          <Column id="BUYCPNY_CD" type="STRING" size="18"/>
+          <Column id="BUYCPNY_NM" type="STRING" size="100"/>
+          <Column id="RECD_STATUS" type="STRING" size="1"/>
+          <Column id="CUSER" type="STRING" size="10"/>
+          <Column id="CDATE" type="DATETIME" size="7"/>
+          <Column id="UUSER" type="STRING" size="10"/>
+          <Column id="UDATE" type="DATETIME" size="7"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_cardClass" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false"/>
+      <Dataset id="ds_recdStatus" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false"/>
+    </Objects>
+    <Bind/>
+    <Script type="xscript4.0"><![CDATA[/*
+ ******************************************************************************************
+ * 시스템구분	: 구매관리>신청관리>판촉상품마감
+ * 프로그램명	: FSP00005P2.xfdl
+ * 기      능	: 카드 가맹점 조회
+ * 작  성  자	: 백승현
+ * 작성  일자	: 2015-07-06
+ * 비      고	:
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+ ************************************************************************************************/ 
+include "U_lib::lib_conversionCom.xjs";
+
+/************************************************************************************************
+ * FORM 변수 선언 영역 (필수)
+ ************************************************************************************************/ 
+var v_upjang;
+/************************************************************************************************
+ * FORM EVENT 영역 (필수)
+ ************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Form Load (필수)
+ *---------------------------------------------------------------------------------------------*/
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	// Form Load 시 공통 기능 처리(obj:Form, bCreateEvent:이벤트 생성 여부)
+	gfn_formOnLoad(this);
+
+	// FSP Action 정보 생성
+	fsp_init(this);
+
+	// 화면 초기화
+	fn_init();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 화면 초기화
+ *---------------------------------------------------------------------------------------------*/
+function fn_init()
+{
+	// 카드구분
+	var v_ds = fn_common_code("'CARD_CLASS2'","","","","Y");
+	var v_fil_cond = "GROUP_CODE=='CARD_CLASS2'";
+	v_ds.filter(v_fil_cond);
+	CopyF(ds_cardClass, v_ds.name);
+
+	// 레코드 상태
+	var v_ds = fn_common_code("'RECD_STATUS'","","","","Y");
+	var v_fil_cond = "GROUP_CODE=='RECD_STATUS'";
+	v_ds.filter(v_fil_cond);
+	CopyF(ds_recdStatus, v_ds.name);
+
+	fn_search();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 화면 공통 단축키 이벤트
+ *---------------------------------------------------------------------------------------------*/
+function frm_OnKeyDown(obj:Form, e:KeyEventInfo)
+{
+	gfn_formKeyDown(obj, e);
+}
+
+/************************************************************************************************
+ * 공통기능 FUNCTION 영역 (필수)
+ ************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 조회 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_search()
+{
+	v_upjang = "";
+
+	var strSvcID = "SEARCH";
+	var strURL   = "U_svc::" + "fs/fsp/FSP00015E_T001.jsp";
+	var strInDatasets  = "ds_cond=ds_cond";
+	var strOutDatasets = "ds_list=ds_list";
+	var strArgument  = "sType='QryCard'";
+		strArgument += " sRqSabun=" +  wrapQuote(v_rqSabun);
+		//strArgument += " sUpjang=" +  wrapQuote(gv_upjang);
+		strArgument += " sUpjang=" +  wrapQuote(g_Upjang);
+	var strCallbackFunc = "fn_callback";
+
+	jsp_transaction(this, strSvcID, strURL, strInDatasets, strOutDatasets, strArgument, strCallbackFunc, true, true, false);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 입력 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_insert()
+{
+
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 저장 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_save()
+{
+
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 삭제 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_delete()
+{
+
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 출력 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_print()
+{
+
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 엑셀 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_Excel()
+{
+
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 닫기 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_Close()
+{
+	v_frncStorNum = "";	
+	this.close();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 도움말 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_help()
+{
+
+}
+
+/************************************************************************************************
+ * TRANSACTION 및 CallBack 영역 (필수)
+ ************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 트랜잭션 콜백 함수
+ *---------------------------------------------------------------------------------------------*/
+function fn_callback(nErrorCode, strErrorMsg, strSvcID)
+{
+	switch( strSvcID )
+	{
+		case "SEARCH":
+			if( nErrorCode == 0 )
+			{
+				if( gfn_length(gfn_trim(v_upjang)) != 0 )
+				{
+					g_Message("EE", v_upjang);
+				}
+			}
+			else
+			{
+				g_Message("EE", "서비스 오류:시스템 관리자에게 문의하십시오");	
+			}
+			break;
+	}
+}
+
+/************************************************************************************************
+ * 사용자 FUNCTION 영역 (필수)
+ ************************************************************************************************/
+
+/************************************************************************************************
+ * 각 COMPONENT 별 EVENT 영역 (필수)
+ ************************************************************************************************/
+function grd_list_oncelldblclick(obj:Grid, e:GridClickEventInfo)
+{
+	this.close(ds_list.getColumn(e.row, "FRNC_STOR_NUM"));
+}
+
+function fn_confirm(obj:Button,  e:ClickEventInfo)
+{
+	if( ds_list.rowposition < 0 )
+		v_frncStorNum = "";	
+	else
+		v_frncStorNum = ds_list.getColumn(ds_list.rowposition, "FRNC_STOR_NUM");
+
+	this.close();
+}]]></Script>
+  </Form>
+</FDL>

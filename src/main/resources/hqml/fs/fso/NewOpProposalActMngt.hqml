@@ -1,0 +1,499 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fs.fso.newOpProposalActMngtDAO">
+	<desc>신규운영품의 대비 실적관리 HQML Query</desc>
+
+	<!-- 신규운영품의 대비 실적관리 목록을 조회한다. -->
+	<statement name="selectNewOpProposalActMngtList" type="select">
+		/*+ com.hwfs.fs.fso.dao.NewOpProposalPlanMngtDAO.selectNewOpProposalActMngtList */
+		<![CDATA[
+		  SELECT A.MU_CD                /* 사업부 코드 */
+                ,A.TM_CD                /* 팀 코드 */
+                ,A.OBJECT_CD            /* 물건 코드 */
+                ,A.OBJECT_NM            /* 물건 명 */
+                ,A.ACC_MON				/* 수주월 */
+                ,B.UPJANG_CD			/* 업장	*/
+                ,(SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = B.UPJANG_CD) AS UPJANG_NM 	/* 업장명 */
+            FROM FSO_ACC_OBJECT_CARD A		/* 물건관리카드 */
+           	    ,FSO_ACC_OBJECT_UPJANG B	/* 수주 물건에 대한 업장을 등록/관리 */
+           WHERE A.OBJECT_CD = B.OBJECT_CD
+		     AND A.MU_CD = :muCd
+		     AND A.TM_CD = :tmCd
+		<#if srchYear?has_content>
+		     AND SUBSTR(A.ACC_MON, 0,4) = SUBSTR(:srchYear, 0,4)
+		</#if>
+		ORDER BY A.MU_CD, A.TM_CD, A.OBJECT_CD, A.ACC_MON, B.UPJANG_CD
+		]]>
+	</statement>
+	
+	<!-- 업장별 실적을 조회한다. -->
+	<statement name="selectAccOrderPlan" type="select">
+		/*+ com.hwfs.fs.fso.dao.NewOpProposalPlanMngtDAO.selectAccOrderPlan */
+		<![CDATA[
+		SELECT X.MU_CD, X.TM_CD, X.UPJANG_CD, X.ACCT_CLASS, NVL(SUM(X.AMT_A),0) CUR_PRE_AMT, NVL(SUM(X.AMT_B),0) CUR_AFT_AMT, NVL(SUM(X.AMT_B),0)-NVL(SUM(X.AMT_A),0) AS CUR_AMT_RATE,
+                                                    NVL(SUM(X.AMT_TOT_A),0) TOT_PRE_AMT, NVL(SUM(X.AMT_TOT_B),0) TOT_AFT_AMT, NVL(SUM(X.AMT_TOT_B),0)-NVL(SUM(X.AMT_TOT_A),0) AS TOT_AMT_RATE
+  FROM (
+            SELECT Y.MU_CD, Y.TM_CD, Y.UPJANG_CD, Y.ACCT_CLASS, 
+                   CASE WHEN Y.MM = :srchMonth THEN DECODE(Y.GBN,'품의월',Y.AMT,0) END AS AMT_A,   -- 당월 품의
+                   CASE WHEN Y.MM = :srchMonth THEN DECODE(Y.GBN,'실적월',Y.AMT,0) END AS AMT_B,   -- 당월 실적
+                   CASE WHEN (Y.MM >= :year||'01' AND Y.MM <= :srchMonth) THEN DECODE(Y.GBN,'품의월',Y.AMT,0) END AS AMT_TOT_A,   --누적 품의
+                   CASE WHEN (Y.MM >= :year||'01' AND Y.MM <= :srchMonth) THEN DECODE(Y.GBN,'실적월',Y.AMT,0) END AS AMT_TOT_B    -- 누적 실적
+            FROM (
+                    WITH Z AS (
+                    <#if amtUnit=="001">
+                                         SELECT '실적월' AS GBN, A.FISCAL_YEAR YEAR, A.MU_CD ,A.TM_CD, A.UPJANG UPJANG_CD, B.ACCT_CLASS     
+                                                ,ROUND(SUM(NVL(A.MM_AMT_01, 0)) / 1000) AMT_01 ,ROUND(SUM(NVL(A.MM_AMT_02, 0)) / 1000) AMT_02  
+                                                ,ROUND(SUM(NVL(A.MM_AMT_03, 0)) / 1000) AMT_03 ,ROUND(SUM(NVL(A.MM_AMT_04, 0)) / 1000) AMT_04    
+                                                ,ROUND(SUM(NVL(A.MM_AMT_05, 0)) / 1000) AMT_05 ,ROUND(SUM(NVL(A.MM_AMT_06, 0)) / 1000) AMT_06  
+                                                ,ROUND(SUM(NVL(A.MM_AMT_07, 0)) / 1000) AMT_07 ,ROUND(SUM(NVL(A.MM_AMT_08, 0)) / 1000) AMT_08    
+                                                ,ROUND(SUM(NVL(A.MM_AMT_09, 0)) / 1000) AMT_09 ,ROUND(SUM(NVL(A.MM_AMT_10, 0)) / 1000) AMT_10  
+                                                ,ROUND(SUM(NVL(A.MM_AMT_11, 0)) / 1000) AMT_11 ,ROUND(SUM(NVL(A.MM_AMT_12, 0)) / 1000) AMT_12
+                    </#if>
+                    <#if amtUnit=="002">                            
+                                          SELECT '실적월' AS GBN, A.FISCAL_YEAR YEAR, A.MU_CD ,A.TM_CD, A.UPJANG UPJANG_CD, B.ACCT_CLASS     
+                                                ,ROUND(SUM(NVL(A.MM_AMT_01, 0)) / 1000000) AMT_01 ,ROUND(SUM(NVL(A.MM_AMT_02, 0)) / 1000000) AMT_02  
+                                                ,ROUND(SUM(NVL(A.MM_AMT_03, 0)) / 1000000) AMT_03 ,ROUND(SUM(NVL(A.MM_AMT_04, 0)) / 1000000) AMT_04    
+                                                ,ROUND(SUM(NVL(A.MM_AMT_05, 0)) / 1000000) AMT_05 ,ROUND(SUM(NVL(A.MM_AMT_06, 0)) / 1000000) AMT_06  
+                                                ,ROUND(SUM(NVL(A.MM_AMT_07, 0)) / 1000000) AMT_07 ,ROUND(SUM(NVL(A.MM_AMT_08, 0)) / 1000000) AMT_08    
+                                                ,ROUND(SUM(NVL(A.MM_AMT_09, 0)) / 1000000) AMT_09 ,ROUND(SUM(NVL(A.MM_AMT_10, 0)) / 1000000) AMT_10  
+                                                ,ROUND(SUM(NVL(A.MM_AMT_11, 0)) / 1000000) AMT_11 ,ROUND(SUM(NVL(A.MM_AMT_12, 0)) / 1000000) AMT_12
+                     </#if>  
+                                                       
+                                           FROM (                                                                              
+                                                      SELECT B.MU_CD, B.TM_CD, B.UPJANG, A.ACCT_CD, A.FISCAL_YEAR                                                    
+                                                            ,A.MM_AMT_01, A.MM_AMT_02, A.MM_AMT_03, A.MM_AMT_04, A.MM_AMT_05, A.MM_AMT_06 ,A.MM_AMT_07, A.MM_AMT_08, A.MM_AMT_09, A.MM_AMT_10, A.MM_AMT_11, A.MM_AMT_12                                                         
+                                                        FROM MAP_UPJANG_PL A
+                                                            ,MAC_UPJANG_V B                                                         
+                                                       WHERE 1=1
+                                                         AND A.CC_CD = B.CC_CD
+                                                         AND A.PL_CLASS = 'OR'
+                                                         AND A.FISCAL_YEAR = SUBSTR(:srchMonth,0,4)
+                                                         AND B.TM_CD  = :tmCd
+                                                         AND B.UPJANG = :upjangCd                                        
+                                                ) A                                                           
+                                               ,(                                                                                                            
+                                                      SELECT CONTENTS ACCT_CLASS
+																	  ,CODE ACCT_CD
+																	  ,CODE_NAME ACCT_NM
+																  FROM SCC_COMMON_CODE
+																 WHERE GROUP_CODE = 'ACCT_CD'
+															   <#if saupType=="C">
+																	 AND SET1  = 'Y' 	/* 급식용 */
+																<#else>
+																	<#if saupType=="E">
+																		AND SET3  = 'Y' 	/* 식재용 */
+																	<#else>
+																		<#if saupType=="A">	
+																			AND SET2  = 'Y' 	/* 외식용 */
+																		<#else>
+																			AND 1=2
+																		</#if>
+																	</#if>
+																</#if>                                                          
+                                                ) B
+                                          WHERE B.ACCT_CD = A.ACCT_CD
+                                          GROUP BY '실적월', A.MU_CD, A.TM_CD, A.UPJANG, B.ACCT_CLASS, A.FISCAL_YEAR
+                           UNION
+                                         SELECT '품의월' AS GBN, A.YEAR, A.MU_CD ,A.TM_CD ,A.UPJANG_CD ,A.ACCT_CLASS,
+                                                 A.AMT_01, A.AMT_02, A.AMT_03, A.AMT_04, A.AMT_05, A.AMT_06, A.AMT_07, A.AMT_08, A.AMT_09, A.AMT_10, A.AMT_11, A.AMT_12
+                                          FROM (
+                                          <#if amtUnit=="001">
+                                                         SELECT  B.YEAR, B.MU_CD ,B.TM_CD ,B.UPJANG_CD ,B.OBJECT_CD,  A.ACCT_CLASS
+                                                                ,ROUND(SUM(NVL(B.JAN_AMT,0)) / 1000) AMT_01, ROUND(SUM(NVL(B.FEB_AMT,0)) / 1000) AMT_02	
+                                                                ,ROUND(SUM(NVL(B.MAR_AMT,0)) / 1000) AMT_03, ROUND(SUM(NVL(B.APR_AMT,0)) / 1000) AMT_04
+                                          						,ROUND(SUM(NVL(B.MAY_AMT,0)) / 1000) AMT_05, ROUND(SUM(NVL(B.JUN_AMT,0)) / 1000) AMT_06	
+                                                                ,ROUND(SUM(NVL(B.JUL_AMT,0)) / 1000) AMT_07, ROUND(SUM(NVL(B.AUG_AMT,0)) / 1000) AMT_08
+                                                  				,ROUND(SUM(NVL(B.SEP_AMT,0)) / 1000) AMT_09, ROUND(SUM(NVL(B.OCT_AMT,0)) / 1000) AMT_10	
+                                                                ,ROUND(SUM(NVL(B.NOV_AMT,0)) / 1000) AMT_11, ROUND(SUM(NVL(B.DEC_AMT,0)) / 1000) AMT_12
+                                          </#if>                      
+                                          <#if amtUnit=="002">                      
+                                                         SELECT  B.YEAR, B.MU_CD ,B.TM_CD ,B.UPJANG_CD ,B.OBJECT_CD,  A.ACCT_CLASS
+                                                                ,ROUND(SUM(NVL(B.JAN_AMT,0)) / 1000000) AMT_01, ROUND(SUM(NVL(B.FEB_AMT,0)) / 1000000) AMT_02	
+                                                                ,ROUND(SUM(NVL(B.MAR_AMT,0)) / 1000000) AMT_03, ROUND(SUM(NVL(B.APR_AMT,0)) / 1000000) AMT_04
+                                          						,ROUND(SUM(NVL(B.MAY_AMT,0)) / 1000000) AMT_05, ROUND(SUM(NVL(B.JUN_AMT,0)) / 1000000) AMT_06	
+                                                                ,ROUND(SUM(NVL(B.JUL_AMT,0)) / 1000000) AMT_07, ROUND(SUM(NVL(B.AUG_AMT,0)) / 1000000) AMT_08
+                                                  				,ROUND(SUM(NVL(B.SEP_AMT,0)) / 1000000) AMT_09, ROUND(SUM(NVL(B.OCT_AMT,0)) / 1000000) AMT_10	
+                                                                ,ROUND(SUM(NVL(B.NOV_AMT,0)) / 1000000) AMT_11, ROUND(SUM(NVL(B.DEC_AMT,0)) / 1000000) AMT_12
+                                          </#if>                      
+                                        		               FROM (
+                                        		                        SELECT CONTENTS ACCT_CLASS
+																	  ,CODE ACCT_CD
+																	  ,CODE_NAME ACCT_NM
+																  FROM SCC_COMMON_CODE
+																 WHERE GROUP_CODE = 'ACCT_CD'
+															   <#if saupType=="C">
+																	 AND SET1  = 'Y' 	/* 급식용 */
+																<#else>
+																	<#if saupType=="E">
+																		AND SET3  = 'Y' 	/* 식재용 */
+																	<#else>
+																		<#if saupType=="A">	
+																			AND SET2  = 'Y' 	/* 외식용 */
+																		<#else>
+																			AND 1=2
+																		</#if>
+																	</#if>
+																</#if>
+                                        		                    ) A
+                                        		                   ,FSO_PL_PRESUM B
+                                        		              WHERE A.ACCT_CD         = B.ACCT_CD
+                                        		                AND B.MU_CD           = :muCd
+                                        		                AND B.UPJANG_CD       = :upjangCd
+                                                            AND B.TM_CD = 'CDG'
+                                        		                AND B.YEAR            = SUBSTR(:srchMonth,0,4)
+                                        		                AND B.PROPOSAL_KIND   = 'O'
+                                                          GROUP BY B.MU_CD ,B.TM_CD ,B.UPJANG_CD ,B.OBJECT_CD ,B.YEAR ,A.ACCT_CLASS
+                                                  ) A,
+                                                  (      
+                                                          SELECT A.MU_CD  ,A.TM_CD ,A.OBJECT_CD  ,B.UPJANG_CD  
+                                                            FROM FSO_ACC_OBJECT_CARD   A  /* 물건관리카드 */
+                                                                ,FSO_ACC_OBJECT_UPJANG B  /* 수주 물건에 대한 업장을 등록/관리 */
+                                                           WHERE A.OBJECT_CD = B.OBJECT_CD
+                                                             AND A.MU_CD = :muCd
+                                                             AND A.TM_CD = :tmCd
+                                                             AND SUBSTR(A.ACC_MON, 0,4) = SUBSTR(:srchMonth, 0,4)
+                                                  ) B
+                                          WHERE A.MU_CD = B.MU_CD
+                                            AND A.TM_CD = B.TM_CD
+                                            AND A.UPJANG_CD = B.UPJANG_CD
+                                            AND A.OBJECT_CD = B.OBJECT_CD
+                                UNION 
+                                SELECT  '수주' AS GBN, '', '' ,'' ,0 ,'매출이익',
+                                                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                           			FROM DUAL           
+                             ) 
+                              SELECT Z.GBN, Z.YEAR, Z.MU_CD ,Z.TM_CD ,Z.UPJANG_CD ,Z.ACCT_CLASS,
+                                     DECODE(LV, 1, Z.YEAR||'01', 2, Z.YEAR||'02', 3, Z.YEAR||'03',   4, Z.YEAR||'04',  5, Z.YEAR||'05',   6, Z.YEAR||'06', 
+                                                7, Z.YEAR||'07', 8, Z.YEAR||'08', 9, Z.YEAR||'09',  10, Z.YEAR||'10', 11, Z.YEAR||'11',  12, Z.YEAR||'12' ) AS MM, 
+                                     DECODE(LV, 1, Z.AMT_01, 2, Z.AMT_02, 3, Z.AMT_03,  4, Z.AMT_04,  5, Z.AMT_05,  6, Z.AMT_06, 
+                                                7, Z.AMT_07, 8, Z.AMT_08, 9, Z.AMT_09, 10, Z.AMT_10, 11, Z.AMT_11, 12, Z.AMT_11) AS AMT
+                               FROM Z , 
+                                    (
+                                       SELECT LEVEL LV FROM DUAL CONNECT BY LEVEL <= 12
+                                    )
+                 ) Y 
+----    WHERE Y.MM = :srchYear||'01'
+       ) X
+  GROUP BY X.MU_CD, X.TM_CD, X.UPJANG_CD, X.ACCT_CLASS
+  ORDER BY decode(X.ACCT_CLASS, '매출액',1,'재료비',2,'노무비',3,'경비',4)
+		]]>
+	</statement>
+	
+	<!-- 월별 실적을 조회한다(실적). -->
+	<statement name="selectPlinvoiceList" type="select">
+		/*+ com.hwfs.fs.fso.dao.NewOpProposalPlanMngtDAO.selectPlinvoiceList */
+		<![CDATA[
+			/* 실적 */
+
+SELECT XX.FISCAL_YEAR, XX.MU_CD ,XX.TM_CD, XX.UPJANG, XX.ACCT_CLASS,
+       XX.MM_AMT_01, XX.MM_AMT_02, XX.MM_AMT_03, XX.MM_AMT_04, XX.MM_AMT_05, XX.MM_AMT_06,
+       XX.MM_AMT_07, XX.MM_AMT_08, XX.MM_AMT_09, XX.MM_AMT_10, XX.MM_AMT_11, XX.MM_AMT_12, XX.SUM_AMT
+  FROM (
+  		<#if amtUnit=="001">
+               SELECT A.FISCAL_YEAR, A.MU_CD ,A.TM_CD, A.UPJANG, B.ACCT_CLASS     
+                      ,ROUND(SUM(NVL(A.MM_AMT_01, 0)) / 1000) MM_AMT_01 ,ROUND(SUM(NVL(A.MM_AMT_02, 0)) / 1000) MM_AMT_02    
+                      ,ROUND(SUM(NVL(A.MM_AMT_03, 0)) / 1000) MM_AMT_03 ,ROUND(SUM(NVL(A.MM_AMT_04, 0)) / 1000) MM_AMT_04    
+                      ,ROUND(SUM(NVL(A.MM_AMT_05, 0)) / 1000) MM_AMT_05 ,ROUND(SUM(NVL(A.MM_AMT_06, 0)) / 1000) MM_AMT_06    
+                      ,ROUND(SUM(NVL(A.MM_AMT_07, 0)) / 1000) MM_AMT_07 ,ROUND(SUM(NVL(A.MM_AMT_08, 0)) / 1000) MM_AMT_08    
+                      ,ROUND(SUM(NVL(A.MM_AMT_09, 0)) / 1000) MM_AMT_09 ,ROUND(SUM(NVL(A.MM_AMT_10, 0)) / 1000) MM_AMT_10    
+                      ,ROUND(SUM(NVL(A.MM_AMT_11, 0)) / 1000) MM_AMT_11 ,ROUND(SUM(NVL(A.MM_AMT_12, 0)) / 1000) MM_AMT_12
+                      ,ROUND((SUM(NVL(A.MM_AMT_01, 0)) / 1000) + (SUM(NVL(A.MM_AMT_02, 0)) / 1000) +    
+                       (SUM(NVL(A.MM_AMT_03, 0)) / 1000) + (SUM(NVL(A.MM_AMT_04, 0)) / 1000) +    
+                       (SUM(NVL(A.MM_AMT_05, 0)) / 1000) + (SUM(NVL(A.MM_AMT_06, 0)) / 1000) +    
+                       (SUM(NVL(A.MM_AMT_07, 0)) / 1000) + (SUM(NVL(A.MM_AMT_08, 0)) / 1000) +    
+                       (SUM(NVL(A.MM_AMT_09, 0)) / 1000) + (SUM(NVL(A.MM_AMT_10, 0)) / 1000) +    
+                       (SUM(NVL(A.MM_AMT_11, 0)) / 1000) + (SUM(NVL(A.MM_AMT_12, 0)) / 1000)) SUM_AMT
+                       
+            </#if>
+            <#if amtUnit=="002">           
+                SELECT A.FISCAL_YEAR, A.MU_CD ,A.TM_CD, A.UPJANG, B.ACCT_CLASS     
+                      ,ROUND(SUM(NVL(A.MM_AMT_01, 0)) / 1000000) MM_AMT_01 ,ROUND(SUM(NVL(A.MM_AMT_02, 0)) / 1000000) MM_AMT_02    
+                      ,ROUND(SUM(NVL(A.MM_AMT_03, 0)) / 1000000) MM_AMT_03 ,ROUND(SUM(NVL(A.MM_AMT_04, 0)) / 1000000) MM_AMT_04    
+                      ,ROUND(SUM(NVL(A.MM_AMT_05, 0)) / 1000000) MM_AMT_05 ,ROUND(SUM(NVL(A.MM_AMT_06, 0)) / 1000000) MM_AMT_06    
+                      ,ROUND(SUM(NVL(A.MM_AMT_07, 0)) / 1000000) MM_AMT_07 ,ROUND(SUM(NVL(A.MM_AMT_08, 0)) / 1000000) MM_AMT_08    
+                      ,ROUND(SUM(NVL(A.MM_AMT_09, 0)) / 1000000) MM_AMT_09 ,ROUND(SUM(NVL(A.MM_AMT_10, 0)) / 1000000) MM_AMT_10    
+                      ,ROUND(SUM(NVL(A.MM_AMT_11, 0)) / 1000000) MM_AMT_11 ,ROUND(SUM(NVL(A.MM_AMT_12, 0)) / 1000000) MM_AMT_12
+                      ,ROUND((SUM(NVL(A.MM_AMT_01, 0)) / 1000000) + (SUM(NVL(A.MM_AMT_02, 0)) / 1000000) +    
+                       (SUM(NVL(A.MM_AMT_03, 0)) / 1000000) + (SUM(NVL(A.MM_AMT_04, 0)) / 1000000) +    
+                       (SUM(NVL(A.MM_AMT_05, 0)) / 1000000) + (SUM(NVL(A.MM_AMT_06, 0)) / 1000000) +    
+                       (SUM(NVL(A.MM_AMT_07, 0)) / 1000000) + (SUM(NVL(A.MM_AMT_08, 0)) / 1000000) +    
+                       (SUM(NVL(A.MM_AMT_09, 0)) / 1000000) + (SUM(NVL(A.MM_AMT_10, 0)) / 1000000) +    
+                       (SUM(NVL(A.MM_AMT_11, 0)) / 1000000) + (SUM(NVL(A.MM_AMT_12, 0)) / 1000000)) SUM_AMT
+               </#if>          
+                 FROM (                                                                              
+                        SELECT B.MU_CD, B.TM_CD, B.UPJANG, A.ACCT_CD, A.FISCAL_YEAR                                                    
+                              ,A.MM_AMT_01, A.MM_AMT_02, A.MM_AMT_03, A.MM_AMT_04, A.MM_AMT_05, A.MM_AMT_06        
+                              ,A.MM_AMT_07, A.MM_AMT_08, A.MM_AMT_09, A.MM_AMT_10, A.MM_AMT_11, A.MM_AMT_12        
+                              ,'0' AS SUM_AMT                                                        
+                          FROM MAP_UPJANG_PL A
+                              ,MAC_UPJANG_V B                                                         
+                         WHERE 1=1
+                           AND A.CC_CD = B.CC_CD
+                           AND A.PL_CLASS = 'OR'
+                           AND A.FISCAL_YEAR = SUBSTR(:year,0,4)
+                           AND B.TM_CD  = :tmCd		 
+                           AND B.UPJANG = :upjangCd                                        
+                      ) A                                                           
+                     ,(                                                                                                            
+                              SELECT CONTENTS ACCT_CLASS
+		                              ,CODE ACCT_CD
+		                              ,CODE_NAME ACCT_NM
+		                          FROM SCC_COMMON_CODE
+		                         WHERE GROUP_CODE = 'ACCT_CD'
+		                    <#if saupType=="C">
+							     AND SET1  = 'Y' 	/* 급식용 */
+							<#else>
+								<#if saupType=="E">
+								    AND SET3  = 'Y' 	/* 식재용 */
+								<#else>
+								    <#if saupType=="A">	
+								        AND SET2  = 'Y' 	/* 외식용 */
+								    <#else>
+								    	AND 1=2
+									</#if>
+								</#if>
+							</#if>                                                          
+                      ) B
+                WHERE B.ACCT_CD = A.ACCT_CD
+                GROUP BY A.MU_CD, A.TM_CD, A.UPJANG, B.ACCT_CLASS, A.FISCAL_YEAR
+        UNION
+               SELECT '', :muCd, :tmCd, 0, '매출이익', 0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 FROM DUAL
+        ) XX
+ORDER BY DECODE(XX.ACCT_CLASS, '매출액',1,'재료비',2,'노무비',3,'경비',4,'매출이익',5)
+		]]>
+	</statement>
+
+	<!-- 월별 실적을 조회한다(품의). -->
+	<statement name="selectPlinvoiceList2" type="select">
+		/*+ com.hwfs.fs.fso.dao.NewOpProposalPlanMngtDAO.selectPlinvoiceList */
+		<![CDATA[
+			/* 품의 */
+
+/* 품의 */
+
+SELECT XX.MU_CD ,XX.TM_CD ,XX.UPJANG_CD ,XX.ACCT_CLASS,
+                 XX.JAN_AMT AS MM_AMT_01, XX.FEB_AMT AS MM_AMT_02,XX.MAR_AMT AS MM_AMT_03, XX.APR_AMT AS MM_AMT_04 ,XX.MAY_AMT AS MM_AMT_05
+                 , XX.JUN_AMT AS MM_AMT_06,XX.JUL_AMT AS MM_AMT_07, XX.AUG_AMT AS MM_AMT_08 ,XX.SEP_AMT AS MM_AMT_09, XX.OCT_AMT AS MM_AMT_10
+                 ,XX.NOV_AMT AS MM_AMT_11, XX.DEC_AMT AS MM_AMT_12
+                 , XX.SUM_AMT
+  FROM (
+            SELECT A.MU_CD ,A.TM_CD ,A.UPJANG_CD ,A.OBJECT_CD ,A.ACCT_CLASS,
+                 A.JAN_AMT, A.FEB_AMT ,A.MAR_AMT, A.APR_AMT ,A.MAY_AMT, A.JUN_AMT,A.JUL_AMT, A.AUG_AMT ,A.SEP_AMT, A.OCT_AMT ,A.NOV_AMT, A.DEC_AMT, A.SUM_AMT
+            FROM (
+                          SELECT A.MU_CD ,A.TM_CD ,A.UPJANG_CD ,A.OBJECT_CD ,A.ACCT_CLASS,
+                                 A.JAN_AMT, A.FEB_AMT ,A.MAR_AMT, A.APR_AMT ,A.MAY_AMT, A.JUN_AMT,A.JUL_AMT, A.AUG_AMT ,A.SEP_AMT, A.OCT_AMT ,A.NOV_AMT, A.DEC_AMT
+                                 , A.SUM_AMT
+                          FROM (
+                          <#if amtUnit=="001">
+                                         SELECT  B.MU_CD ,B.TM_CD ,B.UPJANG_CD ,B.OBJECT_CD,  A.ACCT_CLASS
+                                                ,ROUND(SUM(NVL(B.JAN_AMT,0)) / 1000) JAN_AMT, ROUND(SUM(NVL(B.FEB_AMT,0)) / 1000) FEB_AMT
+                                  							,ROUND(SUM(NVL(B.MAR_AMT,0)) / 1000) MAR_AMT, ROUND(SUM(NVL(B.APR_AMT,0)) / 1000) APR_AMT
+                                  							,ROUND(SUM(NVL(B.MAY_AMT,0)) / 1000) MAY_AMT, ROUND(SUM(NVL(B.JUN_AMT,0)) / 1000) JUN_AMT
+                                  							,ROUND(SUM(NVL(B.JUL_AMT,0)) / 1000) JUL_AMT, ROUND(SUM(NVL(B.AUG_AMT,0)) / 1000) AUG_AMT
+                                  							,ROUND(SUM(NVL(B.SEP_AMT,0)) / 1000) SEP_AMT, ROUND(SUM(NVL(B.OCT_AMT,0)) / 1000) OCT_AMT
+                                  							,ROUND(SUM(NVL(B.NOV_AMT,0)) / 1000) NOV_AMT, ROUND(SUM(NVL(B.DEC_AMT,0)) / 1000) DEC_AMT
+                                                            
+                                                ,ROUND((SUM(NVL(B.JAN_AMT,0)) / 1000) + (SUM(NVL(B.FEB_AMT,0)) / 1000) +
+                                  							(SUM(NVL(B.MAR_AMT,0)) / 1000) + (SUM(NVL(B.APR_AMT,0)) / 1000) +
+                                  							(SUM(NVL(B.MAY_AMT,0)) / 1000) + (SUM(NVL(B.JUN_AMT,0)) / 1000) +
+                                  							(SUM(NVL(B.JUL_AMT,0)) / 1000) + (SUM(NVL(B.AUG_AMT,0)) / 1000) +
+                                  							(SUM(NVL(B.SEP_AMT,0)) / 1000) + (SUM(NVL(B.OCT_AMT,0)) / 1000) +
+                                  							(SUM(NVL(B.NOV_AMT,0)) / 1000) + (SUM(NVL(B.DEC_AMT,0)) / 1000)) SUM_AMT
+                          </#if>
+                          
+                          <#if amtUnit=="002">
+                          			SELECT  B.MU_CD ,B.TM_CD ,B.UPJANG_CD ,B.OBJECT_CD,  A.ACCT_CLASS
+                                                ,ROUND(SUM(NVL(B.JAN_AMT,0)) / 1000000) JAN_AMT, ROUND(SUM(NVL(B.FEB_AMT,0)) / 1000000) FEB_AMT
+                                  							,ROUND(SUM(NVL(B.MAR_AMT,0)) / 1000000) MAR_AMT, ROUND(SUM(NVL(B.APR_AMT,0)) / 1000000) APR_AMT
+                                  							,ROUND(SUM(NVL(B.MAY_AMT,0)) / 1000000) MAY_AMT, ROUND(SUM(NVL(B.JUN_AMT,0)) / 1000000) JUN_AMT
+                                  							,ROUND(SUM(NVL(B.JUL_AMT,0)) / 1000000) JUL_AMT, ROUND(SUM(NVL(B.AUG_AMT,0)) / 1000000) AUG_AMT
+                                  							,ROUND(SUM(NVL(B.SEP_AMT,0)) / 1000000) SEP_AMT, ROUND(SUM(NVL(B.OCT_AMT,0)) / 1000000) OCT_AMT
+                                  							,ROUND(SUM(NVL(B.NOV_AMT,0)) / 1000000) NOV_AMT, ROUND(SUM(NVL(B.DEC_AMT,0)) / 1000000) DEC_AMT
+                                                            
+                                                ,ROUND((SUM(NVL(B.JAN_AMT,0)) / 1000000) + (SUM(NVL(B.FEB_AMT,0)) / 1000000) +
+                                  							(SUM(NVL(B.MAR_AMT,0)) / 1000000) + (SUM(NVL(B.APR_AMT,0)) / 1000000) +
+                                  							(SUM(NVL(B.MAY_AMT,0)) / 1000000) + (SUM(NVL(B.JUN_AMT,0)) / 1000000) +
+                                  							(SUM(NVL(B.JUL_AMT,0)) / 1000000) + (SUM(NVL(B.AUG_AMT,0)) / 1000000) +
+                                  							(SUM(NVL(B.SEP_AMT,0)) / 1000000) + (SUM(NVL(B.OCT_AMT,0)) / 1000000) +
+                                  							(SUM(NVL(B.NOV_AMT,0)) / 1000000) + (SUM(NVL(B.DEC_AMT,0)) / 1000000)) SUM_AMT
+                          
+                          </#if>        							            
+                        		               FROM (
+                        		                         SELECT CONTENTS ACCT_CLASS
+							                              ,CODE ACCT_CD
+							                              ,CODE_NAME ACCT_NM
+							                          FROM SCC_COMMON_CODE
+							                         WHERE GROUP_CODE = 'ACCT_CD'
+							                    <#if saupType=="C">
+												     AND SET1  = 'Y' 	/* 급식용 */
+												<#else>
+													<#if saupType=="E">
+													    AND SET3  = 'Y' 	/* 식재용 */
+													<#else>
+													    <#if saupType=="A">	
+													        AND SET2  = 'Y' 	/* 외식용 */
+													    <#else>
+													    	AND 1=2
+														</#if>
+													</#if>
+												</#if>                       
+                        		                    ) A
+                        		                   ,FSO_PL_PRESUM B
+                        		              WHERE A.ACCT_CD         = B.ACCT_CD
+                        		                AND B.MU_CD           = :muCd
+                        		                AND B.UPJANG_CD       = :upjangCd
+                                            AND B.TM_CD = 'CDG'
+                        		                AND B.YEAR            = SUBSTR(:year,0,4)
+                        		                AND B.PROPOSAL_KIND   = 'O'
+                                          GROUP BY B.MU_CD ,B.TM_CD ,B.UPJANG_CD ,B.OBJECT_CD ,B.YEAR ,A.ACCT_CLASS
+                                  ) A,
+                                  (      
+                                          SELECT A.MU_CD  ,A.TM_CD ,A.OBJECT_CD  ,B.UPJANG_CD  
+                                            FROM FSO_ACC_OBJECT_CARD   A  /* 물건관리카드 */
+                                                ,FSO_ACC_OBJECT_UPJANG B /* 수주 물건에 대한 업장을 등록/관리 */
+                                           WHERE A.OBJECT_CD = B.OBJECT_CD
+                                             AND A.MU_CD = :muCd
+                                             AND A.TM_CD = :tmCd
+                                             AND SUBSTR(A.ACC_MON, 0,4) = SUBSTR(:year, 0,4)
+                                  ) B
+                          WHERE A.MU_CD = B.MU_CD
+                            AND A.TM_CD = B.TM_CD
+                            AND A.UPJANG_CD = B.UPJANG_CD
+                            AND A.OBJECT_CD = B.OBJECT_CD
+               ) A   
+          UNION
+              SELECT :muCd, :tmCd, 0, '0', '매출이익', 0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 FROM DUAL     
+       ) XX     
+ORDER BY  decode(XX.ACCT_CLASS, '매출액',1,'재료비',2,'노무비',3,'경비',4,'매출이익',5)
+
+		]]>
+	</statement>
+
+	<!-- 신규운영품의 대비 실적관리(을)를 등록한다. -->
+	<statement name="insertUpjangAct" type="insert">
+		/*+ com.hwfs.fs.fso.dao.NewOpProposalActMngtDAO.insertUpjangAct */
+		<![CDATA[
+			INSERT INTO FSO_UPJANG_ACT
+			(
+				 MU_CD
+				,UPJANG_CD
+				,OP_CLASS
+				,KIND
+				,YEAR
+				,TM_CD
+				,JAN_PLAN_AMT
+				,FEB_PLAN_AMT
+				,MAR_PLAN_AMT
+				,APR_PLAN_AMT
+				,MAY_PLAN_AMT
+				,JUN_PLAN_AMT
+				,JUL_PLAN_AMT
+				,AUG_PLAN_AMT
+				,SEP_PLAN_AMT
+				,OCT_PLAN_AMT
+				,NOV_PLAN_AMT
+				,DEC_PLAN_AMT
+				,JAN_ACT_AMT
+				,FEB_ACT_AMT
+				,MAR_ACT_AMT
+				,APR_ACT_AMT
+				,MAY_ACT_AMT
+				,JUN_ACT_AMT
+				,JUL_ACT_AMT
+				,AUG_ACT_AMT
+				,SEP_ACT_AMT
+				,OCT_ACT_AMT
+				,NOV_ACT_AMT
+				,DEC_ACT_AMT
+				,CUSER
+			    ,CDATE
+				,UUSER
+				,UDATE
+			)VALUES
+			(
+				 :muCd
+				,:upjangCd
+				,:opClass
+				,:kind
+				,:year
+				,:tmCd
+				,:janPlanAmt
+				,:febPlanAmt
+				,:marPlanAmt
+				,:aprPlanAmt
+				,:mayPlanAmt
+				,:junPlanAmt
+				,:julPlanAmt
+				,:augPlanAmt
+				,:sepPlanAmt
+				,:octPlanAmt
+				,:novPlanAmt
+				,:decPlanAmt
+				,:janActAmt
+				,:febActAmt
+				,:marActAmt
+				,:aprActAmt
+				,:mayActAmt
+				,:junActAmt
+				,:julActAmt
+				,:augActAmt
+				,:sepActAmt
+				,:octActAmt
+				,:novActAmt
+				,:decActAmt
+				,:loginSabun
+				,SYSDATE
+				,:loginSabun
+				,SYSDATE
+			)
+		]]>
+	</statement>
+	
+	<!-- 신규운영품의 대비 실적관리(을)를 수정한다. -->
+	<statement name="updateUpjangAct" type="update">
+		/*+ com.hwfs.fs.fso.dao.NewOpProposalActMngtDAO.updateUpjangAct */
+		<![CDATA[
+			UPDATE FSO_UPJANG_ACT
+			   SET JAN_PLAN_AMT = :janPlanAmt
+				  ,FEB_PLAN_AMT = :febPlanAmt
+				  ,MAR_PLAN_AMT = :marPlanAmt
+				  ,APR_PLAN_AMT = :aprPlanAmt
+				  ,MAY_PLAN_AMT = :mayPlanAmt
+				  ,JUN_PLAN_AMT = :junPlanAmt
+				  ,JUL_PLAN_AMT = :julPlanAmt
+				  ,AUG_PLAN_AMT = :augPlanAmt
+				  ,SEP_PLAN_AMT = :sepPlanAmt
+				  ,OCT_PLAN_AMT = :octPlanAmt
+				  ,NOV_PLAN_AMT = :novPlanAmt
+				  ,DEC_PLAN_AMT = :decPlanAmt
+				  ,JAN_ACT_AMT = :janActAmt
+				  ,FEB_ACT_AMT = :febActAmt
+				  ,MAR_ACT_AMT = :marActAmt
+				  ,APR_ACT_AMT = :aprActAmt
+				  ,MAY_ACT_AMT = :mayActAmt
+				  ,JUN_ACT_AMT = :junActAmt
+				  ,JUL_ACT_AMT = :julActAmt
+				  ,AUG_ACT_AMT = :augActAmt
+				  ,SEP_ACT_AMT = :sepActAmt
+				  ,OCT_ACT_AMT = :octActAmt
+				  ,NOV_ACT_AMT = :novActAmt
+				  ,DEC_ACT_AMT = :decActAmt
+				  ,UUSER	 = :loginSabun
+				  ,UDATE	 = SYSDATE
+			WHERE  MU_CD	 = :muCd
+			  AND  UPJANG_CD = :upjangCd
+			  AND  OP_CLASS  = :opClass
+			  AND  KIND		 = :kind
+			  AND  YEAR		 = :year
+			  AND  TM_CD	 = :tmCd
+		]]>
+	</statement>
+
+	<!-- 신규운영품의 대비 실적관리(을)를 삭제한다. -->
+	<statement name="deleteUpjangAct" type="delete">
+		/*+ com.hwfs.fs.fso.dao.NewOpProposalActMngtDAO.deleteUpjangAct */
+		<![CDATA[
+		
+		]]>
+	</statement>
+
+</hqml>

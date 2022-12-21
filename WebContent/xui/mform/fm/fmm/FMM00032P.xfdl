@@ -1,0 +1,218 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FMM00032P" onload="form_onload" titletext="사업장 검색" position="absolute 0 0 434 485" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Grid autofittype="col" binddataset="ds_List" enable="true" id="grd_List" useinputpanel="false" autofitminwidth="100" oncelldblclick="grd_List_OnCellDblClick" onheadclick="grd_List_OnHeadClick" onkeydown="grd_List_OnKeyDown" taborder="3" tabstop="true" usecontextmenu="true" useselcolor="true" visible="true" wheelscrollrow="1" position="absolute 15 96 419 435" readonly="true" selecttype="row">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="97"/>
+                <Column size="286"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="text" text="사업장코드"/>
+                <Cell col="1" displaytype="text" text="사업장명"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" style="align:left;" text="bind:UPJANG"/>
+                <Cell col="1" displaytype="text" style="align:left;" text="bind:UPJANGNM"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 423 10"/>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 475"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 419 0 434 475"/>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 15 470 423 485"/>
+        <Static id="Static07" class="sta_WFSA_Labelbg" position="absolute 15 40 419 81" anchor="left top right"/>
+        <Static id="Static21" text="W10" visible="false" position="absolute 30 40 275 50" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static23" text="W10" visible="false" position="absolute 30 71 275 81" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static24" text="W15" visible="false" position="absolute 15 50 30 71" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static10" text="W15" visible="false" position="absolute 403 50 418 71" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static11" text="h15" visible="false" position="absolute 15 81 311 96" style="background:#ff000055;align:center middle;"/>
+        <Button id="btn_close00" taborder="5" text="취소" onclick="btn_close_OnClick" class="btn_POP_Default" position="absolute 369 445 419 470" anchor="right bottom"/>
+        <Button id="btn_confirm" taborder="4" text="확인" onclick="btn_confirm_onclick" class="btn_POP_Default" position="absolute 317 445 367 470" anchor="right bottom"/>
+        <Static id="Static16" text="w2" class="Guide01_AreaRed" visible="false" position="absolute 367 445 369 470"/>
+        <Static id="Static17" text="h10" visible="false" position="absolute 15 435 423 445" style="background:#ff000055;align:center middle;"/>
+        <Button id="btn_search" taborder="2" text="조회" onclick="fn_search" class="btn_WF_searchCm" position="absolute 360 10 419 35"/>
+        <Static id="Static00" text="H5" visible="false" position="absolute 182 35 427 40" style="background:#ff000055;align:center middle;"/>
+        <Edit id="ed_Code" onkeydown="ed_Code_OnKeyDown" taborder="1" position="absolute 30 50 162 71"/>
+        <Edit id="ed_CodeName" imemode="hangul" onkeydown="ed_CodeName_OnKeyDown" taborder="0" position="absolute 164 50 403 71"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_List"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/*
+ ******************************************************************************************
+ * 시스템구분   : 메뉴관리 > 레시피관리 > 사업장레시피관리
+ * 프로그램명   : FMM00032P.XML
+ * 기      능   : 사업장검색 팝업 - 본사/본부/사업장담당자 구분으로 사업장 리스트 검색
+ * 작  성  자   : 손 창 덕
+ * 작성  일자   : 2008-01-23
+ * 비      고   : 
+ *		- 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+include "U_lib::lib_conversionCom.xjs";
+//@@컨버터에서 주석처리 #include "LIB::sc_comon.js";			// 시스템공통 함수
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js";
+//@@컨버터에서 주석처리 #include "LIB::sc_sql_common.js";
+//@@컨버터에서 주석처리 #include "LIB::tit_comm_0001.js";		// X-Framework Lib
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	// X-Framework : Action 정보 생성 
+	fsp_init(this);
+
+	ed_CodeName.setFocus();
+}
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_search()
+ * 기      능   : [조회버튼] 검색조건에 해당하는 정보를 조회
+ ******************************************************************************************
+ */
+function fn_search(obj:Button, e:ClickEventInfo)
+{
+	var args  = "USER_KIND=" + wrapQuote(gfn_nvl(g_UserKind));
+		args += " UPJANG=" + wrapQuote(gfn_nvl(g_Upjang));
+		args += " EMP_NO=" + wrapQuote(gfn_nvl(g_EmpNo));
+	    args += " CODE=" + wrapQuote(gfn_trim(gfn_nvl(ed_Code.value)));
+	    args += " CODE_NAME=" + wrapQuote(gfn_trim(gfn_nvl(ed_CodeName.value)));
+	    args += " OUTPUT_DS='ds_List'";
+	
+	fsp_callService(this, "FMM_COMMON_ACT", "searchUpjang", "", "ds_List=ds_List", args, "fn_CallBackSearch", "", true);
+}
+function fn_CallBackSearch(errCode, errMsg)
+{
+	if( errCode != 0 ) {
+		return;
+	} else {
+		if( ds_List.getRowCount() > 0 ) {
+			grd_List.setFocus();
+		} else {
+			ed_CodeName.setFocus();
+		}
+	}
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_close()
+ * 기      능   : [닫기버튼] 화면을 닫을때 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_close(obj:Button, e:ClickEventInfo)
+{
+	this.close(null);
+}
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+/*------------------------------------------------------------
+	1. Function    : grd_List_OnCellDblClick
+	2. Description : grd_List_OnCellDblClick
+	3. Arguments   : 
+	4. History     : 2008. 01. 23 - 최초작성
+*------------------------------------------------------------*/
+function grd_List_OnCellDblClick(obj:Grid, e:GridClickEventInfo)
+{
+	fn_Select(e.row);
+}
+function fn_Select(nRow)
+{
+	var arr = new Array();
+	arr[0] = ds_List.getColumn(nRow, "UPJANG");
+	arr[1] = ds_List.getColumn(nRow, "UPJANGNM");
+	this.close(arr);
+}
+
+/*------------------------------------------------------------
+	1. Function    : grd_List_OnHeadClick
+	2. Description : grd_List_OnHeadClick
+	3. Arguments   : 
+	4. History     : 2008. 01. 23 - 최초작성
+*------------------------------------------------------------*/
+function grd_List_OnHeadClick(obj:Grid, e:GridClickEventInfo)
+{
+	gfn_gridSort(obj, e); //(eval(obj.binddataset), obj, e.cell);
+}
+/*------------------------------------------------------------
+	1. Function    : grd_List_OnKeyDown
+	2. Description : grd_List_OnKeyDown
+	3. Arguments   : 
+	4. History     : 2008. 01. 23 - 최초작성
+*------------------------------------------------------------*/
+function grd_List_OnKeyDown(obj:Grid, e:KeyEventInfo)
+{
+	if( e.keycode == "13" ) fn_Select(ds_List.rowposition);
+}
+/*------------------------------------------------------------
+	1. Function    : ed_Code_OnKeyDown
+	2. Description : ed_Code_OnKeyDown
+	3. Arguments   : 
+	4. History     : 2008. 01. 23 - 최초작성
+*------------------------------------------------------------*/
+function ed_Code_OnKeyDown(obj:Edit, e:KeyEventInfo)
+{
+	if( e.keycode == "13" ) fn_search();
+}
+/*------------------------------------------------------------
+	1. Function    : ed_CodeName_OnKeyDown
+	2. Description : ed_CodeName_OnKeyDown
+	3. Arguments   : 
+	4. History     : 2008. 01. 23 - 최초작성
+*------------------------------------------------------------*/
+function ed_CodeName_OnKeyDown(obj:Edit, e:KeyEventInfo)
+{
+	if( e.keycode == "13" ) fn_search();
+}
+
+function btn_confirm_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_Select(ds_List.rowposition);
+}
+
+function btn_close_OnClick(obj:Button,  e:ClickEventInfo)
+{
+	fn_close();
+}
+]]></Script>
+  </Form>
+</FDL>

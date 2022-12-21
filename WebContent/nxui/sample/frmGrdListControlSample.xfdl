@@ -1,0 +1,176 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="frmGrdListControlSample" classname="frmSelectSample2" left="0" top="0" width="540" height="758" titletext="New Form" onload="frmSelectSample2_onload">
+    <Layouts>
+      <Layout>
+        <Button id="btnSearch" taborder="0" text="조회" left="416" top="10" width="112" height="47" onclick="btnSearch_onclick"/>
+        <Grid id="Grid00" taborder="1" useinputpanel="false" left="10" top="71" right="10" height="622" binddataset="ds_list">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="100"/>
+                <Column size="100"/>
+                <Column size="100"/>
+                <Column size="100"/>
+                <Column size="100"/>
+                <Column size="100"/>
+                <Column size="100"/>
+                <Column size="100"/>
+                <Column size="100"/>
+              </Columns>
+              <Rows>
+                <Row size="50" band="head"/>
+                <Row size="50"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="SEQ"/>
+                <Cell col="1" text="CAMP_FG"/>
+                <Cell col="2" text="APPLY_NO"/>
+                <Cell col="3" text="ACCP_TYPE_CD"/>
+                <Cell col="4" text="ACCP_LN_TYPE_CD"/>
+                <Cell col="5" text="ACCP_STEP"/>
+                <Cell col="6" text="ACCP_ID"/>
+                <Cell col="7" text="ACCP_ID_NM"/>
+                <Cell col="8" text="ACCP_DT"/>
+              </Band>
+              <Band id="body">
+                <Cell text="bind:SEQ"/>
+                <Cell col="1" text="bind:CAMP_FG"/>
+                <Cell col="2" text="bind:APPLY_NO"/>
+                <Cell col="3" text="bind:ACCP_TYPE_CD"/>
+                <Cell col="4" text="bind:ACCP_LN_TYPE_CD"/>
+                <Cell col="5" text="bind:ACCP_STEP"/>
+                <Cell col="6" text="bind:ACCP_ID"/>
+                <Cell col="7" text="bind:ACCP_ID_NM"/>
+                <Cell col="8" text="bind:ACCP_DT"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Button id="btnNext" taborder="2" text="더 보기" left="201" top="704" width="150" height="43" onclick="btnNext_onclick"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_list" preload="true" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true">
+        <ColumnInfo>
+          <Column id="TOTALCNT" size="22" type="STRING"/>
+          <Column id="SEQ" size="22" type="STRING"/>
+          <Column id="CAMP_FG" size="1" type="STRING"/>
+          <Column id="APPLY_NO" size="11" type="STRING"/>
+          <Column id="ACCP_TYPE_CD" size="10" type="STRING"/>
+          <Column id="ACCP_LN_TYPE_CD" size="10" type="STRING"/>
+          <Column id="ACCP_STEP" size="22" type="STRING"/>
+          <Column id="ACCP_ID" size="8" type="STRING"/>
+          <Column id="ACCP_ID_NM" size="4000" type="STRING"/>
+          <Column id="ACCP_DT" size="7" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_cond" preload="true" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true">
+        <ColumnInfo>
+          <Column id="PAGE_CNT" size="255" type="INT"/>
+          <Column id="CURRENT_PAGE" size="255" type="INT"/>
+          <Column id="APPLY_NO" size="255" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_temp" preload="true" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true">
+        <ColumnInfo>
+          <Column id="TOTALCNT" size="22" type="STRING"/>
+          <Column id="SEQ" size="22" type="STRING"/>
+          <Column id="CAMP_FG" size="1" type="STRING"/>
+          <Column id="APPLY_NO" size="11" type="STRING"/>
+          <Column id="ACCP_TYPE_CD" size="10" type="STRING"/>
+          <Column id="ACCP_LN_TYPE_CD" size="10" type="STRING"/>
+          <Column id="ACCP_STEP" size="22" type="STRING"/>
+          <Column id="ACCP_ID" size="8" type="STRING"/>
+          <Column id="ACCP_ID_NM" size="4000" type="STRING"/>
+          <Column id="ACCP_DT" size="7" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript5.0"><![CDATA[include "lib::sz_fsp_xp.xjs";
+
+this.F_nPageCnt = 10;   // 페이지당 최대 건수
+this.F_nTotalPageCnt;   // 총 페이지 수
+
+this.currentPageNo = 1; // 페이지 번호
+
+this.frmSelectSample2_onload = function (obj:Form, e:LoadEventInfo)
+{
+	var nRow;
+	
+	this.fsp_init();
+	this.ds_cond.clearData();
+	
+	nRow = this.ds_cond.addRow();
+	
+	this.ds_cond.setColumn(nRow, "PAGE_CNT", this.F_nPageCnt);
+	this.ds_cond.setColumn(nRow, "CURRENT_PAGE", this.currentPageNo);
+}
+
+this.btnSearch_onclick = function(obj:Button,  e:nexacro.ClickEventInfo)
+{
+	this.currentPageNo = 1;
+	this.ds_list.clearData();
+	
+	this.fn_search();
+}
+
+this.btnNext_onclick = function(obj:Button,  e:nexacro.ClickEventInfo)
+{
+	this.currentPageNo++;
+	this.ds_cond.setColumn(0, "CURRENT_PAGE", this.currentPageNo);
+	this.fn_search();
+}
+
+/*******************************************************************************
+* 기      능   : 조회
+* 설      명   : undefined
+********************************************************************************/
+this.fn_search = function ()
+{
+	this.ds_cond.setColumn(0, "CURRENT_PAGE", this.currentPageNo);
+
+	this.fsp_clear();
+	this.fsp_addSearch("sample:fsp_sample_sel2", false);
+	// connect the server 
+	this.fsp_callService
+	(
+		""
+		,""
+		,"ds_cond=ds_cond"	// inDs
+		,"ds_temp=ds_temp"	// outDs
+		,""	// args 
+		,"fn_afterSearch"
+		,true
+	);
+}
+
+/*******************************************************************************
+* 기      능   : search callback
+********************************************************************************/
+this.fn_afterSearch = function (ErrorCode, ErrorMsg)
+{
+	var nTotalCnt = nexacro.toNumber(this.ds_temp.getColumn(0, "TOTALCNT"));
+
+	if(ErrorCode != "0") // 성공
+	{
+		this.alert("Error : " + ErrorCode + " : " + ErrorMsg);
+		this.btnNext.set_enable(false);
+		return;
+	}
+	
+	this.ds_list.appendData(this.ds_temp);
+	
+	if(this.ds_list.rowcount == nTotalCnt)
+	{
+		this.btnNext.set_enable(false);
+	}
+	else
+	{
+		this.btnNext.set_enable(true);
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

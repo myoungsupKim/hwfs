@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[CS진단 사업장별진단결과조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT D.TM_NAME
+     , D.UPJANGNM
+     , D.UPJANG
+     , C.TABLE_TYPE
+     , C.FORM_CD
+     , C.TABLE_NM
+     , NVL(C.CNT, 0) AS CNT
+     , C.CHK_CLASS
+     , C.CHK_DD
+     , C.INSPECTOR
+     , C.INSPECTOR_NM
+     , C.CHARGE_SABUN
+     , C.CHARGE_NM
+     , C.TEAM_MST_SABUN
+     , C.TEAM_MST_NM
+     , C.SUBTEAM_MST_SABUN
+     , C.SUBTEAM_MST_NM
+     , C.RESP_USER1
+     , C.RESP_USER1_NM
+     , C.SCORE
+     , C.IMPROV_WRITE_CONFIRM_DD
+     , C.IMPROV_WRITE_CONFIRMOR
+     , C.IMPROV_WRITE_CONFIRMOR_NM
+     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0117' AND CODE = C.CHK_RESULT AND USE_YN = 'Y') AS CHK_RESULT
+  FROM (SELECT A.UPJANG
+             , A.TABLE_TYPE
+             , A.FORM_CD
+             , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0103' AND CODE = A.TABLE_TYPE) AS TABLE_NM
+             , (SELECT COUNT(1) FROM FSC_PATL_RESULT 
+                 WHERE CONFIRM_YN = 'Y' 
+                   AND CHK_DD BETWEEN #START_DD# AND #END_DD# 
+                   AND UPJANG = A.UPJANG 
+                   AND TABLE_TYPE = A.TABLE_TYPE) AS CNT      
+             , A.CHK_CLASS
+             , A.CHK_DD
+             , A.INSPECTOR
+             , (SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN =  A.INSPECTOR) AS INSPECTOR_NM     
+             , A.CHARGE_SABUN
+             , (SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN =  A.CHARGE_SABUN) AS CHARGE_NM
+             , A.TEAM_MST_SABUN
+             , (SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN =  A.TEAM_MST_SABUN) AS TEAM_MST_NM
+             , A.SUBTEAM_MST_SABUN
+             , (SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN =  A.SUBTEAM_MST_SABUN) AS SUBTEAM_MST_NM
+             , A.RESP_USER1
+             , (SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN =  A.RESP_USER1) AS RESP_USER1_NM
+             , A.SCORE
+             , A.IMPROV_WRITE_CONFIRM_DD
+             , A.IMPROV_WRITE_CONFIRMOR
+             , (SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN =  A.IMPROV_WRITE_CONFIRMOR) AS IMPROV_WRITE_CONFIRMOR_NM
+             , A.CHK_RESULT
+          FROM FSC_PATL_RESULT A
+         WHERE A.CONFIRM_YN = 'Y'
+           AND A.CHK_DD BETWEEN #START_DD# AND #END_DD#
+<isNotNull col="TABLE_TYPE">   
+           AND A.TABLE_TYPE = #TABLE_TYPE#
+</isNotNull>  
+<isNotNull col="CHK_CLASS">
+           AND A.CHK_CLASS = #CHK_CLASS#
+</isNotNull>
+<isNotNull col="UPJANG">
+           AND A.UPJANG = #UPJANG#
+</isNotNull>   
+<isNotNull col="SCORE_FROM">
+           AND A.SCORE BETWEEN #SCORE_FROM# AND #SCORE_TO#
+</isNotNull>   
+<isNotNull col="EMP_TYPE">
+    <isNotNull col="EMP_SABUN">
+		<isEqual col="EMP_TYPE" value="0">
+	       AND (CHARGE_SABUN = #EMP_SABUN#
+	            OR TEAM_MST_SABUN = #EMP_SABUN#
+	            OR SUBTEAM_MST_SABUN = #EMP_SABUN#
+	            OR RESP_USER1 = #EMP_SABUN#
+	            OR RESP_USER2 = #EMP_SABUN#
+	            OR RESP_USER3 = #EMP_SABUN#)
+		</isEqual>
+		<isEqual col="EMP_TYPE" value="1">
+		   AND CHARGE_SABUN = #EMP_SABUN#    
+		</isEqual>
+		<isEqual col="EMP_TYPE" value="2">
+		   AND TEAM_MST_SABUN = #EMP_SABUN#   
+		</isEqual>
+		<isEqual col="EMP_TYPE" value="3"> 
+		   AND SUBTEAM_MST_SABUN = #EMP_SABUN# 
+		</isEqual>
+		<isEqual col="EMP_TYPE" value="4">
+		   AND (RESP_USER1 = #EMP_SABUN#
+	            OR RESP_USER2 = #EMP_SABUN#
+	            OR RESP_USER3 = #EMP_SABUN#)
+		</isEqual>
+	</isNotNull>
+</isNotNull>			
+       ) C
+       , MAC_UPJANG_V D 
+ WHERE 1 = 1        
+<isEqual col="ENTIRE_YN" value="Y">   
+   AND C.UPJANG(+) = D.UPJANG
+   AND D.SAUP_TYPE &lt;&gt; '004'  
+</isEqual>
+<isEqual col="ENTIRE_YN" value="N">   
+   AND C.UPJANG = D.UPJANG
+</isEqual>
+<isNotNull col="MU_CD">
+   AND D.MU_CD = #MU_CD#
+</isNotNull>
+<isNotNull col="TM_CD">
+   AND D.TM_CD = #TM_CD#
+</isNotNull>
+<isEqual col="CLOSE_YN" value="Y">    
+   AND D.CLOSE_DATE IS NULL
+</isEqual>
+ ORDER BY D.TM_CD ASC, D.UPJANG ASC, C.CHK_DD DESC
+    </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

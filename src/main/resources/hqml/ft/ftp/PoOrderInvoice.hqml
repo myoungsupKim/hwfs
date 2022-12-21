@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="ft.ftp.poOrderInvoiceDAO">
+	<desc>구매주문 INVOICE 관리 HQML Query</desc>
+
+	<!-- 구매주문 INVOICE 관리 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.ft.ftp.dao.PoOrderInvoiceDAO.selectList */
+		<![CDATA[
+		SELECT PO_ORDER_NUM,
+		       INVOICE_SEQ,
+		       INVOICE_NUM,
+		       INVOICE_PUBLISH_DATE,
+		       CUSER,
+		       CDATE,
+		       UUSER,
+		       UDATE
+		FROM   PO_ORDER_INVOICE
+		WHERE  PO_ORDER_NUM = :poOrderNum
+		]]>
+	</statement>
+
+	<!-- 구매주문 INVOICE 관리(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.ft.ftp.dao.PoOrderInvoiceDAO.insert */
+		<![CDATA[
+		INSERT INTO PO_ORDER_INVOICE
+		(
+		 PO_ORDER_NUM,
+		 INVOICE_SEQ,
+		 INVOICE_NUM,
+		 INVOICE_PUBLISH_DATE,
+		 CUSER,
+		 CDATE,
+		 UUSER,
+		 UDATE
+		) VALUES (
+		 :poOrderNum,
+		 (SELECT NVL(MAX(INVOICE_SEQ),0) +1 FROM PO_ORDER_INVOICE WHERE PO_ORDER_NUM=:poOrderNum),
+		 <#if invoiceNum?exists> :invoiceNum, <#else> null, </#if>
+		 <#if invoicePublishDate?exists> :invoicePublishDate, <#else> null, </#if>
+		 :loginSabun,
+		 SYSDATE,
+		 :loginSabun,
+		 SYSDATE
+		)
+
+		]]>
+	</statement>
+	
+	<!-- 구매주문 INVOICE 관리(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.ft.ftp.dao.PoOrderInvoiceDAO.update */
+		<![CDATA[
+		UPDATE PO_ORDER_INVOICE SET
+		<#if invoiceNum?exists> INVOICE_NUM = :invoiceNum, </#if>
+		<#if invoicePublishDate?exists> INVOICE_PUBLISH_DATE = :invoicePublishDate, </#if>
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  PO_ORDER_NUM = :poOrderNum
+		AND    INVOICE_SEQ = :invoiceSeq
+
+		]]>
+	</statement>
+
+	<!-- 구매주문 INVOICE 관리(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.ft.ftp.dao.PoOrderInvoiceDAO.delete */
+		<![CDATA[
+		DELETE
+		FROM   PO_ORDER_INVOICE
+		WHERE  PO_ORDER_NUM = :poOrderNum
+		AND    INVOICE_SEQ = :invoiceSeq
+
+		]]>
+	</statement>
+
+	<!-- 구매주문 INVOICE 관리(을)를 삭제한다. -->
+	<statement name="deleteInvoice" type="delete">
+		/*+ com.hwfs.ft.ftp.dao.PoOrderInvoiceDAO.deleteInvoice */
+		<![CDATA[
+		DELETE
+		FROM   PO_ORDER_INVOICE
+		WHERE  PO_ORDER_NUM = :poOrderNum
+
+		]]>
+	</statement>
+
+</hqml>

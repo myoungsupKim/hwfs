@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fs.fsl.upjangNonSaleDayDAO">
+	<desc>매출등록 카피 HQML Query</desc>
+
+	<!-- 업장 매출 미등록 일자 조회 -->
+	<statement name="selectList" type="select">
+		<![CDATA[
+			/*+ com.hwfs.fs.fsl.dao.upjangNonSaleDayDAO.selectList */
+			SELECT 
+				   B.TM_NM AS TM_NM
+				 , A.UPJANG_CD AS UPJANG_CD
+		         , B.UPJANGNM AS UPJANG_NM
+     			 , A.OPEN_YN AS OPEN_YN
+     			 , A.FROM_DT AS FROM_DT
+     			 , A.TO_DT AS TO_DT
+     			 , A.MEMO AS MEMO
+     			 , A.SEQ AS SEQ
+     
+  			 FROM SLA_UPJANG_SALS_DAY A, SCO_UPJANG_MST_V B
+ 			WHERE B.UPJANG = A.UPJANG_CD
+   			  AND A.UPJANG_CD = :upjangCd
+   			  AND A.FROM_DT LIKE :searchYear||'%'
+   		 ORDER BY A.FROM_DT, A.TO_DT
+            				      
+          			           
+		]]>
+	</statement>
+	
+	<!-- 업장 매출 미등록 일자 조회 -->
+	<statement name="selectListSalsDay" type="select">
+		<![CDATA[
+			/*+ com.hwfs.fs.fsl.dao.upjangNonSaleDayDAO.selectListSalsDay */
+			SELECT DISTINCT OCCUR_DATE
+  			 FROM SLA_IF_UPJANG_SALS_MST
+ 			WHERE UPJANG_CD = :upjangCd
+   			  AND OCCUR_DATE LIKE :searchYear||'%'
+              AND RECD_STATUS = 'L'				      
+          			           
+		]]>
+	</statement>
+
+
+	<!-- 업장 매출 미등록 일자 입력-->
+	<statement name="insertUpjangNonSaleDay" type="insert"><![CDATA[
+			/*+ com.hwfs.fs.fsl.dao.upjangNonSaleDayDAO.insertUpjangNonSaleDay */
+	INSERT INTO SLA_UPJANG_SALS_DAY 
+	( 
+		  			  UPJANG_CD
+		  			, SEQ
+					, FROM_DT
+					, TO_DT
+					, MEMO
+					, OPEN_YN
+					, CNT
+					, CUSER
+					, CDATE
+					, UUSER
+					, UDATE 
+	)
+			
+	     VALUES (
+		  			  :upjangCd
+		  			, :seq
+		  			, :fromDt 
+				    , :toDt
+				    , :memo
+				    , :openYn
+				    , ( TO_DATE(:toDt) - TO_DATE(:fromDt) ) + 1
+				    , :loginSabun
+				    , SYSDATE
+				    , :loginSabun
+				    , SYSDATE
+			  	)
+	]]></statement>
+
+	<!-- 업장 기준정보 권한 목록을 수정 -->
+	<statement name="updateUpjangNonSaleDay" type="update"><![CDATA[
+			/*+ com.hwfs.fs.fsl.dao.upjangNonSaleDayDAO.updateUpjangNonSaleDay */
+		UPDATE SLA_UPJANG_SALS_DAY
+   		   SET
+   		   		SEQ = :seq
+		       ,FROM_DT = :fromDt
+		       ,TO_DT = :toDt
+		       ,OPEN_YN = :openYn
+		       ,UUSER = :loginSabun
+		       ,UDATE = SYSDATE
+		 WHERE UPJANG_CD = :upjangCd
+		   AND SEQ = :seq
+		 
+		 ]]></statement>
+	
+
+	<!-- 업장 기준정보 권한 목록 삭제 -->
+	<statement name="deleteUpjangNonSaleDay" type="delete">
+		<![CDATA[
+			/*+ com.hwfs.fs.fsl.dao.upjangNonSaleDayDAO.deleteUpjangNonSaleDay */
+			DELETE
+				FROM SLA_UPJANG_SALS_DAY
+				WHERE UPJANG_CD = :upjangCd
+				  AND SEQ = :seq
+	]]>
+	</statement>
+</hqml>

@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="guide.sample.sampleDAO">
+	<desc>Guide Sample HQML</desc>
+
+	<!-- Page 단위로 레코드 목록 조회 샘플 -->
+	<statement name="selectSampleListPage" type="select">
+		<![CDATA[
+		SELECT A.ID, A.NAME, A.DESCRIPTION, A.USE_YN, A.REG_USER, A.REG_DATE
+		FROM (
+			SELECT  ROWNUM RNUM, S.*
+			FROM (
+				SELECT
+					   ID
+					 , NAME
+					 , DESCRIPTION
+					 , USE_YN
+					 , REG_USER
+					 , TO_CHAR(REG_DATE,'YYYYMMDD') AS REG_DATE
+					 , REF_SEQ
+					 , ROWNUM
+				FROM   GUIDE_SAMPLE
+				WHERE  1=1
+				<#if id?has_content >AND ID = :id</#if>
+				<#if name?has_content >AND NAME = :name</#if>
+				ORDER BY ID ASC
+			) S
+		) A
+		WHERE ROWNUM <= :recordCountPerPage and RNUM > :firstIndex
+		]]>
+	</statement>
+
+	<!-- 레코드 목록 조회 샘플 -->
+	<statement name="selectSampleList" type="select">
+		<![CDATA[
+		SELECT
+			   ID
+			 , NAME
+			 , DESCRIPTION
+			 , USE_YN
+			 , REG_USER
+			 , TO_CHAR(REG_DATE,'YYYYMMDD') AS REG_DATE
+			 , REF_SEQ
+		FROM   GUIDE_SAMPLE
+		<#if searchKeyword?has_content >
+		WHERE  1=1
+			<#if searchCondition == "0">
+				AND ID = :searchKeyword
+			<#else>
+				AND NAME LIKE '%' || :searchKeyword || '%'
+			</#if>
+		</#if>
+		ORDER BY ID ASC
+		]]>
+	</statement>
+
+	<!-- 건수 조회 샘플 -->
+	<statement name="selectSampleCount" type="select"><![CDATA[
+		SELECT
+			   COUNT(1) AS TOTAL_COUNT
+		FROM   GUIDE_SAMPLE
+		<#if searchKeyword?has_content >
+		WHERE  1=1
+			<#if searchCondition == "0">
+				AND ID = :searchKeyword
+			<#else>
+				AND NAME LIKE '%' || :searchKeyword || '%'
+			</#if>
+		</#if>
+		]]></statement>
+
+	<!-- 단건 칼럼 조회 샘플 -->
+	<statement name="selectSampleName" type="select">
+		<![CDATA[
+		SELECT
+			   NAME
+		FROM   GUIDE_SAMPLE
+		WHERE  1=1
+		AND    ID = :id
+		]]>
+	</statement>
+
+	<!-- Insert 샘플 -->
+	<statement name="insertSample" type="insert">
+		<![CDATA[
+		INSERT INTO GUIDE_SAMPLE 
+			  ( ID
+			  , NAME
+			  , DESCRIPTION
+			  , USE_YN
+			  , REG_USER
+			  , REG_DATE
+			  , CUSER
+			  , CDATE
+			  )
+		VALUES ( 
+				:id
+			  , :name
+			  , :description
+			  , :useYn
+			  , :regUser
+			  , NVL2(:regDate, TO_DATE(:regDate,'YYYYMMDD'), SYSDATE)
+			  , :loginSabun
+			  , SYSDATE 
+			   )
+		]]>
+	</statement>
+
+	<!-- Insert 샘플 : 동적처리 -->
+	<statement name="insertSampleDynamic" type="insert">
+		<![CDATA[
+		INSERT INTO GUIDE_SAMPLE 
+			  ( ID
+			  , NAME
+			  , DESCRIPTION
+			  , USE_YN
+			  , REG_USER
+			  , REG_DATE
+			  , CUSER
+			  , CDATE
+			  )
+		VALUES ( 
+				:id
+			  , :name
+			  , :description
+			  , :useYn
+			  , :regUser
+			<#if regDate?has_content >
+			  , TO_DATE(:regDate,'YYYYMMDD')
+			<#else>
+			 , SYSDATE 
+			</#if>
+			  , :loginSabun
+			  , SYSDATE			
+			   )
+		]]>
+	</statement>
+
+	<!-- Update 샘플 -->
+	<statement name="updateSample" type="update">
+		<![CDATA[
+		UPDATE GUIDE_SAMPLE 
+		SET    ID=:id
+			 , NAME=:name
+			 , DESCRIPTION=:description
+			 , USE_YN=:useYn
+			 , REG_USER=:regUser
+			 , REG_DATE=NVL2(:regDate, TO_DATE(:regDate,'YYYYMMDD'), SYSDATE)
+			 , UUSER=:loginSabun
+			 , UDATE=SYSDATE 
+			 
+		WHERE ID=:id
+		]]>
+	</statement>
+
+	<!-- Update 샘플 : 동적처리 , UUSER='${defaultMap.sabun}' -->
+	<statement name="updateSampleDynamic" type="update">
+		<![CDATA[
+		UPDATE GUIDE_SAMPLE 
+		SET    ID=:id
+			 , NAME=:name
+			 , DESCRIPTION=:description
+			 , USE_YN=:useYn
+			 <#if refSeq?has_content >
+			 , REF_SEQ=:refSeq
+			 </#if>
+			 , REG_USER=:regUser
+			<#if regDate?has_content >
+			  ,REG_DATE=TO_DATE(:regDate,'YYYYMMDD')
+			<#else>
+			 , REG_DATE=SYSDATE 
+			</#if>
+			 , UUSER=:loginSabun
+			 , UDATE=SYSDATE
+		WHERE ID=:id
+		]]>
+	</statement>
+
+	<!-- Delete 샘플 -->
+	<statement name="deleteSample" type="delete">
+		DELETE FROM GUIDE_SAMPLE WHERE ID=:id
+	</statement>
+
+	<!-- 아래는 삭제할 것 -->
+	<statement name="getUserCount" type="select">
+		<![CDATA[
+		select count( 1 ) as totalCount
+ 		from HONE_SAMPLE_USER 
+  		where 1=1
+		<#if userId?has_content >AND user_id = :userId</#if>
+		<#if userPw?has_content >AND user_pw = :userPw</#if>
+		<#if userName?has_content >AND user_name = :userName</#if>
+		<#if userBirthday?has_content >AND user_birthday = :userBirthday</#if>
+		<#if email?has_content >AND email = :email</#if>
+		<#if memo?has_content >AND memo = :memo</#if>
+		<#if userType?has_content >AND user_type = :userType</#if>
+		]]>
+	</statement>
+
+	<statement name="getUser" type="select">
+		<![CDATA[
+		select user_id 
+		      , user_pw 
+		      , user_name 
+		      , user_birthday 
+		      , email 
+		      , memo 
+		      , user_type 
+		from HONE_SAMPLE_USER
+		<#if userId?has_content >where user_id = :userId</#if>			
+		]]>
+	</statement>
+
+	<statement name="insertUser" type="select">
+		<![CDATA[
+		insert into HONE_SAMPLE_USER 
+			( user_id, user_pw, user_name, user_birthday, email, memo, user_type ) 
+			values ( :userId, :userPw, :userName, :userBirthday, :email, :memo, :userType)
+		]]>
+	</statement>
+
+	<statement name="updateUser" type="select">
+		<![CDATA[
+		update HONE_SAMPLE_USER
+			set user_pw = :userPw
+				 , user_name = :userName 
+				 , user_birthday = :userBirthday 
+				 , email = :email 
+				 , memo = :memo 
+				 , user_type = :userType 
+			where user_id = :userId 
+		]]>
+	</statement>
+
+	<statement name="deleteUser" type="select">
+		<![CDATA[
+		delete from HONE_SAMPLE_USER where user_id = :userId
+		]]>
+	</statement>
+
+</hqml>

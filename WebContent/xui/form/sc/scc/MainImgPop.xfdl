@@ -1,0 +1,257 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\..\..\default_typedef.xml"/>
+  <Form id="form" classname="COMP_GUIDE_13" inheritanceid="" position="absolute 0 0 479 221" titletext="메인화면이미지관리" scrollbars="autoboth" onload="form_onload">
+    <Layouts>
+      <Layout>
+        <Static id="Static04" class="sta_WFDA_Labelbg" position="absolute 266 66 465 206" anchor="left top right"/>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 475 10"/>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 220"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 465 0 480 220"/>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute -57 206 480 221"/>
+        <Static id="sta_title" text="메인화면 이미지 관리" class="sta_WF_Title" position="absolute 15 16 215 40"/>
+        <Static id="Static00" text="h06" class="Guide01_AreaRed" visible="false" position="absolute 15 10 215 16"/>
+        <Static id="Static05" text="아이콘기준 h08" class="Guide01_AreaRed" visible="false" position="absolute 15 32 215 40"/>
+        <Button id="btn_close" taborder="17" text="닫기" onclick="fn_close" class="btn_WF_CRUD" position="absolute 420 10 465 35" anchor="top right"/>
+        <Button id="btn_save" taborder="18" text="저장" class="btn_WF_CRUD" position="absolute 373 10 418 35" anchor="top right" onclick="btn_save_onclick"/>
+        <Static id="Static26" text="메인화면" class="sta_WFDA_Label01" position="absolute 15 40 109 67" anchor="left top"/>
+        <Static id="Static49" class="sta_WFDA_Labelbg" position="absolute 108 40 465 67" anchor="left top right"/>
+        <Static id="Static06" class="sta_WFDA_Labelbg" position="absolute 15 66 267 206" anchor="left top right"/>
+        <Edit id="edt_mainTypeName" taborder="27" position="absolute 111 43 386 64" readonly="true"/>
+        <ImageViewer id="img_preview" taborder="28" stretch="fixaspectratio" class="img_WF_NoImage" position="absolute 270 71 461 201" anchor="top right" style="border:1 solid #53606cff,1 solid #c3c3c3ff,1 solid #c3c3c3ff,1 solid #c3c3c3ff;"/>
+        <Grid id="grd_list" taborder="29" useinputpanel="false" position="absolute 19 71 263 201" autofittype="col" binddataset="ds_list">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="138"/>
+                <Column size="89"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="등록일자"/>
+                <Cell col="1" text="변경자"/>
+              </Band>
+              <Band id="body">
+                <Cell text="bind:createDate"/>
+                <Cell col="1" text="bind:updateUser"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Button id="btn_delete" taborder="30" text="삭제" class="btn_WF_CRUD" position="absolute 326 10 371 35" anchor="top right" onclick="btn_delete_onclick"/>
+        <Button id="btn_add" taborder="31" text="추가" class="btn_WF_CRUD" position="absolute 279 10 324 35" anchor="top right" onclick="btn_add_onclick"/>
+        <Button id="btn_attachFile" taborder="32" text="이미지 찾기" onclick="btn_attachFile_onclick" class="btn_WF_Function" position="absolute 388 43 461 63" anchor="top right"/>
+      </Layout>
+    </Layouts>
+    <Bind/>
+    <Objects>
+      <Dataset id="ds_list" firefirstcount="0" firenextcount="0" useclientlayout="true" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false" onrowposchanged="ds_list_onrowposchanged">
+        <ColumnInfo>
+          <Column id="mainType" type="STRING" size="256"/>
+          <Column id="createDate" type="STRING" size="256"/>
+          <Column id="seq" type="STRING" size="256"/>
+          <Column id="fileName" type="STRING" size="256"/>
+          <Column id="appendFileName" type="STRING" size="256"/>
+          <Column id="fileData" type="BLOB" size="256"/>
+          <Column id="updateUser" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <FileDialog defaultextention="false" filter="All(*.*)|*.*|" filterindex="0" id="fd"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : SmsSendPop
+  파 일 명 : SmsSendPop.xfdl
+  기    능 : SMS를 전송한다. 
+
+    수정일    수정자                  수정내용
+  ----------   -------  --------------------------------------------------
+  2015.03.12   kksoo   최초 생성
+
+*/
+ 
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+************************************************************************************************/
+include "lib::lib_com.xjs";
+
+/************************************************************************************************
+ * FORM EVENT 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Form Load (필수)
+ *---------------------------------------------------------------------------------------------*/
+function form_onload(obj:Form, e:LoadEventInfo)
+{	
+	// Form Load 시 공통 기능 처리(obj:Form, bCreateEvent:이벤트 생성 여부)
+	gfn_formOnLoad(this);
+	
+	// 초기값 셋팅
+	fn_init();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 초기값 셋팅
+ *---------------------------------------------------------------------------------------------*/
+function fn_init()
+{
+	edt_mainTypeName.value = P_MAIN_TYPE_NAME;
+	fn_search();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 화면 닫기 전 변경 유무 체크 (필수-Frame에서 창 닫힐때 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_close()
+{	
+	// 조회프로그램에도 Return true; 기술해 주세요!
+	this.close();
+}
+
+/************************************************************************************************
+ * 공통기능 FUNCTION 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 조회 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_search()
+{
+	// 저장시 Validation Check	
+    var strSvcID    = "selectList";
+    var strURL      = "sc/scc/mainImg/selectList.xdo";
+    var strInDs     = "";
+    var strOutDs    = "ds_list=ds_list";
+    var strArg      = "mainType="+P_MAIN_TYPE_CODE;
+    var strCallback = "fn_callBack";
+    var bAsync      = true;
+    
+    gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+}
+
+/************************************************************************************************
+ * TRANSACTION 및 CallBack 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 트랜잭션 콜백 함수 (필수)
+ *---------------------------------------------------------------------------------------------*/
+function fn_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	// 에러시 gfn_callBack에서 메시지 제공, 화면별 특정 에러 발생시에만 사용하세요.
+	if (nErrorCode < 0) 
+	{
+		return;
+	}
+	
+    switch(strSvcID)
+    {
+		// 코드분류 조회
+        case "search" :
+            //trace(ds_list.saveXML());
+            break;
+        
+        case "saveList" :
+			fn_search();
+			break;
+    }
+}
+
+/************************************************************************************************
+ * 사용자 FUNCTION 영역 (필수)
+************************************************************************************************/
+
+/************************************************************************************************
+ * 각 COMPONENT 별 EVENT 영역 (필수)
+************************************************************************************************/
+//파일추가
+function btn_add_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var row = ds_list.addRow();
+	ds_list.setColumn(row, "mainType", P_MAIN_TYPE_CODE);
+	
+}
+
+function btn_attachFile_onclick(obj:Button,  e:ClickEventInfo)
+{
+	if (ds_list.rowposition == -1) {
+		gfn_alert("행을 추가하거나 교체할 행을을 클릭하세요.");
+		return false;
+	}
+		
+	var objFD = new FileDialog();
+	objFD.defaultextention = true;
+	objFD.filter = "image files (*.bmp;*.jpg;*.jpeg;*.gif;*.png)|*.bmp;*.jpg;*.jpeg;*.gif;*.png";
+
+	var objVFile1 = objFD.open("file open", FileDialog.LOAD, "%MYDOCUMENT%");
+
+	if (objVFile1) 
+	{
+		objVFile1.open(VirtualFile.openRead | VirtualFile.openBinary);
+	} 
+	else 
+	{
+		return false;
+	}
+
+	ds_list.setColumn(ds_list.rowposition, "appendFileName", objVFile1.filename);
+
+	img_preview.stretch = "fixaspectratio";
+	img_preview.image = objVFile1.fullpath;
+	//trace(objVFile1.fullpath);
+
+	ds_list.setColumn(ds_list.rowposition, "fileData", objVFile1.read(objVFile1.getFileSize()));
+    objVFile1.close();
+}
+
+//저장하기...
+function btn_save_onclick(obj:Button,  e:ClickEventInfo)
+{
+ 	// v_ds_check 미사용시 변경사항 체크
+ 	if (!gfn_dsIsUpdated(ds_list))
+ 	{
+ 		gfn_alert("msg.save.nochange");	// 변경된 내역이 없습니다.
+ 		return;
+ 	}
+	
+    // Grid sort 표시 초기화(필수)
+    gfn_clearSortMark(grd_list);
+
+    var strSvcID    = "saveList";
+    var strURL      = "sc/scc/mainImg/saveList.xdo";
+    var strInDs     = "ds_list=ds_list:U";
+    var strOutDs    = "";
+    var strArg      = "";
+    var strCallback = "fn_callBack";
+    var bAsync      = true;
+    
+    gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+}
+
+function ds_list_onrowposchanged(obj:Dataset, e:DSRowPosChangeEventInfo)
+{
+	fn_imageView(e.newrow);
+}
+
+
+function fn_imageView(nRow)
+{
+	var fileName = ds_list.getColumn(nRow, "fileName");
+    if (!gfn_isNull(fileName))
+    {
+		img_preview.image = application.services["svc"].url + "upload/" + fileName;
+	}
+	else {
+		img_preview.image = "";
+	}
+}
+function btn_delete_onclick(obj:Button,  e:ClickEventInfo)
+{
+	if (gfn_confirm("선택된 행을 삭제하시겠습니까?")) {
+		ds_list.deleteRow(ds_list.rowposition);
+		btn_save.click();
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="fs.fsc.cateringSchlReptDAO">
+	<desc>케터링 스케줄보고 HQML Query</desc>
+
+	<!-- 케터링 스케줄보고 목록을 조회한다. -->
+	<statement name="selectCeleList" type="select"><![CDATA[
+SELECT 
+       C.TM_CD                   AS TM_CD
+     , C.TM_NM                   AS TM_NM
+     , REQUEST_UPJANG_CD                                /* 신청 업장코드         */
+     , C.UPJANGNM                AS REQUEST_UPJANG_NM   /* 신청 업장명           */
+     --, REQUEST_ID                                       /* 신청ID                */
+     --, SEQ                                              /* 신청ID 기준 일련번호  */
+     , CELE_NM                                          /* 행사명                */
+                                                        
+     , CELE_TERM_SDATE                                  /* 행사기간 시작일자     */
+     , CELE_TERM_EDATE                                  /* 행사기간 종료일자     */
+     , CATER_MENU                                       /* 연회 식단 명          */
+     , CATER_UPRICE                                     /* vat포함 금액          */
+     , NVL( CATER_UPRICE, 0) * NVL( MIN(GUEST_NO_MAN), 0) AS AMT
+     , MIN(GUEST_NO_MAN)                          AS NO_MAN                 /* 인원 수               */
+     , MAX(SPCLFACT)                          AS SPCLFACT               /* 특이사항              */     
+ FROM  FSC_CATERINGCELE_REG M
+     , SCO_UPJANG_MST_V C      
+ WHERE M.REQUEST_UPJANG_CD  = C.UPJANG
+   AND C.FS_UPJANG = 'Y'       
+<#if muCd?has_content>
+AND    MU_CD = :muCd
+</#if>
+<#if tmCd?has_content>
+AND    TM_CD = :tmCd
+</#if>
+<#if upjangCd?has_content>
+AND    M.REQUEST_UPJANG_CD = :upjangCd
+</#if>
+AND (    TO_DATE(M.CELE_TERM_SDATE,'YYYYMMDD') BETWEEN TO_DATE(:fromDay,'YYYYMMDD')  AND TO_DATE(:toDay,'YYYYMMDD')            
+      OR TO_DATE(M.CELE_TERM_EDATE,'YYYYMMDD') BETWEEN TO_DATE(:fromDay,'YYYYMMDD')  AND TO_DATE(:toDay,'YYYYMMDD')            
+      OR TO_DATE(:fromDay,'YYYYMMDD') BETWEEN TO_DATE( M.CELE_TERM_SDATE,'YYYYMMDD') AND TO_DATE(M.CELE_TERM_EDATE,'YYYYMMDD') 
+      OR TO_DATE(:toDay,'YYYYMMDD')   BETWEEN TO_DATE( M.CELE_TERM_SDATE,'YYYYMMDD') AND TO_DATE(M.CELE_TERM_EDATE,'YYYYMMDD')   
+    ) 
+    GROUP BY C.TM_CD,C.TM_NM,M.REQUEST_UPJANG_CD,C.UPJANGNM,M.CELE_NM,M.CELE_TERM_SDATE,M.CELE_TERM_EDATE,CATER_MENU,CATER_UPRICE      
+ORDER BY 
+        C.TM_CD                  
+      , REQUEST_UPJANG_CD                                /* 신청 업장코드         */
+      --, SEQ                                                  /* 신청ID 기준 일련번호       */  
+      , CELE_TERM_SDATE          DESC                        /* 행사기간 시작일자     */]]></statement>
+
+	<!-- 케터링 스케줄보고(을)를 등록한다. -->
+	<statement name="insert" type="insert"><![CDATA[ 
+ 
+INSERT INTO FSC_CATERINGCELE_SCHL (
+       ALLC_SABUN          /* 배정자 사번 */
+     , SCHL_DATE           /* 스케쥴 일자 */
+     , SEQ                 /* 일자별 순번 */
+     , CONTENTS            /* 내용        */
+     , CUSER               /* 생성자 사번 */
+     , CDATE               /* 생성일시    */
+     , UUSER               /* 수정자 사번 */
+     , UDATE               /* 수정일시    */
+    -- , UPJANG_CD		/* 업장코드	*/
+    , MU_CD				/* 사업부코드	*/
+) VALUES (
+       :allcSabun          /* 배정자 사번 */
+     , :schlDate           /* 스케쥴 일자 */
+     , (SELECT NVL( MAX(SEQ), 0 ) + 1 
+          FROM FSC_CATERINGCELE_SCHL 
+         WHERE ALLC_SABUN  = :allcSabun        /* 배정자 사번 */
+           AND SCHL_DATE   = :schlDate      /* 스케쥴 일자 */
+        )                /* 일자별 순번 */
+     , :contents            /* 내용        */
+     , :loginSabun               /* 생성자 사번 */
+     , SYSDATE               /* 생성일시    */
+     , :loginSabun               /* 수정자 사번 */
+     , SYSDATE               /* 수정일시    */
+    -- , :upjangCd				/* 업장코드	*/
+     , :muCd					/* 사업부코드	*/
+)]]></statement>
+
+	<!-- 케터링 스케줄보고(을)를 수정한다. -->
+	<statement name="update" type="update"><![CDATA[
+UPDATE FSC_CATERINGCELE_SCHL SET 
+       CONTENTS    = :contents          /* 내용        */        
+     , UUSER       = :loginSabun         /* 수정자 사번 */
+     , UDATE       = SYSDATE            /* 수정일시    */
+WHERE ALLC_SABUN   = :allcSabun          /* 배정자 사번 */
+  AND SCHL_DATE    = :schlDate			 /* 스케쥴 일자 */
+  AND SEQ          = :seq                /* 일자별 순번 */]]></statement>
+
+	<!-- 케터링 스케줄보고(을)를 삭제한다. -->
+	<statement name="delete" type="delete"><![CDATA[
+DELETE 
+FROM   FSC_CATERINGCELE_SCHL 
+WHERE ALLC_SABUN   = :allcSabun          /* 배정자 사번 */
+  AND SCHL_DATE    = :schlDate           /* 스케쥴 일자 */
+  AND SEQ          = :seq                /* 일자별 순번 */
+		
+]]></statement>
+
+	<statement name="selectCookHumanList"><![CDATA[
+
+  
+ SELECT  
+        C.TM_CD                  AS TM_CD
+      , C.TM_NM                   AS TM_NM
+      , REQUEST_UPJANG_CD                                /* 신청 업장코드         */
+      , C.UPJANGNM                AS REQUEST_UPJANG_NM   /* 신청 업장명           */
+      , REQUEST_REASON                                   /* 요청사유 기술     */
+      , SUP_TERM_SDATE                                   /* 지원기간 시작일자 */
+      , SUP_TERM_EDATE                                   /* 지원기간 종료일자 */
+      , ((SUP_TERM_EDATE - SUP_TERM_SDATE)+1)||'일' AS DUTY_TIME                                        /* 근무시간          */
+      , SUP_HUMAN_STRENGTH_CD                            /* 지배인            */
+      , NO_MAN                                           /* 인원 수           */ 
+ FROM  FSC_CATERINGCOOKHUMAN_REG M
+     , SCO_UPJANG_MST_V C      
+ WHERE M.REQUEST_UPJANG_CD  = C.UPJANG
+   AND C.FS_UPJANG = 'Y'       
+<#if muCd?has_content>
+AND    MU_CD = :muCd
+</#if>
+<#if tmCd?has_content>
+AND    C.TM_CD = :tmCd
+</#if>
+<#if upjangCd?has_content>
+AND    REQUEST_UPJANG_CD = :upjangCd
+</#if>
+ 
+AND (    TO_DATE(SUP_TERM_SDATE,'YYYYMMDD') BETWEEN TO_DATE(:fromDay,'YYYYMMDD')  AND TO_DATE(:toDay,'YYYYMMDD')
+      OR TO_DATE(SUP_TERM_EDATE,'YYYYMMDD') BETWEEN TO_DATE(:fromDay,'YYYYMMDD')  AND TO_DATE(:toDay,'YYYYMMDD')
+      OR TO_DATE(:fromDay,'YYYYMMDD') BETWEEN TO_DATE( SUP_TERM_SDATE,'YYYYMMDD') AND TO_DATE(SUP_TERM_EDATE,'YYYYMMDD')
+      OR TO_DATE(:toDay,'YYYYMMDD') BETWEEN TO_DATE( SUP_TERM_SDATE,'YYYYMMDD') AND TO_DATE(SUP_TERM_EDATE,'YYYYMMDD')
+    )
+ORDER BY 
+        C.TM_CD                  
+      , REQUEST_UPJANG_CD                                /* 신청 업장코드         */
+     -- , SEQ                                                  /* 신청ID 기준 일련번호       */  
+      , SUP_TERM_SDATE       DESC                        /* 지원기간 시작일자 */]]></statement>
+	<statement name="selectPlanList"><![CDATA[
+
+SELECT  
+       SABUN   AS ALLC_SABUN       /* 배정자 사번 */
+     , SCC_USERINFO_NM_KOR_FUN(SABUN,1)        AS ALLC_NM
+     , SCHL_DATE           /* 스케쥴 일자 */
+     , SEQ                 /* 일자별 순번 */
+     , CONTENTS            /* 내용        */
+     , CASE WHEN TO_DATE( SCHL_DATE ,'YYYYMMDD') < TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD') ,'YYYYMMDD') THEN
+       'N'
+     ELSE
+       'Y'
+       END  AS UPDATE_YN 
+       FROM (
+  		SELECT A.CONTENTS AS CONTENTS,  A.SCHL_DATE AS SCHL_DATE,   A.ALLC_SABUN AS SABUN, A.SEQ
+   			FROM FSC_CATERINGCELE_SCHL A
+   			<#if muCd?has_content>
+   			WHERE A.MU_CD = :muCd
+   			</#if>
+ 				)
+WHERE (    TO_DATE(SCHL_DATE,'YYYYMMDD') BETWEEN TO_DATE(:fromDay,'YYYYMMDD')  AND TO_DATE(:toDay,'YYYYMMDD')
+      OR TO_DATE(SCHL_DATE,'YYYYMMDD') BETWEEN TO_DATE(:fromDay,'YYYYMMDD')  AND TO_DATE(:toDay,'YYYYMMDD')
+      OR TO_DATE(:fromDay,'YYYYMMDD') BETWEEN TO_DATE( SCHL_DATE,'YYYYMMDD') AND TO_DATE(SCHL_DATE,'YYYYMMDD')
+      OR TO_DATE(:toDay,'YYYYMMDD') BETWEEN TO_DATE( SCHL_DATE,'YYYYMMDD') AND TO_DATE(SCHL_DATE,'YYYYMMDD')
+    )
+ORDER BY  SCHL_DATE DESC]]></statement>
+	<statement name="selectCalendarList"><![CDATA[ 
+SELECT                                 
+									 --  TM_CD
+                                      UPJANG
+                                      ,ALLC_SABUN 
+                                      ,NM_KOR
+                                      ,DAYS
+                                      ,WEEKDAY
+                                      ,WEEKCNT
+                                      ,CONTENTS  
+								FROM (
+                                SELECT 
+                                  --     H.TM_CD
+                                  --    E.UPJANG_CD AS UPJANG
+                                  	   999999 AS UPJANG
+                                      ,E.ALLC_SABUN 
+                                      ,SCC_USERINFO_NM_KOR_FUN(E.ALLC_SABUN, 1) AS NM_KOR
+                                      ,D.DAYS
+                                      ,D.WEEKDAY
+                                      ,(D.WEEKCNT||'주차') AS WEEKCNT
+                                      ,E.CONTENTS             
+                                FROM(                           
+                                               WITH T AS
+                                              (
+                                                SELECT 
+                                                          YYYY 
+                                                          ,D 
+                                                          ,TO_DATE(YYYY||'01', 'YYYYMM') + LEVEL -1 DAYS
+                                                  FROM (SELECT SUBSTR(:fromDay,0,4) YYYY, 7 D FROM DUAL) 
+                                                    CONNECT BY LEVEL <= TO_CHAR(TO_DATE(YYYY||'1231','YYYYMMDD'),'DDD'))
+                                                    SELECT YYYY, 
+                                                             D, 
+                                                             TO_CHAR(DAYS,'YYYYMMDD') AS DAYS,
+                                                             TO_CHAR(DAYS,'DAY') AS WEEKDAY,
+                                                          CEIL((DAYS - NEXT_DAY(TRUNC(DAYS,'MM') - 7, D) + 1) / 7) AS WEEKCNT 
+                                                         FROM T
+                                              WHERE T.DAYS BETWEEN TO_DATE(:fromDay,'YYYYMMDD') AND TO_DATE(:toDay,'YYYYMMDD')               
+                                      )D,
+                                     
+                                  FSC_CATERINGCELE_SCHL E
+                                  WHERE D.DAYS = E.SCHL_DATE 
+                UNION ALL
+                               SELECT  
+                                   --    H.TM_CD
+                                      C.UPJANG
+                                      ,F.ALLC_SABUN 
+                                      ,SCC_USERINFO_NM_KOR_FUN(F.ALLC_SABUN, 1) AS NM_KOR
+                                      ,D.DAYS
+                                      ,D.WEEKDAY
+                                      ,(D.WEEKCNT||'주차') AS WEEKCNT
+                                      ,(SELECT UPJANGNM FROM SCO_UPJANG_MST_V WHERE UPJANG = C.UPJANG) AS CONTENTS
+                                  FROM 
+                                  (                                
+                                       WITH T AS
+                                          (
+                                            SELECT 
+                                                      YYYY 
+                                                      ,D 
+                                                      ,TO_DATE(YYYY||'01', 'YYYYMM') + LEVEL -1 DAYS
+                                              FROM (SELECT SUBSTR(:fromDay,0,4) YYYY, 7 D FROM DUAL) 
+                                                CONNECT BY LEVEL <= TO_CHAR(TO_DATE(YYYY||'1231','YYYYMMDD'),'DDD'))
+                                                SELECT YYYY, 
+                                                         D, 
+                                                         TO_CHAR(DAYS,'YYYYMMDD') AS DAYS,
+                                                         TO_CHAR(DAYS,'DAY') AS WEEKDAY,
+                                                      CEIL((DAYS - NEXT_DAY(TRUNC(DAYS,'MM') - 7, D) + 1) / 7) AS WEEKCNT 
+                                                     FROM T
+                                          WHERE T.DAYS BETWEEN TO_DATE(:fromDay,'YYYYMMDD') AND TO_DATE(:toDay,'YYYYMMDD')
+                                  )D,
+                               			   (
+                                                      SELECT
+                                                             A.TM_CD
+                                                           , A.TM_NM
+                                                           , B.UPJANG
+                                                        FROM HLDC_SC_DEPT_V A
+                                                           , SCO_UPJANG_MST_V B
+                                                       WHERE A.FS_UPJANG = 'Y'
+                                                         AND A.DEPT_ID = B.DEPT_ID
+                                                          AND B.FS_UPJANG = 'Y'
+                                                         <#if muCd?has_content>
+                                                         AND B.MU_CD = :muCd
+                                                         </#if>
+                                                         <#if tmCd?has_content>
+                                                         AND B.TM_CD = :tmCd
+                                                         </#if>
+                                                         <#if upjangCd?has_content>
+                                                         AND B.UPJANG = :upjangCd
+                                                         </#if>
+                                       	  ) C,
+                                 
+                                      
+                                FSC_CATERINGCELE_ALLC F, FSC_CATERINGCELE_REG G                            
+                                 WHERE F.REQUEST_UPJANG_CD =  G.REQUEST_UPJANG_CD(+)    /* 신청 업장코드  */
+                                   AND C.UPJANG             = F.REQUEST_UPJANG_CD                             
+                                   AND F.REQUEST_ID        =  G.REQUEST_ID(+)           /* 신청ID */                                     
+                                  -- AND F.SEQ               =  G.SEQ(+) 
+                                --   AND F.ALLC_SABUN        = H.SABUN
+                                   AND D.DAYS BETWEEN G.CELE_TERM_SDATE AND G.CELE_TERM_EDATE 
+                                   AND G.ALLC_YN = 'Y'
+                                   AND F.ALLC_STATUS = '002'
+                                   
+                        UNION ALL
+                               SELECT  
+                                   --    H.TM_CD
+                                      C.UPJANG
+                                      ,F.ALLC_SABUN 
+                                      ,SCC_USERINFO_NM_KOR_FUN(F.ALLC_SABUN, 1) AS NM_KOR
+                                      ,D.DAYS
+                                      ,D.WEEKDAY
+                                      ,(D.WEEKCNT||'주차') AS WEEKCNT
+                                      ,(SELECT UPJANGNM FROM SCO_UPJANG_MST_V WHERE UPJANG = C.UPJANG) AS CONTENTS
+                                  FROM 
+                                  (                                
+                                       WITH T AS
+                                          (
+                                            SELECT 
+                                                      YYYY 
+                                                      ,D 
+                                                      ,TO_DATE(YYYY||'01', 'YYYYMM') + LEVEL -1 DAYS
+                                              FROM (SELECT SUBSTR(:fromDay,0,4) YYYY, 7 D FROM DUAL) 
+                                                CONNECT BY LEVEL <= TO_CHAR(TO_DATE(YYYY||'1231','YYYYMMDD'),'DDD'))
+                                                SELECT YYYY, 
+                                                         D, 
+                                                         TO_CHAR(DAYS,'YYYYMMDD') AS DAYS,
+                                                         TO_CHAR(DAYS,'DAY') AS WEEKDAY,
+                                                      CEIL((DAYS - NEXT_DAY(TRUNC(DAYS,'MM') - 7, D) + 1) / 7) AS WEEKCNT 
+                                                     FROM T
+                                          WHERE T.DAYS BETWEEN TO_DATE(:fromDay,'YYYYMMDD') AND TO_DATE(:toDay,'YYYYMMDD')
+                                  )D,
+                               			   (
+                                                      SELECT
+                                                             A.TM_CD
+                                                           , A.TM_NM
+                                                           , B.UPJANG
+                                                        FROM HLDC_SC_DEPT_V A
+                                                           , SCO_UPJANG_MST_V B
+                                                       WHERE A.FS_UPJANG = 'Y'
+                                                         AND A.DEPT_ID = B.DEPT_ID
+                                                          AND B.FS_UPJANG = 'Y'
+                                                         <#if muCd?has_content>
+                                                         AND B.MU_CD = :muCd
+                                                         </#if>
+                                                         <#if tmCd?has_content>
+                                                         AND B.TM_CD = :tmCd
+                                                         </#if>
+                                                         <#if upjangCd?has_content>
+                                                         AND B.UPJANG = :upjangCd
+                                                         </#if>
+                                       	  ) C,
+                                 
+                                      
+                                FSC_CATERINGCELE_ALLC F, FSC_CATERINGCOOKHUMAN_REG G                            
+                                 WHERE F.REQUEST_UPJANG_CD =  G.REQUEST_UPJANG_CD(+)    /* 신청 업장코드  */
+                                   AND C.UPJANG             = F.REQUEST_UPJANG_CD                             
+                                   AND F.REQUEST_ID        =  G.REQUEST_ID(+)           /* 신청ID */                                     
+                                  -- AND F.SEQ               =  G.SEQ(+) 
+                                --   AND F.ALLC_SABUN        = H.SABUN
+                                   AND D.DAYS BETWEEN G.SUP_TERM_SDATE AND G.SUP_TERM_EDATE 
+                                   AND G.ALLC_YN = 'Y'
+                                   AND F.ALLC_STATUS = '002'                               
+              )       
+              <#if upjangCd?has_content>
+                    WHERE UPJANG = :upjangCd OR UPJANG = '999999'
+              </#if>              
+          ORDER BY NM_KOR, DAYS ASC
+]]></statement>
+</hqml>

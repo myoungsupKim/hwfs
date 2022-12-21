@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[업장별 사용현황 조회 디테일-- 우측 그리드]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+       F.SUBINV_CODE,
+       (SELECT SUBINV_NAME FROM HLDC_PO_SUBINVENTORY X WHERE X.SUBINV_CODE = F.SUBINV_CODE) SUBINV_NAME,
+       F.NEED_DATE,
+       NVL(PR_QTY,0) PR_QTY, --신청량
+       NVL(TRANS_QTY,0) TRANS_QTY --입고량
+  FROM
+       (
+        SELECT A.DUTY_SEQ, A.CENTER_CODE, A.CUSTCD, A.ITEM_CODE, B.UPJANG, B.DUTY_QTY
+          FROM FSI_DUTY_MST A
+              ,FSI_DUTY_SET B
+         WHERE A.DUTY_SEQ = B.DUTY_SEQ
+           AND B.DUTY_SEQ = #DUTY_SEQ#   -- [INPUT:마스터.DUTY_SEQ]
+           AND B.UPJANG = #UPJANG#  -- [INPUT:업장]
+       ) A
+      ,(
+        SELECT CENTER_CODE, CUSTCD, ITEM_CODE, RC_UPJANG, SUBINV_CODE, NEED_DATE, SUM(PR_QTY) PR_QTY, SUM(TRANS_QTY) TRANS_QTY
+          FROM (
+                SELECT CENTER_CODE, CUSTCD, ITEM_CODE, RC_UPJANG, SUBINV_CODE, NEED_DATE, SUM(PR_QTY) PR_QTY, 0 TRANS_QTY
+                  FROM HLDC_PO_PR
+                 WHERE RC_MU_CD = 'YA'
+                   AND LINE_STATUS >= '004'
+                   AND SUBINV_CODE LIKE 'C%'
+                   AND RC_UPJANG = #UPJANG#  -- [INPUT:업장]
+                   AND ITEM_CODE = #ITEM_CODE#  -- [INPUT:마스터.ITEM_CODE]
+                   AND NEED_DATE BETWEEN #START_DATE# AND #END_DATE#  -- [INPUT:기간]
+                 GROUP BY CENTER_CODE, CUSTCD, ITEM_CODE, RC_UPJANG, NEED_DATE, SUBINV_CODE
+                UNION ALL
+                SELECT CENTER_CODE, CUSTCD, ITEM_CODE, TRANS_UPJANG, SUBINV_CODE, TRANS_DATE, 0 PR_QTY
+                     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * TRANS_QTY) TRANS_QTY
+                  FROM HLDC_PO_TRANSACTION A
+                 WHERE TRANS_MU_CD = 'YA'
+                   AND SUBINV_CODE LIKE 'C%'
+                   AND (A.TRANS_TYPE = 'I001' OR (A.TRANS_TYPE LIKE '_002' AND A.SOURCE_TYPE = 'PO'))
+                   AND TRANS_UPJANG = #UPJANG#  -- [INPUT:업장]
+                   AND ITEM_CODE = #ITEM_CODE#  -- [INPUT:마스터.ITEM_CODE]
+                   AND TRANS_DATE BETWEEN #START_DATE# AND #END_DATE#  -- [INPUT:기간]
+                 GROUP BY CENTER_CODE, CUSTCD, ITEM_CODE, TRANS_UPJANG, SUBINV_CODE, TRANS_DATE
+               )
+         GROUP BY CENTER_CODE, CUSTCD, ITEM_CODE, RC_UPJANG, SUBINV_CODE, NEED_DATE
+       ) F
+ WHERE A.ITEM_CODE   = F.ITEM_CODE
+   AND A.CENTER_CODE = F.CENTER_CODE
+   AND A.CUSTCD      = F.CUSTCD
+   AND A.UPJANG      = F.RC_UPJANG	]]></statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_Detail2">
+	</output>
+</query>

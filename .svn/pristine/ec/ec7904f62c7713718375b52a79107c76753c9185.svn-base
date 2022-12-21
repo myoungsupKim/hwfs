@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>update</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+    UPDATE MAS_BILL
+    SET  GAMU      = #GAMU#,
+         GADATE    = #GADATE#,
+         GANO      = #GANO#
+    WHERE (BILL_ID IN (  SELECT  BILL_ID 
+                        FROM MAS_BILL A,
+                             SCO_UPJANG_MST_V B
+                        WHERE (A.UPJANG     = B.UPJANG)
+                        AND   (A.BILL_DATE  BETWEEN #TRX_DATE#||'01' AND #TRX_DATE#||'31')
+                        AND   (TRIM(A.GAMU) IS NULL)
+                        AND   (NVL(A.CANCEL_YN, 'N') &lt;&gt; 'Y')
+                        AND   (DECODE(A.TAX_IF_GB, 'Y', SUBSTR(HLDC_IF_INVO_STAT_QRY_FUN(A.BILL_NO), 1, 3), 'Y') &lt;&gt; '450')
+                      ) 
+          ) 
+</statement>
+	<input default-name="ds_Updatecond">
+	<col name="TRX_DATE" size="255" type="VARCHAR" description="" /> 	
+	<col name="GAMU" size="2" type="VARCHAR" description="" /> 
+	<col name="GADATE" size="8" type="VARCHAR" description="" /> 
+	<col name="GANO" size="22" type="NUMERIC" description="" /> 		
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

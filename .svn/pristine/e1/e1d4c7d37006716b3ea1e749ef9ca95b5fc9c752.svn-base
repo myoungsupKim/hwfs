@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>	SELECT 
+		       A.CUST_CD,
+		       A.CUST_NM,
+		       SUM(A.AR_AMT) AR_AMT,
+		       NVL((SELECT SUM(RECEIVE_AMT) FROM SLA_AR_RECEIVE_DETAIL RD WHERE  RD.RECD_STATUS='L'),0) RECEIVE_AMT,
+		       (SUM(NVL(A.AR_AMT,0)) - SUM(NVL((SELECT SUM(RECEIVE_AMT) FROM SLA_AR_RECEIVE_DETAIL RD WHERE RD.AR_NUM=A.AR_NUM AND RD.RECD_STATUS='L'),0))) AS AR_BAL_AMT
+		FROM   SLA_AR_MST A,
+			   HLDC_SC_DEPT_V C
+		WHERE  A.CC_CD = C.CC_CD(+)
+		AND    A.RECD_STATUS = 'L'
+		AND    A.UPJANG_CD = #UPJANG#
+		--AND    A.OCCUR_DATE &lt;= #DATEFR#
+		AND    A.OCCUR_DATE BETWEEN TO_CHAR(#DATEFR#||'01') AND  TO_CHAR(LAST_DAY(TO_DATE((#DATETO#||'01'),'YYYYMMDD')),'YYYYMMDD')
+        GROUP BY A.CUST_CD, A.CUST_NM
+</statement>
+	<input default-name="ds_cond">
+		<col name="UPJANG" size="6" type="NUMERIC" description="업장코드" /> 
+		<col name="DATEFR" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_listDetail4_B">
+		<col name="CUSTNM" size="50" type="VARCHAR" description="" /> 
+		<col name="BEFORE_JAN_AMT" size="22" type="NUMERIC" description="" /> 
+		<col name="CURR_AMT" size="22" type="NUMERIC" description="" /> 
+		<col name="JAN_AMT" size="22" type="NUMERIC" description="" />  		
+	</output>
+</query>

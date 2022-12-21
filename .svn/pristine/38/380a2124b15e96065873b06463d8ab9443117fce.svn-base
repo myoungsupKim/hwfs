@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.sca.authChngRequestDAO">
+	<desc>권한변경 HQML Query</desc>
+
+	<!-- 권한변경 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sc.sca.dao.AuthChngRequestDAO.selectList */
+		<![CDATA[
+
+SELECT SUBSTR(SYS_ID, 1, 1) AS SYS_ID1,
+       SUBSTR(SYS_ID, 2, 1) AS SYS_ID2,
+       SUBSTR(SYS_ID, 3, 1) AS SYS_ID3,
+       SUBSTR(SYS_ID, 4, 1) AS SYS_ID4,
+       SUBSTR(SYS_ID, 5, 1) AS SYS_ID5,
+       SUBSTR(SYS_ID, 6, 1) AS SYS_ID6,
+       SUBSTR(SYS_ID, 7, 1) AS SYS_ID7,
+       A.SABUN,
+       B.NM_KOR,
+       C.TM_NM,
+       CASE WHEN B.USER_GROUP = '공급업체' THEN D.OTCUSTNM ELSE C.UPJANGNM END AS UPJANGNM,
+       TO_CHAR(A.CHG_REQ_DATE, 'YYYYMMDD') AS CHG_REQ_DATE,
+       A.CHG_REASON_CD,
+       A.CHG_CONTENTS,
+       A.PROC_STATUS,
+       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'PROC_STATUS' AND CODE = A.PROC_STATUS) AS PROC_STATUS_NM,
+       NVL(E.SIGN_PROGRESS_STATUS, 'NONE') AS SIGN_PROGRESS_STATUS,
+       NVL((SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'SIGN_PROGRESS_STATUS' AND CODE = E.SIGN_PROGRESS_STATUS), '대기') AS SIGN_PROGRESS_STATUS_NM,
+       TO_CHAR(E.APPROV_DATE, 'YYYYMMDD') AS APPROV_DATE,
+       E.APPROV_USER,
+       (SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = E.APPROV_USER) AS APPROV_NM,
+       E.SIGN_REMARK,
+       A.CHG_SRLNUM
+FROM   SCC_AUTH_CHG_REQ A,
+       SCC_USERINFO B,
+       (SELECT AA.UPJANG,
+               AA.UPJANGNM,
+               BB.TM_CD,
+               BB.TM_NM
+        FROM   ST_UPJANG AA,
+               HLDC_SC_DEPT_V BB
+        WHERE  BB.CC_CD = AA.CC_CD) C,
+       FMP_OTHER_CUST D,
+       SCC_SIGN_INFO E
+WHERE  B.SABUN = A.SABUN
+AND    C.UPJANG(+) = B.UPJANG
+AND    D.OTCUSTCD(+) = B.OTCUSTCD
+AND    E.SIGN_INSTANCE_ID(+) = A.SIGN_INSTANCE_ID
+AND    A.CUSER = :loginSabun
+<#if startChgReqDate?has_content>
+AND    TO_CHAR(A.CHG_REQ_DATE, 'YYYYMMDD') >= :startChgReqDate
+</#if>
+<#if endChgReqDate?has_content>
+AND    TO_CHAR(A.CHG_REQ_DATE, 'YYYYMMDD') <= :endChgReqDate
+</#if>
+<#if signProgressStatus?has_content>
+<#if signProgressStatus == "NODRAFT">
+AND    A.PROC_STATUS = '00'
+<#else>
+AND    E.SIGN_PROGRESS_STATUS = :signProgressStatus
+</#if>
+</#if>
+ORDER BY A.CHG_REQ_DATE DESC
+		]]>
+	</statement>
+
+    <!-- 시스템 권한변경 요청 그룹웨어 상신 Master를 조회한다. -->
+    <statement name="selectGwDraftMst" type="select">
+        /*+ com.hwfs.sc.scu.dao.AuthChngRequestDAO.selectGwDraftMst */
+        <![CDATA[
+SELECT SUBSTR(SYS_ID, 1, 1) AS SYS_ID1,
+       SUBSTR(SYS_ID, 2, 1) AS SYS_ID2,
+       SUBSTR(SYS_ID, 3, 1) AS SYS_ID3,
+       SUBSTR(SYS_ID, 4, 1) AS SYS_ID4,
+       SUBSTR(SYS_ID, 5, 1) AS SYS_ID5,
+       SUBSTR(SYS_ID, 6, 1) AS SYS_ID6,
+       SUBSTR(SYS_ID, 7, 1) AS SYS_ID7,
+       D.TM_NM,
+       C.UPJANGNM,
+       A.SABUN,
+       B.NM_KOR,
+       TO_CHAR(A.CHG_REQ_DATE, 'YYYY-MM-DD') AS REQ_DATE,
+       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'CHG_REASON_CD' AND CODE = A.CHG_REASON_CD) AS REASON,
+       CHG_CONTENTS,
+       (SELECT NM_KOR || '(' || TM_NM || ')' FROM HR_PERSONAL WHERE CC_CD = C.CC_CD AND JIK_WI IN ('8', '21') AND ROWNUM = 1) AS TM_JANG
+FROM   SCC_AUTH_CHG_REQ A,
+       SCC_USERINFO B,
+       ST_UPJANG C,
+       HLDC_SC_DEPT_V D
+WHERE  B.SABUN = A.SABUN
+AND    C.UPJANG = B.UPJANG
+AND    D.CC_CD = C.CC_CD
+AND    A.CHG_SRLNUM = :chgSrlnum
+        ]]>
+    </statement>
+
+
+	<!-- 권한변경(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sc.sca.dao.AuthChngRequestDAO.insert */
+		<![CDATA[
+INSERT INTO SCC_AUTH_CHG_REQ (
+  SYS_ID,
+  CHG_SRLNUM,
+  SABUN,
+  PROC_STATUS,
+  CHG_REQ_DATE,
+  CHG_REASON_CD,
+  CHG_CONTENTS,
+  CUSER,
+  CDATE,
+  UUSER,
+  UDATE
+) VALUES (
+  :sysId1||:sysId2||:sysId3||:sysId4||:sysId5||:sysId6||:sysId7,
+  :chgSrlnum,
+  :sabun,
+  '00',
+  :chgReqDate,
+  :chgReasonCd,
+  :chgContents,
+  :loginSabun,
+  SYSDATE,
+  :loginSabun,
+  SYSDATE
+)
+		]]>
+	</statement>
+
+    <!-- 권한변경(을) 저장 한다. -->
+    <statement name="update" type="update">
+        /*+ com.hwfs.sc.scu.dao.AuthChngRequestDAO.update */
+        <![CDATA[
+UPDATE SCC_AUTH_CHG_REQ
+   SET SYS_ID = :sysId1||:sysId2||:sysId3||:sysId4||:sysId5||:sysId6||:sysId7,
+       CHG_REQ_DATE = :chgReqDate,
+       CHG_REASON_CD = :chgReasonCd,
+       CHG_CONTENTS = :chgContents,
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+ WHERE CHG_SRLNUM = :chgSrlnum
+        ]]>
+    </statement>
+
+    <!-- 상신 후 instanceId를 저장 한다. -->
+    <statement name="saveGwInstanceId" type="update">
+        /*+ com.hwfs.sc.scu.dao.AuthChngRequestDAO.saveGwInstanceId */
+        <![CDATA[
+UPDATE SCC_AUTH_CHG_REQ
+   SET SIGN_INSTANCE_ID = :instanceId,
+       PROC_STATUS = '01'
+ WHERE CHG_SRLNUM = :chgSrlnum
+        ]]>
+    </statement>
+
+</hqml>

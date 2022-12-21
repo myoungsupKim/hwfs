@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.sle.calendarMgmtDAO">
+	<desc>공휴일 등록 관리</desc>
+
+	 
+	
+	<!--  DATA를 조회한다. -->
+	<statement name="selectListYear" type="select">
+	<![CDATA[
+  		SELECT SESN_YEAR  AS CODE,
+		       SESN_YEAR  AS NAME 
+		FROM   SLE_HOLY_DAY_REG
+		GROUP BY SESN_YEAR
+		ORDER BY SESN_YEAR
+		
+		
+	]]>
+	</statement>
+	
+	<!--  DATA를 조회한다. -->
+	<statement name="selectList" type="select">
+	<![CDATA[
+  		SELECT SESN_YEAR,
+		       HOLY_DAY_CD,
+		       HOLY_DAY_NM,
+		       DECODE(USE_YN, 'Y', 1, 0) AS USE_YN,
+		       CUSER,
+		       CDATE,
+		       UUSER,
+		       UDATE
+		FROM   SLE_HOLY_DAY_REG
+		WHERE  1 = 1
+		<#if sesnYear?has_content>  AND   SESN_YEAR = :sesnYear     </#if>
+		<#if useYn?has_content>  	AND   USE_YN  	= DECODE(:useYn, '1', 'Y', USE_YN)  </#if> 
+		ORDER BY SESN_YEAR, HOLY_DAY_CD
+	]]>
+	</statement>
+
+	<!--  DATA를 저장한다. -->
+	<statement name="insertData" type="insert">
+		<![CDATA[
+	 		INSERT INTO SLE_HOLY_DAY_REG
+				(
+					 SESN_YEAR,
+					 HOLY_DAY_CD,
+					 HOLY_DAY_NM,
+					 USE_YN,
+					 CUSER,
+					 CDATE,
+					 UUSER,
+					 UDATE
+				) VALUES (
+					 :sesnYear,
+					 :holyDayCd,
+					<#if holyDayNm?exists> :holyDayNm, <#else> null, </#if>
+					<#if useYn?exists> DECODE(:useYn, '1', 'Y', 'N'), <#else> null, </#if>
+					 :loginSabun,
+					 SYSDATE,
+					 :loginSabun,
+					 SYSDATE
+				)
+					 		
+
+		]]>
+	</statement>
+	
+	<!--  DATA를 수정한다. -->
+	<statement name="updateData" type="update">
+		<![CDATA[
+		UPDATE SLE_HOLY_DAY_REG SET
+			<#if holyDayNm?exists> HOLY_DAY_NM = :holyDayNm, </#if>
+			<#if useYn?exists>     USE_YN = DECODE(:useYn, '1', 'Y', 'N'), </#if>
+			       UUSER = :loginSabun,
+			       UDATE = SYSDATE
+		WHERE  HOLY_DAY_CD = :holyDayCd
+		AND    SESN_YEAR = :sesnYear
+					 
+ 
+		]]>
+	</statement>
+	
+	 
+</hqml>	

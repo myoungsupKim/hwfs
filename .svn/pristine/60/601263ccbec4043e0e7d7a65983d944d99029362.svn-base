@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[매출처 리스트 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT    UJ.MAIN_UPJANG
+        , UJ2.UPJANGNM  AS MAIN_UPJANG_NM
+        , UJ.UPJANG
+        , UJ.UPJANGNM  AS UPJANG_NM
+        , UJ.CUST_TYPE
+        , UJ.USE_YN
+        , UJ.CUSTCD
+        , CASE WHEN UJ.MAIN_UPJANG=UJ.UPJANG THEN '본사'
+               ELSE '사업장' END AS UPJANG_TYPE
+        , UJ.CREDIT_AMOUNT
+        , UJ.CREDIT_TURN_DAYS
+        , UJ.CREDIT_OVER_AMOUNT
+        , UJ.CREDIT_OVER_END
+        , CEXT.CREDIT_EXT_AMOUNT
+        , CEXT.CREDIT_EXT_DAYS               
+        , UJ.HEAD_CREDIT_YN
+        , HR1.NM_KOR AS CS_SABUN_NM
+        , UJ.PART_SALES_TEL_NO
+        , HR2.NM_KOR AS PART_SALES_SABUN_NM
+        , UJ.CS_TEL_NO
+        , CASE WHEN UJ.CREDIT_TURN_CONTROL_YN = 'Y' AND UJ.CREDIT_AMOUNT_CONTROL_YN = 'Y' THEN '여신일+여신액'
+               WHEN UJ.CREDIT_AMOUNT_CONTROL_YN = 'Y' THEN '여신액'
+               WHEN UJ.CREDIT_TURN_CONTROL_YN = 'Y' THEN '여신일'
+               ELSE '관리안함' END AS CREDIT_TYPE
+        , UJ.CREDIT_CONTROL_YN
+        , DJ.CC_NM
+        , UJ.BO_CC_CD||'('||TO_CHAR(UJ.BO_DEPT_ID)||')' AS BO_DEPT_ID, UJ.BO_VAT_UPJANG
+        , UJ.EXCEL_EXPORT_YN
+        , UJ.ATTR04
+        , (SELECT Z.CODE_NAME FROM SCC_COMMON_CODE Z WHERE Z.GROUP_CODE = 'FM0022' AND Z.CODE = UJ.PART_CODE) AS PART_CODE_NAME
+        , HST.SAUPNO
+        , SUC.PAY_GUBUN_CD
+        , SUC.PAY_DATE
+        , UJ.DOCU_FILE1
+        , UJ.DOCU_FILE2
+        , UJ.DOCU_FILE3
+        , UJ.DOCU_FILE4
+        , UJ.DOCU_FILE5
+        , UJ.SDOCU_FILE1
+        , UJ.SDOCU_FILE2
+        , UJ.SDOCU_FILE3
+        , UJ.SDOCU_FILE4
+        , UJ.SDOCU_FILE5
+        , UJ.SDOCU_FILE_SIZE1
+        , UJ.SDOCU_FILE_SIZE2
+        , UJ.SDOCU_FILE_SIZE3
+        , UJ.SDOCU_FILE_SIZE4
+        , UJ.SDOCU_FILE_SIZE5
+        , UJ.SAFE_KEY
+        , UJ.CREDIT_END
+FROM    FMS_UPJANG_V UJ, HLDC_SC_DEPT_V DJ, HLDC_ST_UPJANG HUJ, HLDC_ST_CUST HST
+        , FMS_UPJANG_V UJ2
+        , HLDC_HR_PERSONAL HR1
+        , HLDC_HR_PERSONAL HR2
+        , ( SELECT   UPJANG
+                     , SUM(CREDIT_EXT_DAYS) AS CREDIT_EXT_DAYS
+                     , SUM(CREDIT_EXT_AMOUNT) AS CREDIT_EXT_AMOUNT
+            FROM     FMS_CREDIT_EXT
+            WHERE    APPR_YN = 'Y'
+            AND      TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN SUPPLY_START AND SUPPLY_END
+            GROUP BY UPJANG
+          ) CEXT
+          ,( SELECT UPJANG
+                 , MAX(PAY_GUBUN_CD) AS PAY_GUBUN_CD
+                 , MAX(PAY_DATE) AS PAY_DATE
+              FROM SCO_UPJANG_CUST
+             GROUP BY UPJANG  
+          ) SUC
+WHERE   UJ.MAIN_UPJANG = UJ2.UPJANG
+AND     UJ.CS_SABUN = HR1.SABUN(+)
+AND     UJ.UPJANG = CEXT.UPJANG(+)
+AND     UJ.PART_SALES_SABUN = HR2.SABUN(+)
+AND     UJ.DEPT_ID = DJ.DEPT_ID(+)
+AND     UJ.UPJANG = HUJ.UPJANG
+AND     HUJ.CUSTCD = HST.CUSTCD
+AND     UJ.UPJANG = SUC.UPJANG(+)
+<isNotNull col="CUST_TYPE">
+	 AND ( 1 = 2 
+	<isNotNull col="CUST_CHK1">
+		OR UJ.CUST_TYPE = #CUST_CHK1#
+	</isNotNull>
+	<isNotNull col="CUST_CHK2">
+		OR UJ.CUST_TYPE = #CUST_CHK2#
+	</isNotNull>
+	<isNotNull col="CUST_CHK3">
+		OR UJ.CUST_TYPE = #CUST_CHK3#
+	</isNotNull>
+	<isNotNull col="CUST_CHK4">
+		OR UJ.CUST_TYPE = #CUST_CHK4#
+	</isNotNull>
+	<isNotNull col="CUST_CHK5">
+		OR UJ.CUST_TYPE = #CUST_CHK5#
+	</isNotNull>
+	)
+</isNotNull>
+<isNotNull col="MAIN_UPJANG_NM">
+	 AND (UJ.MAIN_UPJANG || UJ2.UPJANGNM LIKE '%' || #MAIN_UPJANG_NM# || '%' )
+</isNotNull>
+<isNotNull col="UPJANG_NM">
+	 AND (UJ.UPJANG || UJ.UPJANGNM LIKE '%' || #UPJANG_NM# || '%' )
+</isNotNull>
+<isNotNull col="USE_YN">
+	 AND UJ.USE_YN = #USE_YN#
+</isNotNull>
+<isNotNull col="EMP_NM">
+	 AND HR1.NM_KOR || ' ' || HR2.NM_KOR LIKE '%' || #EMP_NM# || '%'
+</isNotNull>
+<isNotNull col="SAUPNO">
+	 AND HST.SAUPNO LIKE '%' || #SAUPNO# || '%'
+</isNotNull>
+ORDER BY UPJANG	</statement>
+	<input default-name="ds_input">
+		<col name="MAIN_UPJANG" size="255" type="NUMERIC" description="본사코드" /> 
+		<col name="MAIN_UPJANG_NM" size="100" type="VARCHAR" description="본사명" /> 
+		<col name="UPJANG" size="255" type="NUMERIC" description="사업장코드" /> 
+		<col name="UPJANG_NM" size="100" type="VARCHAR" description="사업장명" /> 
+		<col name="CUST_TYPE" size="50" type="VARCHAR" description="고객구분" /> 
+		<col name="CUST_CHK1" size="50" type="VARCHAR" description="도매" /> 
+		<col name="CUST_CHK2" size="50" type="VARCHAR" description="캐터링" /> 
+		<col name="CUST_CHK3" size="50" type="VARCHAR" description="일반" /> 
+		<col name="CUST_CHK4" size="50" type="VARCHAR" description="외식(직영)" /> 
+		<col name="CUST_CHK5" size="50" type="VARCHAR" description="외식(가맹점)" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

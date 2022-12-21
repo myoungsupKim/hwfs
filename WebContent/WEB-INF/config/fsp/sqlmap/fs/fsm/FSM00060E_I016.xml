@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>insert</type>
+	<description><![CDATA[--레시피검색및 등록
+-자재등록]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+<![CDATA[
+ INSERT INTO FSM_REAL_RECIPE_ITEM( 
+	 UPJANG
+	, MENU_CD
+	, RECIPE_CD
+	, ITEM_CODE
+	, ITEM_SEQ
+	, NEED_QTY
+	, EDIBLE_QTY
+	, CUT_SPEC
+	, ORDER_YN
+	, PR_ID
+	, PR_NUM
+	, PR_QTY
+	, NEED_DATE
+	, UNIT_PRICE
+	, MARGIN_RATE
+	, MARGIN_PRICE
+	, CUSER
+	, CDATE
+	, UUSER
+	, UDATE
+	, ATTR10
+ ) 
+(
+SELECT #UPJANG#
+     , #MENU_CD#
+     , C.RECIPE_CD
+     , C.ITEM_CODE 
+     , C.ITEM_SEQ 
+     , C.NEED_QTY * NVL(H.NEED_RATE, 100) / 100 AS NEED_QTY
+     , ROUND((C.NEED_QTY * NVL(H.NEED_RATE, 100) / 100) * NVL((SELECT (100-NVL(DISUSE_RATE, 0)) / 100 AS CALC
+                                 FROM FSI_ITEM_NUT
+                                WHERE ITEM_CODE = C.ITEM_CODE),1) , 2 )
+     , C.CUT_SPEC 
+     , 'N'
+     , -1
+     , NULL
+     , 0
+     , CASE WHEN TO_CHAR(TO_DATE(H.NEED_DATE), 'd') = 1 THEN
+                 TO_CHAR(TO_DATE(H.NEED_DATE, 'RRRR-MM-DD') - (DECODE(NVL(SAT_YN, 'N'), 'Y', 1, 0) + DECODE(NVL(SUN_YN, 'N'), 'Y', 1, 0)), 'YYYYMMDD') 
+            WHEN TO_CHAR(TO_DATE(H.NEED_DATE), 'd') = 7 THEN
+                 TO_CHAR(TO_DATE(H.NEED_DATE, 'RRRR-MM-DD') - (DECODE(NVL(SAT_YN, 'N'), 'Y', 1, 0)), 'YYYYMMDD') 
+            ELSE NVL(H.NEED_DATE, #NEED_DATE#)
+       END AS NEED_DATE
+     , NVL(D.CONTRACT_PRICE,0) --0
+     , NVL(D.MARGIN_RATE,0) -- 0
+     , DECODE(D.MARGIN_RATE, 0, D.CONTRACT_PRICE, DECODE(F.OUTVAT_FLAG, 'Y', (ROUND((D.CONTRACT_PRICE * DECODE(E.TAX_CODE, '100', 1.1, 1) * (D.MARGIN_RATE+100) / 100 ) / 10) * 10 ), (ROUND((D.CONTRACT_PRICE * (D.MARGIN_RATE+100) / 100 ) / 10) * 10 ))) AS ITEM_PRICE
+     , #g_EmpNo#
+     , SYSDATE
+     , #g_EmpNo#
+     , SYSDATE
+     , FSR_ENF_ITEM_FUN(#UPJANG#, #NEED_DATE#, C.RECIPE_CD, C.ITEM_CODE) 
+  FROM FSR_STD_RECIPE_MST B
+     , FSR_STD_RECIPE_ITEM C
+     --, HLDC_PO_CONTRACT_F D
+     , EPROCUSR.VO_CONTRACT_F_RCP D	 
+     , HLDC_PO_ITEM_MST E
+     , HLDC_PO_SUBINVENTORY F
+     ,(SELECT UPJANG
+            , SAT_YN
+            , SUN_YN
+            , TO_CHAR(TO_DATE(#NEED_DATE#, 'RRRR-MM-DD') - NVL(D_DAY, 0), 'YYYYMMDD') AS NEED_DATE
+            , NEED_RATE
+         FROM FSA_HALL_DTL
+        WHERE UPJANG = #UPJANG#
+          AND HALL_CD = #HALL_CD#
+          AND MEAL = #MEAL#
+          AND CORNER = #CORNER#) H     
+ WHERE B.RECIPE_CD = C.RECIPE_CD
+   AND C.ITEM_CODE = D.ITEM_CODE(+)
+   AND #NEED_DATE# BETWEEN D.CONTRACT_START(+) AND D.CONTRACT_END(+)
+   AND C.ITEM_CODE = E.ITEM_CODE
+   --AND D.UPJANG(+) = #UPJANG#
+   AND D.UPJANG IN (SELECT C.N_CC_CD
+                                        FROM ST_UPJANGV B
+                                           , SAP_IF.SAP_IFC_CC_MAP C
+                                         WHERE B.UPJANG = #UPJANG#
+	                                        AND B.CC_CD = C.O_CC_CD
+                                            )
+   AND F.UPJANG = #UPJANG#
+   AND F.SUBINV_CODE = #SUBINV_CODE#
+   AND B.RECIPE_CD = #RECIPE_CD#
+   AND F.UPJANG = H.UPJANG(+)
+)
+	]]></statement>
+	<input default-name="ds_in">
+	</input>
+	<output default-name="ds_out">
+	</output>
+</query>

@@ -1,0 +1,344 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FSM00068P" onload="form_onload" titletext="레시피 상세조회" position="absolute 0 0 550 354" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Grid autoenter="select" binddataset="ds_List" cellsizingtype="both" enable="true" id="grd_List" useinputpanel="false" onheadclick="grd_List_OnHeadClick" taborder="1" tabstop="true" usecontextmenu="true" useselcolor="true" visible="true" wheelscrollrow="1" position="absolute 10 42 540 344" readonly="true" selecttype="row" autofittype="col" class="grd_WF_LineNone">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="25"/>
+                <Column size="77"/>
+                <Column size="140"/>
+                <Column size="0"/>
+                <Column size="68"/>
+                <Column size="80"/>
+                <Column size="80"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="text" class="head_Excel"/>
+                <Cell col="1" displaytype="text" text="자재코드"/>
+                <Cell col="2" displaytype="text" text="자재명"/>
+                <Cell col="3" displaytype="text" text="매출유형"/>
+                <Cell col="4" displaytype="text" text="자재특성"/>
+                <Cell col="5" displaytype="text" text="1인 소요량(g)"/>
+                <Cell col="6" displaytype="text" text="1인 원가"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" style="align:center;" expr="expr:currow+1"/>
+                <Cell col="1" displaytype="text" style="align:center;" text="bind:ITEM_CODE"/>
+                <Cell col="2" displaytype="text" style="align:left;" text="bind:ITEM_NAME"/>
+                <Cell col="3" displaytype="text" style="align:left;" text="bind:SALE_TYPE_NM"/>
+                <Cell col="4" displaytype="image" style="align:center;" text="bind:FEATURE_ICON"/>
+                <Cell col="5" displaytype="number" style="align:right;" text="bind:NEED_QTY"/>
+                <Cell col="6" displaytype="number" style="align:right;" text="bind:PERSON_PRICE"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Edit enable="false" id="ed_RecipeCode" taborder="2" position="absolute 10 16 125 37"/>
+        <Edit enable="false" id="ed_RecipeName" taborder="3" position="absolute 127 16 540 37"/>
+        <Static id="Static70" text="W10" visible="false" position="absolute 0 0 603 10" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static72" text="W15" visible="false" position="absolute 0 0 10 418" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static00" text="W10" visible="false" position="absolute 0 344 603 354" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static64" text="W30" visible="false" position="absolute 540 0 550 418" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static20" text="h05" onclick="Static20_onclick" class="Guide01_AreaRed" visible="false" position="absolute 0 37 1185 42"/>
+        <Static id="Static19" text="h06" onclick="Static12_onclick" class="Guide01_AreaRed" visible="false" position="absolute 0 10 1185 16" anchor="top right"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_List"/>
+    </Objects>
+    <Bind/>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 메뉴관리 > 식단관리 > 식단등록 > 레시피 검색 및 등록
+ * 프로그램명   : FSM00068P.XML
+ * 기      능   : 레시피 상세조회
+ * 작  성  자   : 손창덕
+ * 작성  일자   : 2008-01-02
+ * 비      고   : 
+ *		- ds_List				: [Main DS] 자재 리스트
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    : 1) 2008-05-23 손창덕 수정
+ *                 - 일반 식단 / 카페테리아 식단 작성시 사용되는 레시피 상세조회 팝업입니다.
+ *                 - f_GUBUN : "UPJANG" - 업장표준
+ *                             "STD"    - 업장 기준의 표준레시피
+ *                             "STD2"   - 표준레시피
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "LIB::sc_comon.js";			// 시스템공통 함수
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js";
+//@@컨버터에서 주석처리 #include "LIB::tit_comm_0001.js";		// X-Framework Lib
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+//var f_gubun, f_recipe_cd, f_recipe_nm, f_upjang, f_hall_class, f_menu_date, f_hall_cd;
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	// X-Framework : Action 정보 생성 
+	fsp_init(this);
+// 		arg  = {GUBUN:v_GUBUN
+// 		        ,RECIPE_CD:v_RECIPE_CD
+// 		        ,RECIPE_NAME:v_RECIPE_NAME
+// 		        ,UPJANG:v_UPJANG
+// 		        ,HALL_CLASS:v_HALL_CLASS
+// 		        ,HALL_CD:v_HALL_CD
+// 		        ,MENU_DATE:v_MENU_DATE};
+		        
+	// 부모창에서 넘겨주는 Args
+	f_gubun = GUBUN;
+	f_recipe_cd = RECIPE_CD;
+	f_recipe_nm = RECIPE_NAME;
+	f_upjang = UPJANG;
+	f_hall_class = HALL_CLASS;
+	f_hall_cd = HALL_CD;
+	f_menu_date = MENU_DATE;
+	// Tast Data
+	/*f_gubun = "UPJANG";
+	f_recipe_cd = "A00005";
+	f_recipe_nm = "테스트레시피00";
+	f_upjang = "100771";
+	f_hall_class = "001";
+	f_menu_date = "20071226";*/ 
+	
+	fn_search();
+}
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Search()
+ * 기      능   : [조회버튼] 검색조건에 해당하는 정보를 조회
+ ******************************************************************************************
+ */
+function fn_search()
+{
+	// Result DataSet Clear
+	ds_List.clearData();
+	
+	// 구분값 체크
+	if( gfn_length(gfn_trim(f_gubun))== 0 || gfn_trim(f_gubun)== null ) {
+		g_Message("EE", "업장표준/표준 구분코드가 존재하지 않습니다.\n창을 닫습니다.");
+		this.close();
+	}
+	
+	// 레시피 코드 존재여부 체크
+	if( gfn_length(gfn_trim(f_recipe_cd))== 0 || gfn_trim(f_recipe_cd)== null ) {
+		g_Message("EE", "레시피코드가 존재하지 않습니다.\n창을 닫습니다.");
+		this.close();
+	} else {
+		ed_RecipeCode.value = f_recipe_cd;	// 레시피코드 Display
+		ed_RecipeName.value = f_recipe_nm;	// 레시피명 Display
+	}
+	
+	// 업장표준 레시피일 경우 업장코드, 식당_군코드, 제공일자 체크
+	if( gfn_trim(f_gubun)== "UPJANG" ) {
+		if( gfn_length(gfn_trim(f_upjang))== 0 || gfn_trim(f_upjang)== null ) {
+			g_Message("EE", "업장코드가 존재하지 않습니다.\n창을 닫습니다.");
+			this.close();
+		}
+		if( gfn_length(gfn_trim(f_hall_class))== 0 || gfn_trim(f_hall_class)== null ) {
+			g_Message("EE", "식당_군코드가 존재하지 않습니다.\n창을 닫습니다.");
+			this.close();
+		}
+		if( gfn_length(gfn_trim(f_menu_date))== 0 || gfn_trim(f_menu_date)== null ) {
+			g_Message("EE", "제공일자가 존재하지 않습니다.\n창을 닫습니다.");
+			this.close();
+		}
+	}
+	
+	// DataSet & callBack함수 정의
+	var actionName, cmdName, inData, outData, otherArg, callBackFnc;
+	inData			= "";
+	outData			= "ds_List=ds_List";
+	otherArg		= "RECIPE_CD="+gfn_trim(f_recipe_cd);
+	otherArg += " UPJANG="+gfn_trim(f_upjang);
+	otherArg += " HALL_CLASS="+wrapQuote(gfn_trim(f_hall_class));
+	otherArg += " HALL_CD="+wrapQuote(gfn_trim(f_hall_cd));
+	otherArg += " MENU_DATE="+wrapQuote(gfn_trim(f_menu_date));
+	callBackFnc		= "fn_callBackSearch";
+	
+	fsp_clear(this);
+	if( gfn_trim(f_gubun)== "UPJANG" ) { // 업장표준 레시피일 경우
+		fsp_addSearch(this, "fs/fsm:FSM00068P_S001");
+	} else if( gfn_trim(f_gubun)== "STD" ) { // 업장기준의 표준 레시피일 경우
+		fsp_addSearch(this, "fs/fsm:FSM00068P_S002");
+	} else if( gfn_trim(f_gubun)== "STD2" ) { // 표준 레시피일 경우
+		fsp_addSearch(this, "fs/fsm:FSM00068P_S003");
+	}
+	fsp_callService(this, actionName, cmdName, inData, outData, otherArg, callBackFnc);		// 서비스 호출
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Insert()
+ * 기      능   : [입력버튼] 입력 시 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_insert()
+{
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Save()
+ * 기      능   : [저장버튼] 저장 시 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_save()
+{
+}
+/* 
+ ******************************************************************************************
+ * 함  수  명   : fn_Delete()
+ * 기      능   : [삭제버튼] 삭제 시 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_delete()
+{
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Print()
+ * 기      능   : [출력버튼] 출력 시 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_print()
+{
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Excel()
+ * 기      능   : [엑셀버튼] 엑셀 시 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_Excel()
+{
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Close()
+ * 기      능   : [닫기버튼] 화면을 닫을때 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_Close()
+{
+	this.close();
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Help()
+ * 기      능   : [도움말버튼] 도움말
+ ******************************************************************************************
+ */
+function fn_help()
+{
+	// tit_addSearchActionInfo(this, "ma/map:SCC_MENU_SELECT");
+	// tit_callService(this, "", "", "ds_cond=ds_cond", "ds_Menu=ds_List", "", "");	
+}
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_callBackSearch()
+ * 입      력   : errCode 	= 에러코드
+				  errMsg	= 에러메세지
+ * 반      환   : 없음
+ * 기      능   : 리스트 조회 후 콜백 함수
+ * 작  성  자   : 손창덕
+ * 작성  일자   : 2008-01-02
+ ******************************************************************************************
+ */
+function fn_callBackSearch(errCode, errMsg)
+{	
+	if( errCode != 0 ) {
+		return;
+	} else {
+		//trace(ds_List.SaveXML());
+	}
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_ReTransport()
+ * 입      력   : gubun = 표준레시피/업장표준레시피 구분
+                  recipe_cd = 레시피코드
+                  recipe_nm = 레시피명
+	              upjang = 업장코드
+	              hall_class = 식당군
+	              menu_date = 제공일
+	              hall_cd = 창고코드
+ * 반      환   : 없음
+ * 기      능   : 1) Modal Function과는 무관
+                  2) 현재창을 Open Function을 이용하여 폼을 열어 Argument를 수시로 전송하여
+                     재조회 가능하도록 처리
+ * 작  성  자   : 손창덕
+ * 작성  일자   : 2008-05-23
+ ******************************************************************************************
+ */
+function fn_ReTransport(gubun, recipe_cd, recipe_nm, upjang, hall_class, menu_date, hall_cd)
+{
+	f_gubun      = gubun;
+	f_recipe_cd  = recipe_cd;
+	f_recipe_nm  = recipe_nm;
+	f_upjang     = upjang;
+	f_hall_class = hall_class;
+	f_menu_date  = menu_date;
+	f_hall_cd    = hall_cd;
+	
+	fn_search();
+}
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+/******************************************************************************************
+ * 함  수  명   : grd_List_OnHeadClick(obj,nCell,nX,nY,nPivotIndex)
+ * 기      능   : 그리드헤드 더블클릭시 Sort
+ * 작  성  자   : 손창덕
+ * 작성  일자   : 2007-12-28
+ ******************************************************************************************
+ */
+function grd_List_OnHeadClick(obj:Grid, e:GridClickEventInfo)
+{
+	switch(e.cell)
+	{
+		case 0:
+			gfn_exportExcel(obj, "Sheet1");
+			break;
+		default:
+			gfn_gridSort(obj, e); //(eval(obj.binddataset), obj, e.cell);
+			break;
+		// case :
+			// break;			
+	}		
+}]]></Script>
+  </Form>
+</FDL>

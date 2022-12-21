@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[병원식단평가
+SQL2]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT MAIN_ITEM_CODE1 AS CD
+       , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0006' AND CODE = A.MAIN_ITEM_CODE1) NM
+       , COUNT(*) CNT
+       , FSH_MENU_EVAL_NAME_FUN(#UPJANG#, #HALL_CD#,#CORNER#, #FROM_MENU_DATE#,#TO_MENU_DATE#,'AND B.MAIN_ITEM_CODE1= ''' || MAIN_ITEM_CODE1 || '''') INFO
+  FROM FSH_CYCLE_RECIPE_MST A
+ WHERE UPJANG = #UPJANG#
+   AND MENU_CD IN (
+                   SELECT MENU_CD
+                     FROM FSH_CYCLE_MENU_MST
+                    WHERE UPJANG  = #UPJANG#
+                      AND HALL_CD = #HALL_CD#
+                      AND CORNER  = #CORNER#
+                      AND MENU_DATE BETWEEN #FROM_MENU_DATE# AND #TO_MENU_DATE#
+                  )
+   AND MAIN_ITEM_CODE1 NOT IN (
+                            SELECT CODE_NAME
+                              FROM SCC_COMMON_CODE
+                             WHERE GROUP_CODE = 'FS0036'
+                          )
+GROUP BY MAIN_ITEM_CODE1
+HAVING COUNT(*)>1
+ORDER BY COUNT(*) DESC,MAIN_ITEM_CODE1	]]></statement>
+	<input default-name="ds_Input">
+		<col name="UPJANG" size="255" type="NUMERIC" description="" /> 
+		<col name="HALL_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="CORNER" size="20" type="VARCHAR" description="" /> 
+		<col name="FROM_MENU_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="TO_MENU_DATE" size="8" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_List">
+		<col name="CD" size="50" type="VARCHAR" description="" /> 
+		<col name="NM" size="50" type="VARCHAR" description="" /> 
+		<col name="CNT" size="22" type="NUMERIC" description="" /> 
+		<col name="INFO" size="4000" type="VARCHAR" description="" /> 
+	</output>
+</query>

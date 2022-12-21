@@ -1,0 +1,956 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fs.fsf.funeralSaleGoodsInfoMgntDAO">
+	<desc>판매상품군 정보관리 HQML Query</desc>
+	
+	<!-- 판매상품등록(TAB1),세트등록(TAB2) 식사류,매점상품,기타상품 목록을 조회한다. -->
+	<statement name="selectSaleRegClassList" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectSaleRegClassList */
+		<![CDATA[
+			  SELECT '' CHK
+			        , A.FUNERAL_HALL_CD	/* 장례식장코드 */
+					, A.GOODS_CLASS_CD		/* 상품군코드(001 :식사류 / 002:매점류 / 003:기타류) */
+					, A.GOODS_CLASS_NM		/* 상품군명(001 :식사류 / 002:매점류 / 003:기타류) */
+					, A.DETAIL_GOODS_CD	/* 상세상품코드 */
+					, A.DETAIL_GOODS_NM	/* 상세상품명 */
+					, A.UNIT				/* 단위 */
+					, A.EA					/* 개수 */
+					, A.LAST_UPRICE		/* 최종단가금액 */
+					, A.SALS_INCLUDE_YN	/* 매출 포함 여부 - 기타류 일때만 사용 */
+					, A.USE_YN				/* 사용여부(Y/N) */
+					, A.USE_STOP_DATE		/* 미사용에 따른 종료 일자 */
+					, A.SORT_ORDER			/* 정렬순서 */
+					, A.REMARK				/* 비고사항 기술 */
+					, A.GOODS_TYPE			/* 과세,면세 */
+					, 'Y' REG_YN		/* 수정가능 구분자 */
+					, A.GOODS_CLASS_CD OLD_GOODS_CLASS_CD	/* 변경전 상품군코드 */
+			   FROM  FSF_FUNERAL_GOODS A  /* 장례식장별 판매중 개별 판매건을 관리하는 테이블이다. */
+			  WHERE  A.FUNERAL_HALL_CD = :upjangCd
+			  <#if goodsClassCd?has_content>
+			  	<#if goodsClassCd == "001">
+			  		AND  A.GOODS_CLASS_CD  IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'GOODS_TYPE' AND SET1 = '001') /* 식사류 */
+			  	<#else>
+			    	AND  A.GOODS_CLASS_CD  IN (:goodsClassCd)
+			    </#if>  
+			  </#if>  
+		   ORDER BY  A.FUNERAL_HALL_CD,  A.SORT_ORDER,  A.GOODS_CLASS_CD,  A.DETAIL_GOODS_CD
+		]]>
+	</statement>
+	
+	<!-- 판매상품등록(TAB1)_매점상품 팝업 목록을 조회한다. -->
+	<statement name="selectStoreClassPopupList" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectStoreClassPopupList */
+		<![CDATA[
+		    /************  윤지혜 매니저
+		   SELECT '' CHK
+				  ,A.ITEM_CODE
+				  ,B.ITEM_NAME
+				  ,B.UOM_CODE
+				  ,D.ITEM_PRICE SALE_PRICE
+				  ,DECODE(B.TAX_CODE,'210','면세','과세') TAX_NAME
+			  FROM PO_CUSTOM_ITEM@FCUS_TO_HLDC A
+				  ,HLDC_PO_ITEM_MST B
+				  ,( 
+					   SELECT F.ITEM_CODE
+							 ,DECODE(NVL(F.MARGIN_RATE, 0), 0, F.CONTRACT_PRICE, ( ROUND( (F.CONTRACT_PRICE * (F.MARGIN_RATE+100) / 100 ) / 10) * 10 ) )  AS ITEM_PRICE 
+						 FROM HLDC_ST_UPJANG E 
+							 ,HLDC_PO_CONTRACT_F F 
+						WHERE F.USE_YN = 'Y' 
+						  AND F.CONTRACT_PRICE > 0 
+						  AND F.UPJANG = E.AP_UNITPRICE_UPJANG                   
+						  AND E.UPJANG = '130842'
+						  AND '20150720' BETWEEN F.CONTRACT_START AND NVL(F.CONTRACT_END,'99999999') 
+				   ) D
+			 WHERE A.ITEM_CODE = B.ITEM_CODE
+			   AND B.ITEM_CODE = D.ITEM_CODE
+			   AND A.CUSTCD    = 266944
+			   AND A.ITEM_CODE NOT IN (
+										SELECT  DETAIL_GOODS_CD
+										  FROM  FSF_FUNERAL_GOODS
+										 WHERE  FUNERAL_HALL_CD = '130842' 
+										   AND  GOODS_CLASS_CD  = '002'
+									  )
+		       AND D.ITEM_PRICE IS NOT NULL
+		       AND D.ITEM_PRICE <> 0
+		  GROUP BY A.ITEM_CODE, B.ITEM_NAME, B.UOM_CODE, D.ITEM_PRICE, B.TAX_CODE
+		  ORDER BY A.ITEM_CODE, B.ITEM_NAME
+		  **************************/
+		
+			SELECT '' CHK
+				  ,B.ITEM_CODE
+				  ,B.ITEM_NAME
+				  ,B.UOM_CODE
+				  ,D.ITEM_PRICE SALE_PRICE
+				  ,DECODE(B.TAX_CODE,'210','면세','과세') TAX_NAME
+			  FROM HLDC_PO_ITEM_MST B
+				  ,( 
+					   SELECT F.ITEM_CODE
+							 ,DECODE(NVL(F.MARGIN_RATE, 0), 0, F.CONTRACT_PRICE, ( ROUND( (F.CONTRACT_PRICE * (F.MARGIN_RATE+100) / 100 ) / 10) * 10 ) )  AS ITEM_PRICE  --관리구매단가 
+						 FROM HLDC_ST_UPJANG E 
+							 ,HLDC_PO_CONTRACT_F F 
+						WHERE F.USE_YN = 'Y' 
+						  AND F.CONTRACT_PRICE > 0 
+						  AND F.UPJANG = E.AP_UNITPRICE_UPJANG                   
+						  AND E.UPJANG = :upjangCd
+						  AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN F.CONTRACT_START AND NVL(F.CONTRACT_END,'99999999') 
+				   ) D
+			 WHERE B.ITEM_CODE = D.ITEM_CODE
+		/***********	   
+			   AND B.ITEM_CODE NOT IN (
+										SELECT  DETAIL_GOODS_CD
+										  FROM  FSF_FUNERAL_GOODS  -- 장례식장별 판매중 개별 판매건을 관리하는 테이블이다.
+										 WHERE  FUNERAL_HALL_CD = :upjangCd
+										   AND  GOODS_CLASS_CD  = '002'    -- 매점상품
+									  )
+		***********/
+			   AND SUBSTR(B.ITEM_CODE,0,1) = 'G'									  
+		       AND D.ITEM_PRICE IS NOT NULL
+		       AND D.ITEM_PRICE <> 0
+		  <#if itemCode?has_content>
+			   AND  B.ITEM_CODE  = :itemCode
+		  </#if>
+		  <#if itemName?has_content>
+			   AND  B.ITEM_NAME  LIKE '%'||:itemName||'%'
+		  </#if>
+		  GROUP BY B.ITEM_CODE, B.ITEM_NAME, B.UOM_CODE, D.ITEM_PRICE, B.TAX_CODE
+		  ORDER BY B.ITEM_CODE, B.ITEM_NAME
+		]]>
+	</statement>
+	
+	<!-- 장례식장별 상품군코드 전체 상세 maxcd 조회한다. -->
+	<statement name="selectGoodsInputMax" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectGoodsInputMax */
+		<![CDATA[
+		  SELECT NVL(MAX(DETAIL_GOODS_CD), '000') MAX_CD
+		    FROM FSF_FUNERAL_GOODS
+		   WHERE LENGTH(DETAIL_GOODS_CD) = 3  
+		   AND FUNERAL_HALL_CD = :funeralHallCd
+		   AND GOODS_CLASS_CD  = :goodsClassCd	/* 001_식사류, 002_매점류, 003_기타류 */
+		]]>
+	</statement>
+	
+	<!-- 장례식장별 MAX 세트코드 조회한다. -->
+	<statement name="selectMclassMax" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectMclassMax */
+		<![CDATA[
+		  SELECT NVL(MAX(SUBSTR(SET_CD,2)), '000') MAX_CD
+		    FROM FSF_MCLASS_GOODS_MASTER
+		   WHERE FUNERAL_HALL_CD = :funeralHallCd
+		     AND LENGTH(SET_CD) = 4
+		]]>
+	</statement>
+	
+	<!-- 장례식장별 세트명(MCLASS) 중복 조회한다. -->
+	<statement name="selectMclassDupFlag" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectMclassDupFlag */
+		<![CDATA[
+		  SELECT CASE WHEN COUNT(SET_CD) > 0 THEN 'Y'
+		              ELSE 'N'
+		         END DUP_FLAG
+		    FROM FSF_MCLASS_GOODS_MASTER
+		   WHERE FUNERAL_HALL_CD = :funeralHallCd
+		     AND SET_CD 		 = :setCd
+		]]>
+	</statement>
+	
+	<!-- 장례식장별 세트별 상세 등록 상세 maxcd 조회한다. -->
+	<statement name="selectSclassDtlMax" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectSclassDtlMax */
+		<![CDATA[
+		  SELECT NVL(MAX(DETAIL_GOODS_CD), '000') MAX_CD
+		    FROM FSF_SCLASS_GOODS_MASTER
+		   WHERE FUNERAL_HALL_CD = :funeralHallCd
+		     AND SET_CD          = :setCd
+		]]>
+	</statement>
+	
+	<!-- 장례식장별 생성대상 상세코드 (SCLASS) 중복 조회한다. -->
+	<statement name="selectSclassDupFlag" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectSclassDupFlag */
+		<![CDATA[
+		  SELECT CASE WHEN COUNT(SET_CD) > 0 THEN 'Y'
+		              ELSE 'N'
+		         END DUP_FLAG
+		    FROM FSF_SCLASS_GOODS_MASTER
+		   WHERE FUNERAL_HALL_CD = :funeralHallCd
+		     AND SET_CD 		 = :setCd
+		     AND GOODS_CLASS_CD = :goodsClassCd
+		     AND DETAIL_GOODS_CD = :detailGoodsCd
+		]]>
+	</statement>
+	
+	<!-- 세트등록(TAB2) 세트명 입력 목록을 조회한다. -->
+	<statement name="selectMclassList" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectMclassList */
+		<![CDATA[
+			 SELECT  '' CHK
+			        ,A.FUNERAL_HALL_CD  /* 장례식장 코드 */
+			        ,B.UPJANGNM         /* 업장명 */
+			        ,A.SET_CD           /* 세트코드 */
+			        ,A.SET_NM           /* 세트명 */
+			        ,A.SORT_ORDER       /* 정렬순서 */
+			        ,A.USE_YN           /* 사용여부(Y/N) */
+			        ,A.USE_STOP_DATE    /* 사용중지일자 */
+			        ,A.REMARK           /* 비고 */
+			   FROM  FSF_MCLASS_GOODS_MASTER A     /* 장례식장 세트 관리 테이블 */
+			        ,SCO_UPJANG_MST_V B
+			  WHERE  A.FUNERAL_HALL_CD = B.UPJANG
+			    AND  A.FUNERAL_HALL_CD = :upjangCd
+		   ORDER BY  A.FUNERAL_HALL_CD, A.SORT_ORDER
+		]]>
+	</statement>
+	
+	<!-- 세트등록(TAB2) 세트명 Combo을 조회한다. -->
+	<statement name="selectSetCdCombo" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectSetCdCombo */
+		<![CDATA[
+			 SELECT  SET_CD           /* 세트코드 */
+			        ,SET_NM           /* 세트명 */
+			        ,SORT_ORDER       /* 정렬순서 */
+			   FROM  FSF_MCLASS_GOODS_MASTER    /* 장례식장 세트 관리 테이블 */
+			  WHERE  FUNERAL_HALL_CD = :upjangCd
+			    AND  USE_YN = 'Y'
+		   ORDER BY  SET_CD, SORT_ORDER
+		]]>
+	</statement>
+	
+	<!-- 세트등록(TAB2) 세트등록 목록을 조회한다. -->
+	<statement name="selectSclassList" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectSclassList */
+		<![CDATA[
+			SELECT  '' CHK
+			        ,A.FUNERAL_HALL_CD  /* 장례식장 코드 */
+			        ,A.SET_CD           /* 세트코드 */
+			        ,A.SET_NM           /* 세트명 */
+			        ,B.GOODS_CLASS_CD  /* 세트상품상세코드 */
+			        ,B.DETAIL_GOODS_CD  /* 세트상품상세코드 */
+					,B.DETAIL_GOODS_NM  /* 세트상품상세명 */
+					,B.UNIT			  	/* 단위 */
+					,B.EA				/* 개수 */
+					,B.LAST_UPRICE	  	/* 최종 단가 */
+					,A.USE_YN			/* 사용여부(Y/N) */
+					,B.REMARK			/* 비고사항 기술 */
+			  <#if setCd?has_content>
+					, '' AS FLAG
+			  <#else>						
+					, 'ALL' AS FLAG
+			  </#if>
+			   FROM  FSF_MCLASS_GOODS_MASTER A	/* 장례식장 세트 관리 테이블 */
+			        ,FSF_SCLASS_GOODS_MASTER B	/* 장례식장 세트 관리 상세 테이블 */
+			  WHERE  A.FUNERAL_HALL_CD = B.FUNERAL_HALL_CD
+			    AND  A.SET_CD = B.SET_CD
+			    AND  A.FUNERAL_HALL_CD = :upjangCd
+			    AND  A.USE_YN = 'Y'
+			  <#if setCd?has_content>
+			    AND  A.SET_CD  = :setCd
+			  </#if>
+			  <#if setNm?has_content>
+			    AND  A.SET_NM  LIKE '%'||:setNm||'%'
+			  </#if>
+		   ORDER BY  A.FUNERAL_HALL_CD, A.SET_CD, B.DETAIL_GOODS_CD
+		]]>
+	</statement>
+	
+	<!-- 판매상품목록(TAB3) 현황을 조회한다. -->
+	<statement name="selectSaleGoodsTotalList" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectSaleGoodsTotalList */
+		<![CDATA[
+			 SELECT  A.FUNERAL_HALL_CD  /* 장례식장 코드 */
+	                ,C.UPJANGNM         /* 업장명 */
+	                ,A.SET_CD    MCLASS_CD          /* 세트코드 */
+	                ,A.SET_NM    MCLASS_NM          /* 세트명 */
+	                ,B.DETAIL_GOODS_CD  SCLASS_CD   /* 세트상품상세코드 */
+	                ,B.DETAIL_GOODS_NM  SCLASS_NM   /* 세트상품상세명 */
+	                ,B.UNIT             /* 단위 */
+	                ,B.EA               /* 개수 */
+	                ,B.LAST_UPRICE      /* 최종 단가 */
+	                ,A.USE_YN              /* 사용여부(Y/N) */
+	           FROM  FSF_MCLASS_GOODS_MASTER A    /* 장례식장 세트 관리 테이블 */
+	                ,FSF_SCLASS_GOODS_MASTER B    /* 장례식장 세트 관리 상세 테이블 */
+	                ,SCO_UPJANG_MST_V C
+	          WHERE  A.FUNERAL_HALL_CD = B.FUNERAL_HALL_CD
+	            AND  A.SET_CD          = B.SET_CD
+	            AND  A.FUNERAL_HALL_CD = C.UPJANG
+	            AND  B.USE_YN = 'Y'
+	            AND  A.FUNERAL_HALL_CD = :upjangCd
+	      UNION ALL
+	          SELECT A.FUNERAL_HALL_CD    /* 장례식장코드 */
+	                ,B.UPJANGNM           /* 업장명 */
+	                ,A.GOODS_CLASS_CD   MCLASS_CD  /* 상품군코드(001 :식사류 / 002:매점류 / 003:기타류) */
+	                ,A.GOODS_CLASS_NM   MCLASS_NM  /* 상품군명(001 :식사류 / 002:매점류 / 003:기타류) */
+	                ,A.DETAIL_GOODS_CD  SCLASS_CD  /* 상세상품코드 */
+	                ,A.DETAIL_GOODS_NM  SCLASS_NM  /* 상세상품명 */
+	                ,A.UNIT               /* 단위 */
+	                ,A.EA                 /* 개수 */
+	                ,A.LAST_UPRICE        /* 최종단가금액 */
+	                ,A.USE_YN             /* 사용여부(Y/N) */
+	           FROM  FSF_FUNERAL_GOODS A    /* 장례식장별 판매중 개별 판매건을 관리하는 테이블이다. */
+	                ,SCO_UPJANG_MST_V B
+	          WHERE  A.FUNERAL_HALL_CD = B.UPJANG
+	            AND  A.USE_YN = 'Y'
+	            AND  A.FUNERAL_HALL_CD = :upjangCd
+	       ORDER BY  FUNERAL_HALL_CD, MCLASS_CD,MCLASS_NM, SCLASS_CD
+		]]>
+	</statement>
+	
+	<!-- 판매상품 삭제가능여부 조회한다. -->
+	<statement name="selectGoodsDeleteYn" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectGoodsDeleteYn */
+		<![CDATA[
+		  SELECT CASE WHEN COUNT(*)>0 THEN 'N'
+                 ELSE 'Y'
+	             END DEL_YN  /* 삭제가능여부 */
+	        FROM FSF_SALE_ORDER
+	       WHERE FUNERAL_HALL_CD = :funeralHallCd
+	     --   AND SALE_CLASS = '001'  /* 판매 */
+	         AND GOODS_CLASS_CD  = :goodsClassCd    /* 001_식사류, 002_매점류, 003_기타류 */
+	         AND DETAIL_GOODS_CD = :detailGoodsCd
+		]]>
+	</statement>
+
+
+	<!-- 세트상품 삭제가능여부 조회한다. -->
+	<statement name="selectSetDeleteYn" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectSetDeleteYn */
+		<![CDATA[
+		  SELECT CASE WHEN COUNT(*)>0 THEN 'N'
+                 ELSE 'Y'
+	             END DEL_YN  /* 삭제가능여부 */
+	        FROM FSF_SCLASS_GOODS_MASTER
+	       WHERE FUNERAL_HALL_CD = :funeralHallCd
+	         AND GOODS_CLASS_CD  = :goodsClassCd    /* 001_식사류, 002_매점류, 003_기타류 */
+	         AND DETAIL_GOODS_CD = :detailGoodsCd
+		]]>
+	</statement>
+
+
+	
+	<!-- 판매상품등록(TAB1)_식사류,매점상품,기타상품(을)를 등록한다. -->
+	<statement name="insertSaleRegClassList" type="insert">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.insertSaleRegClassList */
+		<![CDATA[
+			INSERT INTO FSF_FUNERAL_GOODS
+			(
+				 FUNERAL_HALL_CD	/* 장례식장코드 */
+				,GOODS_CLASS_CD		/* 상품군코드(001 :식사류 / 002:매점류 / 003:기타류) */
+				,GOODS_CLASS_NM
+				,DETAIL_GOODS_CD    /* 상세상품코드 */
+				,DETAIL_GOODS_NM    /* 상세상품명 */
+				,UNIT				/* 단위 */
+				,EA					/* 개수 */
+				,LAST_UPRICE		/* 최종단가금액 */
+				,SALS_INCLUDE_YN	/* 매출 포함 여부 - 기타류 일때만 사용 */
+				,USE_YN				/* 사용여부(Y/N) */
+				,USE_STOP_DATE		/* 미사용에 따른 종료 일자 */
+				,SORT_ORDER			/* 정렬순서 */
+				,REMARK				/* 비고사항 기술 */
+				,GOODS_TYPE			/* 과,면세 */
+				,CUSER				/* 생성자 사번 */
+				,CDATE				/* 생성일시 */
+				,UUSER				/* 수정자 사번 */
+				,UDATE				/* 수정일시 */
+			)
+			VALUES
+			(
+				 :funeralHallCd
+				,:goodsClassCd
+				,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'GOODS_TYPE' AND CODE = :goodsClassCd)
+				,:detailGoodsCd
+				,<#if detailGoodsNm?has_content> :detailGoodsNm <#else> null </#if>
+				,<#if unit?has_content> :unit <#else> null </#if>				
+				,<#if ea?has_content> :ea <#else> null </#if>
+				,<#if lastUprice?has_content> :lastUprice <#else> null </#if>
+				,<#if salsIncludeYn?has_content> :salsIncludeYn <#else> null </#if>
+				,'Y'
+				,<#if useStopDate?has_content> :useStopDate <#else> null </#if>
+				,<#if sortOrder?has_content> :sortOrder <#else> null </#if>
+				,<#if remark?has_content> :remark <#else> null </#if>
+				,<#if goodsType?has_content> :goodsType <#else> null </#if>
+				,:loginSabun 	/* 생성자 사번 */
+				,SYSDATE 		/* 생성일시 */
+				,:loginSabun 	/* 생성자 사번 */
+				,SYSDATE 		/* 생성일시 */
+			)
+		]]>
+	</statement>
+	
+	<!-- 판매상품등록(TAB1)_식사류,매점상품,기타상품(을)를 수정한다. -->
+	<statement name="updateSaleRegClassList" type="update">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.updateSaleRegClassList */
+		<![CDATA[
+			UPDATE FSF_FUNERAL_GOODS
+			   SET GOODS_CLASS_CD  = :goodsClassCd
+			   	  ,GOODS_CLASS_NM  = (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'GOODS_TYPE' AND CODE = :goodsClassCd) 
+			      ,DETAIL_GOODS_NM = :detailGoodsNm
+				  ,UNIT			   = :unit		 /* 단위 */
+				  ,EA			   = :ea		 /* 개수 */
+				  ,LAST_UPRICE	   = <#if lastUprice?has_content> :lastUprice <#else> null </#if>/* 최종단가금액 */
+				  ,SALS_INCLUDE_YN = :salsIncludeYn			/* 매출 포함 여부 - 기타류 일때만 사용 */
+				  ,USE_YN		   = :useYn		 	/* 사용여부(Y/N) */
+				  ,USE_STOP_DATE   = :useStopDate	/* 미사용에 따른 종료 일자 */
+				  ,SORT_ORDER	   = <#if sortOrder?has_content> :sortOrder <#else> null </#if>		/* 정렬순서 */
+				  ,REMARK		   = :remark	 	/* 비고사항 기술 */
+				  ,GOODS_TYPE	   = :goodsType
+				  ,UUSER		   = :loginSabun	/* 수정자 사번 */
+				  ,UDATE		   = SYSDATE		/* 수정일시 */
+			 WHERE FUNERAL_HALL_CD = :funeralHallCd
+			   AND GOODS_CLASS_CD  = :oldGoodsClassCd
+			   AND DETAIL_GOODS_CD = :detailGoodsCd
+		]]>
+	</statement>
+
+	<!-- 판매상품등록(TAB1)_식사류,매점상품,기타상품(을)를 삭제한다. -->
+	<statement name="deleteSaleRegClassList" type="delete">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.deleteSaleRegClassList */
+		<![CDATA[
+			DELETE 
+			  FROM FSF_FUNERAL_GOODS
+			 WHERE FUNERAL_HALL_CD = :funeralHallCd
+			   AND GOODS_CLASS_CD  = :goodsClassCd
+			   AND DETAIL_GOODS_CD = :detailGoodsCd
+		]]>
+	</statement>
+	
+	<!-- 세트등록(TAB2) 세트등록(을)를 등록한다. -->
+	<statement name="insertMclassGoodsList" type="insert">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.insertMclassGoodsList */
+		<![CDATA[
+			INSERT INTO FSF_MCLASS_GOODS_MASTER
+			(
+				 FUNERAL_HALL_CD /* 장례식장 코드 */
+				,SET_CD			 /* 세트코드 */
+				,SET_NM			 /* 세트명 */
+				,SORT_ORDER		 /* 정렬순서 */
+				,USE_YN			 /* 사용여부(Y/N) */
+				,USE_STOP_DATE	 /* 사용중지일자 */
+				,REMARK			 /* 비고 */
+				,CUSER				/* 생성자 사번 */
+				,CDATE				/* 생성일시 */
+				,UUSER				/* 수정자 사번 */
+				,UDATE				/* 수정일시 */
+			)
+			VALUES
+			(
+				 :funeralHallCd 
+				,:setCd	
+				,<#if setNm?has_content> :setNm <#else> null </#if>		
+				,<#if sortOrder?has_content> :sortOrder <#else> null </#if>	
+				,<#if useYn?has_content> :useYn <#else> null </#if>		
+				,<#if useStopDate?has_content> :useStopDate <#else> null </#if>
+				,<#if remark?has_content> :remark <#else> null </#if>			
+				,:loginSabun 	/* 생성자 사번 */
+				,SYSDATE 		/* 생성일시 */
+				,:loginSabun 	/* 생성자 사번 */
+				,SYSDATE 		/* 생성일시 */
+			)
+		]]>
+	</statement>
+	
+	<!-- 세트등록(TAB2) 세트등록(을)를 수정한다. -->
+	<statement name="updateMclassGoodsList" type="update">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.updateMclassGoodsList */
+		<![CDATA[
+			UPDATE  FSF_MCLASS_GOODS_MASTER
+			   SET  SET_NM		  = :setNm
+				   ,SORT_ORDER	   = <#if sortOrder?has_content> :sortOrder <#else> null </#if>		/* 정렬순서 */
+				   ,USE_YN	      = :useYn
+				   ,USE_STOP_DATE = :useStopDate
+				   ,REMARK		  = :remark
+				   ,UUSER		  = :loginSabun
+				   ,UDATE         = SYSDATE
+			 WHERE  FUNERAL_HALL_CD	= :funeralHallCd	/* 장례식장 코드 */
+			   AND  SET_CD			= :setCd			/* 세트코드 */
+		]]>
+	</statement>
+
+	<!-- 세트등록(TAB2) 세트등록(을)를 삭제한다. -->
+	<statement name="deleteMclassGoodsList" type="delete">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.deleteMclassGoodsList */
+		<![CDATA[
+			DELETE 
+			  FROM  FSF_MCLASS_GOODS_MASTER
+			 WHERE  FUNERAL_HALL_CD	= :funeralHallCd	/* 장례식장 코드 */
+			   AND  SET_CD			= :setCd			/* 세트코드 */
+		]]>
+	</statement>
+	
+	<!-- 세트등록(TAB2) 세트등록(을)를 등록한다. -->
+	<statement name="insertSclassGoodsList" type="insert">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.insertSclassGoodsList */
+		<![CDATA[
+			INSERT INTO FSF_SCLASS_GOODS_MASTER
+			(
+				 FUNERAL_HALL_CD
+				,SET_CD
+				,GOODS_CLASS_CD  
+				,DETAIL_GOODS_CD
+				,DETAIL_GOODS_NM
+				,UNIT
+				,EA
+				,LAST_UPRICE
+				,USE_YN
+				,REMARK
+				,CUSER				/* 생성자 사번 */
+				,CDATE				/* 생성일시 */
+				,UUSER				/* 수정자 사번 */
+				,UDATE				/* 수정일시 */
+			)
+			VALUES
+			(
+				 :funeralHallCd
+				,:setCd
+				,:goodsClassCd
+				,:detailGoodsCd
+				,:detailGoodsNm
+				,<#if unit?has_content> :unit <#else> null </#if>
+				,<#if ea?has_content> :ea <#else> null </#if>
+				,<#if lastUprice?has_content> :lastUprice <#else> null </#if>
+				,<#if useYn?has_content> :useYn <#else> null </#if>
+				,<#if remark?has_content> :remark <#else> null </#if>
+				,:loginSabun 	/* 생성자 사번 */
+				,SYSDATE 		/* 생성일시 */
+				,:loginSabun 	/* 생성자 사번 */
+				,SYSDATE 		/* 생성일시 */
+			)
+		]]>
+	</statement>
+	
+	<!-- 세트등록(TAB2) 세트등록(을)를 수정한다. -->
+	<statement name="updateSclassGoodsList" type="update">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.updateSclassGoodsList */
+		<![CDATA[
+			UPDATE  FSF_SCLASS_GOODS_MASTER
+			   SET 
+			   	    GOODS_CLASS_CD  = :goodsClassCd
+			   	   ,DETAIL_GOODS_NM = :detailGoodsNm
+				   ,UNIT			= :unit
+				   ,EA				= :ea
+				   ,LAST_UPRICE		= :lastUprice
+				   ,USE_YN			= :useYn
+				   ,REMARK			= :remark
+				   ,UUSER			= :loginSabun
+				   ,UDATE			= SYSDATE
+			 WHERE  FUNERAL_HALL_CD = :funeralHallCd	/* 장례식장 코드 */
+			   AND  SET_CD			= :setCd			/* 세트코드 */
+			   AND  GOODS_CLASS_CD  = :goodsClassCd
+			   AND 	DETAIL_GOODS_CD = :detailGoodsCd	/* 세트상품상세코드 */
+		]]>
+	</statement>
+
+	<!-- 세트등록(TAB2) 세트등록(을)를 삭제한다. -->
+	<statement name="deleteSclassGoodsList" type="delete">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.deleteSclassGoodsList */
+		<![CDATA[
+			DELETE 
+			  FROM  FSF_SCLASS_GOODS_MASTER
+			 WHERE  FUNERAL_HALL_CD = :funeralHallCd	/* 장례식장 코드 */
+			   AND  SET_CD			= :setCd			/* 세트코드 */
+			   AND  GOODS_CLASS_CD  = :goodsClassCd
+			   AND 	DETAIL_GOODS_CD = :detailGoodsCd	/* 세트상품상세코드 */
+		]]>
+	</statement>
+	
+	<!-- @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ -->
+	<!-- @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ -->
+	<!-- @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ -->
+	<!-- @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ -->
+	<!-- @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ -->
+
+	<!-- 상품분류 코드목록을 조회한다. -->
+	<statement name="selectGoodsType" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectGoodsType */
+		<![CDATA[
+		  SELECT GOODS_CLASS_CD AS CODE
+		        ,GOODS_CLASS_NM AS CODE_NAME
+		    FROM FSF_MCLASS_GOODS_MASTER
+		   WHERE 1=1
+		ORDER BY SORT_ORDER
+		]]>
+	</statement>
+	
+	<!-- 장례식장별 상품분류 코드목록을 조회한다. -->
+	<statement name="selectFuneralGoodsType" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectFuneralGoodsType */
+		<![CDATA[
+		  SELECT GOODS_CLASS_CD AS CODE
+		        ,GOODS_CLASS_NM AS CODE_NAME
+		    FROM FSF_FUNERAL_GOODS
+		   WHERE FUNERAL_HALL_CD = :funeralHallCd
+		ORDER BY SORT_ORDER
+		]]>
+	</statement>
+	
+	<!-- 장례식장별 세트코드 조회한다. -->
+	<statement name="selectFuneralSaleGoodsInputList" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectFuneralSaleGoodsInputList */
+		<![CDATA[
+		   SELECT '0' CHK
+		         ,FUNERAL_HALL_CD	 /* 장례식장코드 */
+		  		 ,GOODS_CLASS_CD	 /* 상품군코드 */
+		  		 ,GOODS_CLASS_NM
+				 ,DETAIL_GOODS_CD    /* 상세상품코드 */
+				 ,DETAIL_GOODS_NM    /* 상세상품명 */
+				 ,UNIT				 /* 단위 */
+				 ,EA				 /* 개수 */
+				 ,LAST_UPRICE		 /* 최종단가금액 */
+				 ,USE_YN			 /* 사용여부(Y/N) */
+				 ,USE_STOP_DATE
+				 ,SORT_ORDER
+				 ,REMARK			 /* 비고사항 기술 */
+		    FROM FSF_FUNERAL_GOODS /* 장례식장별 판매될 상품의 군과 상세 상품을 관리하는 테이블 */
+		   WHERE FUNERAL_HALL_CD = :funeralHallCd
+		  <#if goodsClassCd?has_content>
+		     AND GOODS_CLASS_CD  = :goodsClassCd
+		  </#if>
+		  <#if detailGoodsNm?has_content>
+		     AND DETAIL_GOODS_NM LIKE '%'||:detailGoodsNm||'%'
+		  </#if>
+		ORDER BY GOODS_CLASS_CD, DETAIL_GOODS_CD
+		]]>
+	</statement>
+	
+	<!-- 판매상품군 정보관리 목록을 조회한다. -->
+	<statement name="selectFuneralSaleGoodsList" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectFuneralSaleGoodsList */
+		<![CDATA[
+			SELECT '0' CHK
+			      ,'' FUNERAL_HALL_CD
+			      ,A.GOODS_CLASS_CD		/* 상품군코드(공통코드 GOODS_TYPE) */
+				  ,A.GOODS_CLASS_NM		/* 상품군명 */
+			--	  ,A.USE_YN				/* 사용여부(Y/N) */
+			--	  ,A.REMARK				/* 비고사항 기술 */
+				  ,A.USE_STOP_DATE		/* 사용중지일자 */
+				  ,A.SORT_ORDER			/* 정렬순서 */
+			--	  ,B.GOODS_CLASS_CD		/* 상품군코드(공통코드 GOODS_TYPE) */
+				  ,B.DETAIL_GOODS_CD	/* 상세상품코드 */
+				  ,B.DETAIL_GOODS_NM	/* 상세상품명 */
+				  ,B.UNIT				/* 단위 */
+				  ,B.EA					/* 개수 */
+				  ,B.LAST_UPRICE		/* 최종 단가 */
+				  ,B.REMARK				/* 비고사항 기술 */
+				  ,B.USE_YN				/* 사용여부(Y/N) */
+			  FROM FSF_MCLASS_GOODS_MASTER A	/* 장례식장 판매상품군 관리 */
+				  ,FSF_SCLASS_GOODS_MASTER B	/* 판매 상품군의 상세상품 관리 테이블 */
+			 WHERE A.GOODS_CLASS_CD = B.GOODS_CLASS_CD
+			--   AND A.USE_YN = 'Y'
+			--   AND B.USE_YN = 'Y'
+			<#if goodsClassCd?has_content>
+			   AND A.GOODS_CLASS_CD  = :goodsClassCd
+			</#if>
+			<#if detailGoodsNm?has_content>
+			   AND B.DETAIL_GOODS_NM LIKE '%'||:detailGoodsNm||'%'
+			</#if>
+		  ORDER BY A.SORT_ORDER, B.DETAIL_GOODS_CD
+		]]>
+	</statement>
+	
+	<!-- 상품분류(명)으로 max code 조회한다. -->
+	<statement name="selectGoodsMClass" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectGoodsMClass */
+		<![CDATA[
+		  SELECT NVL(MAX(A.GOODS_CLASS_CD), '000')  MAX_CD
+		    FROM FSF_MCLASS_GOODS_MASTER A
+		   WHERE 1=1
+		   <#if goodsClassCd?has_content>
+	--	     AND A.GOODS_CLASS_CD = :goodsClassCd
+		   </#if>
+		   <#if goodsClassNm?has_content>
+		     AND A.GOODS_CLASS_NM = :goodsClassNm
+		   </#if>
+		]]>
+	</statement>
+	
+	<!-- 상품분류코드 Max+1 조회한다. -->
+	<statement name="selectGoodsMClassMax" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectGoodsMClassMax */
+		<![CDATA[
+		  SELECT DECODE(LENGTH(TO_NUMBER(MAX(GOODS_CLASS_CD))+1),1,'00'||(TO_NUMBER(MAX(GOODS_CLASS_CD))+1),
+		            2,'0'||(TO_NUMBER(MAX(GOODS_CLASS_CD))+1),3,(TO_NUMBER(MAX(GOODS_CLASS_CD))+1), '001') MAX_CD
+		    FROM FSF_MCLASS_GOODS_MASTER
+		]]>
+	</statement>
+	
+	<!-- 상품상세코드(명)으로 조회한다. -->
+	<statement name="selectGoodsSClass" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectGoodsSClass */
+		<![CDATA[
+		  SELECT MAX(DETAIL_GOODS_CD) MAX_CD
+		    FROM FSF_SCLASS_GOODS_MASTER
+		   WHERE 1=1
+		   <#if goodsClassCd?has_content>
+		     AND GOODS_CLASS_CD = :goodsClassCd
+		   </#if>
+		   <#if detailGoodsCd?has_content>
+		     AND DETAIL_GOODS_CD = :detailGoodsCd
+		   </#if>
+		   <#if detailGoodsNm?has_content>
+	--	     AND DETAIL_GOODS_NM = :detailGoodsNm
+		   </#if>
+		]]>
+	</statement>
+	
+	<!-- 상품상세코드 Max+1 조회한다. -->
+	<statement name="selectGoodsSClassMax" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectGoodsSClassMax */
+		<![CDATA[
+		  SELECT DECODE(LENGTH(TO_NUMBER(MAX(DETAIL_GOODS_CD))+1),1,'00'||(TO_NUMBER(MAX(DETAIL_GOODS_CD))+1),
+		            2,'0'||(TO_NUMBER(MAX(DETAIL_GOODS_CD))+1),3,(TO_NUMBER(MAX(DETAIL_GOODS_CD))+1), '001') MAX_CD
+		    FROM FSF_SCLASS_GOODS_MASTER
+		   WHERE 1=1
+		   <#if goodsClassCd?has_content>
+		     AND GOODS_CLASS_CD = :goodsClassCd
+		   </#if>
+		]]>
+	</statement>
+	
+	<!-- 장례식장별 상품분류코드(명)으로 조회한다. -->
+	<statement name="selectGoodsMInputClass" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectGoodsMInputClass */
+		<![CDATA[
+		  SELECT NVL(MAX(GOODS_CLASS_CD), '000')  MAX_CD
+		    FROM FSF_FUNERAL_GOODS
+		   WHERE FUNERAL_HALL_CD = :funeralHallCd
+		   <#if goodsClassNm?has_content>
+		     AND GOODS_CLASS_NM = :goodsClassNm
+		   </#if>
+		]]>
+	</statement>
+	
+	<!-- 장례식장별 상품상세코드(명) 으로 조회한다. -->
+	<statement name="selectGoodsSInputClass" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectGoodsSInputClass */
+		<![CDATA[
+		  SELECT NVL(MAX(DETAIL_GOODS_CD), '000')  MAX_DTL_CD
+		    FROM FSF_FUNERAL_GOODS
+		   WHERE FUNERAL_HALL_CD = :funeralHallCd
+		   <#if goodsClassNm?has_content>
+		     AND GOODS_CLASS_NM = :goodsClassNm
+		   </#if>
+		]]>
+	</statement>
+	
+	<!-- 장례식장별 Max+1 조회한다. -->
+	<statement name="selectGoodsMInputMax" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectGoodsMInputMax */
+		<![CDATA[
+		  SELECT DECODE(LENGTH(TO_NUMBER(MAX(GOODS_CLASS_CD))+1),1,'00'||(TO_NUMBER(MAX(GOODS_CLASS_CD))+1),
+            	 2,'0'||(TO_NUMBER(MAX(GOODS_CLASS_CD))+1),3,(TO_NUMBER(MAX(GOODS_CLASS_CD))+1), '001') MAX_CD
+          	FROM FSF_FUNERAL_GOODS
+		   WHERE FUNERAL_HALL_CD = :funeralHallCd
+		]]>
+	</statement>
+	
+	<!-- 장례식장별 상품분류 Max+1 조회한다. -->
+	<statement name="selectGoodsMInputClassMax" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectGoodsMInputClassMax */
+		<![CDATA[
+		  SELECT DECODE(LENGTH(TO_NUMBER(MAX(GOODS_CLASS_CD))+1),1,'00'||(TO_NUMBER(MAX(GOODS_CLASS_CD))+1),
+            	 2,'0'||(TO_NUMBER(MAX(GOODS_CLASS_CD))+1),3,(TO_NUMBER(MAX(GOODS_CLASS_CD))+1), '001') MAX_CD
+          	FROM FSF_FUNERAL_GOODS
+		   WHERE FUNERAL_HALL_CD = :funeralHallCd
+		   <#if goodsClassNm?has_content>
+		     AND GOODS_CLASS_NM = :goodsClassNm
+		   </#if>
+		]]>
+	</statement>
+	
+	<!-- 장례식장별 상품상세코드 Max+1 조회한다. -->
+	<statement name="selectGoodsSInputClassMax" type="select">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.selectGoodsSInputClassMax */
+		<![CDATA[
+		  SELECT DECODE(LENGTH(TO_NUMBER(MAX(DETAIL_GOODS_CD))+1),1,'00'||(TO_NUMBER(MAX(DETAIL_GOODS_CD))+1),
+		            2,'0'||(TO_NUMBER(MAX(DETAIL_GOODS_CD))+1),3,(TO_NUMBER(MAX(DETAIL_GOODS_CD))+1), '001') MAX_DTL_CD
+		    FROM FSF_FUNERAL_GOODS
+		   WHERE FUNERAL_HALL_CD = :funeralHallCd
+		   <#if goodsClassCd?has_content>
+		     AND GOODS_CLASS_CD = :goodsClassCd
+		   </#if>
+		]]>
+	</statement>
+
+	<!-- 판매상품군 정보관리(을)를 등록한다. -->
+	<statement name="insertMclassGoodsMaster" type="insert">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.insertMclassGoodsMaster */
+		<![CDATA[
+			INSERT INTO FSF_MCLASS_GOODS_MASTER
+			(
+				GOODS_CLASS_CD		/* 상품군코드(공통코드 GOODS_TYPE) */
+			   ,GOODS_CLASS_NM		/* 상품군명 */
+			   ,USE_YN				/* 사용여부(Y/N) */
+			   ,REMARK				/* 비고사항 기술 */
+			   ,USE_STOP_DATE		/* 사용중지일자 */
+			   ,SORT_ORDER			/* 정렬순서 */
+			   ,CUSER				/* 생성자 사번 */
+			   ,CDATE				/* 생성일시 */
+			)
+			VALUES
+			(
+				:goodsClassCd
+			   ,<#if goodsClassNm?has_content> :goodsClassNm <#else> null </#if>
+			   ,<#if useYn?has_content> :useYn <#else> null </#if>
+			   ,<#if remark?has_content> :remark <#else> null </#if>
+			   ,<#if useStopDate?has_content> :useStopDate <#else> null </#if>
+			   ,<#if sortOrder?has_content> :sortOrder <#else> null </#if>
+			   ,:loginSabun /* 생성자 사번 */
+			   ,SYSDATE /* 생성일시 */
+			)
+		]]>
+	</statement>
+	
+	<!-- 판매상품군 정보관리(을)를 수정한다. -->
+	<statement name="updateMclassGoodsMaster" type="update">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.updateMclassGoodsMaster */
+		<![CDATA[
+			UPDATE FSF_MCLASS_GOODS_MASTER
+			   SET GOODS_CLASS_NM	= :goodsClassNm /* 상품군명 */
+				  ,USE_YN			= :useYn		/* 사용여부(Y/N) */
+				  ,REMARK			= :remark		/* 비고사항 기술 */
+				  ,USE_STOP_DATE	= :useStopDate	/* 사용중지일자 */
+				  ,SORT_ORDER		= :sortOrder	/* 정렬순서 */
+				  ,UUSER		 =	:loginSabun		/* 수정자 사번 */
+				  ,UDATE		 =	SYSDATE			/* 수정일시 */
+			 WHERE GOODS_CLASS_CD = :goodsClassCd
+		]]>
+	</statement>
+
+	<!-- 판매상품군 정보관리(을)를 삭제한다. -->
+	<statement name="deleteMclassGoodsMaster" type="delete">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.deleteMclassGoodsMaster */
+		<![CDATA[
+			DELETE 
+			  FROM FSF_MCLASS_GOODS_MASTER
+			 WHERE GOODS_CLASS_CD = :goodsClassCd
+		]]>
+	</statement>
+	
+	<!-- 판매상품 상세 정보관리(을)를 등록한다. -->
+	<statement name="insertSclassGoodsMaster" type="insert">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.insertSclassGoodsMaster */
+		<![CDATA[
+			INSERT INTO FSF_SCLASS_GOODS_MASTER
+			(
+				 GOODS_CLASS_CD		/* 상품군코드(공통코드 GOODS_TYPE) */
+				,DETAIL_GOODS_CD	/* 상세상품코드 */
+				,DETAIL_GOODS_NM	/* 상세상품명 */
+				,UNIT				/* 단위 */
+				,EA					/* 개수 */
+				,LAST_UPRICE		/* 최종 단가 */
+				,REMARK				/* 비고사항 기술 */
+				,USE_YN				/* 사용여부(Y/N) */
+				,CUSER				/* 생성자 사번 */
+			    ,CDATE				/* 생성일시 */
+			)
+			VALUES
+			(
+				 :goodsClassCd		/* 상품군코드(공통코드 goods_type) */
+				,:detailGoodsCd	/* 상세상품코드 */
+				,<#if detailGoodsNm?has_content> :detailGoodsNm <#else> null </#if>	/* 상세상품명 */
+				,<#if unit?has_content> :unit <#else> null </#if>				/* 단위 */
+				,<#if ea?has_content> :ea <#else> null </#if>					/* 개수 */
+				,<#if lastUprice?has_content> :lastUprice <#else> null </#if>	/* 최종 단가 */
+				,<#if remark?has_content> :remark <#else> null </#if>			/* 비고사항 기술 */
+				,<#if useYn?has_content> :useYn <#else> null </#if>			/* 사용여부(y/n) */
+				,:loginSabun /* 생성자 사번 */
+			    ,SYSDATE /* 생성일시 */
+			)
+		]]>
+	</statement>
+	
+	<!-- 판매상품 상세 정보관리(을)를 수정한다. -->
+	<statement name="updateSclassGoodsMaster" type="update">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.updateSclassGoodsMaster */
+		<![CDATA[
+			UPDATE FSF_SCLASS_GOODS_MASTER
+			   SET DETAIL_GOODS_NM  = :detailGoodsNm	/* 상세상품명 */
+				  ,UNIT			    = :unit				/* 단위 */
+				  ,EA				= :ea				/* 개수 */
+				  ,LAST_UPRICE		= :lastUprice		/* 최종 단가 */
+				  ,REMARK			= :remark			/* 비고사항 기술 */
+				  ,USE_YN			= :useYn			/* 사용여부(Y/N) */
+				  ,UUSER		 =	:loginSabun		/* 수정자 사번 */
+				  ,UDATE		 =	SYSDATE			/* 수정일시 */
+			 WHERE GOODS_CLASS_CD  = :goodsClassCd
+			   AND DETAIL_GOODS_CD = :detailGoodsCd
+						
+		]]>
+	</statement>
+
+	<!-- 판매상품 상세 정보관리(을)를 삭제한다. -->
+	<statement name="deleteSclassGoodsMaster" type="delete">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.deleteSclassGoodsMaster */
+		<![CDATA[
+			DELETE 
+		  FROM FSF_SCLASS_GOODS_MASTER
+		 WHERE GOODS_CLASS_CD  = :goodsClassCd
+		   AND DETAIL_GOODS_CD = :detailGoodsCd
+		]]>
+	</statement>
+	
+	<!-- 장례식장 관계자일경우 생성된 세트코드(을)를 등록한다. -->
+	<statement name="insertFuneralSaleGoodsInput" type="insert">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.insertFuneralSaleGoodsInput */
+		<![CDATA[
+			INSERT INTO FSF_FUNERAL_GOODS
+			(
+				 FUNERAL_HALL_CD	/* 장례식장코드 */
+				,GOODS_CLASS_CD		/* 상품군코드 */
+				,GOODS_CLASS_NM
+				,DETAIL_GOODS_CD    /* 상세상품코드 */
+				,DETAIL_GOODS_NM    /* 상세상품명 */
+				,UNIT				/* 단위 */
+				,EA					/* 개수 */
+				,LAST_UPRICE		/* 최종단가금액 */
+				,USE_YN				/* 사용여부(Y/N) */
+				,REMARK				/* 비고사항 기술 */
+				,CUSER				/* 생성자 사번 */
+				,CDATE				/* 생성일시 */
+			)
+			VALUES
+			(
+				 :funeralHallCd	/* 장례식장코드 */
+				,:goodsClassCd		/* 상품군코드 */
+				,<#if goodsClassNm?has_content> :goodsClassNm <#else> null </#if>
+				,:detailGoodsCd    /* 상세상품코드 */
+				,<#if detailGoodsNm?has_content> :detailGoodsNm <#else> null </#if>
+				,<#if unit?has_content> :unit <#else> null </#if>				
+				,<#if ea?has_content> :ea <#else> null </#if>
+				,<#if lastUprice?has_content> :lastUprice <#else> null </#if>
+				,<#if useYn?has_content> :useYn <#else> null </#if>
+				,<#if remark?has_content> :remark <#else> null </#if>
+				,:loginSabun /* 생성자 사번 */
+				,SYSDATE /* 생성일시 */
+			)
+		]]>
+	</statement>
+	
+	<!-- 판매상품 상세 정보관리(을)를 수정한다. -->
+	<statement name="updateFuneralSaleGoodsInput" type="update">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.updateFuneralSaleGoodsInput */
+		<![CDATA[
+			UPDATE FSF_FUNERAL_GOODS
+			   SET GOODS_CLASS_NM  = :goodsClassNm
+			      ,DETAIL_GOODS_NM = :detailGoodsNm
+				  ,UNIT			   = :unit		 /* 단위 */
+				  ,EA			   = :ea		 /* 개수 */
+				  ,LAST_UPRICE	   = :lastUprice /* 최종단가금액 */
+				  ,USE_YN		   = :useYn		 /* 사용여부(Y/N) */
+				  ,REMARK		   = :remark	 /* 비고사항 기술 */
+				  ,UUSER		   = :loginSabun	/* 수정자 사번 */
+				  ,UDATE		   = SYSDATE		/* 수정일시 */
+			 WHERE FUNERAL_HALL_CD = :funeralHallCd
+			   AND GOODS_CLASS_CD  = :goodsClassCd
+			   AND DETAIL_GOODS_CD = :detailGoodsCd
+		]]>
+	</statement>
+
+	<!-- 판매상품 상세 정보관리(을)를 삭제한다. -->
+	<statement name="deleteFuneralSaleGoodsInput" type="delete">
+		/*+ com.hwfs.fs.fsf.dao.FuneralSaleGoodsInfoMgntDAO.deleteFuneralSaleGoodsInput */
+		<![CDATA[
+			DELETE 
+			  FROM FSF_FUNERAL_GOODS
+			 WHERE FUNERAL_HALL_CD = :funeralHallCd
+			   AND GOODS_CLASS_CD  = :goodsClassCd
+			   AND DETAIL_GOODS_CD = :detailGoodsCd
+		]]>
+	</statement>
+</hqml>

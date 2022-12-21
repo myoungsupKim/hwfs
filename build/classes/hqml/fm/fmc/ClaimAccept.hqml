@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fm.fmc.claimAcceptDAO">
+	<desc>클레임접수 HQML Query</desc>
+	
+	<!-- 클레임접수 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.fm.fmc.ClaimAcceptDAO.selectList */
+		<![CDATA[
+		SELECT 0 AS CHECKED			/*체크박스*/
+			  ,A.PO_ID          /*주문번호*/
+			  ,A.PO_NUM          /*주문번호 항번*/
+			  ,A.CLAIM_NUM       /*클레임번호*/
+		      ,A.SUBINV_CODE    /*창고코드*/
+		      ,E.SUBINV_NAME	/*창고명*/
+		      ,A.UPJANG			/*사업장*/
+		      ,(SELECT UPJANGNM FROM ST_UPJANG C WHERE C.UPJANG = A.UPJANG) AS UPJANGNM	/*사업장명*/ 
+		      --,B.CLASS_NAME		/*분류명*/
+		      ,A.ITEM_CODE      /*자재코드*/
+		      ,A.ITEM_NAME      /*자재명*/
+		      ,A.ITEM_SIZE      /*자재규격*/
+		      ,A.PO_UOM         /*단위*/
+		      ,A.PO_QTY         /*발주량*/
+		      ,A.REQ_QTY        /*요청량*/
+		      ,A.CUSTCD         /*납품업체*/
+		      ,D.VD_NM			/*납품업체명*/
+              ,(SELECT REP_NM FROM VO_FC_VENDOR_CHR WHERE VD_SN = D.VD_SN AND ROWNUM =1) AS PER_NM	/*담당자*/
+              ,(SELECT SCC_CRYPTO.MASKAUTH_FUN(CHR_PHONE_NO,9,:g_PersInfoMask, :p_MaskAuth) FROM VO_FC_VENDOR_CHR WHERE VD_SN = D.VD_SN AND ROWNUM =1) AS CHR_PHONE_NO /*연락처*/
+		      ,A.REQ_DATE		/*입고요청일자*/
+		      ,NVL(TO_CHAR(A.ACP_DATE,'HH24:MI'),'') AS ACP_DATE   /*접수시간*/
+		      ,A.REQ_TIME       /*입고요청시간*/
+		      ,A.REQ_KIND       /*요청사항*/
+		      ,A.CT_CLAIM_KIND  /*클레임유형*/
+		      ,A.CLAIM_MEMO     /*클레임상세내역*/
+		      ,A.PART_TM_CD  	/*담당 팀*/
+		      ,(SELECT DISTINCT(TM_NM) FROM HLDC_SC_TM C WHERE C.TM_CD = A.PART_TM_CD) AS PART_TM_NM	/*담당 팀명*/ 
+		      ,A.MNG_SABUN  	/*처리자*/
+		      ,(SELECT NM_KOR FROM HR_PERSONAL C WHERE C.SABUN = A.MNG_SABUN) AS NM_KOR	/*처리자명*/
+		      ,A.LINK_DEPT   	/*책임소재*/
+		      ,DECODE(SUBSTR(A.SUBINV_CODE,1,2),'S1',(SELECT REPLACE(Z.CC_NM,'식재') FROM HLDC_SC_DEPT_V Z WHERE Z.CC_CD = E.CC_CD),'직영') AS GUBUN		/*구분*/
+		      ,A.PRCS_STATUS	/*처리상태*/
+		      ,A.NEED_DATE      /*입고일자*/
+		      --,A.NEED_DATE_EDIT /*입고변경일자*/
+		      
+		      ,NVL((SELECT CLS_FLAG FROM HLDC_PO_CLOSING C WHERE CLS_YM >= TRIM(SUBSTR(A.NEED_DATE,0,6)) AND SUBINV_CODE = A.SUBINV_CODE AND C.CLS_FLAG = 'Y' AND ROWNUM =1),'N') AS CLS_FLAG
+		      ,A.CENTER_GUBUN
+		      ,NVL((SELECT 'Y' FROM MAS_TICKET_MST T WHERE T.UPJANG = A.UPJANG AND T.ITEM_CODE = A.ITEM_CODE GROUP BY UPJANG,ITEM_CODE),'N') TICKET_YN   /*	식권 여부	*/
+		FROM  PO_CLAIM_LIST A
+		     ,(SELECT SUBSTR(CLASS_CODE,1,3) AS CLASS_CODE, CLASS_NAME
+		       FROM HLDC_PO_ITEM_CLASS_HLDC_V
+		       WHERE CLASS_TYPE = 'M'
+		      -- AND SUBSTR(CLASS_CODE,1,1) = 'F' 
+		      ) B
+		     ,VO_SUBINVENTORY E
+		     ,VO_FC_VENDOR D
+		WHERE SUBSTR(A.ITEM_CODE,1,3) = B.CLASS_CODE
+		AND   A.SUBINV_CODE = E.SUBINV_CODE
+		<#if schCenterCode != "*" > AND   A.CENTER_CODE = :schCenterCode       </#if>
+		AND   A.NEED_DATE BETWEEN :schFromDate AND :schToDate
+		<#if schPrcsStatus?has_content> 
+		AND   A.PRCS_STATUS = :schPrcsStatus
+		<#else>
+		AND   A.PRCS_STATUS IN('01','05','10')
+		</#if>
+		<#if schUpjang?has_content> AND   A.UPJANG        	= :schUpjang       </#if> 
+		<#if schCustCd?has_content> AND   A.CUSTCD        	= :schCustCd       </#if> 
+		<#if schDlvYDate?has_content> AND   A.REQ_DATE      	= :schDlvYDate     </#if> 
+		<#if schCtClaimKind?has_content> AND   A.CT_CLAIM_KIND = :schCtClaimKind  </#if> 
+		<#if schReqKind?has_content> AND   A.REQ_KIND      	= :schReqKind      </#if>
+		<#if schGubun?has_content>
+			<#if schGubun=='Y'>
+		AND DECODE(SUBSTR(A.SUBINV_CODE,1,2),'S1',(SELECT REPLACE(Z.CC_NM,'식재') FROM HLDC_SC_DEPT_V Z WHERE Z.CC_CD = E.CC_CD),'직영') = '직영'
+			<#else>
+		AND DECODE(SUBSTR(A.SUBINV_CODE,1,2),'S1',(SELECT REPLACE(Z.CC_NM,'식재') FROM HLDC_SC_DEPT_V Z WHERE Z.CC_CD = E.CC_CD),'직영') <> '직영'	
+			</#if>
+		</#if>
+		<#if schViaCenter?has_content>
+			AND CENTER_GUBUN = (DECODE(:schViaCenter,'Y','DC','TC'))
+		</#if>
+		AND   A.CUSTCD = D.VD_CD(+)
+		AND   A.REQ_KIND <> 'C0206' 
+        AND   A.CT_CLAIM_KIND <> 'C0519'
+        AND   A.CT_CLAIM_KIND <> 'C0595'
+        AND   A.CT_CLAIM_KIND <> 'C05039'
+		ORDER BY A.PO_ID DESC
+		]]>
+	</statement>
+
+	
+	<!-- 클레임접수(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.fm.fmc.ClaimAcceptDAO.update */
+		<![CDATA[
+		UPDATE PO_CLAIM_LIST SET
+		<#if custcd?has_content> CUSTCD = :custcd </#if>
+	    <#if reqQty?has_content> ,REQ_QTY = :reqQty  </#if>                              
+	    <#if reqDate?has_content> ,REQ_DATE = :reqDate </#if>             
+	    <#if reqTime?has_content> ,REQ_TIME = :reqTime </#if>             
+	    <#if reqKind?has_content> ,REQ_KIND = :reqKind </#if>             
+	    <#if ctClaimKind?has_content> ,CT_CLAIM_KIND = :ctClaimKind	 </#if>  
+	    <#if partTmCd?has_content> ,PART_TM_CD = :partTmCd </#if>
+	    <#if mngSabun?has_content> ,MNG_SABUN = :mngSabun </#if>          
+	    <#if linkDept?has_content> ,LINK_DEPT = :linkDept </#if>         
+	    <#if claimMemo?has_content> ,CLAIM_MEMO = :claimMemo  </#if>               
+	    <#if newprcsStatus?has_content> ,PRCS_STATUS = :newprcsStatus </#if>
+	    <#if newprcsStatus == '05'> ,CONFIRM_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD') </#if>
+	    <#if newprcsStatus == '05'> ,ACP_DATE = SYSDATE </#if>
+	    ,UPDATE_BY = :loginSabun
+		,UPDATE_DATE = SYSDATE 
+		WHERE  PO_ID = :poId	
+		  AND  PO_NUM = :poNum
+		  AND  CLAIM_NUM = :claimNum
+		]]>
+	</statement>
+
+	<!-- CS사원 유무 확인. -->
+	<statement name="checkCS" type="select">
+		/*+ com.hwfs.fm.fmc.ClaimAcceptDAO.checkCS */
+		<![CDATA[
+			SELECT A.NM_KOR, A.SABUN FROM SCC_USERINFO A,FMS_UPJANG B
+			WHERE A.SABUN = B.CS_SABUN
+			AND B.CS_SABUN = :g_EmpNo
+		]]>
+	</statement>
+	
+	<!-- 식권 클레임 가능 여부를 확인한다.-->
+	<statement name="ticketFlag" type="select">
+		/*+ com.hwfs.fm.fmc.dao.ClaimAcceptDAO.ticketFlag */
+		<![CDATA[
+			SELECT FMS_CLAIM_CHK_FUN(UPJANG,ITEM_CODE) FROM PO_CLAIM_LIST
+			WHERE PO_ID = :poId
+			AND PO_NUM = :poNum
+			AND CLAIM_NUM = :claimNum
+		]]>
+    </statement>
+
+</hqml>

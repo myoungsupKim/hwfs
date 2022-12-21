@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.scp.persDstryHistDAO">
+	<desc>개인정보 파기이력 HQML Query</desc>
+
+	<!-- 개인정보 파기이력 목록을 조회한다. 업무별 파기이력도 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sc.scp.dao.PersDstryHistDAO.selectList */
+		<![CDATA[
+	<#if !dstryModClass?has_content || dstryModClass == 'CONN' >
+		--공통 파기이력
+		SELECT TO_CHAR (O.DSTRY_SCHD_DATE, 'yyyy-mm-dd') AS DSTRY_SCHD_DATE,
+		       O.SABUN AS DSTRY_SABUN,
+		       A.USERID AS DSTRY_USERID,
+		       TO_CHAR (O.DSTRY_NOTI_DATE, 'yyyy-mm-dd HH24:MI') AS DSTRY_NOTI_DATE,
+		       TO_CHAR (O.CONTN_USE_EXPRS_DATE, 'yyyy-mm-dd HH24:MI') AS CONTN_USE_EXPRS_DATE,
+		       O.DSTRY_STATUS,
+		       O.DSTRY_CLASS,
+		       CASE WHEN O.APPROV_USER IS NULL THEN ''
+			        ELSE SCC_CRYPTO.MASK_FUN ((SELECT NM_KOR FROM SCC_USERINFO WHERE SABUN = O.APPROV_USER),12,:loginPersMask)
+			   END  AS APPROV_USER_NM,
+		       TO_CHAR (O.DSTRY_DATE, 'yyyy-mm-dd HH24:MI') AS DSTRY_DATE,
+		       SCC_CRYPTO.MASK_FUN (A.NM_KOR,12,:loginPersMask) AS DSTRY_USER_NM,
+			   A.USER_TYPE AS USER_TYPE,
+			   Y.CC_NM AS DSTRY_USER_CC_NM,
+			   O.DSTRY_MOD_CLASS
+		FROM   SCC_PERS_INFO_DSTRY_LOG O,
+			   SCC_USERINFO A,
+			   ST_UPJANG X,
+			   HLDC_SC_DEPT_V Y
+		WHERE  1=1
+		AND    O.DSTRY_SCHD_DATE >= TO_DATE(:fromDate,'yyyy-mm-dd')
+		AND    O.DSTRY_SCHD_DATE <  TO_DATE(:toDate, 'yyyy-mm-dd') + 1
+		AND    O.SABUN  = A.SABUN
+		AND    X.UPJANG = A.UPJANG
+		AND    Y.CC_CD  = X.CC_CD
+		<#if dstryStatus?has_content>
+		AND    O.DSTRY_STATUS = :dstryStatus
+		</#if>
+		<#if dstryClass?has_content>
+		AND    O.DSTRY_CLASS = :dstryClass
+		</#if>
+		<#if userType?has_content>
+		AND    A.USER_TYPE = :userType
+		</#if>
+		<#if ccCd?has_content>
+		AND    Y.CC_CD = :ccCd
+		</#if>
+		<#if approvUser?has_content>
+		AND    O.APPROV_USER = :approvUser
+		</#if>
+		<#if dstryModClass?has_content>
+		AND    O.DSTRY_MOD_CLASS = :dstryModClass
+		<#else>
+		AND    O.DSTRY_MOD_CLASS = 'CONN'
+		</#if>
+	</#if>
+	<#if (!dstryModClass?has_content || dstryModClass != 'CONN') && !userType?has_content && !ccCd?has_content && !approvUser?has_content>
+		--업무별 파기이력
+		<#if !dstryModClass?has_content >
+		UNION ALL
+		</#if>
+		SELECT TO_CHAR (O.DSTRY_SCHD_DATE, 'yyyy-mm-dd') AS DSTRY_SCHD_DATE,
+		       O.SABUN AS DSTRY_SABUN,
+		       O.SABUN AS DSTRY_USERID,
+		       TO_CHAR (O.DSTRY_NOTI_DATE, 'yyyy-mm-dd HH24:MI') AS DSTRY_NOTI_DATE,
+		       TO_CHAR (O.CONTN_USE_EXPRS_DATE, 'yyyy-mm-dd HH24:MI') AS CONTN_USE_EXPRS_DATE,
+		       O.DSTRY_STATUS,
+		       O.DSTRY_CLASS,
+		       CASE WHEN O.APPROV_USER IS NULL THEN ''
+		          ELSE SCC_CRYPTO.MASK_FUN ((SELECT NM_KOR FROM SCC_USERINFO WHERE SABUN = O.APPROV_USER),12,:loginPersMask)
+		       END  AS APPROV_USER_NM,
+		       TO_CHAR (O.DSTRY_DATE, 'yyyy-mm-dd HH24:MI') AS DSTRY_DATE,
+		       SCC_CRYPTO.MASK_FUN (O.DSTRY_OBJ_NAME,12,:loginPersMask) AS DSTRY_USER_NM,
+		       '' AS USER_TYPE,
+		       '' AS DSTRY_USER_CC_NM,
+		       O.DSTRY_MOD_CLASS
+		FROM   SCC_PERS_INFO_DSTRY_LOG O
+		WHERE  1=1
+		AND    O.DSTRY_SCHD_DATE >= TO_DATE(:fromDate,'yyyy-mm-dd')
+		AND    O.DSTRY_SCHD_DATE <  TO_DATE(:toDate, 'yyyy-mm-dd') + 1
+		<#if dstryStatus?has_content>
+		AND    O.DSTRY_STATUS = :dstryStatus
+		</#if>
+		<#if dstryClass?has_content>
+		AND    O.DSTRY_CLASS = :dstryClass
+		</#if>
+		<#if dstryModClass?has_content>
+		AND    O.DSTRY_MOD_CLASS = :dstryModClass
+		<#else>
+		AND    O.DSTRY_MOD_CLASS <> 'CONN'
+		</#if>
+	</#if>
+		ORDER BY DSTRY_SCHD_DATE ASC
+		]]>
+	</statement>
+
+	<!-- 개인정보 파기이력(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sc.scp.dao.PersDstryHistDAO.insert */
+		<![CDATA[
+		INSERT INTO SCC_PERS_INFO_DSTRY_LOG
+		(
+		 DSTRY_SCHD_DATE,
+		 SABUN,
+		 DSTRY_NOTI_DATE,
+		 CONTN_USE_EXPRS_DATE,
+		 DSTRY_STATUS,
+		 DSTRY_CLASS,
+		 APPROV_USER,
+		 DSTRY_DATE,
+		 CUSER,
+		 CDATE
+		) VALUES (
+		 :dstrySchdDate,
+		 :sabun,
+		<#if dstryNotiDate?exists> TO_DATE(:dstryNotiDate, 'yyyy-mm-dd HH24:MI:SS'), <#else> null, </#if>
+		<#if contnUseExprsDate?exists> TO_DATE(:contnUseExprsDate, 'yyyy-mm-dd HH24:MI:SS'), <#else> null, </#if>
+		<#if dstryStatus?exists> :dstryStatus, <#else> null, </#if>
+		<#if dstryClass?exists> :dstryClass, <#else> null, </#if>
+		<#if approvUser?exists> :approvUser, <#else> null, </#if>
+		<#if dstryDate?exists> TO_DATE(:dstryDate, 'yyyy-mm-dd HH24:MI:SS'), <#else> null, </#if>
+		<#if loginSabun?exists> :loginSabun, <#else> null, </#if>
+		 SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 개인정보 파기이력(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sc.scp.dao.PersDstryHistDAO.update */
+		<![CDATA[
+		UPDATE SCC_PERS_INFO_DSTRY_LOG SET
+		<#if dstryNotiDate?exists> DSTRY_NOTI_DATE = TO_DATE(:dstryNotiDate, 'yyyy-mm-dd HH24:MI:SS'), </#if>
+		<#if contnUseExprsDate?exists> CONTN_USE_EXPRS_DATE = TO_DATE(:contnUseExprsDate, 'yyyy-mm-dd HH24:MI:SS'), </#if>
+		<#if dstryStatus?exists> DSTRY_STATUS = :dstryStatus, </#if>
+		<#if dstryClass?exists> DSTRY_CLASS = :dstryClass, </#if>
+		<#if approvUser?exists> APPROV_USER = :approvUser, </#if>
+		<#if dstryDate?exists> DSTRY_DATE = TO_DATE(:dstryDate, 'yyyy-mm-dd HH24:MI:SS'), </#if>
+		<#if loginSabun?exists> UUSER = :loginSabun, <#else> null, </#if>
+		       UDATE = SYSDATE
+		WHERE  DSTRY_SCHD_DATE = TO_DATE(:dstrySchdDate, 'yyyy-mm-dd')
+		AND    SABUN = :sabun
+		]]>
+	</statement>
+
+	<!-- 개인정보 파기이력(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.sc.scp.dao.PersDstryHistDAO.delete */
+		<![CDATA[
+		DELETE
+		FROM   SCC_PERS_INFO_DSTRY_LOG
+		WHERE  DSTRY_SCHD_DATE = TO_DATE(:dstrySchdDate, 'yyyy-mm-dd')
+		AND    SABUN = :sabun
+		]]>
+	</statement>
+
+	<!-- 사용자 지속이용 표명으로 인한 개인정보 파기통보 건을 취소처리한다. -->
+	<statement name="cancelDstryNoti" type="update">
+		/*+ com.hwfs.sc.scp.dao.PersDstryHistDAO.cancelDstryNoti */
+		<![CDATA[
+		UPDATE SCC_PERS_INFO_DSTRY_LOG 
+		SET
+			CONTN_USE_EXPRS_DATE = SYSDATE,
+			DSTRY_STATUS = 'CANCEL',
+			UUSER = :sabun,
+		    UDATE = SYSDATE
+		WHERE  DSTRY_SCHD_DATE >= SYSDATE
+		AND    SABUN = :sabun
+		AND    DSTRY_STATUS = 'PLANNED'
+		]]>
+	</statement>
+
+</hqml>

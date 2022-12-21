@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+		http://www.springframework.org/schema/batch http://www.springframework.org/schema/batch/spring-batch-2.1.xsd">
+
+	<import resource="../abstractBase/batchBase.xml" />
+	<!--*****************************************************************************
+			Job에 대한 상세한 설명을 여기에 표현한다. (주요 처리 내용)
+		*****************************************************************************-->
+
+	<job id="jdbcToJdbcJob" parent="batchBaseJob"
+		xmlns="http://www.springframework.org/schema/batch">
+		<description>JDBC Sql로 DB에서 데이터를 읽어 처리 후 DB에 저장한다.</description>
+		<step id="jdbcToJdbcStep" parent="batchBaseStep">
+			<tasklet>
+				<chunk reader="jdbcToJdbcJob.jdbcToJdbcStep.jdbcItemReader"
+					processor="jdbcToJdbcJob.jdbcToJdbcStep.itemProcessor" writer="jdbcToJdbcJob.jdbcToJdbcStep.ibatisItemWriter"
+					commit-interval="10" />
+			</tasklet>
+		</step>
+	</job>
+
+	<!-- JDBC Cursor 기반 ItemReader -->
+	<bean id="jdbcToJdbcJob.jdbcToJdbcStep.jdbcItemReader"
+		class="org.springframework.batch.item.database.JdbcCursorItemReader" scope="step">
+		<property name="dataSource" ref="batchDataSource" />
+		<property name="sql" value="select ID, NAME, CREDIT from GUIDE_CUSTOMER where ID&lt;10 ORDER BY ID" />
+		<property name="verifyCursorPosition" value="true" />
+		<property name="rowMapper">
+			<bean
+				class="com.hwfs.batch.guide.sample.CustomerCreditRowMapper" />
+		</property>
+	</bean>
+
+	<bean id="jdbcToJdbcJob.jdbcToJdbcStep.ibatisItemWriter"
+		class="org.springframework.batch.item.database.JdbcBatchItemWriter">
+		<property name="assertUpdates" value="true" />
+		<property name="itemSqlParameterSourceProvider">
+			<bean class="org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider" />
+		</property>
+		<property name="sql" value="UPDATE GUIDE_CUSTOMER SET CREDIT = :credit WHERE ID = :id" />
+		<property name="dataSource" ref="batchDataSource" />
+	</bean>
+
+	<bean id="jdbcToJdbcJob.jdbcToJdbcStep.itemProcessor"
+		class="com.hwfs.batch.guide.sample.CustomerCreditProcessor" />
+</beans>

@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.cmn.gwIfDAO">
+	<desc>그룹웨어 연동 HQML Query</desc>
+
+	<!-- 그룹웨어 연동에서 미처리된 전자결재진행상태 목록을 조회한다. : 통합영업/전사구매 모두 처리 -->
+	<statement name="selectUntreatedList" type="select">
+		/*+ com.hwfs.sc.cmn.dao.GwIfDAO.selectUntreatedList */
+		<![CDATA[
+		SELECT  TASK_ID,
+				TO_CHAR(REG_DATE, 'YYYY-MM-DD HH24:MI:SS') AS REG_DATE,
+				INSTANCE_ID AS SIGN_INSTANCE_ID, 
+				SERVICE_NAME,
+				CLIENT_ID,
+				CLIENT,
+				COMPANY_WORK_ID,
+				EVT_TYPE AS SIGN_PROGRESS_STATUS, 
+				EVT_DATE AS DRAFT_DATE, 
+				APPROVER AS DRAFT_USER,
+				EVT_DATE AS APPROV_DATE, 
+				APPROVER AS APPROV_USER,
+				CONTENTS AS SIGN_REMARK
+		FROM    SIGN_IF.TB_EVT_INFO
+		WHERE   SUCCESS_YN = 'N'
+		--AND     COMPANY_WORK_ID = 'HWFS'
+		ORDER BY REG_DATE ASC, EVT_DATE ASC, TASK_ID ASC 
+		]]>
+	</statement>
+
+	<!-- 그룹웨어 연동에서 처리정보를 수정한다. -->
+	<statement name="updateTreated" type="update">
+		/*+ com.hwfs.sc.cmn.dao.GwIfDAO.updateTreated */
+		<![CDATA[
+		UPDATE SIGN_IF.TB_EVT_INFO 
+		SET    SUCCESS_YN = 'Y',
+		       SUCCESS_END_DATE = SYSDATE
+		WHERE  TASK_ID = :taskId
+		AND    REG_DATE = TO_DATE(:regDate, 'YYYY-MM-DD HH24:MI:SS')
+		]]>
+	</statement>
+
+
+	<!-- 전자결재정보를 Insert or Update한다. -->
+	<statement name="saveSignInfo" type="update">
+		/*+ com.hwfs.sc.cmn.dao.GwIfDAO.saveSignInfo */
+		<![CDATA[
+		MERGE INTO SCC_SIGN_INFO A
+        USING DUAL
+        ON    (A.SIGN_INSTANCE_ID = :signInstanceId)
+        WHEN  MATCHED THEN
+              UPDATE 
+              SET   
+				<#if serviceName?has_content >
+              		SERVICE_NAME = :serviceName,
+              	</#if>
+				<#if clientId?has_content >
+              		CLIENT_ID = :clientId,
+              	</#if>
+				<#if client?has_content >
+              		CLIENT = :client,
+              	</#if>
+				<#if companyWorkId?has_content >
+              		COMPANY_WORK_ID = :companyWorkId,
+              	</#if>
+              		SIGN_PROGRESS_STATUS = :signProgressStatus,
+              	<#if signProgressStatus == 'DRAFT' >
+              		<#if draftDate?has_content> DRAFT_DATE = TO_DATE(:draftDate, 'YYYY-MM-DD HH24:MI:SS'), </#if>
+              		<#if draftUser?has_content> DRAFT_USER = :draftUser, </#if>
+              	<#else>
+              		<#if approvDate?has_content> APPROV_DATE = TO_DATE(:approvDate, 'YYYY-MM-DD HH24:MI:SS'), </#if>
+              		<#if approvUser?has_content> APPROV_USER = :approvUser, </#if>
+              	</#if>
+				<#if signRemark?has_content >
+              		SIGN_REMARK = :signRemark,
+              	</#if>
+              		PO_READ_YN = NULL,
+				<#if loginSabun?has_content >
+              		UUSER = :loginSabun,
+              	</#if>
+              		UDATE = SYSDATE
+        WHEN NOT MATCHED THEN
+              INSERT (
+              		SIGN_INSTANCE_ID,
+              		SERVICE_NAME,
+              		CLIENT_ID,
+              		CLIENT,
+              		COMPANY_WORK_ID,
+              		SIGN_PROGRESS_STATUS,
+              	<#if signProgressStatus == 'DRAFT' >
+              		DRAFT_DATE,
+              		DRAFT_USER,
+              	<#else>
+              		APPROV_DATE,
+              		APPROV_USER,
+              	</#if>
+              		SIGN_REMARK,
+              		CUSER,
+              		CDATE)
+              VALUES ( 
+              		:signInstanceId,
+              	<#if serviceName?has_content> :serviceName, <#else> null, </#if>
+              	<#if clientId?has_content> :clientId, <#else> null, </#if>
+              	<#if client?has_content> :client, <#else> null, </#if>
+              	<#if companyWorkId?has_content> :companyWorkId, <#else> null, </#if>
+              		:signProgressStatus,
+              	<#if signProgressStatus == 'DRAFT' >
+              		<#if draftDate?has_content> TO_DATE(:draftDate, 'YYYY-MM-DD HH24:MI:SS'), <#else> null, </#if>
+              		<#if draftUser?has_content> :draftUser, <#else> null, </#if>
+              	<#else>
+              		<#if approvDate?has_content> TO_DATE(:approvDate, 'YYYY-MM-DD HH24:MI:SS'), <#else> null, </#if>
+              		<#if approvUser?has_content> :approvUser, <#else> null, </#if>
+              	</#if>
+              	<#if signRemark?has_content> :signRemark, <#else> null, </#if>
+              	<#if loginSabun?has_content> :loginSabun, <#else> null, </#if>
+              		SYSDATE
+            	)
+        ]]>
+	</statement>
+
+</hqml>

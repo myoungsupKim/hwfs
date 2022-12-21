@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+		SELECT
+		       A.ITEM_CODE ,
+		       D.ITEM_NAME,
+		       D.ITEM_SIZE,
+		       D.PO_UOM,
+		       TAX_CODE,
+		       SALE_PRICE AS ITEM_PRICE,
+		       TO_CHAR(A.UPDATE_DATE,'YYYYMMDD') AS UDATE,
+		       A.CONTRACT_START,
+		       D.ORIGIN_NAT
+		  FROM PO_CONTRACT_FSALE A,
+		       (
+		       SELECT 
+		              ITEM_CODE ,
+		              ITEM_NAME,
+		              ITEM_SIZE,
+		              PO_UOM,
+		              DECODE(TAX_CODE, '100' , '과세' , '210' , '면세' ) AS TAX_CODE,
+		              ORIGIN_NAT
+		         FROM HLDC_PO_ITEM_MST
+		        WHERE ITEM_CLASS2 BETWEEN 'F10' AND 'F26'
+		       ) D
+		 WHERE A.ITEM_CODE = D.ITEM_CODE
+		   AND A.SALE_PRICE &lt;&gt; 0
+		<isNotNull col="CONTRACT_START">
+		    AND #CONTRACT_START# BETWEEN A.CONTRACT_START AND A.CONTRACT_END
+		</isNotNull>
+		<isNotNull col="UPJANG">
+			AND A.UPJANG = #UPJANG#
+		</isNotNull>
+		 ORDER BY ITEM_CODE
+ 	</statement>
+	<input default-name="ds_in">
+		<col name="CONTRACT_START" size="255" type="VARCHAR" description="" /> 
+		<col name="UPJANG " size="255" type="VARCHAR" description="" />  
+	</input>
+	<output default-name="ds_out">
+		<col name="ITEM_CODE" size="12" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAME" size="200" type="VARCHAR" description="" /> 
+		<col name="ITEM_SIZE" size="100" type="VARCHAR" description="" /> 
+		<col name="PO_UOM" size="10" type="VARCHAR" description="" /> 
+		<col name="TAX_CODE" size="4" type="VARCHAR" description="" /> 
+		<col name="ITEM_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="UDATE" size="8" type="VARCHAR" description="" /> 
+	</output>
+</query>

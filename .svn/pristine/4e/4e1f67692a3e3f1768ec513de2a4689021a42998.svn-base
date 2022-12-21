@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sm.ssi.cardCommissionMgntDAO">
+	<desc>카드사 수수료율 HQML Query</desc>
+
+	<!-- 카드사 수수료율 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sm.ssi.dao.CardCommissionMgntDAO.selectList */
+		<![CDATA[
+		SELECT A.SYS_CLASS,
+		       A.CARD_COM_CD,
+		       B.CARD_COM_NM,
+		       A.CARD_CLASS,
+		       A.CMIS_RATE,
+		       A.RECD_STATUS,
+		       A.CUSER,
+		       A.CDATE,
+		       A.UUSER,
+		       A.UDATE    
+		FROM   SLA_CARD_COM_CMIS_RATE A,
+			   SLA_CARD_COM_CD_MST B
+		WHERE  A.CARD_COM_CD = B.CARD_COM_CD(+)
+		<#if sysClass?has_content>
+		AND    A.SYS_CLASS = :sysClass
+		</#if>
+		ORDER BY A.SYS_CLASS, A.CARD_COM_CD ASC
+		]]>
+	</statement>
+	
+	<!-- 카드사 수수료율 중복체크를 한다. -->
+	<statement name="selectExists" type="select">
+		/*+ com.hwfs.sm.ssi.dao.CardCommissionMgntDAO.selectExists */
+		<![CDATA[
+		SELECT COUNT(*)
+		FROM   SLA_CARD_COM_CMIS_RATE
+		WHERE  SYS_CLASS = :sysClass
+		AND	   CARD_COM_CD = :cardComCd
+		AND	   CARD_CLASS = :cardClass
+		]]>
+	</statement>
+
+	<!-- 카드사 수수료율(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sm.ssi.dao.CardCommissionMgntDAO.insert */
+		<![CDATA[
+		INSERT INTO SLA_CARD_COM_CMIS_RATE 
+		(
+		       SYS_CLASS,
+			   CARD_COM_CD,
+			   CARD_CLASS,
+			   CMIS_RATE,
+			   RECD_STATUS,
+		       CUSER,
+		       CDATE,
+		       UUSER,
+		       UDATE
+		)
+		VALUES
+		(
+		       :sysClass,
+		       :cardComCd,
+		       :cardClass,
+			   <#if cmisRate?has_content> :cmisRate, <#else> null, </#if>
+			   <#if recdStatus?has_content> :recdStatus, <#else> 'L', </#if>
+		       :loginSabun,
+		       SYSDATE,
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 카드사 수수료율(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sm.ssi.dao.CardCommissionMgntDAO.update */
+		<![CDATA[
+		UPDATE SLA_CARD_COM_CMIS_RATE 
+		SET    CMIS_RATE = :cmisRate,
+		       RECD_STATUS = :recdStatus,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  SYS_CLASS = :sysClass
+		AND	   CARD_COM_CD = :cardComCd
+		AND    CARD_CLASS = :cardClass
+		]]>
+	</statement>
+
+	<!-- 카드사 수수료율(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.sm.ssi.dao.CardCommissionMgntDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   SLA_CARD_COM_CMIS_RATE 
+		WHERE  SYS_CLASS = :sysClass
+		AND	   CARD_COM_CD = :cardComCd
+		AND    CARD_CLASS = :cardClass
+		]]>
+	</statement>
+
+</hqml>

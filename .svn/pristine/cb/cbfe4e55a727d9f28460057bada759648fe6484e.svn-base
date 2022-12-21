@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[주간식단표 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT *
+  FROM (SELECT LEV, MENU_NAME, SEQ, MEAL,
+               MAX(WEEK_DAY1) AS WEEK_DAY1, MAX(WEEK_KCAL1) AS WEEK_KCAL1,
+			   MAX(WEEK_DAY2) AS WEEK_DAY2, MAX(WEEK_KCAL2) AS WEEK_KCAL2,
+			   MAX(WEEK_DAY3) AS WEEK_DAY3, MAX(WEEK_KCAL3) AS WEEK_KCAL3,
+			   MAX(WEEK_DAY4) AS WEEK_DAY4, MAX(WEEK_KCAL4) AS WEEK_KCAL4,
+			   MAX(WEEK_DAY5) AS WEEK_DAY5, MAX(WEEK_KCAL5) AS WEEK_KCAL5,
+			   MAX(WEEK_DAY6) AS WEEK_DAY6, MAX(WEEK_KCAL6) AS WEEK_KCAL6,
+			   MAX(WEEK_DAY7) AS WEEK_DAY7, MAX(WEEK_KCAL7) AS WEEK_KCAL7
+          FROM (
+		        SELECT 0 AS LEV, MEAL, CORNER,
+				       MEAL_NAME || DECODE(CORNER_DESC, NULL, '(' || CORNER_NAME || ')', '(' || CORNER_DESC || ')') AS MENU_NAME, 
+					   SEQ,
+				       DECODE( WEEK_SEQ, 2, RECIPE_NAME, '') AS WEEK_DAY1,
+					   DECODE( WEEK_SEQ, 2, KCAL, '') AS WEEK_KCAL1,
+				       DECODE( WEEK_SEQ, 3, RECIPE_NAME, '') AS WEEK_DAY2,
+					   DECODE( WEEK_SEQ, 3, KCAL, '') AS WEEK_KCAL2,
+				       DECODE( WEEK_SEQ, 4, RECIPE_NAME, '') AS WEEK_DAY3,
+					   DECODE( WEEK_SEQ, 4, KCAL, '') AS WEEK_KCAL3,
+				       DECODE( WEEK_SEQ, 5, RECIPE_NAME, '') AS WEEK_DAY4,
+					   DECODE( WEEK_SEQ, 5, KCAL, '') AS WEEK_KCAL4,
+				       DECODE( WEEK_SEQ, 6, RECIPE_NAME, '') AS WEEK_DAY5,
+					   DECODE( WEEK_SEQ, 6, KCAL, '') AS WEEK_KCAL5,
+				       DECODE( WEEK_SEQ, 7, RECIPE_NAME, '') AS WEEK_DAY6,
+					   DECODE( WEEK_SEQ, 7, KCAL, '') AS WEEK_KCAL6,
+				       DECODE( WEEK_SEQ, 1, RECIPE_NAME, '') AS WEEK_DAY7,
+					   DECODE( WEEK_SEQ, 1, KCAL, '') AS WEEK_KCAL7
+				  FROM (
+						SELECT A.WEEK_DAY, TO_CHAR(TO_DATE(A.WEEK_DAY, 'YYYYMMDD'), 'd') AS WEEK_SEQ, B.MENU_CD, B.MEAL, B.MEAL_NAME, B.CORNER, B.CORNER_NAME, B.CORNER_DESC,
+						       B.SEQ, B.RECIPE_CD, B.RECIPE_NAME, B.KCAL
+						  FROM (SELECT WEEK_DAY
+				          FROM (SELECT TO_CHAR(TO_DATE(#FROM_MENU_DATE#, 'YYYYMMDD') - TO_CHAR(TO_DATE(#FROM_MENU_DATE#, 'YYYYMMDD') - 1, 'd') + 1, 'YYYYMMDD') AS WEEK_DAY FROM DUAL
+				                 UNION ALL
+				                SELECT TO_CHAR(TO_DATE(#FROM_MENU_DATE#, 'YYYYMMDD') - TO_CHAR(TO_DATE(#FROM_MENU_DATE#, 'YYYYMMDD') - 1, 'd') + 2, 'YYYYMMDD') AS WEEK_DAY FROM DUAL
+				                 UNION ALL
+				                SELECT TO_CHAR(TO_DATE(#FROM_MENU_DATE#, 'YYYYMMDD') - TO_CHAR(TO_DATE(#FROM_MENU_DATE#, 'YYYYMMDD') - 1, 'd') + 3, 'YYYYMMDD') AS WEEK_DAY FROM DUAL
+				                 UNION ALL
+				                SELECT TO_CHAR(TO_DATE(#FROM_MENU_DATE#, 'YYYYMMDD') - TO_CHAR(TO_DATE(#FROM_MENU_DATE#, 'YYYYMMDD') - 1, 'd') + 4, 'YYYYMMDD') AS WEEK_DAY FROM DUAL
+				                 UNION ALL
+				                SELECT TO_CHAR(TO_DATE(#FROM_MENU_DATE#, 'YYYYMMDD') - TO_CHAR(TO_DATE(#FROM_MENU_DATE#, 'YYYYMMDD') - 1, 'd') + 5, 'YYYYMMDD') AS WEEK_DAY FROM DUAL
+				                 UNION ALL
+				                SELECT TO_CHAR(TO_DATE(#FROM_MENU_DATE#, 'YYYYMMDD') - TO_CHAR(TO_DATE(#FROM_MENU_DATE#, 'YYYYMMDD') - 1, 'd') + 6, 'YYYYMMDD') AS WEEK_DAY FROM DUAL
+				                 UNION ALL
+				                SELECT TO_CHAR(TO_DATE(#FROM_MENU_DATE#, 'YYYYMMDD') - TO_CHAR(TO_DATE(#FROM_MENU_DATE#, 'YYYYMMDD') - 1, 'd') + 7, 'YYYYMMDD') AS WEEK_DAY FROM DUAL)) A,
+						       (SELECT MENU_DATE, MENU_CD, MEAL, MEAL_NAME, CORNER, CORNER_NAME, CORNER_DESC,
+						               ROW_NUMBER() OVER(PARTITION BY MENU_DATE, MEAL, CORNER ORDER BY MEAL, CORNER, CUISINE_TYPE, RECIPE_CD ASC) AS SEQ,
+						               RECIPE_CD, RECIPE_NAME, SUM(KCAL) AS KCAL
+						          FROM (SELECT T1.MENU_DATE, T1.MENU_CD, T1.MEAL, T1.MEAL_NAME, T1.CORNER, T1.CORNER_NAME, T1.CORNER_DESC,
+						                       T1.CUISINE_TYPE, T1.RECIPE_CD, T1.RECIPE_NAME,
+											   ROUND( (NVL(T2.CAL, 0) * T1.EDIBLE_QTY / 100), 2) AS KCAL --"에너지(폐기율적용)"
+						                  FROM (   
+						                        SELECT A.MENU_DATE, A.MENU_CD, A.MEAL, B.CODE_NAME AS MEAL_NAME, A.CORNER, C.CODE_NAME AS CORNER_NAME, D.CORNER_DESC,
+						                               E.CUISINE_TYPE, E.RECIPE_CD, E.RECIPE_NAME, F.ITEM_CODE, NVL(F.NEED_QTY, 0) AS NEED_QTY, NVL(F.EDIBLE_QTY, 0) AS EDIBLE_QTY
+						                          FROM FMM_MENU A,
+						                               (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0023') B, --끼니
+						                               (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0022') C, --코너
+						                               FMS_MEAL_CORNER D,
+						                               FMM_RECIPE E,
+						                               FMM_RECIPE_ITEM F
+				                                 WHERE A.UPJANG = #UPJANG# -- 필수 검색조건(업장)
+				                                   AND A.SUBINV_CODE = #SUBINV_CODE# -- 필수 검색조건(식당/창고)
+                                                  <isNotEqual col="MEAL" value="000">
+				                                   AND A.MEAL = #MEAL# -- 선택 검색조건(끼니)
+                                                  </isNotEqual>
+                                                  <isNotEqual col="CORNER" value="000">
+				                                   AND A.CORNER = #CORNER# -- 선택 검색조건(코너)
+                                                  </isNotEqual>
+				                                   AND A.MENU_DATE BETWEEN #FROM_MENU_DATE# AND #TO_MENU_DATE# -- 필수 검색조건(제공일) 
+						                           AND A.MEAL = B.CODE(+)
+						                           AND A.CORNER = C.CODE(+)
+						                           AND A.SUBINV_CODE = D.SUBINV_CODE(+)
+						                           AND A.MEAL = D.MEAL(+)
+						                           AND A.CORNER = D.CORNER(+)
+						                           AND A.UPJANG = E.UPJANG
+						                           AND A.MENU_CD = E.MENU_CD
+						                           AND E.UPJANG = F.UPJANG
+						                           AND E.MENU_CD = F.MENU_CD
+						                           AND E.RECIPE_CD = F.RECIPE_CD) T1, -- BASE
+						                       (SELECT A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.PO_UOM, A.KG_CONVERT_RATE,
+						                               B.CAL, B.WATER, B.PROT, B.FAT, B.CARBO, B.FIBER, B.ASH, B.CA, B.P,
+						                               B.FE, B.NA, B.K, B.VITA_A, B.RETIN, B.B_CAROT, B.THIA, B.RIBO, B.NIACIN,
+						                               B.VITA_C, B.CHOLE, B.DISUSE_RATE
+						                          FROM FMS_ITEM_V A,
+						                               (SELECT ITEM_CODE, CAL, WATER, PROT, FAT, CARBO, FIBER, ASH, CA, P, FE, NA, K, VITA_A, RETIN, B_CAROT, THIA, RIBO, NIACIN, VITA_C, CHOLE, DISUSE_RATE
+						                                  FROM FMP_ITEM_NUT WHERE UPJANG = #UPJANG#
+						                                 UNION ALL
+						                               (SELECT ITEM_CODE, CAL, WATER, PROT, FAT, CARBO, FIBER, ASH, CA, P, FE, NA, K, VITA_A, RETIN, B_CAROT, THIA, RIBO, NIACIN, VITA_C, CHOLE, DISUSE_RATE
+						                                  FROM FSI_ITEM_NUT
+						                                 MINUS
+						                                SELECT ITEM_CODE, CAL, WATER, PROT, FAT, CARBO, FIBER, ASH, CA, P, FE, NA, K, VITA_A, RETIN, B_CAROT, THIA, RIBO, NIACIN, VITA_C, CHOLE, DISUSE_RATE
+						                                  FROM FMP_ITEM_NUT WHERE UPJANG = #UPJANG#)) B
+						                         WHERE A.ITEM_CODE = B.ITEM_CODE) T2 -- 자재리스트
+						                 WHERE T1.ITEM_CODE = T2.ITEM_CODE(+)
+						                 ORDER BY T1.MENU_DATE, T1.MEAL, T1.CORNER, T1.RECIPE_CD)
+						         GROUP BY MENU_DATE, MENU_CD, MEAL, MEAL_NAME, CORNER, CORNER_NAME, CORNER_DESC, CUISINE_TYPE, RECIPE_CD, RECIPE_NAME) B
+						 WHERE A.WEEK_DAY = B.MENU_DATE(+)
+				         UNION ALL
+				        SELECT MENU_DATE AS WEEK_DAY, TO_CHAR(TO_DATE(MENU_DATE, 'YYYYMMDD'), 'd') AS WEEK_SEQ, MENU_CD, MEAL, MEAL_NAME, CORNER, CORNER_NAME, CORNER_DESC,
+				               99 AS SEQ, NULL AS RECIPE_CD, '소  계' AS RECIPE_NAME, SUM(KCAL) AS KCAL
+				          FROM (SELECT T1.MENU_DATE, T1.MENU_CD, T1.MEAL, T1.MEAL_NAME, T1.CORNER, T1.CORNER_NAME, T1.CORNER_DESC,
+				                       T1.CUISINE_TYPE, T1.RECIPE_CD, T1.RECIPE_NAME,
+									   ROUND( (NVL(T2.CAL, 0) * T1.EDIBLE_QTY / 100), 2) AS KCAL --"에너지(폐기율적용)"
+				                  FROM (   
+				                        SELECT A.MENU_DATE, A.MENU_CD, A.MEAL, B.CODE_NAME AS MEAL_NAME, A.CORNER, C.CODE_NAME AS CORNER_NAME, D.CORNER_DESC,
+				                               E.CUISINE_TYPE, E.RECIPE_CD, E.RECIPE_NAME, F.ITEM_CODE, NVL(F.NEED_QTY, 0) AS NEED_QTY, NVL(F.EDIBLE_QTY, 0) AS EDIBLE_QTY
+				                          FROM FMM_MENU A,
+				                               (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0023') B, --끼니
+				                               (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0022') C, --코너
+				                               FMS_MEAL_CORNER D,
+				                               FMM_RECIPE E,
+ 				                               FMM_RECIPE_ITEM F
+				                         WHERE A.UPJANG = #UPJANG# -- 필수 검색조건(업장)
+				                           AND A.SUBINV_CODE = #SUBINV_CODE# -- 필수 검색조건(식당/창고)
+                                          <isNotEqual col="MEAL" value="000">
+				                           AND A.MEAL = #MEAL# -- 선택 검색조건(끼니)
+                                          </isNotEqual>
+                                          <isNotEqual col="CORNER" value="000">
+				                           AND A.CORNER = #CORNER# -- 선택 검색조건(코너)
+                                          </isNotEqual>
+				                           AND A.MENU_DATE BETWEEN #FROM_MENU_DATE# AND #TO_MENU_DATE# -- 필수 검색조건(제공일) 
+				                           AND A.MEAL = B.CODE(+)
+				                           AND A.CORNER = C.CODE(+)
+				                           AND A.SUBINV_CODE = D.SUBINV_CODE(+)
+				                           AND A.MEAL = D.MEAL(+)
+				                           AND A.CORNER = D.CORNER(+)
+				                           AND A.UPJANG = E.UPJANG
+				                           AND A.MENU_CD = E.MENU_CD
+				                           AND E.UPJANG = F.UPJANG
+				                           AND E.MENU_CD = F.MENU_CD
+				                           AND E.RECIPE_CD = F.RECIPE_CD ) T1, -- BASE
+				                       (SELECT A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.PO_UOM, A.KG_CONVERT_RATE,
+				                               B.CAL, B.WATER, B.PROT, B.FAT, B.CARBO, B.FIBER, B.ASH, B.CA, B.P,
+				                               B.FE, B.NA, B.K, B.VITA_A, B.RETIN, B.B_CAROT, B.THIA, B.RIBO, B.NIACIN,
+				                               B.VITA_C, B.CHOLE, B.DISUSE_RATE
+				                          FROM FMS_ITEM_V A,
+				                               (SELECT ITEM_CODE, CAL, WATER, PROT, FAT, CARBO, FIBER, ASH, CA, P, FE, NA, K, VITA_A, RETIN, B_CAROT, THIA, RIBO, NIACIN, VITA_C, CHOLE, DISUSE_RATE
+				                                  FROM FMP_ITEM_NUT WHERE UPJANG = #UPJANG#
+				                                 UNION ALL
+				                               (SELECT ITEM_CODE, CAL, WATER, PROT, FAT, CARBO, FIBER, ASH, CA, P, FE, NA, K, VITA_A, RETIN, B_CAROT, THIA, RIBO, NIACIN, VITA_C, CHOLE, DISUSE_RATE
+				                                  FROM FSI_ITEM_NUT
+				                                 MINUS
+				                                SELECT ITEM_CODE, CAL, WATER, PROT, FAT, CARBO, FIBER, ASH, CA, P, FE, NA, K, VITA_A, RETIN, B_CAROT, THIA, RIBO, NIACIN, VITA_C, CHOLE, DISUSE_RATE
+				                                  FROM FMP_ITEM_NUT WHERE UPJANG = #UPJANG#)) B
+				                         WHERE A.ITEM_CODE = B.ITEM_CODE) T2 -- 자재리스트
+				                 WHERE T1.ITEM_CODE = T2.ITEM_CODE(+)
+				                 ORDER BY T1.MENU_DATE, T1.MEAL, T1.CORNER, T1.RECIPE_CD)
+				         GROUP BY MENU_DATE, MENU_CD, MEAL, MEAL_NAME, CORNER, CORNER_NAME, CORNER_DESC 
+				       )
+				 WHERE MENU_CD IS NOT NULL
+				 ORDER BY MEAL, CORNER, MENU_CD, SEQ)
+         GROUP BY LEV, MEAL, CORNER, MENU_NAME, SEQ)
+ ORDER BY MEAL, SEQ         	
+</statement>
+	<input default-name="ds_Input">
+	</input>
+	<output default-name="ds_List">
+	</output>
+</query>

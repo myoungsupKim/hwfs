@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT V.UPJANG,
+       (SELECT UPJANGNM FROM SCO_UPJANG_MST_V WHERE UPJANG = V.UPJANG) UPJANGNM,
+       V.TRX_DATE,
+       V.MAP_CD,
+       (SELECT A.CLS4_NAME  FROM MAS_HMR_MAP_CLS4 A, MAS_HMR_MAP B WHERE A.CLS4_CODE = B.CLS4_CODE AND B.MAP_CD = V.MAP_CD) MAP_CDNM,
+       (SELECT B.UOM_CODE  FROM MAS_HMR_MAP_CLS4 A, MAS_HMR_MAP B WHERE A.CLS4_CODE = B.CLS4_CODE AND B.MAP_CD = V.MAP_CD) UOM_CODE,
+       (SELECT A.CLS3_CODE  FROM MAS_HMR_MAP_CLS4 A, MAS_HMR_MAP B WHERE A.CLS4_CODE = B.CLS4_CODE AND B.MAP_CD = V.MAP_CD) CLS3_CODE,
+       (SELECT CLS3_NAME FROM MAS_HMR_MAP_CLS3 WHERE CLS3_CODE = (SELECT A.CLS3_CODE  FROM MAS_HMR_MAP_CLS4 A, MAS_HMR_MAP B WHERE A.CLS4_CODE = B.CLS4_CODE AND B.MAP_CD = V.MAP_CD)) CLS3_NAME,
+       V.TAX_KIND,
+       DECODE(V.TAX_KIND,'100','과세','210','면세','220','영세') TAX_KINDNM,
+       V.SALE_GOAL,
+       V.OPEN_MFG,
+       V.ADD_MFG,
+       (NVL(V.OPEN_MFG, 0) + NVL(V.ADD_MFG, 0)) * NVL(V.SALE_PRICE, 0) MFG_AMT,
+       V.SALE_QTY,
+       V.SALE_PRICE,
+       V.SALE_AMT,
+       V.DISUSE_AMT,
+       V.FEE,
+       DECODE(NVL(V.SALE_GOAL, 0), 0, 0, ROUND((NVL(V.SALE_AMT, 0) / NVL(V.SALE_GOAL, 0)) * 100)) SALE_AMT_RATIO,
+       ((NVL(V.OPEN_MFG, 0) + NVL(V.ADD_MFG, 0)) * NVL(V.SALE_PRICE, 0)) - NVL(V.SALE_AMT, 0) LOSS_TOT_AMT,
+       ( ((NVL(V.OPEN_MFG, 0) + NVL(V.ADD_MFG, 0)) * NVL(V.SALE_PRICE, 0)) - NVL(V.SALE_AMT, 0) ) - NVL(V.DISUSE_AMT, 0) LOSS_AMT,
+       DECODE(((NVL(V.OPEN_MFG, 0) + NVL(V.ADD_MFG, 0)) * NVL(V.SALE_PRICE, 0)), 0, 0, ROUND( ( (((NVL(V.OPEN_MFG, 0) + NVL(V.ADD_MFG, 0)) * NVL(V.SALE_PRICE, 0)) - NVL(V.SALE_AMT, 0)) / ((NVL(V.OPEN_MFG, 0) + NVL(V.ADD_MFG, 0)) * NVL(V.SALE_PRICE, 0)) ) * 100)) LOSS_RATIO
+  FROM MAS_HMR_MST V
+WHERE (V.UPJANG   = #UPJANG#)
+AND   (V.TRX_DATE = #TRX_DATE#)
+AND   (V.TRX_ID IS NOT NULL)
+ORDER BY  V.MAP_CD, V.TAX_KIND
+</statement>
+	<input default-name="ds_cond">
+		<col name="UPJANG" size="6" type="NUMERIC" description="업장코드" /> 
+		<col name="TRX_DATE" size="255" type="VARCHAR" description="" /> 		
+	</input>
+	<output default-name="ds_list">
+<col name="UPJANG" size="" type="NUMERIC" description="" />
+<col name="UPJANGNM" size="255" type="VARCHAR" description="" />
+<col name="TRX_DATE" size="255" type="VARCHAR" description="" />
+<col name="MAP_CD" size="255" type="VARCHAR" description="" />
+<col name="MAP_CDNM" size="255" type="VARCHAR" description="" />
+<col name="CLS3_CODE" size="255" type="VARCHAR" description="" />
+<col name="CLS3_NAME" size="255" type="VARCHAR" description="" />
+<col name="UOM_CODE" size="255" type="VARCHAR" description="" />
+<col name="TAX_KIND" size="255" type="VARCHAR" description="" />
+<col name="TAX_KINDNM" size="255" type="VARCHAR" description="" />
+<col name="SALE_GOAL" size="" type="NUMERIC" description="" />
+<col name="OPEN_MFG" size="" type="NUMERIC" description="" />
+<col name="ADD_MFG" size="" type="NUMERIC" description="" />
+<col name="MFG_AMT" size="" type="NUMERIC" description="" />
+<col name="SALE_QTY" size="" type="NUMERIC" description="" />
+<col name="SALE_PRICE" size="" type="NUMERIC" description="" />
+<col name="SALE_AMT" size="" type="NUMERIC" description="" />
+<col name="DISUSE_AMT" size="" type="NUMERIC" description="" />
+<col name="FEE" size="" type="NUMERIC" description="" />
+<col name="SALE_AMT_RATIO" size="" type="NUMERIC" description="" />
+<col name="LOSS_TOT_AMT" size="" type="NUMERIC" description="" />
+<col name="LOSS_AMT" size="" type="NUMERIC" description="" />
+<col name="LOSS_RATIO" size="" type="NUMERIC" description="" />
+	</output>
+</query>

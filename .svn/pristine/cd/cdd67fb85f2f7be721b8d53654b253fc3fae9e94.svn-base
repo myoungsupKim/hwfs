@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[매출,재료비 실적 추정 조회 집계]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT DTL_CD_NAME,DATA_CLASS,GUBUN,ORDER_BY, COLOR_GUBUN,
+        SUM(AMT01) AMT01,
+        SUM(AMT02) AMT02,
+        SUM(AMT03) AMT03,
+        SUM(AMT04) AMT04,
+        SUM(AMT05) AMT05,
+        SUM(AMT06) AMT06,
+        SUM(AMT07) AMT07,
+        SUM(AMT08) AMT08,
+        SUM(AMT09) AMT09,
+        SUM(AMT10) AMT10,
+        SUM(AMT11) AMT11,
+        SUM(AMT12) AMT12,
+        SUM(AMT_TOT) AMT_TOT
+  FROM  
+(
+  SELECT  DTL_CD_NAME,DATA_CLASS,GUBUN,ORDER_BY,'' COLOR_GUBUN,
+          AMT01,AMT02,AMT03,AMT04,AMT05,AMT06,AMT07,AMT08,AMT09,AMT10,AMT11,AMT12, AMT_TOT
+FROM	(
+            SELECT  CD_DTL.MST_CD
+                    , CD_DTL.DTL_CD_NAME
+                    , CD_DTL.MST_CD||CD_DTL.ORDER_BY || 0 AS ORDER_BY
+                    , NVL(ACT_SL.DATA_CLASS,CD_DTL.MST_CD) AS DATA_CLASS
+                    , NVL(ACT_SL.ACCT_CD,CD_DTL.DTL_CD) AS ACCT_CD
+                    , NVL(ACT_SL.AMT01,0) AS AMT01
+                	, NVL(ACT_SL.AMT02,0) AS AMT02
+                	, NVL(ACT_SL.AMT03,0) AS AMT03
+                	, NVL(ACT_SL.AMT04,0) AS AMT04
+                	, NVL(ACT_SL.AMT05,0) AS AMT05
+                	, NVL(ACT_SL.AMT06,0) AS AMT06
+                	, NVL(ACT_SL.AMT07,0) AS AMT07
+                	, NVL(ACT_SL.AMT08,0) AS AMT08
+                	, NVL(ACT_SL.AMT09,0) AS AMT09
+                	, NVL(ACT_SL.AMT10,0) AS AMT10
+                	, NVL(ACT_SL.AMT11,0) AS AMT11
+                	, NVL(ACT_SL.AMT12,0) AS AMT12
+                	, NVL(ACT_SL.AMT_TOT,0) AS AMT_TOT
+                	, DATA_CLASS||'1' AS GUBUN
+            FROM    MAC_CD_DTL CD_DTL
+                    , (		SELECT	  YY
+				                    , TM_CD
+				                    , UPJANG
+				                    , DATA_CLASS
+				                    , ACCT_CD
+				                    , ROUND(AMT01 / 1000) AS AMT01
+				                	, ROUND(AMT02 / 1000) AS AMT02
+				                	, ROUND(AMT03 / 1000) AS AMT03
+				                	, ROUND(AMT04 / 1000) AS AMT04
+				                	, ROUND(AMT05 / 1000) AS AMT05
+				                	, ROUND(AMT06 / 1000) AS AMT06
+				                	, ROUND(AMT07 / 1000) AS AMT07
+				                	, ROUND(AMT08 / 1000) AS AMT08
+				                	, ROUND(AMT09 / 1000) AS AMT09
+				                	, ROUND(AMT10 / 1000) AS AMT10
+				                	, ROUND(AMT11 / 1000) AS AMT11
+				                	, ROUND(AMT12 / 1000) AS AMT12
+				                	, ROUND((NVL(AMT01,0) + NVL(AMT02,0) + NVL(AMT03,0) + NVL(AMT04,0) + NVL(AMT05,0) + NVL(AMT06,0) + NVL(AMT07,0) + NVL(AMT08,0) + NVL(AMT09,0) + NVL(AMT10,0) + NVL(AMT11,0) + NVL(AMT12,0))/1000) AS AMT_TOT
+                    		FROM	MAP_ACT_SALE
+                    		WHERE	YY		 = #YY#        
+                      <isNotNull col="TM_CD">
+                      AND     TM_CD  = #TM_CD#
+                      </isNotNull>
+                      <isNotNull col="UPJANG">
+                      AND		UPJANG = #UPJANG#
+                      </isNotNull>                                          		
+                       ) ACT_SL
+            WHERE   (MST_CD = 'P01' OR MST_CD = 'P02')
+            AND     CD_DTL.DTL_CD = ACT_SL.ACCT_CD (+)
+            AND     CD_DTL.USE_YN = 'Y'
+            UNION   ALL
+            SELECT  CD_DTL.MST_CD
+                    , '  (재료비율 %)' AS DTL_CD_NAME
+                    , CD_DTL.MST_CD||CD_DTL.ORDER_BY || 1 AS ORDER_BY                 
+                    , NVL(ACT_SL.DATA_CLASS,CD_DTL.MST_CD) AS DATA_CLASS
+                    , NVL(ACT_SL.ACCT_CD,CD_DTL.DTL_CD) AS ACCT_CD
+                    , NVL(ACT_SL.AMT01,0) AS AMT01
+                	, NVL(ACT_SL.AMT02,0) AS AMT02
+                	, NVL(ACT_SL.AMT03,0) AS AMT03
+                	, NVL(ACT_SL.AMT04,0) AS AMT04
+                	, NVL(ACT_SL.AMT05,0) AS AMT05
+                	, NVL(ACT_SL.AMT06,0) AS AMT06
+                	, NVL(ACT_SL.AMT07,0) AS AMT07
+                	, NVL(ACT_SL.AMT08,0) AS AMT08
+                	, NVL(ACT_SL.AMT09,0) AS AMT09
+                	, NVL(ACT_SL.AMT10,0) AS AMT10
+                	, NVL(ACT_SL.AMT11,0) AS AMT11
+                	, NVL(ACT_SL.AMT12,0) AS AMT12
+                	, NVL(ACT_SL.AMT_TOT,0) AS AMT_TOT
+                	, DATA_CLASS||'2' AS GUBUN
+            FROM    MAC_CD_DTL CD_DTL
+                    , (		SELECT	  A.DATA_CLASS
+                                    , A.ACCT_CD
+				                    , DECODE(NVL(SUM(B.AMT01),0),0,0,ROUND(SUM(A.AMT01)/SUM(B.AMT01)*100,1)) AS AMT01
+				                    , DECODE(NVL(SUM(B.AMT02),0),0,0,ROUND(SUM(A.AMT02)/SUM(B.AMT02)*100,1)) AS AMT02
+				                    , DECODE(NVL(SUM(B.AMT03),0),0,0,ROUND(SUM(A.AMT03)/SUM(B.AMT03)*100,1)) AS AMT03
+				                    , DECODE(NVL(SUM(B.AMT04),0),0,0,ROUND(SUM(A.AMT04)/SUM(B.AMT04)*100,1)) AS AMT04
+				                    , DECODE(NVL(SUM(B.AMT05),0),0,0,ROUND(SUM(A.AMT05)/SUM(B.AMT05)*100,1)) AS AMT05
+				                    , DECODE(NVL(SUM(B.AMT06),0),0,0,ROUND(SUM(A.AMT06)/SUM(B.AMT06)*100,1)) AS AMT06
+				                    , DECODE(NVL(SUM(B.AMT07),0),0,0,ROUND(SUM(A.AMT07)/SUM(B.AMT07)*100,1)) AS AMT07
+				                    , DECODE(NVL(SUM(B.AMT08),0),0,0,ROUND(SUM(A.AMT08)/SUM(B.AMT08)*100,1)) AS AMT08
+				                    , DECODE(NVL(SUM(B.AMT09),0),0,0,ROUND(SUM(A.AMT09)/SUM(B.AMT09)*100,1)) AS AMT09
+				                    , DECODE(NVL(SUM(B.AMT10),0),0,0,ROUND(SUM(A.AMT10)/SUM(B.AMT10)*100,1)) AS AMT10
+				                    , DECODE(NVL(SUM(B.AMT11),0),0,0,ROUND(SUM(A.AMT11)/SUM(B.AMT11)*100,1)) AS AMT11
+				                    , DECODE(NVL(SUM(B.AMT12),0),0,0,ROUND(SUM(A.AMT12)/SUM(B.AMT12)*100,1)) AS AMT12
+				                    , DECODE((NVL(SUM(B.AMT01),0)+NVL(SUM(B.AMT02),0)+NVL(SUM(B.AMT03),0)+NVL(SUM(B.AMT04),0)+NVL(SUM(B.AMT05),0)+NVL(SUM(B.AMT06),0)+
+				                              NVL(SUM(B.AMT07),0)+NVL(SUM(B.AMT08),0)+NVL(SUM(B.AMT09),0)+NVL(SUM(B.AMT10),0)+NVL(SUM(B.AMT11),0)+NVL(SUM(B.AMT12),0)),0,0,
+				                              ROUND((NVL(SUM(A.AMT01),0)+NVL(SUM(A.AMT02),0)+NVL(SUM(A.AMT03),0)+NVL(SUM(A.AMT04),0)+NVL(SUM(A.AMT05),0)+NVL(SUM(A.AMT06),0)+
+				                                     NVL(SUM(A.AMT07),0)+NVL(SUM(A.AMT08),0)+NVL(SUM(A.AMT09),0)+NVL(SUM(A.AMT10),0)+NVL(SUM(A.AMT11),0)+NVL(SUM(A.AMT12),0))/
+				                                     (NVL(SUM(B.AMT01),0)+NVL(SUM(B.AMT02),0)+NVL(SUM(B.AMT03),0)+NVL(SUM(B.AMT04),0)+NVL(SUM(B.AMT05),0)+NVL(SUM(B.AMT06),0)+
+				                                      NVL(SUM(B.AMT07),0)+NVL(SUM(B.AMT08),0)+NVL(SUM(B.AMT09),0)+NVL(SUM(B.AMT10),0)+NVL(SUM(B.AMT11),0)+NVL(SUM(B.AMT12),0))*100,1)) AS AMT_TOT
+                    		FROM	MAP_ACT_SALE A
+                    				, MAP_ACT_SALE B
+                    		WHERE	A.DATA_CLASS = 'P02'
+                    		AND		B.DATA_CLASS = 'P01'
+                    		AND		A.YY		= B.YY
+                    		AND		A.TM_CD 	= B.TM_CD
+                    		AND		A.UPJANG	= B.UPJANG
+                    		AND     SUBSTR(A.ACCT_CD,4,1) = SUBSTR(B.ACCT_CD,4,1)
+                    		AND		A.YY		= #YY#
+                      <isNotNull col="TM_CD">
+                      AND     A.TM_CD  = #TM_CD#
+                      </isNotNull>
+                      <isNotNull col="UPJANG">
+                      AND	  	A.UPJANG = #UPJANG#
+                      </isNotNull>
+                      GROUP BY A.DATA_CLASS
+                                    , A.ACCT_CD                      
+                       ) ACT_SL
+            WHERE   MST_CD = 'P02'
+            AND     CD_DTL.DTL_CD = ACT_SL.ACCT_CD (+)
+            AND     CD_DTL.USE_YN = 'Y'
+		) A
+--ORDER BY MST_CD,ORDER_BY
+UNION ALL
+SELECT ACCT_NM2,DATA_CLASS, DATA_CLASS||'3' GUBUN,
+       'Z001' || ACCT_CD1  AS ORDER_BY,'' COLOR_GUBUN,
+       AMT1,AMT2,AMT3,AMT4,AMT5,AMT6,AMT7,AMT8,AMT9,AMT10,AMT11,AMT12,SUM_AMT
+FROM (
+       SELECT
+        	 YY AS YY
+        	, TM_CD AS TM_CD
+        	, UPJANG AS UPJANG
+        	, DATA_CLASS AS DATA_CLASS
+        	, ACCT_CD1 AS ACCT_CD1
+        	, MAC_ACCT_NAME_FUN(ACCT_CD1) AS ACCT_NM1
+        	, ACCT_CD2 AS ACCT_CD2
+        	, MAC_ACCT_NAME_FUN(ACCT_CD2) AS ACCT_NM2
+        	, TRUNC(AMT01 / 1000) AS AMT1
+        	, TRUNC(AMT02 / 1000) AS AMT2
+        	, TRUNC(AMT03 / 1000) AS AMT3
+        	, TRUNC(AMT04 / 1000) AS AMT4
+        	, TRUNC(AMT05 / 1000) AS AMT5
+        	, TRUNC(AMT06 / 1000) AS AMT6
+        	, TRUNC(AMT07 / 1000) AS AMT7
+        	, TRUNC(AMT08 / 1000) AS AMT8
+        	, TRUNC(AMT09 / 1000) AS AMT9
+        	, TRUNC(AMT10 / 1000) AS AMT10
+        	, TRUNC(AMT11 / 1000) AS AMT11
+        	, TRUNC(AMT12 / 1000) AS AMT12
+        	, ATTR01 AS ATTR01
+        	, ATTR02 AS ATTR02
+        	, ATTR03 AS ATTR03
+        	, ATTR04 AS ATTR04
+        	, ATTR05 AS ATTR05
+        	, ATTR06 AS ATTR06
+        	, ATTR07 AS ATTR07
+        	, ATTR08 AS ATTR08
+        	, ATTR09 AS ATTR09
+        	, ATTR10 AS ATTR10
+        	, TRUNC(( NVL(AMT01,0) + NVL(AMT02,0) + NVL(AMT03,0) + NVL(AMT04,0) + NVL(AMT05,0) + NVL(AMT06,0)
+        	          + NVL(AMT07,0) + NVL(AMT08,0) + NVL(AMT09,0) + NVL(AMT10,0) + NVL(AMT11,0) + NVL(AMT12,0) ) / 1000) AS SUM_AMT
+         FROM MAP_ACT_EXPENSE M
+         WHERE YY      = #YY#
+          <isNotNull col="TM_CD">
+          AND     TM_CD  = #TM_CD#
+          </isNotNull>
+          <isNotNull col="UPJANG">
+          AND		UPJANG = #UPJANG#
+          </isNotNull>
+        	 AND DATA_CLASS = 'P05A' --경비 P05B
+        	 -- ORDER BY ACCT_CD1
+)
+UNION ALL
+SELECT ACCT_NM2,DATA_CLASS, DATA_CLASS||'4' GUBUN,
+       'Z002' || ACCT_CD1  AS ORDER_BY,'' COLOR_GUBUN,
+       AMT1,AMT2,AMT3,AMT4,AMT5,AMT6,AMT7,AMT8,AMT9,AMT10,AMT11,AMT12,SUM_AMT
+FROM (
+       SELECT
+        	 YY AS YY
+        	, TM_CD AS TM_CD
+        	, UPJANG AS UPJANG
+        	, DATA_CLASS AS DATA_CLASS
+        	, ACCT_CD1 AS ACCT_CD1
+        	, MAC_ACCT_NAME_FUN(ACCT_CD1) AS ACCT_NM1
+        	, ACCT_CD2 AS ACCT_CD2
+        	, MAC_ACCT_NAME_FUN(ACCT_CD2) AS ACCT_NM2
+        	, TRUNC(AMT01 / 1000) AS AMT1
+        	, TRUNC(AMT02 / 1000) AS AMT2
+        	, TRUNC(AMT03 / 1000) AS AMT3
+        	, TRUNC(AMT04 / 1000) AS AMT4
+        	, TRUNC(AMT05 / 1000) AS AMT5
+        	, TRUNC(AMT06 / 1000) AS AMT6
+        	, TRUNC(AMT07 / 1000) AS AMT7
+        	, TRUNC(AMT08 / 1000) AS AMT8
+        	, TRUNC(AMT09 / 1000) AS AMT9
+        	, TRUNC(AMT10 / 1000) AS AMT10
+        	, TRUNC(AMT11 / 1000) AS AMT11
+        	, TRUNC(AMT12 / 1000) AS AMT12
+        	, ATTR01 AS ATTR01
+        	, ATTR02 AS ATTR02
+        	, ATTR03 AS ATTR03
+        	, ATTR04 AS ATTR04
+        	, ATTR05 AS ATTR05
+        	, ATTR06 AS ATTR06
+        	, ATTR07 AS ATTR07
+        	, ATTR08 AS ATTR08
+        	, ATTR09 AS ATTR09
+        	, ATTR10 AS ATTR10
+        	, TRUNC(( NVL(AMT01,0) + NVL(AMT02,0) + NVL(AMT03,0) + NVL(AMT04,0) + NVL(AMT05,0) + NVL(AMT06,0)
+        	          + NVL(AMT07,0) + NVL(AMT08,0) + NVL(AMT09,0) + NVL(AMT10,0) + NVL(AMT11,0) + NVL(AMT12,0) ) / 1000) AS SUM_AMT
+         FROM MAP_ACT_EXPENSE M
+         WHERE YY      = #YY#
+          <isNotNull col="TM_CD">
+          AND     TM_CD  = #TM_CD#
+          </isNotNull>
+          <isNotNull col="UPJANG">
+          AND		UPJANG = #UPJANG#
+          </isNotNull>
+        	 AND DATA_CLASS = 'P05B' --경비 P05B
+        	 -- ORDER BY ACCT_CD1
+)
+)
+GROUP BY DTL_CD_NAME,DATA_CLASS,GUBUN,ORDER_BY,  COLOR_GUBUN
+ORDER BY ORDER_BY
+
+
+</statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

@@ -1,0 +1,894 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="sm.srm.sapSlipSendReptDAO">
+	<desc>SAP 전표 전송 HQML Query</desc>
+
+	<statement name="sapIfcSlipMst" type="select">
+		/*+ com.hwfs.sm.srm.dao.SapSlipSendReptDAO.sapIfcSlipMst */
+		<![CDATA[
+            SELECT  SLIP_NUM                
+                    ,BU_CD                   
+                    ,REF_NUM                 
+                    ,SLIP_TYPE               
+                    ,SLIP_EVIDENCE_DATE      
+                    ,SLIP_PERIOD_DATE        
+                    ,CURRENCY                
+                    ,EXCHANGE_RATE           
+                    ,SLIP_TEXT               
+                    ,WRITE_EMP_MU_CD         
+                    ,ELCTNTAX_BILL_APPRVNUM  
+                    ,PUBLISH_CLASS           
+                    ,INPUT_DATE              
+                    ,INPUT_TIME              
+                    ,WRITE_EMP_SABUN         
+                    ,WRITE_EMP_DEPT          
+                    ,SYS_CD                  
+                    ,ELCTN_SIGN_ID           
+                    ,SLIP_STATUS             
+                    ,SIGN_STATUS             
+                    ,REMARK                  
+                    ,FISCAL_SLIP_NUM         
+                    ,FISCAL_YEAR             
+                    ,REVERSE_SLIP_NUM        
+                    ,REVERSE_SLIP_FISCAL_YEAR
+                    ,SLIP_GRP_NUM            
+                    ,SIGN_TYPE               
+                    ,URGENT_PROC_YN          
+                    ,INTERFACE_LOG_NUM                   
+            FROM    SLA_SAP_SLIP_MST
+            --WHERE   SLIP_NUM IN (${slipNum})
+            --타입일치로 속도개선 2018.07.25 김호석
+            WHERE   SLIP_NUM = :slipNum
+        ]]>
+	</statement>
+
+	<statement name="sapIfcSlipDtl" type="select">
+		/*+ com.hwfs.sm.srm.dao.SapSlipSendReptDAO.sapIfcSlipDtl */
+		<![CDATA[
+            SELECT    SLIP_NUM,
+                    BU_CD,
+                    DTL_NUM,
+                    SLIP_TYPE,
+                    SLIP_EVIDENCE_DATE,
+                    SLIP_PERIOD_DATE,
+                    MASTER_ACCT,
+                    DR_CR_CLASS,
+                    NEXT_BU_CD,
+                    CC_CD,
+                    ORDER_NUM,
+                    FNCT_PRVN,
+                    PL_CENTER,
+                    MINUS_PERIOD_YN,
+                    SLIP_CURRENCY_AMT,
+                    LCAL_AMT,
+                    SUPPLYPLCE_NUM,
+                    GUEST_NUM,
+                    FO_SUPPLYPLCE_NUM,
+                    FO_CUST_NM,
+                    MU_CD,
+                    INLT_YN,
+                    ITEM_TEXT,
+                    VAT_CD,
+                    UPJANG,
+                    STD_AMT,
+                    TAX_AMT,
+                    QUANTITY,
+                    UNIT,
+                    PAYER_NAME,
+                    EXPIRE_CAL_BASIS_DATE,
+                    PAY_MTOD,
+                    PAY_COND,
+                    PAY_DFER,
+                    PAY_REF,
+                    LC_NUM,
+                    MEMB_NUM,
+                    REAL_USER,
+                    TEL_NUM,
+                    USE_NO_MAN,
+                    ASSIGN_NUM,
+                    PO_NUM,
+                    ATTACH_DEPT,
+                    MGMT_DEPT,
+                    MGMT_ARTICLE,
+                    REASON_CD,
+                    CRGLEFT_CLASS,
+                    SINGLE_PAY_YN,
+                    TEMP_CUST_NM,
+                    BANK_ACCT_NO,
+                    BANK_ACCT_OWNR,
+                    BANK_CD,
+                    CO_PA_GUEST,
+                    CO_PA_CC_CD,
+                    START_DATE,
+                    END_DATE,
+                    BL_DATE,
+                    ASSET_NUM,
+                    ASSET_LLEVEL_NUM,
+                    MGMT_GUEST,
+                    MGMT_SUPPLYPLCE,
+                    CUST_REMARK,
+                    REF_DATE,
+                    LSHIP_DATE,
+                    TAX_STD_AMT,
+                    MM_AMT,
+                    TAX_RATE,
+                    INT_RATE,
+                    GU_OFFICE_NUM,
+                    REMARK1,
+                    REMARK2,
+                    ADDR,
+                    ETC,
+                    CARD_SRL_NUM,
+                    CARD_INTERFACE_NUM,
+                    CARD_NUM,
+                    INTERFACE_LOG_NUM,
+                    INPUT_DATE      
+            FROM    SLA_SAP_SLIP_DTL
+            --WHERE   SLIP_NUM IN (${slipNum})
+            --타입일치로 속도개선 2018.07.25 김호석
+            WHERE   SLIP_NUM = :slipNum
+        ]]>
+	</statement>
+
+	<!-- SAP 전표 전송 목록을 조회한다. -->
+	<statement name="selectList" type="select"><![CDATA[
+            SELECT  '0' CHK
+                    ,M.SLIP_NUM
+                    ,M.SLIP_TYPE
+                    ,SCC_CODE_NM('SLIP_TYPE', M.SLIP_TYPE) SLIP_TYPE_NM
+                    ,M.SLIP_EVIDENCE_DATE
+                    ,M.SLIP_PERIOD_DATE
+                    ,M.SLIP_TEXT
+                    ,M.WRITE_EMP_SABUN
+                    ,(SELECT DISTINCT  NM_KOR FROM HR_PERSONAL WHERE SABUN=M.WRITE_EMP_SABUN) AS WRITE_EMP_SABUN_NM
+                    ,M.SYS_CD
+                    ,SCC_CODE_NM('SYS_CD', M.SYS_CD) SYS_NM
+                    ,M.ELCTN_SIGN_ID
+                    ,M.SLIP_STATUS
+                    ,SCC_CODE_NM('SLIP_STATUS',M.SLIP_STATUS) SLIP_STATUS_NM
+                    ,M.SIGN_STATUS
+                    ,M.SIGN_INSTANCE_ID
+                    ,SCC_SIGN_STATUS_FUN(M.SIGN_INSTANCE_ID) SIGN_PROGRESS_STATUS    -- 결재진행상태
+                    ,DECODE(M.SLIP_TYPE,'7D','서면결재',SCC_CODE_NM('SIGN_PROGRESS_STATUS',SCC_SIGN_STATUS_FUN(M.SIGN_INSTANCE_ID))) SIGN_PROGRESS_STATUS_NM
+                    ,M.REMARK
+                    ,M.FISCAL_SLIP_NUM
+                    ,M.FISCAL_YEAR
+                    ,M.REVERSE_SLIP_NUM
+                    ,M.REVERSE_SLIP_FISCAL_YEAR
+                    ,M.REVERSE_SLIP_DATE
+                    ,M.SLIP_GRP_NUM
+                    ,M.SIGN_TYPE
+                    ,M.URGENT_PROC_YN
+                    ,M.INTERFACE_LOG_NUM
+                    ,M.PROC_DATE
+                    ,M.RESULT_MSG
+                    ,M.SAP_SEND_YN
+                    ,M.SAP_SLIP_NUM
+                    ,M.SAP_SEND_TIME
+                    ,M.SLIP_CLASS_CD
+                    ,M.SLIP_PCLS_CLASS_CD
+                    ,M.SLIP_CREATION_MM
+                    ,M.FILE_ID
+                    ,M.MU_CD
+                    ,(SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE M.MU_CD = MU.MU_CD) MU_NM
+                    ,SCC_GET_TM_BY_CC('CODE',M.CC_CD) TM_CD
+                    ,SCC_GET_TM_BY_CC('NAME',M.CC_CD) TM_NM
+                    ,M.CC_CD
+                    ,(SELECT DISTINCT MU.CC_NM FROM HLDC_SC_DEPT_V MU WHERE M.CC_CD = MU.CC_CD) CC_NM
+                    ,NVL((
+                        SELECT  SUM(D.LCAL_AMT)
+                        FROM    SLA_SAP_SLIP_DTL D
+                        WHERE   D.SLIP_NUM = M.SLIP_NUM
+                        AND     D.DR_CR_CLASS = '1'
+                    ),0) D_AMT
+                    ,NVL((
+                        SELECT  SUM(C.LCAL_AMT)
+                        FROM    SLA_SAP_SLIP_DTL C
+                        WHERE   C.SLIP_NUM = M.SLIP_NUM
+                        AND     C.DR_CR_CLASS = '2'
+                    ),0) C_AMT
+                    ,(SELECT TAX_SHET_NUM FROM SLA_TAX_SHET_PUBLISH_MST  X WHERE X.TAX_SHET_APPRV_NUM = M.ELCTNTAX_BILL_APPRVNUM AND X.RECD_STATUS = 'L') AS TAX_SHET_NUM
+            FROM    SLA_SAP_SLIP_MST M
+            WHERE   M.SLIP_STATUS NOT IN ('Z','X')
+        <#if muCd?has_content>
+            AND     M.MU_CD = :muCd
+        </#if>
+        <#if tmCd?has_content>
+            AND     M.CC_CD IN (
+                            SELECT  A.CC_CD
+                            FROM    SCC_CC A
+                                    ,HLDC_SC_DEPT_V B
+                            WHERE   B.CC_CD = A.CC_CD
+                            AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+                            AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+                           -- AND     (B.TM_CD = :tmCd OR B.PT_CD = :tmCd)
+                            AND     (B.TM_CD LIKE :tmCd || '%' OR B.PT_CD LIKE :tmCd || '%')
+                            )
+        </#if>
+        <#if ccCd?has_content>
+            AND     M.CC_CD = :ccCd
+        </#if>
+        <#if slipPeriodDateFrom?has_content && slipPeriodDateTo?has_content>
+            AND     M.SLIP_PERIOD_DATE BETWEEN :slipPeriodDateFrom AND :slipPeriodDateTo
+        </#if>
+        <#if slipType?has_content>
+            AND     M.SLIP_TYPE = :slipType
+        </#if>
+        <#if slipStatus?has_content>
+            AND     M.SLIP_STATUS = :slipStatus
+        </#if>
+        <#if writeEmpSabun?has_content>
+            AND     M.WRITE_EMP_SABUN = :writeEmpSabun
+        </#if>
+        <#if taxShetNo?has_content>
+            AND     (SELECT TAX_SHET_NUM FROM SLA_TAX_SHET_PUBLISH_MST  X WHERE X.TAX_SHET_APPRV_NUM = M.ELCTNTAX_BILL_APPRVNUM AND X.RECD_STATUS = 'L') IN (:taxShetNo)
+        </#if>
+        <#if signProgressStatus?has_content>
+        	<#if signProgressStatus == 'written'>
+        		AND     M.SLIP_TYPE IN ('7D')	-- 서면결재
+        	<#else>
+        		AND     NVL(SCC_SIGN_STATUS_FUN(M.SIGN_INSTANCE_ID), 'NODRAFT') = :signProgressStatus
+        	</#if>
+        </#if>        
+            --ORDER BY M.SLIP_PERIOD_DATE DESC
+            ORDER BY M.SLIP_NUM
+		]]></statement>
+		
+	<!-- 계약정보 전자결재 상신하기 위한 정보를 조회한다. -->
+	<statement name="selectContractList" type="select"><![CDATA[
+            SELECT  '0' CHK,
+            	   A.CONTRACT_CD,
+			       A.CONTRACT_NAME,
+			       A.CONTRACT_GB,
+			       (SELECT SCC_COMMON_CODE.CODE_NAME FROM SCC_COMMON_CODE WHERE SCC_COMMON_CODE.GROUP_CODE IN ('CONTRACT_GB') AND SCC_COMMON_CODE.CODE = A.CONTRACT_GB) AS CONTRACT_GB_NM,
+			       A.CONTRACT_STATS,			       
+			       DECODE(A.CONTRACT_STATS,'10','등록','변경') AS CONTRACT_STATS_NM,
+			       (SELECT NM_KOR FROM SCC_USERINFO WHERE SABUN = :sabun) AS SENDER_NM,
+			       A.CONTRACT_NAME || ' ' || DECODE(A.CONTRACT_STATS,'10','등록','변경') || ' 신청' AS TITLE,
+			       A.CC_CD,
+			       (SELECT CC_NM FROM SCC_CC WHERE SCC_CC.CC_CD = A.CC_CD) AS CC_NM,
+			       A.CUST_CD,
+			       A.SAP_CUST_CD,
+			       A.CUST_NM,
+			       DECODE(A.LENT_ASSET_YN,'Y','YES','NO') AS LENT_ASSET_YN,
+			       DECODE(A.USUFRUCT_YN,'Y','YES','NO') AS USUFRUCT_YN,
+			       DECODE(A.ORDER_YN,'Y','YES','NO') AS ORDER_YN,
+			       DECODE(A.SMALL_ASSET_YN,'Y','YES','NO') AS SMALL_ASSET_YN,
+			       A.START_DATE,
+			       A.END_DATE,
+			       A.CONTRACT_PERIOD,
+			       A.DIS_RATE,
+			       A.AVG_RATE,
+			       A.RGHT_USE,			       
+			       DECODE(A.RGHT_USE,'10','연장선택권',(DECODE(A.RGHT_USE,'20','종료선택권','이외'))) AS RGHT_USE_NM,
+			       A.RGHT_USE_PERIOD,
+			       DECODE(A.RGHT_USE,'10','Y','N') AS PERIOD_GB01,
+			       DECODE(A.RGHT_USE,'20','Y','N') AS PERIOD_GB02,
+			       DECODE(A.RGHT_USE,'30','Y','N') AS PERIOD_GB03,
+			       DECODE(A.RGHT_USE,'10',RGHT_USE_PERIOD,'') AS PERIOD01,
+			       DECODE(A.RGHT_USE,'20',RGHT_USE_PERIOD,'') AS PERIOD02,
+			       DECODE(A.RGHT_USE,'30',RGHT_USE_PERIOD,'') AS PERIOD03,      
+			       A.NC_PERIOD,
+			       A.RO_PERIOD,
+			       A.LS_PERIOD,
+			       A.LEASE_GB,
+			       CASE WHEN A.LEASE_GB = '10' THEN '고정리스료'
+			           ELSE 
+			           	   CASE WHEN A.LEASE_GB = '20' THEN '변동리스료'
+			           			ELSE	
+			           			CASE WHEN A.LEASE_GB = '30' THEN '매출연동리스료(최소보장없음)'
+			           				ELSE
+			           				CASE WHEN A.LEASE_GB = '40' THEN '매출연동리스료(최소보장있음)'
+			           					ELSE
+			           						'전세계약 (월리스료 없음)'
+		           					END
+		           				END
+		           			END
+		           	END LEASE_GB_NM,
+			       NVL(TO_CHAR(A.LEASE_AMT,'999,999,999,999'),0) AS LEASE_AMT,
+			       DECODE(A.LEASE_GB,'10','Y','N') AS FD_YN,
+			       DECODE(A.LEASE_GB,'20','Y','N') AS VA_YN,
+			       DECODE(A.LEASE_GB,'30','Y','N') AS GT_MIN_N,
+			       DECODE(A.LEASE_GB,'40','Y','N') AS GT_MIN_Y,
+			       DECODE(A.LEASE_GB,'50','Y','N') AS LE_YN,
+			       DECODE(A.LEASE_GB,'10',A.LEASE_AMT,'') AS FD_AMT,
+			       DECODE(A.LEASE_GB,'20',A.LEASE_AMT,'') AS VA_AMT,      
+			       DECODE(A.LEASE_GB,'40',A.LEASE_AMT,'') AS GT_MIN_AMT,       
+			       A.LEASE_GB2,
+			       DECODE(A.LEASE_GB2,'10','염가매수청구권',DECODE(A.LEASE_GB2,'20','잔존보증가치','') ) AS LEASE_GB2_NM,
+			       NVL(TO_CHAR(A.LEASE_AMT2,'999,999,999,999'),0) AS LEASE_AMT2,
+			       DECODE(A.LEASE_GB2,'10','Y','N') AS LW_BUY_YN,
+			       DECODE(A.LEASE_GB2,'20','Y','N') AS GV_YN,
+			       NVL(TO_CHAR(A.DT_AMT,'999,999,999,999'),0) AS DT_AMT,
+			       NVL(TO_CHAR(A.DT_REAL_AMT,'999,999,999,999'),0) AS DT_REAL_AMT,
+			       NVL(TO_CHAR(A.EP_TO_AMT,'999,999,999,999'),0) AS EP_TO_AMT,
+			       NVL(TO_CHAR(A.RECOV_EXP_AMT,'999,999,999,999'),0) AS RECOV_EXP_AMT,
+			       NVL(TO_CHAR(A.RECOV_DEB_AMT,'999,999,999,999'),0) AS RECOV_DEB_AMT,
+			       NVL(TO_CHAR(A.USE_RGHT_ASSET_AMT,'999,999,999,999'),0) AS USE_RGHT_ASSET_AMT,
+			       NVL(TO_CHAR(A.LEASE_DEB_AMT,'999,999,999,999'),0) AS LEASE_DEB_AMT,
+			       NVL(TO_CHAR(A.LEASE_DEB_REAL_BAL,'999,999,999,999'),0) AS LEASE_DEB_REAL_BAL,
+			       A.BF_CNTRT_CD,
+			       A.CNTRT_CATEGORY,
+			       DECODE(A.CNTRT_CATEGORY,'1','신규','연장') AS CNTRT_CATEGORY_NM,
+			       A.WRT_DTM,
+			       A.WRT_ID,
+			       A.WRT_KOSTL,
+			       A.CALL_VAL,
+			       A.SC_OB_YN,
+			       A.SC_OB_AMT,
+			       A.SC_OB_PD_S,
+			       A.SC_OB_PD_E,
+			       A.SC_PV_YN,
+			       A.SC_PV_AMT,
+			       A.SC_PV_PD_S,
+			       A.SC_PV_PD_E,
+			       A.SC_IN_YN,
+			       A.SC_IN_AMT,
+			       A.SC_IN_PD_S,
+			       A.SC_IN_PD_E,
+			       DECODE(A.END_YN,'Y','YES','NO') AS END_YN,
+			       A.CUSER,
+			       A.CDATE,
+			       A.UUSER,
+			       A.UDATE
+			  FROM ST_CONTRACT A,
+			       ST_CUST B             
+			  WHERE  A.CUST_CD = B.CUSTCD			
+			        AND A.CONTRACT_CD = :contractCd
+			 		AND CONTRACT_STATS != '90'  --삭제건 제외
+		]]></statement>
+	
+	
+	
+
+	<!-- 그룹웨어 상신을 위한 본문을 생성하여 연동한다. -->
+	<statement name="selectSilpList" type="select">
+		/*+ com.hwfs.sm.srm.dao.SapSlipSendReptDAO.selectSilpList */
+		<![CDATA[
+            SELECT  D.SLIP_NUM
+                    ,D.DTL_NUM
+                    ,D.SLIP_TYPE
+                    ,SCC_COMMON_CODE_NAME_FUN('SLIP_TYPE',D.SLIP_TYPE) SLIP_TYPE_NM
+                    ,SUBSTR(D.SLIP_EVIDENCE_DATE,0,4)||'-'||SUBSTR(D.SLIP_EVIDENCE_DATE,5,2)||'-'||SUBSTR(D.SLIP_EVIDENCE_DATE,7,2) SLIP_EVIDENCE_DATE
+                    ,SUBSTR(D.EXPIRE_CAL_BASIS_DATE,0,4)||'-'||SUBSTR(D.EXPIRE_CAL_BASIS_DATE,5,2)||'-'||SUBSTR(D.EXPIRE_CAL_BASIS_DATE,7,2) EXPIRE_CAL_BASIS_DATE
+                    ,SUBSTR(D.SLIP_PERIOD_DATE,0,4)||'-'||SUBSTR(D.SLIP_PERIOD_DATE,5,2)||'-'||SUBSTR(D.SLIP_PERIOD_DATE,7,2) SLIP_DATE
+                    ,D.MASTER_ACCT
+                    ,(SELECT DISTINCT ACCT.ACCTNM FROM HLDC_ST_ACCOUNT_V ACCT WHERE D.MASTER_ACCT = ACCT.ACCTCD) ACCT_NM
+                    ,DECODE(D.DR_CR_CLASS,'1',(SELECT DISTINCT ACCT.ACCTNM FROM HLDC_ST_ACCOUNT_V ACCT WHERE D.MASTER_ACCT = ACCT.ACCTCD),'') D_ACCT_NM
+                    ,DECODE(D.DR_CR_CLASS,'2',(SELECT DISTINCT ACCT.ACCTNM FROM HLDC_ST_ACCOUNT_V ACCT WHERE D.MASTER_ACCT = ACCT.ACCTCD),'') C_ACCT_NM
+                    ,D.DR_CR_CLASS
+                    ,D.MU_CD
+                    ,(SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE D.MU_CD = MU.MU_CD) MU_NM
+                    ,SCC_GET_TM_BY_CC('CODE',D.CC_CD) TM_CD
+                    ,SCC_GET_TM_BY_CC('NAME',D.CC_CD) TM_NM
+                    ,D.CC_CD
+                    ,(SELECT DISTINCT MU.CC_NM FROM HLDC_SC_DEPT_V MU WHERE D.CC_CD = MU.CC_CD) CC_NM
+                    ,D.LCAL_AMT SLIP_AMT
+                    ,DECODE(D.DR_CR_CLASS,'1',D.LCAL_AMT,NULL) D_SLIP_AMT
+                    ,DECODE(D.DR_CR_CLASS,'2',D.LCAL_AMT,NULL) C_SLIP_AMT
+                    ,REMARK1 REMARK
+                    ,FO_CUST_NM
+                    ,DECODE(D.VAT_CD,'10',D.TAX_AMT,'20',D.TAX_AMT,'0') AS TAX_AMT
+                    ,DECODE(D.VAT_CD,'10',D.LCAL_AMT,'20',D.LCAL_AMT,'0') AS LCAL_AMT
+            FROM    SLA_SAP_SLIP_DTL D
+            WHERE   D.SLIP_NUM IN (${slipNum})            
+             ORDER BY D.SLIP_NUM , D.DTL_NUM
+            --ORDER BY D.SLIP_PERIOD_DATE                    ,D.SLIP_NUM                    ,D.DTL_NUM                    ,D.MU_CD                    ,D.CC_CD
+        ]]>
+	</statement>
+
+	<!-- 전자결재정보를 Update한다. -->
+	<statement name="updateSign" type="update">
+		/*+ com.hwfs.sm.srm.dao.SapSlipSendReptDAO.updateSign */
+		<![CDATA[
+            UPDATE  SLA_SAP_SLIP_MST
+            SET     SIGN_INSTANCE_ID    = :signInstanceId
+            		,ELCTN_SIGN_ID      = (SELECT DISTINCT CLIENT_ID FROM SIGN_IF.TB_EVT_INFO WHERE INSTANCE_ID = :signInstanceId)
+                    ,UUSER              = :loginSabun
+                    ,UDATE              = SYSDATE
+            WHERE   SLIP_NUM            = :slipNum
+		]]>
+	</statement>
+	
+	<!-- 전자결재정보를 Update한다.(계약관리) -->
+	<statement name="updateSign2" type="update">
+		/*+ com.hwfs.sm.srm.dao.SapSlipSendReptDAO.updateSign2 */
+		<![CDATA[
+            UPDATE  ST_CONTRACT
+            SET     SIGN_INSTANCE_ID    = :signInstanceId
+            		,ELCTN_SIGN_ID      = (SELECT DISTINCT CLIENT_ID FROM SIGN_IF.TB_EVT_INFO WHERE INSTANCE_ID = :signInstanceId)
+            		,CONTRACT_STATS     = '50'  --상신중
+                    ,UUSER              = :loginSabun
+                    ,UDATE              = SYSDATE
+            WHERE   CONTRACT_CD            = :contractCd
+		]]>
+	</statement>
+
+	<!-- SAP 전표전송 상태값을 저장한다. -->
+	<statement name="updateSlipStatusOfSlipMst" type="update">
+		/*+
+		com.hwfs.sm.srm.dao.SapSlipSendReptDAO.updateSlipStatusOfSlipMst
+		*/
+		<![CDATA[
+			UPDATE	SLA_SAP_SLIP_MST
+			SET		SLIP_STATUS = 'A'
+			WHERE	SLIP_NUM = :slipNum
+        ]]>
+	</statement>
+
+	<!-- SAP 전표전송 상태값을 저장한다. -->
+	<statement name="updateSlipCancelStatusOfSlipMst" type="update">
+		/*+
+		com.hwfs.sm.srm.dao.updateSlipCancelStatusOfSlipMst.updateSlipStatusOfSlipMst
+		*/
+		<![CDATA[
+			UPDATE	SLA_SAP_SLIP_MST
+			SET		SLIP_STATUS = 'B'
+			WHERE	SLIP_NUM = :slipNum
+        ]]>
+	</statement>
+
+	<!-- SAP 전표취소 목록을 저장한다. -->
+	<statement name="insertSlaSapSlipCancel" type="insert">
+		/*+
+		com.hwfs.sm.srm.dao.SapSlipSendReptDAO.insertSlaSapSlipCancel */
+		<![CDATA[
+			INSERT INTO SLA_SAP_SLIP_CANCEL
+			(
+			 SLIP_NUM,
+			 BU_CD,
+			 SYS_CD,
+			 FISCAL_SLIP_NUM,
+			 FISCAL_YEAR,
+			 CANCEL_REASON,
+			 PERIOD_DATE,
+			 REQUEST_DATE,
+			 REQUEST_TIME,
+			 WRITE_EMP_NUM,
+			 WRITE_EMP_DEPT,
+			 CANCEL_REASON_MEMO,
+			 INTERFACE_LOG_NUM,
+			 MSG,
+			 CUSER,
+			 CDATE,
+			 UUSER,
+			 UDATE
+			) VALUES (
+			 :slipNum,
+			 :buCd,
+			<#if sysCd?exists> :sysCd, <#else> null, </#if>
+			<#if fiscalSlipNum?exists> :fiscalSlipNum, <#else> null, </#if>
+			<#if fiscalYear?exists> :fiscalYear, <#else> null, </#if>
+			<#if cancelReason?exists> :cancelReason, <#else> null, </#if>
+			<#if periodDate?exists> :periodDate, <#else> null, </#if>
+			TO_CHAR(SYSDATE,'YYYYMMDD'),
+			TO_CHAR(SYSDATE,'HH24MI'),
+			:loginSabun,
+			<#if writeEmpDept?exists> :writeEmpDept, <#else> null, </#if>
+			<#if cancelReasonMemo?exists> :cancelReasonMemo, <#else> null, </#if>
+			<#if interfaceLogNum?exists> :interfaceLogNum, <#else> null, </#if>
+			<#if msg?exists> :msg, <#else> null, </#if>
+			 :loginSabun,
+			 SYSDATE,
+			 :loginSabun,
+			 SYSDATE
+			)
+		]]>
+	</statement>
+
+	<!-- SAP 전표취소 목록을 조회한다. -->
+	<statement name="selectSlaSapSlipCancel" type="select">
+		/*+
+		com.hwfs.sm.srm.dao.SapSlipSendReptDAO.selectSlaSapSlipCancel */
+		<![CDATA[
+			SELECT SLIP_NUM,
+			       BU_CD,
+			       SYS_CD,
+			       FISCAL_SLIP_NUM,
+			       FISCAL_YEAR,
+			       CANCEL_REASON,
+			       PERIOD_DATE,
+			       REQUEST_DATE,
+			       REQUEST_TIME,
+			       WRITE_EMP_NUM,
+			       WRITE_EMP_DEPT,
+			       CANCEL_REASON_MEMO,
+			       INTERFACE_LOG_NUM,
+			       MSG,
+			       CUSER,
+			       CDATE,
+			       UUSER,
+			       UDATE
+			FROM   SLA_SAP_SLIP_CANCEL
+			WHERE  SLIP_NUM = :slipNum
+			AND    BU_CD = :buCd
+        ]]>
+	</statement>
+
+	<!-- 전표생성취소 -->
+	<statement name="updateSapSlipMst" type="update">
+		/*+ com.hwfs.sm.srm.dao.SapSlipSendReptDAO.updateSapSlipMst */
+		<![CDATA[
+            UPDATE    SLA_SAP_SLIP_MST
+            SET        SLIP_STATUS = 'Z'    --전표생성취소
+                    ,UUSER = :loginSabun
+                    ,UDATE = SYSDATE
+            WHERE    SLIP_NUM = :slipNum
+        ]]>
+	</statement>
+
+	<!-- SAP 배치 작업을 위한 전표 전송 목록을 조회한다. -->
+	<statement name="selectAutoList" type="select"><![CDATA[
+            SELECT  '1' CHK
+                    ,M.SLIP_NUM
+                    ,M.SLIP_TYPE
+                    ,SCC_CODE_NM('SLIP_TYPE', M.SLIP_TYPE) SLIP_TYPE_NM
+                    ,M.SLIP_EVIDENCE_DATE
+                    ,M.SLIP_PERIOD_DATE
+                    ,M.SLIP_TEXT
+                    ,M.WRITE_EMP_SABUN
+                    ,(SELECT DISTINCT  NM_KOR FROM HR_PERSONAL WHERE SABUN=M.WRITE_EMP_SABUN) AS WRITE_EMP_SABUN_NM
+                    ,M.SYS_CD
+                    ,SCC_CODE_NM('SYS_CD', M.SYS_CD) SYS_NM
+                    ,M.ELCTN_SIGN_ID
+                    ,M.SLIP_STATUS
+                    ,SCC_CODE_NM('SLIP_STATUS',M.SLIP_STATUS) SLIP_STATUS_NM
+                    ,M.SIGN_STATUS
+                    ,M.SIGN_INSTANCE_ID
+                    ,SCC_SIGN_STATUS_FUN(M.SIGN_INSTANCE_ID) SIGN_PROGRESS_STATUS    -- 결재진행상태
+                    ,DECODE(M.SLIP_TYPE,'7D','서면결재',SCC_CODE_NM('SIGN_PROGRESS_STATUS',SCC_SIGN_STATUS_FUN(M.SIGN_INSTANCE_ID))) SIGN_PROGRESS_STATUS_NM
+                    ,M.REMARK
+                    ,M.FISCAL_SLIP_NUM
+                    ,M.FISCAL_YEAR
+                    ,M.REVERSE_SLIP_NUM
+                    ,M.REVERSE_SLIP_FISCAL_YEAR
+                    ,M.REVERSE_SLIP_DATE
+                    ,M.SLIP_GRP_NUM
+                    ,M.SIGN_TYPE
+                    ,M.URGENT_PROC_YN
+                    ,M.INTERFACE_LOG_NUM
+                    ,M.PROC_DATE
+                    ,M.RESULT_MSG
+                    ,M.SAP_SEND_YN
+                    ,M.SAP_SLIP_NUM
+                    ,M.SAP_SEND_TIME
+                    ,M.SLIP_CLASS_CD
+                    ,M.SLIP_PCLS_CLASS_CD
+                    ,M.SLIP_CREATION_MM
+                    ,M.FILE_ID
+                    ,M.MU_CD
+                    ,(SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE M.MU_CD = MU.MU_CD) MU_NM
+                    ,SCC_GET_TM_BY_CC('CODE',M.CC_CD) TM_CD
+                    ,SCC_GET_TM_BY_CC('NAME',M.CC_CD) TM_NM
+                    ,M.CC_CD
+                    ,(SELECT DISTINCT MU.CC_NM FROM HLDC_SC_DEPT_V MU WHERE M.CC_CD = MU.CC_CD) CC_NM
+                    ,NVL((
+                        SELECT  SUM(D.LCAL_AMT)
+                        FROM    SLA_SAP_SLIP_DTL D
+                        WHERE   D.SLIP_NUM = M.SLIP_NUM
+                        AND     D.DR_CR_CLASS = '1'
+                    ),0) D_AMT
+                    ,NVL((
+                        SELECT  SUM(C.LCAL_AMT)
+                        FROM    SLA_SAP_SLIP_DTL C
+                        WHERE   C.SLIP_NUM = M.SLIP_NUM
+                        AND     C.DR_CR_CLASS = '2'
+                    ),0) C_AMT
+                    ,(SELECT TAX_SHET_NUM FROM SLA_TAX_SHET_PUBLISH_MST  X WHERE X.TAX_SHET_APPRV_NUM = M.ELCTNTAX_BILL_APPRVNUM AND X.RECD_STATUS = 'L') AS TAX_SHET_NUM
+                    ,'L20141111' AS LOGIN_SABUN
+                    ,'L20141111' AS LOGIN_USERID
+                    ,'YYYYNNYYYYYNNNN' AS LOGIN_PERS_MASK
+            FROM    SLA_SAP_SLIP_MST M
+            WHERE   M.SLIP_STATUS = 'J'
+           -- AND     M.SLIP_PERIOD_DATE BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMM') || '01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+            --현재월까지 체크하도록 변경  20160324  처리: 맹수영  요청자: 윤지혜
+            AND     M.SLIP_PERIOD_DATE BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMM') || '01' AND TO_CHAR(SYSDATE, 'YYYYMM')||'31'
+            AND     NVL(SCC_SIGN_STATUS_FUN(M.SIGN_INSTANCE_ID), 'NODRAFT') = 'COMPLETE'
+            --AND     M.SLIP_TYPE IN ('7G','7D') --7D:대손처리, 7G:채권채무상계는 결재없이 진행
+            AND     M.SLIP_TYPE <> '6B'
+            AND     ROWNUM <= 30
+            ORDER BY M.SLIP_NUM
+		]]></statement>
+		
+	<!-- 계약정보 EA 배치 작업을 위한 전표 전송 목록을 조회한다.(실시간 배치용) -->
+	<statement name="selectContractAutoList" type="select"><![CDATA[
+            SELECT  '1' CHK
+                    , M.CONTRACT_CD
+                    ,'L20141111' AS LOGIN_SABUN
+                    ,'L20141111' AS LOGIN_USERID
+                    ,'YYYYNNYYYYYNNNN' AS LOGIN_PERS_MASK
+            FROM    ST_CONTRACT M,
+		       		SCC_SIGN_INFO C
+            WHERE   M.SIGN_INSTANCE_ID = C.SIGN_INSTANCE_ID(+)
+                AND M.CONTRACT_STATS = '50'  --결재상신
+            	AND NVL(SCC_SIGN_STATUS_FUN(M.SIGN_INSTANCE_ID), 'NODRAFT') = 'COMPLETE'  --전자결재 승인완료            	
+            		--ORDER BY M.CONTRACT_CD 
+		]]></statement>
+		
+	<!-- 계약정보 마스터 진행상태 업데이트 (실시간 배치용) -->
+	<statement name="updateContract" type="update"><![CDATA[
+            UPDATE  ST_CONTRACT
+             	SET CONTRACT_STATS = '20',
+             		UUSER = 'SYSTEM',
+             		UDATE = sysdate           	
+            WHERE CONTRACT_CD = :contractCd
+		]]></statement>
+
+	<!-- SAP 배치 작업을 위한 전표 전송 목록을 조회한다. -->
+	<statement name="selectAutoList6B" type="select"><![CDATA[
+            SELECT  '1' CHK
+                    ,M.SLIP_NUM
+                    ,M.SLIP_TYPE
+                    ,SCC_CODE_NM('SLIP_TYPE', M.SLIP_TYPE) SLIP_TYPE_NM
+                    ,M.SLIP_EVIDENCE_DATE
+                    ,M.SLIP_PERIOD_DATE
+                    ,M.SLIP_TEXT
+                    ,M.WRITE_EMP_SABUN
+                    ,(SELECT DISTINCT  NM_KOR FROM HR_PERSONAL WHERE SABUN=M.WRITE_EMP_SABUN) AS WRITE_EMP_SABUN_NM
+                    ,M.SYS_CD
+                    ,SCC_CODE_NM('SYS_CD', M.SYS_CD) SYS_NM
+                    ,M.ELCTN_SIGN_ID
+                    ,M.SLIP_STATUS
+                    ,SCC_CODE_NM('SLIP_STATUS',M.SLIP_STATUS) SLIP_STATUS_NM
+                    ,M.SIGN_STATUS
+                    ,M.SIGN_INSTANCE_ID
+                    ,SCC_SIGN_STATUS_FUN(M.SIGN_INSTANCE_ID) SIGN_PROGRESS_STATUS    -- 결재진행상태
+                    ,DECODE(M.SLIP_TYPE,'7D','서면결재',SCC_CODE_NM('SIGN_PROGRESS_STATUS',SCC_SIGN_STATUS_FUN(M.SIGN_INSTANCE_ID))) SIGN_PROGRESS_STATUS_NM
+                    ,M.REMARK
+                    ,M.FISCAL_SLIP_NUM
+                    ,M.FISCAL_YEAR
+                    ,M.REVERSE_SLIP_NUM
+                    ,M.REVERSE_SLIP_FISCAL_YEAR
+                    ,M.REVERSE_SLIP_DATE
+                    ,M.SLIP_GRP_NUM
+                    ,M.SIGN_TYPE
+                    ,M.URGENT_PROC_YN
+                    ,M.INTERFACE_LOG_NUM
+                    ,M.PROC_DATE
+                    ,M.RESULT_MSG
+                    ,M.SAP_SEND_YN
+                    ,M.SAP_SLIP_NUM
+                    ,M.SAP_SEND_TIME
+                    ,M.SLIP_CLASS_CD
+                    ,M.SLIP_PCLS_CLASS_CD
+                    ,M.SLIP_CREATION_MM
+                    ,M.FILE_ID
+                    ,M.MU_CD
+                    ,(SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE M.MU_CD = MU.MU_CD) MU_NM
+                    ,SCC_GET_TM_BY_CC('CODE',M.CC_CD) TM_CD
+                    ,SCC_GET_TM_BY_CC('NAME',M.CC_CD) TM_NM
+                    ,M.CC_CD
+                    ,(SELECT DISTINCT MU.CC_NM FROM HLDC_SC_DEPT_V MU WHERE M.CC_CD = MU.CC_CD) CC_NM
+                    ,NVL((
+                        SELECT  SUM(D.LCAL_AMT)
+                        FROM    SLA_SAP_SLIP_DTL D
+                        WHERE   D.SLIP_NUM = M.SLIP_NUM
+                        AND     D.DR_CR_CLASS = '1'
+                    ),0) D_AMT
+                    ,NVL((
+                        SELECT  SUM(C.LCAL_AMT)
+                        FROM    SLA_SAP_SLIP_DTL C
+                        WHERE   C.SLIP_NUM = M.SLIP_NUM
+                        AND     C.DR_CR_CLASS = '2'
+                    ),0) C_AMT
+                    ,(SELECT TAX_SHET_NUM FROM SLA_TAX_SHET_PUBLISH_MST  X WHERE X.TAX_SHET_APPRV_NUM = M.ELCTNTAX_BILL_APPRVNUM AND X.RECD_STATUS = 'L') AS TAX_SHET_NUM
+                    ,'L20141111' AS LOGIN_SABUN
+                    ,'L20141111' AS LOGIN_USERID
+                    ,'YYYYNNYYYYYNNNN' AS LOGIN_PERS_MASK
+            FROM    SLA_SAP_SLIP_MST M
+            WHERE   M.SLIP_STATUS = 'J'
+            AND     M.SLIP_PERIOD_DATE BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMM') || '01' AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+            AND     NVL(SCC_SIGN_STATUS_FUN(M.SIGN_INSTANCE_ID), 'NODRAFT') = 'COMPLETE'
+            --AND     M.SLIP_TYPE IN ('7G','7D') --7D:대손처리, 7G:채권채무상계는 결재없이 진행
+            AND     M.SLIP_TYPE = '6B'
+            AND     ROWNUM <= 30
+            ORDER BY M.SLIP_NUM
+		]]></statement>
+
+	<!-- SAP 배치 작업을 위해 동일 배치가 수행 중인지 확인한다. -->
+	<statement name="selectBatchList" type="select"><![CDATA[
+	    SELECT
+	           A.JOB_EXECUTION_ID             
+	         , A.JOB_INSTANCE_ID
+	         , B.JOB_NAME
+	         , A.VERSION
+	         , TO_CHAR(A.CREATE_TIME,'YYYY-MM-DD HH24:MI:SS') AS CREATE_TIME
+	         , TO_CHAR(A.START_TIME, 'YYYY-MM-DD HH24:MI:SS') AS START_TIME
+	         , TO_CHAR(A.END_TIME,   'YYYY-MM-DD HH24:MI:SS') AS END_TIME
+	         , A.STATUS
+	         , A.EXIT_CODE
+	         , A.EXIT_MESSAGE
+	         , TO_CHAR(A.LAST_UPDATED,'YYYY-MM-DD HH24:MI:SS') AS LAST_UPDATED
+	         , EXECUTION_USER_ID
+	         , SYNC_YN
+	    FROM   BATCH_JOB_EXECUTION A
+	         , BATCH_JOB_INSTANCE B
+	    WHERE  A.JOB_INSTANCE_ID = B.JOB_INSTANCE_ID
+        AND    B.JOB_NAME = 'sapSlipAutoSendJob'
+        AND    A.STATUS NOT IN  ('COMPLETED','FAILED')
+    	AND    START_TIME BETWEEN TO_CHAR(SYSDATE-60/24/60, 'YYYYMMDD HH24:MI:SS') AND TO_CHAR(SYSDATE-1/24/60, 'YYYYMMDD HH24:MI:SS')  --최근 1시간 이내 체크
+		]]></statement>
+
+	<!-- SAP 배치 작업을 위해 동일 배치가 수행 중인지 확인한다. -->
+	<statement name="selectBatchList6B" type="select"><![CDATA[
+	    SELECT
+	           A.JOB_EXECUTION_ID             
+	         , A.JOB_INSTANCE_ID
+	         , B.JOB_NAME
+	         , A.VERSION
+	         , TO_CHAR(A.CREATE_TIME,'YYYY-MM-DD HH24:MI:SS') AS CREATE_TIME
+	         , TO_CHAR(A.START_TIME, 'YYYY-MM-DD HH24:MI:SS') AS START_TIME
+	         , TO_CHAR(A.END_TIME,   'YYYY-MM-DD HH24:MI:SS') AS END_TIME
+	         , A.STATUS
+	         , A.EXIT_CODE
+	         , A.EXIT_MESSAGE
+	         , TO_CHAR(A.LAST_UPDATED,'YYYY-MM-DD HH24:MI:SS') AS LAST_UPDATED
+	         , EXECUTION_USER_ID
+	         , SYNC_YN
+	    FROM   BATCH_JOB_EXECUTION A
+	         , BATCH_JOB_INSTANCE B
+	    WHERE  A.JOB_INSTANCE_ID = B.JOB_INSTANCE_ID
+        AND    B.JOB_NAME = 'sapSlipAutoSend6BJob'
+        AND    A.STATUS NOT IN  ('COMPLETED','FAILED')
+    	AND    START_TIME BETWEEN TO_CHAR(SYSDATE-60/24/60, 'YYYYMMDD HH24:MI:SS') AND TO_CHAR(SYSDATE-1/24/60, 'YYYYMMDD HH24:MI:SS')  --최근 1시간 이내 체크
+		]]></statement>
+	
+	<!-- EA 배치 작업을 위해 동일 배치가 수행 중인지 확인한다. -->
+	<statement name="selectContractBatchList" type="select"><![CDATA[
+	    SELECT
+	           A.JOB_EXECUTION_ID             
+	         , A.JOB_INSTANCE_ID
+	         , B.JOB_NAME
+	         , A.VERSION
+	         , TO_CHAR(A.CREATE_TIME,'YYYY-MM-DD HH24:MI:SS') AS CREATE_TIME
+	         , TO_CHAR(A.START_TIME, 'YYYY-MM-DD HH24:MI:SS') AS START_TIME
+	         , TO_CHAR(A.END_TIME,   'YYYY-MM-DD HH24:MI:SS') AS END_TIME
+	         , A.STATUS
+	         , A.EXIT_CODE
+	         , A.EXIT_MESSAGE
+	         , TO_CHAR(A.LAST_UPDATED,'YYYY-MM-DD HH24:MI:SS') AS LAST_UPDATED
+	         , EXECUTION_USER_ID
+	         , SYNC_YN
+	    FROM   BATCH_JOB_EXECUTION A
+	         , BATCH_JOB_INSTANCE B
+	    WHERE  A.JOB_INSTANCE_ID = B.JOB_INSTANCE_ID
+        AND    B.JOB_NAME = 'contractAutoSendJob'
+        AND    A.STATUS NOT IN  ('COMPLETED','FAILED')
+    	AND    START_TIME BETWEEN TO_CHAR(SYSDATE-60/24/60, 'YYYYMMDD HH24:MI:SS') AND TO_CHAR(SYSDATE-1/24/60, 'YYYYMMDD HH24:MI:SS')  --최근 1시간 이내 체크
+		]]></statement>
+	
+	<!-- 계약정보 EA I/F 테이블에 복사한다. -->
+	<statement name="insertContract" type="insert">
+		<![CDATA[
+		/*+ com.hwfs.sm.srm.dao.SapSlipSendReptDAO.insertContract */
+		 	
+		 	MERGE INTO SAP_IF.SAP_IFC_CONTRACT A 
+			USING (
+				SELECT *
+				FROM ST_CONTRACT
+				WHERE CONTRACT_CD = :contractCd			
+			) B 
+			ON ( A.CNTRT_CD = B.CONTRACT_CD	) 
+			
+			WHEN MATCHED THEN 
+			UPDATE 
+			
+			SET 	   CNTRT_STATS_CD     = '20',
+				       DEPT_CD            = B.CC_CD,
+				       CNTRT_NM           = B.CONTRACT_NAME,
+				       CNTRT_GB           = B.CONTRACT_GB,
+				       LIFNR              = B.SAP_CUST_CD,
+				       LIFNR_NM           = B.CUST_NM,
+				       LENT_ASSET_YN      = B.LENT_ASSET_YN,
+				       USE_PROFIT_YN      = B.USUFRUCT_YN,
+				       USE_ORDER_YN       = B.ORDER_YN,
+				       SMAL_ASSET_YN      = B.SMALL_ASSET_YN,
+				       CNTRT_DATE_FROM    = B.START_DATE,
+				       CNTRT_DATE_TO      = B.END_DATE,
+				       CNTRT_MON          = B.CONTRACT_PERIOD,
+				       DIS_RATE           = B.DIS_RATE,
+				       AVG_RATE           = B.AVG_RATE,
+				       CNTRT_RGHT_USE     = B.RGHT_USE,
+				       CNTRT_RGHT_USE_MON = B.RGHT_USE_PERIOD,
+				       NON_CANCEL_MON     = B.NC_PERIOD,
+				       CHOICE_MON         = B.RO_PERIOD,
+				       LEASE_MON          = B.LS_PERIOD,
+				       LEASE_GB           = B.LEASE_GB,
+				       LEASE_AMT          = B.LEASE_AMT,
+				       LEASE_GB2          = B.LEASE_GB2,
+				       LEASE_AMT2         = B.LEASE_AMT2,
+				       WARNT_AMT          = B.DT_AMT,
+				       WARNT_REAL_BAL     = B.DT_REAL_AMT,
+				       EXP_ACQ_AMT        = B.EP_TO_AMT,
+				       RECOV_EXP_AMT      = B.RECOV_EXP_AMT,
+				       RECOV_DEB_AMT      = B.RECOV_DEB_AMT,
+				       USE_RGHT_ASSET_AMT = B.USE_RGHT_ASSET_AMT,
+				       LEASE_DEB_AMT      = B.LEASE_DEB_AMT,
+				       LEASE_DEB_REAL_BAL = B.LEASE_DEB_REAL_BAL,
+				       BF_CNTRT_CD        = B.BF_CNTRT_CD,
+				       CNTRT_CATEGORY     = B.CNTRT_CATEGORY,
+				       WRT_DTM            = B.WRT_DTM,
+				       WRT_ID             = B.WRT_ID,
+				       WRT_KOSTL          = B.WRT_KOSTL,
+				       CALL_VAL           = B.CALL_VAL,
+				       PICODE             = '',
+				       PISTAT             = 'R',
+				       PIDATE             = '',
+				       PITIME             = '',
+				       PIUSER             = '',
+				       PIMSG              = '',
+				       PIMSGID            = '',
+				       REG_ID             = B.CUSER,
+				       REG_DTM            = B.CDATE,
+				       CHG_ID             = B.UUSER,
+				       CHG_DTM            = B.UDATE 
+ 
+			WHEN NOT MATCHED THEN 
+				
+			INSERT ( 
+			COMP_CD,CNTRT_CD,CNTRT_STATS_CD,DEPT_CD,CNTRT_NM,CNTRT_GB,LIFNR,LIFNR_NM,LENT_ASSET_YN,USE_PROFIT_YN
+			,USE_ORDER_YN,SMAL_ASSET_YN,CNTRT_DATE_FROM,CNTRT_DATE_TO,CNTRT_MON,DIS_RATE,AVG_RATE, CNTRT_RGHT_USE
+			,CNTRT_RGHT_USE_MON,NON_CANCEL_MON,CHOICE_MON,LEASE_MON,LEASE_GB,LEASE_AMT,LEASE_GB2,LEASE_AMT2,WARNT_AMT
+			,WARNT_REAL_BAL,EXP_ACQ_AMT,RECOV_EXP_AMT,RECOV_DEB_AMT,USE_RGHT_ASSET_AMT,LEASE_DEB_AMT,LEASE_DEB_REAL_BAL
+			,XBLNR,BF_CNTRT_CD,CNTRT_CATEGORY,WRT_DTM,WRT_ID,WRT_KOSTL,CREATE_SLIP_YN,CALL_VAL,PICODE,PISTAT,PIDATE
+			,PITIME,PIUSER,PIMSG,PIMSGID,REG_ID,REG_DTM,CHG_ID,CHG_DTM)
+			VALUES
+			(      '2000',
+			       B.CONTRACT_CD,
+			       '20',
+			       B.CC_CD,
+			       B.CONTRACT_NAME,
+			       B.CONTRACT_GB,
+			       B.SAP_CUST_CD,
+			       B.CUST_NM,
+			       B.LENT_ASSET_YN,
+			       B.USUFRUCT_YN,
+			       B.ORDER_YN,
+			       B.SMALL_ASSET_YN,
+			       B.START_DATE,
+			       B.END_DATE,
+			       B.CONTRACT_PERIOD,
+			       B.DIS_RATE,
+			       B.AVG_RATE,
+			       B.RGHT_USE,
+			       B.RGHT_USE_PERIOD,
+			       B.NC_PERIOD,
+			       B.RO_PERIOD,
+			       B.LS_PERIOD,
+			       B.LEASE_GB,
+			       B.LEASE_AMT,
+			       B.LEASE_GB2,
+			       B.LEASE_AMT2,
+			       B.DT_AMT,
+			       B.DT_REAL_AMT,
+			       B.EP_TO_AMT,
+			       B.RECOV_EXP_AMT,
+			       B.RECOV_DEB_AMT,
+			       B.USE_RGHT_ASSET_AMT,
+			       B.LEASE_DEB_AMT,
+			       B.LEASE_DEB_REAL_BAL,
+			       null,
+			       B.BF_CNTRT_CD,
+			       B.CNTRT_CATEGORY,
+			       B.WRT_DTM,
+			       B.WRT_ID,
+			       B.WRT_KOSTL,
+			       null,
+			       B.CALL_VAL,
+			       '',
+			       'R',
+			       '',
+			       '',
+			       '',
+			       '',
+			       '',
+			       B.CUSER,
+			       B.CDATE,
+			       B.UUSER,
+			       B.UDATE
+			)
+			
+		]]>
+	</statement>
+	
+</hqml>

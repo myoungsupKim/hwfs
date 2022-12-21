@@ -1,0 +1,160 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\..\..\default_typedef.xml"/>
+  <Form id="MAS10021P" onkeydown="WorkForm_OnKeyDown" onload="form_onload" titletext="업장전체 정수기 목록현황" position="absolute 0 0 937 371" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Static id="Static06" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 922 0 937 314"/>
+        <Static id="Static71" text="h15" class="Guide01_AreaRed" visible="false" position="absolute -16 355 824 370"/>
+        <Static id="Static02" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 1252 15" anchor="left bottom"/>
+        <Static id="Static09" text="w10" class="Guide01_AreaRed" visible="false" position="absolute 0 8 10 718"/>
+        <Grid id="grid_Purifier00" taborder="11" binddataset="ds_List" scrollbars="autovert" wheelscrollrow="1" autoenter="select" useinputpanel="false" cellsizingtype="both" cellsizebandtype="allband" autofittype="col" position="absolute 10 15 921 355" anchor="all" onheadclick="gd_list_OnHeadClick">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="28" band="left"/>
+                <Column size="61"/>
+                <Column size="70"/>
+                <Column size="60"/>
+                <Column size="93"/>
+                <Column size="93"/>
+                <Column size="91"/>
+                <Column size="58"/>
+                <Column size="51"/>
+                <Column size="33"/>
+                <Column size="80"/>
+                <Column size="74"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="image" class="head_Excel"/>
+                <Cell col="1" text="팀코드"/>
+                <Cell col="2" text="팀명"/>
+                <Cell col="3" text="업장코드"/>
+                <Cell col="4" text="업장명"/>
+                <Cell col="5" displaytype="text" text="정수기업체"/>
+                <Cell col="6" displaytype="text" text="필터업체"/>
+                <Cell col="7" displaytype="text" text="렌탈"/>
+                <Cell col="8" displaytype="text" text="관리"/>
+                <Cell col="9" displaytype="text" text="수량"/>
+                <Cell col="10" displaytype="text" text="계약개시일"/>
+                <Cell col="11" displaytype="text" text="계약만료일"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" style="align:left;" text="bind:순서" expr="expr:currow+1"/>
+                <Cell col="1" text="bind:TM_CD"/>
+                <Cell col="2" text="bind:TM_NM"/>
+                <Cell col="3" displaytype="text" text="bind:UPJANG"/>
+                <Cell col="4" displaytype="text" text="bind:UPJANGNM"/>
+                <Cell col="5" displaytype="text" edittype="none" style="align:left;" text="bind:PURIFIER_COMPANY"/>
+                <Cell col="6" displaytype="text" edittype="none" style="align:left;" text="bind:FILTER_COMPANY"/>
+                <Cell col="7" displaytype="text" edittype="none" style="align:center;" text="bind:RETAL_YN"/>
+                <Cell col="8" displaytype="text" edittype="none" style="align:left;" text="bind:MGMT_CD"/>
+                <Cell col="9" displaytype="number" edittype="none" style="align:right;" text="bind:QTY" mask="###,##0"/>
+                <Cell col="10" displaytype="date" edittype="none" style="align:center;" text="bind:CTRT_DATE" calendardisplaynulltype="none"/>
+                <Cell col="11" displaytype="date" edittype="none" style="align:center;" text="bind:CTRT_END_DATE" calendardisplaynulltype="none"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_Cond"/>
+      <Dataset id="ds_List">
+        <ColumnInfo>
+          <Column id="TM_CD" type="STRING" size="256"/>
+          <Column id="TM_NM" type="STRING" size="256"/>
+          <Column id="UPJANG" type="STRING" size="256"/>
+          <Column id="UPJANGNM" type="STRING" size="256"/>
+          <Column id="PURIFIER_COMPANY" type="STRING" size="256"/>
+          <Column id="FILTER_COMPANY" type="STRING" size="256"/>
+          <Column id="RETAL_YN" type="STRING" size="256"/>
+          <Column id="MGMT_CD" type="STRING" size="256"/>
+          <Column id="QTY" type="STRING" size="256"/>
+          <Column id="CTRT_DATE" type="STRING" size="256"/>
+          <Column id="CTRT_END_DATE" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Bind/>
+    <Script type="xscript4.0"><![CDATA[/*
+ ******************************************************************************************
+ * 시스템구분   : 사업장 기준정보관리
+ * 프로그램명   : MAS10020E
+ * 기      능   : 표준 UI Form
+ * 작  성  자   : 구종화
+ * 작성  일자   : 2007-11-16
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    : 1)저장시 배송정보관리추가 - DELIVERY_POSTNO, DELIVERY_ADDR 황승한 2009.03.17 CSR25501
+ *              2)팝업조회시 식재도매구분표시 추가- [식재-도매유통] 황승한 2009.05.12 CSR27105
+                3)박은규 2012-06-25 CSR#(CH201206_00149) 요청자:이혜은(fs지원팀)
+                  식수 제외업장 설정 추가(이혜은대리만 지정가능)
+                3)박은규 2012-10-22 CSR#(CH201210_00118) 요청자:홍호준(식품연구소)
+                  제빙기 보유여부, 자판기 보유여부, 무재해 개시일 설정 추가
+                4)박은규 2013-02-15 CSR#(CH201302_00056) 요청자:홍호준(식품연구소)
+                  지하수 정수처리 시설여부, 지하수 정수처리 시설방식 설정 추가
+ ******************************************************************************************
+ */  
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+include "U_lib::lib_conversionCom.xjs";
+//@@컨버터에서 주석처리 #include "lib::tit_comm_0001.js"
+//@@컨버터에서 주석처리 #include "lib::sc_comon.js"
+//@@컨버터에서 주석처리 #include "lib::sc_sql_common.js"
+//@@컨버터에서 주석처리 #include "lib::ma_common.js"
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	fn_search();
+}
+
+
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+function fn_search()
+{
+		
+	//Transaction 설정
+	var formObj			= this;
+	var strSvcID		= "MAS10021P_T001";
+	var strURL			= "U_svc::" + "ma/mas/MAS10021P_T001.jsp";
+	var strInDatasets	= "inDs_Cond=ds_Cond";
+	var strOutDatasets	= "ds_List=ds_List";
+	var strArgument     = "";
+	var strCallbackFunc	= "";
+	var isErrorNotCall	= false;
+	var isNotShow		= false;	//false 메세지 보여줌 --> sync일때 표현 안됨.
+	var isSync			= true;		//true 다실행하고 실행됨.(async)
+
+	//서버호출
+	jsp_transaction(formObj, strSvcID, strURL, strInDatasets, strOutDatasets, strArgument, strCallbackFunc, isErrorNotCall, isNotShow, isSync);
+}
+
+
+function gd_list_OnHeadClick(obj:Grid, e:GridClickEventInfo)
+{		
+	gfn_gridSort(obj, e); //(eval(obj.binddataset), obj, e.cell, fd_Excel);
+}]]></Script>
+  </Form>
+</FDL>

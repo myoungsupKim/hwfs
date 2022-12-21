@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[기간표준식단 영양평가 리스트]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.MENU_DATE,
+       (F.CODE_NAME || G.CODE_NAME) AS MENU_DESC,
+       SUM(ROUND((E.CAL * (D.NEED_QTY*((100-E.DISUSE_RATE)/100)) / 100),2)) CAL, -- "열량"
+	   SUM(ROUND((E.CARBO * (D.NEED_QTY*((100-E.DISUSE_RATE)/100)) / 100),2)) CARBO, --"당질"
+	   SUM(ROUND((E.PROT * (D.NEED_QTY*((100-E.DISUSE_RATE)/100)) / 100),2)) PROT, --"단백질"
+	   SUM(ROUND((E.FAT * (D.NEED_QTY*((100-E.DISUSE_RATE)/100)) / 100),2)) FAT, --"지질"
+	   SUM(ROUND((E.VITA_A * (D.NEED_QTY*((100-E.DISUSE_RATE)/100)) / 100),2)) VITA_A, --"비타민A"
+	   SUM(ROUND((E.THIA * (D.NEED_QTY*((100-E.DISUSE_RATE)/100)) / 100),2)) THIA, --"비타민B1"
+       SUM(ROUND((E.RIBO * (D.NEED_QTY*((100-E.DISUSE_RATE)/100)) / 100),2)) RIBO, --"비타민B2"
+	   SUM(ROUND((E.VITA_C * (D.NEED_QTY*((100-E.DISUSE_RATE)/100)) / 100),2)) VITA_C, --"비타민C"
+	   SUM(ROUND((E.CA * (D.NEED_QTY*((100-E.DISUSE_RATE)/100)) / 100),2)) CA, --"칼슘"
+	   SUM(ROUND((E.FE * (D.NEED_QTY*((100-E.DISUSE_RATE)/100)) / 100),2)) FE --"철"
+  FROM FMM_TERM_MENU_MST A, FMM_TERM_MENU_RECIPE B, FMR_STD_RECIPE_MST C, FMR_STD_RECIPE_ITEM D, FSI_ITEM_NUT E,
+       (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0023') F,
+       (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0022') G
+ WHERE 1 = 1
+   AND A.MEAL = #MEAL#
+ <isNotEqual col="CORNER" value="000">
+   AND A.CORNER = #CORNER#
+ </isNotEqual>
+   AND A.MENU_TYPE = #MENU_TYPE#
+   AND TO_DATE(A.MENU_DATE) BETWEEN TO_DATE(#FROM_MENU_DATE#) AND TO_DATE(#TO_MENU_DATE#)
+   AND A.TERM_MENU_CD = B.TERM_MENU_CD
+   AND B.RECIPE_CD = C.RECIPE_CD
+   AND C.RECIPE_CD = D.RECIPE_CD
+   AND D.ITEM_CODE = E.ITEM_CODE
+   AND A.MEAL = F.CODE(+)
+   AND A.CORNER = G.CODE(+)
+   <isNotNull col="COST_TYPE" >
+   AND A.COST_TYPE    = #COST_TYPE#   -- 원가유형
+ </isNotNull>
+ GROUP BY A.MENU_DATE, F.CODE_NAME, G.CODE_NAME --, A.COST_TYPE	</statement>
+	<input default-name="ds_Input">
+	</input>
+	<output default-name="ds_List">
+	</output>
+</query>

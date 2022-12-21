@@ -1,0 +1,318 @@
+ODI    OZ Document File<?xml version="1.0" encoding="UTF-8"?>
+
+<OZDATAINFO>
+  <OZDATAMODULE NAME="[OZ DATA Tree]" INCLUDE="" VERSION="1.0" PARAMETERFLAG="#" IGNORENULLDATA="true" SCRIPTBCE="false">
+    <OZPARAMETERSTORE NAME="paramstore">
+      <OZPARAMETERSET NAME="OZParam" INCLUDE="" MASTERSET="" HIDDEN="false" LOADSFIELDINFODYNAMICALLY="false" SDMTYPE="0" SIGN="false" HIDEDESIGNTIME="false">
+	<PARAMFIELD NAME="PARAM1" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" VALUE="105682" />
+	<PARAMFIELD NAME="PARAM2" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" VALUE="미래캐터링" />
+	<PARAMFIELD NAME="PARAM3" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" VALUE="20100501" />
+	<PARAMFIELD NAME="PARAM4" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" VALUE="20100520" />
+	<PARAMFIELD NAME="PARAM5" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" VALUE="001" />
+	<PARAMFIELD NAME="PARAM6" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="사업장별" VALUE="2010년 5월 20일" />
+	<PARAMFIELD NAME="PARAM7" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" VALUE="" />
+	<PARAMFIELD NAME="PARAM8" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" VALUE="전체" />
+	<PARAMFIELD NAME="PARAM9" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" VALUE="" />
+      </OZPARAMETERSET>
+    </OZPARAMETERSTORE>
+    <OZFILESTORE NAME="FILESTORE" INCLUDE="" />
+    <OZHTTPSTORE NAME="HTTPSTORE" INCLUDE="" />
+    <OZORACLE NAME="fsdb" INCLUDE="" VENDOR="Oracle" SERVERNAME="0" DBNAME="0" DATASOURCENAME="" USERNAME="hldc" PASSWORD="" DBSERVERIP="0" DBSERVERPORT="0" ENCODECHARSET="KSC5601" DECODECHARSET="KSC5601" TIMEFORMAT="hh:mm:ss" DATEFORMAT="yyyy-MM-dd" TIMESTAMPFORMAT="yyyy-MM-dd hh:mm:ss:SSS" AUTOCOMMIT="true" POOLALIAS="oracle_hldc" ALIASFILENAME="C:\Program Files\FORCS\OZ Product\ReportDesigner\properties\db.properties" USEALIAS="true" USEIJAVA="false" SUBPROTOCOL="">
+      <OZQUERY NAME="거래실적집계" INCLUDE="" MASTERSET="" DBINFOID="fsdb" SCRIPT="true" MAXROW="0" HIDDEN="false" LOADSFIELDINFODYNAMICALLY="false" SDMTYPE="0" SIGN="false" HIDEDESIGNTIME="false" INSERT_ROW_QUERY="" DELETE_ROW_QUERY="" UPDATE_ROW_QUERY="" PREPARED="false">!!string sql;
+sql = "";
+
+if ( #OZParam.PARAM7# == "" )
+{
+          sql = "SELECT A.NEED_DATE_ORI"
+            + "     , A.NEED_DATE"
+            + "     , SUM(OP_AMOUNT) AS OP_AMOUNT"
+            + "     , SUM(OP_NOTAX) AS OP_NOTAX"
+            + "     , SUM(OP_TAX) AS OP_TAX"
+            + "     , SUM(OP_VAT) AS OP_VAT"
+            + "     , SUM(OP_TOT) AS OP_TOT"
+            + "     , SUM(OP_AMOUNT1) AS OP_AMOUNT1"
+            + "     , SUM(OP_NOTAX1) AS OP_NOTAX1"
+            + "     , SUM(OP_TAX1) AS OP_TAX1"
+            + "     , SUM(OP_VAT1) AS OP_VAT1"
+            + "     , SUM(OP_TOT1) AS OP_TOT1"
+            + "     , SUM(OP_AMOUNT2) AS OP_AMOUNT2"
+            + "     , SUM(OP_NOTAX2) AS OP_NOTAX2"
+            + "     , SUM(OP_TAX2) AS OP_TAX2"
+            + "     , SUM(OP_VAT2) AS OP_VAT2"
+            + "     , SUM(OP_TOT2) AS OP_TOT2"
+            + "  FROM"
+            + "("
+            + "SELECT /*+ DRIVING_SITE(A) INDEX(A PO_TRANSACTION_PT_I8) */";
+
+        if (#OZParam.PARAM5# == "001")
+        {
+             sql = sql + " A.TRANS_UPJANG AS NEED_DATE_ORI, D.UPJANGNM_DISP AS NEED_DATE ";
+         }
+         else
+        {
+             sql = sql + "  A.TRANS_DATE AS NEED_DATE_ORI, TO_CHAR(TO_DATE(A.TRANS_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS NEED_DATE ";
+        }
+
+          sql = sql  + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(A.TRANS_QTY * DECODE(NVL(C.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE))) AS OP_AMOUNT"
+            + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(DECODE(A.TAX_CODE,'100',0,A.TRANS_QTY) * DECODE(NVL(C.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE))) AS OP_NOTAX"
+            + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(DECODE(A.TAX_CODE,'100',A.TRANS_QTY,0) * DECODE(NVL(C.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE))) AS OP_TAX"
+            + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(DECODE(A.TAX_CODE,'100',0.1,0) * ROUND(A.TRANS_QTY * DECODE(NVL(C.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE)))) AS OP_VAT"
+            + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(DECODE(A.TAX_CODE,'100',1.1,1) * ROUND(A.TRANS_QTY * DECODE(NVL(C.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE)))) AS OP_TOT"
+            + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * A.SALE_AMOUNT) AS OP_AMOUNT1"
+            + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * DECODE(A.TAX_CODE,'100',0,A.SALE_AMOUNT)) AS OP_NOTAX1"
+            + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * DECODE(A.TAX_CODE,'100',A.SALE_AMOUNT,0)) AS OP_TAX1"
+            + "     , ROUND(SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * DECODE(A.TAX_CODE,'100',0.1,0) * A.SALE_AMOUNT + A.TRANS_QTY * A.SALE_VAT)) AS OP_VAT1"
+            + "     , ROUND(SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * DECODE(A.TAX_CODE,'100',1.1,1) * A.SALE_AMOUNT + A.TRANS_QTY * A.SALE_VAT)) AS OP_TOT1"
+            + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(A.TRANS_QTY * ROUND(A.SALE_PRICE / (1 + DECODE(A.TAX_CODE,'100',NVL(K.FM_SALE_RATE,0),NVL(K.FM_NOSALE_RATE,0))/100)))) AS OP_AMOUNT2"
+            + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * DECODE(A.TAX_CODE,'100',0,ROUND(A.TRANS_QTY * ROUND(A.SALE_PRICE / (1 + DECODE(A.TAX_CODE,'100',NVL(K.FM_SALE_RATE,0),NVL(K.FM_NOSALE_RATE,0))/100))))) AS OP_NOTAX2"
+            + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * DECODE(A.TAX_CODE,'100',ROUND(A.TRANS_QTY * ROUND(A.SALE_PRICE / (1 + DECODE(A.TAX_CODE,'100',NVL(K.FM_SALE_RATE,0),NVL(K.FM_NOSALE_RATE,0))/100))),0)) AS OP_TAX2"
+            + "     , ROUND(SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * DECODE(A.TAX_CODE,'100',A.SALE_AMOUNT*0.1 + A.TRANS_QTY*A.SALE_VAT,0))) AS OP_VAT2"
+            + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(A.TRANS_QTY * ROUND(A.SALE_PRICE / (1 + DECODE(A.TAX_CODE,'100',NVL(K.FM_SALE_RATE,0),NVL(K.FM_NOSALE_RATE,0))/100))))"
+            + "     + ROUND(SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * DECODE(A.TAX_CODE,'100',A.SALE_AMOUNT*0.1 + A.TRANS_QTY*A.SALE_VAT,0))) AS OP_TOT2"
+            + "  FROM PO_TRANSACTION A, HWFS_FMS_UPJANG D"
+            + "     , HWFS_FMU_OP_RATE C"
+            + "     , FM_SALE_RATE K"
+            + " WHERE A.TRANS_UPJANG = D.UPJANG"
+            + "   AND A.TRANS_UPJANG = C.UPJANG(+)"
+            + "   AND A.TRANS_DATE BETWEEN C.SDATE(+) AND C.EDATE(+)"
+            + "   AND DECODE(FMS_OPRATEINFO_FUN(A.TRANS_UPJANG, A.TRANS_DATE), 'C', SUBSTR(A.ITEM_CODE,1,8), A.ITEM_CODE) = C.ITEM_CODE(+) "
+            + "   AND C.USE_YN(+) = 'Y'"
+            + "   AND SUBSTR(A.ITEM_CODE,1,6)||'00' = K.ITEM_CLASS(+)"
+            + "   AND A.SUBINV_CODE = K.SUBINV_CODE(+)"
+            + "   AND A.TRANS_DATE BETWEEN K.SDATE(+) AND K.EDATE(+)"
+            + "   AND K.USE_YN(+) = 'Y'"
+            + "   AND A.TRANS_DATE BETWEEN '"+#OZParam.PARAM3#+"' AND '"+#OZParam.PARAM4#+"' "
+            + "   AND (A.TRANS_TYPE = 'I001' OR (A.TRANS_TYPE LIKE '_002' AND A.SOURCE_TYPE = 'PO'))"
+            + "   AND D.MAIN_UPJANG = " + #OZParam.PARAM1#;
+
+        if (#OZParam.PARAM9# != "")
+        {
+             sql = sql + "AND A.TRANS_UPJANG = " + #OZParam.PARAM1#;
+         }
+
+        if (#OZParam.PARAM5# == "001")
+        {
+             sql = sql + " GROUP BY A.TRANS_UPJANG, D.UPJANGNM_DISP ";
+         }
+         else
+        {
+             sql = sql + "  GROUP BY A.TRANS_DATE ";
+        }
+
+           sql = sql + " UNION ALL";
+
+        if (#OZParam.PARAM5# == "001")
+        {
+             sql = sql + " SELECT A.UPJANG AS NEED_DATE_ORI, D.UPJANGNM_DISP AS NEED_DATE ";
+         }
+         else
+        {
+             sql = sql + " SELECT A.NEED_DATE AS NEED_DATE_ORI, TO_CHAR(TO_DATE(A.NEED_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS NEED_DATE ";
+        }
+
+           sql = sql + "     , SUM(ROUND(A.PR_QTY * DECODE(NVL(C.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE))) AS OP_AMOUNT"
+            + "     , SUM(ROUND(DECODE(A.TAX_CODE,'100',0,A.PR_QTY) * DECODE(NVL(C.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE))) AS OP_NOTAX"
+            + "     , SUM(ROUND(DECODE(A.TAX_CODE,'100',A.PR_QTY,0) * DECODE(NVL(C.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE))) AS OP_TAX"
+            + "     , SUM(ROUND(DECODE(A.TAX_CODE,'100',0.1,0) * ROUND(A.PR_QTY * DECODE(NVL(C.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE)))) AS OP_VAT"
+            + "     , SUM(ROUND(DECODE(A.TAX_CODE,'100',1.1,1) * ROUND(A.PR_QTY * DECODE(NVL(C.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE)))) AS OP_TOT"
+            + "     , SUM(A.SALE_AMOUNT) AS OP_AMOUNT1"
+            + "     , SUM(DECODE(A.TAX_CODE,'100',0,A.SALE_AMOUNT)) AS OP_NOTAX1"
+            + "     , SUM(DECODE(A.TAX_CODE,'100',A.SALE_AMOUNT,0)) AS OP_TAX1"
+            + "     , ROUND(SUM(DECODE(A.TAX_CODE,'100',0.1,0) * A.SALE_AMOUNT)) AS OP_VAT1"
+            + "     , ROUND(SUM(DECODE(A.TAX_CODE,'100',1.1,1) * A.SALE_AMOUNT)) AS OP_TOT1"
+            + "     , SUM(ROUND(A.PR_QTY * ROUND(A.SALE_PRICE / (1 + DECODE(A.TAX_CODE,'100',NVL(K.FM_SALE_RATE,0),NVL(K.FM_NOSALE_RATE,0))/100)))) AS OP_AMOUNT2"
+            + "     , SUM(DECODE(A.TAX_CODE,'100',0,ROUND(A.PR_QTY * ROUND(A.SALE_PRICE / (1 + DECODE(A.TAX_CODE,'100',NVL(K.FM_SALE_RATE,0),NVL(K.FM_NOSALE_RATE,0))/100))))) AS OP_NOTAX2"
+            + "     , SUM(DECODE(A.TAX_CODE,'100',ROUND(A.PR_QTY * ROUND(A.SALE_PRICE / (1 + DECODE(A.TAX_CODE,'100',NVL(K.FM_SALE_RATE,0),NVL(K.FM_NOSALE_RATE,0))/100))),0)) AS OP_TAX2"
+            + "     , ROUND(SUM(DECODE(A.TAX_CODE,'100',A.SALE_AMOUNT*0.1,0))) AS OP_VAT2"
+            + "     , SUM(ROUND(A.PR_QTY * ROUND(A.SALE_PRICE / (1 + DECODE(A.TAX_CODE,'100',NVL(K.FM_SALE_RATE,0),NVL(K.FM_NOSALE_RATE,0))/100))))"
+            + "     + ROUND(SUM(DECODE(A.TAX_CODE,'100',A.SALE_AMOUNT*0.1,0))) AS OP_TOT2"
+            + "  FROM (SELECT B.ITEM_CLASS3, B.ITEM_CLASS4, A.* FROM HWFS_FMP_OTCUST_PR A, HWFS_FMP_OTCUST_ITEM B WHERE A.ITEM_CODE = B.ITEM_CODE) A"
+            + "     , HWFS_FMS_UPJANG D"
+            + "     , HWFS_FMU_OP_RATE C"
+            + "     , FM_SALE_RATE K"
+            + " WHERE A.UPJANG = D.UPJANG"
+            + "   AND A.UPJANG = C.UPJANG(+)"
+            + "   AND A.NEED_DATE BETWEEN C.SDATE(+) AND C.EDATE(+)"
+            + "   AND DECODE(FMS_OPRATEINFO_FUN(A.UPJANG, A.NEED_DATE), 'C', A.ITEM_CLASS4, A.ITEM_CODE) = C.ITEM_CODE(+) "
+            + "   AND C.USE_YN(+) = 'Y'"
+            + "   AND A.SUBINV_CODE = K.SUBINV_CODE(+)"
+            + "   AND A.NEED_DATE BETWEEN K.SDATE(+) AND K.EDATE(+)"
+            + "   AND A.ITEM_CLASS3 = K.ITEM_CLASS(+)"
+            + "   AND K.USE_YN(+) = 'Y'"
+            + "   AND A.NEED_DATE BETWEEN '"+#OZParam.PARAM3#+"' AND '"+#OZParam.PARAM4#+"' "
+            + "   AND D.MAIN_UPJANG = " + #OZParam.PARAM1#
+            + "   AND A.LINE_STATUS &lt;&gt; '003'";
+
+        if (#OZParam.PARAM9# != "")
+        {
+             sql = sql + "AND A.UPJANG = " + #OZParam.PARAM1#;
+         }
+
+        if (#OZParam.PARAM5# == "001")
+        {
+             sql = sql + " GROUP BY A.UPJANG, D.UPJANGNM_DISP ";
+         }
+         else
+        {
+             sql = sql + "  GROUP BY A.NEED_DATE ";
+        }
+
+           sql = sql + ") A GROUP BY A.NEED_DATE_ORI, A.NEED_DATE";
+
+}
+else
+{
+        if ( #OZParam.PARAM7# == "0000" )     
+        {
+                sql = "SELECT /*+ DRIVING_SITE(A) INDEX(A PO_TRANSACTION_PT_I8) */";
+
+             if (#OZParam.PARAM5# == "001")
+             {
+                  sql = sql + " A.TRANS_UPJANG AS NEED_DATE_ORI, D.UPJANGNM_DISP AS NEED_DATE ";
+              }
+              else
+             {
+                  sql = sql + "  A.TRANS_DATE AS NEED_DATE_ORI, TO_CHAR(TO_DATE(A.TRANS_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS NEED_DATE ";
+             }
+
+
+                sql = sql    + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(A.TRANS_QTY * DECODE(NVL(C.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE))) AS OP_AMOUNT"
+                    + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(DECODE(A.TAX_CODE,'100',0,A.TRANS_QTY) * DECODE(NVL(C.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE))) AS OP_NOTAX"
+                    + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(DECODE(A.TAX_CODE,'100',A.TRANS_QTY,0) * DECODE(NVL(C.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE))) AS OP_TAX"
+                    + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(DECODE(A.TAX_CODE,'100',0.1,0) * ROUND(A.TRANS_QTY * DECODE(NVL(C.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE)))) AS OP_VAT"
+                    + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(DECODE(A.TAX_CODE,'100',1.1,1) * ROUND(A.TRANS_QTY * DECODE(NVL(C.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE)))) AS OP_TOT"
+                    + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * A.SALE_AMOUNT) AS OP_AMOUNT1"
+                    + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * DECODE(A.TAX_CODE,'100',0,A.SALE_AMOUNT)) AS OP_NOTAX1"
+                    + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * DECODE(A.TAX_CODE,'100',A.SALE_AMOUNT,0)) AS OP_TAX1"
+                    + "     , ROUND(SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * DECODE(A.TAX_CODE,'100',0.1,0) * A.SALE_AMOUNT + A.TRANS_QTY * A.SALE_VAT)) AS OP_VAT1"
+                    + "     , ROUND(SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * DECODE(A.TAX_CODE,'100',1.1,1) * A.SALE_AMOUNT + A.TRANS_QTY * A.SALE_VAT)) AS OP_TOT1"
+                    + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(A.TRANS_QTY * ROUND(A.SALE_PRICE / (1 + DECODE(A.TAX_CODE,'100',NVL(K.FM_SALE_RATE,0),NVL(K.FM_NOSALE_RATE,0))/100)))) AS OP_AMOUNT2"
+                    + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * DECODE(A.TAX_CODE,'100',0,ROUND(A.TRANS_QTY * ROUND(A.SALE_PRICE / (1 + DECODE(A.TAX_CODE,'100',NVL(K.FM_SALE_RATE,0),NVL(K.FM_NOSALE_RATE,0))/100))))) AS OP_NOTAX2"
+                    + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * DECODE(A.TAX_CODE,'100',ROUND(A.TRANS_QTY * ROUND(A.SALE_PRICE / (1 + DECODE(A.TAX_CODE,'100',NVL(K.FM_SALE_RATE,0),NVL(K.FM_NOSALE_RATE,0))/100))),0)) AS OP_TAX2"
+                    + "     , ROUND(SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * DECODE(A.TAX_CODE,'100',A.SALE_AMOUNT*0.1 + A.TRANS_QTY*A.SALE_VAT,0))) AS OP_VAT2"
+                    + "     , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(A.TRANS_QTY * ROUND(A.SALE_PRICE / (1 + DECODE(A.TAX_CODE,'100',NVL(K.FM_SALE_RATE,0),NVL(K.FM_NOSALE_RATE,0))/100))))"
+                    + "     + ROUND(SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * DECODE(A.TAX_CODE,'100',A.SALE_AMOUNT*0.1 + A.TRANS_QTY*A.SALE_VAT,0))) AS OP_TOT2"
+                    + "  FROM PO_TRANSACTION A, HWFS_FMS_UPJANG D"
+                    + "     , HWFS_FMU_OP_RATE C"
+                    + "     , FM_SALE_RATE K"
+                    + " WHERE A.TRANS_UPJANG = D.UPJANG"
+                    + "   AND A.TRANS_UPJANG = C.UPJANG(+)"
+                    + "   AND A.TRANS_DATE BETWEEN C.SDATE(+) AND C.EDATE(+)"
+                    + "   AND DECODE(FMS_OPRATEINFO_FUN(A.TRANS_UPJANG, A.TRANS_DATE), 'C', SUBSTR(A.ITEM_CODE,1,8), A.ITEM_CODE) = C.ITEM_CODE(+) "
+                    + "   AND C.USE_YN(+) = 'Y'"
+                    + "   AND SUBSTR(A.ITEM_CODE,1,6)||'00' = K.ITEM_CLASS(+)"
+                    + "   AND A.SUBINV_CODE = K.SUBINV_CODE(+)"
+                    + "   AND A.TRANS_DATE BETWEEN K.SDATE(+) AND K.EDATE(+)"
+                    + "   AND K.USE_YN(+) = 'Y'"
+                    + "   AND A.TRANS_DATE BETWEEN '"+#OZParam.PARAM3#+"' AND '"+#OZParam.PARAM4#+"' "
+                    + "   AND (A.TRANS_TYPE = 'I001' OR (A.TRANS_TYPE LIKE '_002' AND A.SOURCE_TYPE = 'PO'))"
+                    + "   AND D.MAIN_UPJANG = " + #OZParam.PARAM1#;
+    
+             if (#OZParam.PARAM9# != "")
+             {
+                  sql = sql + "AND A.TRANS_UPJANG = " + #OZParam.PARAM1#;
+              }
+  
+             if (#OZParam.PARAM5# == "001")
+             {
+                  sql = sql + " GROUP BY A.TRANS_UPJANG, D.UPJANGNM_DISP ";
+              }
+              else
+             {
+                  sql = sql + "  GROUP BY A.TRANS_DATE ";
+              }
+
+        }
+        else
+        {
+            if (#OZParam.PARAM5# == "001")
+            {
+                 sql = " SELECT A.UPJANG AS NEED_DATE_ORI, D.UPJANGNM_DISP AS NEED_DATE ";
+             }
+             else
+            {
+                 sql = " SELECT A.NEED_DATE AS NEED_DATE_ORI, TO_CHAR(TO_DATE(A.NEED_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS NEED_DATE ";
+            }
+
+                sql = sql    + "     , SUM(ROUND(A.PR_QTY * DECODE(NVL(C.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE))) AS OP_AMOUNT"
+                    + "     , SUM(ROUND(DECODE(A.TAX_CODE,'100',0,A.PR_QTY) * DECODE(NVL(C.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE))) AS OP_NOTAX"
+                    + "     , SUM(ROUND(DECODE(A.TAX_CODE,'100',A.PR_QTY,0) * DECODE(NVL(C.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE))) AS OP_TAX"
+                    + "     , SUM(ROUND(DECODE(A.TAX_CODE,'100',0.1,0) * ROUND(A.PR_QTY * DECODE(NVL(C.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE)))) AS OP_VAT"
+                    + "     , SUM(ROUND(DECODE(A.TAX_CODE,'100',1.1,1) * ROUND(A.PR_QTY * DECODE(NVL(C.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE)))) AS OP_TOT"
+                    + "     , SUM(A.SALE_AMOUNT) AS OP_AMOUNT1"
+                    + "     , SUM(DECODE(A.TAX_CODE,'100',0,A.SALE_AMOUNT)) AS OP_NOTAX1"
+                    + "     , SUM(DECODE(A.TAX_CODE,'100',A.SALE_AMOUNT,0)) AS OP_TAX1"
+                    + "     , ROUND(SUM(DECODE(A.TAX_CODE,'100',0.1,0) * A.SALE_AMOUNT)) AS OP_VAT1"
+                    + "     , ROUND(SUM(DECODE(A.TAX_CODE,'100',1.1,1) * A.SALE_AMOUNT)) AS OP_TOT1"
+                    + "     , SUM(ROUND(A.PR_QTY * ROUND(A.SALE_PRICE / (1 + DECODE(A.TAX_CODE,'100',NVL(K.FM_SALE_RATE,0),NVL(K.FM_NOSALE_RATE,0))/100)))) AS OP_AMOUNT2"
+                    + "     , SUM(DECODE(A.TAX_CODE,'100',0,ROUND(A.PR_QTY * ROUND(A.SALE_PRICE / (1 + DECODE(A.TAX_CODE,'100',NVL(K.FM_SALE_RATE,0),NVL(K.FM_NOSALE_RATE,0))/100))))) AS OP_NOTAX2"
+                    + "     , SUM(DECODE(A.TAX_CODE,'100',ROUND(A.PR_QTY * ROUND(A.SALE_PRICE / (1 + DECODE(A.TAX_CODE,'100',NVL(K.FM_SALE_RATE,0),NVL(K.FM_NOSALE_RATE,0))/100))),0)) AS OP_TAX2"
+                    + "     , ROUND(SUM(DECODE(A.TAX_CODE,'100',A.SALE_AMOUNT*0.1,0))) AS OP_VAT2"
+                    + "     , SUM(ROUND(A.PR_QTY * ROUND(A.SALE_PRICE / (1 + DECODE(A.TAX_CODE,'100',NVL(K.FM_SALE_RATE,0),NVL(K.FM_NOSALE_RATE,0))/100))))"
+                    + "     + ROUND(SUM(DECODE(A.TAX_CODE,'100',A.SALE_AMOUNT*0.1,0))) AS OP_TOT2"
+                    + "  FROM (SELECT B.ITEM_CLASS3, B.ITEM_CLASS4, A.* FROM HWFS_FMP_OTCUST_PR A, HWFS_FMP_OTCUST_ITEM B WHERE A.ITEM_CODE = B.ITEM_CODE) A"
+                    + "     , HWFS_FMS_UPJANG D"
+                    + "     , HWFS_FMU_OP_RATE C"
+                    + "     , FM_SALE_RATE K"
+                    + " WHERE A.UPJANG = D.UPJANG"
+                    + "   AND A.UPJANG = C.UPJANG(+)"
+                    + "   AND A.NEED_DATE BETWEEN C.SDATE(+) AND C.EDATE(+)"
+                    + "   AND DECODE(FMS_OPRATEINFO_FUN(A.UPJANG, A.NEED_DATE), 'C', A.ITEM_CLASS4, A.ITEM_CODE) = C.ITEM_CODE(+) "
+                    + "   AND C.USE_YN(+) = 'Y'"
+                    + "   AND A.SUBINV_CODE = K.SUBINV_CODE(+)"
+                    + "   AND A.NEED_DATE BETWEEN K.SDATE(+) AND K.EDATE(+)"
+                    + "   AND A.ITEM_CLASS3 = K.ITEM_CLASS(+)"
+                    + "   AND K.USE_YN(+) = 'Y'"
+                    + "   AND A.NEED_DATE BETWEEN '"+#OZParam.PARAM3#+"' AND '"+#OZParam.PARAM4#+"' "
+                    + "   AND D.MAIN_UPJANG = " + #OZParam.PARAM1#
+                    + "   AND A.OTCUSTCD = '" + #OZParam.PARAM7# + "'"
+                    + "   AND A.LINE_STATUS &lt;&gt; '003'";
+
+             if (#OZParam.PARAM9# != "")
+             {
+                  sql = sql + "AND A.UPJANG = " + #OZParam.PARAM1#;
+              }
+
+              if (#OZParam.PARAM5# == "001")
+              {
+                   sql = sql + " GROUP BY A.UPJANG, D.UPJANGNM_DISP ";
+               }
+               else
+              {
+                   sql = sql + "  GROUP BY A.NEED_DATE ";
+              }
+
+        }
+
+}
+
+setQueryString(sql);
+	<DATAFIELD NAME="NEED_DATE_ORI" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="NEED_DATE" INCLUDE="" TYPE="12" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="OP_AMOUNT" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="OP_NOTAX" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="OP_TAX" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="OP_VAT" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="OP_TOT" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="OP_AMOUNT1" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="OP_NOTAX1" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="OP_TAX1" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="OP_VAT1" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="OP_TOT1" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="OP_AMOUNT2" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="OP_NOTAX2" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="OP_TAX2" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="OP_VAT2" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+	<DATAFIELD NAME="OP_TOT2" INCLUDE="" TYPE="2" EDITFIELDTYPE="false" DESCRIPTION="" UPDATE_FIELD_QUERY="" />
+      </OZQUERY>
+    </OZORACLE>
+    <OZINCLUDESTORE NAME="includestore">
+      <OZINCLUDESET NAME="includeSet" INCLUDE="" />
+    </OZINCLUDESTORE>
+    <OZQUERYDESIGNERINFO>
+      <OZQUERYINFO STORENAME="fsdb" SETNAME="거래실적집계">
+	<OZQUERYELEMENTINFO CLASSID="1006" MODE="FALSE" WHERESTRING="" HAVINGSTRING="" DELETEDTABLES="" />
+      </OZQUERYINFO>
+    </OZQUERYDESIGNERINFO>
+  </OZDATAMODULE>
+</OZDATAINFO>

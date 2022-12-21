@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT CLASS_CODE, CLASS_NAME, GUBUN_CODE, GUBUN_NAME, SUM(CNT) AS CNT
+  FROM (
+		SELECT A.CODE AS CLASS_CODE, A.CODE_NAME AS CLASS_NAME,
+		       B.CODE AS GUBUN_CODE, B.CODE_NAME AS GUBUN_NAME,
+		       0 AS CNT
+		  FROM (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FM0013') A,
+		       (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FM0012') B
+		 UNION ALL
+		SELECT A.CLASS, B.CODE_NAME AS CLASS_NAME,
+		       A.GUBUN, C.CODE_NAME AS GUBUN_NAME,
+		       1 AS CNT
+		  FROM FMO_OP_MONITORING A,
+		       (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FM0013') B,
+		       (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FM0012') C
+		 WHERE A.UPJANG = #UPJANG#
+		   AND SUBSTR(A.OP_DATE,1,6) = #OP_DATE#
+		   AND A.CLASS = B.CODE(+)
+		   AND A.GUBUN = C.CODE(+)
+		   <isNotNull col="MEAL">
+		   AND A.MEAL=#MEAL#
+		   </isNotNull>
+		   <isNotNull col="GUBUN">
+		   AND A.GUBUN=#GUBUN#
+		   </isNotNull>
+		   <isNotNull col="CLASS">
+		   AND A.CLASS=#CLASS#
+		   </isNotNull>
+       )
+ GROUP BY CLASS_CODE, CLASS_NAME, GUBUN_CODE, GUBUN_NAME	</statement>
+	<input default-name="ds_in">
+	</input>
+	<output default-name="ds_Chart2">
+	</output>
+</query>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT     /*+ LEADING(V T1) USE_HASH(V T1) INDEX(V MAS_ADVANCE_IDX01 ) */
+           V.ADV_ID,           V.ADJ_DATE,           (SELECT ACCTNM6 FROM HLDC_ST_ACCOUNT WHERE ACCTCD = V.ACCTCD) ACCTNM,           ADJ_DESC,           AMT,           --NVL(NOPAY_AMT, 0) - NVL((SELECT NVL(SUM(AMT), 0) FROM MAS_ADV_PREPAY WHERE NOPAY_ID = V.ADV_ID),0) NOPAY_JAN,
+           NVL(NOPAY_AMT, 0) - NVL(T1.NO_AMT,0) NOPAY_JAN,           0 PAY_AMT,           '0' SELECTED,          (SELECT DEPT_ID FROM SCO_UPJANG_MST_V WHERE UPJANG = V.UPJANG) BUDDEPT_ID,          V.UPJANG               FROM MAS_ADVANCE V,
+	     (SELECT NOPAY_ID
+               , NVL(SUM(AMT), 0) NO_AMT
+            FROM MAS_ADV_PREPAY
+           GROUP BY NOPAY_ID) T1    WHERE 1=1
+    AND   V.ADV_ID = T1.NOPAY_ID(+)
+    AND   (V.UPJANG   = #UPJANG#)    --AND   NVL(NOPAY_AMT, 0) - NVL((SELECT NVL(SUM(AMT), 0) FROM MAS_ADV_PREPAY WHERE NOPAY_ID = V.ADV_ID),0) > 0
+    AND NVL(NOPAY_AMT, 0) - NVL(T1.NO_AMT,0) > 0    ORDER BY V.ADJ_DATE, V.ADV_ID
+</statement>
+	<input default-name="ds_cond">	
+		<col name="UPJANG" size="" type="NUMERIC" description="" /> 		
+	</input>
+	<output default-name="ds_list">
+		<col name="ADV_ID" size="" type="NUMERIC" description="" /> 
+		<col name="ADJ_DATE" size="256" type="VARCHAR" description="" /> 
+		<col name="ACCTNM" size="256" type="VARCHAR" description="" /> 
+		<col name="ADJ_DESC" size="256" type="VARCHAR" description="" /> 
+		<col name="AMT" size="" type="NUMERIC" description="" /> 
+		<col name="NOPAY_JAN" size="" type="NUMERIC" description="" /> 
+		<col name="PAY_AMT" size="" type="NUMERIC" description="" /> 
+		<col name="SELECTED" size="256" type="VARCHAR" description="" /> 
+		<col name="BUDDEPT_ID" size="" type="NUMERIC" description="" /> 
+		<col name="UPJANG" size="" type="NUMERIC" description="" /> 		
+		
+	</output>
+</query>

@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT D.UPJANG,
+       D.MENU_CD,
+       D.RECIPE_CD,
+       D.RECIPE_NAME,
+       D.ORI_TYPE,
+       SUM(NVL(E.OP_PRICE,0) ) OP_PRICE,
+       SUM(NVL(F.CAL,0) ) CAL,
+       SUM(NVL(F.CAL* D.NEED_QTY * (100-F.DISUSE_RATE) / 100,0) ) CAL_CALC
+  FROM
+       (
+       SELECT B.UPJANG,
+              B.MENU_CD,
+              B.RECIPE_CD,
+              B.RECIPE_NAME,
+              B.ORI_TYPE,
+              C.ITEM_CODE,
+              C.NEED_QTY
+         FROM FMM_STD_MENU A,
+              (
+              SELECT B.UPJANG,
+                     B.MENU_CD,
+                     B.RECIPE_CD,
+                     B.ORI_TYPE,
+                     D.RECIPE_NAME
+                FROM FMM_STD_MENU_RECIPE B ,
+                     FSR_STD_RECIPE_MST D
+               WHERE B.RECIPE_CD=D.RECIPE_CD
+                 AND B.ORI_TYPE = 'FS'
+                 AND B.UPJANG=#g_Upjang#
+                 AND B.MENU_CD=#MENU_CD#
+               UNION ALL
+              SELECT B.UPJANG,
+                     B.MENU_CD,
+                     B.RECIPE_CD,
+                     B.ORI_TYPE,
+                     D.RECIPE_NAME
+                FROM FMM_STD_MENU_RECIPE B ,
+                     FMM_STD_RECIPE_MST D
+               WHERE B.RECIPE_CD=D.RECIPE_CD
+                 AND B.UPJANG =D.UPJANG
+                 AND B.ORI_TYPE = 'FM'
+                 AND B.UPJANG=#g_Upjang#
+                 AND B.MENU_CD=#MENU_CD#
+              ) B,
+              (
+              SELECT UPJANG,
+                     RECIPE_CD,
+                     ITEM_CODE,
+                     NEED_QTY
+                FROM FMM_STD_RECIPE_ITEM
+               WHERE UPJANG=#g_Upjang#
+               UNION ALL
+              SELECT NULL ,
+                     RECIPE_CD,
+                     ITEM_CODE,
+                     NEED_QTY
+                FROM FSR_STD_RECIPE_ITEM
+              ) C
+        WHERE A.UPJANG=B.UPJANG
+          AND A.MENU_CD=B.MENU_CD
+          AND B.RECIPE_CD=C.RECIPE_CD(+)
+          AND A.UPJANG=#g_Upjang#
+          AND A.MENU_CD=#MENU_CD#
+       ) D,
+       (
+       SELECT /*+ USE_HASH (C A) */
+	      A.ITEM_CODE,
+              DECODE(SIGN(NVL(C.OP_PRICE, 0) ) , 0, SCC_CEIL(A.SALE_PRICE + ROUND(A.SALE_PRICE * NVL(C.OP_RATE, 0) / 100), C.CEIL_VAL) , C.OP_PRICE) AS OP_PRICE --운영단가(1인원가)
+         FROM FMS_ITEM_V B,
+              FMU_OP_RATE C ,
+              (
+              SELECT /*+ INDEX_DESC(C PO_CONTRACT_FSALE_U1) */ #g_Upjang# AS UPJANG,
+                     NVL( '' , TO_CHAR(SYSDATE, 'YYYYMMDD' ) ) AS NEED_DATE,
+                     C.ITEM_CODE,
+                     TO_NUMBER(SUBSTR(MAX(C.ROWID||C.SALE_PRICE) , 19, 100) ) SALE_PRICE,
+                     C.CENTER_CODE
+                FROM HLDC_PO_CONTRACT_FSALE C,
+                     HLDC_PO_UPJANG_CENTER D,
+                     HLDC_ST_UPJANG E
+               WHERE C.CENTER_CODE = D.CENTER_CODE
+                 AND D.UPJANG = E.AP_UNITPRICE_UPJANG
+                 AND E.UPJANG = #g_Upjang#
+                 AND C.UPJANG = E.AP_UNITPRICE_UPJANG
+                 AND C.ITEM_CODE > ' '
+                 AND C.CONTRACT_START <= NVL( '' , TO_CHAR(SYSDATE, 'YYYYMMDD' ) )
+                 AND C.SALE_PRICE > 0
+                 AND EXISTS
+                     (
+                     SELECT 1
+                       FROM HLDC_PO_TREAT_UPJANG X
+                      WHERE X.ITEM_CODE = C.ITEM_CODE
+                        AND X.UPJANG = C.UPJANG
+                     )
+               GROUP BY C.CENTER_CODE,
+                     C.UPJANG,
+                     C.ITEM_CODE
+              -----------
+               UNION ALL
+              -----------
+              SELECT #g_Upjang# AS UPJANG,
+                     NVL( '' , TO_CHAR(SYSDATE, 'YYYYMMDD' ) ) AS NEED_DATE ,
+                     A.ITEM_CODE,
+                     A.SALE_PRICE,
+                     0 CENTER_CODE
+                FROM FMP_OTCUST_PRICE_AVA_V A ,
+                     (
+                     SELECT UPJANG,
+                            ITEM_CODE,
+                            MAX(SDATE) AS SDATE
+                       FROM FMP_OTCUST_PRICE_AVA_V
+                      WHERE UPJANG =
+                            (
+                            SELECT OTCUST_PRICE_UPJANG
+                              FROM FMS_UPJANG
+                             WHERE UPJANG = #g_Upjang#
+                            )
+                        AND SDATE <= NVL( '' , TO_CHAR(SYSDATE, 'YYYYMMDD' ) )
+                      GROUP BY UPJANG,
+                            ITEM_CODE
+                     ) B
+               WHERE A.UPJANG = B.UPJANG
+                 AND A.SDATE = B.SDATE
+                 AND A.ITEM_CODE = B.ITEM_CODE
+                 AND A.SALE_PRICE > 0
+                 AND A.USE_YN = 'Y'
+              ) A
+        WHERE A.ITEM_CODE = B.ITEM_CODE
+          AND A.UPJANG = C.UPJANG(+)
+          AND A.NEED_DATE BETWEEN C.SDATE(+) AND C.EDATE(+)
+          AND A.ITEM_CODE BETWEEN C.ITEM_CODE(+) AND C.ITEM_CODE(+)||'9999'
+          AND C.USE_YN(+) = 'Y'
+       ) E, ----원가
+       (
+       SELECT A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.PO_UOM, A.KG_CONVERT_RATE,
+              B.CAL, B.WATER, B.PROT, B.FAT,    B.CARBO, B.FIBER,   B.ASH,  B.CA,   B.P,
+              B.FE , B.NA,    B.K,    B.VITA_A, B.RETIN, B.B_CAROT, B.THIA, B.RIBO, B.NIACIN,
+              B.VITA_C,       B.CHOLE,          B.DISUSE_RATE
+         FROM
+              (
+              SELECT B.ITEM_CODE,
+                     B.ITEM_NAME,
+                     B.ITEM_SIZE,
+                     B.PO_UOM,
+                     B.TAX_CODE,
+                     B.KG_CONVERT_RATE
+                FROM	HLDC_PO_ITEM_MST B,
+                     HLDC_PO_TREAT_UPJANG A
+               WHERE A.ITEM_CODE = B.ITEM_CODE
+                 AND B.ITEM_CODE BETWEEN '010000000000' AND '019999999999'
+                 AND A.UPJANG =
+                     (
+                     SELECT C.AP_UNITPRICE_UPJANG
+                       FROM HLDC_ST_UPJANG C
+                      WHERE C.UPJANG = #g_Upjang#
+                     )
+                 AND A.USE_YN = 'Y'
+                 AND B.USE_YN = 'Y'
+               UNION ALL
+              SELECT A.ITEM_CODE,
+                     A.ITEM_NAME,
+                     A.ITEM_SIZE,
+                     A.PO_UOM,
+                     A.TAX_CODE,
+                     A.KG_CONVERT_RATE
+                FROM FMP_OTCUST_ITEM A,
+                     FMP_OTCUST_PRICE_AVA_V B,
+                     (
+                     SELECT UPJANG,
+                            ITEM_CODE,
+                            MAX(SDATE) AS SDATE
+                       FROM FMP_OTCUST_PRICE_AVA_V
+                      WHERE UPJANG =
+                            (
+                            SELECT Z.OTCUST_PRICE_UPJANG
+                              FROM FMS_UPJANG Z
+                             WHERE Z.UPJANG = #g_Upjang#
+                            )
+                        AND SDATE <= NVL( '' ,TO_CHAR(SYSDATE, 'YYYYMMDD' ) )
+                      GROUP BY UPJANG,
+                            ITEM_CODE
+                     ) C
+               WHERE	A.ITEM_CODE	= B.ITEM_CODE
+                 AND	B.UPJANG	= C.UPJANG
+                 AND	B.SDATE	= C.SDATE
+                 AND	B.ITEM_CODE	= C.ITEM_CODE
+                 AND	A.USE_YN	= 'Y'
+                 AND	B.USE_YN	= 'Y'
+              ) A,
+              (
+              SELECT ITEM_CODE, CAL, WATER, PROT, FAT, CARBO, FIBER, ASH, CA, P, FE, NA, K, VITA_A, RETIN, B_CAROT, THIA, RIBO, NIACIN, VITA_C, CHOLE, DISUSE_RATE
+                FROM	FMP_ITEM_NUT
+               WHERE	UPJANG = #g_Upjang#
+               UNION ALL
+                     (
+                     SELECT	ITEM_CODE, CAL, WATER, PROT, FAT, CARBO, FIBER, ASH, CA, P, FE, NA, K, VITA_A, RETIN, B_CAROT, THIA, RIBO, NIACIN, VITA_C, CHOLE, DISUSE_RATE
+                       FROM	FSI_ITEM_NUT
+                      WHERE ITEM_CODE IN
+                            (
+                            SELECT	ITEM_CODE
+                              FROM	FSI_ITEM_NUT MINUS
+                            SELECT	ITEM_CODE
+                              FROM	FMP_ITEM_NUT
+                             WHERE	UPJANG = #g_Upjang#
+                            )
+                     )
+              ) B
+        WHERE	A.ITEM_CODE = B.ITEM_CODE
+       ) F ---열량
+ WHERE D.ITEM_CODE=E.ITEM_CODE(+)
+   AND D.ITEM_CODE=F.ITEM_CODE(+)
+ GROUP BY D.UPJANG,
+       D.MENU_CD,
+       D.RECIPE_CD,
+       D.RECIPE_NAME,
+       D.ORI_TYPE	]]></statement>
+	<input default-name="ds_in">
+	</input>
+	<output default-name="ds_RecipeList">
+	</output>
+</query>

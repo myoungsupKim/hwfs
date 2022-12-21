@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="fm.fmc.distributionRequestRptProcDAO">
+	<desc>물류요청서처리 HQML Query</desc>
+
+	<!-- 물류요청서 목록을 조회한다. -->
+	<statement name="selectList" type="select"><![CDATA[
+		SELECT
+			   A.CENTER_CODE,				/* 센터코드 */ 
+			   A.REQUEST_DATE,          /*신청일자*/
+		       A.REQUEST_NUM,           /*신청일자+순번*/
+		       A.CLSFI_CLASS,           /*분류구분*/
+		       A.PRCG_NM,               /*담당자명*/
+		       A.UPJANG_NM,             /*사업장명*/
+		       A.VENDOR_NM,             /*공급업체명*/
+		       A.GDSNM,                 /*품목*/
+		       A.STAND,                 /*규격*/
+		       A.UNIT,                  /*단위*/
+		       A.QUANTITY,              /*수량*/
+		       A.REQUEST_FACT,          /*신청사항*/
+		       A.REASON,                /*사유*/
+		       A.CHG_QUANTITY,          /*변경수량*/
+		       A.CENTER_REQUEST_FACT,   /*센터신청사항*/
+		       A.CHG_WH,                /*변경창고*/
+		       A.ETC_FACT,              /*기타사항*/
+		       A.PROC_DESC,             /*처리내역*/
+		       A.PROC_USER,             /*처리자*/
+		       A.TRANS_DATE,            /*처리일자*/
+		       A.PROC_REMARK,           /*처리비고*/
+		       A.REF_SEQ,               /*공통파일첨부번호*/
+		       A.CUSER,                 /*작성자*/
+		       A.CDATE,                 /*작성일*/
+		       A.UUSER,                 /*수정자*/
+		       A.UDATE ,                 /*수정일*/
+		       A.UPJANG,					/*업장명*/
+		       A.NEED_DATE					/*입고일자*/
+		       , NVL(EPROCUSR.FN_GET_TRANS_ROUTE((SELECT MIN(K.SHIP_ID) FROM HLDC_PO_SUBINVENTORY K WHERE K.UPJANG = A.UPJANG),TO_CHAR(SYSDATE,'YYYYMMDD'), '1'),' ') AS REGION_NAME /*배차번호*/
+		FROM   FMC_DISTRIBUTION_DOC A
+		WHERE  CENTER_CODE = :centerCode
+		AND     TO_DATE(A.REQUEST_DATE) = TO_DATE(:requestDate)
+		ORDER BY NVL(EPROCUSR.FN_GET_TRANS_ROUTE((SELECT MIN(K.SHIP_ID) FROM HLDC_PO_SUBINVENTORY K WHERE K.UPJANG = A.UPJANG),TO_CHAR(SYSDATE,'YYYYMMDD'), '1'),' '), A.CDATE DESC
+		]]></statement>
+
+	<!-- 물류요청서(을)를 등록한다. -->
+	<statement name="insert" type="insert"><![CDATA[
+		INSERT INTO FMC_DISTRIBUTION_DOC
+		(
+		CENTER_CODE,	
+		 REQUEST_DATE,
+		 REQUEST_NUM,
+		 CLSFI_CLASS,
+		 PRCG_NM,
+		 UPJANG_NM,
+		 VENDOR_NM,
+		 GDSNM,
+		 STAND,
+		 UNIT,
+		 QUANTITY,
+		 REQUEST_FACT,
+		 REASON,
+		 CHG_QUANTITY,
+		 CENTER_REQUEST_FACT,
+		 CHG_WH,
+		 ETC_FACT,
+		 PROC_DESC,
+		 PROC_USER,
+		 TRANS_DATE,
+		 PROC_REMARK,
+		 REF_SEQ,
+		 CUSER,
+		 CDATE,
+		 UUSER,
+		 UDATE,
+		 NEED_DATE
+		) VALUES (
+		:centerCode,
+		 to_char(SYSDATE, 'yyyymmdd'),
+            (SELECT   DECODE(COUNT(REQUEST_NUM), 0 , 1, MAX(REQUEST_NUM)+1)
+               FROM   FMC_DISTRIBUTION_DOC
+              WHERE   REQUEST_DATE = TO_CHAR (SYSDATE, 'yyyymmdd')),
+		<#if clsfiClass?has_content> :clsfiClass, <#else> null, </#if>
+		<#if prcgNm?has_content> :prcgNm, <#else> null, </#if>
+		<#if upjangNm?has_content> :upjangNm, <#else> null, </#if>
+		<#if vendorNm?has_content> :vendorNm, <#else> null, </#if>
+		<#if gdsnm?has_content> :gdsnm, <#else> null, </#if>
+		<#if stand?has_content> :stand, <#else> null, </#if>
+		<#if unit?has_content> :unit, <#else> null, </#if>
+		<#if quantity?has_content> :quantity, <#else> null, </#if>
+		<#if requestFact?has_content> :requestFact, <#else> null, </#if>
+		<#if reason?has_content> :reason, <#else> null, </#if>
+		<#if chgQuantity?has_content> :chgQuantity, <#else> null, </#if>
+		<#if centerRequestFact?has_content> :centerRequestFact, <#else> null, </#if>
+		<#if chgWh?has_content> :chgWh, <#else> null, </#if>
+		<#if etcFact?has_content> :etcFact, <#else> null, </#if>
+		<#if procDesc?has_content> :procDesc, <#else> null, </#if>
+		<#if procUser?has_content> :procUser, <#else> null, </#if>
+		<#if transDate?has_content> :transDate, <#else> null, </#if>
+		<#if procRemark?has_content> :procRemark, <#else> null, </#if>
+		<#if refSeq?has_content> :refSeq, <#else> null, </#if>
+		 :loginSabun,
+		 SYSDATE,
+		 :loginSabun,
+		 SYSDATE,
+		 <#if needDate?has_content> :needDate, <#else> null </#if>
+		)
+		]]></statement>
+
+	<!-- 물류요청서(을)를 수정한다. -->
+	<statement name="update" type="update"><![CDATA[
+		UPDATE FMC_DISTRIBUTION_DOC SET
+		<#if clsfiClass?has_content> CLSFI_CLASS = :clsfiClass, </#if>
+		<#if prcgNm?has_content> PRCG_NM = :prcgNm, </#if>
+		<#if upjangNm?has_content> UPJANG_NM = :upjangNm, </#if>
+		<#if vendorNm?has_content> VENDOR_NM = :vendorNm, </#if>
+		<#if gdsnm?has_content> GDSNM = :gdsnm, </#if>
+		<#if stand?has_content> STAND = :stand, </#if>
+		<#if unit?has_content> UNIT = :unit, </#if>
+		<#if quantity?has_content> QUANTITY = :quantity, </#if>
+		<#if requestFact?has_content> REQUEST_FACT = :requestFact, </#if>
+		<#if reason?has_content> REASON = :reason, </#if>
+		<#if chgQuantity?has_content> CHG_QUANTITY = :chgQuantity, </#if>
+		<#if centerRequestFact?has_content> CENTER_REQUEST_FACT = :centerRequestFact, </#if>
+		<#if chgWh?has_content> CHG_WH = :chgWh, </#if>
+		<#if etcFact?has_content> ETC_FACT = :etcFact, </#if>
+		<#if procDesc?has_content> PROC_DESC = :procDesc, </#if>
+		<#if procUser?has_content> PROC_USER = :procUser, </#if>
+		<#if transDate?has_content> TRANS_DATE = :transDate, </#if>
+		<#if procRemark?has_content> PROC_REMARK = :procRemark, </#if>
+		<#if refSeq?has_content> REF_SEQ = :refSeq, </#if>
+		<#if needDate?has_content> NEED_DATE = :needDate, </#if>
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE CENTER_CODE = :centerCode 
+		AND    REQUEST_DATE = :requestDate
+		AND    REQUEST_NUM = :requestNum
+		]]></statement>
+
+	<!-- 물류요청서(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.fm.fmc.dao.DistributionRequestRptRegDAO.delete */
+		<![CDATA[
+		DELETE
+		FROM   FMC_DISTRIBUTION_DOC
+		WHERE CENTER_CODE = :centerCode
+		AND    REQUEST_DATE = :requestDate
+		AND    REQUEST_NUM = :requestNum
+		]]>
+	</statement>
+
+	<!-- 물류요청서 마스터를 조회한다. -->
+	<statement name="selectMast" type="select">
+		/*+ com.hwfs.fm.fmc.dao.DistributionRequestRptProcDAO.selectMast
+		*/
+		<![CDATA[
+		SELECT
+			   A.CENTER_CODE,
+			   (SELECT CENTER_NAME FROM HLDC_PO_CENTER WHERE CENTER_CODE = A.CENTER_CODE) AS CENTER_NAME,
+			   A.REQ_DATE,
+               A.TITLE,
+               A.REMARK,
+               A.FILE_ID,
+               A.CUSER,
+               A.CDATE,
+               A.UUSER,
+               A.UDATE,
+               B.ORGNL_FILE_NM AS FILE_NM
+        FROM   FMC_DISTRIBUTION_DOC_MASTER A, SCC_APPEND_FILE B
+        WHERE 1 = 1
+		<#if centerCode?has_content> 
+			<#if centerCode != '*'>
+			AND A.CENTER_CODE = :centerCode
+		    </#if>
+		</#if>
+        AND    TO_DATE(A.REQ_DATE) BETWEEN TO_DATE(:fromDate) AND TO_DATE(:toDate)
+        AND	   A.FILE_ID = B.REF_SEQ(+)
+        AND    EXISTS (SELECT 1
+        					 FROM FMC_DISTRIBUTION_DOC C
+        					 WHERE C.CENTER_CODE = A.CENTER_CODE
+        					 AND    C.REQUEST_DATE = A.REQ_DATE)
+        ORDER BY A.REQ_DATE DESC, A.CENTER_CODE ASC
+		]]>
+	</statement>
+
+
+	<!-- 물류요청서 마스터를 수정한다. -->
+	<statement name="updateMast" type="update">
+		/*+ com.hwfs.fm.fmc.dao.DistributionRequestRptProcDAO.updateMast
+		*/
+		<![CDATA[
+		UPDATE FMC_DISTRIBUTION_DOC_MASTER SET
+		<#if title?has_content> TITLE = :title, </#if>
+		<#if remark?has_content> REMARK = :remark, </#if>
+		<#if fileId?has_content> FILE_ID = :fileId, </#if>
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  CENTER_CODE = :centerCode
+		AND     REQ_DATE = :reqDate
+		]]>
+	</statement>
+
+	<!-- 물류요청서 목록의 파일을 수정한다. -->
+	<statement name="updateMastFile" type="update">
+		/*+
+		com.hwfs.fm.fmc.dao.DistributionRequestRptProcDAO.updateMastFile
+		*/
+		<![CDATA[
+		UPDATE FMC_DISTRIBUTION_DOC_MASTER SET
+		<#if fileId?has_content> FILE_ID = :fileId, </#if>
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE CENTER_CODE = :centerCode 
+		AND    REQ_DATE = :reqDate
+		]]>
+	</statement>
+
+
+</hqml>
+
+
+

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fm.fmf.saleModifyHistoryDAO">
+    <desc>입금처리이력 및 매출보정이력 HQML Query</desc>
+<!-- [속도개선 Project 시작] 2017. 7. 3. 최범주 입금처리이력 및 매출보정이력을 조회한다. -->
+	<!-- 입금처리이력 내역을 조회한다. -->
+	<statement name="selectList1" type="select">
+		/*+ com.hwfs.fm.fmf.dao.SaleModifyHistoryDAO.selectList */
+	    <![CDATA[
+	    SELECT
+	           C.MU_NM                                                                    /* 사업부     */
+	         , C.TM_NM                                                                    /* 팀         */
+	         , C.CC_NM                                                                    /* 귀속부서   */
+	         , A.CUST_CD                                                                  /* 거래처코드 */
+	         , (SELECT CUST_NM FROM ST_CUSTV WHERE CUSTCD = A.CUST_CD) AS CUST_NM         /* 거래처명   */
+	         , A.UPJANG_CD                                                                /* 업장코드   */
+	         , (SELECT UPJANGNM FROM ST_UPJANGV WHERE UPJANG = A.UPJANG_CD) AS UPJANG_NM  /* 업장명     */
+	         , B.RECEIVE_DATE                                                             /* 입금일자   */
+	         , B.RECEIVE_AMT                                                              /* 입금액     */
+	         , B.CUSER                                                                    /* 생성자사번 */
+	         , (SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = B.CUSER) AS CUSER_NM         /* 생성자명   */
+	         , TO_CHAR(B.CDATE,'YYYYMMDD') AS CDATE                                       /* 생성일자   */
+	         , B.UUSER                                                                    /* 수정자사번 */
+	         , (SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = B.UUSER) AS UUSER_NM         /* 수정자명   */
+	         , TO_CHAR(B.UDATE,'YYYYMMDD') AS UDATE                                       /* 수정일자   */
+	         , CASE WHEN B.RECD_STATUS = 'D' THEN '삭제'
+	                ELSE                          '정상'
+	           END AS RECD_STATUS                                                         /* 상태       */
+	      FROM SLA_AR_MST A             /* 고객에 대하여 채권에 대한 모든 자료를 관리한다. 발생구분에 따라 유형별로 분리하여 관리하며 채권 잔액에 대하여 조회시 사용 된다. */
+	         , SLA_AR_RECEIVE_DETAIL B  /* 채권 회수에 대한 정보를 관리한다. */
+	         , HLDC_SC_DEPT_V C
+	    WHERE A.AR_NUM = B.AR_NUM
+	      AND A.CC_CD = C.CC_CD
+	      AND B.RECD_STATUS = 'D'  /* 레코드상태(D:Delete L:Live) */
+	      AND B.CC_CD IN (SELECT CC_CD FROM HLDC_SC_DEPT_V WHERE MU_CD = :muCd)  /* 사업부(필수입력)(조회조건)    */
+          AND B.CC_CD IN (SELECT CC_CD FROM HLDC_SC_DEPT_V WHERE TM_CD = :tmCd)  /* 팀(필수입력)(조회조건)        */
+	      AND B.RECEIVE_DATE BETWEEN :schFromDate AND :schToDate                 /* 조회기간(필수입력)(조회조건)  */
+	    <#if ccCd?has_content>
+	      AND B.CC_CD = :ccCd                                                    /* 부서(조회조건)                */
+	    </#if>
+	    <#if custCd?has_content>
+	      AND A.CUST_CD = :custCd                                                /* 거래처(조회조건)              */
+	    </#if>
+	    ]]>
+	</statement>
+
+	<!-- 매출보정이력 내역을 조회한다. -->
+	<statement name="selectList2" type="select">
+		/*+ com.hwfs.fm.fmf.dao.SaleModifyHistoryDAO.selectList2 */
+	    <![CDATA[
+        SELECT  
+               CASE WHEN A.GUBUN = 'I' THEN '입력'
+                    WHEN A.GUBUN = 'U' THEN '수정'
+                    WHEN A.GUBUN = 'D' THEN '입력'
+                    ELSE                    ' '
+               END AS STAT
+             , D.CC_NM || '(' || TO_CHAR(A.TRANS_DEPT_ID) || ')' AS CC_NM
+             , A.TRANS_UPJANG
+             , B.UPJANGNM
+             , C.SUBINV_NAME
+             , A.SALE_AMOUNT
+             , A.SALE_VAT
+             , (SELECT Z.NM_KOR FROM SCC_USERINFO Z WHERE Z.SABUN = A.CREATE_BY) AS CS_CHG_NM
+             , (SELECT Z.NM_KOR FROM SCC_USERINFO Z WHERE Z.SABUN = A.PART_SALES_SABUN) AS SLS_CHG_NM
+             , A.UPDATE_BY AS UUSER
+             , (SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = A.UPDATE_BY) AS UUSER_NM
+             , TO_CHAR(A.UPDATE_DATE,'YYYYMMDD') AS UDATE
+             , A.TR_NUM
+          FROM FMS_TRANSACTION_HIST A INNER JOIN ST_UPJANGV B ON A.TRANS_UPJANG = B.UPJANG
+                                      LEFT JOIN HLDC_PO_SUBINVENTORY C ON A.SUBINV_CODE = C.SUBINV_CODE
+                                      LEFT JOIN HLDC_SC_DEPT_V D ON A.TRANS_DEPT_ID = D.DEPT_ID
+         WHERE A.TRANS_TYPE = 'I001'
+           AND A.SUBINV_CODE LIKE 'S1%'
+           AND D.CC_CD IN (SELECT CC_CD FROM HLDC_SC_DEPT_V WHERE MU_CD = :muCd)  /* 사업부(필수입력)(조회조건)    */
+           AND D.CC_CD IN (SELECT CC_CD FROM HLDC_SC_DEPT_V WHERE TM_CD = :tmCd)  /* 팀(필수입력)(조회조건)        */
+           AND A.TRANS_DATE BETWEEN :schFromDate AND :schToDate                   /* 조회기간(필수입력)(조회조건)  */
+	    <#if ccCd?has_content>
+           AND D.CC_CD = :ccCd                                                    /* 부서(조회조건)                */
+	    </#if>
+	    <#if custCd?has_content>
+           AND B.CUSTCD = :custCd                                                 /* 거래처(조회조건)              */
+	    </#if>
+         ORDER BY CC_NM
+                , A.TRANS_UPJANG
+                , A.SUBINV_CODE
+                , A.TR_NUM
+	    ]]>
+	</statement>
+<!-- [속도개선 Project   끝] 2017. 7. 3. 최범주 -->
+</hqml>

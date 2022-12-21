@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="ft.ftp.poOrderAppenddocDAO">
+	<desc>구매주문 첨부문서 관리 HQML Query</desc>
+
+	<!-- 구매주문 첨부문서 관리 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.ft.ftp.dao.PoOrderAppenddocDAO.selectList */
+		<![CDATA[
+		SELECT PO_ORDER_NUM,
+		       APPEND_DOC_SEQ,
+		       SAVE_AGED,
+		       ORGNL_FILE_NM,
+		       SAVE_FILE_NM,
+		       FILE_SIZE,
+		       CUSER,
+		       CDATE,
+		       UUSER,
+		       UDATE
+		FROM   PO_ORDER_APPENDDOC
+		WHERE  PO_ORDER_NUM = :poOrderNum
+		]]>
+	</statement>
+
+	<!-- 구매주문 첨부문서 관리(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.ft.ftp.dao.PoOrderAppenddocDAO.insert */
+		<![CDATA[
+		INSERT INTO PO_ORDER_APPENDDOC
+		(
+		 PO_ORDER_NUM,
+		 APPEND_DOC_SEQ,
+		 SAVE_AGED,
+		 ORGNL_FILE_NM,
+		 SAVE_FILE_NM,
+		 FILE_SIZE,
+		 CUSER,
+		 CDATE,
+		 UUSER,
+		 UDATE
+		) VALUES (
+		 :poOrderNum,
+		 (SELECT NVL(MAX(APPEND_DOC_SEQ),0) +1 FROM PO_ORDER_APPENDDOC WHERE PO_ORDER_NUM=:poOrderNum),
+		 <#if saveAged?exists> :saveAged, <#else> null, </#if>
+		 <#if orgnlFileNm?exists> :orgnlFileNm, <#else> null, </#if>
+		 <#if saveFileNm?exists> :saveFileNm, <#else> null, </#if>
+		 <#if fileSize?exists> :fileSize, <#else> null, </#if>
+		 :loginSabun,
+		 SYSDATE,
+		 :loginSabun,
+		 SYSDATE
+		)
+
+		]]>
+	</statement>
+	
+	<!-- 구매주문 첨부문서 관리(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.ft.ftp.dao.PoOrderAppenddocDAO.update */
+		<![CDATA[
+		UPDATE PO_ORDER_APPENDDOC SET
+		<#if saveAged?exists> SAVE_AGED = :saveAged, </#if>
+		<#if orgnlFileNm?exists> ORGNL_FILE_NM = :orgnlFileNm, </#if>
+		<#if saveFileNm?exists> SAVE_FILE_NM = :saveFileNm, </#if>
+		<#if fileSize?exists> FILE_SIZE = :fileSize, </#if>
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  PO_ORDER_NUM = :poOrderNum
+		AND    APPEND_DOC_SEQ = :appendDocSeq
+
+		]]>
+	</statement>
+
+	<!-- 구매주문 첨부문서 관리(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.ft.ftp.dao.PoOrderAppenddocDAO.delete */
+		<![CDATA[
+		DELETE
+		FROM   PO_ORDER_APPENDDOC
+		WHERE  PO_ORDER_NUM = :poOrderNum
+		AND    APPEND_DOC_SEQ = :appendDocSeq
+
+		]]>
+	</statement>
+
+</hqml>

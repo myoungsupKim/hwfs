@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT V.VISIT_ID,
+       V.MGMT_SABUN,
+       (SELECT NM_KOR FROM SCO_FS_HR_PERSONAL_V WHERE SABUN = V.MGMT_SABUN) MGMT_SABUNNM,
+       V.CUST_ID,
+       (SELECT CUSTNM||'('||BIZ_NO||')' FROM MAK_CUST_MST_A WHERE CUST_ID = V.CUST_ID) CUST_IDNM,
+       V.VISIT_DATE,
+       V.VISIT_GUBUN,
+       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA1000' AND CODE = V.VISIT_GUBUN) VISIT_GUBUNNM,
+       V.NAME,
+       V.DEPTNM,
+       V.JOB_GRADE,
+       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0023' AND CODE = V.JOB_GRADE) JOB_GRADENM,
+       <!--V.HP_TEL, 양방향암호화  -->
+       SC_CRYPTO_FUN('DEC',V.HP_TEL_ENC,4) AS HP_TEL,
+       <!--V.E_MAIL, 양방향암호화  -->
+       SC_CRYPTO_FUN('DEC',V.E_MAIL_ENC,5) AS E_MAIL,
+       V.INTERVIEW_CONTENTS,
+       V.EXPECT_DATE,
+       DECODE((SELECT COUNT(*) FROM MAK_SALES_ACTIVITY_A WHERE CUST_ID = V.CUST_ID), 0, 'N', 'Y') ACTIVITY_YN,
+       (SELECT DECODE(COUNT(*), 0, 'N', 'Y') DRIVING_MGMT_GUBUN FROM MAK_DRIVING_MGMT WHERE  (GUBUN    = 'A') AND    (VISIT_ID = V.VISIT_ID))  DRIVING_MGMT_GUBUN
+  FROM MAK_VISIT_MGMT_A V
+  WHERE (1 = 1) 
+
+  <isNotNull col="MGMT_SABUN">
+  AND   (V.MGMT_SABUN = #MGMT_SABUN#)
+  </isNotNull>
+  
+  <isNotNull col="CUST_ID">
+  AND   (V.CUST_ID = #CUST_ID#)
+  </isNotNull>
+
+  <isNotNull col="VISIT_DATE">
+  AND   (V.VISIT_DATE = #VISIT_DATE#)
+  </isNotNull>
+            
+                        
+ORDER BY V.MGMT_SABUN, V.CUST_ID, V.VISIT_DATE, V.VISIT_ID, CDATE
+</statement>
+	<input default-name="ds_cond">
+		<col name="MGMT_SABUN" size="9" type="VARCHAR" description="" /> 	
+		<col name="CUST_ID" size="22" type="NUMERIC" description="" />	
+		<col name="VISIT_DATE" size="8" type="VARCHAR" description="" /> 				
+	</input>
+	<output default-name="ds_list">
+		<col name="VISIT_ID" size="22" type="NUMERIC" description="" /> 
+		<col name="MGMT_SABUN" size="9" type="VARCHAR" description="" /> 
+		<col name="MGMT_SABUNNM" size="20" type="VARCHAR" description="" /> 
+		<col name="CUST_ID" size="22" type="NUMERIC" description="" /> 
+		<col name="CUST_IDNM" size="222" type="VARCHAR" description="" /> 
+		<col name="VISIT_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="VISIT_GUBUN" size="3" type="VARCHAR" description="" /> 
+		<col name="VISIT_GUBUNNM" size="100" type="VARCHAR" description="" /> 
+		<col name="NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="DEPTNM" size="50" type="VARCHAR" description="" /> 
+		<col name="JOB_GRADE" size="3" type="VARCHAR" description="" /> 
+		<col name="JOB_GRADENM" size="100" type="VARCHAR" description="" /> 
+		<col name="HP_TEL" size="30" type="VARCHAR" description="" /> 
+		<col name="E_MAIL" size="50" type="VARCHAR" description="" /> 
+		<col name="INTERVIEW_CONTENTS" size="2000" type="VARCHAR" description="" /> 
+		<col name="EXPECT_DATE" size="8" type="VARCHAR" description="" /> 
+   	<col name="ACTIVITY_YN" size="22" type="VARCHAR" description="" /> 	
+   	<col name="DRIVING_MGMT_GUBUN" size="22" type="VARCHAR" description="" /> 	
+	</output>
+</query>

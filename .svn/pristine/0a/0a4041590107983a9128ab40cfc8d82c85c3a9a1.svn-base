@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.roa.overTimeClosingDAO">
+	<desc>특근 마감 작업 HQML Query</desc>
+
+	<!-- 특근 마감 작업 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.rc.roa.dao.OverTimeClosingDAO.selectList */
+		<![CDATA[
+            SELECT  A.YY_MM
+                    ,NVL(B.CLOSE_YN,'N') CLOSE_YN
+                    ,B.CLOSEDDTT
+                    ,B.CLOSE_EMPNO
+                    ,(SELECT NM_KOR FROM SCC_USERINFO WHERE SABUN = B.CLOSE_EMPNO) CLOSE_EMP_NM
+                    ,NVL(B.UPJANG,:schUpjang) UPJANG
+            FROM    (
+                    SELECT  TO_CHAR(ADD_MONTHS(YYMM,LEVEL-1),'YYYYMM') YY_MM 
+                    FROM    (
+                            SELECT TO_DATE(:schYYYY||'0101','YYYYMMDD') YYMM FROM dual
+                            )
+                    CONNECT BY LEVEL <= 12) A
+                    , RSS_CLOSE_STATUS B
+            WHERE   A.YY_MM = B.YYMM(+)
+            AND     B.CLOSE_ARTICLE(+) = '1'
+            AND     B.UPJANG(+) = :schUpjang
+		]]>
+	</statement>
+
+	<!-- 특근 마감 작업(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.rc.roa.dao.OverTimeClosingDAO.insert */
+		<![CDATA[
+            INSERT INTO RSS_CLOSE_STATUS (
+                YYMM
+                ,UPJANG
+                ,CLOSE_ARTICLE
+                ,CLOSE_YN
+                ,CLOSE_EMPNO
+                ,CLOSEDDTT
+                ,CUSER
+                ,CDATE
+            ) VALUES (
+                :yyMm
+                ,:upjang
+                ,'1'
+                ,'Y'
+                ,:loginSabun
+                ,SYSDATE
+                ,:loginSabun
+                ,SYSDATE
+            )
+		]]>
+	</statement>
+	
+	<!-- 특근 마감 작업(을)를 수정한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.rc.roa.dao.OverTimeClosingDAO.delete */
+		<![CDATA[
+            DELETE  RSS_CLOSE_STATUS
+            WHERE   UPJANG  = :upjang
+            AND     YYMM    = :yyMm
+		]]>
+	</statement>
+
+	<!-- 마감처리 -->
+	<statement name="insertOverTimeInfoSum" type="insert">
+		/*+ com.hwfs.rc.roa.dao.OverTimeClosingDAO.insertOverTimeInfoSum */
+		<![CDATA[
+            INSERT INTO RSS_OVER_TIME_INFO (
+                UPJANG
+                ,EMPNO
+                ,OCCUR_DATE
+                ,OCCUR_TYPE
+                ,YY_MM
+                ,WEEKLY_SEQ
+                ,EMP_NM
+                ,EXTENSION_OCCUR
+                ,EXTENSION_USE
+                ,EXTENSION_PAY
+                ,EXTENSION_REWARD_OCCUR
+                ,EXTENSION_REWARD_USE
+                ,EXTENSION_REWARD_PAY
+                ,HOLIDAY_OCCUR
+                ,HOLIDAY_USE
+                ,HOLIDAY_PAY
+                ,HOLIDAY_REWARD_OCCUR
+                ,HOLIDAY_REWARD_USE
+                ,HOLIDAY_REWARD_PAY
+                ,NGHT_OCCUR
+                ,NGHT_PAY
+                ,CUSER
+                ,CDATE
+                ,UUSER
+                ,UDATE
+            )
+            SELECT  UPJANG
+                    ,EMPNO
+                    ,TO_CHAR(ADD_MONTHS(TO_DATE(:yyMm,'YYYYMM'),1),'YYYYMM')||'00' OCCUR_DATE
+                    ,CASE WHEN  RSS_OVER_TIME_CLOSE_MONTH_FUN(YY_MM) = 'Y' THEN '3'
+                        ELSE '2' END OCCUR_TYPE
+                    ,TO_CHAR(ADD_MONTHS(TO_DATE(:yyMm,'YYYYMM'),1),'YYYYMM') YY_MM
+                    ,'1' WEEKLY_SEQ
+                    ,EMP_NM
+                    ,CASE WHEN  RSS_OVER_TIME_CLOSE_MONTH_FUN(YY_MM) = 'Y' THEN 0
+                        ELSE  NVL(SUM(EXTENSION_OCCUR),0)
+                            - NVL(SUM(EXTENSION_USE),0)
+                            - NVL(SUM(EXTENSION_PAY),0)
+                        END EXTENSION_OCCUR
+                    ,0 EXTENSION_USE
+                    ,0 EXTENSION_PAY
+                    ,CASE WHEN  RSS_OVER_TIME_CLOSE_MONTH_FUN(YY_MM) = 'N' THEN 0
+                        ELSE  NVL(SUM(EXTENSION_OCCUR),0)
+                            + NVL(SUM(EXTENSION_REWARD_OCCUR),0)
+                            - NVL(SUM(EXTENSION_USE),0)
+                            - NVL(SUM(EXTENSION_PAY),0)
+                            - NVL(SUM(EXTENSION_REWARD_USE),0)
+                            - NVL(SUM(EXTENSION_REWARD_PAY),0)
+                        END EXTENSION_REWARD_OCCUR
+                    ,0 EXTENSION_REWARD_USE
+                    ,0 EXTENSION_REWARD_PAY
+                    ,CASE WHEN  RSS_OVER_TIME_CLOSE_MONTH_FUN(YY_MM) = 'Y' THEN 0
+                        ELSE  NVL(SUM(HOLIDAY_OCCUR),0)
+                            - NVL(SUM(HOLIDAY_USE),0)
+                            - NVL(SUM(HOLIDAY_PAY),0)
+                        END HOLIDAY_OCCUR
+                    ,0 HOLIDAY_USE
+                    ,0 HOLIDAY_PAY
+                    ,CASE WHEN  RSS_OVER_TIME_CLOSE_MONTH_FUN(YY_MM) = 'N' THEN 0
+                        ELSE  NVL(SUM(HOLIDAY_OCCUR),0)
+                            + NVL(SUM(HOLIDAY_REWARD_OCCUR),0)
+                            - NVL(SUM(HOLIDAY_USE),0)
+                            - NVL(SUM(HOLIDAY_PAY),0)
+                            - NVL(SUM(HOLIDAY_REWARD_USE),0)
+                            - NVL(SUM(HOLIDAY_REWARD_PAY),0)
+                        END HOLIDAY_REWARD_OCCUR
+                    ,0 HOLIDAY_REWARD_USE
+                    ,0 HOLIDAY_REWARD_PAY
+                    ,NVL(SUM(NGHT_OCCUR),0) - NVL(SUM(NGHT_PAY),0) NGHT_OCCUR
+                    ,0 NGHT_PAY
+                    ,:loginSabun
+                    ,SYSDATE
+                    ,:loginSabun
+                    ,SYSDATE
+            FROM    RSS_OVER_TIME_INFO
+            WHERE   UPJANG  = :upjang
+            AND     YY_MM   = :yyMm
+            GROUP BY UPJANG
+                    ,EMPNO
+                    ,YY_MM
+                    ,EMP_NM
+		]]>
+	</statement>
+
+    <!-- 특근 사용 등록 로그를 등록한다. -->
+    <statement name="logInfo" type="insert">
+        /*+ com.hwfs.rc.roa.dao.OverTimeClosingDAO.logInfo */
+        <![CDATA[
+            INSERT INTO RSS_OVER_TIME_CHG_LOG (
+                SEQUENCE
+                ,UPJANG
+                ,CHG_CLASS
+                ,EMPNO
+                ,OCCURDATE
+                ,OCCUR_TYPE
+                ,YY_MM
+                ,WEEKLY_SEQ
+                ,EMP_NM
+                ,EXTENSION_OCCUR
+                ,EXTENSION_USE
+                ,EXTENSION_PAY
+                ,EXTENSION_REWARD_OCCUR
+                ,EXTENSION_REWARD_USE
+                ,EXTENSION_REWARD_PAY
+                ,HOLIDAY_OCCUR
+                ,HOLIDAY_USE
+                ,HOLIDAY_PAY
+                ,HOLIDAY_REWARD_OCCUR
+                ,HOLIDAY_REWARD_USE
+                ,HOLIDAY_REWARD_PAY
+                ,NGHT_OCCUR
+                ,NGHT_PAY
+                ,CUSER
+                ,CDATE
+                ,UUSER
+                ,UDATE
+            )
+            SELECT  RSS_OVER_TIME_CHG_LOG_S.NEXTVAL
+                    ,A.UPJANG
+                    ,'1'
+                    ,A.EMPNO
+                    ,A.OCCUR_DATE
+                    ,A.OCCUR_TYPE
+                    ,A.YY_MM
+                    ,A.WEEKLY_SEQ
+                    ,A.EMP_NM
+                    ,A.EXTENSION_OCCUR
+                    ,A.EXTENSION_USE
+                    ,A.EXTENSION_PAY
+                    ,A.EXTENSION_REWARD_OCCUR
+                    ,A.EXTENSION_REWARD_USE
+                    ,A.EXTENSION_REWARD_PAY
+                    ,A.HOLIDAY_OCCUR
+                    ,A.HOLIDAY_USE
+                    ,A.HOLIDAY_PAY
+                    ,A.HOLIDAY_REWARD_OCCUR
+                    ,A.HOLIDAY_REWARD_USE
+                    ,A.HOLIDAY_REWARD_PAY
+                    ,A.NGHT_OCCUR
+                    ,A.NGHT_PAY
+                    ,:loginSabun
+                    ,SYSDATE
+                    ,:loginSabun
+                    ,SYSDATE
+            FROM    RSS_OVER_TIME_INFO A
+            WHERE   A.UPJANG        = :upjang
+            AND     A.OCCUR_DATE    = TO_CHAR(ADD_MONTHS(TO_DATE(:yyMm,'YYYYMM'),1),'YYYYMM')||'00'
+        ]]>
+    </statement>
+    
+	<!-- 마감취소 -->
+	<statement name="cancelOverTimeInfoSum" type="delete">
+		/*+ com.hwfs.rc.roa.dao.OverTimeClosingDAO.cancelOverTimeInfoSum */
+		<![CDATA[
+            DELETE  RSS_OVER_TIME_INFO
+            WHERE   UPJANG  = :upjang
+            AND     YY_MM   = TO_CHAR(ADD_MONTHS(TO_DATE(:yyMm,'YYYYMM'),1),'YYYYMM')
+            AND		OCCUR_TYPE IN ('2','3')
+		]]>
+	</statement>
+	
+	<!-- 마감취소LOG -->
+	<statement name="cancelLogInfo" type="delete">
+		/*+ com.hwfs.rc.roa.dao.OverTimeClosingDAO.cancelLogInfo */
+		<![CDATA[
+            DELETE  RSS_OVER_TIME_CHG_LOG
+            WHERE   UPJANG      = :upjang
+            AND     OCCURDATE   = TO_CHAR(ADD_MONTHS(TO_DATE(:yyMm,'YYYYMM'),1),'YYYYMM')||'00'
+            AND		OCCUR_TYPE IN ('2','3')
+		]]>
+	</statement>
+</hqml>

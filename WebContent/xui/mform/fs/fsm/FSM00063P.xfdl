@@ -1,0 +1,135 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FSM00063P" onload="form_onload" titletext="레시피비율 일괄조정" position="absolute 0 0 442 275" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Static id="sta_detail00" class="sta_WFDA_Labelbg" position="absolute 15 234 427 261"/>
+        <Button id="btn_AllApplyDown" onclick="btn_AllApplyDown_OnClick" taborder="0" position="absolute 349 237 424 258" class="btn_WF_Custom" image="" text="일괄적용"/>
+        <ImageViewer id="img_YC" image="URL('theme://convertImages/img_GC.png')" taborder="2" position="absolute 15 234 30 261"/>
+        <Static id="Static01" text="1인 소요량 일괄조정 비율 :" position="absolute 30 237 193 258" class="sta_WFDA_Labelbg" style="background:transparent;"/>
+        <Static id="Static0" text="%" position="absolute 232 237 258 258" class="sta_WFDA_Labelbg" style="align:left middle;" wordwrap="none"/>
+        <MaskEdit id="me_rate" mask="###.0" taborder="6" position="absolute 192 237 233 258"/>
+        <Grid binddataset="ds_cMenu" readonly="false" enable="true" fillareatype="none" id="Grid00" useinputpanel="false" taborder="7" tabstop="true" usecontextmenu="true" useselcolor="true" visible="true" wheelscrollrow="1" position="absolute 15 10 427 224" selecttype="row" autofittype="col">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="70"/>
+                <Column size="268"/>
+                <Column size="40"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell colspan="2" displaytype="text" text="레시피 코드/명"/>
+                <Cell col="2" displaytype="text" text="선택"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" style="align:left;" text="bind:RECIPE_CD"/>
+                <Cell col="1" displaytype="text" style="align:left;" text="bind:RECIPE_NAME"/>
+                <Cell col="2" displaytype="checkbox" edittype="checkbox" style="align:center middle;" text="bind:V_STA"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="Static02" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 0 0 442 10"/>
+        <Static id="Static03" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 270"/>
+        <Static id="Static04" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 427 0 442 270"/>
+        <Static id="Static21" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 0 261 442 276"/>
+        <Static id="Static05" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 0 224 442 234"/>
+      </Layout>
+    </Layouts>
+    <Bind>
+      <BindItem id="item0" compid="sta_detail00" propid="text" datasetid="ds_view" columnid="D_1"/>
+    </Bind>
+    <Objects>
+      <Dataset id="ds_cMenu" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 메뉴관리/식단관리/식단등록/레시피 검색 및 등록 pop-up 창
+ * 프로그램명   : FSM00063P.XML
+ * 기      능   : 레시피비율 일괄조정
+ * 작  성  자   : 구종화
+ * 작성  일자   : 2008-01-08
+ * 비      고   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "Lib::sc_comon.js";
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);   
+	
+	
+	 Copy(ds_cMenu,opener.parent.parent.ds_Menu);
+}
+
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Close()
+ * 기      능   : [닫기버튼] 화면을 닫을때 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_Close()
+{
+	this.close();
+}
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+
+function btn_AllApplyDown_OnClick(obj:Button, e:ClickEventInfo)
+{
+	var	n_cnt	= 0;
+	
+	
+	trace(me_rate.value);
+// 	trace(opener.parent.parent.ds_Menu.rowcount);
+// 	trace(opener.parent.parent.ds_Menu.getColumn(0, "V_STA"));
+	
+	for(var ii = 0; ii < ds_cMenu.rowcount; ii++) {
+		if (ds_cMenu.getColumn(ii, "V_STA") == 1) {
+			n_cnt += 1;
+			opener.parent.parent.ds_Menu.setColumn(ii, "V_STA", 1);
+			opener.parent.parent.ds_Menu.setColumn(ii, "V_RATE", me_rate.value);
+		}
+	}
+	
+	if (n_cnt > 0) {
+		this.close(1);
+	}
+	else {
+		this.close(0);
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

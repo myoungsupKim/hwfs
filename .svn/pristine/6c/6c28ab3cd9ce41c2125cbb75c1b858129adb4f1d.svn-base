@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="rc.rrm.smlRecipeMgntDAO">
+	<desc>가상코드 표준레시피 등록 HQML Query</desc>
+
+	<!-- 가상레시피 등록 현황을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.rc.rrm.dao.smlRecipeMgntDAO.selectList	*/
+		<![CDATA[
+SELECT '0' AS CHK
+     , A.MU_CD
+     , B.MU_NM
+     , B.TM_CD
+     , B.TM_NM
+     , A.UPJANG_CD
+     , B.UPJANGNM AS UPJANG_NM
+     , A.STD_DATE
+     , C.UPJANG_TYPE
+     , SCC_CODE_NM('UPJANG_TYPE', C.UPJANG_TYPE) AS UPJANG_TYPE_NM
+     , A.STD_RECIPE_CD
+     --, A.RECIPE_NM --신청당시 레시피명
+     , C.RECIPE_NM  --레시피마스터 레시피명
+     , C.STAND
+     , SCC_CODE_NM('STAND_TYPE', C.STAND) AS STAND_NM
+     , C.OFER_NO
+     , C.OFER_UNIT
+     , SCC_CODE_NM('OFER_UNIT', C.OFER_UNIT) AS OFER_UNIT_NM 
+     , C.MCALSS_CD
+     , SCC_CODE_NM('MCALSS_CD', C.MCALSS_CD) AS MCALSS_NM 
+     , C.SCLASS_CD
+     , SCC_CODE_NM('SCLASS_CD', C.SCLASS_CD) AS SCLASS_NM 
+     , C.RECIPE_DVLP_BY
+     , A.STATUS
+     , SCC_CODE_NM('RRM_CHG_STATUS', A.STATUS) AS STATUS_NM
+     , A.REQUEST_DATE
+     , A.ACCEPT_DATE
+  FROM RSS_SML_RECIPE_CD_MGMT A
+     , SCO_UPJANG_V B
+     , RSS_STD_RECIPE_CD_MST C
+ WHERE A.MU_CD = B.MU_CD
+   AND A.UPJANG_CD = B.UPJANG
+   AND A.UPJANG_TYPE = C.UPJANG_TYPE
+   AND A.STD_RECIPE_CD = C.STD_RECIPE_CD
+   AND A.MU_CD = '2003'
+   <#if upjangCd?has_content > AND A.UPJANG_CD   = :upjangCd </#if>
+   <#if tmCd?has_content> AND  B.TM_CD = :tmCd </#if>   
+   AND A.STD_DATE BETWEEN :sdate AND :edate
+<#if chgStatus?has_content>
+   AND A.STATUS = :chgStatus
+</#if>
+<#if smlUpjang?has_content>
+   AND A.UPJANG_CD = :smlUpjang
+</#if>
+ ORDER BY A.STATUS, A.REQUEST_DATE, A.UPJANG_CD, A.STD_DATE
+		]]>
+	</statement>
+
+	<!-- 가상레시피를 표준레시피로 등록 요청한다. -->
+	<statement name="insert" type="update">
+		/*+ com.hwfs.rc.rrm.dao.smlRecipeMgntDAO.updateRequest */
+		<![CDATA[
+		UPDATE RSS_SML_RECIPE_CD_MGMT
+		   SET STATUS = :status
+		     , REQUEST_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		     , UUSER = :loginSabun
+		     , UDATE = SYSDATE
+		 WHERE MU_CD = :muCd
+		   AND UPJANG_CD = :upjangCd
+		   AND STD_RECIPE_CD = :stdRecipeCd
+		]]>
+	</statement>
+
+	<!-- 일괄 변경된 품목들의 진행상황을 변경한다.(신규요청 -> 처리완료, 신규요청 -> 미적용) -->
+	<statement name="updateStatus" type="update">
+		/*+ com.hwfs.rc.rrm.dao.smlRecipeMgntDAO.updateStatus */
+		<![CDATA[
+		UPDATE RSS_SML_RECIPE_CD_MGMT
+		   SET STATUS = :status
+		     , ACCEPT_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		     , UUSER = :loginSabun
+		     , UDATE = SYSDATE
+		 WHERE MU_CD = :muCd
+		   AND UPJANG_CD = :upjangCd
+		   AND STD_RECIPE_CD = :stdRecipeCd
+		]]>
+	</statement>
+
+	<!-- 가상레시피를 표준레시피로 변경한다. -->
+	<statement name="updateStdRecipe" type="update">
+		/*+ com.hwfs.rc.rrm.dao.smlRecipeMgntDAO.updateStdRecipe */
+		<![CDATA[
+		UPDATE RSS_STD_RECIPE_CD_MST
+		   SET SML_YN = 'N'
+		     , UUSER = :loginSabun
+		     , UDATE = SYSDATE
+		 WHERE MU_CD = :muCd
+		   AND UPJANG_TYPE = :upjangType
+		   AND STD_RECIPE_CD = :stdRecipeCd
+		]]>
+	</statement>
+</hqml>

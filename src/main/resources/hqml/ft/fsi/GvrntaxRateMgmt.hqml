@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="ft.fsi.gvrntaxRateMgmtDAO">
+    <desc>기간별 관세율관리 HQML Query</desc>
+
+    <!-- 기간별 관세율관리 목록을 조회한다. -->
+    <statement name="selectList" type="select">
+        /*+ com.hwfs.ft.fsi.dao.GvrntaxRateMgmtDAO.selectList */
+        <![CDATA[
+        SELECT A.NATION_CD,
+               A.NATION_CD AS ORG_NATION_CD,
+               B.CODE_NAME NATION_NM,
+               A.SDATE,
+               A.EDATE,
+               A.SDATE AS ORG_SDATE,
+               A.EDATE AS ORG_EDATE,
+               A.ITEM_CD AS ORG_ITEM_CD,
+               A.ITEM_CD,
+               --(SELECT ITEM_NAME FROM HLDC_PO_ITEM_MST WHERE ITEM_CODE = A.ITEM_CD AND USE_YN='Y' ) ITEM_NM,
+               C.ITEM_NAME ||' '|| C.ITEM_SIZE AS ITEM_NM,
+               A.HS_CD,
+               A.GVRNTAX_RATE,
+               DECODE(C.TAX_CODE,'100','Y','N') TAX_CODE,
+               A.DEL_YN,
+               A.CUSER,
+               A.CDATE,
+               A.UUSER,
+               A.UDATE
+        FROM   GVRNTAX_RATE_MGMT A,
+               (SELECT CODE,CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'NATION_CD'  ) B,
+               HLDC_PO_ITEM_MST C
+        WHERE 1=1
+        AND A.NATION_CD = B.CODE(+)
+        AND A.ITEM_CD = C.ITEM_CODE(+)
+        <#if nationNm?has_content>
+            AND B.CODE_NAME LIKE '%'||:nationNm||'%'
+        </#if>
+
+        <#if sdate?has_content && edate?has_content >
+             AND (A.SDATE <=:edate AND A.EDATE >=:sdate)
+        </#if>
+        <#if itemNm?has_content>
+            AND C.ITEM_NAME LIKE '%'||:itemNm||'%'
+        </#if>
+        <#if hsCd?has_content>
+            AND A.HS_CD like '%'||:hsCd||'%'
+        </#if>
+        ORDER BY A.NATION_CD, A.ITEM_CD, A.SDATE, A.EDATE DESC
+
+        ]]>
+    </statement>
+
+    <!-- 시작일자, 종료일자 포함여부 체크. -->
+    <statement name="checkDateList" type="select">
+        /*+ com.hwfs.ft.fsi.dao.GvrntaxRateMgmtDAO.checkDateList */
+        <![CDATA[
+         SELECT
+             A.NATION_CD
+            ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'NATION_CD' AND A.NATION_CD =CODE ) NATION_NM
+            ,A.ITEM_CD
+            ,A.SDATE
+            ,A.EDATE
+        FROM GVRNTAX_RATE_MGMT A
+        WHERE 1=1
+        AND A.NATION_CD =:nationCd
+        AND A.ITEM_CD = :itemCd
+        AND A.SDATE <= :edate
+        AND A.EDATE >= :sdate
+        <#if procFlag == "U">
+        AND (A.NATION_CD, A.ITEM_CD , A.SDATE,EDATE ) NOT IN (
+            SELECT NATION_CD, ITEM_CD, SDATE, EDATE FROM GVRNTAX_RATE_MGMT
+            WHERE 1=1
+            AND NATION_CD =:orgNationCd
+            AND ITEM_CD=:orgItemCd
+            AND SDATE = :orgSdate
+            AND EDATE =:orgEdate
+        )
+        </#if>
+        ]]>
+    </statement>
+
+    <!-- 기간별 관세율관리(을)를 등록한다. -->
+    <statement name="insert" type="insert">
+        /*+ com.hwfs.ft.fsi.dao.GvrntaxRateMgmtDAO.insert */
+        <![CDATA[
+        INSERT INTO GVRNTAX_RATE_MGMT
+        (
+         NATION_CD,
+         SDATE,
+         EDATE,
+         ITEM_CD,
+         HS_CD,
+         GVRNTAX_RATE,
+         DEL_YN,
+         CUSER,
+         CDATE,
+         UUSER,
+         UDATE
+        ) VALUES (
+         :nationCd,
+         :sdate,
+         :edate,
+         :itemCd,
+        <#if hsCd?exists> :hsCd, <#else> null, </#if>
+        <#if gvrntaxRate?exists> :gvrntaxRate, <#else> null, </#if>
+        <#if delYn?exists> :delYn, <#else> 'N', </#if>
+         :loginSabun,
+         SYSDATE,
+         :loginSabun,
+         SYSDATE
+        )
+
+
+        ]]>
+    </statement>
+
+    <!-- 기간별 관세율관리(을)를 수정한다. -->
+    <statement name="update" type="update">
+        /*+ com.hwfs.ft.fsi.dao.GvrntaxRateMgmtDAO.update */
+        <![CDATA[
+        UPDATE GVRNTAX_RATE_MGMT SET
+        <#if nationCd?exists> NATION_CD = :nationCd, </#if>
+        <#if sdate?exists> SDATE = :sdate, </#if>
+        <#if edate?exists> EDATE = :edate, </#if>
+        <#if itemCd?exists> ITEM_CD = :itemCd, </#if>
+        <#if hsCd?exists> HS_CD = :hsCd, </#if>
+        <#if gvrntaxRate?exists> GVRNTAX_RATE = :gvrntaxRate, </#if>
+        <#if delYn?exists> DEL_YN = :delYn, </#if>
+               UUSER = :loginSabun,
+               UDATE = SYSDATE
+        WHERE  NATION_CD = :orgNationCd
+        AND    SDATE = :orgSdate
+        AND    EDATE = :orgEdate
+        AND    ITEM_CD = :orgItemCd
+        ]]>
+    </statement>
+
+    <!-- 기간별 관세율관리(을)를 삭제한다. -->
+    <statement name="delete" type="delete">
+        /*+ com.hwfs.ft.fsi.dao.GvrntaxRateMgmtDAO.delete */
+        <![CDATA[
+        DELETE
+        FROM   GVRNTAX_RATE_MGMT
+        WHERE  NATION_CD = :nationCd
+        AND    SDATE = :sdate
+        AND    EDATE = :edate
+        AND    ITEM_CD = :itemCd
+        ]]>
+    </statement>
+
+    <!-- 기간별 관세율관리 목록을 조회한다. -->
+    <statement name="selectGvrntaxRatePop" type="select">
+        /*+ com.hwfs.ft.fsi.dao.GvrntaxRateMgmtDAO.selectList */
+        <![CDATA[
+         SELECT A.NATION_CD,
+               C.CODE_NAME NATION_NM,
+               A.SDATE,
+               A.EDATE,
+               A.ITEM_CD,
+               B.ITEM_NAME ITEM_NM,
+               A.HS_CD,
+               A.GVRNTAX_RATE,
+               A.DEL_YN,
+               B.MAKER,
+               B.ITEM_SIZE,
+               B.ORIGIN_TYPE,
+               B.KG_CONVERT_RATE,
+               DECODE(B.TAX_CODE,'100','Y','N') TAX_CODE,
+               D.CODE_NAME TAX_CODE_NM,
+               A.CUSER,
+               A.CDATE,
+               A.UUSER,
+               A.UDATE
+        FROM   GVRNTAX_RATE_MGMT A,
+               HLDC_PO_ITEM_MST B,
+               (SELECT CODE,CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'NATION_CD'  ) C,
+               (SELECT CODE,CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'TAX_YN'  ) D
+        WHERE 1=1
+        AND A.ITEM_CD =B.ITEM_CODE
+        AND A.NATION_CD = C.CODE(+)
+        AND DECODE(B.TAX_CODE,'100','Y','N') = D.CODE(+)
+        AND B.USE_YN='Y'
+        <#if nationNm?has_content>
+            AND C.CODE_NAME LIKE '%'||:nationNm||'%'
+        </#if>
+        <#if sdate?has_content && edate?has_content >
+             AND (A.SDATE <=:edate AND A.EDATE >=:sdate)
+        </#if>
+        <#if itemNm?has_content>
+            AND B.ITEM_NAME like '%'||:itemNm||'%'
+        </#if>
+        ORDER BY A.NATION_CD, A.ITEM_CD, A.SDATE, A.EDATE DESC
+        ]]>
+    </statement>
+
+</hqml>

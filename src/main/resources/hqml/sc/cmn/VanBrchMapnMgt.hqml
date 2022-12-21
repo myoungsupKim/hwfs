@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.cmn.vanBrchMapnMgtDAO">
+	<desc>VAN 사 사업장 매핑 HQML Query</desc>
+
+	<!-- VAN 사 SFTP 접속정보를 중복 제거하여 조회한다. (VAN 사별 1건) -->
+	<statement name="selectVanBrchMapnList" type="select">
+		/*+ com.hwfs.sc.cmn.dao.VanBrchMapnMgtDAO.selectVanBrchMapnList */
+		<![CDATA[
+		SELECT A.COMP_CD
+		     , A.SYS_TYPE_CD
+		     , A.BRCH_CD
+		     , (SELECT BRCH_NM FROM SLA_ISA_BRCH WHERE COMP_CD = A.COMP_CD AND SYS_TYPE_CD = A.SYS_TYPE_CD AND BRCH_CD = A.BRCH_CD) AS BRCH_NM
+		     , A.SRC_GRUP
+		     , A.VAN_CD
+		     , A.SFTP_IP
+		     , A.SFTP_PORT
+		     , A.SFTP_ID
+		     , SCC_CRYPTO.DEC_FUN (A.SFTP_PSWD) AS SFTP_PSWD
+		     , A.SFTP_PSWD AS SFTP_PSWD_ORGL
+		     , A.SFTP_UPLOAD_PATH
+		     , A.SFTP_DOWNLOAD_PATH
+		     , '' AS CHK
+		     , A.CRAT_ID
+		     , A.CRAT_DDTT
+		     , A.UPDT_ID
+		     , A.UPDT_DDTT
+			 , A.MAIN_YN
+		  FROM SLA_ISA_VAN_BRCH_MAPN A
+		 WHERE 1 = 1
+		  <#if compCd?has_content> AND A.COMP_CD = :compCd </#if>
+		  <#if sysTypeCd?has_content> AND A.SYS_TYPE_CD = :sysTypeCd </#if>
+		  <#if brchCd?has_content> AND A.BRCH_CD = :brchCd </#if>
+	ORDER BY A.COMP_CD, A.SYS_TYPE_CD, TO_NUMBER(A.BRCH_CD), MAIN_YN DESC
+		]]>
+	</statement>
+	
+	<statement name="selectVanSftpConnInfoList" type="select">
+		/*+ com.hwfs.sc.cmn.dao.VanBrchMapnMgtDAO.selectVanSftpConnInfoList */
+		<![CDATA[
+		SELECT A.VAN_CD
+		     , A.SFTP_IP
+		     , A.SRC_GRUP
+		     , A.SFTP_PORT, SFTP_ID
+		     , SCC_CRYPTO.DEC_FUN (A.SFTP_PSWD) AS SFTP_PSWD
+		     , A.SFTP_UPLOAD_PATH
+		     , A.SFTP_DOWNLOAD_PATH
+	      FROM (
+	               SELECT VAN_CD
+				        , SFTP_IP
+				        , SRC_GRUP
+				        , SFTP_PORT, SFTP_ID
+				        , SFTP_PSWD
+				        , SFTP_UPLOAD_PATH
+				        , SFTP_DOWNLOAD_PATH
+				        , ROW_NUMBER() OVER(PARTITION BY VAN_CD ORDER BY SFTP_ID DESC) AS RN
+		       		 FROM SLA_ISA_VAN_BRCH_MAPN
+		       		WHERE VAN_CD != 'GLRA'	-- 갤러리아 SFTP 는 거래내역, 입반송 대상에서 제외
+		      ) A
+		 WHERE 1 = 1
+		   AND RN = 1
+		]]>
+	</statement>
+	
+</hqml>

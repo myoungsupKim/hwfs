@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.scu.userInterfaceLogDAO">
+	<desc>사용자 인테페이스 로그 HQML Query</desc>
+
+	<!-- 사용자 인테페이스 로그 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sc.scu.dao.UserInterfaceLogDAO.selectList */
+		<![CDATA[
+SELECT A.USERID,
+       A.SABUN,
+       A.NM_KOR,
+       TO_CHAR(B.LOG_DDTT, 'YYYY-MM-DD') AS LOG_DATE,
+       TO_CHAR(B.LOG_DDTT, 'HH24:MI:SS') AS LOG_TIME,
+       B.LOG_TYPE,
+       B.LOG_DESC
+FROM   SCC_USERINFO A,
+       SCC_USER_IF_LOG B
+WHERE  B.SABUN = A.SABUN
+<#if startLogDate?has_content>
+AND    TO_CHAR(B.LOG_DDTT, 'YYYYMMDD') >= :startLogDate
+</#if>
+<#if endLogDate?has_content>
+AND    TO_CHAR(B.LOG_DDTT, 'YYYYMMDD') <= :endLogDate
+</#if>
+<#if logType?has_content>
+AND    B.LOG_TYPE = :logType
+</#if>
+ORDER BY TO_CHAR(B.LOG_DDTT, 'YYYYMMDD') DESC, B.LOG_TYPE, A.NM_KOR
+		]]>
+	</statement>
+
+	<!-- 사용자 인테페이스 로그(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sc.scu.dao.UserInterfaceLogDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 사용자 인테페이스 로그(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sc.scu.dao.UserInterfaceLogDAO.update */
+		<![CDATA[
+		UPDATE TABLE_NAME 
+		SET    COLUMN_NAME1 = :columnName1,
+		       COLUMN_NAME2 = :columnName2,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+	<!-- 사용자 인테페이스 로그(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.sc.scu.dao.UserInterfaceLogDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>

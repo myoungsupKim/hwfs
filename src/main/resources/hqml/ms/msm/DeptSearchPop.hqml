@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="ms.msm.deptSearchPopDAO">
+	<desc>부서조회팝업 HQML Query</desc>
+
+	<!-- 부서조회팝업 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.ms.msm.deptSearchPopDAO.selectList */
+	<![CDATA[
+	SELECT TM_CD,
+	       TM_NM,
+	       USE_YN,
+	       BU_CD,
+	       BU_NM,
+	       MU_CD,
+	       MU_NM
+	FROM   HLDC_SC_TM  
+	WHERE  1 = 1
+	<#if deptCd?has_content>
+	AND    TM_CD LIKE  '%' || :deptCd || '%'
+	</#if>
+	<#if deptNm?has_content>
+	AND    TM_NM LIKE  '%' || :deptNm || '%'
+	</#if>
+	<#if muCd?has_content>
+	AND    MU_CD = :muCd
+	</#if>
+	<#if role?has_content>
+	AND    MU_CD IN ('2001','2002','2003')  --FS사업부, 외식사업부
+	</#if>
+	ORDER BY TM_CD
+	]]></statement>
+
+	<!-- 담당자팝업 목록을 조회한다. -->
+	<statement name="selectSabunList" type="select">
+	/*+ com.hwfs.ms.msm.deptSearchPopDAO.selectSabunList */
+	<![CDATA[
+	SELECT A.SABUN
+	     , A.NM_KOR
+	     , TOT_CNT
+	FROM   ( SELECT ROWNUM RNUM
+	             , S.*
+	       FROM    ( SELECT  A.SABUN AS SABUN
+	                      , A.NM_KOR AS NM_KOR
+	                      , ROWNUM
+	                      , COUNT(*) OVER() TOT_CNT
+	               FROM     HLDC_HR_PERSONAL A
+	                        INNER JOIN HLDC_SC_DEPT_V B
+	                        ON       (
+	                                          1=1
+	                                 )
+	                        <#if schCond?has_content>
+	                            <#if schCond == '1'>
+	                            AND B.MU_CD IN ('1001', '2004')
+	                            </#if>
+	                         </#if>
+	                        AND      A.DEPT_ID = B.DEPT_ID
+	               WHERE    1 = 1
+	               <#if schMuCd?has_content>
+	               AND      B.MU_CD     = :schMuCd
+	               </#if>
+	               <#if schCode?has_content>
+			       AND      A.SABUN  LIKE '%' || :schCode || '%'
+				   </#if>
+				   <#if schName?has_content>
+				   AND      A.NM_KOR LIKE '%' || :schName || '%'
+				   </#if>
+	               AND      A.GB_JAEJIK = 'AA'
+	               ORDER BY 2
+	               )
+	               S
+	       )
+	       A
+	WHERE  1           =1
+	AND   ROWNUM <= :pageRow and RNUM >= :curPageNum
+	<#if schCode?has_content>
+	AND    A.SABUN  LIKE '%' || :schCode || '%'
+	</#if>
+	<#if schName?has_content>
+	AND    A.NM_KOR LIKE '%' || :schName || '%'
+	</#if>
+	]]></statement>
+
+	<!-- 영업사원팝업 목록을 조회한다. -->
+	<statement name="selectSalesPersonList" type="select">
+	/*+ com.hwfs.ms.msm.deptSearchPopDAO.selectSalesPersonList */
+	<![CDATA[
+	SELECT A.SABUN
+	     , A.NM_KOR
+	     , TOT_CNT
+	FROM   ( SELECT ROWNUM RNUM
+	             , S.*
+	       FROM    (SELECT  V.SABUN
+	                      , V.NM_KOR||' ('||V.MU_NM||' '||V.CC_NM||')' AS NM_KOR
+	                      , V.MU_NM
+	                      , V.CC_NM
+	                      , ROWNUM
+	                      , COUNT(*) OVER() TOT_CNT
+	               FROM     SCO_FS_HR_PERSONAL_V V
+	               WHERE    (
+	                                 1 = 1
+	                        )
+	               AND      V.SABUN                                    LIKE '%' || :schCode || '%'
+	               AND      V.NM_KOR||' ('||V.MU_NM||' '||V.CC_NM||')' LIKE '%' || :schName || '%'
+	               )
+	               S
+	       )
+	       A
+	WHERE  1                                             =1
+	AND    ROWNUM <= :pageRow and RNUM >= :curPageNum                                
+	AND    A.SABUN  LIKE '%' || :schCode || '%'
+	AND    A.NM_KOR||' ('||A.MU_NM||' '||A.CC_NM||')' LIKE '%' || :schName || '%'
+	]]></statement>
+</hqml>

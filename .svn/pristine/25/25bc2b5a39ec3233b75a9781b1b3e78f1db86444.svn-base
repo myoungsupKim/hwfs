@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT B.UPJANG
+     , (SELECT UPJANGNM FROM SCO_UPJANG_MST_V WHERE UPJANG = B.UPJANG) UPJANGNM
+     , A.ITEM_CODE, A.ITEM_NAME, A.BARCODE, A.ITEM_SIZE, A.PO_UOM
+     , A.TAX_CODE
+     , DECODE(A.TAX_CODE,'100','과세','210','면세','220','영세') TAX_CODENM
+     , B.START_DATE
+     , B.END_DATE
+     , B.SALE_PRICE BEFORE_SALE_PRICE
+     , 0 AFTER_SALE_PRICE
+     , B.PRC_DESC
+     , HLDC_MA_MARGINPRICE_FUN(SUBSTR(#START_DATE#, 1, 4),#UPJANG#, A.ITEM_CODE) UNIT_PRICE,
+     (SELECT CLASS_NAME FROM HLDC_PO_ITEM_CLASS_HLDC_V WHERE CLASS_TYPE = 'D' AND CLASS_CODE = SUBSTR(A.ITEM_CODE, 1, 8))            CLASS_NM,
+     (SELECT SUBSTR(CLASS_CODE, 3) FROM HLDC_PO_ITEM_CLASS_HLDC_V WHERE CLASS_TYPE = 'D' AND CLASS_CODE = SUBSTR(A.ITEM_CODE, 1, 8)) CLASS_CD
+     , (SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN = B.CUSER) CUSER
+     , B.CDATE          
+  FROM HLDC_PO_ITEM_MST A
+     ,(SELECT C.UPJANG, C.ITEM_CODE, C.START_DATE, C.END_DATE, C.SALE_PRICE, C.PRC_DESC, C.CUSER, C.CDATE
+         FROM MAS_CORNER_PRICE C
+            ,(SELECT E.UPJANG, E.ITEM_CODE, MAX(E.START_DATE) AS START_DATE
+                FROM MAS_CORNER_PRICE E
+               WHERE E.START_DATE BETWEEN '19000101' AND #START_DATE#
+                 AND E.UPJANG = #UPJANG#
+               GROUP BY E.UPJANG, E.ITEM_CODE) D
+        WHERE C.UPJANG         = D.UPJANG
+          AND C.ITEM_CODE      = D.ITEM_CODE
+          AND C.START_DATE     = D.START_DATE
+          ) B
+WHERE A.ITEM_CODE = B.ITEM_CODE
+</statement>
+	<input default-name="ds_cond">
+		<col name="UPJANG" size="6" type="NUMERIC" description="업장코드" /> 
+		<col name="START_DATE" size="255" type="VARCHAR" description="" /> 		
+	</input>
+	<output default-name="ds_list">
+<col name="UPJANG" size="" type="NUMERIC" description="" />
+<col name="UPJANGNM" size="255" type="VARCHAR" description="" />
+<col name="ITEM_CODE" size="255" type="VARCHAR" description="" />
+<col name="ITEM_NAME" size="255" type="VARCHAR" description="" />
+<col name="ITEM_SIZE" size="255" type="VARCHAR" description="" />
+<col name="PO_UOM" size="255" type="VARCHAR" description="" />
+<col name="TAX_CODE" size="255" type="VARCHAR" description="" />
+<col name="TAX_CODENM" size="255" type="VARCHAR" description="" />
+<col name="START_DATE" size="255" type="VARCHAR" description="" />
+<col name="END_DATE" size="255" type="VARCHAR" description="" />
+<col name="BEFORE_SALE_PRICE" size="" type="NUMERIC" description="" />
+<col name="AFTER_SALE_PRICE" size="" type="NUMERIC" description="" />
+<col name="UNIT_PRICE" size="" type="NUMERIC" description="" />
+<col name="CLASS_NM" size="255" type="VARCHAR" description="" />
+<col name="CLASS_CD" size="255" type="VARCHAR" description="" />
+	</output>
+</query>

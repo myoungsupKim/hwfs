@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="ei.cmn.fsspCommonDAO">
+	<desc>특판 시즌정보 HQML Query</desc>
+
+	<!-- 특판 시즌정보 목록을 조회한다. -->
+	<statement name="selectSeason" type="select">
+		/*+ com.hwfs.ei.cmn.dao.FsspCommonDAO.selectSeason */
+		<![CDATA[
+SELECT SID
+     , STITLE
+     , START_DATE
+     , END_DATE
+     , SDATE
+     , SDATE_DISP
+     , STIME
+     , STIME_DISP
+  FROM FSP_PO_SEASON_LIST
+ WHERE USE_YN = 'Y'
+   AND START_DATE <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+   AND END_DATE >= TO_CHAR(SYSDATE, 'YYYYMMDD')
+		]]>
+	</statement>
+
+	<!-- 상품CLASS3을 조회한다. -->
+	<statement name="selectItemClass3" type="select">
+		/*+ com.hwfs.ei.cmn.dao.FsspCommonDAO.selectItemClass3 */
+		<![CDATA[
+SELECT DISTINCT B.ITEM_CLASS3 AS ITEM_CLASS
+     , (SELECT CLASS_NAME FROM HLDC_PO_ITEM_CLASS WHERE CLASS_CODE = B.ITEM_CLASS3) ITEM_NAME
+  FROM FSP_PO_SPECIAL_ITEM A
+     , HLDC_PO_ITEM_MST B
+ WHERE B.ITEM_CODE = A.ITEM_CODE
+   AND B.USE_YN = 'Y'
+<#if seasonNum?has_content>
+   AND A.SEASON_NUM = :seasonNum
+</#if>
+ ORDER BY B.ITEM_CLASS3
+		]]>
+	</statement>
+
+	<!-- 상품CLASS4을 조회한다. -->
+	<statement name="selectItemClass4" type="select">
+		/*+ com.hwfs.ei.cmn.dao.FsspCommonDAO.selectItemClass4 */
+		<![CDATA[
+SELECT DISTINCT B.ITEM_CLASS4 AS ITEM_CLASS
+     , (SELECT CLASS_NAME FROM HLDC_PO_ITEM_CLASS WHERE CLASS_CODE = B.ITEM_CLASS4) ITEM_NAME
+  FROM FSP_PO_SPECIAL_ITEM A
+     , HLDC_PO_ITEM_MST B
+ WHERE B.ITEM_CODE = A.ITEM_CODE
+   AND B.USE_YN = 'Y'
+<#if seasonNum?has_content>
+   AND A.SEASON_NUM = :seasonNum
+</#if>
+<#if itemClass3?has_content>
+   AND B.ITEM_CLASS4 LIKE :itemClass3 || '%'
+</#if>
+ ORDER BY B.ITEM_CLASS4
+		]]>
+	</statement>
+
+	<!-- 공통코드를 조회한다. -->
+	<statement name="selectCommonCode" type="select">
+		/*+ com.hwfs.ei.cmn.dao.FsspCommonDAO.selectCommonCode */
+		<![CDATA[
+SELECT A.GROUP_CODE
+     , A.GROUP_NAME
+     , B.CODE
+     , B.CODE_NAME
+     , B.CONTENTS
+     , B.SORT_SEQ
+     , B.SYSTEM_YN
+     , B.POS_YN
+     , B.USE_YN
+     , B.SET1
+     , B.SET2
+     , B.SET3
+     , B.SET4
+     , B.ATTR01
+     , B.ATTR02
+     , B.ATTR03
+     , B.ATTR04
+     , B.ATTR05
+     , B.ATTR06
+     , B.ATTR07
+     , B.ATTR08
+     , B.ATTR09
+     , B.ATTR10
+  FROM SCC_COMMON_GROUP A
+     , SCC_COMMON_CODE B
+ WHERE B.GROUP_CODE = A.GROUP_CODE
+   AND A.GROUP_CODE = :groupCode
+   AND A.USE_YN = 'Y'
+<#if useYn?has_content>
+   AND B.USE_YN = :useYn
+</#if>
+<#if set1?has_content>
+   AND B.SET1 = :set1
+</#if>
+<#if set2?has_content>
+   AND B.SET2 = :set2
+</#if>
+<#if set3?has_content>
+   AND B.SET3 = :set3
+</#if>
+<#if set4?has_content>
+   AND B.SET4 = :set4
+</#if>
+<#if set5?has_content>
+   AND B.SET5 = :set5
+</#if>
+<#if attr01?has_content>
+   AND B.ATTR01 = :attr01
+</#if>
+<#if attr02?has_content>
+   AND B.ATTR02 = :attr02
+</#if>
+<#if attr03?has_content>
+   AND B.ATTR03 = :attr03
+</#if>
+<#if attr04?has_content>
+   AND B.ATTR04 = :attr04
+</#if>
+<#if attr05?has_content>
+   AND B.ATTR05 = :attr05
+</#if>
+<#if attr06?has_content>
+   AND B.ATTR06 = :attr06
+</#if>
+<#if attr07?has_content>
+   AND B.ATTR07 = :attr07
+</#if>
+<#if attr08?has_content>
+   AND B.ATTR08 = :attr08
+</#if>
+<#if attr09?has_content>
+   AND B.ATTR09 = :attr09
+</#if>
+<#if attr10?has_content>
+   AND B.ATTR10 = :attr10
+</#if>
+ORDER BY B.SORT_SEQ, B.CODE
+		]]>
+	</statement>
+
+	<!-- 상품CLASS4을 조회한다. -->
+	<statement name="selectPoCode" type="select">
+		/*+ com.hwfs.ei.cmn.dao.FsspCommonDAO.selectPoCode */
+		<![CDATA[
+SELECT CODE
+     , CODE_NAME
+     , USE_YN
+  FROM PO_CODE A
+ WHERE GROUP_CODE = :groupCode
+<#if useYn?has_content>
+   AND USE_YN = :useYn
+</#if>
+		]]>
+	</statement>
+
+	<!-- 부문(BU)를 조회한다. -->
+	<statement name="selectBu" type="select">
+		/*+ [ISA0006] com.hwfs.ei.cmn.dao.FsspCommonDAO.selectBu */
+		<![CDATA[
+SELECT BU_CD
+     , BU_NM
+  FROM SCC_BU
+ WHERE USE_YN = 'Y'
+ ORDER BY BU_CD
+		]]>
+	</statement>
+
+	<!-- 사업장에 상품마스터가 생성됐는지 확인 -->
+	<statement name="selectCreateBrchItem" type="select">
+		/*+ com.hwfs.ei.cmn.dao.FsspCommonDAO.selectCreateBrchItem */
+		<![CDATA[
+SELECT CASE WHEN COUNT(*) > 0 THEN 'Y' ELSE 'N' END CREATE_YN
+  FROM FSP_PO_IRIS_LOC_ITEM
+ WHERE BRCH_CD = :brchCd
+		]]>
+	</statement>
+
+	<!-- 영업장에 상품마스터가 생성됐는지 확인 -->
+	<statement name="selectCreateLocItem" type="select">
+		/*+ com.hwfs.ei.cmn.dao.FsspCommonDAO.selectCreateLocItem */
+		<![CDATA[
+SELECT CASE WHEN COUNT(*) > 0 THEN 'Y' ELSE 'N' END CREATE_YN
+  FROM FSP_PO_IRIS_LOC_ITEM
+ WHERE BRCH_CD = :brchCd
+   AND LOC_CD = :locCd
+		]]>
+	</statement>
+
+
+</hqml>

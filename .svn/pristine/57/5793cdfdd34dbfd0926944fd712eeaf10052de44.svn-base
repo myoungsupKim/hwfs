@@ -1,0 +1,1545 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="ls.lcm.introFrameLimsDAO">
+	<desc>LIMS 담당자를 관리한다.</desc>
+
+	<!-- 메인화면 월별겸사현황을 조회한다. -->
+	<statement name="selectGraphList" type="select"><![CDATA[
+/* 메인화면 월별겸사현황 조회 */
+WITH T1 AS
+(
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '01' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '02' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '03' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '04' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '05' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '06' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '07' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '08' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '09' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '10' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '11' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '12' AS YM FROM DUAL
+)
+SELECT SUBSTR(B.YM, 5, 2) || '월' AS LABEL
+     , (
+         SELECT /*+ INDEX_FFS(A) */
+                COUNT(1)
+           FROM LRM_SPECM_INFO A
+          WHERE 1 = 1
+            AND SUBSTR(A.ACCEPTDD, 1, 6) = B.YM
+            AND A.PROGRESS_STATUS NOT IN ( '120', '140' )
+       ) AS TOT_CNT    /* 건수 */
+     , (
+         SELECT /*+ INDEX_FFS(A) */
+                COUNT(1)
+           FROM LRM_SPECM_INFO A
+              , LRM_TEST_INFO X
+          WHERE 1 = 1
+            AND SUBSTR(A.ACCEPTDD, 1, 6) = B.YM
+            AND A.REQ_NUM = X.REQ_NUM
+            AND A.ACCEPT_NUM = X.ACCEPT_NUM
+            AND A.PROGRESS_STATUS NOT IN ( '120', '140' )
+            AND EXISTS (
+                        SELECT 1
+                          FROM LCM_TEST_ARTICLE
+                         WHERE X.ARTICLE_CD = ARTICLE_CD
+                           AND TO_NUMBER(NVL(TAKE_TERM, 0)) != 0
+                       )
+       ) AS TEST_CNT   /* 항목수 */
+     , (
+         SELECT /*+ INDEX_FFS(Y) */
+                COUNT(1)
+           FROM LRM_SPECM_INFO A
+              , LTM_TEST_DIARY Y
+          WHERE 1 = 1
+            AND SUBSTR(A.ACCEPTDD, 1, 6) = B.YM
+            AND A.REQ_NUM = Y.REQ_NUM
+            AND A.ACCEPT_NUM = Y.ACCEPT_NUM
+            --2018.06.05 김명섭 LIMS개선
+            --AND Y.LAST_DECISION IN ('102', '103')
+            AND Y.LAST_DECISION = '102'
+            AND A.PROGRESS_STATUS NOT IN ( '120', '140' )
+            AND EXISTS (
+                        SELECT 1
+                          FROM LCM_TEST_ARTICLE
+                         WHERE Y.ARTICLE_CD = ARTICLE_CD
+                           AND TO_NUMBER(NVL(TAKE_TERM, 0)) != 0
+                       )
+       ) AS NOT_FIT_CNT   /* 부적합수 */
+     , (
+        SELECT COUNT(1)
+          FROM LSM_ANNUPLAN_DTL Z
+         WHERE 1 = 1
+           AND Z.YEAR = SUBSTR(B.YM, 1, 4)
+           AND Z.MM = SUBSTR(B.YM, 5, 2)
+           AND Z.INSPT_YN = 'Y'
+       ) AS SPECM_CNT  /* 년간계획검사시료수 */
+     , ((
+        SELECT COUNT(1)
+          FROM LSM_ANNUPLAN_DTL Z
+         WHERE 1 = 1
+           AND Z.YEAR = SUBSTR(B.YM, 1, 4)
+           AND Z.MM = SUBSTR(B.YM, 5, 2)
+           AND Z.INSPT_YN = 'Y'
+           AND Z.MICBIO_INSPT_YN = 'Y'
+       ) +
+       (
+        SELECT COUNT(1)
+          FROM LSM_ANNUPLAN_DTL Z
+         WHERE 1 = 1
+           AND Z.YEAR = SUBSTR(B.YM, 1, 4)
+           AND Z.MM = SUBSTR(B.YM, 5, 2)
+           AND Z.INSPT_YN = 'Y'
+           AND Z.PHYCHEM_INSPT_YN = 'Y'
+       )) AS TEST_SPECM_CNT  /* 년간계획검사건수 */
+     , SUBSTR(B.YM, 5, 2) AS CODE
+  FROM T1 B
+ WHERE 1 = 1
+ ORDER BY B.YM ASC
+]]></statement>
+
+	<!-- 메인화면 월별진행현황을 조회한다. -->
+	<statement name="selectMonthIngList" type="select"><![CDATA[
+/* 메인화면 월별진행현황 조회 */
+SELECT T.INSPT_FLD
+     , T.INSPT_FLD_NM
+     , T.SABUN
+     , T.USER_NM
+     , (NVL(T.ING_CNT, 0) + NVL(T.COMPLETE_CNT, 0)) AS TOT_CNT
+     , T.ING_CNT
+     , T.CURR_COMPLETE_CNT
+     , T.COMPLETE_CNT
+     , T.ING_TEST_CNT
+     , T.CURR_COMPLETE_TEST_CNT
+     , T.COMPLETE_TEST_CNT
+     , T.CURR_WEEK_COMPLETE_SCHE_CNT
+     , T.WEEK_COMPLETE_SCHE_CNT
+     , T.NOT_FIT_CNT
+     , T.USE_YN
+  FROM (
+        SELECT A.INSPT_FLD
+             , SCC_CODE_NM('INSPT_FLD', A.INSPT_FLD) AS INSPT_FLD_NM
+             , A.SABUN
+             , A.USE_YN
+             , (SELECT NM_KOR FROM SCC_USERINFO WHERE SABUN = A.SABUN) AS USER_NM
+             , (SELECT /*+ INDEX_SS(B) */
+                       COUNT(DISTINCT(B.ACCEPT_NUM))
+                  FROM LRM_SPECM_INFO B
+                     , LRM_TEST_INFO X
+                     , LTM_TEST_DIARY Y
+                 WHERE SUBSTR(B.ACCEPTDD, 1, 6) <= <#if yymm?has_content>:yymm<#else>TO_CHAR(SYSDATE, 'YYYYMM')</#if>
+                   AND B.REQ_NUM = X.REQ_NUM
+                   AND B.ACCEPT_NUM = X.ACCEPT_NUM
+                   AND X.REQ_NUM = Y.REQ_NUM(+)
+                   AND X.ACCEPT_NUM = Y.ACCEPT_NUM(+)
+                   AND X.SABUN = A.SABUN
+                   AND X.INSPT_FLD = A.INSPT_FLD
+                   AND X.SABUN = Y.SABUN(+)
+                   AND X.ARTICLE_CD = Y.ARTICLE_CD(+)
+                   AND Y.LAST_DECISION IS NULL
+                   AND B.PROGRESS_STATUS NOT IN ( '120', '140' )   /* 접수취소는 제외 */
+               ) AS ING_CNT   /* 진행건수 */
+             , (SELECT /*+ INDEX_SS(B) */
+                       COUNT(DISTINCT(B.ACCEPT_NUM))
+                  FROM LRM_SPECM_INFO B
+                     , LRM_TEST_INFO X
+                     , LTM_TEST_DIARY Y
+                 WHERE B.ACCEPTDD = TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   AND B.REQ_NUM = X.REQ_NUM
+                   AND B.ACCEPT_NUM = X.ACCEPT_NUM
+                   AND X.REQ_NUM = Y.REQ_NUM(+)
+                   AND X.ACCEPT_NUM = Y.ACCEPT_NUM(+)
+                   AND X.SABUN = A.SABUN
+                   AND X.INSPT_FLD = A.INSPT_FLD
+                   AND X.SABUN = Y.SABUN(+)
+                   AND X.ARTICLE_CD = Y.ARTICLE_CD(+)
+                   AND Y.LAST_DECISION IS NOT NULL
+               ) AS CURR_COMPLETE_CNT   /* 금일완료건수 */
+             , (SELECT /*+ INDEX_SS(B) */
+                       COUNT(DISTINCT(B.ACCEPT_NUM))
+                  FROM LRM_SPECM_INFO B
+                     , LRM_TEST_INFO X
+                     , LTM_TEST_DIARY Y
+                 WHERE SUBSTR(B.ACCEPTDD, 1, 6) = <#if yymm?has_content>:yymm<#else>TO_CHAR(SYSDATE, 'YYYYMM')</#if>
+                   AND B.REQ_NUM = X.REQ_NUM
+                   AND B.ACCEPT_NUM = X.ACCEPT_NUM
+                   AND X.REQ_NUM = Y.REQ_NUM(+)
+                   AND X.ACCEPT_NUM = Y.ACCEPT_NUM(+)
+                   AND X.SABUN = A.SABUN
+                   AND X.INSPT_FLD = A.INSPT_FLD
+                   AND X.SABUN = Y.SABUN(+)
+                   AND X.ARTICLE_CD = Y.ARTICLE_CD(+)
+                   AND Y.LAST_DECISION IS NOT NULL
+               ) AS COMPLETE_CNT   /* 완료건수 */
+             , (SELECT /*+ INDEX_SS(B) */
+                       COUNT(1)
+                  FROM LRM_SPECM_INFO B
+                     , LRM_TEST_INFO X
+                     , LTM_TEST_DIARY Y
+                 WHERE SUBSTR(B.ACCEPTDD, 1, 6) <= <#if yymm?has_content>:yymm<#else>TO_CHAR(SYSDATE, 'YYYYMM')</#if>
+                   AND B.REQ_NUM = X.REQ_NUM
+                   AND B.ACCEPT_NUM = X.ACCEPT_NUM
+                   AND X.REQ_NUM = Y.REQ_NUM(+)
+                   AND X.ACCEPT_NUM = Y.ACCEPT_NUM(+)
+                   AND X.SABUN = A.SABUN
+                   AND X.INSPT_FLD = A.INSPT_FLD
+                   AND X.SABUN = Y.SABUN(+)
+                   AND X.ARTICLE_CD = Y.ARTICLE_CD(+)
+                   AND Y.LAST_DECISION IS NULL
+                   AND B.PROGRESS_STATUS NOT IN ( '120', '140' )
+                   AND EXISTS (
+                                SELECT 1
+                                  FROM LCM_TEST_ARTICLE
+                                 WHERE X.ARTICLE_CD = ARTICLE_CD
+                                   AND TO_NUMBER(NVL(TAKE_TERM, 0)) != 0
+                              )
+               ) AS ING_TEST_CNT   /* 진행 항목 건수 */
+             , (SELECT /*+ INDEX_SS(B) */
+                       COUNT(1)
+                  FROM LRM_SPECM_INFO B
+                     , LRM_TEST_INFO X
+                     , LTM_TEST_DIARY Y
+                 WHERE B.ACCEPTDD = TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   AND B.REQ_NUM = X.REQ_NUM
+                   AND B.ACCEPT_NUM = X.ACCEPT_NUM
+                   AND X.REQ_NUM = Y.REQ_NUM(+)
+                   AND X.ACCEPT_NUM = Y.ACCEPT_NUM(+)
+                   AND X.SABUN = A.SABUN
+                   AND X.INSPT_FLD = A.INSPT_FLD
+                   AND X.SABUN = Y.SABUN(+)
+                   AND X.ARTICLE_CD = Y.ARTICLE_CD(+)
+                   AND Y.LAST_DECISION IS NOT NULL
+                   AND EXISTS (
+                                SELECT 1
+                                  FROM LCM_TEST_ARTICLE
+                                 WHERE X.ARTICLE_CD = ARTICLE_CD
+                                   AND TO_NUMBER(NVL(TAKE_TERM, 0)) != 0
+                              )
+               ) AS CURR_COMPLETE_TEST_CNT   /* 금일 완료 항목 건수 */
+             , (SELECT /*+ INDEX_SS(B) */
+                       COUNT(1)
+                  FROM LRM_SPECM_INFO B
+                     , LRM_TEST_INFO X
+                     , LTM_TEST_DIARY Y
+                 WHERE SUBSTR(B.ACCEPTDD, 1, 6) = <#if yymm?has_content>:yymm<#else>TO_CHAR(SYSDATE, 'YYYYMM')</#if>
+                   AND B.REQ_NUM = X.REQ_NUM
+                   AND B.ACCEPT_NUM = X.ACCEPT_NUM
+                   AND X.REQ_NUM = Y.REQ_NUM(+)
+                   AND X.ACCEPT_NUM = Y.ACCEPT_NUM(+)
+                   AND X.SABUN = A.SABUN
+                   AND X.INSPT_FLD = A.INSPT_FLD
+                   AND X.SABUN = Y.SABUN(+)
+                   AND X.ARTICLE_CD = Y.ARTICLE_CD(+)
+                   AND Y.LAST_DECISION IS NOT NULL
+                   AND EXISTS (
+                                SELECT 1
+                                  FROM LCM_TEST_ARTICLE
+                                 WHERE X.ARTICLE_CD = ARTICLE_CD
+                                   AND TO_NUMBER(NVL(TAKE_TERM, 0)) != 0
+                              )
+               ) AS COMPLETE_TEST_CNT   /* 완료 항목 건수 */
+             , (
+                SELECT /*+ INDEX_SS(X) */
+                       COUNT(1)
+                  FROM LRM_TEST_INFO X
+                     , LTM_TEST_DIARY Y
+                     , LCM_TEST_ARTICLE Z
+                 WHERE 1 = 1
+                   AND X.REQ_NUM = Y.REQ_NUM(+)
+                   AND X.ACCEPT_NUM = Y.ACCEPT_NUM(+)
+                   AND X.SABUN = A.SABUN
+                   AND X.INSPT_FLD = A.INSPT_FLD
+                   AND X.ARTICLE_CD = Z.ARTICLE_CD
+                   AND X.SABUN = Y.SABUN(+)
+                   AND X.ARTICLE_CD = Y.ARTICLE_CD(+)
+                   AND X.PROGRESS_STATUS >= '150'
+                   AND TO_CHAR((TO_DATE((SELECT MAX(P.PROCDD)  -- 시험승인일로 부터 소요기간 산정
+                                           FROM LRM_PROC_DESC P
+                                          WHERE P.REQ_NUM = X.REQ_NUM
+                                            AND P.PROC_CLASS = '150'), 'YYYYMMDD') + TO_NUMBER(Z.TAKE_TERM)), 'YYYYMMDD') /* 시작일 + 소요기간 */
+                        = TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   AND Y.LAST_DECISION IS NULL
+                   AND X.PROGRESS_STATUS NOT IN ( '120', '140' )
+                   AND EXISTS (
+                                SELECT 1
+                                  FROM LCM_TEST_ARTICLE
+                                 WHERE X.ARTICLE_CD = ARTICLE_CD
+                                   AND TO_NUMBER(NVL(TAKE_TERM, 0)) != 0
+                              )
+               ) AS CURR_WEEK_COMPLETE_SCHE_CNT /* 금일 완료 예정 건수 */
+             , (
+                SELECT /*+ INDEX_SS(X) */
+                       COUNT(1)
+                  FROM LRM_TEST_INFO X
+                     , LTM_TEST_DIARY Y
+                     , LCM_TEST_ARTICLE Z
+                 WHERE 1 = 1
+                   AND X.REQ_NUM = Y.REQ_NUM(+)
+                   AND X.ACCEPT_NUM = Y.ACCEPT_NUM(+)
+                   AND X.SABUN = A.SABUN
+                   AND X.INSPT_FLD = A.INSPT_FLD
+                   AND X.ARTICLE_CD = Z.ARTICLE_CD
+                   AND X.SABUN = Y.SABUN(+)
+                   AND X.ARTICLE_CD = Y.ARTICLE_CD(+)
+                   AND X.PROGRESS_STATUS >= '150'
+                   AND TO_CHAR((TO_DATE((SELECT MAX(P.PROCDD)  -- 시험승인일로 부터 소요기간 산정
+                                           FROM LRM_PROC_DESC P
+                                          WHERE P.REQ_NUM = X.REQ_NUM
+                                            AND P.PROC_CLASS = '150'), 'YYYYMMDD') + TO_NUMBER(Z.TAKE_TERM)), 'YYYYMMDD') /* 시작일 + 소요기간 */
+                        <= (
+                             /* 금주 마지막 날자 추출 */
+                             SELECT MAX(TO_CHAR(SYSDATE -7 + LEVEL + (SELECT NEXT_DAY(SYSDATE, 1) - SYSDATE FROM DUAL), 'YYYYMMDD')) AS DT
+                               FROM DUAL
+                            CONNECT BY LEVEL <= 7
+                           )
+                   AND Y.LAST_DECISION IS NULL
+                   AND X.PROGRESS_STATUS NOT IN ( '120', '140' )
+                   AND EXISTS (
+                                SELECT 1
+                                  FROM LCM_TEST_ARTICLE
+                                 WHERE X.ARTICLE_CD = ARTICLE_CD
+                                   AND TO_NUMBER(NVL(TAKE_TERM, 0)) != 0
+                              )
+               ) AS WEEK_COMPLETE_SCHE_CNT /* 금주완료 예정 건수 */
+             , (
+                 SELECT /*+ INDEX_FFS(Y) */
+                        COUNT(1)
+                   FROM LRM_TEST_INFO Y
+                      , LTM_TEST_DIARY Z
+                  WHERE Y.SABUN = A.SABUN
+                    AND Y.INSPT_FLD = A.INSPT_FLD
+                    AND Y.REQ_NUM = Z.REQ_NUM
+                    AND Y.ACCEPT_NUM = Z.ACCEPT_NUM
+                    AND Y.SABUN = Z.SABUN
+                    AND Y.ARTICLE_CD = Z.ARTICLE_CD
+                    AND SUBSTR(Z.TESTDD, 1, 6) = <#if yymm?has_content>:yymm<#else>TO_CHAR(SYSDATE, 'YYYYMM')</#if>
+                    --2018.06.05 김명섭 LIMS개선
+                    --AND Z.LAST_DECISION IN ('102', '103')
+                    AND Z.LAST_DECISION = '102'
+                    AND EXISTS (
+                                SELECT 1
+                                  FROM LCM_TEST_ARTICLE
+                                 WHERE Y.ARTICLE_CD = ARTICLE_CD
+                                   AND TO_NUMBER(NVL(TAKE_TERM, 0)) != 0
+                               )
+               ) AS NOT_FIT_CNT         /* 부적합 건수 */
+          FROM LCM_USER A
+         WHERE 1 = 1
+           AND A.AUTH_CD = '101'  /* 검사자 */
+           AND A.USE_YN = 'Y' /* 2018.06.05 김명섭 사용여부 체크 */
+     ) T
+ ORDER BY T.INSPT_FLD, T.USE_YN DESC
+]]></statement>
+
+	<!-- 접수대기 현황을 조회한다. -->
+	<statement name="selecTestAcceptList" type="select">
+		/*+ com.hwfs.ls.lcm.dao.IntroFrameLimsDAO.selecTestAcceptList */
+		<![CDATA[
+/* 접수대기 현황 조회 */
+SELECT A.REQ_NUM
+     , A.REQ_DATE
+     , A.REQ_USER_NM
+     , (SELECT COUNT(1)
+          FROM LRM_SPECM_INFO
+         WHERE REQ_NUM = A.REQ_NUM) AS SPECM_CNT
+     , A.UPJANG
+     , A.UPJANG_NM
+  FROM LRM_TEST_REQ_ACCEPT A
+     , (
+        SELECT PD.REQ_NUM
+             , PD.PROC_USER
+             , PD.PROCDD
+             , PD.PROC_REASON
+             , PD.PROC_CLASS
+             , PD.SEQ
+          FROM (
+                SELECT Y.REQ_NUM
+                     , Y.PROC_USER
+                     , Y.PROCDD
+                     , Y.PROC_REASON
+                     , Y.PROC_CLASS
+                     , Y.SEQ
+                     , ROW_NUMBER() OVER (PARTITION BY Y.REQ_NUM ORDER BY Y.REQ_NUM, Y.SEQ DESC) AS RN
+                  FROM LRM_PROC_DESC Y
+               ) PD
+         WHERE RN = 1
+       ) U
+ WHERE 1 = 1
+   AND A.REQ_NUM = U.REQ_NUM(+)
+   AND U.PROC_CLASS = '110'	/* 접수중 */
+ ORDER BY A.REQ_NUM DESC
+        ]]>
+	</statement>
+
+	<!-- 결재대기 현황을 조회한다. -->
+	<statement name="selecTestApprvtList" type="select">
+		/*+ com.hwfs.ls.lcm.dao.IntroFrameLimsDAO.selecTestApprvtList */
+		<![CDATA[
+/* 결재대기 현황 조회 */
+SELECT A.REQ_NUM
+     , A.REQ_DATE
+     , A.REQ_USER_NM
+     , (SELECT COUNT(1)
+          FROM LRM_SPECM_INFO
+         WHERE REQ_NUM = A.REQ_NUM) AS SPECM_CNT
+     , A.UPJANG
+     , A.UPJANG_NM
+     , SCC_CODE_NM('PROGRESS_STATUS', U.PROC_CLASS) AS PROGRESS_STATUS_NM
+     , U.PROC_CLASS AS PROGRESS_STATUS
+  FROM LRM_TEST_REQ_ACCEPT A
+     , (
+        SELECT PD.REQ_NUM
+             , PD.PROC_USER
+             , PD.PROCDD
+             , PD.PROC_REASON
+             , PD.PROC_CLASS
+             , PD.SEQ
+          FROM (
+                SELECT Y.REQ_NUM
+                     , Y.PROC_USER
+                     , Y.PROCDD
+                     , Y.PROC_REASON
+                     , Y.PROC_CLASS
+                     , Y.SEQ
+                     , ROW_NUMBER() OVER (PARTITION BY Y.REQ_NUM ORDER BY Y.REQ_NUM, Y.SEQ DESC) AS RN
+                  FROM LRM_PROC_DESC Y
+               ) PD
+         WHERE RN = 1
+       ) U
+ WHERE 1 = 1
+   AND A.REQ_NUM = U.REQ_NUM(+)
+   AND U.PROC_CLASS IN ( '130' , '180' , '210' , '250' )	/* 접수승인중, 시험완료승인중, 성적서발급신청, 성적서재발급신청 */
+ ORDER BY A.REQ_NUM DESC
+        ]]>
+	</statement>
+
+	<!-- 승인처리 현황을 조회한다. -->
+	<statement name="selecApprvActionList" type="select">
+		/*+ com.hwfs.ls.lcm.dao.IntroFrameLimsDAO.selecApprvActionList
+		*/
+		<![CDATA[
+/* 승인처리 현황 조회 */
+SELECT NVL(SUM(CASE WHEN EXISTS (SELECT 1   /* 150:접수승인,200:시험완료승인,230:성적서발급승인,270:성적서재발급승인 */
+                                   FROM LRM_PROC_DESC
+                                  WHERE A.REQ_NUM = REQ_NUM
+                                    AND PROC_CLASS IN ( '150' , '200' , '230' , '270' )) THEN
+                COUNT(1)
+       END), 0) AS APPRV_CNT	/* 승인건수 */
+     , NVL(SUM(CASE WHEN EXISTS (SELECT 1   /* 150:접수반려,190:시험완료반려,220:성적서발급반려,260:성적서재발급반려 */
+                                   FROM LRM_PROC_DESC
+                                  WHERE A.REQ_NUM = REQ_NUM
+                                    AND PROC_CLASS IN ( '140' , '190' , '220' , '260' )) THEN
+                COUNT(1)
+       END), 0) AS APPRV_REJECT_CNT	/* 반려건수 */
+     , NVL(SUM(CASE WHEN NOT EXISTS (SELECT 1
+                                       FROM LRM_PROC_DESC
+                                      WHERE A.REQ_NUM = REQ_NUM
+                                        AND PROC_CLASS IN ( '150' , '200' , '230' , '270', '140' , '190' , '220' , '260' )) THEN
+                COUNT(1)
+       END), 0) AS APPRV_NO_ACTION_CNT	/* 미승인건수 */
+  FROM LRM_PROC_DESC A
+ WHERE A.PROC_USER = :loginSabun
+   AND A.PROC_CLASS IN ( '130' , '180' , '210' , '250' )    /* 130:접수승인중,180:시험완료승인중,210:성적서발급신청,250:성적서재발급신청 */
+   AND NOT EXISTS (
+                    SELECT 1    /* 완료된 의뢰는 제외 */
+                      FROM LRM_TEST_REQ_ACCEPT X
+                     WHERE X.REQ_NUM = A.REQ_NUM
+                       AND ((X.INSPECT_RPT_ISSUE = 'Y' AND A.PROC_CLASS = '240')
+                        OR ((X.INSPECT_RPT_ISSUE IS NULL OR X.INSPECT_RPT_ISSUE = 'N') AND A.PROC_CLASS = '200'))
+                  )
+ GROUP BY A.REQ_NUM, A.PROC_USER
+        ]]>
+	</statement>
+
+	<!-- 체크리스트 현황을 조회한다. -->
+	<statement name="selecCheckList" type="select">
+		/*+ com.hwfs.ls.lcm.dao.IntroFrameLimsDAO.selecCheckList */
+		<![CDATA[
+/* 체크리스트 현황 조회 */
+SELECT (
+        SELECT /*+ INDEX_FFS(A) */
+               COUNT(1)
+          FROM LRM_TEST_REQ_ACCEPT A
+         WHERE A.REQ_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+       ) AS CHECKLIST_1	/* 금일의뢰건수 */
+     , (
+        SELECT /*+ INDEX_FFS(A) */
+               COUNT(1)
+          FROM LRM_TEST_INFO A
+         WHERE 1 = 1
+           AND A.PROGRESS_STATUS NOT IN ( '120', '140' )
+           AND EXISTS (
+                       SELECT 1
+                         FROM LCM_USER
+                        WHERE SABUN = A.SABUN
+                          AND INSPT_FLD = A.INSPT_FLD
+                      )
+           AND NOT EXISTS (
+                            SELECT 1
+                              FROM LTM_TEST_DIARY
+                             WHERE A.REQ_NUM = REQ_NUM
+                               AND A.ACCEPT_NUM = ACCEPT_NUM
+                               AND A.ARTICLE_CD = ARTICLE_CD
+                          )
+       ) AS CHECKLIST_2	/* 일지입력대기 */
+     , (
+        SELECT /*+ INDEX_FFS(A) */
+               COUNT(1)
+          FROM LRM_TEST_INFO X
+             , LTM_TEST_DIARY A
+         WHERE 1 = 1
+           AND A.REQ_NUM = X.REQ_NUM
+           AND A.ACCEPT_NUM = X.ACCEPT_NUM
+           AND A.ARTICLE_CD = X.ARTICLE_CD
+           AND X.PROGRESS_STATUS NOT IN ( '120', '140' )
+           AND EXISTS (
+                       SELECT 1
+                         FROM LCM_USER
+                        WHERE SABUN = X.SABUN
+                          AND INSPT_FLD = X.INSPT_FLD
+                      )
+           AND A.LAST_DECISION IS NULL
+       ) AS CHECKLIST_3	/* 결과입력대기 */
+     , (
+        SELECT NVL(SUM(COUNT(1)), 0)
+          FROM (
+                 SELECT PD.REQ_NUM
+                      , PD.PROC_USER
+                      , PD.PROCDD
+                      , PD.PROC_REASON
+                      , PD.PROC_CLASS
+                      , PD.SEQ
+                   FROM (
+                         SELECT Y.REQ_NUM
+                              , Y.PROC_USER
+                              , Y.PROCDD
+                              , Y.PROC_REASON
+                              , Y.PROC_CLASS
+                              , Y.SEQ
+                              , ROW_NUMBER() OVER (PARTITION BY Y.REQ_NUM ORDER BY Y.REQ_NUM, Y.SEQ DESC) AS RN
+                           FROM LRM_PROC_DESC Y
+                        ) PD
+                  WHERE RN = 1
+                ) A
+         WHERE 1 = 1
+           AND A.PROC_CLASS = '180'
+         GROUP BY A.REQ_NUM, A.PROC_CLASS
+       ) AS CHECKLIST_4    /* 결과결재대기 */
+  FROM DUAL
+        ]]>
+	</statement>
+
+	<!-- 사후처리내역을 조회한다. -->
+	<statement name="selecAfterProcessHistory" type="select"><![CDATA[
+/* 사후처리내역을 조회 */
+SELECT B.REQ_NUM
+     , B.REQ_DATE
+     , B.ACCEPTNM
+     , B.UPJANG
+     , B.UPJANG_NM
+     , A.ACCEPTDD
+     , A.SPECM_CD
+     , A.SPECM_NM
+     , (
+        SELECT /*+ INDEX_FFS(P) */
+               COUNT(1)
+          FROM LRM_TEST_REQ_ACCEPT P
+         WHERE 1 = 1
+           AND P.UPJANG = B.UPJANG
+           AND P.REQ_DATE BETWEEN TO_CHAR(SYSDATE, 'YYYY') || '0101' AND TO_CHAR(SYSDATE, 'YYYY') || '1231'
+           AND EXISTS (
+                       SELECT /*+ INDEX_FFS(Y) */
+                              1
+                         FROM LTM_TEST_DIARY Y
+                        WHERE Y.REQ_NUM = P.REQ_NUM
+                          --2018.06.05 김명섭 LIMS개선
+                          --AND Y.LAST_DECISION IN ( '102', '103' )
+                          AND Y.LAST_DECISION = '102'
+                      )
+       ) AS NOT_FIT_CNT	/* 검체중 해당업장 당해년도 부적합 건수 */
+     , C.INSPT_FLD_NM || '/' || C.NOT_FIT_CLSFI_NM AS NOT_FIT_CLSFI_NM	/* 검사분야 / 부적합분류 */
+     , (
+        SELECT SEND_INFO
+          FROM LRM_MATERIAL_INFO
+         WHERE A.REQ_NUM = REQ_NUM
+           AND A.ACCEPT_NUM = ACCEPT_NUM
+       ) AS MATERIAL_SEND_INFO	/* 시험결과 자재 전송 내역 */
+  FROM LRM_SPECM_INFO A
+     , LRM_TEST_REQ_ACCEPT B
+     , (
+        SELECT NF.REQ_NUM
+             , NF.ACCEPT_NUM
+             , NF.INSPT_FLD_NM
+             , NF.LAST_DECISION_NM
+             , NF.NOT_FIT_CLSFI_NM
+          FROM (
+                 SELECT /*+ INDEX_SS(Y) */
+                        Y.REQ_NUM
+                      , Y.ACCEPT_NUM
+                      , P.INSPT_FLD
+                      , SCC_CODE_NM('INSPT_FLD', P.INSPT_FLD) AS INSPT_FLD_NM
+                      , Y.LAST_DECISION
+                      , SCC_CODE_NM('LAST_DECISION', Y.LAST_DECISION) AS LAST_DECISION_NM
+                      , P.ARTICLE_NM
+                      , P.NOT_FIT_CLSFI
+                      , SCC_CODE_NM('NOT_FIT_CLSFI', P.NOT_FIT_CLSFI) AS NOT_FIT_CLSFI_NM
+                      , ROW_NUMBER() OVER(PARTITION BY Y.REQ_NUM, Y.ACCEPT_NUM ORDER BY Y.REQ_NUM, Y.ACCEPT_NUM, P.NOT_FIT_CLSFI DESC) AS RN
+                   FROM LTM_TEST_DIARY Y
+                      , LCM_TEST_ARTICLE P
+                  WHERE 1 = 1
+                    AND Y.ARTICLE_CD = P.ARTICLE_CD
+                    --2018.06.05 김명섭 LIMS개선
+                    --AND Y.LAST_DECISION <> '101'
+                    AND Y.LAST_DECISION = '102'
+               ) NF
+         WHERE NF.RN = 1
+       ) C
+ WHERE A.ACCEPTDD BETWEEN TO_CHAR(SYSDATE, 'YYYY') || '0101' AND TO_CHAR(SYSDATE, 'YYYY') || '1231'
+   AND B.REQ_NUM = A.REQ_NUM
+   AND A.REQ_NUM = C.REQ_NUM
+   AND A.ACCEPT_NUM = C.ACCEPT_NUM
+   AND EXISTS (
+               SELECT /*+ INDEX_SS(Z) */
+                      1
+                 FROM LTM_TEST_DIARY Z
+                WHERE A.REQ_NUM = Z.REQ_NUM
+                  AND A.ACCEPT_NUM = Z.ACCEPT_NUM
+                  --2018.06.05 김명섭 LIMS개선
+                  --AND Z.LAST_DECISION IN ( '102', '103' )
+                  AND Z.LAST_DECISION = '102'
+              )
+ ORDER BY B.REQ_NUM DESC, A.ACCEPTDD DESC, A.SPECM_CD
+]]></statement>
+
+	<!-- 사용자 권한을 조회한다. -->
+	<statement name="selectUserAuth" type="select">
+		/*+ com.hwfs.ls.lcm.dao.IntroFrameLimsDAO.selectUserAuth */
+		<![CDATA[
+SELECT AUTH_CD
+     , SABUN
+     , INSPT_FLD
+  FROM LCM_USER
+ WHERE SABUN = :loginSabun
+   AND USE_YN = 'Y'
+ ORDER BY AUTH_CD DESC
+        ]]>
+	</statement>
+
+	<!-- 금일접수검체수 / 월누계검체수를 조회한다. -->
+	<statement name="selectSpecmCntList" type="select">
+		/*+ com.hwfs.ls.lcm.dao.IntroFrameLimsDAO.selectSpecmCntList */
+		<![CDATA[
+/* 금일접수검체수 / 월누계검체수를 조회 */
+SELECT (
+        SELECT COUNT(1) AS CURR_DAY_SPECM_CNT
+          FROM LRM_SPECM_INFO A
+         WHERE A.ACCEPTDD = TO_CHAR(SYSDATE, 'YYYYMMDD')
+           AND A.PROGRESS_STATUS NOT IN ( '120', '140' )
+           AND EXISTS (
+                        SELECT 1
+                          FROM LRM_TEST_INFO X
+                             , LCM_TEST_ARTICLE Y
+                         WHERE A.REQ_NUM = X.REQ_NUM
+                           AND X.ARTICLE_CD = Y.ARTICLE_CD
+                           AND TO_NUMBER(NVL(Y.TAKE_TERM, 0)) != 0
+                       )
+       ) AS CURR_DAY_SPECM_CNT
+     , (
+        SELECT COUNT(1) AS SUM_DAY_SPECM_CNT
+          FROM LRM_SPECM_INFO A
+         WHERE SUBSTR(A.ACCEPTDD, 1, 6) = <#if yymm?has_content>:yymm<#else>TO_CHAR(SYSDATE, 'YYYYMM')</#if>
+           AND A.PROGRESS_STATUS NOT IN ( '120', '140' )
+           AND EXISTS (
+                        SELECT 1
+                          FROM LRM_TEST_INFO X
+                             , LCM_TEST_ARTICLE Y
+                         WHERE A.REQ_NUM = X.REQ_NUM
+                           AND X.ARTICLE_CD = Y.ARTICLE_CD
+                           AND TO_NUMBER(NVL(Y.TAKE_TERM, 0)) != 0
+                       )
+       ) AS SUM_SPECM_CNT
+  FROM DUAL
+        ]]>
+	</statement>
+
+	<!-- 기간별 현황을 조회한다. -->
+	<statement name="selectTermCntList" type="select"><![CDATA[
+/* 기간별 현황 조회 */
+SELECT A.SABUN  /* 담당자 사번 */
+     , (SELECT NM_KOR
+          FROM SCC_USERINFO
+         WHERE SABUN = A.SABUN) AS NM_KOR   /* 담당자 */
+     , SCC_CODE_NM('INSPT_FLD', A.INSPT_FLD) AS INSPT_FLD_NM /* 담당구분 */
+     , A.USE_YN
+     , (SELECT COUNT(1)
+          FROM LRM_TEST_REQ_ACCEPT Z
+             , LRM_SPECM_INFO SI
+         WHERE Z.REQ_NUM = SI.REQ_NUM
+           AND Z.REQ_DATE BETWEEN :fromDay AND :toDay
+           AND NOT EXISTS (
+                           SELECT 1
+                             FROM LRM_PROC_DESC
+                            WHERE REQ_NUM = Z.REQ_NUM
+                              AND PROC_CLASS IN ('120','140')
+                          )
+           AND EXISTS (
+                       SELECT 1
+                         FROM LRM_TEST_INFO X
+                            --, LTM_TEST_DIARY Y
+                        WHERE SI.REQ_NUM = X.REQ_NUM
+                          AND SI.ACCEPT_NUM = X.ACCEPT_NUM
+                          AND X.SABUN = A.SABUN
+                          AND X.INSPT_FLD = A.INSPT_FLD
+                          --AND X.REQ_NUM = Y.REQ_NUM
+                          --AND X.ACCEPT_NUM = Y.ACCEPT_NUM
+                          --AND X.ARTICLE_CD = Y.ARTICLE_CD
+                          --AND Y.LAST_DECISION IS NOT NULL
+                          --AND EXISTS (
+                          --             SELECT 1
+                          --               FROM LCM_TEST_ARTICLE
+                          --              WHERE Y.ARTICLE_CD = ARTICLE_CD
+                          --                AND TO_NUMBER(NVL(TAKE_TERM, 0)) != 0
+                          --            )
+                      )
+       ) AS TOT_SPECM_CNT  /* 검사항목 수 */
+     , (SELECT COUNT(1)
+          FROM LRM_TEST_REQ_ACCEPT Z
+             , LRM_TEST_INFO TI
+             --, LTM_TEST_DIARY TD
+         WHERE Z.REQ_NUM = TI.REQ_NUM
+           --AND TI.REQ_NUM = TD.REQ_NUM(+)
+           --AND TI.ACCEPT_NUM = TD.ACCEPT_NUM(+)
+           --AND TI.ARTICLE_CD = TD.ARTICLE_CD(+)
+           --AND TD.LAST_DECISION IS NOT NULL /* 완료 */
+           AND NOT EXISTS (
+                           SELECT 1
+                             FROM LRM_PROC_DESC
+                            WHERE REQ_NUM = Z.REQ_NUM
+                              AND PROC_CLASS IN ('120', '140')
+                          )
+           AND Z.REQ_DATE BETWEEN :fromDay AND :toDay
+           AND TI.SABUN = A.SABUN
+           AND TI.INSPT_FLD = A.INSPT_FLD) AS TOT_TEST_CNT  /* 총 검사항목 수 */
+     , (SELECT COUNT(1)
+          FROM LRM_TEST_REQ_ACCEPT Z
+             , LRM_SPECM_INFO SI
+         WHERE Z.REQ_NUM = SI.REQ_NUM
+           AND Z.REQ_DATE BETWEEN :fromDay AND :toDay
+           AND NOT EXISTS (
+                           SELECT 1
+                             FROM LRM_PROC_DESC
+                            WHERE REQ_NUM = Z.REQ_NUM
+                              AND PROC_CLASS IN ('120', '140')
+                          )
+           AND EXISTS (
+                       SELECT 1
+                         FROM LRM_TEST_INFO X
+                            , LTM_TEST_DIARY Y
+                        WHERE SI.REQ_NUM = X.REQ_NUM
+                          AND SI.ACCEPT_NUM = X.ACCEPT_NUM
+                          AND X.SABUN = A.SABUN
+                          AND X.INSPT_FLD = A.INSPT_FLD
+                          AND X.REQ_NUM = Y.REQ_NUM
+                          AND X.ACCEPT_NUM = Y.ACCEPT_NUM
+                          AND X.ARTICLE_CD = Y.ARTICLE_CD
+                          --2018.06.05 김명섭 LIMS개선
+                          --AND Y.LAST_DECISION IN ('102', '103')
+                          AND Y.LAST_DECISION = '102'
+                          --AND EXISTS (
+                          --             SELECT 1
+                          --               FROM LCM_TEST_ARTICLE
+                          --              WHERE Y.ARTICLE_CD = ARTICLE_CD
+                          --                AND TO_NUMBER(NVL(TAKE_TERM, 0)) != 0
+                          --            )
+                      )
+       ) AS NOT_FIT_SPECM_CNT  /* 부적합 검체 수 */
+     , (SELECT COUNT(1)
+          FROM LRM_TEST_REQ_ACCEPT Z
+             , LRM_TEST_INFO TI
+             , LTM_TEST_DIARY TD
+         WHERE Z.REQ_NUM = TI.REQ_NUM
+           AND TI.REQ_NUM = TD.REQ_NUM(+)
+           AND TI.ACCEPT_NUM = TD.ACCEPT_NUM(+)
+           AND TI.ARTICLE_CD = TD.ARTICLE_CD(+)
+           --2018.06.05 김명섭 LIMS개선
+           --AND TD.LAST_DECISION IN ('102', '103')
+           AND TD.LAST_DECISION = '102'
+           AND NOT EXISTS (
+                           SELECT 1
+                             FROM LRM_PROC_DESC
+                            WHERE REQ_NUM = Z.REQ_NUM
+                              AND PROC_CLASS IN ('120', '140')
+                          )
+           AND Z.REQ_DATE BETWEEN :fromDay AND :toDay
+           AND TI.SABUN = A.SABUN
+           AND TI.INSPT_FLD = A.INSPT_FLD) AS NOT_FIT_TEST_CNT  /* 부적합 항목 수 */
+     , (SELECT NVL(SUM(TA.TAKE_TERM), 0)
+          FROM LRM_TEST_REQ_ACCEPT Z
+             , LRM_TEST_INFO TI
+             , LTM_TEST_DIARY TD
+             , LCM_TEST_ARTICLE TA
+         WHERE Z.REQ_NUM = TI.REQ_NUM
+           AND TI.REQ_NUM = TD.REQ_NUM(+)
+           AND TI.ACCEPT_NUM = TD.ACCEPT_NUM(+)
+           AND TI.ARTICLE_CD = TD.ARTICLE_CD(+)
+           AND TI.ARTICLE_CD = TA.ARTICLE_CD
+           AND TD.LAST_DECISION IS NOT NULL /* 완료 */
+           AND NOT EXISTS (
+                           SELECT 1
+                             FROM LRM_PROC_DESC
+                            WHERE REQ_NUM = Z.REQ_NUM
+                              AND PROC_CLASS IN ('120', '140')
+                          )
+           AND Z.REQ_DATE BETWEEN :fromDay AND :toDay
+           AND TI.SABUN = A.SABUN
+           AND TI.INSPT_FLD = A.INSPT_FLD) AS TAKE_TERM /* 소요일수 */
+     , (SELECT CASE WHEN NVL(SUM(TA.TAKE_TERM), 0) = 0 THEN 0
+               ELSE
+                   NVL(SUM(TRUNC(TO_DATE(TD.TESTDD, 'YYYYMMDD') - TO_DATE(Z.REQ_DATE,'YYYYMMDD') + 1)), 0)
+               END
+          FROM LRM_TEST_REQ_ACCEPT Z
+             , LRM_TEST_INFO TI
+             , LTM_TEST_DIARY TD
+             , LCM_TEST_ARTICLE TA
+         WHERE Z.REQ_NUM = TI.REQ_NUM
+           AND TI.REQ_NUM = TD.REQ_NUM(+)
+           AND TI.ACCEPT_NUM = TD.ACCEPT_NUM(+)
+           AND TI.ARTICLE_CD = TD.ARTICLE_CD(+)
+           AND TI.ARTICLE_CD = TA.ARTICLE_CD
+           AND TD.LAST_DECISION IS NOT NULL /* 완료 */
+           AND EXISTS (
+                       SELECT 1
+                         FROM LCM_TEST_ARTICLE
+                        WHERE TD.ARTICLE_CD = ARTICLE_CD
+                          AND TO_NUMBER(NVL(TAKE_TERM, 0)) != 0
+                      )
+           AND NOT EXISTS (
+                           SELECT 1
+                             FROM LRM_PROC_DESC
+                            WHERE REQ_NUM = Z.REQ_NUM
+                              AND PROC_CLASS IN ('120', '140')
+                          )
+           AND Z.REQ_DATE BETWEEN :fromDay AND :toDay
+           AND (TO_CHAR(TO_DATE(TD.TESTDD, 'YYYYMMDD'), 'd') != '1' AND TO_CHAR(TO_DATE(TD.TESTDD, 'YYYYMMDD'), 'd') != '7')
+           AND TI.SABUN = A.SABUN
+           AND TI.INSPT_FLD = A.INSPT_FLD) AS TEST_TAKE_TERM /* 검사일수(휴일제외) */
+      , CASE WHEN (SELECT NVL(SUM(TA.TAKE_TERM), 0)
+                     FROM LRM_TEST_REQ_ACCEPT Z
+                        , LRM_TEST_INFO TI
+                        , LTM_TEST_DIARY TD
+                        , LCM_TEST_ARTICLE TA
+                    WHERE Z.REQ_NUM = TI.REQ_NUM
+                      AND TI.REQ_NUM = TD.REQ_NUM(+)
+                      AND TI.ACCEPT_NUM = TD.ACCEPT_NUM(+)
+                      AND TI.ARTICLE_CD = TD.ARTICLE_CD(+)
+                      AND TI.ARTICLE_CD = TA.ARTICLE_CD
+                      AND TD.LAST_DECISION IS NOT NULL /* 완료 */
+                      AND EXISTS (
+                                  SELECT 1
+                                    FROM LCM_TEST_ARTICLE
+                                   WHERE TD.ARTICLE_CD = ARTICLE_CD
+                                     AND TO_NUMBER(NVL(TAKE_TERM, 0)) != 0
+                                 )
+                      AND NOT EXISTS (
+                                      SELECT 1
+                                        FROM LRM_PROC_DESC
+                                       WHERE REQ_NUM = Z.REQ_NUM
+                                         AND PROC_CLASS IN ('120', '140')
+                                     )
+                      AND Z.REQ_DATE BETWEEN :fromDay AND :toDay
+                      AND (TO_CHAR(TO_DATE(TD.TESTDD, 'YYYYMMDD'), 'd') != '1' AND TO_CHAR(TO_DATE(TD.TESTDD, 'YYYYMMDD'), 'd') != '7')
+                      AND TI.SABUN = A.SABUN
+                      AND TI.INSPT_FLD = A.INSPT_FLD) = 0 THEN 0
+        ELSE ROUND(
+            ((SELECT NVL(SUM(TA.TAKE_TERM), 0)
+                FROM LRM_TEST_REQ_ACCEPT Z
+                   , LRM_TEST_INFO TI
+                   , LTM_TEST_DIARY TD
+                   , LCM_TEST_ARTICLE TA
+               WHERE Z.REQ_NUM = TI.REQ_NUM
+                 AND TI.REQ_NUM = TD.REQ_NUM(+)
+                 AND TI.ACCEPT_NUM = TD.ACCEPT_NUM(+)
+                 AND TI.ARTICLE_CD = TD.ARTICLE_CD(+)
+                 AND TI.ARTICLE_CD = TA.ARTICLE_CD(+)
+                 AND TD.LAST_DECISION IS NOT NULL /* 완료 */
+                 AND NOT EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC
+                                  WHERE REQ_NUM = Z.REQ_NUM
+                                    AND PROC_CLASS IN ('120', '140')
+                                )
+                 AND Z.REQ_DATE BETWEEN :fromDay AND :toDay
+                 AND TI.SABUN = A.SABUN
+                 AND TI.INSPT_FLD = A.INSPT_FLD) /
+             (SELECT CASE WHEN NVL(SUM(TA.TAKE_TERM), 0) = 0 THEN 0
+                     ELSE
+                         NVL(SUM(TRUNC(TO_DATE(TD.TESTDD, 'YYYYMMDD') - TO_DATE(Z.REQ_DATE,'YYYYMMDD') + 1)), 0)
+                     END
+                FROM LRM_TEST_REQ_ACCEPT Z
+                   , LRM_TEST_INFO TI
+                   , LTM_TEST_DIARY TD
+                   , LCM_TEST_ARTICLE TA
+               WHERE Z.REQ_NUM = TI.REQ_NUM
+                 AND TI.REQ_NUM = TD.REQ_NUM(+)
+                 AND TI.ACCEPT_NUM = TD.ACCEPT_NUM(+)
+                 AND TI.ARTICLE_CD = TD.ARTICLE_CD(+)
+                 AND TI.ARTICLE_CD = TA.ARTICLE_CD
+                 AND TD.LAST_DECISION IS NOT NULL /* 완료 */
+                 AND EXISTS (
+                             SELECT 1
+                               FROM LCM_TEST_ARTICLE
+                              WHERE TD.ARTICLE_CD = ARTICLE_CD
+                                AND TO_NUMBER(NVL(TAKE_TERM, 0)) != 0
+                            )
+                 AND NOT EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC
+                                  WHERE REQ_NUM = Z.REQ_NUM
+                                    AND PROC_CLASS IN ('120', '140')
+                                )
+                 AND Z.REQ_DATE BETWEEN :fromDay AND :toDay
+                 AND (TO_CHAR(TO_DATE(TD.TESTDD, 'YYYYMMDD'), 'd') != '1' AND TO_CHAR(TO_DATE(TD.TESTDD, 'YYYYMMDD'), 'd') != '7')
+                 AND TI.SABUN = A.SABUN
+                 AND TI.INSPT_FLD = A.INSPT_FLD) * 100), 1)
+       END AS TEST_TERM_RATE    /* 준수율 */
+  FROM LCM_USER A
+ WHERE A.AUTH_CD = '101'
+ ORDER BY 3, 2, A.USE_YN DESC
+]]></statement>
+
+	<!-- 월별 실적 현황 - 검체건수 -->
+	<statement name="selectMonthStaticSpecmList" type="select">
+		/*+
+		com.hwfs.ls.lcm.dao.IntroFrameLimsDAO.selectMonthStaticSpecmList
+		*/
+		<![CDATA[
+/* 월별 실적 현황 - 검체건수 */
+WITH T1 AS
+(
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '01' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '02' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '03' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '04' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '05' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '06' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '07' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '08' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '09' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '10' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '11' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '12' AS YM FROM DUAL
+)
+SELECT '검체건수 ' AS GUBUN_NM
+     , (
+         SELECT COUNT(1) AS CNT
+           FROM LSM_ANNUPLAN_DTL
+          WHERE YEAR = SUBSTR(:fromYm, 1, 4)
+            AND MM BETWEEN TO_NUMBER(SUBSTR(:fromYm, 5, 2)) AND TO_NUMBER(SUBSTR(:toYm, 5, 2))
+            AND INSPT_YN = 'Y'
+       ) AS P    /* 누계 계획 */
+     , (
+         SELECT COUNT(1)
+          FROM LRM_TEST_REQ_ACCEPT Z
+             , LRM_SPECM_INFO SI
+         WHERE Z.REQ_NUM = SI.REQ_NUM
+           AND SUBSTR(SI.ACCEPTDD, 1, 6) BETWEEN :fromYm AND :toYm
+           AND Z.PROGRESS_STATUS NOT IN ( '120', '140' )
+           --AND EXISTS (
+           --            SELECT 1
+           --              FROM LRM_TEST_INFO X
+           --                 , LTM_TEST_DIARY Y
+           --             WHERE SI.REQ_NUM = X.REQ_NUM
+           --               AND SI.ACCEPT_NUM = X.ACCEPT_NUM
+           --               AND X.REQ_NUM = Y.REQ_NUM
+           --               AND X.ACCEPT_NUM = Y.ACCEPT_NUM
+           --               AND X.ARTICLE_CD = Y.ARTICLE_CD
+           --               AND Y.LAST_DECISION IS NOT NULL
+           --           )
+           --AND EXISTS (
+           --            SELECT 1
+           --              FROM LRM_TEST_INFO X
+           --                 , LCM_TEST_ARTICLE Y
+           --             WHERE Z.REQ_NUM = X.REQ_NUM
+           --               AND X.ARTICLE_CD = Y.ARTICLE_CD
+           --               AND TO_NUMBER(NVL(Y.TAKE_TERM, 0)) != 0
+           --           )
+       ) AS U /* 누계 실적 */
+     , NVL((
+        CASE WHEN NVL((
+                     SELECT COUNT(1) AS CNT
+                       FROM LSM_ANNUPLAN_DTL
+                      WHERE YEAR = SUBSTR(:fromYm, 1, 4)
+                        AND MM BETWEEN TO_NUMBER(SUBSTR(:fromYm, 5, 2)) AND TO_NUMBER(SUBSTR(:toYm, 5, 2))
+                        AND INSPT_YN = 'Y'
+                   ), 0) = 0 THEN 0
+        ELSE ROUND((
+                   (
+                     SELECT COUNT(1)
+                       FROM LRM_TEST_REQ_ACCEPT Z
+                          , LRM_SPECM_INFO SI
+                      WHERE Z.REQ_NUM = SI.REQ_NUM
+                        AND SUBSTR(SI.ACCEPTDD, 1, 6) BETWEEN :fromYm AND :toYm
+                        AND Z.PROGRESS_STATUS NOT IN ( '120', '140' )
+                        --AND EXISTS (
+                        --            SELECT 1
+                        --              FROM LRM_TEST_INFO X
+                        --                 , LTM_TEST_DIARY Y
+                        --             WHERE SI.REQ_NUM = X.REQ_NUM
+                        --               AND SI.ACCEPT_NUM = X.ACCEPT_NUM
+                        --               AND X.REQ_NUM = Y.REQ_NUM
+                        --               AND X.ACCEPT_NUM = Y.ACCEPT_NUM
+                        --               AND X.ARTICLE_CD = Y.ARTICLE_CD
+                        --               AND Y.LAST_DECISION IS NOT NULL
+                        --           )
+                        --AND EXISTS (
+                        --            SELECT 1
+                        --              FROM LRM_TEST_INFO X
+                        --                 , LCM_TEST_ARTICLE Y
+                        --             WHERE Z.REQ_NUM = X.REQ_NUM
+                        --               AND X.ARTICLE_CD = Y.ARTICLE_CD
+                        --               AND TO_NUMBER(NVL(Y.TAKE_TERM, 0)) != 0
+                        --           )
+                   ) /
+                   NVL((
+                     SELECT COUNT(1) AS CNT
+                       FROM LSM_ANNUPLAN_DTL
+                      WHERE YEAR = SUBSTR(:fromYm, 1, 4)
+                        AND MM BETWEEN TO_NUMBER(SUBSTR(:fromYm, 5, 2)) AND TO_NUMBER(SUBSTR(:toYm, 5, 2))
+                        AND INSPT_YN = 'Y'
+                   ), 0)
+                   --* 100
+             ), 1)
+        END
+       ), 0) AS M
+     , T.YM
+     , SUBSTR(T.YM, 5, 2) AS YMM
+     , NVL((
+         SELECT COUNT(1) AS CNT
+           FROM LSM_ANNUPLAN_DTL
+          WHERE YEAR = SUBSTR(:fromYm, 1, 4)
+            AND MM BETWEEN TO_NUMBER(SUBSTR(:fromYm, 5, 2)) AND TO_NUMBER(SUBSTR(:toYm, 5, 2))
+            AND INSPT_YN = 'Y'
+            AND MM = TO_NUMBER(SUBSTR(T.YM, 5, 2))
+          GROUP BY YEAR, MM
+       ), 0) AS X
+     , NVL((
+         SELECT SUM(Q.CNT) AS CNT
+           FROM (
+                 SELECT COUNT(1) AS CNT
+                      , SUBSTR(SI.ACCEPTDD, 5, 2) AS MM
+                   FROM LRM_TEST_REQ_ACCEPT Z
+                      , LRM_SPECM_INFO SI
+                  WHERE Z.REQ_NUM = SI.REQ_NUM
+                    AND SUBSTR(SI.ACCEPTDD, 1, 6) BETWEEN :fromYm AND :toYm
+                    AND Z.PROGRESS_STATUS NOT IN ( '120', '140' )
+                    --AND EXISTS (
+                    --            SELECT 1
+                    --              FROM LRM_TEST_INFO X
+                    --                 , LTM_TEST_DIARY Y
+                    --             WHERE SI.REQ_NUM = X.REQ_NUM
+                    --               AND SI.ACCEPT_NUM = X.ACCEPT_NUM
+                    --               AND X.REQ_NUM = Y.REQ_NUM
+                    --               AND X.ACCEPT_NUM = Y.ACCEPT_NUM
+                    --               AND X.ARTICLE_CD = Y.ARTICLE_CD
+                    --               AND Y.LAST_DECISION IS NOT NULL
+                    --           )
+                    --AND EXISTS (
+                    --            SELECT 1
+                    --              FROM LRM_TEST_INFO X
+                    --                 , LCM_TEST_ARTICLE Y
+                    --             WHERE Z.REQ_NUM = X.REQ_NUM
+                    --               AND X.ARTICLE_CD = Y.ARTICLE_CD
+                    --               AND TO_NUMBER(NVL(Y.TAKE_TERM, 0)) != 0
+                    --           )
+                  GROUP BY SI.ACCEPTDD, SI.SPECM_CD
+               ) Q
+         WHERE Q.MM = SUBSTR(T.YM, 5, 2)
+         GROUP BY Q.MM
+       ), 0) AS Y
+     , NVL((
+        CASE WHEN NVL((
+                     SELECT COUNT(1) AS CNT
+                       FROM LSM_ANNUPLAN_DTL
+                      WHERE YEAR = SUBSTR(:fromYm, 1, 4)
+                        AND MM BETWEEN TO_NUMBER(SUBSTR(:fromYm, 5, 2)) AND TO_NUMBER(SUBSTR(:toYm, 5, 2))
+                        AND INSPT_YN = 'Y'
+                        AND MM = TO_NUMBER(SUBSTR(T.YM, 5, 2))
+                      GROUP BY YEAR, MM
+                   ), 0) = 0 THEN 0
+        ELSE ROUND((
+                   (
+                     SELECT SUM(Q.CNT) AS CNT
+                       FROM (
+                             SELECT COUNT(1) AS CNT
+                                  , SUBSTR(SI.ACCEPTDD, 5, 2) AS MM
+                               FROM LRM_TEST_REQ_ACCEPT Z
+                                  , LRM_SPECM_INFO SI
+                              WHERE Z.REQ_NUM = SI.REQ_NUM
+                                AND SUBSTR(SI.ACCEPTDD, 1, 6) BETWEEN :fromYm AND :toYm
+                                AND Z.PROGRESS_STATUS NOT IN ( '120', '140' )
+                                --AND EXISTS (
+                                --            SELECT 1
+                                --              FROM LRM_TEST_INFO X
+                                --                 , LTM_TEST_DIARY Y
+                                --             WHERE SI.REQ_NUM = X.REQ_NUM
+                                --               AND SI.ACCEPT_NUM = X.ACCEPT_NUM
+                                --               AND X.REQ_NUM = Y.REQ_NUM
+                                --               AND X.ACCEPT_NUM = Y.ACCEPT_NUM
+                                --               AND X.ARTICLE_CD = Y.ARTICLE_CD
+                                --               AND Y.LAST_DECISION IS NOT NULL
+                                --           )
+                                --AND EXISTS (
+                                --            SELECT 1
+                                --              FROM LRM_TEST_INFO X
+                                --                 , LCM_TEST_ARTICLE Y
+                                --             WHERE Z.REQ_NUM = X.REQ_NUM
+                                --               AND X.ARTICLE_CD = Y.ARTICLE_CD
+                                --               AND TO_NUMBER(NVL(Y.TAKE_TERM, 0)) != 0
+                                --           )
+                              GROUP BY SI.ACCEPTDD, SI.SPECM_CD
+                           ) Q
+                     WHERE Q.MM = SUBSTR(T.YM, 5, 2)
+                     GROUP BY Q.MM
+                   ) /
+                   NVL((
+                     SELECT COUNT(1) AS CNT
+                       FROM LSM_ANNUPLAN_DTL
+                      WHERE YEAR = SUBSTR(:fromYm, 1, 4)
+                        AND MM BETWEEN TO_NUMBER(SUBSTR(:fromYm, 5, 2)) AND TO_NUMBER(SUBSTR(:toYm, 5, 2))
+                        AND INSPT_YN = 'Y'
+                        AND MM = TO_NUMBER(SUBSTR(T.YM, 5, 2))
+                      GROUP BY YEAR, MM
+                   ), 0)
+                   --* 100
+             ), 1)
+        END
+       ), 0) AS Z
+  FROM T1 T
+        ]]>
+	</statement>
+
+	<!-- 월별 실적 현황 - 시험항목수 -->
+	<statement name="selectMonthStaticTestList" type="select">
+		/*+
+		com.hwfs.ls.lcm.dao.IntroFrameLimsDAO.selectMonthStaticTestList
+		*/
+		<![CDATA[
+/* 월별 실적 현황 - 시험항목수 */
+WITH T1 AS
+(
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '01' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '02' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '03' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '04' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '05' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '06' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '07' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '08' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '09' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '10' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '11' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '12' AS YM FROM DUAL
+)
+SELECT '검사항목수 ' AS GUBUN_NM
+     , (
+         SELECT NVL(SUM(COUNT(1)), 0)
+          FROM LSM_ANNUPLAN_DTL Z
+             , LCM_SPECM_TEST_MAPPING X
+             , LCM_TEST_ARTICLE Y
+         WHERE Z.YEAR = SUBSTR(:fromYm, 1, 4)
+           AND Z.MM BETWEEN TO_NUMBER(SUBSTR(:fromYm, 5, 2)) AND TO_NUMBER(SUBSTR(:toYm, 5, 2))
+           AND Z.INSPT_YN = 'Y'
+           AND Z.MICBIO_INSPT_YN = 'Y'
+           AND Z.INSPT_MTOD = X.INSPT_PURP
+           AND Z.MCALSS_CD = X.MCALSS_CD
+           AND X.ARTICLE_CD = Y.ARTICLE_CD
+           AND Y.INSPT_FLD IN ('101')
+         GROUP BY X.MCALSS_CD, X.ARTICLE_CD
+       ) +
+       (
+         SELECT NVL(SUM(COUNT(1)), 0)
+          FROM LSM_ANNUPLAN_DTL Z
+             , LCM_SPECM_TEST_MAPPING X
+             , LCM_TEST_ARTICLE Y
+         WHERE Z.YEAR = SUBSTR(:fromYm, 1, 4)
+           AND Z.MM BETWEEN TO_NUMBER(SUBSTR(:fromYm, 5, 2)) AND TO_NUMBER(SUBSTR(:toYm, 5, 2))
+           AND Z.INSPT_YN = 'Y'
+           AND Z.PHYCHEM_INSPT_YN = 'Y'
+           AND Z.INSPT_MTOD = X.INSPT_PURP
+           AND Z.MCALSS_CD = X.MCALSS_CD
+           AND X.ARTICLE_CD = Y.ARTICLE_CD
+           AND Y.INSPT_FLD IN ('102')
+         GROUP BY X.MCALSS_CD, X.ARTICLE_CD
+       )
+       AS P    /* 누계 계획 */
+     , (
+         SELECT COUNT(1)
+           FROM LRM_TEST_REQ_ACCEPT TR
+              , LRM_SPECM_INFO SI
+              , LRM_TEST_INFO TI
+              --, LTM_TEST_DIARY TD
+          WHERE TR.REQ_NUM = SI.REQ_NUM
+            AND SUBSTR(SI.ACCEPTDD, 1, 6) BETWEEN :fromYm AND :toYm
+            AND SI.REQ_NUM = TI.REQ_NUM
+            AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+            --AND SI.REQ_NUM = TD.REQ_NUM
+            --AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+            --AND TI.ARTICLE_CD = TD.ARTICLE_CD
+            --AND TD.LAST_DECISION IS NOT NULL
+            AND NOT EXISTS (
+                           SELECT 1
+                             FROM LRM_PROC_DESC
+                            WHERE REQ_NUM = TR.REQ_NUM
+                              AND PROC_CLASS IN ('120', '140')
+                          )
+       ) AS U /* 누계 실적 */
+     , NVL((
+        CASE WHEN NVL((
+                      SELECT NVL(SUM(COUNT(1)), 0)
+                        FROM LSM_ANNUPLAN_DTL Z
+                           , LCM_SPECM_TEST_MAPPING X
+                           , LCM_TEST_ARTICLE Y
+                       WHERE Z.YEAR = SUBSTR(:fromYm, 1, 4)
+                         AND Z.MM BETWEEN TO_NUMBER(SUBSTR(:fromYm, 5, 2)) AND TO_NUMBER(SUBSTR(:toYm, 5, 2))
+                         AND Z.INSPT_YN = 'Y'
+                         AND (Z.MICBIO_INSPT_YN = 'Y' OR Z.PHYCHEM_INSPT_YN = 'Y')
+                         AND Z.INSPT_MTOD = X.INSPT_PURP
+                         AND Z.MCALSS_CD = X.MCALSS_CD
+                         AND X.ARTICLE_CD = Y.ARTICLE_CD
+                         AND Y.INSPT_FLD IN ('101', '102')
+                       GROUP BY X.MCALSS_CD, X.ARTICLE_CD
+                   ), 0) = 0 THEN 0
+        ELSE ROUND((
+                   (
+                     SELECT COUNT(1)
+                       FROM LRM_TEST_REQ_ACCEPT TR
+                          , LRM_SPECM_INFO SI
+                          , LRM_TEST_INFO TI
+                          --, LTM_TEST_DIARY TD
+                      WHERE TR.REQ_NUM = SI.REQ_NUM
+                        AND SUBSTR(SI.ACCEPTDD, 1, 6) BETWEEN :fromYm AND :toYm
+                        AND SI.REQ_NUM = TI.REQ_NUM
+                        AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                        --AND SI.REQ_NUM = TD.REQ_NUM
+                        --AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                        --AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                        --AND TD.LAST_DECISION IS NOT NULL
+                        AND NOT EXISTS (
+                                        SELECT 1
+                                          FROM LRM_PROC_DESC
+                                         WHERE REQ_NUM = TR.REQ_NUM
+                                           AND PROC_CLASS IN ('120', '140')
+                                       )
+                   ) /
+                   NVL((
+                      SELECT NVL(SUM(COUNT(1)), 0)
+                        FROM LSM_ANNUPLAN_DTL Z
+                           , LCM_SPECM_TEST_MAPPING X
+                           , LCM_TEST_ARTICLE Y
+                       WHERE Z.YEAR = SUBSTR(:fromYm, 1, 4)
+                         AND Z.MM BETWEEN TO_NUMBER(SUBSTR(:fromYm, 5, 2)) AND TO_NUMBER(SUBSTR(:toYm, 5, 2))
+                         AND Z.INSPT_YN = 'Y'
+                         AND (Z.MICBIO_INSPT_YN = 'Y' OR Z.PHYCHEM_INSPT_YN = 'Y')
+                         AND Z.INSPT_MTOD = X.INSPT_PURP
+                         AND Z.MCALSS_CD = X.MCALSS_CD
+                         AND X.ARTICLE_CD = Y.ARTICLE_CD
+                         AND Y.INSPT_FLD IN ('101', '102')
+                       GROUP BY X.MCALSS_CD, X.ARTICLE_CD
+                   ), 0)
+                   --* 100
+             ), 1)
+        END
+       ), 0) AS M
+     , T.YM
+     , SUBSTR(T.YM, 5, 2) AS YMM
+     , NVL((
+         SELECT NVL(SUM(COUNT(1)), 0)
+          FROM LSM_ANNUPLAN_DTL Z
+             , LCM_SPECM_TEST_MAPPING X
+             , LCM_TEST_ARTICLE Y
+         WHERE Z.YEAR = SUBSTR(:fromYm, 1, 4)
+           AND Z.MM BETWEEN TO_NUMBER(SUBSTR(:fromYm, 5, 2)) AND TO_NUMBER(SUBSTR(:toYm, 5, 2))
+           AND Z.MM = TO_NUMBER(SUBSTR(T.YM, 5, 2))
+           AND Z.INSPT_YN = 'Y'
+           AND Z.MICBIO_INSPT_YN = 'Y'
+           AND Z.INSPT_MTOD = X.INSPT_PURP
+           AND Z.MCALSS_CD = X.MCALSS_CD
+           AND X.ARTICLE_CD = Y.ARTICLE_CD
+           AND Y.INSPT_FLD IN ('101')
+         GROUP BY X.MCALSS_CD, X.ARTICLE_CD
+       ) +
+       (
+         SELECT NVL(SUM(COUNT(1)), 0)
+          FROM LSM_ANNUPLAN_DTL Z
+             , LCM_SPECM_TEST_MAPPING X
+             , LCM_TEST_ARTICLE Y
+         WHERE Z.YEAR = SUBSTR(:fromYm, 1, 4)
+           AND Z.MM BETWEEN TO_NUMBER(SUBSTR(:fromYm, 5, 2)) AND TO_NUMBER(SUBSTR(:toYm, 5, 2))
+           AND Z.MM = TO_NUMBER(SUBSTR(T.YM, 5, 2))
+           AND Z.INSPT_YN = 'Y'
+           AND Z.PHYCHEM_INSPT_YN = 'Y'
+           AND Z.INSPT_MTOD = X.INSPT_PURP
+           AND Z.MCALSS_CD = X.MCALSS_CD
+           AND X.ARTICLE_CD = Y.ARTICLE_CD
+           AND Y.INSPT_FLD IN ('102')
+         GROUP BY X.MCALSS_CD, X.ARTICLE_CD
+       )
+       , 0) AS X
+     , NVL((
+         SELECT SUM(Q.CNT) AS CNT
+           FROM (
+                 SELECT COUNT(1) AS CNT
+                      , SUBSTR(SI.ACCEPTDD, 5, 2) AS MM
+                   FROM LRM_TEST_REQ_ACCEPT TR
+                      , LRM_SPECM_INFO SI
+                      , LRM_TEST_INFO TI
+                      --, LTM_TEST_DIARY TD
+                  WHERE TR.REQ_NUM = SI.REQ_NUM
+                    AND SUBSTR(SI.ACCEPTDD, 1, 6) BETWEEN :fromYm AND :toYm
+                    AND SI.REQ_NUM = TI.REQ_NUM
+                    AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                    --AND SI.REQ_NUM = TD.REQ_NUM
+                    --AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                    --AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                    --AND TD.LAST_DECISION IS NOT NULL
+                    AND NOT EXISTS (
+                                    SELECT 1
+                                      FROM LRM_PROC_DESC
+                                     WHERE REQ_NUM = TR.REQ_NUM
+                                       AND PROC_CLASS IN ('120', '140')
+                                   )
+                  GROUP BY SI.ACCEPTDD
+               ) Q
+         WHERE Q.MM = SUBSTR(T.YM, 5, 2)
+         GROUP BY Q.MM
+       ), 0) AS Y
+     , NVL((
+        CASE WHEN NVL((
+                         SELECT NVL(SUM(COUNT(1)), 0)
+                          FROM LSM_ANNUPLAN_DTL Z
+                             , LCM_SPECM_TEST_MAPPING X
+                             , LCM_TEST_ARTICLE Y
+                         WHERE Z.YEAR = SUBSTR(:fromYm, 1, 4)
+                           AND Z.MM BETWEEN TO_NUMBER(SUBSTR(:fromYm, 5, 2)) AND TO_NUMBER(SUBSTR(:toYm, 5, 2))
+                           AND Z.MM = TO_NUMBER(SUBSTR(T.YM, 5, 2))
+                           AND Z.INSPT_YN = 'Y'
+                           AND Z.MICBIO_INSPT_YN = 'Y'
+                           AND Z.INSPT_MTOD = X.INSPT_PURP
+                           AND Z.MCALSS_CD = X.MCALSS_CD
+                           AND X.ARTICLE_CD = Y.ARTICLE_CD
+                           AND Y.INSPT_FLD IN ('101')
+                         GROUP BY X.MCALSS_CD, X.ARTICLE_CD
+                       ) +
+                       (
+                         SELECT NVL(SUM(COUNT(1)), 0)
+                          FROM LSM_ANNUPLAN_DTL Z
+                             , LCM_SPECM_TEST_MAPPING X
+                             , LCM_TEST_ARTICLE Y
+                         WHERE Z.YEAR = SUBSTR(:fromYm, 1, 4)
+                           AND Z.MM BETWEEN TO_NUMBER(SUBSTR(:fromYm, 5, 2)) AND TO_NUMBER(SUBSTR(:toYm, 5, 2))
+                           AND Z.MM = TO_NUMBER(SUBSTR(T.YM, 5, 2))
+                           AND Z.INSPT_YN = 'Y'
+                           AND Z.PHYCHEM_INSPT_YN = 'Y'
+                           AND Z.INSPT_MTOD = X.INSPT_PURP
+                           AND Z.MCALSS_CD = X.MCALSS_CD
+                           AND X.ARTICLE_CD = Y.ARTICLE_CD
+                           AND Y.INSPT_FLD IN ('102')
+                         GROUP BY X.MCALSS_CD, X.ARTICLE_CD
+                       )
+                   , 0) = 0 THEN 0
+        ELSE ROUND((
+                   (
+                     SELECT SUM(Q.CNT) AS CNT
+                       FROM (
+                             SELECT COUNT(1) AS CNT
+                                  , SUBSTR(SI.ACCEPTDD, 5, 2) AS MM
+                               FROM LRM_TEST_REQ_ACCEPT TR
+                                  , LRM_SPECM_INFO SI
+                                  , LRM_TEST_INFO TI
+                                  --, LTM_TEST_DIARY TD
+                              WHERE TR.REQ_NUM = SI.REQ_NUM
+                                AND SUBSTR(SI.ACCEPTDD, 1, 6) BETWEEN :fromYm AND :toYm
+                                AND SI.REQ_NUM = TI.REQ_NUM
+                                AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                                --AND SI.REQ_NUM = TD.REQ_NUM
+                                --AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                                --AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                                --AND TD.LAST_DECISION IS NOT NULL
+                                AND NOT EXISTS (
+                                                SELECT 1
+                                                  FROM LRM_PROC_DESC
+                                                 WHERE REQ_NUM = TR.REQ_NUM
+                                                   AND PROC_CLASS IN ('120', '140')
+                                               )
+                              GROUP BY SI.ACCEPTDD
+                           ) Q
+                     WHERE Q.MM = SUBSTR(T.YM, 5, 2)
+                     GROUP BY Q.MM
+                   ) /
+                   NVL((
+                         SELECT NVL(SUM(COUNT(1)), 0)
+                          FROM LSM_ANNUPLAN_DTL Z
+                             , LCM_SPECM_TEST_MAPPING X
+                             , LCM_TEST_ARTICLE Y
+                         WHERE Z.YEAR = SUBSTR(:fromYm, 1, 4)
+                           AND Z.MM BETWEEN TO_NUMBER(SUBSTR(:fromYm, 5, 2)) AND TO_NUMBER(SUBSTR(:toYm, 5, 2))
+                           AND Z.MM = TO_NUMBER(SUBSTR(T.YM, 5, 2))
+                           AND Z.INSPT_YN = 'Y'
+                           AND Z.MICBIO_INSPT_YN = 'Y'
+                           AND Z.INSPT_MTOD = X.INSPT_PURP
+                           AND Z.MCALSS_CD = X.MCALSS_CD
+                           AND X.ARTICLE_CD = Y.ARTICLE_CD
+                           AND Y.INSPT_FLD IN ('101')
+                         GROUP BY X.MCALSS_CD, X.ARTICLE_CD
+                       ) +
+                       (
+                         SELECT NVL(SUM(COUNT(1)), 0)
+                          FROM LSM_ANNUPLAN_DTL Z
+                             , LCM_SPECM_TEST_MAPPING X
+                             , LCM_TEST_ARTICLE Y
+                         WHERE Z.YEAR = SUBSTR(:fromYm, 1, 4)
+                           AND Z.MM BETWEEN TO_NUMBER(SUBSTR(:fromYm, 5, 2)) AND TO_NUMBER(SUBSTR(:toYm, 5, 2))
+                           AND Z.MM = TO_NUMBER(SUBSTR(T.YM, 5, 2))
+                           AND Z.INSPT_YN = 'Y'
+                           AND Z.PHYCHEM_INSPT_YN = 'Y'
+                           AND Z.INSPT_MTOD = X.INSPT_PURP
+                           AND Z.MCALSS_CD = X.MCALSS_CD
+                           AND X.ARTICLE_CD = Y.ARTICLE_CD
+                           AND Y.INSPT_FLD IN ('102')
+                         GROUP BY X.MCALSS_CD, X.ARTICLE_CD
+                       ), 0)
+                   --* 100
+             ), 1)
+        END
+       ), 0) AS Z
+  FROM T1 T
+        ]]>
+	</statement>
+
+	<!-- 월별 실적 현황 - 부적합항목수 -->
+	<statement name="selectMonthStaticNotFitList" type="select"><![CDATA[
+/* 월별 실적 현황 - 부적합항목수 */
+WITH T1 AS
+(
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '01' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '02' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '03' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '04' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '05' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '06' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '07' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '08' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '09' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '10' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '11' AS YM FROM DUAL
+     UNION ALL
+     SELECT TO_CHAR(SYSDATE, 'YYYY') || '12' AS YM FROM DUAL
+)
+SELECT '부적합항목수 ' AS GUBUN_NM
+     , 0 AS P /* 누계 계획 */
+     , (
+         SELECT COUNT(1)
+           FROM LRM_TEST_REQ_ACCEPT TR
+              , LRM_SPECM_INFO SI
+              , LRM_TEST_INFO TI
+              , LTM_TEST_DIARY TD
+          WHERE TR.REQ_NUM = SI.REQ_NUM
+            AND SUBSTR(SI.ACCEPTDD, 1, 6) BETWEEN :fromYm AND :toYm
+            AND SI.REQ_NUM = TI.REQ_NUM
+            AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+            AND SI.REQ_NUM = TD.REQ_NUM
+            AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+            AND TI.ARTICLE_CD = TD.ARTICLE_CD
+            --2018.06.05 김명섭 LIMS개선
+            --AND TD.LAST_DECISION IN ('102', '103')
+            AND TD.LAST_DECISION = '102'
+            AND EXISTS (
+                         SELECT 1
+                           FROM LRM_PROC_DESC PD
+                          WHERE SI.REQ_NUM = PD.REQ_NUM
+                            AND PD.PROC_CLASS >= '200'
+                       )
+       ) AS U /* 누계 실적 */
+     , 0 AS M
+     , T.YM
+     , SUBSTR(T.YM, 5, 2) AS YMM
+     , 0 AS X
+     , NVL((
+         SELECT SUM(Q.CNT) AS CNT
+           FROM (
+                 SELECT COUNT(1) AS CNT
+                      , SUBSTR(SI.ACCEPTDD, 5, 2) AS MM
+                   FROM LRM_TEST_REQ_ACCEPT TR
+                      , LRM_SPECM_INFO SI
+                      , LRM_TEST_INFO TI
+                      , LTM_TEST_DIARY TD
+                  WHERE TR.REQ_NUM = SI.REQ_NUM
+                    AND SUBSTR(SI.ACCEPTDD, 1, 6) BETWEEN :fromYm AND :toYm
+                    AND SI.REQ_NUM = TI.REQ_NUM
+                    AND SI.ACCEPT_NUM = TI.ACCEPT_NUM
+                    AND SI.REQ_NUM = TD.REQ_NUM
+                    AND SI.ACCEPT_NUM = TD.ACCEPT_NUM
+                    AND TI.ARTICLE_CD = TD.ARTICLE_CD
+                    --2018.06.05 김명섭 LIMS개선
+                    --AND TD.LAST_DECISION IN ('102', '103')
+                    AND TD.LAST_DECISION = '102'
+                    AND EXISTS (
+                                 SELECT 1
+                                   FROM LRM_PROC_DESC PD
+                                  WHERE SI.REQ_NUM = PD.REQ_NUM
+                                    AND PD.PROC_CLASS >= '200'
+                               )
+                  GROUP BY SI.ACCEPTDD
+               ) Q
+         WHERE Q.MM = SUBSTR(T.YM, 5, 2)
+         GROUP BY Q.MM
+       ), 0) AS Y
+     , 0 AS Z
+  FROM T1 T
+]]></statement>
+
+</hqml>

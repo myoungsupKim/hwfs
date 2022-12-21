@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT  UPMU_GBN
+     ,  UPMU_GRP
+     ,  SORT_SEQ
+     ,  PGM_ID
+     ,  PGM_PATH
+     ,  PGM_TEXT
+     ,  M_LEVEL
+     ,  M_TYPE
+     ,  ENABLE_YN
+     ,  CRT_MAN
+     ,  CRT_DATE
+     ,  ICON
+     ,  CALL_PARAM
+     ,  IDX
+     , MAX(SRC_YN) AS SRC_YN
+     , MAX(PRT_YN) AS PRT_YN
+     , MAX(EXL_YN) AS EXL_YN
+     , MAX(INS_YN) AS INS_YN
+     , MAX(DEL_YN) AS DEL_YN
+     , MAX(SAV_YN) AS SAV_YN
+  FROM (
+          SELECT  C.SYS_ID  AS UPMU_GBN
+             , ''          AS UPMU_GRP
+             ,  C.SORT_SEQ  AS SORT_SEQ
+             , C.PRG_ID    AS PGM_ID
+             , C.PRG_PATH  AS PGM_PATH
+             , C.MENU_NAME AS PGM_TEXT
+             , C.LEVELS    AS M_LEVEL
+             , ''          AS M_TYPE
+             , ''          AS ENABLE_YN
+             , ''          AS CRT_MAN
+             , ''          AS CRT_DATE
+             , ''          AS ICON
+             , C.CALL_PARAM
+             , C.ICON_ID   AS IDX
+             , B.SRC_YN
+             , B.PRT_YN
+             , B.EXL_YN
+             , B.INS_YN
+             , B.DEL_YN
+             , B.SAV_YN
+          FROM SCC_USER_ROLE A
+             , SCC_ROLE_MENU B
+             , SCC_MENU      C
+             , SCC_ROLE      D
+         WHERE A.SYS_TYPE = B.SYS_TYPE
+           AND A.ROLE     = B.ROLE
+           AND B.MENU_ID  = C.MENU_ID
+           AND A.SYS_TYPE = D.SYS_TYPE
+           AND A.ROLE     = D.ROLE
+           AND D.ROLE_TYPE = '본부'
+           AND A.SYS_TYPE = #SYS_TYPE#
+           AND A.SABUN    = #SABUN#
+           AND C.SYS_ID   = #SYS_ID#
+           AND A.USE_YN   = 'Y'
+           AND B.USE_YN   = 'Y'
+           AND C.USE_YN   = 'Y'
+           AND D.USE_YN   = 'Y'
+         UNION ALL
+          SELECT  C.SYS_ID  AS UPMU_GBN
+             , ''          AS UPMU_GRP
+             ,  C.SORT_SEQ  AS SORT_SEQ
+             , C.PRG_ID    AS PGM_ID
+             , C.PRG_PATH  AS PGM_PATH
+             , C.MENU_NAME AS PGM_TEXT
+             , C.LEVELS    AS M_LEVEL
+             , ''          AS M_TYPE
+             , ''          AS ENABLE_YN
+             , ''          AS CRT_MAN
+             , ''          AS CRT_DATE
+             , ''          AS ICON
+             , C.CALL_PARAM
+             , C.ICON_ID   AS IDX
+             , B.SRC_YN
+             , B.PRT_YN
+             , B.EXL_YN
+             , B.INS_YN
+             , B.DEL_YN
+             , B.SAV_YN
+          FROM SCC_USER_ROLE A
+             , SCC_ROLE_MENU B
+             , SCC_MENU      C, SCC_SYSTEM C1
+             , SCC_ROLE      D
+             , (
+                SELECT DISTINCT B.MENU_ID
+                  FROM SCC_USER_ROLE A
+                     , SCC_ROLE_MENU B
+                     --, SCC_MENU      C
+                     , SCC_ROLE      D
+                 WHERE A.SYS_TYPE = B.SYS_TYPE
+                   AND A.ROLE     = B.ROLE
+                   --AND B.MENU_ID  = C.MENU_ID
+                   AND A.SYS_TYPE = D.SYS_TYPE
+                   AND A.ROLE     = D.ROLE
+                   AND D.ROLE_TYPE = '본부'
+                   AND A.SYS_TYPE  = #SYS_TYPE#
+                   AND A.SABUN    IN (SELECT D.SABUN
+                                        FROM SCC_USERINFO A
+                                           , FMS_UPJANG B
+                                           , SCC_USERINFO D
+                                       WHERE A.SABUN = #SABUN#
+                                         AND A.UPJANG = B.UPJANG
+                                         AND B.MAIN_UPJANG = D.UPJANG
+                                         AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN D.SDATE AND D.EDATE
+                                         AND D.USE_YN = 'Y'
+                                     )
+                   AND A.USE_YN   = 'Y'
+                   AND B.USE_YN   = 'Y'
+                   --AND C.USE_YN   = 'Y'
+                   AND D.USE_YN   = 'Y'
+               ) E
+         WHERE A.SYS_TYPE = B.SYS_TYPE
+           AND A.ROLE     = B.ROLE
+           AND B.MENU_ID  = C.MENU_ID
+           AND C.SYS_ID   = C1.SYS_ID AND C1.SYS_TYPE = #SYS_TYPE#
+           AND A.SYS_TYPE = D.SYS_TYPE
+           AND A.ROLE     = D.ROLE
+           AND B.MENU_ID  = E.MENU_ID
+           AND D.ROLE_TYPE = '본사'
+           AND A.SYS_TYPE = #SYS_TYPE#
+           AND A.SABUN    = #SABUN#
+           AND C.SYS_ID   = #SYS_ID#
+           AND A.USE_YN   = 'Y'
+           AND B.USE_YN   = 'Y'
+           AND C.USE_YN   = 'Y'
+           AND D.USE_YN   = 'Y'
+       )
+ GROUP BY UPMU_GBN
+     ,  UPMU_GRP
+     ,  SORT_SEQ
+     ,  PGM_ID
+     ,  PGM_PATH
+     ,  PGM_TEXT
+     ,  M_LEVEL
+     ,  M_TYPE
+     ,  ENABLE_YN
+     ,  CRT_MAN
+     ,  CRT_DATE
+     ,  ICON
+     ,  CALL_PARAM
+     ,  IDX
+ ORDER BY SORT_SEQ
+	]]></statement>
+	<input default-name="ds_in">
+		<col name="SYS_TYPE" size="255" type="VARCHAR" description="" /> 
+		<col name="SABUN" size="255" type="VARCHAR" description="" /> 
+		<col name="SYS_ID" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="gds_menu">
+		<col name="UPMU_GBN" size="22" type="NUMERIC" description="" /> 
+		<col name="UPMU_GRP" size="0" type="CHAR" description="" /> 
+		<col name="SORT_SEQ" size="22" type="NUMERIC" description="" /> 
+		<col name="PGM_ID" size="50" type="VARCHAR" description="" /> 
+		<col name="PGM_PATH" size="100" type="VARCHAR" description="" /> 
+		<col name="PGM_TEXT" size="100" type="VARCHAR" description="" /> 
+		<col name="M_LEVEL" size="22" type="NUMERIC" description="" /> 
+		<col name="M_TYPE" size="0" type="CHAR" description="" /> 
+		<col name="ENABLE_YN" size="0" type="CHAR" description="" /> 
+		<col name="CRT_MAN" size="0" type="CHAR" description="" /> 
+		<col name="CRT_DATE" size="0" type="CHAR" description="" /> 
+		<col name="ICON" size="0" type="CHAR" description="" /> 
+		<col name="IDX" size="50" type="VARCHAR" description="" /> 
+		<col name="SRC_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="PRT_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="EXL_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="INS_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="DEL_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="SAV_YN" size="1" type="VARCHAR" description="" /> 
+	</output>
+</query>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT EXIST_YN1,
+       EXIST_YN2,
+       EXIST_YN3,
+       EXIST_YN4
+  FROM (
+        SELECT 
+              DECODE((SELECT COUNT(*) FROM MAS_TICKET_MST WHERE UPJANG = #UPJANG# AND ITEM_CODE = #ITEM_CODE# AND TRANS_TYPE||TRANS_GUBUN NOT IN ('III', 'OOO', 'WWW')), 0, 'N','Y') EXIST_YN1,
+              DECODE((SELECT COUNT(*) FROM MAS_TICKET_MST WHERE UPJANG = #UPJANG# AND ITEM_CODE = #ITEM_CODE# AND TRANS_TYPE||TRANS_GUBUN = 'III'), 1, 'N','Y') EXIST_YN2,
+              DECODE((SELECT COUNT(*) FROM MAS_TICKET_MST WHERE UPJANG = #UPJANG# AND ITEM_CODE = #ITEM_CODE# AND AUTO_GUBUN = 'Y'), 0, 'N','Y')  EXIST_YN3,
+              DECODE(SIGN(NVL(#OO_QTY_SUM#, 0) - (SELECT SUM(QTY) FROM MAS_TICKET_MST WHERE UPJANG = #UPJANG# AND ITEM_CODE = #ITEM_CODE# AND TRANS_TYPE||TRANS_GUBUN = 'WWW')), -1, 'Y','N')  EXIST_YN4
+        FROM DUAL
+       )
+</statement>
+	<input default-name="ds_cond">
+		<col name="UPJANG" size="6" type="NUMERIC" description="업장코드" /> 
+		<col name="ITEM_CODE" size="255" type="VARCHAR" description="" /> 
+		<col name="OO_QTY_SUM" size="6" type="NUMERIC" description="" /> 
+	</input>
+	<output default-name="ds_list">
+<col name="EXIST_YN1" size="255" type="VARCHAR" description="" />
+<col name="EXIST_YN2" size="255" type="VARCHAR" description="" />
+<col name="EXIST_YN3" size="255" type="VARCHAR" description="" />
+<col name="EXIST_YN4" size="255" type="VARCHAR" description="" />
+	</output>
+</query>

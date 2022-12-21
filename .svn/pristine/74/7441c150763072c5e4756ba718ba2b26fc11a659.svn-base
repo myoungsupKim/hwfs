@@ -1,0 +1,865 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.sle.reservMgmtDAO">
+	<desc>업장 예약 등록 관리</desc>
+ 
+	
+	
+	<!--  DATA를 조회한다. -->
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.rc.sle.dao.reservMgmtDAO.selectList */
+	<![CDATA[
+ 		SELECT MST.OUTLET_CD,	SHOP.OUTLET_NM AS OUTLET_NM,
+		       MST.RESERV_NUM,
+		       MST.RESERV_DATE,
+		       MST.RSVN_NM,
+		       MST.PSN,
+		       MST.START_TIME,
+		       MST.END_TIME,
+		       MST.EVENT_NM,
+		       MST.RESERV_CLASS,
+		       DECODE(MST.RESERV_CLASS,'01','조식',DECODE(MST.RESERV_CLASS,'02','중식','석식')) AS RESERV_CLASS_NM,
+		       MST.TABLE_GRP,
+		       MST.TABLE_CD,
+		       TABL.TABLE_NM,
+		       MST.REMARK,
+		       DECODE(MST.USE_YN, 'Y', 1, 0) AS USE_YN,
+		       MST.CDATE,
+		       MST.CUSER,
+		       MST.UDATE,
+		       MST.UUSER
+		FROM   SLE_RESERV_MST	MST
+		INNER  JOIN SLE_OUTLET_MST   SHOP   ON SHOP.OUTLET_CD = MST.OUTLET_CD  -- 업장 코드
+		INNER  JOIN SLE_FNB_TABLE_CD TABL   ON TABL.OUTLET_CD = MST.OUTLET_CD AND TABL.TABLE_GRP = MST.TABLE_GRP AND TABL.TABLE_CD = MST.TABLE_CD 
+		WHERE  MST.USE_YN       = 'Y'
+		  AND  MST.OUTLET_CD    = :outletCd
+	 	  AND  MST.TABLE_GRP    = :tableGrp
+	 	  AND  MST.TABLE_CD     = :tableCd
+	 	  AND  MST.RESERV_DATE  = :reservDate
+	 	  AND  MST.RESERV_CLASS = :reservClass
+	 	  
+	]]>
+	</statement>
+		
+	<!--  DATA를 저장한다. -->
+	<statement name="insertData" type="insert">
+	/*+ com.hwfs.rc.sle.dao.reservMgmtDAO.insertData */
+		<![CDATA[
+	  			INSERT INTO SLE_RESERV_MST
+						(
+						 OUTLET_CD,
+						 RESERV_NUM,
+						 RESERV_DATE,
+						 RSVN_NM,
+						 PSN,
+						 START_TIME,
+						 END_TIME,
+						 EVENT_NM,
+						 RESERV_CLASS,
+						 TABLE_GRP,
+						 TABLE_CD,
+						 REMARK,
+						 USE_YN,
+						 CDATE,
+						 CUSER,
+						 UDATE,
+						 UUSER
+						) VALUES (
+						 :outletCd,
+						 :reservNum,
+						<#if reservDate?exists> :reservDate, <#else> null, </#if>
+						<#if rsvnNm?exists> 	:rsvnNm, <#else> null, </#if>
+						<#if psn?exists> 		:psn, <#else> null, </#if>
+						<#if startTime?exists> 	:startTime, <#else> null, </#if>
+						<#if endTime?exists> 	:endTime, <#else> null, </#if>
+						<#if eventNm?exists> 	:eventNm, <#else> null, </#if>
+						<#if reservClass?exists> :reservClass, <#else> null, </#if>
+						<#if tableGrp?exists> 	:tableGrp, <#else> null, </#if>
+						<#if tableCd?exists> 	:tableCd, <#else> null, </#if>
+						<#if remark?exists> 	:remark, <#else> null, </#if>
+						<#if useYn?exists> 	DECODE(:useYn, '1', 'Y', 'N'), <#else> null, </#if>
+						 SYSDATE,
+						 :loginSabun,
+						 SYSDATE,
+						 :loginSabun
+						)
+		
+		]]>
+	</statement>
+	
+	
+	
+	<!--  DATA를 수정한다. -->
+	<statement name="updateData" type="update">
+	/*+ com.hwfs.rc.sle.dao.reservMgmtDAO.updateData */
+		<![CDATA[
+	  		UPDATE SLE_RESERV_MST SET
+				<#if reservDate?exists>  RESERV_DATE = :reservDate, </#if>
+				<#if rsvnNm?exists> 	 RSVN_NM = :rsvnNm, </#if>
+				<#if psn?exists> 		 PSN = :psn, </#if>
+				<#if startTime?exists> 	 START_TIME = :startTime, </#if>
+				<#if endTime?exists> 	 END_TIME = :endTime, </#if>
+				<#if eventNm?exists> 	 EVENT_NM = :eventNm, </#if>
+				<#if reservClass?exists> RESERV_CLASS = :reservClass, </#if>
+				<#if tableGrp?exists> 	 TABLE_GRP = :tableGrp, </#if>
+				<#if tableCd?exists> 	 TABLE_CD = :tableCd, </#if>
+				<#if remark?exists> 	 REMARK = :remark, </#if>
+				<#if useYn?exists> 		 USE_YN = DECODE(:useYn, '1', 'Y', 'N'), </#if>
+								         UDATE = SYSDATE,
+								         UUSER = :loginSabun
+				WHERE  OUTLET_CD  = :outletCd
+				AND    RESERV_NUM = :reservNum
+					  		
+		]]>
+	</statement>
+	<!--  코드를 생성한다. -->
+	<statement name="maxCodeCreate" type="select">
+	/*+ com.hwfs.rc.sle.dao.reservMgmtDAO.maxCodeCreate */
+		<![CDATA[
+		 
+		SELECT LPAD(NVL(MAX(TO_NUMBER(RESERV_NUM)),'0') + 1,'10','0')  AS MAX_CODE
+ 		FROM   SLE_RESERV_MST
+ 		WHERE  OUTLET_CD = :outletCd
+ 		  AND  SUBSTR(RESERV_NUM,1,2) = '00'
+		 
+ 
+		]]>
+	</statement>
+	
+	<!--  DATA를 조회한다. -->
+	<statement name="selectListGoods" type="select">
+	/*+ com.hwfs.rc.sle.dao.reservMgmtDAO.selectListGoods */
+	<![CDATA[
+ 		 	SELECT MST.OUTLET_CD, SHOP.OUTLET_NM AS OUTLET_NM,
+			       MST.RESERV_NUM,
+			       MST.SEQ,
+			       MST.MENU_CD,   MENU.MENU_NM,
+			       
+			       MST.QUANTITY,
+			       MST.UPRICE,
+			       MST.DISCNT_AMT,
+			       MST.TOT_AMT,
+			       MST.REMARK,
+			       DECODE(MST.USE_YN, 'Y', 1, 0) AS USE_YN,
+			       MST.CUSER,
+			       MST.CDATE,
+			       MST.UUSER,
+			       MST.UDATE
+			FROM   SLE_RESERV_GOODS MST
+			INNER  JOIN SLE_OUTLET_MST  SHOP   ON SHOP.OUTLET_CD = MST.OUTLET_CD  -- 업장 코드
+			INNER  JOIN SLE_OUTLET_MENU MENU   ON MENU.OUTLET_CD = MST.OUTLET_CD AND MENU.MENU_CD  = MST.MENU_CD
+			WHERE  MST.USE_YN = 'Y'
+			  AND  MST.OUTLET_CD  = :outletCd
+			  AND  MST.RESERV_NUM = :reservNum			
+			
+	]]>
+	</statement>
+	
+	
+	<!--  DATA를 저장한다. -->
+	<statement name="insertDataGoods" type="insert">
+	/*+ com.hwfs.rc.sle.dao.reservMgmtDAO.insertDataGoods */
+		<![CDATA[
+			INSERT INTO SLE_RESERV_GOODS
+				(
+				 OUTLET_CD,
+				 RESERV_NUM,
+				 SEQ,
+				 MENU_CD,
+				 QUANTITY,
+				 UPRICE,
+				 DISCNT_AMT,
+				 TOT_AMT,
+				 REMARK,
+				 USE_YN,
+				 CUSER,
+				 CDATE,
+				 UUSER,
+				 UDATE
+				) VALUES (
+				 :outletCd,
+				 :reservNum,
+				 :seq,
+				<#if menuCd?exists> 	:menuCd, <#else> null, </#if>
+				<#if quantity?exists> 	:quantity, <#else> null, </#if>
+				<#if uprice?exists> 	:uprice, <#else> null, </#if>
+				<#if discntAmt?exists> 	:discntAmt, <#else> null, </#if>
+				<#if totAmt?exists> 	:totAmt, <#else> null, </#if>
+				<#if remark?exists> 	:remark, <#else> null, </#if>
+				<#if useYn?exists> 		DECODE(:useYn, '1', 'Y', 'N'), <#else> null, </#if>
+				 :loginSabun,
+				 SYSDATE,
+				 :loginSabun,
+				 SYSDATE
+				)
+		]]>
+	</statement>
+	
+	<!--  DATA를 수정한다. -->
+	<statement name="updateDataGoods" type="update">
+	/*+ com.hwfs.rc.sle.dao.reservMgmtDAO.updateDataGoods */
+		<![CDATA[
+	  		UPDATE SLE_RESERV_GOODS SET
+				<#if menuCd?exists> 	MENU_CD = :menuCd, </#if>
+				<#if quantity?exists> 	QUANTITY = :quantity, </#if>
+				<#if uprice?exists> 	UPRICE = :uprice, </#if>
+				<#if discntAmt?exists> 	DISCNT_AMT = :discntAmt, </#if>
+				<#if totAmt?exists> 	TOT_AMT = :totAmt, </#if>
+				<#if remark?exists> 	REMARK = :remark, </#if>
+				<#if useYn?exists> 		USE_YN = DECODE(:useYn, '1', 'Y', 'N'), </#if>
+				       UUSER = :loginSabun,
+				       UDATE = SYSDATE
+				WHERE  OUTLET_CD  = :outletCd
+				AND    RESERV_NUM = :reservNum
+				AND    SEQ = :seq
+					  		
+		]]>
+	</statement>
+	
+	
+
+	<!--  코드를 생성한다. -->
+	<statement name="maxCodeCreateGoods" type="select">
+	/*+ com.hwfs.rc.sle.dao.reservMgmtDAO.maxCodeCreateGoods */
+		<![CDATA[
+		 
+		SELECT  NVL(MAX(SEQ),'0') + 1 AS MAX_SEQ
+ 		FROM   SLE_RESERV_GOODS
+ 		WHERE  OUTLET_CD  = :outletCd
+		  AND  RESERV_NUM = :reservNum
+ 
+		]]>
+	</statement>
+
+	<!--  DATA를 조회한다. -->
+	<statement name="selectListTable" type="select">
+	/*+ com.hwfs.rc.sle.dao.reservMgmtDAO.selectListTable */
+	<![CDATA[
+  
+		SELECT  :outletCd AS OUTLET_CD,  :tablGrp AS TABLE_GRP,
+				TBL_NM01 ,TBL_NM02 ,TBL_NM03 ,TBL_NM04 ,TBL_NM05 ,TBL_NM06 ,TBL_NM07 ,TBL_NM08 ,
+				TBL_CD01 ,TBL_CD02 ,TBL_CD03 ,TBL_CD04 ,TBL_CD05 ,TBL_CD06 ,TBL_CD07 ,TBL_CD08 ,
+				RSVN_NM_B01, RSVN_NM_B02, RSVN_NM_B03, RSVN_NM_B04, RSVN_NM_B05, RSVN_NM_B06, RSVN_NM_B07, RSVN_NM_B08,
+				RSVN_NM_L01, RSVN_NM_L02, RSVN_NM_L03, RSVN_NM_L04, RSVN_NM_L05, RSVN_NM_L06, RSVN_NM_L07, RSVN_NM_L08,
+		        RSVN_NM_D01, RSVN_NM_D02, RSVN_NM_D03, RSVN_NM_D04, RSVN_NM_D05, RSVN_NM_D06, RSVN_NM_D07, RSVN_NM_D08
+		
+		FROM (
+		
+		    -- 1 line 
+		    SELECT
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 1) AS TBL_NM01 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 2) AS TBL_NM02 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 3) AS TBL_NM03 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 4) AS TBL_NM04 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 5) AS TBL_NM05 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 6) AS TBL_NM06 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 7) AS TBL_NM07 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 8) AS TBL_NM08 ,
+		
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 1) AS TBL_CD01 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 2) AS TBL_CD02 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 3) AS TBL_CD03 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 4) AS TBL_CD04 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 5) AS TBL_CD05 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 6) AS TBL_CD06 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 7) AS TBL_CD07 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 8) AS TBL_CD08 ,
+		
+		
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 1
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B01,
+		
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 2
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B02,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 3
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B03,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 4
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B04,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 5
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B05,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 6
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B06,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 7
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B07,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 8
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B08,
+		    --Lunch
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 1
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L01,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 2
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L02,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 3
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L03,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 4
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L04,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 5
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L05,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 6
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L06,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 7
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L07,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 8
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L08,
+		    --Dinner
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 1
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D01,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 2
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D02,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 3
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D03,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 4
+		    										   WHERE A.USE_YN ='Y' AND  A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D04,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 5
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D05,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 6
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D06,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 7
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D07,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 8
+		    	                                       WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D08
+		
+		
+		    FROM DUAL
+		    UNION ALL
+		    --2line
+		    SELECT
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 9) AS TBL_NM01 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 10) AS TBL_NM02 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 11) AS TBL_NM03 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 12) AS TBL_NM04 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 13) AS TBL_NM05 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 14) AS TBL_NM06 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 15) AS TBL_NM07 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 16) AS TBL_NM08 ,
+		
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 9) AS TBL_CD01 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 10) AS TBL_CD02 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 11) AS TBL_CD03 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 12) AS TBL_CD04 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 13) AS TBL_CD05 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 14) AS TBL_CD06 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 15) AS TBL_CD07 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 16) AS TBL_CD08 ,
+		
+		
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 9
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B01,
+		
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 10
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B02,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 11
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B03,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 12
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B04,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 13
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B05,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 14
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B06,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 15
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B07,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 16
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B08,
+		    --Lunch
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 9
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L01,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 10
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L02,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 11
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L03,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 12
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L04,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 13
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L05,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 14
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L06,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 15
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L07,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 16
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L08,
+		    --Dinner
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 9
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D01,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 10
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D02,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 11
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D03,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 12
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D04,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 13
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D05,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 14
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D06,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 15
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D07,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 16
+		    	                                       WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D08
+		
+		    FROM DUAL
+		    UNION ALL
+		    --3line
+		    SELECT
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 17) AS TBL_NM01 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 18) AS TBL_NM02 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 19) AS TBL_NM03 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 20) AS TBL_NM04 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 21) AS TBL_NM05 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 22) AS TBL_NM06 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 23) AS TBL_NM07 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 24) AS TBL_NM08 ,
+		
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 17) AS TBL_CD01 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 18) AS TBL_CD02 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 19) AS TBL_CD03 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 20) AS TBL_CD04 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 21) AS TBL_CD05 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 22) AS TBL_CD06 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 23) AS TBL_CD07 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 24) AS TBL_CD08 ,
+		
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 17
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B01,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 18
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B02,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 19
+		    										   WHERE A.USE_YN ='Y' AND  A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B03,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 20
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B04,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 21
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B05,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 22
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B06,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 24
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B07,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 24
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B08,
+		    --Lunch
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 17
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L01,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 18
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L02,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 19
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L03,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 20
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L04,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 21
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L05,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 22
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L06,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 23
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L07,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 24
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L08,
+		    --Dinner
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 17
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D01,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 18
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D02,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 19
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D03,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 20
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D04,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 21
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D05,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 22
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D06,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 23
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D07,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 24
+		    	                                       WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D08
+		
+		   FROM DUAL
+		    UNION ALL
+		    --4line
+		    SELECT
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 25) AS TBL_NM01 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 26) AS TBL_NM02 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 27) AS TBL_NM03 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 28) AS TBL_NM04 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 29) AS TBL_NM05 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 30) AS TBL_NM06 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 31) AS TBL_NM07 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 32) AS TBL_NM08 ,
+		
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 25) AS TBL_CD01 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 26) AS TBL_CD02 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 27) AS TBL_CD03 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 28) AS TBL_CD04 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 29) AS TBL_CD05 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 30) AS TBL_CD06 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 31) AS TBL_CD07 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 32) AS TBL_CD08 ,
+		
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 25
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B01,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 26
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B02,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 27
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B03,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 28
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B04,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 29
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B05,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 30
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B06,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 31
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B07,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 32
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B08,
+		    --Lunch
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 25
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L01,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 26
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L02,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 27
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L03,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 28
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L04,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 29
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L05,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 30
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L06,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 31
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L07,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 32
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L08,
+		    --Dinner
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 25
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D01,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 26
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D02,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 27
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D03,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 28
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D04,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 29
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D05,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 30
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D06,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 31
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D07,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 32
+		    	                                       WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D08
+		
+		
+		    FROM DUAL
+		    UNION ALL
+		    --5line
+		    SELECT
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 33) AS TBL_NM01 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 34) AS TBL_NM02 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 35) AS TBL_NM03 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 36) AS TBL_NM04 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 37) AS TBL_NM05 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 38) AS TBL_NM06 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 39) AS TBL_NM07 ,
+		    (SELECT TABLE_NM FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 40) AS TBL_NM08 ,
+		
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 33) AS TBL_CD01 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 34) AS TBL_CD02 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 35) AS TBL_CD03 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 36) AS TBL_CD04 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 37) AS TBL_CD05 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 38) AS TBL_CD06 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 39) AS TBL_CD07 ,
+		    (SELECT TABLE_CD FROM SLE_FNB_TABLE_CD WHERE ROWNUM = 1 AND USE_YN ='Y' AND OUTLET_CD = :outletCd AND TABLE_GRP = :tablGrp   AND TO_NUMBER(SUBSTR(TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(TABLE_PLACE,3,2)) = 40) AS TBL_CD08 ,
+		
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 33
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B01,
+		
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 34
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B02,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 35
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B03,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 36
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B04,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 37
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B05,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 38
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B06,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 39
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B07,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 40
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='01' ) AS RSVN_NM_B08,
+		    --Lunch
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 33
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L01,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 34
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L02,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 35
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L03,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 36
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L04,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 37
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L05,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 38
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L06,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 39
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L07,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 40
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='02' ) AS RSVN_NM_L08,
+		    --Dinner
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 33
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D01,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 34
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D02,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 35
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D03,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 36
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D04,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 37
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D05,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 38
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D06,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 39
+		    										   WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D07,
+		    (SELECT RSVN_NM || '(' || START_TIME ||')' FROM SLE_RESERV_MST A
+		    											INNER JOIN  SLE_FNB_TABLE_CD B ON B.OUTLET_CD = A.OUTLET_CD AND B.TABLE_GRP = A.TABLE_GRP AND B.TABLE_CD = A.TABLE_CD
+		                                                												  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,1,2)) = :page  AND TO_NUMBER(SUBSTR(B.TABLE_PLACE,3,2)) = 40
+		    	                                       WHERE A.USE_YN ='Y' AND A.OUTLET_CD = :outletCd AND A.TABLE_GRP = :tablGrp AND A.RESERV_DATE = :resrvDate AND A.RESERV_CLASS ='03' ) AS RSVN_NM_D08
+		
+		    FROM DUAL
+		) DUAL
+		
+		  
+
+	]]>
+	</statement>
+	 
+</hqml>	

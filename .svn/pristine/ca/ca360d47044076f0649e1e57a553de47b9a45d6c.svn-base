@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="ft.fts.saleOrderCancelLogDAO">
+    <desc>주문 취소를 관리 HQML Query</desc>
+
+    <!-- 주문 취소를 관리 목록을 조회한다. -->
+    <statement name="selectList" type="select">
+        /*+ com.hwfs.ft.fts.dao.SaleOrderCancelLogDAO.selectList */
+        <![CDATA[
+       SELECT A.SALE_ORDER_NUM,
+               A.SALE_ORDER_NUM_SEQ,
+               A.SEQ,
+               A.SALE_ORDER_CANCEL_DATE,
+               A.CANCEL_QUANTITY,
+               A.CANCEL_WGT,
+
+               A.CANCEL_QUANTITY ORG_CANCEL_QUANTITY ,
+               A.CANCEL_WGT ORG_CANCEL_WGT,
+
+               A.CANCEL_REASON,
+               B.DELIVER_NUM,
+               A.CDATE,
+               (SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.CUSER) AS CUSER,
+               (SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.UUSER) AS UUSER,
+               A.UDATE
+        FROM   SALE_ORDER_CANCEL_LOG A,
+               SALE_ORDER_ITEM_MGMT B
+        WHERE  A.SALE_ORDER_NUM = B.SALE_ORDER_NUM
+        AND    A.SALE_ORDER_NUM_SEQ = B.SALE_ORDER_NUM_SEQ
+        AND    A.SALE_ORDER_NUM = :saleOrderNum
+        AND    A.SALE_ORDER_NUM_SEQ = :saleOrderNumSeq
+        ORDER BY A.SEQ
+        ]]>
+    </statement>
+
+    <!-- 주문 취소를 관리(을)를 등록한다. -->
+    <statement name="insert" type="insert">
+        /*+ com.hwfs.ft.fts.dao.SaleOrderCancelLogDAO.insert */
+        <![CDATA[
+        INSERT INTO SALE_ORDER_CANCEL_LOG
+        (
+         SALE_ORDER_NUM,
+         SALE_ORDER_NUM_SEQ,
+         SEQ,
+         SALE_ORDER_CANCEL_DATE,
+         CANCEL_QUANTITY,
+         CANCEL_WGT,
+         CANCEL_REASON,
+         CDATE,
+         CUSER,
+         UUSER,
+         UDATE
+        ) VALUES (
+         :saleOrderNum,
+         :saleOrderNumSeq,
+         (SELECT NVL(MAX(SEQ),0) +1 FROM SALE_ORDER_CANCEL_LOG WHERE SALE_ORDER_NUM=:saleOrderNum AND SALE_ORDER_NUM_SEQ=:saleOrderNumSeq),   /* 품의 순번     */
+        TO_CHAR(SYSDATE, 'YYYYMMDD'),
+        <#if cancelQuantity?exists> :cancelQuantity, <#else> null, </#if>
+        <#if cancelWgt?exists> :cancelWgt, <#else> null, </#if>
+        <#if cancelReason?exists> :cancelReason, <#else> null, </#if>
+         SYSDATE,
+         :loginSabun,
+         :loginSabun,
+         SYSDATE
+        )
+
+        ]]>
+    </statement>
+
+    <!-- 주문 취소를 관리(을)를 수정한다. -->
+    <statement name="update" type="update">
+        /*+ com.hwfs.ft.fts.dao.SaleOrderCancelLogDAO.update */
+        <![CDATA[
+        UPDATE SALE_ORDER_CANCEL_LOG SET
+        <#if saleOrderCancelDate?exists> SALE_ORDER_CANCEL_DATE = :saleOrderCancelDate, </#if>
+        <#if cancelQuantity?exists> CANCEL_QUANTITY = :cancelQuantity, </#if>
+        <#if cancelWgt?exists> CANCEL_WGT = :cancelWgt, </#if>
+        <#if cancelReason?exists> CANCEL_REASON = :cancelReason, </#if>
+               UUSER = :loginSabun,
+               UDATE = SYSDATE
+        WHERE  SALE_ORDER_NUM = :saleOrderNum
+        AND    SALE_ORDER_NUM_SEQ = :saleOrderNumSeq
+        AND    SEQ = :seq
+
+        ]]>
+    </statement>
+
+    <!-- 주문 취소를 관리(을)를 삭제한다. -->
+    <statement name="delete" type="delete">
+        /*+ com.hwfs.ft.fts.dao.SaleOrderCancelLogDAO.delete */
+        <![CDATA[
+        DELETE
+        FROM   SALE_ORDER_CANCEL_LOG
+        WHERE  SALE_ORDER_NUM = :saleOrderNum
+        AND    SALE_ORDER_NUM_SEQ = :saleOrderNumSeq
+        AND    SEQ = :seq
+        ]]>
+    </statement>
+
+
+   <!-- 총취소건을 조회한다. -->
+    <statement name="getCancelSumInfo" type="select">
+        /*+ com.hwfs.ft.fts.dao.ReleaseItemMgmtDAO.getCancelSumInfo */
+        <![CDATA[
+            SELECT SUM(A.CANCEL_QUANTITY) SUM_CANCEL_QUANTITY, SUM(A.CANCEL_WGT) SUM_CANCEL_WGT FROM SALE_ORDER_CANCEL_LOG A
+            WHERE  A.SALE_ORDER_NUM = :saleOrderNum
+            AND    A.SALE_ORDER_NUM_SEQ = :saleOrderNumSeq
+        ]]>
+    </statement>
+</hqml>

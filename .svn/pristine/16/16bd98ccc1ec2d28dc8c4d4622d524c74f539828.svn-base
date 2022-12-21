@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[게시판 전체 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+	A.BBS_ID
+	, D.BBS_NAME
+	, A.CON_ID
+	, A.PARENT_CON_ID
+	, A.LEVELS
+	, A.STEP
+	, A.TITLE
+	, LPAD(' ', (A.LEVELS-1) * 5, '  ☞') || A.TITLE AS V_TITLE
+	, DECODE( NVL(A.APPEND1, '')||NVL(A.APPEND2, '')||NVL(A.APPEND3, '')||NVL(A.APPEND4, '')||NVL(A.APPEND5, ''), '', 'N', 'Y') AS APPEND_YN
+	, CASE WHEN A.NOTICE_EDATE &gt;= TO_CHAR(SYSDATE, 'YYYYMMDD') THEN 'Y' ELSE 'N' END AS NOTICE_YN
+	, A.READ_CNT
+	, A.PASSWORD
+	, A.WRITE_SABUN
+	, B.NM_KOR
+	, A.UPJANG
+	, (SELECT CODE_NAME FROM SCC_UPJANGCUST_V WHERE CODE = A.UPJANG) AS UPJANGNM
+	, ROUND(SYSDATE - A.WRITE_TIME, 0 ) AS DAY_CNT
+	, DECODE( A.EDATE, '99991231', '보존', TO_CHAR( TO_DATE(A.EDATE, 'YYYYMMDD'), 'YYYY-MM-DD')) AS EDATE
+	, TO_CHAR( A.WRITE_TIME, 'YYYY-MM-DD') AS WRITE_DATE
+	, (SELECT COUNT(CON_ID) FROM SCC_BBS_CON_REP WHERE CON_ID = A.CON_ID AND USE_YN='Y') AS REP_CNT
+	, A.READ_ALL_YN
+	, A.RN
+FROM (  
+	 SELECT
+	 	   M.CON_ID
+		, M.BBS_ID
+		, M.TITLE
+		, M.UPJANG
+		, M.WRITE_SABUN
+		, M.WRITE_TIME
+		, M.CONTENTS
+		, M.READ_CNT
+		, M.SECRET_YN
+		, M.PASSWORD
+		, M.NOTICE_YN
+		, M.NOTICE_EDATE
+		, M.EDATE
+		, M.PARENT_CON_ID
+		, M.LEVELS
+		, M.STEP
+		, M.APPEND1
+		, M.APPEND2
+		, M.APPEND3
+		, M.APPEND4
+		, M.APPEND5
+		, M.READ_ALL_YN
+		, ROW_NUMBER() OVER(ORDER BY 
+		  			   DECODE( NOTICE_YN, 'Y', CASE WHEN M.NOTICE_EDATE &gt;= TO_CHAR(SYSDATE, 'YYYYMMDD') THEN '1' ELSE NULL END,NULL)
+		  			   , PARENT_CON_ID DESC, STEP DESC ) AS RN
+	 FROM ( 
+		 SELECT 
+		 		A.*
+		 FROM SCC_BBS_CON A
+		 WHERE BBS_ID IN(#ds_myBbsList.BBS_ID$#)
+		 AND A.EDATE &gt;= TO_CHAR(SYSDATE, 'YYYYMMDD')
+		 AND READ_ALL_YN = 'Y'
+		<isEqual col="S_GBN" value="1">
+			AND TITLE LIKE '%' || #S_WORD# || '%'
+		</isEqual>
+		<isEqual col="S_GBN" value="2">
+			AND CONTENTS LIKE '%' || #S_WORD# || '%'
+		</isEqual>
+		<isEqual col="S_GBN" value="3">
+			AND ( CONTENTS  LIKE '%' || #S_WORD# || '%'
+				OR TITLE LIKE '%' || #S_WORD# || '%' )
+		</isEqual>
+		<isEqual col="S_GBN" value="4">
+			AND WRITE_SABUN IN ( SELECT SABUN FROM SCC_USERINFO WHERE NM_KOR LIKE '%' || #S_WORD# || '%' )
+		</isEqual>
+		<isEqual col="S_GBN" value="5">
+			AND UPJANG IN ( SELECT CODE FROM SCC_UPJANGCUST_V WHERE CODE_NAME LIKE '%' || #S_WORD# || '%' )
+		</isEqual>
+		 UNION ALL
+		 SELECT 
+		 		M.*
+		 FROM SCC_BBS_CON M, SCC_BBS_PRIV_LIST A
+		 WHERE BBS_ID IN(#ds_myBbsList.BBS_ID$#)
+		 AND EDATE &gt;= TO_CHAR(SYSDATE, 'YYYYMMDD')
+		 AND READ_ALL_YN = 'N'
+		 AND M.CON_ID = A.CON_ID
+		 AND A.TARGET_CODE = #MY_CODE#
+		<isEqual col="S_GBN" value="1">
+			AND TITLE LIKE '%' || #S_WORD# || '%'
+		</isEqual>
+		<isEqual col="S_GBN" value="2">
+			AND CONTENTS LIKE '%' || #S_WORD# || '%'
+		</isEqual>
+		<isEqual col="S_GBN" value="3">
+			AND ( CONTENTS  LIKE '%' || #S_WORD# || '%'
+				OR TITLE LIKE '%' || #S_WORD# || '%' )
+		</isEqual>
+		<isEqual col="S_GBN" value="4">
+			AND WRITE_SABUN IN ( SELECT SABUN FROM SCC_USERINFO WHERE NM_KOR LIKE '%' || #S_WORD# || '%' )
+		</isEqual>
+		<isEqual col="S_GBN" value="5">
+			AND UPJANG IN ( SELECT CODE FROM SCC_UPJANGCUST_V WHERE CODE_NAME LIKE '%' || #S_WORD# || '%' )
+		</isEqual>
+		UNION ALL
+		 SELECT 
+		 		A.*
+		 FROM SCC_BBS_CON A
+		 WHERE BBS_ID  IN(#ds_myBbsList2.BBS_ID$#)
+		 AND A.EDATE &gt;= TO_CHAR(SYSDATE, 'YYYYMMDD')
+		 AND READ_ALL_YN = 'Y'
+		<isNotNull col="WRITE_SABUN">
+		 AND ( WRITE_SABUN = #WRITE_SABUN# OR UPJANG IN(  SELECT CODE FROM SCC_UPJANGCUST_V WHERE MAIN_CODE = #g_Upjang#) ) 
+		</isNotNull>
+		<isEqual col="S_GBN" value="1">
+			AND TITLE LIKE '%' || #S_WORD# || '%'
+		</isEqual>
+		<isEqual col="S_GBN" value="2">
+			AND CONTENTS LIKE '%' || #S_WORD# || '%'
+		</isEqual>
+		<isEqual col="S_GBN" value="3">
+			AND ( CONTENTS  LIKE '%' || #S_WORD# || '%'
+				OR TITLE LIKE '%' || #S_WORD# || '%' )
+		</isEqual>
+		<isEqual col="S_GBN" value="4">
+			AND WRITE_SABUN IN ( SELECT SABUN FROM SCC_USERINFO WHERE NM_KOR LIKE '%' || #S_WORD# || '%' )
+		</isEqual>
+		<isEqual col="S_GBN" value="5">
+			AND UPJANG IN ( SELECT CODE FROM SCC_UPJANGCUST_V WHERE CODE_NAME LIKE '%' || #S_WORD# || '%' )
+		</isEqual>
+		UNION ALL
+		SELECT 
+		 		A.*
+		 FROM SCC_BBS_CON A
+		 WHERE BBS_ID IN(#ds_myBbsListM.BBS_ID$#)
+		 AND A.EDATE &gt;= TO_CHAR(SYSDATE, 'YYYYMMDD')
+		 AND READ_ALL_YN = 'Y'
+		<isEqual col="S_GBN" value="1">
+			AND TITLE LIKE '%' || #S_WORD# || '%'
+		</isEqual>
+		<isEqual col="S_GBN" value="2">
+			AND CONTENTS LIKE '%' || #S_WORD# || '%'
+		</isEqual>
+		<isEqual col="S_GBN" value="3">
+			AND ( CONTENTS  LIKE '%' || #S_WORD# || '%'
+				OR TITLE LIKE '%' || #S_WORD# || '%' )
+		</isEqual>
+		<isEqual col="S_GBN" value="4">
+			AND WRITE_SABUN IN ( SELECT SABUN FROM SCC_USERINFO WHERE NM_KOR LIKE '%' || #S_WORD# || '%' )
+		</isEqual>
+		<isEqual col="S_GBN" value="5">
+			AND UPJANG IN ( SELECT CODE FROM SCC_UPJANGCUST_V WHERE CODE_NAME LIKE '%' || #S_WORD# || '%' )
+		</isEqual>
+		<isNotNull col="MAIN_UPJANG">
+		AND UPJANG IN ( SELECT CODE FROM SCC_UPJANGCUST_V WHERE MAIN_CODE = #MAIN_UPJANG# )
+	</isNotNull>
+		 UNION ALL
+		 SELECT 
+		 		M.*
+		 FROM SCC_BBS_CON M, SCC_BBS_PRIV_LIST A
+		 WHERE BBS_ID IN(#ds_myBbsListM.BBS_ID$#)
+		 AND EDATE &gt;= TO_CHAR(SYSDATE, 'YYYYMMDD')
+		 AND READ_ALL_YN = 'N'
+		 AND M.CON_ID = A.CON_ID
+		 AND A.TARGET_CODE = #MY_CODE#
+		<isEqual col="S_GBN" value="1">
+			AND TITLE LIKE '%' || #S_WORD# || '%'
+		</isEqual>
+		<isEqual col="S_GBN" value="2">
+			AND CONTENTS LIKE '%' || #S_WORD# || '%'
+		</isEqual>
+		<isEqual col="S_GBN" value="3">
+			AND ( CONTENTS  LIKE '%' || #S_WORD# || '%'
+				OR TITLE LIKE '%' || #S_WORD# || '%' )
+		</isEqual>
+		<isEqual col="S_GBN" value="4">
+			AND WRITE_SABUN IN ( SELECT SABUN FROM SCC_USERINFO WHERE NM_KOR LIKE '%' || #S_WORD# || '%' )
+		</isEqual>
+		<isEqual col="S_GBN" value="5">
+			AND UPJANG IN ( SELECT CODE FROM SCC_UPJANGCUST_V WHERE CODE_NAME LIKE '%' || #S_WORD# || '%' )
+		</isEqual>
+				<isNotNull col="MAIN_UPJANG">
+		AND M.UPJANG IN ( SELECT CODE FROM SCC_UPJANGCUST_V WHERE MAIN_CODE = #MAIN_UPJANG# )
+	</isNotNull>
+	) M
+) A, SCC_USERINFO B, SCC_UPJANGCUST_V C, SCC_BBS D
+WHERE B.SABUN = A.WRITE_SABUN
+AND C.CODE = DECODE(NVL(B.UPJANG, 0), 0, B.CUSTCD, B.UPJANG)  
+AND D.BBS_ID = A.BBS_ID
+AND A.RN BETWEEN #PAGE_SIZE# * ( #CURR_PAGE# - 1 ) + 1 AND #PAGE_SIZE# * #CURR_PAGE#
+ORDER BY A.RN	</statement>
+	<input default-name="ds_cond">
+		<col name="ds_myBbsList.BBS_ID" size="255" type="NUMERIC" description="" /> 
+		<col name="S_WORD" size="255" type="VARCHAR" description="" /> 
+		<col name="MY_CODE" size="255" type="NUMERIC" description="" /> 
+		<col name="ds_myBbsList2.BBS_ID" size="255" type="NUMERIC" description="" /> 
+		<col name="WRITE_SABUN" size="255" type="VARCHAR" description="" /> 
+		<col name="PAGE_SIZE" size="255" type="NUMERIC" description="" /> 
+		<col name="CURR_PAGE" size="255" type="NUMERIC" description="" /> 
+		<col name="S_GBN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

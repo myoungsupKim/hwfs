@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.bms.amResultListDAO">
+
+	<desc>AM 수익분석</desc>
+	
+	<!-- DATA를 조회한다. -->
+	<statement name="selectList" type="select">
+		<![CDATA[
+		
+		 SELECT  TEAM.CODE_NAME AS TEAM_NM                                                --팀명
+	              , SCC_CRYPTO.MASKAUTH_FUN(SMGR.AM_NM,12,'YYYYYYNNNNNNNNN','0') AS AM_NM --AM명
+                  , MENU.SALES_DATE
+				  , MENU.OUTLET_CD, SHOP.OUTLET_NM AS OUTLET_NM  --업장명
+	              , MENU.NET_AMT
+                  , MENU.VAT_AMT
+                  , MENU.TOT_AMT
+
+			   	FROM  BMS_RESERV_MST MAST                      --예약 마스터
+                INNER JOIN (SELECT A.OUTLET_CD, A.RESERV_NUM, A.SALES_DATE,
+                                  SUM(B.NET_AMT) AS NET_AMT,
+                                  SUM(VAT)       AS VAT_AMT,
+                                  SUM(TOT_AMT)   AS TOT_AMT
+                			  FROM SLE_SALS_INFO A
+                              INNER JOIN SLE_SALS_GOODS B ON A.OUTLET_CD = B.OUTLET_CD
+                              							 AND A.SALES_DATE = B.SALES_DATE
+                                                         AND A.RECEIPT_NUM = B.RECEIPT_NUM
+                              WHERE A.RECEIPT_STATUS IN ('Q', 'R')
+                                AND A.SALS_CLASS = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+                                AND A.SALES_DATE BETWEEN :reservDtFr AND :reservDtTo
+                                AND A.RESERV_NUM IS NOT NULL
+                                GROUP BY A.OUTLET_CD, A.RESERV_NUM, A.SALES_DATE
+                			) MENU ON MAST.RESERV_NUM = MENU.RESERV_NUM
+
+                INNER JOIN SLE_OUTLET_MST  SHOP ON SHOP.OUTLET_CD  = MENU.OUTLET_CD
+				INNER JOIN BMS_AM_MST      SMGR ON SMGR.AM_CD = MAST.AM_CD                                      --AM명칭
+	            INNER JOIN SCC_COMMON_CODE TEAM ON TEAM.GROUP_CODE ='BMS_0003'  AND TEAM.CODE = SMGR.AM_TM_CD   --팀코드명
+	            INNER JOIN SCC_COMMON_CODE CLAS ON CLAS.GROUP_CODE ='BMS_0005'  AND CLAS.CODE = MAST.RESERV_CD  --행사종류
+				WHERE MAST.USE_YN = 'Y'
+                  AND MAST.RESERV_STATUS IN ('2','3')
+              <#if amCd?has_content >       AND MAST.AM_CD     = :amCd     </#if>
+              <#if amTmCd?has_content >     AND SMGR.AM_TM_CD  = :amTmCd   </#if>
+				ORDER BY  TEAM.CODE_NAME, SMGR.AM_NM, MENU.SALES_DATE, MENU.OUTLET_CD
+			       
+		]]>
+	</statement>
+	
+</hqml>	

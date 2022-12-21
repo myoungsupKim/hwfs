@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[상품 검색]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT ITEM_CODE, ITEM_NAME, ITEM_SIZE, PO_UOM, ORIGIN_TYPE
+  FROM FMS_ITEM_V
+ WHERE 1 = 1
+<isNotNull col="UPJANG">
+   AND ITEM_CODE IN (SELECT A.ITEM_CODE 
+			           FROM HLDC_PO_CONTRACT_FSALE A 
+			          WHERE A.UPJANG = (SELECT AP_UNITPRICE_UPJANG FROM HLDC_ST_UPJANG WHERE UPJANG = #UPJANG#) 
+			          GROUP BY A.ITEM_CODE 
+			          UNION ALL 
+			         SELECT A.ITEM_CODE 
+			           FROM FMP_OTCUST_PRICE_AVA_V A 
+			              ,(SELECT UPJANG, ITEM_CODE, MAX(SDATE) AS SDATE 
+			                  FROM FMP_OTCUST_PRICE_AVA_V 
+			                 WHERE UPJANG = (SELECT Z.OTCUST_PRICE_UPJANG FROM FMS_UPJANG Z WHERE Z.UPJANG = #UPJANG#) 
+			                   AND SDATE &lt;= TO_CHAR(SYSDATE,'YYYYMMDD') 
+			                 GROUP BY UPJANG, ITEM_CODE) C 
+			          WHERE A.UPJANG = C.UPJANG 
+			            AND A.SDATE = C.SDATE 
+			            AND A.ITEM_CODE = C.ITEM_CODE 
+			            AND A.USE_YN = 'Y' AND A.SALE_PRICE > 0
+                     ) 
+</isNotNull> 
+<isNotNull col="ITEM_CODE">
+   AND ITEM_CODE LIKE '%' || #ITEM_CODE# || '%'
+</isNotNull>
+<isNotNull col="ITEM_NAME">
+   AND ITEM_NAME LIKE '%' || #ITEM_NAME# || '%'
+</isNotNull>
+   AND ITEM_CLASS1 = 'F'
+   AND USE_YN = 'Y'
+ ORDER BY ITEM_CODE  
+	</statement>
+	<input default-name="ds_Input">
+	</input>
+	<output default-name="ds_List">
+	</output>
+</query>

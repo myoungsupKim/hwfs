@@ -1,0 +1,363 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="rc.rrm.standardRecipeDetailedItemPopDAO">
+	<desc>식자재 HQML Query</desc>
+
+	<!-- 식자재 목록을 조회한다.(계약되어 있는 자재만 검색) -->
+	<statement name="selectList" type="select">
+	/*+	com.hwfs.rc.rrm.dao.StandardRecipeDetailedItemPopDAO.selectList	*/
+	<![CDATA[
+
+SELECT --/*+ LEADING(B) PUSH_PRED(A) */
+       B.ITEM_CODE
+     , B.ITEM_NAME
+     , D.AS_ITEM_CODE
+     , D.AS_ITEM_NAME
+     , A.CONTRACT_START
+     , A.CONTRACT_END
+     , A.CONTRACT_PRICE
+     , B.MAKER
+     , B.ITEM_SIZE
+     , B.UOM_CODE
+     , B.PO_UOM
+     , B.KG_CONVERT_RATE
+     , B.ORIGIN_TYPE
+     , B.BARCODE
+     , B.REMARK
+     , B.USE_YN
+     , TO_DATE(A.CONTRACT_END, 'YYYYMMDD') - TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD'), 'YYYYMMDD') AS REMAIN_DAY
+     , ROUND(NVL(A.CONTRACT_PRICE, 0) / DECODE(B.KG_CONVERT_RATE, 0, 1, B.KG_CONVERT_RATE) / 1000, 2) AS GRAM_PRICE
+	 , A.PROC_TYP_CD
+	 , (SELECT VD_NM FROM VO_FC_VENDOR Z WHERE Z.VD_CD = TO_CHAR(A.CUSTCD)) AS VD_NM
+  FROM (
+        SELECT /*+ LEADING(A.UP) INDEX(A.MR IX_ESPSSGPITM_03)  */
+               CUSTCD
+             , ITEM_CODE
+             , CONTRACT_START
+             , CONTRACT_END
+             , ROUND(AVG(CONTRACT_PRICE)) CONTRACT_PRICE
+             , PROC_TYP_CD
+          --FROM HLDC_PO_CONTRACT_F
+          FROM EPROCUSR.VO_CONTRACT_F_RCP -- 논리적 분사이후 단가불러오는 뷰 변경 20200309	   
+         WHERE 1 = 1
+       		   --AND UPJANG IN ('160574')  --매뉴개발팀
+       		   AND UPJANG = '217840' --매뉴개발팀
+       		   
+       <#if centerCode?has_content>
+           AND CENTER_CODE = :centerCode
+       </#if>
+       <#if schDate?has_content>
+           AND :schDate BETWEEN CONTRACT_START AND CONTRACT_END
+       </#if>
+       <#if schUpjang?has_content>
+           --AND UPJANG = (SELECT AP_UNITPRICE_UPJANG FROM ST_UPJANG WHERE UPJANG = :schUpjang)
+       </#if>
+	       AND USE_YN = 'Y'
+		   AND CONTRACT_PRICE > 0
+         GROUP BY CUSTCD, ITEM_CODE, CONTRACT_START, CONTRACT_END, PROC_TYP_CD
+       ) A
+     , HLDC_PO_ITEM_MST B
+     , AS_TO_ITEM_MST D
+ WHERE A.ITEM_CODE = B.ITEM_CODE
+   AND A.ITEM_CODE = D.TB_ITEM_CODE(+)
+   AND B.ITEM_CLASS1 = 'F'
+<#if itemName?has_content>
+   AND B.ITEM_NAME LIKE '%' || :itemName || '%'
+</#if>
+<#if contractStart?has_content>
+   AND A.CONTRACT_START >= :contractStart
+</#if>
+<#if contractEnd?has_content>
+   AND A.CONTRACT_END <= :contractEnd
+</#if>
+<#if asCode?has_content>
+   AND D.AS_ITEM_CODE LIKE '%' || :asCode || '%'
+</#if>
+<#if toCode?has_content>
+   AND B.ITEM_CODE LIKE '%' || :toCode || '%'
+</#if>
+ ORDER BY A.ITEM_CODE ASC
+
+	]]>
+	</statement>
+
+	<statement name="selectListItem" type="select">
+		/*+
+		com.hwfs.rc.rrm.dao.StandardRecipeDetailedItemPopDAO.selectListItem
+		*/
+		<![CDATA[
+		SELECT DISTINCT
+			<#if itemGb == 'G'>
+			   CLASS_CODE2,
+			   CLASS_NAME2
+			</#if>
+			<#if itemGb == 'M'>
+			   CLASS_CODE2,
+			   CLASS_CODE3,
+			   CLASS_NAME3
+			</#if>
+			<#if itemGb == 'S'>
+			   CLASS_CODE2,
+			   CLASS_CODE3,
+			   CLASS_CODE4,
+			   CLASS_NAME4
+			</#if>
+		FROM   HLDC_PO_ITEM_CLASS_V
+		WHERE  CLASS_CODE1 = 'F'
+		AND	   USE_YN1 = 'Y'
+		<#if itemGb == 'G'>
+		AND	   USE_YN2 = 'Y'
+		ORDER BY CLASS_NAME2
+		</#if>
+		<#if itemGb == 'M'>
+		AND	   USE_YN2 = 'Y'
+		AND	   USE_YN3 = 'Y'
+		ORDER BY CLASS_NAME3
+		</#if>
+		<#if itemGb == 'S'>
+		AND	   USE_YN2 = 'Y'
+		AND	   USE_YN3 = 'Y'
+		AND	   USE_YN4 = 'Y'
+		ORDER BY CLASS_NAME4
+		</#if>
+		]]>
+	</statement>
+
+	<!-- 표준레시피 식자재 목록을 조회한다. -->
+	<statement name="selectStdRecipeItemList" type="select">
+	/*+	com.hwfs.rc.rrm.dao.StandardRecipeDetailedItemPopDAO.selectStdRecipeItemList	*/
+	<![CDATA[
+	SELECT --/*+ PUSH_PRED(C) */
+	       A.MATERIAL_CD AS ITEM_CODE
+	     , B.ITEM_NAME
+	     , C.CONTRACT_START
+	     , C.CONTRACT_END
+	     , C.CONTRACT_PRICE
+	     , B.MAKER
+	     , B.ITEM_SIZE
+	     , B.UOM_CODE
+	     , B.PO_UOM
+	     , B.KG_CONVERT_RATE
+	     , B.ORIGIN_TYPE
+	     , B.BARCODE
+	     , B.REMARK
+	     , B.USE_YN
+	     , ROUND(NVL(C.CONTRACT_PRICE, 0) / DECODE(B.KG_CONVERT_RATE, 0, 1, B.KG_CONVERT_RATE) / 1000, 2) AS GRAM_PRICE
+	  FROM (
+	        SELECT DISTINCT A.MATERIAL_CD
+	          FROM RSS_STD_RECIPE_CD_DETAIL A
+	             , RSS_STD_RECIPE_CD_MST B
+	         WHERE A.UPJANG_TYPE = B.UPJANG_TYPE
+	           AND A.STD_RECIPE_CD = B.STD_RECIPE_CD
+	           AND A.UPJANG_TYPE = :upjangType
+	           AND A.SEMI_GOODS_YN = 'N'
+	           AND :stdDate BETWEEN A.SDATE AND A.EDATE
+	           AND NVL(B.SML_YN, 'N') = 'N'
+	       ) A
+	     , HLDC_PO_ITEM_MST B
+	     , (
+	        SELECT /*+ LEADING(A.UP) INDEX(A.MR IX_ESPSSGPITM_03)  */
+	               ITEM_CODE
+	             , MAX(CONTRACT_START) AS CONTRACT_START
+	             , MAX(CONTRACT_END) AS CONTRACT_END
+	             , ROUND(AVG(CONTRACT_PRICE)) CONTRACT_PRICE
+	          --FROM HLDC_PO_CONTRACT_F
+          		FROM EPROCUSR.VO_CONTRACT_F_RCP -- 논리적 분사이후 단가불러오는 뷰 변경 20200309
+	         WHERE 1 = 1
+       		   --AND UPJANG IN ('160574')  --매뉴개발팀
+               --AND UPJANG = '160011' --FC외식 전문외식(공통z)(군)_SH117990 단가 연결  2017.10.30 이다미 요청
+               AND UPJANG = '217840' --매뉴개발팀
+           	   AND USE_YN = 'Y'
+	           AND :stdDate BETWEEN CONTRACT_START AND CONTRACT_END
+	         GROUP BY ITEM_CODE, CONTRACT_START, CONTRACT_END
+	       ) C
+	 WHERE A.MATERIAL_CD = B.ITEM_CODE
+	   AND A.MATERIAL_CD = C.ITEM_CODE(+)
+	<#if itemCode?has_content>
+	   AND UPPER(B.ITEM_CODE) LIKE '%' || UPPER(:itemCode) || '%'
+	</#if>
+	<#if itemName?has_content>
+	   AND UPPER(B.ITEM_NAME) LIKE '%' || UPPER(:itemName) || '%'
+	</#if>
+	 ORDER BY A.MATERIAL_CD ASC
+
+	]]></statement>
+
+	<!-- 업장레시피 식자재 목록을 조회한다. -->
+	<statement name="selectUpjangRecipeItemList" type="select">
+	/*+	com.hwfs.rc.rrm.dao.StandardRecipeDetailedItemPopDAO.selectUpjangRecipeItemList	*/
+	<![CDATA[
+SELECT 
+	 --LEADING(B) PUSH_PRED(A) 
+	 /*+ LEADING(A)  */
+       B.ITEM_CODE
+     , B.ITEM_NAME
+     , A.CONTRACT_START
+     , A.CONTRACT_END
+     , A.CONTRACT_PRICE
+     , B.MAKER
+     , B.ITEM_SIZE
+     , B.UOM_CODE
+     , B.PO_UOM
+     , B.KG_CONVERT_RATE
+     , B.ORIGIN_TYPE
+     , B.BARCODE
+     , B.REMARK
+     , B.USE_YN
+     , TO_DATE(A.CONTRACT_END, 'YYYYMMDD') - TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD'), 'YYYYMMDD') AS REMAIN_DAY
+     , ROUND(NVL(A.CONTRACT_PRICE, 0) / DECODE(B.KG_CONVERT_RATE, 0, 1, B.KG_CONVERT_RATE) / 1000, 2) AS GRAM_PRICE
+	 , A.PROC_TYP_CD
+	 , (SELECT VD_NM FROM VO_FC_VENDOR Z WHERE Z.VD_CD = TO_CHAR(A.CUSTCD)) AS VD_NM
+	 , (SELECT MAX(SDATE)
+	      FROM RSS_UPJANG_RECIPE_CD_DETAIL Z
+	     WHERE Z.MATERIAL_CD = A.ITEM_CODE
+	       AND Z.UPJANG_CD = :upjangCd
+	       AND Z.SEMI_GOODS_YN = 'N'
+           AND :stdDate BETWEEN Z.SDATE AND Z.EDATE) AS START_DATE
+	 , (SELECT MAX(EDATE)
+	      FROM RSS_UPJANG_RECIPE_CD_DETAIL Z
+	     WHERE Z.MATERIAL_CD = A.ITEM_CODE
+	       AND Z.UPJANG_CD = :upjangCd
+	       AND Z.SEMI_GOODS_YN = 'N'
+           AND :stdDate BETWEEN Z.SDATE AND Z.EDATE) AS END_DATE
+  FROM (
+        SELECT /*+ LEADING(A.UP) INDEX(A.MR IX_ESPSSGPITM_03)  */
+               CUSTCD
+             , ITEM_CODE
+             , CONTRACT_START
+             , CONTRACT_END
+             , ROUND(AVG(CONTRACT_PRICE)) CONTRACT_PRICE
+             , PROC_TYP_CD
+          --FROM HLDC_PO_CONTRACT_F
+          FROM EPROCUSR.VO_CONTRACT_F_RCP -- 논리적 분사이후 단가불러오는 뷰 변경 20200309
+         WHERE 1 = 1
+           --AND UPJANG = :upjangCd
+           AND UPJANG = (SELECT C.N_CC_CD
+							FROM ST_UPJANGV B, SAP_IF.SAP_IFC_CC_MAP C
+                            	WHERE B.UPJANG = :upjangCd AND B.CC_CD = C.O_CC_CD)
+           AND :stdDate BETWEEN CONTRACT_START AND CONTRACT_END
+	       AND USE_YN = 'Y'
+		   AND CONTRACT_PRICE > 0
+         GROUP BY CUSTCD, ITEM_CODE, CONTRACT_START, CONTRACT_END, PROC_TYP_CD
+       ) A
+     , HLDC_PO_ITEM_MST B
+ WHERE A.ITEM_CODE = B.ITEM_CODE
+   --AND B.ITEM_CLASS1 = 'F'
+   AND INSTR(B.ITEM_CLASS4,'F') >= 1 -- B.ITEM_CODE와 함께 B.ITEM_CLASS1 컬럼의 INDEX사용 유도를 위해 동일 데이터를 사용하는 ITEM_CLASS4 로 조건을 바꿈 
+<#if itemCode?has_content>
+   AND UPPER(B.ITEM_CODE) LIKE '%' || UPPER(:itemCode) || '%'
+</#if>
+<#if itemName?has_content>
+   AND UPPER(B.ITEM_NAME) LIKE '%' || UPPER(:itemName) || '%'
+</#if>
+   AND EXISTS( SELECT 'X'
+                 FROM RSS_UPJANG_RECIPE_CD_DETAIL Z
+                WHERE A.ITEM_CODE = Z.MATERIAL_CD
+                  AND Z.UPJANG_CD = :upjangCd
+                  AND Z.SEMI_GOODS_YN = 'N'
+                  AND :stdDate BETWEEN Z.SDATE AND Z.EDATE)
+ ORDER BY A.ITEM_CODE ASC
+	]]></statement>
+
+	<!-- 표준레시피 기투입자재 목록을 조회한다. -->
+	<statement name="selectStdOrgItemList" type="select">
+	/*+	com.hwfs.rc.rrm.dao.StandardRecipeDetailedItemPopDAO.selectStdOrgItemList	*/
+	<![CDATA[
+	SELECT --/*+ LEADING(B) PUSH_PRED(A) */
+	       B.ITEM_CODE
+	     , B.ITEM_NAME
+	     , B.ITEM_SIZE
+	     , B.PO_UOM
+		 , (SELECT MAX(SDATE)
+		      FROM RSS_STD_RECIPE_CD_DETAIL Z
+		     WHERE Z.MATERIAL_CD = A.ITEM_CODE
+		       AND Z.UPJANG_TYPE = :upjangType
+		       AND Z.SEMI_GOODS_YN = 'N'
+	           AND :sdate BETWEEN Z.SDATE AND Z.EDATE) AS START_DATE
+		 , (SELECT MAX(EDATE)
+		      FROM RSS_STD_RECIPE_CD_DETAIL Z
+		     WHERE Z.MATERIAL_CD = A.ITEM_CODE
+		       AND Z.UPJANG_TYPE = :upjangType
+		       AND Z.SEMI_GOODS_YN = 'N'
+	           AND :sdate BETWEEN Z.SDATE AND Z.EDATE) AS END_DATE
+	  FROM (
+	        SELECT /*+ LEADING(A.UP) INDEX(A.MR IX_ESPSSGPITM_03)  */
+	               ITEM_CODE
+	             , CONTRACT_START
+	             , CONTRACT_END
+	             , ROUND(AVG(CONTRACT_PRICE)) CONTRACT_PRICE
+	          --FROM HLDC_PO_CONTRACT_F
+	          FROM	EPROCUSR.VO_CONTRACT_F_RCP -- 논리적 분사이후 단가불러오는 뷰 변경 20200309
+	         WHERE 1 = 1
+               AND UPJANG = '217840' --FC 외식 메뉴개발실 단가 연결  2017.10.31 이다미 요청
+	           --AND UPJANG IN ('114356')
+           	   AND USE_YN = 'Y'	         
+	           AND :sdate BETWEEN CONTRACT_START AND CONTRACT_END
+		       AND USE_YN = 'Y'
+			   AND CONTRACT_PRICE > 0
+	         GROUP BY ITEM_CODE, CONTRACT_START, CONTRACT_END
+	       ) A
+	     , HLDC_PO_ITEM_MST B
+	 WHERE A.ITEM_CODE = B.ITEM_CODE
+	   AND B.ITEM_CLASS1 = 'F'
+	   AND B.ITEM_CODE = :itemCode
+	   AND EXISTS( SELECT 'X'
+	                 FROM RSS_STD_RECIPE_CD_DETAIL Z
+	                WHERE A.ITEM_CODE = Z.MATERIAL_CD
+	                  AND Z.UPJANG_TYPE = :upjangType
+	                  AND Z.SEMI_GOODS_YN = 'N'
+	                  AND :sdate BETWEEN Z.SDATE AND Z.EDATE)
+	 ORDER BY A.ITEM_CODE ASC
+	]]>
+	</statement>
+
+	<!-- 업장레시피 기투입자재 목록을 조회한다. -->
+	<statement name="selectUpjangOrgItemList" type="select">
+	/*+	com.hwfs.rc.rrm.dao.StandardRecipeDetailedItemPopDAO.selectList	*/
+	<![CDATA[
+
+SELECT 
+-- LEADING(B) PUSH_PRED(A) 
+       B.ITEM_CODE
+     , B.ITEM_NAME
+     , B.ITEM_SIZE
+     , B.PO_UOM
+     , (SELECT MAX(SDATE)
+          FROM RSS_UPJANG_RECIPE_CD_DETAIL Z
+         WHERE Z.MATERIAL_CD = A.ITEM_CODE
+           AND Z.UPJANG_CD = :upjangCd
+           AND Z.SEMI_GOODS_YN = 'N'
+           AND :sdate BETWEEN Z.SDATE AND Z.EDATE) AS START_DATE
+     , (SELECT MAX(EDATE)
+          FROM RSS_UPJANG_RECIPE_CD_DETAIL Z
+         WHERE Z.MATERIAL_CD = A.ITEM_CODE
+           AND Z.UPJANG_CD = :upjangCd
+           AND Z.SEMI_GOODS_YN = 'N'
+           AND :sdate BETWEEN Z.SDATE AND Z.EDATE) AS END_DATE
+  FROM (
+        SELECT /*+ LEADING(A.UP) INDEX(A.MR IX_ESPSSGPITM_03)  */
+               ITEM_CODE
+             , CONTRACT_START
+             , CONTRACT_END
+             , ROUND(AVG(CONTRACT_PRICE)) CONTRACT_PRICE
+          --FROM HLDC_PO_CONTRACT_F          
+          FROM EPROCUSR.VO_CONTRACT_F_RCP -- 논리적 분사이후 단가불러오는 뷰 변경 20200309
+         WHERE 1 = 1
+           AND :sdate BETWEEN CONTRACT_START AND CONTRACT_END
+           --AND UPJANG = (SELECT AP_UNITPRICE_UPJANG FROM ST_UPJANG WHERE UPJANG = :upjangCd)
+           AND UPJANG = (SELECT C.N_CC_CD
+							FROM ST_UPJANGV B, SAP_IF.SAP_IFC_CC_MAP C
+                            	WHERE B.UPJANG = :upjangCd AND B.CC_CD = C.O_CC_CD))
+	       AND USE_YN = 'Y'
+		   AND CONTRACT_PRICE > 0
+         GROUP BY ITEM_CODE, CONTRACT_START, CONTRACT_END
+       ) A
+     , HLDC_PO_ITEM_MST B
+ WHERE A.ITEM_CODE = B.ITEM_CODE
+   AND B.ITEM_CLASS1 = 'F'
+   AND B.ITEM_CODE  = :itemCode
+ ORDER BY A.ITEM_CODE ASC
+
+	]]>
+	</statement>
+</hqml>

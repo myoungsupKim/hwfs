@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>insert</type>
+	<description><![CDATA[업장레시피복사-레시피포함:업장표준레시피 제외 복사]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>0</result-count>
+	<statement>
+INSERT INTO FSM_REAL_RECIPE_MST
+SELECT #UPJANG# -- 상단의 복사될 사업장
+      ,#MENU_CD# -- 위 1번에서 불러온 MENU_CD
+      ,B.RECIPE_CD, B.RECIPE_NAME, B.RECIPE_CLASS, B.RECIPE_TYPE, B.CUISINE_TYPE, B.MAIN_ITEM_CODE1, B.MAIN_ITEM_CODE2
+      ,B.COOK_TOOL1, B.COOK_TOOL2
+      ,A.MAJOR_DISH_INFO
+      ,B.RECIPE_COLOR, B.RECIPE_SHAPE, B.RECIPE_TASTE, B.RECIPE_FEEL, B.RECIPE_TEMPER
+      ,B.SPRING_YN, B.SUMMER_YN, B.AUTUMN_YN, B.WINTER_YN, B.RESP_NUT1, B.RESP_NUT2, B.USE_TOOL, B.VALID_TIME, B.DISPLAY_METHOD, B.SALE_UOM
+      ,B.SALE_PRICE, B.COST_RATE
+      ,A.COOK_1MAN_QTY
+      ,A.COOK_TIME
+      ,0 EXPECT_SALE_QTY
+      ,0 REAL_SALE_QTY
+      ,B.CORE_TEMPER_YN, B.GOODS_FEATURE
+      ,B.PHF_MGMT_YN, B.PHF_MGMT1, B.PHF_MGMT2, B.PHF_MGMT3, B.PHF_MGMT4, B.PHF_MGMT5, B.COOK_OPRN
+      ,B.PHOTO_PATH
+      ,'' PREFER
+      ,'01' ORIGIN_RECIPE -- 상단의 복사할 사업장과 하단의 복사될 사업장이 동일할 경우 '03', 틀릴 경우 '04'
+      ,B.ATTR01, B.ATTR02, B.ATTR03, B.ATTR04, B.ATTR05, B.ATTR06, B.ATTR07, B.ATTR08, B.ATTR09, B.ATTR10
+      ,#g_EmpNo# CUSER -- 복사하는 USER
+      ,SYSDATE CDATE
+      ,#g_EmpNo# UUSER -- 복사하는 USER
+      ,SYSDATE UDATE
+      ,B.SPHOTO_PATH
+      ,B.PHF
+      ,0 RECIPE_SEQ
+  FROM FSM_REAL_RECIPE_MST A
+      ,FSR_STD_RECIPE_MST B
+ WHERE A.RECIPE_CD = B.RECIPE_CD
+   AND A.UPJANG = #SRC_UPJANG#  -- 좌측의 선택된 사업장
+   AND A.MENU_CD = #SRC_MENU_CD#  -- 좌측의 선택된 사업장 메뉴코드
+   AND A.RECIPE_CD IN (#RECIPE_CD$#) -- 복수개의 선택된 레시피 코드를 INPUT으로 입력 받는다.
+   AND NOT EXISTS (
+               SELECT 1
+                 FROM FSM_REAL_RECIPE_MST D
+                WHERE D.UPJANG = #UPJANG#  -- 상단의 복사될 사업장
+                  AND D.MENU_CD = #MENU_CD#   -- 상단의 복사될 사업장 MENU_CD
+                  AND D.RECIPE_CD = A.RECIPE_CD
+                  )
+   AND NOT EXISTS (
+                SELECT 1
+                  FROM FSR_UPJANG_RECIPE_MST C
+                      ,FSA_HALL_MST D
+                 WHERE C.UPJANG = D.UPJANG
+                   AND C.HALL_CLASS = D.HALL_CLASS
+                   AND D.UPJANG = #UPJANG#    -- 상단의 복사될 사업장
+                   AND D.HALL_CD = #HALL_CD#  -- 상단의 복사될 사업장 식당코드
+                   AND C.RECIPE_CD = A.RECIPE_CD
+                  )	</statement>
+	<input default-name="ds_list">
+		<col name="UPJANG" size="6" type="NUMERIC" description="" /> 
+		<col name="MENU_CD" size="255" type="VARCHAR" description="" /> 
+		<col name="g_EmpNo" size="255" type="VARCHAR" description="" /> 
+		<col name="SRC_UPJANG" size="6" type="NUMERIC" description="" /> 
+		<col name="SRC_MENU_CD" size="255" type="VARCHAR" description="" /> 
+		<col name="RECIPE_CD" size="255" type="VARCHAR" description="" /> 
+		<col name="HALL_CD" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

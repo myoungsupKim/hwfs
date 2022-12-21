@@ -1,0 +1,184 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FMP00750P" onload="form_onload" titletext="식재료비 현황" position="absolute 0 0 977 551" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Button id="btn_Chart" onclick="btn_Chart_OnClick" taborder="1" text="그래프 닫기" position="absolute 863 6 962 26" class="btn_WF_Function" image=""/>
+        <ActiveX progid="ShockwaveFlash.ShockwaveFlash.10" id="fu_ct01" position="absolute 15 31 963 537"/>
+        <Static id="Static15" text="h15" class="Guide01_AreaRed" visible="false" position="absolute -1 536 976 551"/>
+        <Static id="Static06" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 962 0 977 550" anchor="top right"/>
+        <Static id="Static19" text="h05" class="Guide01_AreaRed" visible="false" position="absolute 818 26 962 31" anchor="top right"/>
+        <Static id="Static10" text="h06" class="Guide01_AreaRed" visible="false" position="absolute 818 0 962 6" anchor="top right"/>
+        <Static id="Static00" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 551" anchor="top right"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_Chart">
+        <ColumnInfo>
+          <Column id="NM" size="256" type="STRING"/>
+          <Column id="RATE1" size="256" type="STRING"/>
+          <Column id="RATE2" size="256" type="STRING"/>
+          <Column id="TOOLTIP" size="256" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_NutStd"/>
+      <Dataset id="ds_Input">
+        <ColumnInfo>
+          <Column id="UPJANG" size="256" type="INT"/>
+          <Column id="HALL_CD" size="256" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 식재영업/수불관리/실적관리/식재료비 현황(일별 기간별 매출계획대비 재료비 조회를 변경)
+ * 프로그램명   : FMP00750P.XML
+ * 기      능   : 식재료비 현황 사업장 별 3D 출력
+ * 작  성  자   : 노규완
+ * 작성  일자   : 2008-05-07
+ * 비      고   :  
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "LIB::sc_comon.js";			// 시스템공통 함수
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js";
+//@@컨버터에서 주석처리 #include "LIB::tit_comm_0001.js";		// X-Framework Lib
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+var f_UPJANG, f_HALL_CD, f_GUBUN;
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	// 부모창에서 받아올 Args
+	f_UPJANG  = UPJANG;
+	f_HALL_CD = HALL_CD;
+	f_GUBUN   = GUBUN;
+	
+	// Test Data
+	//f_UPJANG  = 100771;
+	//f_HALL_CD = "00101";
+	//f_GUBUN   = "1";
+	
+	// Default Data Check
+	
+	
+	// X-Framework : Action 정보 생성 
+	fsp_init(this);
+	
+	// 영양소 기준 파라미터 셋팅
+	ds_Input.clearData();
+	ds_Input.addRow();
+	ds_Input.setColumn(0, "UPJANG",  f_UPJANG );
+	ds_Input.setColumn(0, "HALL_CD", f_HALL_CD);
+	
+	// 영양소 기준 : 필요 Args - UPJANG, HALL_CD
+	fsp_clear(this);
+	ds_NutStd.clearData();
+	fsp_addSearch(this,"fs/fsm:FSM00170V_S003");
+	fsp_callService(this,"","","ds_Input=ds_Input","ds_NutStd=ds_NutStd","","fn_callBack","",true);
+}
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+
+function fn_callBack(errCode, errMsg)
+{
+	if( errCode != 0 ) {
+		return;
+	} else {
+		// Fusion Chart Display
+		fn_DisplayChart();
+	}
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_DisplayChart()
+ * 입      력   : errCode 	= 에러코드
+				  errMsg	= 에러메세지
+ * 반      환   : 없음
+ * 기      능   : 식재료비 현황 그래프 출력 3D
+ * 작  성  자   : 노규완
+ * 작성  일자   : 2008-05-07
+ ******************************************************************************************
+ */
+function fn_DisplayChart()
+{
+//<chart formatNumberScale='0' numberSuffix='%' showNames='1' useRoundEdges='1'>
+//   var v_ChartXML = "\n<chart palette='2' fontSize = '15' caption='FS 일별 매출 진도율 ' useRoundEdges='1'  baseFontSize='11' shownames='1' showvalues='0' decimals='0'>";
+	var v_ChartXML  = "\n<chart baseFontSize = '12' numberSuffix='%' xAxisName='사업장' showValues='0' useRoundEdges='1' formatNumberScale='0' fontSize = '15'>";
+	v_ChartXML += "\n  <categories>";
+	for (var i =0 ; i < opener.ds_list.getRowCount(); i++){
+		v_ChartXML += "\n    <category label='"+opener.ds_list.getColumn(i,"UPJANGNM_DISP")+"' />";
+	}
+	v_ChartXML += "\n  </categories>";
+	v_ChartXML += "\n  <dataset seriesName='계획'>";
+	for (var i =0 ; i < opener.ds_list.getRowCount(); i++){
+		v_ChartXML += "\n    <set value='"+opener.ds_list.getColumn(i,"EXP_RATE")+"' />";
+	}	
+	v_ChartXML += "\n  </dataset>";      
+    v_ChartXML += "\n  <dataset seriesName='실적'>";
+	for (var i =0 ; i < opener.ds_list.getRowCount(); i++){
+		v_ChartXML += "\n    <set value='"+opener.ds_list.getColumn(i,"REAL_RATE")+"' />";
+	}	
+	v_ChartXML += "\n  </dataset>";
+	v_ChartXML += "\n</chart>";	
+
+//   기준선
+//   <trendlines>
+//      <line startValue='26000' color='91C728' displayValue='Target' showOnTop='1'/>
+//   </trendlines>
+
+	// Chart Component Setting
+	
+	//fu_ct01.Movie = gv_chartPath + "MSBar2D" + ".swf"; //테스트 타입
+	fu_ct01.Movie = gv_chartPath + "MSBar3D" + ".swf"; //AS-IS쪽 챠트 타입
+		
+	fu_ct01.SetVariable('dataXML',     v_ChartXML    );
+	fu_ct01.SetVariable('chartWidth',  fu_ct01.position.width );	// chart size 지정
+	fu_ct01.SetVariable('chartHeight', fu_ct01.position.height);	// chart size 지정
+	//fu_ct01.SetVariable('debugMode',   "0"           );	// 디버그모드
+	
+	fu_ct01.Rewind();
+	fu_ct01.Play();
+
+//FSM00064P --> 그래프 출력 참조.
+
+}
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+
+function btn_Chart_OnClick(obj:Button, e:ClickEventInfo)
+{
+	this.close();
+}
+]]></Script>
+  </Form>
+</FDL>

@@ -1,0 +1,165 @@
+package com.hwfs.batch.sc.app.dao;
+
+import hone.core.util.record.Record;
+import hone.core.util.record.RecordSet;
+import hone.online.xplatform.map.DataSetMap;
+
+import java.sql.Types;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.springframework.jdbc.core.SqlOutParameter;
+import org.springframework.jdbc.core.SqlParameter;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
+
+import com.hwfs.batch.defaults.DefaultBatchDAO;
+import com.hwfs.cmn.util.DateUtil;
+import com.hwfs.sc.app.dao.AppMasterInterfaceFcusdbDAO;
+import com.hwfs.sc.app.dao.AppMasterInterfaceMariadbDAO;
+
+/**
+ * JOB Schedule Dao Class
+ *
+ * @ClassName AppMasterInterfaceDAO.java
+ * @Description AppMasterInterfaceDAO Class
+ * @Modification-Information
+ * <pre>
+ *    수정일       수정자              수정내용
+ *  ----------   ----------   -------------------------------
+ *  2022.07.14.   김명섭        최초생성
+ * </pre>
+ */
+@Repository("/batch/sc/app/appMasterInterfaceDAO")
+public class AppMasterInterfaceDAO extends DefaultBatchDAO {
+
+    /**
+     * 식재앱 판가,자재마스터 송신 배치
+     * <pre>
+     * 메소드 상세설명 작성(생략 가능)
+     * </pre>
+     *
+     * @param parameter
+     * @return
+     * @throws Exception
+     */
+	/** AppMasterInterfaceFcusdbDAO Bean 생성 */
+	@Resource(name = "/sc/app/appMasterInterfaceFcusdbDAO")
+	private AppMasterInterfaceFcusdbDAO appMasterInterfaceFcusdbDAO;
+	
+	/** AppMasterInterfaceMariadbDAO Bean 생성 */
+	@Resource(name = "/sc/app/appMasterInterfaceMariadbDAO")
+	private AppMasterInterfaceMariadbDAO appMasterInterfaceMariadbDAO;
+
+	@Resource(name ="transactionManagerfdapp")
+	private PlatformTransactionManager txManger;
+	
+	public int batchJob(Map<String, Object> mapParam) throws Exception {
+
+		int insRowCnt = 0;
+		int updRowCnt = 0;
+		RecordSet searchFsale;
+		RecordSet searchItem;
+		RecordSet searchFsale2;
+		RecordSet searchItem2;
+		
+		//Transaction(식재판가)
+		TransactionStatus txStatus = txManger.getTransaction(new DefaultTransactionDefinition());
+		
+		try{
+			
+			searchFsale = super.queryForRecordSet("sc.app.appMasterInterfaceFcusdbDAO.selectFsale", mapParam);
+			System.out.println("searchFsale : " + searchFsale.getRowCount());
+			
+			for(int i=0; i<searchFsale.getRowCount(); i++)
+			{
+				Map<String, Object> rowData = searchFsale.get(i);
+
+				insRowCnt += appMasterInterfaceMariadbDAO.fsaleInsert(rowData);
+				updRowCnt += super.update("sc.app.appMasterInterfaceFcusdbDAO.updateFsale", rowData);
+			}
+						
+			txManger.commit(txStatus);
+		}catch( Exception e){
+			//rollback
+			txManger.rollback(txStatus);
+			throw e;
+		}
+
+		//Transaction(자재마스터)
+		TransactionStatus txStatus2 = txManger.getTransaction(new DefaultTransactionDefinition());
+		
+		try{
+			
+			searchItem = super.queryForRecordSet("sc.app.appMasterInterfaceFcusdbDAO.selectItem", mapParam);
+			System.out.println("searchItem : " + searchItem.getRowCount());
+			
+			for(int i=0; i<searchItem.getRowCount(); i++)
+			{
+				Map<String, Object> rowData = searchItem.get(i);
+
+				insRowCnt += appMasterInterfaceMariadbDAO.itemInsert(rowData);
+				updRowCnt += super.update("sc.app.appMasterInterfaceFcusdbDAO.updateItem", rowData);
+			}
+
+			txManger.commit(txStatus2);
+		}catch( Exception e){
+			//rollback
+			txManger.rollback(txStatus2);
+			throw e;
+		}
+
+		//Transaction(공급업체판가)
+		TransactionStatus txStatus3 = txManger.getTransaction(new DefaultTransactionDefinition());
+		
+		try{
+			
+			searchFsale2 = super.queryForRecordSet("sc.app.appMasterInterfaceFcusdbDAO.selectFsale2", mapParam);
+			System.out.println("searchFsale2 : " + searchFsale2.getRowCount());
+			
+			for(int i=0; i<searchFsale2.getRowCount(); i++)
+			{
+				Map<String, Object> rowData = searchFsale2.get(i);
+
+				insRowCnt += appMasterInterfaceMariadbDAO.fsaleInsert2(rowData);
+				updRowCnt += super.update("sc.app.appMasterInterfaceFcusdbDAO.updateFsale2", rowData);
+			}
+			
+			txManger.commit(txStatus3);
+		}catch( Exception e){
+			//rollback
+			txManger.rollback(txStatus3);
+			throw e;
+		}
+
+		//Transaction(공급업체품목)
+		TransactionStatus txStatus4 = txManger.getTransaction(new DefaultTransactionDefinition());
+		
+		try{
+			
+			searchItem2 = super.queryForRecordSet("sc.app.appMasterInterfaceFcusdbDAO.selectItem2", mapParam);
+			System.out.println("searchItem2 : " + searchItem2.getRowCount());
+			
+			for(int i=0; i<searchItem2.getRowCount(); i++)
+			{
+				Map<String, Object> rowData = searchItem2.get(i);
+
+				insRowCnt += appMasterInterfaceMariadbDAO.itemInsert2(rowData);
+				updRowCnt += super.update("sc.app.appMasterInterfaceFcusdbDAO.updateItem2", rowData);
+			}
+			
+			txManger.commit(txStatus4);
+		}catch( Exception e){
+			//rollback
+			txManger.rollback(txStatus4);
+			throw e;
+		}
+
+		return insRowCnt;
+    }
+
+}

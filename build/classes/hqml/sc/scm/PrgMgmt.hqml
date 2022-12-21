@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.scm.prgMgmtDAO">
+	<desc>시스템에서 사용되는 공통코드를 관리한다.</desc>
+
+	<!--
+	    조건에 해당하는 프로그램 정보를 조회한다.
+	     1. 사용화면 : PrgMgmt, FindPrgPop
+	 -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sc.scm.prgMgmtDAO.selectList */
+		<![CDATA[
+SELECT SYS_TYPE,
+       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = '시스템구분' AND CODE = SYS_TYPE) AS SYS_TYPE_NM,
+       PRG_ID,
+       PRG_NM,
+       PRG_PATH,
+       DECODE(NVL(EXTR_PRG_YN, '0'), 'Y', '1', '0') AS EXTR_PRG_YN,
+       DECODE(NVL(PERS_INFO_YN, '0'), 'Y', '1', '0') AS PERS_INFO_YN,
+       DECODE(NVL(USE_YN, '0'), 'Y', '1', '0') AS USE_YN,
+       DECODE(NVL(SRC_YN, '0'), 'Y', '1', '0') AS SRC_YN,
+       DECODE(NVL(INS_YN, '0'), 'Y', '1', '0') AS INS_YN,
+       DECODE(NVL(DEL_YN, '0'), 'Y', '1', '0') AS DEL_YN,
+       DECODE(NVL(SAV_YN, '0'), 'Y', '1', '0') AS SAV_YN,
+       DECODE(NVL(PRT_YN, '0'), 'Y', '1', '0') AS PRT_YN,
+       DECODE(NVL(EXL_YN, '0'), 'Y', '1', '0') AS EXL_YN,
+       HELP_ID,
+       PRG_DESC,
+       BIZ_TYPE,
+       DECODE(NVL(ADMIN_YN, '0'), 'Y', '1', '0') AS ADMIN_YN
+FROM   SCC_PRG
+WHERE  1=1
+<#if sysType?has_content>
+AND   SYS_TYPE = :sysType
+</#if>
+<#if prgNm?has_content>AND PRG_NM LIKE '%'|| :prgNm ||'%'</#if>
+<#if extrPrgYn?has_content>
+	<#if extrPrgYn == "Y" >
+AND   EXTR_PRG_YN = 'Y'
+	<#else>
+<#if serviceId?has_content>AND PRG_PATH LIKE :serviceId || '%'</#if>
+ 	</#if>
+<#else>
+<#if serviceId?has_content>AND PRG_PATH LIKE :serviceId || '%'</#if>
+</#if>
+<#if prgNm?has_content>
+AND   PRG_NM LIKE '%' || :prgNm || '%'
+</#if>
+<#if useYn?has_content>
+AND   USE_YN = :useYn
+</#if>
+<#if bizType?has_content>
+AND   BIZ_TYPE = :bizType
+</#if>
+ORDER BY PRG_NM
+		]]>
+	</statement>
+
+	<!-- 이미 등록되어 있는지 중복을 체크한다. -->
+	<statement name="selectExists" type="select">
+		/*+ com.hwfs.sc.scm.prgMgmtDAO.selectExists */
+		<![CDATA[
+SELECT COUNT(*) AS EXISTS_CNT
+FROM   SCC_PRG
+WHERE  SYS_TYPE = :sysType
+AND    PRG_ID = :prgId
+		]]>
+	</statement>
+
+	<!-- 시스템구분에 따른 SERVICE ID를 조회한다. -->
+	<statement name="selectServiceIdList" type="select">
+		/*+ com.hwfs.sc.scm.prgMgmtDAO.selectServiceIdList */
+		<![CDATA[
+SELECT DISTINCT SUBSTR(PRG_PATH, 1, 5) AS SERVICE_ID
+FROM   SCC_PRG
+WHERE  SYS_TYPE = :sysType
+ORDER BY SUBSTR(PRG_PATH, 1, 5)
+		]]>
+	</statement>
+
+	<!-- 신규 프로그램 정보를 추가한다. -->
+	<statement name="insertList" type="insert">
+		/*+ com.hwfs.sc.scm.prgMgmtDAO.insertList */
+		<![CDATA[
+INSERT INTO SCC_PRG
+(
+ SYS_TYPE,
+ PRG_ID,
+ PRG_NM,
+ PRG_PATH,
+ EXTR_PRG_YN,
+ PERS_INFO_YN,
+ USE_YN,
+ SRC_YN,
+ INS_YN,
+ DEL_YN,
+ SAV_YN,
+ PRT_YN,
+ EXL_YN,
+ HELP_ID,
+ PRG_DESC,
+ BIZ_TYPE,
+ ADMIN_YN,
+ CUSER,
+ CDATE,
+ UUSER,
+ UDATE
+) VALUES (
+ :sysType,
+ :prgId,
+ :prgNm,
+<#if prgPath?exists> :prgPath, <#else> null, </#if>
+<#if extrPrgYn?exists>  DECODE(:extrPrgYn, '1', 'Y', 'N'), <#else> null, </#if>
+<#if persInfoYn?exists> DECODE(:persInfoYn, '1', 'Y', 'N'), <#else> null, </#if>
+ DECODE(:useYn, '1', 'Y', 'N'),
+<#if srcYn?exists> DECODE(:srcYn, '1', 'Y', 'N'), <#else> null, </#if>
+<#if insYn?exists> DECODE(:insYn, '1', 'Y', 'N'), <#else> null, </#if>
+<#if delYn?exists> DECODE(:delYn, '1', 'Y', 'N'), <#else> null, </#if>
+<#if savYn?exists> DECODE(:savYn, '1', 'Y', 'N'), <#else> null, </#if>
+<#if prtYn?exists> DECODE(:prtYn, '1', 'Y', 'N'), <#else> null, </#if>
+<#if exlYn?exists> DECODE(:exlYn, '1', 'Y', 'N'), <#else> null, </#if>
+<#if helpId?exists> :helpId, <#else> null, </#if>
+<#if prgDesc?exists> :prgDesc, <#else> null, </#if>
+<#if bizType?exists> :bizType, <#else> null, </#if>
+<#if adminYn?exists> DECODE(:adminYn, '1', 'Y', 'N'), <#else> null, </#if>
+ :loginSabun,
+ SYSDATE,
+ :loginSabun,
+ SYSDATE
+)
+		]]>
+	</statement>
+
+	<!-- 변경된 프로그램 정보를 수정한다. -->
+	<statement name="updateList" type="update">
+		/*+ com.hwfs.sc.scm.prgMgmtDAO.updateList */
+		<![CDATA[
+UPDATE SCC_PRG
+SET    PRG_NM = :prgNm,
+<#if prgPath?exists>PRG_PATH = :prgPath, </#if>
+<#if extrPrgYn?exists>EXTR_PRG_YN = DECODE(:extrPrgYn, '1', 'Y', 'N'), </#if>
+<#if persInfoYn?exists>PERS_INFO_YN = DECODE(:persInfoYn, '1', 'Y', 'N'), </#if>
+       USE_YN = DECODE(:useYn, '1', 'Y', 'N'),
+<#if srcYn?exists>SRC_YN = DECODE(:srcYn, '1', 'Y', 'N'), </#if>
+<#if insYn?exists>INS_YN = DECODE(:insYn, '1', 'Y', 'N'), </#if>
+<#if delYn?exists>DEL_YN = DECODE(:delYn, '1', 'Y', 'N'), </#if>
+<#if savYn?exists>SAV_YN = DECODE(:savYn, '1', 'Y', 'N'), </#if>
+<#if prtYn?exists>PRT_YN = DECODE(:prtYn, '1', 'Y', 'N'), </#if>
+<#if exlYn?exists>EXL_YN = DECODE(:exlYn, '1', 'Y', 'N'), </#if>
+<#if helpId?exists>HELP_ID = :helpId, </#if>
+<#if prgDesc?exists>PRG_DESC = :prgDesc, </#if>
+<#if bizType?has_content>BIZ_TYPE = :bizType, <#else>BIZ_TYPE = NULL, </#if>
+<#if adminYn?exists>ADMIN_YN = DECODE(:adminYn, '1', 'Y', 'N'), </#if>
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+WHERE  SYS_TYPE = :sysType
+AND    PRG_ID = :prgId
+		]]>
+	</statement>
+
+	<!-- 프로그램 정보를 삭제한다. -->
+	<statement name="deleteList" type="delete">
+		/*+ com.hwfs.sc.scm.prgMgmtDAO.deleteList */
+		<![CDATA[
+DELETE
+FROM   SCC_PRG
+WHERE  SYS_TYPE = :sysType
+AND    PRG_ID = :prgId
+		]]>
+	</statement>
+</hqml>

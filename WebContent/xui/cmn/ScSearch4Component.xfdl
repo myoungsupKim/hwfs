@@ -1,0 +1,407 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="TmSearch4Component" classname="TmSearchComponent" inheritanceid="" position="absolute 0 0 196 21" titletext="팀 검색용 Component" bindDataset="" bindTmCdColumn="" bindTmNmColumn="" qoBuCd="" qoMuCd="" qoUseYn="" onload="TmSearchComponent_onload" eventAfterTrigger="" eventBeforeTrigger="">
+    <Layouts>
+      <Layout>
+        <Edit id="edt_scNm" taborder="0" readonly="true" onkeydown="edt_tmNm_onkeydown" position="absolute 0 0 176 21" anchor="left top right" tmCd="" autoselect="true"/>
+        <Button id="btn_search" taborder="1" onclick="btn_search_onclick" class="btn_WF_popSearch" position="absolute 175 0 196 21" anchor="top right"/>
+        <Edit id="edt_scCd" taborder="2" readonly="true" onkeydown="edt_tmNm_onkeydown" position="absolute 2 24 178 45" anchor="left top right" tmCd="" visible="false"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_scControl" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="scCd" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : 본부 검색용 컴포넌트
+  파 일 명 : ScSearchComponent.xfdl
+  기    능 : 부문 검색 Composite 콤포넌트
+
+    수정일     수정자                  수정내용
+  ----------   -------  --------------------------------------------------
+  2015.03.10   김재섭   최초 생성
+*/
+
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+************************************************************************************************/
+include "lib::lib_com.xjs";
+
+
+var isRole = false;
+var isDoNotEvent = false;
+var oMuComponent = null;
+var isAllMu = false;
+var isApplyAuth = true; //전체에 대한 권한을 적용할 지를 판단한다.
+
+var isScControl = false;
+
+var f_Sc_Cd = g_Sc_Cd;
+var f_Sc_Nm = g_Sc_Nm;
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 전체에 대한 권한을 적용여부를 결정한다.(true(적용-기본값), false(적용안함)
+ *---------------------------------------------------------------------------------------------*/
+function setApplyAuth(val) {
+	isApplyAuth = val;
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 초기설정한다.
+ *---------------------------------------------------------------------------------------------*/
+function ScSearchComponent_onload(obj:Form, e:LoadEventInfo)
+{
+	
+	if (!gfn_isNull(this.class) && this.class == "edt_WF_Essential")
+	{
+		edt_scNm.class = this.class;
+		btn_search.class = "btn_WF_popSearchEssential";
+	}
+	
+	if (!gfn_isNull(obj.isTeamControl) && obj.isTeamControl == "Y") {
+		isScControl = true;
+	}
+	
+	fn_scControlSearch();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 예외처리를 위한 TM 코드를 조회한다.
+ *---------------------------------------------------------------------------------------------*/
+function fn_scControlSearch() {
+    var strSvcID    = "selectScControl";
+    var strURL      = "sc/cmn/scSearch/selectScControl.xdo";
+    var strInDs     = "";
+    var strOutDs    = "ds_scControl=ds_scControl";
+    var strArg      = "";
+    var strCallback = "";
+    var bAsync      = false;
+    
+    gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+
+	fn_setBindItem();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 바인딩 정보를 처리한다.
+ *---------------------------------------------------------------------------------------------*/
+function fn_setBindItem()
+{
+	if (!gfn_isNull(this.bindDataset))
+	{
+		if (!gfn_isNull(this.bindScNmColumn))
+		{
+			var bindItem0 = new BindItem("scSearchBindItem0", "edt_scNm", "value", this.bindDataset, this.bindScNmColumn);
+			this.addChild(bindItem0.name, bindItem0);
+			bindItem0.bind();
+		}
+		
+		if (!gfn_isNull(this.bindScCdColumn))
+		{
+			//var bindItem1 = new BindItem("userSearchBindItem1", "edt_tmNm", "tmCd", this.bindDataset, this.bindTmCdColumn);
+			var bindItem1 = new BindItem("userSearchBindItem1", "edt_scCd", "value", this.bindDataset, this.bindScCdColumn);
+			this.addChild(bindItem1.name, bindItem1);
+			bindItem1.bind();
+		}
+	}
+	
+//	if (isScControl) {
+//		if (gv_PtCd != "NO_PT") {
+//			f_Tm_Cd = gv_PtCd;
+//			f_Tm_Nm = gv_PtNm;
+//		}
+//	}
+	
+	setScCode(f_Sc_Cd);
+	setScName(f_Sc_Nm);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 팀코드을 가져온다.
+ *---------------------------------------------------------------------------------------------*/
+function getScCode()
+{
+	//return edt_tmNm.tmCd;
+	return edt_scCd.value;
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 팀코드을 설정한다.
+ *---------------------------------------------------------------------------------------------*/
+function setScCode(val)
+{
+	edt_scNm.scCd = val;
+	edt_scCd.value = val;
+	
+	if (val == "")
+	{
+		setScName("");
+	}
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 팀명을 가져온다.
+ *---------------------------------------------------------------------------------------------*/
+function getScName()
+{
+	return edt_scNm.value;
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 팀명을 설정한다.
+ *---------------------------------------------------------------------------------------------*/
+function setScName(val)
+{
+	edt_scNm.value = val;
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Auth Level을 적용한다.
+ *---------------------------------------------------------------------------------------------*/
+function applyAuthLevel(o)
+{
+	isRole = true;
+	isApplyAuth = false;
+	oMuComponent = o;
+	
+	//권한을 체크하여 기능을 제어한다.(관리자(99), 관리자(999), BU권한자(80), MU권한자(70)
+// 	if (SCAuth.isAuthLevel("99") || SCAuth.isAuthLevel("999") || SCAuth.isAuthLevel("80") || SCAuth.isAuthLevel("70"))
+// 	{
+// 		isDoNotEvent = false;
+// 	}
+// 	else
+// 	{
+// // 		var findRow = ds_teamControl.findRow("tmCd", g_Tm_Cd);
+// // 		
+// // 		if (findRow > -1) {
+// // 			isDoNotEvent = false;
+// // 		}
+// // 		else {
+// // 			isDoNotEvent = true;
+// // 		}
+// 		isDoNotEvent = true;
+// 	}
+	
+	setScCode(f_Sc_Cd);
+	setScName(f_Sc_Nm);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : MU의 Object를 반환한다.
+ *---------------------------------------------------------------------------------------------*/
+function getMuComponent()
+{
+	return oMuComponent;
+}
+
+function setIsAllMu(val)
+{
+	isAllMu = val;
+}
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 
+ *---------------------------------------------------------------------------------------------*/
+/************************************************************************************************
+ * 각 COMPONENT 별 EVENT 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 버튼에 대한 이벤트
+ *---------------------------------------------------------------------------------------------*/
+function btn_search_onclick(obj:Button,  e:ClickEventInfo)
+{
+	var scCd = "";
+	//권한에 따라서 기능을 맞는다.
+	if (isRole) {
+
+		if (SCAuth.isAuthLevel("99") || SCAuth.isAuthLevel("999") || SCAuth.isAuthLevel("80") || SCAuth.isAuthLevel("70"))
+		{
+			scCd = "";
+			isDoNotEvent = false;
+		}
+		else
+		{
+			var findRow = ds_scControl.findRow("scCd", f_Sc_Cd);
+			
+			if (isScControl && (SCAuth.isAuthLevel("14") || SCAuth.isAuthLevel("16")) && findRow > -1) {
+				scCd = f_Sc_Cd;
+				isDoNotEvent = false;
+			}
+			else {
+				scCd = "";
+				isDoNotEvent = true;
+			}
+		}
+	
+		if (isDoNotEvent) return;
+	}
+
+	//[[Before Event를 정의한다.
+	if (!gfn_isNull(this.eventBeforeTrigger))
+	{
+		var beforeEvent = eval("parent."+this.eventBeforeTrigger);
+		var rtn = beforeEvent(this);
+		
+		if (!rtn) return;
+	}
+	//Before Event를 정의한다.]]
+	
+	if (isRole)
+	{
+		if (!gfn_isNull(oMuComponent.getMuCode()))
+		{
+			this.qoMuCd = oMuComponent.getMuCode();
+		}
+		else
+		{
+			this.qoMuCd = "";
+		}
+	}
+	else {
+		if (isApplyAuth) {
+			//권한을 체크하여 기능을 제어한다.(관리자(99), 관리자(999), BU권한자(80), MU권한자(70)
+			//if (SCAuth.isAuthLevel("99") || SCAuth.isAuthLevel("999") || SCAuth.isAuthLevel("80") || SCAuth.isAuthLevel("70"))
+			if (SCAuth.isAuthLevel("99") || SCAuth.isAuthLevel("999") || SCAuth.isAuthLevel("80")) {
+				this.qoMuCd = "";
+				scCd = "";
+				isAllMu = false;
+			}
+			else if (SCAuth.isAuthLevel("70")) {
+				this.qoMuCd = g_Mu_Cd;
+				scCd = "";
+				isAllMu = false;
+			}
+			else {
+			
+				var findRow = ds_scControl.findRow("scCd", f_Sc_Cd);
+			
+				if (isScControl && (SCAuth.isAuthLevel("14") || SCAuth.isAuthLevel("16")) && findRow > -1) {
+					this.qoMuCd = g_Mu_Cd;
+					scCd = f_Sc_Cd;
+					isAllMu = false;
+				}
+				else {
+					scCd = "";
+					return;
+				}
+			}
+		}
+	}
+	
+	//[[팝업창을 호출한다.
+	var strId       = "ScSearch";
+	var strURL      = "cmn::ScSearchPop.xfdl";
+	var objArgument = {
+		P_BU_CD : this.qoBuCd,
+		P_MU_CD : this.qoMuCd,
+		P_SC_CD : scCd,
+		P_USE_YN: this.qoUseYn,
+		P_ALL_MU : isAllMu
+	};
+	var nWidth      = 513;
+	var nHeight     = 495;
+	var strStyle    = "";
+	var nLeft       = -1;
+	var nTop        = -1;
+	var isModeless  = false;
+	var bShowTitle  = true;
+	var strAlign    = "-1";
+
+	// 리턴값을 배열로 받을 경우	
+	var arrRtn = gfn_dialog(strId, strURL, objArgument, nWidth, nHeight, strStyle, nLeft, nTop, isModeless, bShowTitle, strAlign);
+	
+	if (arrRtn instanceof Object)
+	{
+		setScCode(arrRtn.scCd);
+		setScName(arrRtn.scNm);
+		
+		if (isRole) {
+			oMuComponent.setMuCode(arrRtn.muCd);
+		}
+		
+		//[[After Event를 정의한다.
+		if (!gfn_isNull(this.eventAfterTrigger))
+		{
+			var afterEvent = eval("parent."+this.eventAfterTrigger);
+			afterEvent(this, arrRtn);
+		}
+		//After Event를 정의한다.]]
+	}
+	//팝업창을 호출한다.]]
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 
+ *---------------------------------------------------------------------------------------------*/
+function edt_scNm_onkeydown(obj:Edit, e:KeyEventInfo)
+{
+	var findRow = ds_scControl.findRow("scCd", g_Sc_Cd);
+	//권한에 따라서 기능을 맞는다.
+	if (isRole) {
+ 		
+		if (SCAuth.isAuthLevel("99") || SCAuth.isAuthLevel("999") || SCAuth.isAuthLevel("80") || SCAuth.isAuthLevel("70"))
+		{
+			isDoNotEvent = false;
+		}
+		else
+		{
+			if (isScControl && (SCAuth.isAuthLevel("14") || SCAuth.isAuthLevel("16")) && findRow > -1) {
+				isDoNotEvent = false;
+			}
+			else {
+				isDoNotEvent = true;
+			}
+		}
+
+		if (isDoNotEvent) return;
+	}
+	
+	// Enter 키
+	if(e.keycode == 13)
+	{
+        if (gfn_isNull(obj.scCd))
+        {
+			btn_search.click();
+		}
+	}
+	
+	// Del 키
+	else if(e.keycode == 46) 
+	{
+		
+		if (isApplyAuth) {
+			//권한을 체크하여 기능을 제어한다.(관리자(99), 관리자(999), BU권한자(80), MU권한자(70), 소팀장(14), 팀장(16)
+			if (SCAuth.isAuthLevel("99") || SCAuth.isAuthLevel("999") || SCAuth.isAuthLevel("80") || SCAuth.isAuthLevel("70")) {
+			}
+			else {
+				
+				if (findRow == -1) {
+					return;
+				}
+			}
+		}
+		
+		if (isScControl && (SCAuth.isAuthLevel("14") || SCAuth.isAuthLevel("16")) && findRow > -1) {
+			setScCode(f_Sc_Cd);
+			setScName(f_Sc_Nm);
+		}
+		else {
+			setScCode("");
+			setScName("");
+		}
+		
+		//[[After Event를 정의한다.
+		if (!gfn_isNull(this.eventAfterTrigger))
+		{
+			var arrRtn = {scCd:"", scNm:""};
+			var afterEvent = eval("parent."+this.eventAfterTrigger);
+			afterEvent(this, arrRtn);
+		}
+		//After Event를 정의한다.]]
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

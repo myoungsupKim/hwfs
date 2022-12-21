@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="ms.msm.customerInformationInquiryDAO">
+	<desc>거래처정보조회 HQML Query</desc>
+
+	<!-- 거래처정보조회(가망고객) 목록을 조회한다. -->
+	<statement name="selectCustList" type="select">
+	/*+ com.hwfs.ms.msm.customerInformationInquiryDAO.selectCustList */
+	<![CDATA[
+	/*담당부서 / 영업담당자 / 고객사 담당자 / 연락처 / 주소 / 직군1 / 지역1*/ 
+	SELECT AA.CUST_ID
+	     , AA.CUSTNM
+	     , AA.CC_NM
+	     , AA.MGMT_SABUN
+	     , SCC_CRYPTO.MASKAUTH_FUN (AA.MGMT_SABUNNM, 12, :loginPersMask,:maskAuth) AS MGMT_SABUNNM
+	     , SCC_CRYPTO.MASKAUTH_FUN (AA.NAME, 12, :loginPersMask,:maskAuth) AS NAME
+	     , AA.HP_TEL
+	     , AA.ADDR
+	     , AA.JOB_CDNM
+	     , AA.LOC_CDNM
+	     , TOT_CNT
+	FROM   ( SELECT ROWNUM RNUM
+	             , S.*
+	       FROM    ( SELECT A.CUST_ID   AS CUST_ID
+	                     , A.CUSTNM     AS CUSTNM
+	                     , B.CC_NM      AS CC_NM
+	                     , A.MGMT_SABUN AS MGMT_SABUN
+	                     , C.NM_KOR     AS MGMT_SABUNNM
+	                     , A.NAME      AS NAME
+	                     , SCC_CRYPTO.MASKAUTH_FUN (A.HP_TEL_ENC, 4, :loginPersMask,:maskAuth) AS HP_TEL
+	                     , SCC_GET_ADDR_FUN('BASE', A.ADDR_KEY, NVL(:loginPersMask,'YYYYYYYYYYYYYY'), :maskAuth) AS ADDR
+	                     , (SELECT JOB_NAME
+	                       FROM    MAS_JOB
+	                       WHERE   JOB_CD = A.JOB_CD
+	                       )
+	                       AS JOB_CDNM
+	                     , (SELECT CODE_NAME
+	                       FROM    SCC_COMMON_CODE
+	                       WHERE   GROUP_CODE = 'MA0040'
+	                       AND     CODE       = A.LOC_CD
+	                       )
+	                       AS LOC_CDNM
+	                     , ROWNUM
+	                     , COUNT(*) OVER() TOT_CNT
+	               FROM    MAK_CUST_MST_B A
+	                     , (SELECT X.UPJANG
+	                             , X.UPJANGNM
+	                             , Y.*
+	                       FROM    ST_UPJANG X
+	                             , HLDC_SC_DEPT_V Y
+	                       WHERE   X.DEPT_ID = Y.DEPT_ID
+	                       )
+	                       B
+	                     , SCC_USERINFO C
+	               WHERE   A.MGMT_SABUN = C.SABUN
+	               AND     C.UPJANG     = B.UPJANG
+	               <#if mgmtSabunNm?has_content>
+				   AND     C.NM_KOR LIKE  '%' || :mgmtSabunNm || '%'
+	               </#if>
+	               <#if custNm?has_content>
+	               AND     A.CUSTNM LIKE  '%' || :custNm || '%'
+	               </#if>
+	               ORDER BY A.CUST_ID, C.NM_KOR
+	               )
+	               S
+	       )
+	       AA
+	WHERE  1           =1
+	AND   ROWNUM <= :pageRow and RNUM >= :curPageNum
+	<#if mgmtSabunNm?has_content>
+	AND   AA.MGMT_SABUNNM LIKE  '%' || :mgmtSabunNm || '%'
+	</#if>
+	<#if custNm?has_content>
+	AND   AA.CUSTNM LIKE  '%' || :custNm || '%'
+	</#if>
+	]]></statement>
+
+	<!-- 거래처정보조회(사업장) 목록을 조회한다. -->
+	<statement name="selectUpjangList" type="select">
+	/*+ com.hwfs.ms.msm.customerInformationInquiryDAO.selectUpjangList */
+	<![CDATA[/*담당부서 / 영업담당자 /CS담당자 (CS 연락처 전화걸수있게 연결)/ (고객사) 담당자~~메인여부 체크된거 끌고오심되요/ (고객)연락처 /가상계좌(계좌정보) 주소 / 직군1 / 지역1 */
+	SELECT A.UPJANG        AS UPJANG                                        --업장코드
+	     , A.MAIN_UPJANG   AS MAIN_UPJANG                                   --메인업장코드
+	     , A.UPJANGNM_DISP AS UPJANGNM_DISP                                 --업장명
+	     , A.FST_REG_DATE  AS FST_REG_DATE                                  --약정일
+	     , (SELECT CC_NM V
+	       FROM    HLDC_SC_DEPT_V V
+	       WHERE   V.CC_CD = A.DEPT_ID
+	       )
+	       AS CC_NM                                                         --부서코드  
+	     , A.PART_SALES_SABUN AS PART_SALES_SABUN  	                        --영업사원번호
+	     , (SELECT SCC_CRYPTO.MASKAUTH_FUN (NM_KOR, 12, :loginPersMask,:maskAuth)
+	       FROM    HLDC_HR_PERSONAL
+	       WHERE   SABUN=A.PART_SALES_SABUN
+	       )                                                AS PART_SALES_SABUN_NM --영업담당자명  
+	     , (SELECT SCC_CRYPTO.MASKAUTH_FUN (NM_KOR, 12, :loginPersMask,:maskAuth)
+	       FROM    HLDC_HR_PERSONAL
+	       WHERE   SABUN=A.CS_SABUN
+	       )                                                AS CS_SABUN_NM         --CS담당자명
+	     , SCC_CRYPTO.MASKAUTH_FUN (A.CS_TEL_NO_ENC,9,:loginPersMask,:maskAuth) AS CS_TEL_NO        --CS담당자전화번호
+	     , (SELECT SCC_CRYPTO.MASKAUTH_FUN (UJ.PART_NAME,12,:loginPersMask,:maskAuth) 
+	       FROM    FMS_UPJANG_CUST UJ
+	       WHERE   UJ.UPJANG = A.UPJANG
+	       AND     ROWNUM = 1
+	       )                                               AS DRNAME2             --고객담당자
+	     , SCC_GET_ADDR_FUN('BASE', A.ADDR_KEY, NVL(:loginPersMask,'YYYYYYYYYYYYYY'), :maskAuth) AS ADDR    --고객주소
+	     , (SELECT SCC_CRYPTO.MASKAUTH_FUN (UJ.CUST_TEL_NO_ENC,9,:loginPersMask,:maskAuth) 
+	       FROM    FMS_UPJANG_CUST UJ
+	       WHERE   UJ.UPJANG = A.UPJANG
+	       AND     ROWNUM = 1
+	       )                                                AS CUST_TEL_NO         --고객연락처
+	     , (SELECT SCC_CRYPTO.MASKAUTH_FUN (UJ.CUST_HP_NO_ENC,9,:loginPersMask,:maskAuth) 
+	       FROM    FMS_UPJANG_CUST UJ
+	       WHERE   UJ.UPJANG = A.UPJANG
+	       AND     ROWNUM = 1
+	       )                                                AS CUST_HP_NO         --고객핸드폰연락처
+	     , SCC_CRYPTO.MASKAUTH_FUN (A.ACNTCD_ENC,6,:loginPersMask,:maskAuth) AS ACNTCD              --고객계좌정보
+	     , B.CODE_NAME                                      AS BIZ_GROUP           --직군
+	     , C.CODE_NAME                                      AS LOACL1              --지역
+	FROM   FMS_UPJANG A
+	     , HLDC_ST_UPJANG AA
+	     , HLDC_ST_CUST AAA
+	     , SCC_COMMON_CODE B
+	     , SCC_COMMON_CODE C
+	WHERE  A.UPJANG        = :upjang
+	AND    A.UPJANG        = AA.UPJANG
+	AND    AA.CUSTCD       = AAA.CUSTCD(+)
+	AND    A.BIZ_GROUP     = B.CODE(+)
+	AND    B.GROUP_CODE(+) = 'FM0004'
+	AND    A.LOCAL1        = C.CODE(+)
+	AND    C.GROUP_CODE(+) = 'MA0040'
+	AND	   A.USE_YN = 'Y'
+	]]></statement>
+</hqml>

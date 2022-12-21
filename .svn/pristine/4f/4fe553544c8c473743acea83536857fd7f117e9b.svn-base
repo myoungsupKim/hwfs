@@ -1,0 +1,391 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FMO00280E" onkeydown="fn_FormKeyDown" onload="form_onload" titletext="운영일지 기준관리" position="absolute 0 0 1252 725" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Static id="Static08" class="sta_WFSA_Labelbg" position="absolute 0 30 1237 71" anchor="left top right"/>
+        <Div id="div_cmnBtn" taborder="1" text="Div0" url="cmn::CmnBtn.xfdl" position="absolute 0 0 1237 30" anchor="left top right" scrollbars="none"/>
+        <Grid binddataset="ds_list" cellmovingtype="col" cellsizingtype="both" readonly="false" enable="true" id="grd_Upjang" useinputpanel="false" onheadclick="grd_Upjang_OnHeadClick" taborder="2" tabstop="true" usecontextmenu="true" useselcolor="true" visible="true" wheelscrollrow="1" position="absolute 0 86 1237 710" selecttype="row" anchor="all" autofittype="col">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="145"/>
+                <Column size="996"/>
+                <Column size="75"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="text" text="기     준"/>
+                <Cell col="1" displaytype="text" text="설            명"/>
+                <Cell col="2" displaytype="text" text="사용여부"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" style="align:center;" text="bind:DISP1"/>
+                <Cell col="1" displaytype="text" style="align:left;" text="bind:DISP2"/>
+                <Cell col="2" displaytype="checkbox" edittype="expr:setEditExpr(iif(man_flag=='Y','none','checkbox'))" editfilter="expr:setfilterExpr(iif(man_flag=='Y','none','checkbox'))" style="align:center;" text="bind:USE_YN"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="Static01" text="본사명" position="absolute 15 40 69 61" class="sta_WFSA_label"/>
+        <Edit autoselect="true" enable="false" id="ed_UpjangNm" imemode="native" taborder="4" position="absolute 69 40 209 61"/>
+        <Button id="btn_UpjangPop" onclick="fn_CallPopUp" taborder="5" tabstop="false" text="" position="absolute 208 40 229 61" class="btn_WF_popSearch" image=""/>
+        <Edit autoselect="true" enable="false" id="ed_Upjang" imemode="native" taborder="6" visible="false" position="absolute 120 40 135 60"/>
+        <Static id="Static05" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 1237 0 1252 710" anchor="top right"/>
+        <Static id="Static71" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 0 710 1252 725" anchor="left bottom"/>
+        <Static id="Static00" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 0 71 450 86"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_cond" updatecontrol="False">
+        <ColumnInfo>
+          <Column id="CUSER" size="9" type="STRING"/>
+          <Column id="UPJANG" size="22" type="INT"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_list">
+        <ColumnInfo>
+          <Column id="CUSER" size="9" type="STRING"/>
+          <Column id="DISP1" size="100" type="STRING"/>
+          <Column id="DISP2" size="300" type="STRING"/>
+          <Column id="MAN_FLAG" size="1" type="STRING"/>
+          <Column id="STD_CODE" size="50" type="STRING"/>
+          <Column id="UPJANG" size="22" type="INT"/>
+          <Column id="USE_YN" size="1" type="STRING"/>
+          <Column id="INSFLAG" size="1" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 식재영업/운영관리/기준정보/계정정보등록관리
+ * 프로그램명   : FMO00450E.XML
+ * 기      능   : 개정정보 등록관리
+ * 작  성  자   : 박은규
+ * 작성  일자   : 2007-11-28
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+*/
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "lib::sc_comon.js"				// 시스템 공통
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js"		//JAVA 코딩시
+//@@컨버터에서 주석처리 #include "LIB::tit_comm_0001.js"		// X-Framework Lib
+//@@컨버터에서 주석처리 #include "lib::sc_sql_common.js"		// 공통팝업
+//@@컨버터에서 주석처리 #include "lib::fm_common.js"			// FM공통
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	//초기화
+   	fsp_init(this);
+
+	//본부직원이 아닌 경우 본사조회 불가
+	ed_Upjang.value = application.g_Main_Upjang;
+	ed_UpjangNm.value = application.g_Main_UpjangNm;
+	btn_UpjangPop.visible = (application.g_UserGroup == '리조트');
+	
+	//기본값으로 조회
+	fn_search();
+}
+
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+/*------------------------------------------------------------(60)
+	1. Function ID : fn_Search()
+	2. 개       요 : 업무프로세스에 따른 조회작업
+	3. 기       능 : 검색조건에 해당하는 정보를 조회
+	4. 인 수 설 명 : 
+*/
+function fn_search()
+{
+	if (ed_Upjang.value == "")
+	{
+		gfn_alert(fn_AlertMsg("004"));
+		return;
+	}
+	// 초기화
+	ds_list.clearData();
+	ds_cond.clearData();
+	ds_cond.addRow();
+	ds_cond.setColumn(0, "UPJANG", ed_Upjang.value);
+	ds_cond.setColumn(0, "CUSER", application.g_EmpNo);
+	
+	// 조회
+	var actionName, cmdName, inData, outData, otherArg, callBackFnc;
+	
+	// 파라미터셋팅
+    inData		= "ds_cond=ds_cond";
+    outData		= "ds_list=ds_list";
+    callBackFnc	= "fn_CallBack_Search";
+	
+	//action 정보 초기화 
+	fsp_clear(this); 
+    // 서버에서 조회할 정보 추가 
+	fsp_addSearch(this, "fm/fmo:FMO00280E_S001");
+	// 서버 호출 
+    fsp_callService(this, actionName, cmdName, inData, outData, otherArg, callBackFnc);		// 서비스 호출 
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Insert()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_insert()
+{
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Delete()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_delete()
+{
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Save()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_save()
+{
+	// 데이타체크
+	var sRtn = fn_ChkData();
+	if (sRtn != null)
+	{
+		gfn_alert(sRtn);
+		return;
+	}
+	if (! confirm('변경사항을 저장하시겠습니까?!')) return;
+	
+	//플래그 세팅
+	fn_SetFlag();
+   	// action 정보 초기화 
+    fsp_clear(this);
+	// 초기화
+	// 파라미터셋팅
+    // 서비스셋팅
+    var actionName, cmdName, inData, outData, otherArg, callBackFnc;
+    var singleSql, insertSql, updateSql, deleteSql, saveFlagColumn, keySqlName, keyIncrement, callbackSql;
+    inData		= "ds_I001I=ds_list ds_cond=ds_cond";
+    outData		= "ds_list=ds_list";
+    otherArg	= "UPJANG=" + wrapQuote(ds_cond.getColumn(0, "UPJANG"));
+    callBackFnc	= "fn_CallBack_Save";
+	// 파라미터셋팅(사용자정보 및 관리업장정보)
+	singleSql	= "fm/fmo:FMO00280E_D001";
+    // 서버에서 작업할 정보 추가 
+	fsp_addSingle(this, singleSql, keySqlName, keyIncrement, callbackSql);
+	// 파라미터셋팅(사용자정보 및 관리업장정보)
+    insertSql	= "fm/fmo:FMO00280E_I001";
+    updateSql	= "";
+    deleteSql	= "";
+    saveFlagColumn = "INSFLAG";
+    callbackSql	= "fm/fmo:FMO00280E_S001";
+    // 서버에서 작업할 정보 추가 
+    fsp_addSave(this, insertSql, updateSql, deleteSql, saveFlagColumn, keySqlName, keyIncrement, callbackSql);
+	// 서버 호출 
+    fsp_callService(this, actionName, cmdName, inData, outData, otherArg, callBackFnc);		// 서비스 호출 
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Print()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_print()
+{
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Close()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_Close()
+{
+	This.close();
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Help()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_help()
+{
+}
+
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+/*------------------------------------------------------------
+	1. Function ID : fn_AlertMsg(cd)
+	2. 개       요 : 메세지 처리
+	3. 기       능 : 화면에 나타나는 메시지 코드및 텍스트 리턴
+	4. 인 수 설 명 : cd : 원하는 메시지 코드
+*/
+function fn_AlertMsg(cd)
+{
+	var v_Msg="";
+	switch(cd)
+	{
+		case "000":
+			v_Msg= "이(가) 저장되었습니다.";
+			break;
+		case "001":
+			v_Msg= "버튼이 정의 되어 있지않습니다.";
+			break;
+		case "002":
+			v_Msg="서비스 오류:시스템 관리자에게 문의하십시오";
+			break;
+		case "003":
+			v_Msg="필수항목은 반드시 선택하시기 바랍니다.";
+			break;	
+		case "004":
+			v_Msg="작업대상 본사를 선택하세요.";
+			break;
+		case "005":
+			v_Msg="을(를) 입력하세요";
+			break;
+		case "006":
+			v_Msg="삭제할 데이터가 없습니다.";
+			break;
+		case "007":
+			v_Msg="변경된 데이터가 없습니다.";
+			break;
+		case "008":
+			v_Msg="시스템ID가 없습니다.";
+			break;			
+/*			
+		case "":
+			v_Msg="";
+			break;
+*/			
+		default:
+			break;			
+	}
+	return v_Msg;
+}
+
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+//콜백
+function fn_CallBack_Search(errCode, errMsg)
+{
+	if (errCode != 0) gfn_alert(fn_AlertMsg("002"));
+}
+
+function fn_CallBack_Save(errCode, errMsg)
+{
+	if (errCode == 0)
+		gfn_alert("운영일지 기준정보" + fn_AlertMsg("000"));
+	else
+		gfn_alert(fn_AlertMsg("002"));
+		
+}
+
+function fn_ChkData()
+{
+	// 변경여부 확인
+	if(! gfn_dsIsUpdated(ds_list))
+	{
+		return fn_AlertMsg("007");
+	}
+	
+	var nRow;
+	//필수항목 선택여부
+	nRow = ds_list.findRowExpr("MAN_FLAG=='Y'&&USE_YN=='0'");
+	if (nRow > -1)
+	{
+		ds_list.rowposition = nRow;
+		return fn_AlertMsg("003");
+	}
+}
+
+function fn_SetFlag()
+{
+	for (i = 0; i < ds_list.rowcount; i++)
+		ds_list.setColumn(i,"INSFLAG",iif(ds_list.getColumn(i,"USE_YN")=="1","I","N"));
+}
+
+function fn_CallPopUp(obj:Button, e:ClickEventInfo)
+{
+	var sAddWhere;
+	
+	switch(obj.name)
+	{
+		case "btn_UpjangPop":
+			if (application.g_UserGroup == "리조트")
+				sAddWhere = " AND A.MAIN_UPJANG = A.UPJANG ";
+
+			fn_sql_common_setup(strQuery_FMUpjang
+							, strQuery_FMUpjangKeyField
+							, strQuery_FMUpjangValueField
+							, strQuery_FMUpjangKeyFieldNM
+							, strQuery_FMUpjangValueFieldNM
+							, ""
+							, ""
+							, sAddWhere
+							, strQuery_FMUpjangCaption);
+							
+			if (gfn_length(gfn_trim(gds_sql_common.getColumn(0, "ret_code")))!= 0 && gfn_length(gfn_trim(gds_sql_common.getColumn(0, "ret_code")))!= null)
+			{
+				ed_Upjang.value = gds_sql_common.getColumn(0, "ret_code");
+				ed_UpjangNm.value = gds_sql_common.getColumn(0, "ret_name");
+				fn_search();
+			}
+			break;
+		default:
+			break;
+	}
+ }
+
+function fn_FormKeyDown(obj:Form, e:KeyEventInfo)
+{
+	if (e.keycode == 13) GetNextComponent(null).setFocus();
+}	
+
+function grd_Upjang_OnHeadClick(obj:Grid, e:GridClickEventInfo)
+{
+	gfn_gridSort(obj, e); //(eval(obj.binddataset), obj, e.cell);
+}
+]]></Script>
+  </Form>
+</FDL>

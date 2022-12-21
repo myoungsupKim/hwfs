@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.sch.userAuthChngLogDAO">
+	<desc>사용자 권한변경 이력 HQML Query</desc>
+
+	<!-- 사용자 권한변경 이력 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sc.sch.dao.UserAuthChngLogDAO.selectList */
+		<![CDATA[
+SELECT LEVEL AS LVL
+     , A.TITLE
+     , A.TIT1
+     , A.TIT2
+     , A.TIT3
+     , A.CHG_SABUN
+     , (SELECT NM_KOR FROM SCC_USERINFO WHERE SABUN = A.CHG_SABUN) AS CHG_NM
+     , A.CHG_FACT
+     , CASE A.CHG_FACT 
+         WHEN 'NEW_ROLE' THEN '권한추가'
+         WHEN 'DEL_ROLE' THEN '권한제거'
+         ELSE NULL
+       END AS CHG_FACT_NM
+     , A.CHG_DATE
+     , A.CHG_TIME
+     , A.FLAG1
+  FROM (SELECT DISTINCT
+               A.NM_KOR || '(' || A.SABUN || ')' AS TITLE
+             , NULL AS TIT1
+             , NULL AS TIT2
+             , NULL AS TIT3
+             , 'USERINFO' AS FLAG1
+             , A.SABUN
+             , NULL AS CHG_DATE
+             , NULL AS CHG_TIME
+             , NULL AS CHG_SABUN
+             , NULL AS CHG_FACT
+             , NULL AS MGMT_NUM
+             , A.SABUN AS C_KEY
+             , NULL AS P_KEY
+          FROM SCC_USERINFO A
+             , SCC_AUTH_CHG_LOG B
+             , SCC_USER_ROLE_CHG_LOG C
+             , SCC_ROLE D
+         WHERE C.SABUN = A.SABUN
+           AND C.MGMT_NUM = B.MGMT_NUM
+           AND D.SYS_TYPE = C.SYS_TYPE
+           AND D.ROLE = C.ROLE
+<#if sabun?has_content>
+           AND A.SABUN = :sabun
+</#if>
+<#if startDate?has_content>
+           AND B.CHG_DATE >= :startDate
+</#if>
+<#if endDate?has_content>
+           AND B.CHG_DATE <= :endDate
+</#if>
+         UNION ALL
+        SELECT DISTINCT
+               TO_CHAR(TO_DATE(B.CHG_DATE || B.CHG_TIME, 'YYYYMMDDHH24MISS'), 'YYYY-MM-DD HH24:MI:SS') AS TITLE
+             , B.CHG_DATE AS TIT1
+             , B.CHG_TIME AS TIT2
+             , NULL AS TIT3
+             , 'DATETIME' AS FLAG1
+             , A.SABUN
+             , B.CHG_DATE
+             , B.CHG_TIME
+             , NULL AS CHG_SABUN
+             , NULL AS CHG_FACT
+             , NULL AS MGMT_NUM
+             , A.SABUN || B.CHG_DATE || B.CHG_TIME AS C_KEY
+             , A.SABUN AS P_KEY
+          FROM SCC_USERINFO A
+             , SCC_AUTH_CHG_LOG B
+             , SCC_USER_ROLE_CHG_LOG C
+             , SCC_ROLE D
+         WHERE C.SABUN = A.SABUN
+           AND C.MGMT_NUM = B.MGMT_NUM
+           AND D.SYS_TYPE = C.SYS_TYPE
+           AND D.ROLE = C.ROLE
+<#if sabun?has_content>
+           AND A.SABUN = :sabun
+</#if>
+<#if startDate?has_content>
+           AND B.CHG_DATE >= :startDate
+</#if>
+<#if endDate?has_content>
+           AND B.CHG_DATE <= :endDate
+</#if>
+         UNION ALL
+        SELECT (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = '시스템구분' AND CODE = C.SYS_TYPE) || ' [' || D.ROLE_NAME || '(' || C.ROLE || ')]' AS TITLE
+             , C.SYS_TYPE AS TIT1
+             , C.ROLE AS TIT2
+             , D.ROLE_NAME AS TIT3
+             , 'ROLEINFO' AS FLAG1
+             , A.SABUN
+             , B.CHG_DATE
+             , B.CHG_TIME
+             , B.CHG_SABUN
+             , B.CHG_FACT
+             , B.MGMT_NUM
+             , A.SABUN || B.CHG_DATE || B.CHG_TIME || B.CHG_FACT AS C_KEY
+             , A.SABUN || B.CHG_DATE || B.CHG_TIME AS P_KEY
+          FROM SCC_USERINFO A
+             , SCC_AUTH_CHG_LOG B
+             , SCC_USER_ROLE_CHG_LOG C
+             , SCC_ROLE D
+         WHERE C.SABUN = A.SABUN
+           AND C.MGMT_NUM = B.MGMT_NUM
+           AND D.SYS_TYPE = C.SYS_TYPE
+           AND D.ROLE = C.ROLE
+<#if sabun?has_content>
+           AND A.SABUN = :sabun
+</#if>
+<#if startDate?has_content>
+           AND B.CHG_DATE >= :startDate
+</#if>
+<#if endDate?has_content>
+           AND B.CHG_DATE <= :endDate
+</#if>
+        ) A
+START WITH A.P_KEY IS NULL
+CONNECT BY PRIOR A.C_KEY = A.P_KEY
+ORDER BY A.SABUN, A.CHG_DATE DESC, A.CHG_TIME DESC, A.C_KEY
+		]]>
+	</statement>
+
+	<!-- 사용자 권한변경 이력(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sc.sch.dao.UserAuthChngLogDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 사용자 권한변경 이력(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sc.sch.dao.UserAuthChngLogDAO.update */
+		<![CDATA[
+		UPDATE TABLE_NAME 
+		SET    COLUMN_NAME1 = :columnName1,
+		       COLUMN_NAME2 = :columnName2,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+	<!-- 사용자 권한변경 이력(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.sc.sch.dao.UserAuthChngLogDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>

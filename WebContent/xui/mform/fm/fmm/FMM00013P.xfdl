@@ -1,0 +1,266 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FMM00013P" onload="form_onload" titletext="재료구성" position="absolute 0 0 740 242" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Grid autoenter="select" binddataset="ds_PopItemList" cellmovingtype="col" cellsizingtype="both" enable="true" id="grd_jajea" useinputpanel="false" onheadclick="grd_jajea_OnHeadClick" onmousemove="grd_jajea_OnMouseOver" taborder="2" tabstop="true" usecontextmenu="true" useselcolor="true" visible="true" wheelscrollrow="1" position="absolute 15 10 725 227" readonly="true" selecttype="row" fillareatype="linerow" autofittype="col">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="30"/>
+                <Column size="25"/>
+                <Column size="100"/>
+                <Column size="190"/>
+                <Column size="140"/>
+                <Column size="80"/>
+                <Column size="50"/>
+                <Column size="60"/>
+                <Column size="60"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell rowspan="2" displaytype="text" class="head_Excel"/>
+                <Cell col="1" rowspan="2" displaytype="text" text="상&#10;태" wordwrap="word"/>
+                <Cell col="2" rowspan="2" displaytype="text" text="상품코드"/>
+                <Cell col="3" rowspan="2" displaytype="text" text="상품명"/>
+                <Cell col="4" rowspan="2" displaytype="text" text="규격"/>
+                <Cell col="5" rowspan="2" displaytype="text" text="원산지"/>
+                <Cell col="6" rowspan="2" displaytype="text" text="단위"/>
+                <Cell col="7" rowspan="2" displaytype="text" text="1인소요량&#10;(g)"/>
+                <Cell col="8" rowspan="2" displaytype="text" text="1인원가&#10;(원)"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" style="align:left;" expr="expr:currow+1"/>
+                <Cell col="1" displaytype="image" style="selectbackground: ;" text="expr:iif(ITEM_CODE!=&quot;010708010198&quot;, iif(RESTRICT_YN==&quot;Y&quot;, &quot;URL('theme://convertImages/img_RC.png')&quot;, &quot;&quot;))"/>
+                <Cell col="2" displaytype="text" style="align:left;" text="bind:ITEM_CODE"/>
+                <Cell col="3" displaytype="text" style="align:left;" text="bind:ITEM_NAME"/>
+                <Cell col="4" displaytype="text" style="align:left;" text="bind:ITEM_SIZE"/>
+                <Cell col="5" displaytype="text" style="align:left;" text="bind:ORIGIN_TYPE"/>
+                <Cell col="6" displaytype="text" style="align:left;" text="bind:PO_UOM"/>
+                <Cell col="7" displaytype="number" edittype="text" editfilter="number" style="align:right;" text="bind:NEED_QTY"/>
+                <Cell col="8" displaytype="number" style="align:right;" text="bind:PERSON_PRICE"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 647 10"/>
+        <Static id="Static06" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 245"/>
+        <Static id="Static07" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 725 0 740 245"/>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 15 227 647 242"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_cond">
+        <ColumnInfo>
+          <Column id="GBN" size="255" type="STRING"/>
+          <Column id="UPJANG" size="255" type="STRING"/>
+          <Column id="UPJANGNM" size="255" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_PopItemList"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/*
+ ******************************************************************************************
+ * 시스템구분   : 시스템공통/공통코드/등록사용자 검색
+ * 프로그램명   : SCC00040E.XML
+ * 기      능   : 사용자 등록검색
+ * 작  성  자   : 윤상혁
+ * 작성  일자   : 20071120
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ *  1) 
+ ******************************************************************************************
+ */
+include "U_lib::lib_conversionCom.xjs";
+//@@컨버터에서 주석처리 #include "lib::sc_comon.js"
+//@@컨버터에서 주석처리 #include "lib::tit_comm_0001.js"
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	fsp_init(this);
+	fn_search();
+}
+
+/******************************************************************************************
+ * 함  수  명   : fn_Search()
+ * 입      력   : 사번,성명
+ * 반      환   : 없음
+ * 기      능   : 업장 검색
+ * 작  성  자   : 윤상혁
+ * 작성  일자   : 20071120
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ *  1) 
+ ******************************************************************************************
+ */
+function fn_search()
+{
+	ds_cond.clear();
+	ds_cond.addColumn("RECIPE_NAME","STRING",255);
+	ds_cond.addColumn("RECIPE_CD","STRING",255);
+	ds_cond.addColumn("UPJANG","STRING",255);
+	ds_cond.addRow();
+	ds_cond.setColumn(0,"RECIPE_NAME",gfn_nvl(IN_RECIPE_NAME));
+	ds_cond.setColumn(0,"RECIPE_CD",gfn_nvl(IN_RECIPE_CD));
+	ds_cond.setColumn(0,"UPJANG",gfn_nvl(IN_UPJANG));
+	//trace("Pop=> "+IN_GBN+"/"+IN_RECIPE_CD+"/"+IN_RECIPE_NAME+"/"+IN_UPJANG);
+	var arg	="RECIPE_NAME="		+wrapQuote(gfn_nvl(IN_RECIPE_NAME))
+			+" RECIPE_CD="		+wrapQuote(gfn_nvl(IN_RECIPE_CD))
+			+" UPJANG="			+wrapQuote(gfn_nvl(IN_UPJANG));
+	fsp_clear(this);
+	ds_PopItemList.clearData();
+	if(IN_GBN==0) // 한화 표준레시피일 경우
+	{
+		jsp_transaction(
+			  this
+			, "ds_PopItemList"
+			, "U_svc::" + "fm/fmm/FMM00010E_S031.jsp"
+			, ""
+			, "ds_PopItemList=ds_ItemList"
+			, arg
+			, "fn_call_back_T0_jajea_j");
+		//tit_addSearchActionInfo(this,"fm/fmm:FMM00010E_S031");
+	}
+	else // 본사 표준레시피일 경우
+	{
+		jsp_transaction(
+			  this
+			, "ds_PopItemList"
+			, "U_svc::" + "fm/fmm/FMM00010E_S010.jsp"
+			, ""
+			, "ds_PopItemList=ds_ItemList"
+			, arg
+			, "fn_call_back_T0_jajea_j");
+		//tit_addSearchActionInfo(this,"fm/fmm:FMM00010E_S010");
+	}
+	//tit_CallService(this,"","","ds_cond=ds_cond","ds_PopItemList=ds_ItemList","","fn_call_back","",true);	
+}
+function fn_call_back_T0_jajea_j(svcid,cd,errmsg)
+{
+	if(cd==-1)
+	{
+		g_Message("EE","시스템 오류!\n\n전산 담당자에게 문의하세요.");
+		return;
+	}
+	else
+	{	
+//		trace(ds_PopItemList.SaveXML());
+	}
+}
+function fn_call_back(cd,errmsg)
+{
+	if(cd!=0)
+	{
+		//alert(fn_AlertMsg("002"));
+		return;
+	}
+	else
+	{	
+//		trace(ds_PopItemList.SaveXML());
+	}
+}
+/******************************************************************************************
+ * 함  수  명   : ed_cond_OnKeyDown()
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : 엔터키입력시 조회 함수 호출
+ * 작  성  자   : 윤상혁
+ * 작성  일자   : 20071120
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ *  1) 
+ ******************************************************************************************
+ */
+// function ed_cond_OnKeyDown(obj,nChar,bShift,bCtrl, bAlt,LLParam,HLParam)
+// {
+	// if(nChar=="13")
+	// {
+		// fn_Search();
+	// }
+// }
+/******************************************************************************************
+ * 함  수  명   : btn_Search_OnClick()
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : 버튼 클릭시 조회함수 호출
+ * 작  성  자   : 윤상혁
+ * 작성  일자   : 20071120
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ *  1) 
+ ******************************************************************************************
+ */
+// function btn_Search_OnClick(obj)
+// {
+	// fn_Search();
+// }
+/******************************************************************************************
+ * 함  수  명   : grd_list_OnCellDblClick()
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : 그리드 더블 클릭시 값반환
+ * 작  성  자   : 윤상혁
+ * 작성  일자   : 20071120
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ *  1) 
+ ******************************************************************************************
+ */
+// function grd_list_OnCellDblClick(obj,nRow,nCell,nX,nY,nPivotIndex)
+// {
+	// var v_str="";
+	// if(ds_upjang.RowCount()>0)
+	// {
+		// v_str=	ds_upjang.GetColumn(nRow,"UPJANG")+";"
+			  // +	ds_upjang.GetColumn(nRow,"UPJANGNM");
+		
+	// }
+	// close(v_str);	
+// }
+
+
+
+function grd_jajea_OnHeadClick(obj:Grid, e:GridClickEventInfo)
+{
+	switch(e.cell)
+	{
+		case 0: 
+			gfn_exportExcel(obj, "sheet1");
+			break;
+		default:
+			gfn_gridSort(obj, e); //(eval(obj.binddataset), obj, e.cell);
+			break;
+	}
+}
+
+function grd_jajea_OnMouseOver(obj:Grid, e:GridMouseEventInfo)
+{
+	if(e.row>=0)
+	{
+		switch(e.cell)
+		{
+			case 1:
+				if(ds_PopItemList.getColumn(e.row,"RESTRICT_YN")=="Y")
+				{
+					grd_jajea.tooltiptext="발주 제한 품목입니다.";
+				}
+				else
+				{
+					grd_jajea.tooltiptext="";
+				}
+				break;
+			default:
+				grd_jajea.tooltiptext="";
+				break;
+		}
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

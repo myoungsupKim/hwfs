@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="rc.sle.MenuGrpSalesListDAO">
+	<desc>메뉴 그룹별 월년 판매현황</desc>
+
+	<statement name="selectList" type="select"><![CDATA[
+			SELECT AA.OUTLET_CD, MAX(KK.OUTLET_NM) AS OUTLET_NM, MENU_CLASS, MENU_CLSFI, MENU_SCLASS
+				 , MENU_CLASS || MENU_CLSFI || MENU_SCLASS AS GRUP_CD,  AA.MENU_CLSFI_NM AS GRUP_NM 
+			   
+			     , NVL(SUM(BB.QTY), 0) AS THMM_QTY
+			     , NVL(SUM(BB.AMT), 0) AS THMM_AMT
+			     , NVL(SUM(BB.DSCN_AMT), 0) AS THMM_DSCN_AMT
+			     , NVL(SUM(BB.SELL_AMT), 0) AS THMM_SELL_AMT
+			     , NVL(SUM(BB.SUB_RATE), 0) AS THMM_SUB_RATE
+			     , NVL(SUM(BB.TOT_RATE), 0) AS THMM_SUM_RATE
+			     , NVL(SUM(BB.RATE), 0) AS BFREYEAR_BIGRATE1
+			     
+			     , NVL(SUM(CC.QTY), 0) AS THSYEAR_QTY
+			     , NVL(SUM(CC.AMT), 0) AS THSYEAR_AMT
+			     , NVL(SUM(CC.DSCN_AMT), 0) AS THSYEAR_DSCN_AMT
+			     , NVL(SUM(CC.SELL_AMT), 0) AS THSYEAR_SELL_AMT
+			     , NVL(SUM(CC.SUB_RATE),0) AS THSYEAR_SUB_RATE
+			     , NVL(SUM(CC.TOT_RATE), 0) AS THSYEAR_SUM_RATE
+			     , NVL(SUM(CC.RATE),0) AS BFREYEAR_BIGRATE2
+			     
+			     
+			  FROM
+				(
+			 	  SELECT A.OUTLET_CD, A.MENU_CD,  A.MENU_CLASS, A.MENU_CLSFI, A.MENU_SCLASS, B.MENU_CLSFI_NM, A.MENU_NM 
+			 	  FROM SLE_OUTLET_MENU A
+			      INNER JOIN SLE_MENU_CLSFI B  ON B.MENU_CLASS  = A.MENU_CLASS
+			                                       AND B.MENU_CLSFI  = A.MENU_CLSFI
+			                                       AND B.MENU_SCLASS = A.MENU_SCLASS
+			       	WHERE  1 = 1
+			      <#if outletCd?has_content >   AND OUTLET_CD  = :outletCd  </#if>--업장
+			      GROUP BY A.OUTLET_CD, A.MENU_CD,  A.MENU_CLASS, A.MENU_CLSFI, A.MENU_SCLASS, B.MENU_CLSFI_NM, A.MENU_NM 
+				)AA
+				
+				--월별 메뉴 판매 현황
+				LEFT OUTER JOIN
+				(
+			  		SELECT 	A.OUTLET_CD, A.MENU_CD AS MENU_CD, QTY, AMT, DSCN_AMT, SELL_AMT,SVC_AMT, VAT_AMT, A.SALE_AMT,
+			  				ROUND((NVL(A.SALE_AMT / DECODE(B.TOT_AMT * 100, 0, NULL, B.TOT_AMT * 100), 0)),2) AS SUB_RATE,
+			         		SUM(ROUND((NVL(A.SALE_AMT / DECODE(B.TOT_AMT * 100, 0, NULL, B.TOT_AMT * 100), 0)), 2)) OVER(ORDER BY A.OUTLET_CD, A.MENU_CD) AS TOT_RATE,
+			         		NVL(ROUND((NVL(A.SALE_AMT / DECODE(C.SALE_AMT * 100, 0, NULL, C.SALE_AMT * 100), 0)), 2), 0) AS RATE
+					FROM(
+			            SELECT OUTLET_CD, MENU_CD  AS MENU_CD
+			                 , SUM(QUANTITY) AS QTY,      SUM(AMT)     AS AMT,     SUM(DISCNT_AMT) AS DSCN_AMT
+			                 , SUM(SALS_AMT) AS SELL_AMT, SUM(SVC_AMT) AS SVC_AMT, SUM(VAT_AMT)    AS VAT_AMT
+			                 , SUM(TOT_SALS) AS SALE_AMT
+			            	FROM SLE_SUM_MENU_SALS
+			           		WHERE SALES_DATE LIKE substr(:salesYearMonth,1,6) ||'%'
+			           		  AND SALS_CLASS     = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+					          AND MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+			             	  <#if outletCd?has_content >   AND OUTLET_CD  = :outletCd  </#if>--업장
+			                GROUP BY OUTLET_CD, MENU_CD
+			          	)A
+			
+			           LEFT OUTER JOIN
+			            (
+			              SELECT OUTLET_CD, SUM(TOT_SALS) AS TOT_AMT FROM SLE_SUM_MENU_SALS
+			              	WHERE SALES_DATE LIKE substr(:salesYearMonth,1,6) ||'%'
+			              	  AND SALS_CLASS     = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+					          AND MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+			              	  <#if outletCd?has_content >   AND OUTLET_CD  = :outletCd  </#if>--업장
+			              	  GROUP BY OUTLET_CD
+			            )B ON A.OUTLET_CD = B.OUTLET_CD
+			
+			          LEFT OUTER JOIN
+			            (
+			              SELECT OUTLET_CD, MENU_CD, SUM(TOT_SALS) AS SALE_AMT FROM SLE_SUM_MENU_SALS
+			              	WHERE SALES_DATE LIKE (substr(:salesYearMonth,1,4)) -1 || Substr(:salesYearMonth,5,4) ||'%'
+			              	AND SALS_CLASS     = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+					        AND MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+			                <#if outletCd?has_content >   AND OUTLET_CD  = :outletCd  </#if>--업장
+			                GROUP BY OUTLET_CD, MENU_CD
+			
+			            )C ON  A.OUTLET_CD = C.OUTLET_CD AND A.MENU_CD = C.MENU_CD
+			
+			        )BB ON AA.OUTLET_CD = BB.OUTLET_CD  AND AA.MENU_CD   = BB.MENU_CD
+			
+			    --년별 메뉴 판매 현황
+			    LEFT OUTER JOIN
+			    (
+					SELECT A.OUTLET_CD, A.MENU_CD AS MENU_CD, QTY, AMT, DSCN_AMT, SELL_AMT, SVC_AMT, VAT_AMT, A.SALE_AMT,
+						   ROUND((NVL(A.SALE_AMT / DECODE(B.TOT_AMT * 100, 0, NULL, B.TOT_AMT * 100), 0)),2) AS SUB_RATE,
+			               SUM(ROUND((NVL(A.SALE_AMT / DECODE(B.TOT_AMT * 100, 0, NULL, B.TOT_AMT * 100), 0)), 2)) OVER(ORDER BY A.OUTLET_CD, A.MENU_CD) AS TOT_RATE,
+			               NVL(ROUND((NVL(A.SALE_AMT / DECODE(C.SALE_AMT * 100, 0, NULL, C.SALE_AMT * 100), 0)), 2), 0) AS RATE
+			        FROM
+			        (
+			          SELECT OUTLET_CD, MENU_CD
+			               , SUM(QUANTITY) AS QTY,      SUM(AMT)     AS AMT,     SUM(DISCNT_AMT) AS DSCN_AMT
+			               , SUM(SALS_AMT) AS SELL_AMT, SUM(SVC_AMT) AS SVC_AMT, SUM(VAT_AMT)    AS VAT_AMT
+			               , SUM(TOT_SALS) AS SALE_AMT
+			            FROM SLE_SUM_MENU_SALS
+			           WHERE SALES_DATE  LIKE substr(:salesYearMonth,1,4) ||'%'
+			             AND SALS_CLASS     = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+					     AND MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+			             <#if outletCd?has_content >   AND OUTLET_CD  = :outletCd  </#if>--업장
+			           GROUP BY OUTLET_CD, MENU_CD
+			        )A
+			
+			        LEFT OUTER JOIN
+			          (
+			          SELECT OUTLET_CD, SUM(TOT_SALS) AS TOT_AMT FROM SLE_SUM_MENU_SALS
+			           WHERE SALES_DATE LIKE substr(:salesYearMonth,1,4) ||'%'
+			             AND SALS_CLASS     = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+					     AND MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+			             <#if outletCd?has_content >   AND OUTLET_CD  = :outletCd  </#if>--업장
+			             GROUP BY OUTLET_CD
+			          )B  ON A.OUTLET_CD = B.OUTLET_CD
+			
+			        LEFT OUTER JOIN
+			          (
+			          SELECT OUTLET_CD, MENU_CD, SUM(TOT_SALS) AS SALE_AMT FROM SLE_SUM_MENU_SALS
+			           WHERE SALES_DATE LIKE (substr(:salesYearMonth,1,4)) -1 ||'%'
+			             AND SALS_CLASS     = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+					     AND MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+			             <#if outletCd?has_content >   AND OUTLET_CD  = :outletCd  </#if>--업장
+			           GROUP BY OUTLET_CD, MENU_CD
+			          )C ON  A.OUTLET_CD = C.OUTLET_CD AND A.MENU_CD = C.MENU_CD
+			
+			    )CC ON AA.OUTLET_CD = CC.OUTLET_CD AND AA.MENU_CD = CC.MENU_CD
+			    
+			    INNER JOIN SLE_OUTLET_MST KK ON KK.OUTLET_CD = AA.OUTLET_CD 
+				INNER JOIN (SELECT MST.OUTLET_CD, MST.OUTLET_NM
+			               FROM SLE_OUTLET_MST MST
+			              INNER JOIN SCO_UPJANG_V UPJANG ON UPJANG.UPJANG = TO_NUMBER(MST.OUTLET_CD) 
+			                     <#if muCd?has_content> AND UPJANG.MU_CD = :muCd </#if>
+			                     <#if tmCd?has_content> AND  UPJANG.TM_CD = :tmCd </#if> 
+	                         <#if outletCd?has_content> WHERE MST.OUTLET_CD = :outletCd </#if>
+			            ) OUTLET ON OUTLET.OUTLET_CD = AA.OUTLET_CD
+			    
+			WHERE (BB.SELL_AMT > 0 OR CC.SELL_AMT > 0)
+			    
+			GROUP BY  AA.OUTLET_CD, MENU_CLASS, MENU_CLSFI, MENU_SCLASS,MENU_CLSFI_NM
+    		ORDER BY  AA.OUTLET_CD, MENU_CLASS, MENU_CLSFI, MENU_SCLASS,MENU_CLSFI_NM
+		]]></statement>
+
+</hqml>

@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>       
+
+SELECT /*+RULE*/A.UPJANG,
+       (SELECT UPJANGNM FROM HLDC_ST_UPJANG WHERE UPJANG = A.UPJANG) UPJANGNM,
+       C.CLASS_NAME,
+       B.ITEM_NAME,
+       B.ITEM_SIZE,
+       ROUND(DECODE(NVL(SUM(IN_QTY), 0),  0, 0, NVL(SUM(IN_AMT), 0)/NVL(SUM(IN_QTY), 0)))     UNIT_PRICE,
+       ROUND(DECODE(NVL(SUM(OUT_QTY), 0), 0, 0, NVL(SUM(SALE_AMT), 0)/NVL(SUM(OUT_QTY), 0)))  SALE_PRICE,
+       ROUND(SUM(BEFORE_QTY)) B_QTY,
+       ROUND(SUM(BEFORE_AMT)) B_AMT,
+       ROUND(SUM(IN_QTY)) IN_QTY,
+       ROUND(SUM(IN_AMT)) IN_AMT,
+       ROUND(SUM(OUT_QTY)) OUT_QTY,
+       ROUND(SUM(OUT_AMT)) OUT_AMT,
+       ROUND(SUM(AFTER_QTY)) A_QTY,
+       ROUND(SUM(AFTER_AMT)) A_AMT,
+       SUM(SALE_AMT)  SALE_AMT
+FROM
+(
+-- 매점상품 당월구매/사용내역
+SELECT UPJANG,
+       ITEM_CODE,
+       BEFORE_QTY,
+       BEFORE_AMT,
+       IN_QTY,
+       IN_AMT,
+       OUT_QTY,
+       OUT_AMT,
+       AFTER_QTY,
+       AFTER_AMT,
+       OUT_QTY * MAS_SALEPRICE_FUN(TRANS_MM||'31', UPJANG, ITEM_CODE) SALE_AMT
+  FROM (
+        SELECT A.UPJANG,
+               A.ITEM_CODE,
+               A.TRANS_MM,
+               0 BEFORE_QTY,
+               0 BEFORE_AMT,
+               SUM(IN_QTY) IN_QTY,
+               SUM(IN_AMT) IN_AMT,
+               SUM(OUT_QTY) OUT_QTY,
+               SUM(OUT_AMT) OUT_AMT,
+               0 AFTER_QTY,
+               0 AFTER_AMT
+        FROM   MAS_DD_CORNER_INOUT A
+        WHERE  A.TRANS_MM BETWEEN #TRX_DATEFR# AND #TRX_DATETO#
+        <isNotNull col="UPJANG">                
+        AND   (A.UPJANG          = #UPJANG#)
+        </isNotNull>         
+        GROUP BY A.UPJANG, A.ITEM_CODE, A.TRANS_MM
+       )
+UNION ALL
+-- 매점상품 기초재고
+SELECT D.UPJANG,
+       C.ITEM_CODE,
+       SUM(ABS(C.ONHAND_QTY))  BEFORE_QTY,
+       SUM(ABS(C.MARGIN_PRICE * C.ONHAND_QTY)) BEFORE_AMT,
+       0 IN_QTY,
+       0 IN_AMT,
+       0 OUT_QTY,
+       0 OUT_AMT,
+       0 AFTER_QTY,
+       0 AFTER_AMT,
+       0 SALE_AMT
+FROM  HLDC_PO_ONHAND_MONTH C, HLDC_PO_SUBINVENTORY D
+WHERE C.SUBINV_CODE = D.SUBINV_CODE
+  AND C.ONHAND_YM   = TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATEFR# || '01','YYYYMMDD'),-1),'YYYYMM')
+  AND D.ORG_CODE    = 'A20'
+  <isNotNull col="UPJANG">                
+  AND   (D.UPJANG          = #UPJANG#)
+  </isNotNull>           
+GROUP BY D.UPJANG, C.ITEM_CODE
+UNION ALL
+-- 매점상품 기말재고
+SELECT D.UPJANG,
+       C.ITEM_CODE,
+       0 BEFORE_QTY,
+       0 BEFORE_AMT,
+       0 IN_QTY,
+       0 IN_AMT,
+       0 OUT_QTY,
+       0 OUT_AMT,
+       SUM(ABS(C.ONHAND_QTY)) AFTER_QTY,
+       SUM(ABS(C.MARGIN_PRICE * C.ONHAND_QTY)) AFTER_AMT,
+       0 SALE_AMT
+FROM   HLDC_PO_ONHAND_MONTH C, HLDC_PO_SUBINVENTORY D
+WHERE  C.SUBINV_CODE = D.SUBINV_CODE
+  AND  C.ONHAND_YM   = #TRX_DATETO#
+  AND  D.ORG_CODE    = 'A20'
+  <isNotNull col="UPJANG">                
+  AND   (D.UPJANG          = #UPJANG#)
+  </isNotNull>     
+GROUP BY D.UPJANG, C.ITEM_CODE
+) A,
+HLDC_PO_ITEM_MST B,
+(
+        SELECT CLASS_CODE, CLASS_NAME
+          FROM HLDC_PO_ITEM_CLASS
+         WHERE CLASS_CODE LIKE '06%'
+           AND CLASS_TYPE = 'M'
+) C
+WHERE A.ITEM_CODE = B.ITEM_CODE
+  AND B.ITEM_CLASS2 = C.CLASS_CODE
+GROUP BY A.UPJANG, C.CLASS_NAME, A.ITEM_CODE, B.ITEM_NAME, B.ITEM_SIZE
+ORDER BY A.UPJANG, C.CLASS_NAME, A.ITEM_CODE
+
+</statement>
+	<input default-name="ds_cond">
+	<col name="TRX_DATEFR" size="255" type="VARCHAR" description="" /> 		
+	<col name="TRX_DATETO" size="255" type="VARCHAR" description="" /> 		
+	<col name="UPJANG" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+
+	</output>
+</query>

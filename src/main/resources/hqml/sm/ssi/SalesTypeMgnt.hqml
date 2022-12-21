@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+    name="sm.ssi.salesTypeMgntDAO">
+    <desc>영업유형 HQML Query</desc>
+
+    <!-- 영업유형 목록을 조회한다. -->
+    <statement name="selectList" type="select">
+        /*+ com.hwfs.sm.ssi.dao.SalesTypeMgntDAO.selectList */
+        <![CDATA[
+            SELECT  CODE        TYPE_GRP_CD
+                    ,CODE_NAME  TYPE_GRP_NM
+                    ,USE_YN
+            FROM    SCC_COMMON_CODE
+            WHERE   GROUP_CODE = 'TYPE_GRP_CD'
+            AND     USE_YN = 'Y'
+        <#if typeGrpCd?has_content>
+            AND     CODE = :typeGrpCd
+        </#if>
+            ORDER BY SORT_SEQ
+        ]]>
+    </statement>
+
+    <!-- 영업유형을 조회한다. -->
+    <statement name="selectDtlList" type="select">
+        /*+ com.hwfs.sm.ssi.dao.SalesTypeMgntDAO.selectDtlList */
+        <![CDATA[
+            SELECT  A.TYPE_GRP_CD
+                    ,SCC_CODE_NM('TYPE_GRP_CD',A.TYPE_GRP_CD) TYPE_GRP_NM
+                    ,A.TYPE_CD
+                    ,A.TYPE_NM
+                    ,A.DR_CR_CLASS
+                    ,SCC_CODE_NM('DR_CR_CLASS',A.DR_CR_CLASS) DR_CR_CLASS_NM
+                    ,A.ACCT_CD
+                    ,(
+                    SELECT  D.ACCTNM
+                    FROM    HLDC_ST_ACCOUNT_V D
+                    WHERE   A.ACCT_CD = D.ACCTCD
+                    ) ACCT_NM
+                    ,A.CC_CD
+                    ,(
+                    SELECT  E.CC_NM
+                    FROM    SCC_CC E
+                    WHERE   A.CC_CD = E.CC_CD
+                    ) CC_NM
+                    ,TO_CHAR(A.CUST_CD) CUST_CD
+                    ,(
+                    SELECT  F.CUSTNM
+                    FROM    ST_CUST F
+                    WHERE   A.CUST_CD = F.CUSTCD
+                    ) CUST_NM
+                    ,A.TYPE_CLSFI
+                    ,SCC_CODE_NM('TYPE_CLSFI',A.TYPE_CLSFI) TYPE_CLSFI_NM
+                    ,A.REMARK
+                    ,A.SORT_ORDER
+                    ,A.USE_YN
+                    ,A.CUSER
+                    ,A.CDATE
+                    ,A.UUSER
+                    ,A.UDATE
+            FROM    SLA_TYPE_CD_MST A
+            WHERE   1 = 1
+        <#if typeGrpCdDtl?has_content>
+            AND	    A.TYPE_GRP_CD = :typeGrpCdDtl
+        </#if>
+        <#if typeCd?has_content>
+            AND	    A.TYPE_CD = :typeCd
+        </#if>
+        <#if useYn?has_content>
+            AND     A.USE_YN = :useYn
+        </#if>
+            ORDER BY A.SORT_ORDER
+        ]]>
+    </statement>
+
+    <!-- 영업유형 중복체크. -->
+    <statement name="selectExists" type="select">
+        /*+ com.hwfs.sm.ssi.dao.SalesTypeMgntDAO.selectExists */
+        <![CDATA[
+            SELECT  COUNT(*) AS EXISTS_CNT
+            FROM    SLA_TYPE_CD_MST
+            WHERE   TYPE_CD = :typeCd
+        ]]>
+    </statement>
+    
+    <!-- 영업유형(을)를 등록한다. -->
+    <statement name="insert" type="insert">
+        /*+ com.hwfs.sm.ssi.dao.SalesTypeMgntDAO.insert */
+        <![CDATA[
+            INSERT INTO SLA_TYPE_CD_MST (
+                TYPE_GRP_CD
+                ,TYPE_CD
+                ,TYPE_NM
+                ,DR_CR_CLASS
+                ,ACCT_CD
+                ,CC_CD
+                ,CUST_CD
+                ,TYPE_CLSFI
+                ,REMARK
+                ,SORT_ORDER
+                ,USE_YN
+                ,CUSER
+                ,CDATE
+            ) VALUES (
+                :typeGrpCd
+                ,:typeCd
+                ,:typeNm
+                ,<#if drCrClass?exists>:drCrClass<#else>null</#if>
+                ,<#if acctCd?exists>:acctCd<#else>null</#if>
+                ,<#if ccCd?exists>:ccCd<#else>null</#if>
+                ,<#if custCd?exists>:custCd<#else>null</#if>
+                ,<#if typeClsfi?exists>:typeClsfi<#else>null</#if>
+                ,<#if remark?exists>:remark<#else>null</#if>
+                ,:sortOrder
+                ,:useYn
+                ,:loginSabun
+                ,SYSDATE
+            )
+        ]]>
+    </statement>
+
+    <!-- 영업유형(을)를 수정한다. -->
+    <statement name="update" type="update">
+        /*+ com.hwfs.sm.ssi.dao.SalesTypeMgntDAO.update */
+        <![CDATA[
+            UPDATE  SLA_TYPE_CD_MST
+            SET     TYPE_NM         = :typeNm
+                <#if drCrClass?exists>
+                    ,DR_CR_CLASS	= :drCrClass
+                </#if>
+                <#if acctCd?exists>
+                    ,ACCT_CD		= :acctCd
+                </#if>
+                <#if ccCd?exists>
+                    ,CC_CD          = :ccCd
+                </#if>
+                <#if custCd?exists>
+                    ,CUST_CD        = :custCd
+                </#if>
+                <#if typeClsfi?exists>
+                    ,TYPE_CLSFI     = :typeClsfi
+                </#if>
+                <#if remark?exists>
+                    ,REMARK         = :remark
+                </#if>
+                    ,SORT_ORDER     = :sortOrder
+                    ,USE_YN         = :useYn
+                    ,UUSER          = :loginSabun
+                    ,UDATE          = SYSDATE
+            WHERE   TYPE_GRP_CD     = :typeGrpCd
+            AND     TYPE_CD         = :typeCd
+        ]]>
+    </statement>
+
+    <!-- 영업유형(을)를 삭제한다. -->
+    <statement name="delete" type="delete">
+        /*+ com.hwfs.sm.ssi.dao.SalesTypeMgntDAO.delete */
+        <![CDATA[
+            DELETE
+            FROM    SLA_TYPE_CD_MST
+            WHERE   TYPE_GRP_CD = :typeGrpCd
+            AND     TYPE_CD     = :typeCd
+        ]]>
+    </statement>
+
+</hqml>

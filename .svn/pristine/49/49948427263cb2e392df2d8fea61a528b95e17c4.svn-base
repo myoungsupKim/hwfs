@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[3-2 대분류/소모품별 거래실적(캐터링본사) 사업장별 판매단가별 ]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT DECODE(SUBSTRB(A.CLASS_NAME,1,4),'영업','소모',SUBSTRB(A.CLASS_NAME,1,4)) AS CLASS_NAME
+     , NVL(SUM(ROUND(DECODE(B.TAX_CODE,'100',1.1,1) * B.SALE_AMOUNT)),0) AS OP_AMOUNT
+  FROM HLDC_PO_ITEM_CLASS_HLDC_V A
+     ,(SELECT A.*
+         FROM HLDC_PO_TRANSACTION A, HLDC_PO_ITEM_MST B
+        WHERE A.ITEM_CODE = B.ITEM_CODE
+          AND A.TRANS_DATE BETWEEN TO_CHAR(SYSDATE,'YYYYMM"01"') AND TO_CHAR(SYSDATE,'YYYYMMDD')
+          AND A.TRANS_TYPE = 'I001'
+          AND A.TRANS_UPJANG = #UPJANG#
+          AND B.CONSUM_YN = 'N') B
+ WHERE A.CLASS_CODE = SUBSTR(B.ITEM_CODE(+),1,4)||'0000'
+   AND A.CLASS_CODE BETWEEN '01000000' AND '01999999'
+   AND A.CLASS_TYPE = 'M'
+ GROUP BY A.CLASS_CODE, A.CLASS_NAME	]]></statement>
+	<input default-name="ds_in">
+	</input>
+	<output default-name="ds_sales">
+	</output>
+</query>

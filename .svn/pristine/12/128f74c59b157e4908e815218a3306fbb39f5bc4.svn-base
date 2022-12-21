@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[자재별 사용현황 조회 마스터]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.DUTY_SEQ,
+       TO_CHAR(A.CDATE,'YYYY.MM.DD') CDATE,
+       A.CENTER_CODE,
+       E.CENTER_NAME,
+       A.CUSTCD,
+       D.CUSTNM,
+       C.ITEM_CODE,
+       C.ITEM_NAME,
+       C.ITEM_SIZE,
+       C.PO_UOM,
+       TO_CHAR(TO_DATE(A.START_DATE,'YYYYMMDD'),'YYYY.MM.DD') || '~' || TO_CHAR(TO_DATE(A.END_DATE,'YYYYMMDD'),'YYYY.MM.DD') AS PERIOD,
+       A.START_DATE,
+       A.END_DATE,
+       A.TOT_DUTY_QTY,     -- 의무량
+       NVL(SUM(DUTY_QTY),0) DUTY_QTY, --설정량
+       NVL(SUM(PR_QTY),0) PR_QTY, --신청량
+       NVL(SUM(TRANS_QTY),0) TRANS_QTY, --입고량
+       DECODE(NVL(SUM(DUTY_QTY),0), 0, 0, ROUND(NVL(SUM(PR_QTY),0) / NVL(SUM(DUTY_QTY),0) * 100,2)) PR_RATE, --신청비율
+       DECODE(NVL(SUM(DUTY_QTY),0), 0, 0, ROUND(NVL(SUM(TRANS_QTY),0) / NVL(SUM(DUTY_QTY),0) * 100,2)) TRANS_RATE --입고비율
+  FROM
+       FSI_DUTY_MST A
+      ,(
+        SELECT A.DUTY_SEQ, A.CENTER_CODE, A.CUSTCD, A.ITEM_CODE, B.UPJANG, B.DUTY_QTY
+          FROM FSI_DUTY_MST A
+              ,FSI_DUTY_SET B
+         WHERE A.DUTY_SEQ = B.DUTY_SEQ
+       ) B
+      ,HLDC_PO_ITEM_MST C
+      ,HLDC_ST_CUST D
+      ,HLDC_PO_CENTER E
+      ,(
+        SELECT CENTER_CODE, CUSTCD, ITEM_CODE, RC_UPJANG, SUM(PR_QTY) PR_QTY
+          FROM HLDC_PO_PR
+         WHERE RC_MU_CD = 'YA'
+           AND LINE_STATUS >= '004'
+           AND SUBINV_CODE LIKE 'C%'
+           AND ITEM_CODE BETWEEN '010100000001' AND '019999999999'
+           AND NEED_DATE BETWEEN #FROM_DT# AND #TO_DT#  -- [INPUT:기간]
+         GROUP BY CENTER_CODE, CUSTCD, ITEM_CODE, RC_UPJANG
+       ) F
+      ,(
+        SELECT CENTER_CODE, CUSTCD, ITEM_CODE, TRANS_UPJANG
+             , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * TRANS_QTY) TRANS_QTY
+          FROM HLDC_PO_TRANSACTION A
+         WHERE TRANS_MU_CD = 'YA'
+           AND SUBINV_CODE LIKE 'C%'
+           AND ITEM_CODE BETWEEN '010100000001' AND '019999999999'
+           AND (A.TRANS_TYPE = 'I001' OR (A.TRANS_TYPE LIKE '_002' AND A.SOURCE_TYPE = 'PO'))
+           AND TRANS_DATE BETWEEN #FROM_DT# AND #TO_DT#  -- [INPUT:기간]
+         GROUP BY CENTER_CODE, CUSTCD, ITEM_CODE, TRANS_UPJANG
+       ) G
+ WHERE A.DUTY_SEQ    = B.DUTY_SEQ
+   AND A.ITEM_CODE   = C.ITEM_CODE
+   AND A.CUSTCD      = D.CUSTCD
+   AND A.CENTER_CODE = E.CENTER_CODE
+   AND B.ITEM_CODE   = F.ITEM_CODE(+)
+   AND B.CENTER_CODE = F.CENTER_CODE(+)
+   AND B.CUSTCD      = F.CUSTCD(+)
+   AND B.UPJANG      = F.RC_UPJANG(+)
+   AND B.ITEM_CODE   = G.ITEM_CODE(+)
+   AND B.CENTER_CODE = G.CENTER_CODE(+)
+   AND B.CUSTCD      = G.CUSTCD(+)
+   AND B.UPJANG      = G.TRANS_UPJANG(+)
+   AND ( (A.START_DATE BETWEEN #FROM_DT# AND #TO_DT#)  -- [INPUT:기간]
+                       OR (A.END_DATE BETWEEN #FROM_DT# AND #TO_DT#)  -- [INPUT:기간]
+                       OR (A.START_DATE <= #FROM_DT# AND A.END_DATE >= #TO_DT#) )  -- [INPUT:기간]
+ GROUP BY
+       A.DUTY_SEQ,
+       A.CDATE,
+       A.CENTER_CODE,
+       E.CENTER_NAME,
+       A.CUSTCD,
+       D.CUSTNM,
+       C.ITEM_CODE,
+       C.ITEM_NAME,
+       C.ITEM_SIZE,
+       C.PO_UOM,
+       A.START_DATE,
+       A.END_DATE,
+       A.TOT_DUTY_QTY	]]></statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

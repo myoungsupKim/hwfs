@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[실제식단원가정보]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.MENU_DATE
+     , A.UPJANG
+     , A.CORNER
+     , B.CODE_NAME AS CORNER_NAME
+     , A.MEAL
+     , C.CODE_NAME AS MEAL_NAME
+     , A.EXPECT_MEAL_QTY
+     , ROUND(SUM(A.NEED_QTY * A.G_ITEM_PRICE),0) AS MENU_COST_PRICE
+     , A.EXPECT_MEAL_QTY * ROUND(SUM(A.NEED_QTY * A.G_ITEM_PRICE), 2) AS TOT_MENU_COST_PRICE
+     , A.SALE_PRICE
+     , A.EXPECT_MEAL_QTY * A.SALE_PRICE AS TOT_SALE_PRICE
+     , ROUND(ROUND(SUM(A.NEED_QTY * A.G_ITEM_PRICE), 2) / A.SALE_PRICE * 100, 1) AS TOT_COST_RATE --원가율은 소숫점 1자리
+  FROM (
+        SELECT 
+               A.MENU_DATE
+             , A.UPJANG
+             , A.CORNER
+             , A.MEAL
+             , NVL(A.EXPECT_MEAL_QTY,0) AS EXPECT_MEAL_QTY
+             , NVL(A.SALE_PRICE,0) AS SALE_PRICE
+             , C.ITEM_CODE
+             , C.NEED_QTY
+             , ROUND((DECODE(D.MARGIN_RATE, 0, D.CONTRACT_PRICE, DECODE(F.OUTVAT_FLAG, 'Y' , ( ROUND( (D.CONTRACT_PRICE * DECODE(E.TAX_CODE, '100' , 1.1, 1) * (D.MARGIN_RATE + 100) / 100 ) / 10) * 10 ) , ( ROUND( (D.CONTRACT_PRICE * (D.MARGIN_RATE + 100) / 100 ) / 10) * 10 ) ) ) ) / KG_CONVERT_RATE / 1000, 2) AS G_ITEM_PRICE
+          FROM FSM_REAL_MENU_MST A
+             , FSM_REAL_RECIPE_MST B
+             , FSM_REAL_RECIPE_ITEM C
+             , HLDC_PO_CONTRACT_F D
+             , HLDC_PO_ITEM_MST E
+             , HLDC_PO_SUBINVENTORY F
+         WHERE A.UPJANG = B.UPJANG
+           AND A.MENU_CD = B.MENU_CD
+           AND B.UPJANG = C.UPJANG
+           AND B.MENU_CD = C.MENU_CD
+           AND B.RECIPE_CD = C.RECIPE_CD
+           AND C.UPJANG = D.UPJANG(+)
+           AND C.ITEM_CODE = D.ITEM_CODE(+)
+           AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN D.CONTRACT_START(+) AND D.CONTRACT_END(+)
+           AND C.ITEM_CODE = E.ITEM_CODE
+           AND A.UPJANG = F.UPJANG
+           AND A.SUBINV_CODE = F.SUBINV_CODE           
+           AND A.UPJANG = #UPJANG#
+           AND A.HALL_CD = #HALL_CD#
+           AND A.MENU_DATE BETWEEN #START_DATE# AND #END_DATE#
+<isNotNull col="CORNER">
+           AND A.CORNER = #CORNER#
+</isNotNull>
+<isNotNull col="MEAL">
+           AND A.MEAL = #MEAL#
+</isNotNull>
+       ) A
+     , SCC_COMMON_CODE B
+     , SCC_COMMON_CODE C
+ WHERE A.CORNER = B.CODE
+   AND A.MEAL = C.CODE
+   AND B.GROUP_CODE = 'FS0022'
+   AND C.GROUP_CODE = 'FS0023'
+GROUP BY A.MENU_DATE, A.UPJANG, A.CORNER, A.MEAL, A.EXPECT_MEAL_QTY, A.SALE_PRICE, B.CODE_NAME, C.CODE_NAME
+    </statement>
+	<input default-name="ds_in">
+		<col name="MENU_CD" size="100" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_FSH_REAL_PRICE">
+		<col name="MENU_SALE_PRICE" size="100" type="VARCHAR" description="" /> 
+	</output>
+</query>

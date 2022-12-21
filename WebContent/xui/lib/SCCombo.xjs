@@ -1,0 +1,499 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Script type="xscript4.0"><![CDATA[/**
+ * Combo를 처리하기 위한 공통 스크립트
+ * @ClassName SCCombo.xjs
+ * @Description SCCombo Javascript
+ * @Modification-Information
+ *    수정일      수정자         수정내용
+ *  ----------   ----------   -------------------------------
+ *  2015.02.26    김재섭       최초 생성
+ *
+ * @author FC종합전산구축 : COM 김재섭
+ * @since 2015.02.26.
+ * @version 1.0
+ * @see 
+ * 
+ *  Copyright (C) 2014 by HANWHA S&C CO.,LTD. All right reserved.
+ */
+var SCCombo = {
+	ALL    : "전체",
+	CHOOSE : " ",
+	form : null,
+	
+	/**
+	 * @class 주어진 조건에 의해 Combo에 Data를 Binding한다.
+	 * @param thisForm - 현재 Form Object
+	 * @param qid - 조회하고자 하는 대상의 고유 KEY
+	 * @param comboId - Combo ID (문자열)
+	 * @param outDs - 조회된 결과를 Binding할 Dataset Object로 null인 경우에는 내부적으로 생성한다.
+	 * @param option - qid를 조회할 시 필요한 조건(JSON 형태)
+	 * @param [옵션] - SCCombo.ALL(맨 앞 Record에 "전체"문구 포함), SCCombo.CHOOSE(맨 앞 Record에 " "(선택)문구 포함)
+	 * @param [옵션] - triggerEvent 함수명(문자열)
+	 * @return 
+	 */
+	bind : function(thisForm, qid, comboId, outDs, option) {
+		SCCombo.form = thisForm;
+		
+		
+		var newVariableName = "gs_hwfsBindingCombo_"+comboId.split(".").join("_");
+
+		//Output Dataset이 없는경우에는 내부적으로 Dataset을 생성한다.
+		if (outDs == null || outDs == "") {
+			var outDsId = "ds_hwfsBindingCombo_"+comboId.split(".").join("_");
+			thisForm.removeChild(outDsId);
+			outDs = new Dataset();
+			outDs.id = outDsId;
+			outDs.name = outDsId;
+			thisForm.addChild(outDsId, outDs);
+		}
+		
+		//옵션에 대하여 선언되지 않는 경우에는 초기화 한다.
+		if (option == undefined || option == null || option == "") option = {};
+
+		//Controller로 전송할 Parameter를 설정한다.
+		var parameter = {
+			qid : qid,
+			comboId : comboId,
+			addStr : "NVL",
+			outDs : outDs.name,
+			option : option,
+			triggerEvent : "NVL"
+		};
+
+		//[[bind Function의 추가 Arguments를 처리한다.
+		var len = arguments.length;
+		var bAsync = true;
+		
+		if ( len > 5) {
+			for (var i=0; i<len-5; i++) {
+				if (typeof(arguments[i+5]) == "string") {
+					if (arguments[i+5] != SCCombo.ALL && arguments[i+5] != SCCombo.CHOOSE) {
+						//[[Trigger Event를 정의한다.
+						if (typeof(eval(arguments[i+5])) == "function") {
+							parameter.triggerEvent = arguments[i+5];
+						}
+						//Trigger Event를 정의한다.]]
+						else {
+							gfn_message("A", "콤보["+comboId+"]의 추가항목이 잘못되었습니다.\r\n아래 중에 하나를 사용하세요.\r\n   - 전체 : SCCombo.ALL\r\n\   - 선택 : SCCombo.CHOOSE");
+							return;
+						}
+					}
+					else {
+						parameter.addStr = arguments[i+5];
+					}
+					continue;
+				}
+				
+				if (typeof(arguments[i+5]) == "boolean") {
+					bAsync = arguments[i+5];
+					continue;
+				}
+			}
+		}
+		//bind Function의 추가 Arguments를 처리한다.]]
+		//전역변수를 생성한다.
+		setVariable(newVariableName, gfn_jsonObjectToString(parameter));
+
+  		var strSvcID    = "hwfsBindingCombo,"+newVariableName;
+  		var strURL      = "sc/cmn/binding/select.xdo";
+  		var strInDs     = "";
+  		var strOutDs    = outDs.name+"=output";
+  		var strArg      = "input="+wrapQuote(gfn_jsonObjectToString(parameter));
+  		var strCallback = "SCCombo.callback";
+  
+  		gfn_transaction(thisForm, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+	},
+	
+	bind2 : function(thisForm, qid, comboId, outDs, option) {
+		SCCombo.form = thisForm;
+		var searchDatasetName = "ds_Combo2SearchDataset";
+		var outputDatasetName = "ds_Combo2OutputDataset";
+		outDs = null;
+		
+		//Output Dataset이 없는경우에는 내부적으로 Dataset을 생성한다.(항상 없게 한다.)
+		if (outDs == null || outDs == "") {
+			var outDsId = "ds_hwfsBindingCombo_"+comboId.split(".").join("_");
+			thisForm.removeChild(outDsId);
+			outDs = new Dataset();
+			outDs.id = outDsId;
+			outDs.name = outDsId;
+			thisForm.addChild(outDsId, outDs);
+		}
+
+		//옵션에 대하여 선언되지 않는 경우에는 초기화 한다.
+		if (option == undefined || option == null || option == "") option = {};
+		
+		if (option.isLast == undefined || option.isLast == null || option.isLast == "") 
+		{
+			option.isLast = false;
+			option.lastEvent  = "NVL";
+		}
+
+		//Controller로 전송할 Parameter를 설정한다.
+		var parameter = {
+			qid : qid,
+			comboId : comboId,
+			addStr : "NVL",
+			outDs : outDs.name,
+			option : option,
+			triggerEvent : "NVL"
+		};
+
+		if (!thisForm.isValidObject(searchDatasetName)) {
+			var searchGroupCodeDataset = new Dataset();
+			searchGroupCodeDataset.id = searchDatasetName;
+			searchGroupCodeDataset.name = searchDatasetName;
+			searchGroupCodeDataset.addColumn("groupCode", "STRING", "100");
+			searchGroupCodeDataset.addColumn("jsonParam", "STRING", "10000");
+			thisForm.addChild(searchDatasetName, searchGroupCodeDataset);
+		}
+		
+		if (!thisForm.isValidObject(outputDatasetName)) {
+			var outDataset = new Dataset();
+			outDataset.id = outputDatasetName;
+			outDataset.name = outputDatasetName;
+			thisForm.addChild(outputDatasetName, outDataset);
+		}
+
+		//[[bind Function의 추가 Arguments를 처리한다.
+		var len = arguments.length;
+		
+		if ( len > 5) {
+			for (var i=0; i<len-5; i++) {
+				if (typeof(arguments[i+5]) == "string") {
+					if (arguments[i+5] != SCCombo.ALL && arguments[i+5] != SCCombo.CHOOSE) {
+						//[[Trigger Event를 정의한다.
+						if (typeof(eval(arguments[i+5])) == "function") {
+							parameter.triggerEvent = arguments[i+5];
+						}
+						//Trigger Event를 정의한다.]]
+						else {
+							gfn_message("A", "콤보["+comboId+"]의 추가항목이 잘못되었습니다.\r\n아래 중에 하나를 사용하세요.\r\n   - 전체 : SCCombo.ALL\r\n\   - 선택 : SCCombo.CHOOSE");
+							return;
+						}
+					}
+					else {
+						parameter.addStr = arguments[i+5];
+					}
+					continue;
+				}
+				
+// 				if (typeof(arguments[i+5]) == "boolean") {
+// 					bAsync = arguments[i+5];
+// 					continue;
+// 				}
+			}
+		}
+		//bind Function의 추가 Arguments를 처리한다.]]
+		var nRow = thisForm.objects[searchDatasetName].addRow();
+		thisForm.objects[searchDatasetName].setColumn(nRow, "groupCode", parameter.option.groupCode);
+		thisForm.objects[searchDatasetName].setColumn(nRow, "jsonParam", gfn_jsonObjectToString(parameter));
+		
+		if (parameter.option.isLast) {
+			//전역변수를 생성한다.
+			//setVariable(newVariableName, gfn_jsonObjectToString(parameter));
+
+			var strSvcID    = "hwfsBindingComboTwo";
+			var strURL      = "/sc/cmn/binding/select2.xdo";
+			var strInDs     = "ds_search="+searchDatasetName;
+			var strOutDs    = outputDatasetName+"=output";
+			var strArg      = ""; //"input="+wrapQuote(gfn_jsonObjectToString(parameter));
+			var strCallback = "SCCombo.callback2";
+			var bAsync      = true;
+	  
+			gfn_transaction(thisForm, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+		}
+	},
+	
+	callback2 : function(svcId, errCd, errMsg) {
+		if (errCd < 0) {
+			gfn_alert("데이터 처리시 문제가 발생하여 화면을 다시 로드합니다.");
+			SCCombo.form.reload();
+			return;
+		}
+
+		var searchDatasetName = "ds_Combo2SearchDataset";
+		var outputDatasetName = "ds_Combo2OutputDataset";
+		var outputDataset = SCCombo.form.objects[outputDatasetName];
+		var searchDataset = SCCombo.form.objects[searchDatasetName];
+		
+		var json;
+		var dataset;
+		var filter = "";
+		var lastEvent = "";
+
+		for(var ii=0,llen=searchDataset.getRowCount(); ii<llen; ii++) {
+			json = gfn_jsonStringToObject(searchDataset.getColumn(ii, "jsonParam"));
+
+			filter = "";
+			outputDataset.filter(filter);
+			dataset = SCCombo.form.objects[json.outDs];
+
+			if (dataset == null) {
+				dataset = SCCombo.form.parent.objects[json.outDs];
+			}
+
+			filter += "groupCode=='" + json.option.groupCode + "'";
+			if (json.option.code != undefined)     filter += " && code=='" + json.option.code + "'";
+			if (json.option.codeName != undefined) filter += " && codeName=='" + json.option.codeName + "'";
+			if (json.option.useYn != undefined)    filter += " && useYn=='" + json.option.useYn + "'";
+			if (json.option.attr01 != undefined)   filter += " && attr01=='" + json.option.attr01 + "'";
+			if (json.option.attr02 != undefined)   filter += " && attr02=='" + json.option.attr02 + "'";
+			if (json.option.attr03 != undefined)   filter += " && attr03=='" + json.option.attr03 + "'";
+			if (json.option.attr04 != undefined)   filter += " && attr04=='" + json.option.attr04 + "'";
+			if (json.option.attr05 != undefined)   filter += " && attr05=='" + json.option.attr05 + "'";
+			if (json.option.attr06 != undefined)   filter += " && attr06=='" + json.option.attr06 + "'";
+			if (json.option.attr07 != undefined)   filter += " && attr07=='" + json.option.attr07 + "'";
+			if (json.option.attr08 != undefined)   filter += " && attr08=='" + json.option.attr08 + "'";
+			if (json.option.attr09 != undefined)   filter += " && attr09=='" + json.option.attr09 + "'";
+			if (json.option.attr10 != undefined)   filter += " && attr10=='" + json.option.attr10 + "'";
+			if (json.option.set1 != undefined) 	   filter += " && set1=='" + json.option.set1 + "'";
+			if (json.option.set2 != undefined)     filter += " && set2=='" + json.option.set2 + "'";
+			if (json.option.set3 != undefined)     filter += " && set3=='" + json.option.set3 + "'";
+			if (json.option.set4 != undefined)     filter += " && set4=='" + json.option.set4 + "'";
+			if (json.option.set5 != undefined)     filter += " && set5=='" + json.option.set5 + "'";
+			
+			outputDataset.filter(filter);
+			dataset.copyData(outputDataset, true);
+			
+			var combo = eval(json.comboId);
+			var triggerEventParameter = {};
+			
+			triggerEventParameter.oid = json.comboId;
+			triggerEventParameter.datasetName = dataset.name;
+			
+			if (json.addStr != "NVL") {
+				//Dataset에 Column정보가 없을 시에는 최소 필요한 Column을 추가한다.
+				if (dataset.getColCount() == 0)
+				{
+					dataset.addColumn("code", "STRING", 255);
+					dataset.addColumn("codeName", "STRING", 255);
+				}
+				
+				dataset.insertRow(0);
+				dataset.setColumn(0, "code"    , "");
+				dataset.setColumn(0, "codeName", json.addStr);
+			}
+
+			//[[Grid의 Combo처리
+			if (combo == undefined) {
+				var grid = eval(json.comboId.substring(0, json.comboId.lastIndexOf(".")));
+				var columnId = json.comboId.substr(json.comboId.lastIndexOf(".")+1);
+
+				for (var i=0, len=grid.getCellCount("body"); i<len; i++) {
+					if (grid.getCellProperty("body", i, "edittype") == "combo" && grid.getCellProperty("body", i, "text") == "bind:"+columnId) {
+						grid.setCellProperty("body", i, "combocodecol", "code");
+						grid.setCellProperty("body", i, "combodatacol", "codeName")
+						grid.setCellProperty("body", i, "combodataset", dataset.name);
+					}
+				}
+				triggerEventParameter.type = "grid";
+				triggerEventParameter.object = grid;
+				triggerEventParameter.id = columnId;
+			}
+			//Grid의 Combo처리]]
+			//[[Form의 Combo처리
+			else {
+				triggerEventParameter.type = "combo";
+				triggerEventParameter.object = combo;
+				triggerEventParameter.id = combo.name;
+				
+				combo.codecolumn = "code";
+				combo.datacolumn = "codeName";
+				combo.innerdataset = dataset.name;
+				
+				if (json.option.defVal != undefined) {
+					//맨 처음의 자료를 기본값으로 설정한다.
+					if (json.option.defVal == "firstrow") {
+						if (json.addStr != "NVL") {
+							var defVal = "";
+							if (dataset.getRowCount() > 0) {
+								defVal = dataset.getColumn(1, "code");
+							}
+							else {
+								defVal = "";
+							}
+							combo.value = defVal;
+						}
+						else {
+							var defVal = "";
+							if (dataset.getRowCount() > 0) {
+								defVal = dataset.getColumn(0, "code");
+							}
+							else {
+								defVal = "";
+							}
+							combo.value = defVal;
+						}
+					}
+					else {
+						combo.value = json.option.defVal;
+					}
+				}
+				else {
+					combo.value = "";
+				}
+			}
+			//Form의 Combo처리]]
+			
+			//[[Trigger Event를 발생한다.
+			if (json.triggerEvent != "NVL") {
+				var triggerEvent = eval(json.triggerEvent);
+				triggerEvent(triggerEventParameter);
+			}
+			//Trigger Event를 발생한다.]]
+			
+			if (json.option.lastEvent == undefined || json.option.lastEvent == "NVL")
+			{
+				continue;
+			}
+			else
+			{
+				lastEvent = json.option.lastEvent;
+			}
+			
+		}
+
+		SCCombo.form.removeChild(outputDatasetName);
+		SCCombo.form.removeChild(searchDatasetName);
+		
+		if (lastEvent != "") {
+			var doLastEvent = eval(lastEvent);
+			doLastEvent();
+		}
+	},
+	
+	/**
+	 * @class Combo에 Binding된 모든 Data를 Remove한다.
+	 * @param thisForm - 현재 Form Object
+	 * @param comboId - Combo ID (문자열)
+	 * @param outDs - 조회된 결과를 Binding할 Dataset Object로 null인 경우에는 내부적으로 생성한 Dataset Object를 사용한다.
+	 * @return 
+	 */
+	remove : function(thisForm, comboId, outDs) {
+		var outDsId = "";
+		if (outDs == null || outDs == "") {
+			outDsId = "ds_hwfsBindingCombo_"+comboId.split(".").join("_");
+		}
+		else {
+			outDsId = outDs.name;
+		}
+		
+		outDs = thisForm.objects[outDsId];
+		outDs.clear();
+	},
+	
+	/**
+	 * @class 내부 CALLBACK Function으로 실제 Transaction에 대한 Callback 함수이다.
+	 */
+	callback : function(svcId, errCode, errMsg) {
+		
+		if (errCode < 0) {
+			gfn_alert("데이터 처리시 문제가 발생하여 화면을 다시 로드합니다.");
+			SCCombo.form.reload();
+			return;
+		}
+		
+		var tmp = svcId.split(",");
+		var newVariableName = eval(tmp[1]);
+		
+		var json = gfn_jsonStringToObject(newVariableName);
+		var dataset = SCCombo.form.objects[json.outDs];
+		
+		if (dataset == null) {
+			dataset = SCCombo.form.parent.objects[json.outDs];
+		}
+		
+		var combo = eval(json.comboId);
+		var triggerEventParameter = {};
+		
+		triggerEventParameter.oid = json.comboId;
+		triggerEventParameter.datasetName = dataset.name;
+		
+		if (json.addStr != "NVL") {
+			//Dataset에 Column정보가 없을 시에는 최소 필요한 Column을 추가한다.
+			if (dataset.getColCount() == 0)
+			{
+				dataset.addColumn("code", "STRING", 255);
+				dataset.addColumn("codeName", "STRING", 255);
+			}
+			
+			dataset.insertRow(0);
+			dataset.setColumn(0, "code"    , "");
+			dataset.setColumn(0, "codeName", json.addStr);
+		}
+		
+		//[[Grid의 Combo처리
+		if (combo == undefined) {
+			var grid = eval(json.comboId.substring(0, json.comboId.lastIndexOf(".")));
+			var columnId = json.comboId.substr(json.comboId.lastIndexOf(".")+1);
+
+			for (var i=0, len=grid.getCellCount("body"); i<len; i++) {
+				if (grid.getCellProperty("body", i, "edittype") == "combo" && grid.getCellProperty("body", i, "text") == "bind:"+columnId) {
+					grid.setCellProperty("body", i, "combocodecol", "code");
+					grid.setCellProperty("body", i, "combodatacol", "codeName")
+					grid.setCellProperty("body", i, "combodataset", dataset.name);
+				}
+			}
+			triggerEventParameter.type = "grid";
+			triggerEventParameter.object = grid;
+			triggerEventParameter.id = columnId;
+		}
+		//Grid의 Combo처리]]
+		//[[Form의 Combo처리
+		else {
+			triggerEventParameter.type = "combo";
+			triggerEventParameter.object = combo;
+			triggerEventParameter.id = combo.name;
+			
+			combo.codecolumn = "code";
+			combo.datacolumn = "codeName";
+			combo.innerdataset = dataset.name;
+			
+			if (json.option.defVal != undefined) {
+				//맨 처음의 자료를 기본값으로 설정한다.
+				if (json.option.defVal == "firstrow") {
+					if (json.addStr != "NVL") {
+						var defVal = "";
+						if (dataset.getRowCount() > 0) {
+							defVal = dataset.getColumn(1, "code");
+						}
+						else {
+							defVal = "";
+						}
+						combo.value = defVal;
+					}
+					else {
+						var defVal = "";
+						if (dataset.getRowCount() > 0) {
+							defVal = dataset.getColumn(0, "code");
+						}
+						else {
+							defVal = "";
+						}
+						combo.value = defVal;
+					}
+				}
+				else {
+					combo.value = json.option.defVal;
+				}
+			}
+			else {
+				combo.value = "";
+			}
+		}
+		//Form의 Combo처리]]
+		
+		//[[Trigger Event를 발생한다.
+		if (json.triggerEvent != "NVL") {
+			var triggerEvent = eval(json.triggerEvent);
+			triggerEvent(triggerEventParameter);
+		}
+		//Trigger Event를 발생한다.]]
+		
+		//생성한 전역변수를 제거한다.
+		removeVariable(tmp[1]);
+	}
+};
+
+]]></Script>

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.ITEM_CODE AS ITEM_CODE,
+       A.ITEM_NAME AS ITEM_NAME,
+       A.ITEM_SIZE AS ITEM_SIZE,
+       A.PO_UOM AS PO_UOM,
+       --D.FEATURE_NAME AS ITEM_INFO,
+       FN_ITEM_FEATURE_ICON(
+      			(SELECT DUTY_YN FROM HLDC_PO_CONTRACT_F WHERE ITEM_CODE = A.ITEM_CODE AND ROWNUM &lt;= 1 ), 
+      			A.PB_YN, A.ECO_ITEM, '') AS ITEM_INFO,
+       NVL(B.MARGIN_PRICE,0) AS ITEM_PRICE,
+       A.KG_CONVERT_RATE AS KG_CONVERT_RATE ,
+       DECODE(KG_CONVERT_RATE,0,0,ROUND((NVL(B.MARGIN_PRICE,0)/A.KG_CONVERT_RATE/1000),2)) AS G_ITEM_PRICE,
+       C.DISUSE_RATE AS DISUSE_RATE
+      ,DECODE(NVL(F.RESTRICT_SEQ,0),0,'N','Y') AS RESTRICT_YN   --금지
+      ,F.RESTRICT_START, F.RESTRICT_END, F.RESTRICT_REASON      --금지시작금지종료금지사유
+      ,A.ORIGIN_NAT
+  FROM
+  (
+       SELECT B.ITEM_CLASS2,
+              B.ITEM_CLASS3,
+              B.ITEM_CLASS4,
+              B.ITEM_CODE ,
+              B.ITEM_NAME,
+              B.ITEM_SIZE,
+              B.PO_UOM,
+              B.KG_CONVERT_RATE,
+              B.ORIGIN_NAT,
+              -- 표준에서는 어떻게 가져올지 추후 협의가 필요. 일단은 모두 'N'로 표시(센터별 기준업장으로 보여줄지는 협의가 필요) (2015.08.29)
+              'N'  AS PB_YN,
+              B.ECO_ITEM
+         FROM ( SELECT DISTINCT(ITEM_CODE) AS ITEM_CODE
+                  FROM FMR_STD_RECIPE_ITEM
+                 WHERE SUBSTR(RECIPE_CD,1,1) IN (#RECIPE_CLASS$#) ) A,
+              HLDC_PO_ITEM_MST B
+        WHERE A.ITEM_CODE=B.ITEM_CODE
+          AND SUBSTR(B.ITEM_CODE,1,1) = 'F'
+          -----
+          <isNotNull col="ITEM_CLASS2">AND B.ITEM_CLASS2 =#ITEM_CLASS2#  </isNotNull>
+          <isNotNull col="ITEM_CLASS3">AND B.ITEM_CLASS3 =#ITEM_CLASS3#  </isNotNull>
+          <isNotNull col="ITEM_CLASS4">AND B.ITEM_CLASS4 =#ITEM_CLASS4#  </isNotNull>
+          <isNotNull col="ITEM_NAME">AND B.ITEM_NAME LIKE '%'|| #ITEM_NAME# ||'%'  </isNotNull>
+          -----
+  )     A,
+        FMI_STD_PRICE B,
+        FSI_ITEM_NUT  C,
+   (SELECT RESTRICT_SEQ, ITEM_CODE, RESTRICT_START, RESTRICT_END, RESTRICT_REASON
+      FROM FSI_RESTRICT_MST
+     WHERE TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN RESTRICT_START AND RESTRICT_END
+       AND USE_YN = 'Y'
+    ) F
+ WHERE A.ITEM_CODE = B.ITEM_CODE(+)
+   AND A.ITEM_CODE = C.ITEM_CODE(+)
+   AND A.ITEM_CODE = F.ITEM_CODE(+)
+      -----------
+      <isEqual col="ZERO_PRICE" value="true"> AND NVL(B.MARGIN_PRICE,0)=0</isEqual>
+      -----------	</statement>
+	<input default-name="ds_in">
+		<col name="ITEM_CLASS2" size="255" type="VARCHAR" description="" /> 
+		<col name="ITEM_CLASS3" size="255" type="VARCHAR" description="" /> 
+		<col name="ITEM_CLASS4" size="255" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAME" size="255" type="VARCHAR" description="" /> 
+		<col name="ZERO_PRICE" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_SEARCH_ITEM">
+		<col name="ITEM_CODE" size="12" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAME" size="200" type="VARCHAR" description="" /> 
+		<col name="ITEM_SIZE" size="100" type="VARCHAR" description="" /> 
+		<col name="PO_UOM" size="10" type="VARCHAR" description="" /> 
+		<col name="ITEM_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="KG_CONVERT_RATE" size="22" type="NUMERIC" description="" /> 
+		<col name="G_ITEM_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="DISUSE_RATE" size="22" type="NUMERIC" description="" /> 
+	</output>
+</query>

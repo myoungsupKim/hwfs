@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.rcg.couponSpeciesDAO">
+	<desc>쿠폰종류관리 HQML Query</desc>
+
+	<!-- 쿠폰종류관리 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.rc.rcg.dao.CouponSpeciesDAO.selectList */
+		<![CDATA[
+		SELECT 
+			 COUPON_KIND_CD
+			, COUPON_KIND_NM
+			, COUPON_KIND_GRP_CD
+			, GFN_SCC_CODENAME_FUN('POS_TYPE_CD', A.COUPON_KIND_GRP_CD) AS COUPON_KIND_GRP_NM
+			, COUPON_GRP_CD
+			, COUPON_TYPE
+			, GFN_SCC_CODENAME_FUN('COUPON_TYPE', A.COUPON_TYPE) AS COUPON_TYPE_NM
+			, CC_CD
+			, (SELECT  CC_NM FROM SCC_CC WHERE CC_CD = A.CC_CD) AS CC_NM
+			, (SELECT  MU_CD FROM SCC_CC WHERE CC_CD = A.CC_CD) AS MU_CD
+			, VALID_MTS
+			, FOC_CLASS
+			, GFN_SCC_CODENAME_FUN('FOC_CLASS', A.FOC_CLASS) AS FOC_CLASS_NM
+			, START_DATE
+			, END_DATE
+			, ADVANCE_ACCT
+			, (SELECT  ACCTNM FROM  HLDC_ST_ACCOUNT_V WHERE ACCTCD = A.ADVANCE_ACCT) AS ADVANCE_ACCT_NM
+			, SALS_VAT_ACCT
+			, (SELECT  ACCTNM FROM  HLDC_ST_ACCOUNT_V WHERE ACCTCD = A.SALS_VAT_ACCT) AS SALS_VAT_ACCT_NM
+			, OTHER_BUUPJANG_WITHDRAW_ACCT
+			, FOC_CST_ACCT
+			, FOC_PLNKGVRN_ACCT
+			, EXTINCTION_ACCT
+			, WITHDRAW_ACCT
+			, VAT_INCLUDE_YN
+			, VAT_CD
+			, GFN_SCC_CODENAME_FUN('VAT_CD', A.VAT_CD) AS VAT_CD_NM
+			, COUPON_AMT
+			, COUPON_CLASS
+			, COUPONNUM_CREATION_CLASS
+			, GFN_SCC_CODENAME_FUN('COUPONNUM_CREATION_CLASS', A.COUPONNUM_CREATION_CLASS) AS COUPONNUM_CREATION_CLASS_NM
+			, DISCNT_CLASS
+			, GFN_SCC_CODENAME_FUN('DISCNT_CLASS', A.DISCNT_CLASS) AS DISCNT_CLASS_NM
+			, DISCNT_TYPE
+			, GFN_SCC_CODENAME_FUN('DISCNT_TYPE', A.DISCNT_TYPE) AS DISCNT_TYPE_NM
+			, DISCNT_RATE
+			, DISCNT_AMT
+			, CUST_CD
+			, (SELECT CUSTNM FROM ST_CUST WHERE  CUSTCD=A.CUST_CD) AS CUST_NM
+			, PACKAGE_DESC
+			, INSIDE_USE_YN
+			, REMARK
+			, PLAN_QUANTITY
+			, PUBLISH_QUANTITY
+			, DPLY_QUANTITY
+			, SAL_QUANTITY
+			, WITHDRAW_QUANTITY
+			, DISUSE_QUANTITY
+			, EXTINCTION_QUANTITY
+			, CHECK_DIGIT_PRT_YN
+			, RECD_STATUS
+			, CUSER
+			, CDATE
+			, UUSER
+			, UDATE
+			, DECODE(A.FOC_CLASS, '1','11','22') AS PUBLISH_CLASS
+		FROM   SLA_COUPON_KIND_MST A
+		WHERE  1=1
+		<#if muCd?has_content> AND :muCd = (SELECT  MU_CD FROM SCC_CC WHERE CC_CD = A.CC_CD) </#if>
+		<#if posType?has_content>		AND    COUPON_KIND_GRP_CD = :posType	</#if>
+		<#if focClass?has_content>		AND    FOC_CLASS = :focClass			</#if>
+		<#if useYn?has_content>			AND    RECD_STATUS = :useYn					</#if>
+		
+		<#if searchKeyword?has_content>	AND    (COUPON_KIND_CD LIKE '%' || :searchKeyword || '%' OR COUPON_KIND_NM LIKE '%' || :searchKeyword || '%')	</#if>
+		
+		ORDER BY COUPON_KIND_CD ASC
+		]]>
+	</statement>
+
+	<!-- 쿠폰종류관리(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.rc.rcg.dao.CouponSpeciesDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 쿠폰종류관리(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.rc.rcg.dao.CouponSpeciesDAO.update */
+		<![CDATA[
+		UPDATE TABLE_NAME 
+		SET    COLUMN_NAME1 = :columnName1,
+		       COLUMN_NAME2 = :columnName2,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+	<!-- 쿠폰종류관리(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.rc.rcg.dao.CouponSpeciesDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[매출/재료비 전망 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+	 MAC_SCENARIO_FUN('F') AS SCENARIO_CODE
+	, A.YY AS YY
+	, A.MM AS MM
+	, SUBSTR(A.OP_DATE,7,2) AS DD
+	, TO_CHAR(TO_DATE(A.OP_DATE,'YYYYMMDD'),'DY','NLS_DATE_LANGUAGE=KOREAN') AS DAY_NAME
+	, A.TM_CD AS TM_CD
+	, A.UPJANG AS UPJANG
+	, DECODE(A.OP_YN, 'Y', '1', '0') AS OP_YN
+	, A.OP_MANS AS OP_MANS
+	, FOOD_SALEAMT AS FOOD_SALEAMT
+	, GOODS_SALEAMT AS GOODS_SALEAMT
+	, ETC_SALEAMT AS ETC_SALEAMT
+	, NVL(FOOD_SALEAMT, 0 ) + NVL(GOODS_SALEAMT, 0 ) + NVL(ETC_SALEAMT, 0 ) AS SUM_AMT
+	, FOOD_RAWCOST AS FOOD_RAWCOST
+	, WELFARE_AMT AS WELFARE_AMT
+	, RAWCOST AS RAWCOST
+	, GOODS_RAWCOST AS GOODS_RAWCOST
+	, ROUND(RAWCOST/FOOD_SALEAMT * 100, 1) AS FOOD_RATE
+	, ROUND(GOODS_RAWCOST/GOODS_SALEAMT * 100, 1) AS GOODS_RATE
+	, 'F' AS DATA_CLASS
+    , DECODE( NVL(TO_CHAR(FOOD_SALEAMT), 'I') || NVL(TO_CHAR(GOODS_SALEAMT), 'I' ) || NVL(TO_CHAR(ETC_SALEAMT), 'I' ), 'III', '', 'S') AS FLAG
+  FROM MAF_OP_CALENDAR A,
+       MAF_SALE B
+ WHERE A.YY = B.YY(+)
+   AND A.MM = B.MM(+)
+   AND SUBSTR(A.OP_DATE,7,2) = B.DD(+)
+   AND A.TM_CD = B.TM_CD(+)
+   AND A.UPJANG = B.UPJANG(+)
+   AND B.DATA_CLASS(+) = 'F'
+   AND B.SCENARIO_CODE(+) =  #SCENARIO_CODE#
+   AND A.YY = #YY#
+   AND A.MM = #MM#
+   AND A.TM_CD = #TM_CD#
+   AND A.UPJANG = #UPJANG#
+ORDER BY MAC_SCENARIO_FUN('F'), A.YY, A.MM, SUBSTR(A.OP_DATE,7,2)	]]></statement>
+	<input default-name="ds_cond">
+		<col name="SCENARIO_CODE" size="4000" type="VARCHAR" description="" /> 
+		<col name="YY" size="4" type="VARCHAR" description="" /> 
+		<col name="MM" size="2" type="VARCHAR" description="" /> 
+		<col name="TM_CD" size="3" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="6" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="SCENARIO_CODE" size="4000" type="VARCHAR" description="" /> 
+		<col name="YY" size="4" type="VARCHAR" description="" /> 
+		<col name="MM" size="2" type="VARCHAR" description="" /> 
+		<col name="DD" size="4" type="VARCHAR" description="" /> 
+		<col name="DAY_NAME" size="2" type="VARCHAR" description="" /> 
+		<col name="TM_CD" size="3" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="6" type="VARCHAR" description="" /> 
+		<col name="OP_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="OP_MANS" size="22" type="NUMERIC" description="" /> 
+		<col name="FOOD_SALEAMT" size="22" type="NUMERIC" description="" /> 
+		<col name="GOODS_SALEAMT" size="22" type="NUMERIC" description="" /> 
+		<col name="ETC_SALEAMT" size="22" type="NUMERIC" description="" /> 
+		<col name="FOOD_RAWCOST" size="22" type="NUMERIC" description="" /> 
+		<col name="WELFARE_AMT" size="22" type="NUMERIC" description="" /> 
+		<col name="RAWCOST" size="22" type="NUMERIC" description="" /> 
+		<col name="GOODS_RAWCOST" size="22" type="NUMERIC" description="" /> 
+		<col name="FOOD_RATE" size="22" type="NUMERIC" description="" /> 
+		<col name="GOODS_RATE" size="22" type="NUMERIC" description="" /> 
+	</output>
+</query>

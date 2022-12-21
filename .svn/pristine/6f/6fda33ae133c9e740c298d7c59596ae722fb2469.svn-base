@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[담보확보율현황]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+	    X.MAIN_UPJANG
+      , X.MAIN_UPJANG_NM	
+      , X.UPJANG
+      , X.UPJANG_NM
+      , X.CUST_TYPE
+      , X.CUSTCD
+      , X.MU_CD
+      , X.MU_NM
+      , X.TM_CD
+      , X.TM_NM
+      , X.UPJANG_TYPE
+      , NVL(X.CREDIT_AMOUNT,0) AS CREDIT_AMOUNT
+      , X.PART_SALES_SABUN
+      , X.PART_SALES_SABUN_NM
+      , NVL(X.AMT_TOT,0) AS ORG_AMT_TOT		/* 원_담보합계 금액 */
+      , NVL(X.AMT_TOT,0) AS AMT_TOT				/* 원_담보합계 금액 */
+      , NVL(X.AMT1,0) AS AMT1
+      , NVL(X.AMT2,0) AS AMT2
+      , NVL(X.AMT3,0) AS AMT3
+FROM
+(
+	SELECT
+		    '' AS MAIN_UPJANG
+	      , '' AS MAIN_UPJANG_NM	
+	      , UJ.UPJANG
+	      , D.UPJANGNM  AS UPJANG_NM
+	      , '' AS CUST_TYPE
+	      , '' AS CUSTCD
+	      , C.MU_CD
+	      , C.MU_NM
+	      , C.TM_CD
+	      , C.TM_NM
+	      , '' AS UPJANG_TYPE
+	      , 0 AS CREDIT_AMOUNT
+	      , '' AS PART_SALES_SABUN
+	      , '' AS PART_SALES_SABUN_NM
+	      , (S.AMT1 + S.AMT2 + S.AMT3) AS AMT_TOT
+	      , S.AMT1
+	      , S.AMT2
+	      , S.AMT3
+	FROM (SELECT * FROM SCO_UPJANG_MST WHERE FICS_YN = 'N') UJ
+						INNER JOIN HLDC_ST_UPJANG D ON UJ.UPJANG = D.UPJANG
+					    LEFT JOIN HLDC_SC_DEPT_V C ON D.DEPT_ID = C.DEPT_ID
+					    LEFT JOIN (
+						/* 보증보험 */
+						SELECT
+							 A.UPJANG
+							,SUM(A.GUARAN_AMT) AS AMT1
+							,0 AS AMT2
+							,0 AS AMT3
+						FROM  FMS_SECURE_GUARANTEE A
+						WHERE  GUARAN_CANCEL_YN = 'N'
+						GROUP BY A.UPJANG
+						UNION ALL
+						/* 질권 */
+						SELECT
+							 A.UPJANG
+							,0 AS AMT1
+							,SUM(A.PLEDGER_AMT) AS AMT2
+							,0 AS AMT3
+						FROM  FMS_SECURE_PLEDGER A
+						WHERE  PLEDGER_CANCEL_YN = 'N'
+						GROUP BY A.UPJANG
+						UNION ALL
+						/* 근저당권 : 부동산 */
+						SELECT
+							 A.UPJANG
+							,0 AS AMT1
+							,0 AS AMT2
+							,SUM(A.LAND_AMT) AS AMT3
+						FROM  FMS_SECURE_LAND A
+						WHERE  LAND_CANCEL_YN = 'N'
+						GROUP BY A.UPJANG
+					    ) S ON UJ.UPJANG = S.UPJANG
+  ) X
+  WHERE 1 = 1
+  AND NVL(X.AMT_TOT,0) > 0		/* 담보합계가  있는 	자료만 표시 */
+<isNotNull col="MU_CD">
+	AND X.MU_CD = #MU_CD#
+</isNotNull>
+ <isNotNull col="TM_CD">
+ 	 AND X.TM_CD = #TM_CD#
+</isNotNull>
+ <isNotNull col="MAIN_UPJANG">
+ 	 AND X.MAIN_UPJANG = #MAIN_UPJANG#
+</isNotNull>
+ <isNotNull col="UPJANG">
+ 	 AND X.UPJANG = #UPJANG#
+</isNotNull>
+ <isNotNull col="PART_SALES_SABUN">
+ 	 AND X.PART_SALES_SABUN = #PART_SALES_SABUN#
+</isNotNull>
+ORDER BY UPJANG	</statement>
+<input default-name="ds_input">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

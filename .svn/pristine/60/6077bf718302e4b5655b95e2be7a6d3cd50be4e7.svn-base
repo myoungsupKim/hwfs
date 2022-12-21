@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT V.ACCTCD,
+       (SELECT ACCTNM6 FROM HLDC_ST_ACCOUNT WHERE ACCTCD = V.ACCTCD) ACCTNM,
+       SUM(V.REQ_AMT) REQ_AMT,
+       SUM(V.REQ_CNT) REQ_CNT,
+       SUM(V.ADJ_AMT) ADJ_AMT,
+       SUM(V.ADJ_CNT) ADJ_CNT,
+       REPLACE(DECODE(SIGN(NVL(SUM(V.ADJ_AMT), 0) - NVL(SUM(V.REQ_AMT), 0)), 1, '+')||TO_CHAR((NVL(SUM(V.ADJ_AMT), 0) - NVL(SUM(V.REQ_AMT), 0)), '999,999,999,999'), ' ', '') AMT_RATIO,
+       NVL(SUM(V.ADJ_CNT), 0) - NVL(SUM(V.REQ_CNT), 0) CNT_RATIO,
+       0 BAR
+  FROM (
+        SELECT B.ACCTCD,
+               SUM(B.AMT) REQ_AMT,
+               COUNT(*) REQ_CNT,
+               0 ADJ_AMT,
+               0 ADJ_CNT
+          FROM MAS_ADV_REQ_MST A,
+               MAS_ADV_REQ_DTL B
+        WHERE (A.MST_ID        =   B.MST_ID)
+        AND   (A.UPJANG        = #UPJANG#)
+        AND   (A.DUE_DATE BETWEEN #DATEFR# AND #DATETO#)
+        GROUP BY B.ACCTCD
+        UNION ALL
+        SELECT ACCTCD,
+               0 REQ_AMT,
+               0 REQ_CNT,
+               SUM(AMT) ADJ_AMT,
+               COUNT(*) ADJ_CNT
+          FROM (
+                SELECT DECODE(ACCTCD, '9410119', '5040132', ACCTCD) ACCTCD,
+                       AMT
+                FROM MAS_ADVANCE
+                WHERE (UPJANG = #UPJANG#)
+                AND   (ADJ_DATE BETWEEN #DATEFR# AND #DATETO#)
+                AND   (ADV_KIND = 'O')
+              ) V
+        GROUP BY ACCTCD
+       ) V
+GROUP BY ACCTCD
+</statement>
+	<input default-name="ds_cond">	
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="DATEFR" size="256" type="VARCHAR" description="" /> 
+		<col name="DATETO" size="256" type="VARCHAR" description="" /> 		
+	</input>
+	<output default-name="ds_list">
+		<col name="ACCTCD" size="256" type="VARCHAR" description="" /> 		
+		<col name="ACCTNM" size="256" type="VARCHAR" description="" /> 		
+		<col name="REQ_AMT" size="" type="NUMERIC" description="" /> 		
+		<col name="REQ_CNT" size="" type="NUMERIC" description="" /> 		
+		<col name="ADJ_AMT" size="" type="NUMERIC" description="" /> 		
+		<col name="ADJ_CNT" size="" type="NUMERIC" description="" /> 		
+		<col name="AMT_RATIO" size="" type="NUMERIC" description="" /> 		
+		<col name="CNT_RATIO" size="" type="NUMERIC" description="" />		
+	</output>
+</query>

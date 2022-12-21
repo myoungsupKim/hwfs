@@ -1,0 +1,254 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="ZipSearchComponent" classname="ZipSearchComponent" inheritanceid="" position="absolute 0 0 330 21" titletext="우편번호 검색용 Component" bindDataset="" bindZipNoColumn="" bindAddr1Column="" onload="ZipSearchComponent_onload">
+    <Layouts>
+      <Layout>
+        <Button id="btn_search" taborder="1" class="btn_WF_popSearch" position="absolute 57 0 78 21" anchor="default" onclick="btn_search_onclick"/>
+        <Edit id="edt_addr1" taborder="3" readonly="true" position="absolute 80 0 329 21" style="padding:1 0 0 5;align:left middle;" sabun="" upjangCode="" upjangName="" custCode="" custName="" otCustCode="" otCustName="" userGroupCode="" userGroupName="" userType="" sosokCode="" sosokName="" userId="" anchor="left top right" onkeydown="edt_addr1_onkeydown"/>
+        <Static id="Static06" class="Guide01_AreaRed" visible="false" position="absolute 55 0 57 24"/>
+        <Static id="Static00" class="Guide01_AreaRed" visible="false" position="absolute 78 0 80 24"/>
+        <MaskEdit id="edt_zipNo" taborder="4" position="absolute 0 0 55 21" type="string" mask="@@@-@@@" style="padding:1 5 0 5;align:left middle;" readonly="true" onkeydown="edt_zipNo_onkeydown"/>
+      </Layout>
+    </Layouts>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : 사용자 검색용 컴포넌트
+  파 일 명 : UserSearchComponent.xfdl
+  기    능 : 사용자 검색 Composite 콤포넌트
+
+    수정일     수정자                  수정내용
+  ----------   -------  --------------------------------------------------
+  2015.01.30   김재섭   최초 생성
+*/
+
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+************************************************************************************************/
+include "lib::lib_com.xjs";
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 초기설정한다.
+ *---------------------------------------------------------------------------------------------*/
+function ZipSearchComponent_onload(obj:Form, e:LoadEventInfo)
+{
+	//필수 표시여부에 대한 class를 정의한다.
+ 	if (!gfn_isNull(this.class) && this.class == "edt_WF_Essential")
+ 	{
+ 		edt_zipNo.class = this.class;
+ 		edt_addr1.class = this.class;
+ 	}
+	
+	fn_setBindItem();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 바인딩 정보를 처리한다.
+ *---------------------------------------------------------------------------------------------*/
+function fn_setBindItem()
+{
+	if (!gfn_isNull(this.bindDataset))
+	{
+		if (!gfn_isNull(this.bindZipNoColumn))
+		{
+			var bindItem1 = new BindItem("zipSearchBindItem1", "edt_zipNo", "value", this.bindDataset, this.bindZipNoColumn);
+			this.addChild(bindItem1.name, bindItem1);
+			bindItem1.bind();
+		}
+		
+		if (!gfn_isNull(this.bindAddr1Column))
+		{
+			var bindItem2 = new BindItem("zipSearchBindItem2", "edt_addr1", "value", this.bindDataset, this.bindAddr1Column);
+			this.addChild(bindItem2.name, bindItem2);
+			bindItem2.bind();
+		}
+	}
+}
+
+/**
+ * @class 우편번호를 가져온다.
+ * @return 우편번호
+ */
+function getZip()
+{
+	return edt_zipNo.value;
+}
+
+/**
+ * @class 우편번호를 설정한다.
+ * @param val 설정할 값
+ * @return 
+ */
+function setZip(val)
+{
+	if (!gfn_isNull(this.bindDataset) && !gfn_isNull(this.bindZipNoColumn))
+	{
+		var o = fn_FindForm();
+		var ds;
+		if (o.name == "WorkFrame")
+		{
+			ds = o.div_work.objects[this.bindDataset];
+		}
+		else
+		{
+			ds = o.objects[this.bindDataset];
+		}
+
+		var nRow = ds.rowposition;
+		ds.setColumn(nRow, this.bindZipNoColumn, val);
+	}
+	
+	edt_zipNo.value = val;
+}
+
+/**
+ * @class 기본 주소를 가져온다.
+ * @return 기본 주소
+ */
+function getAddr()
+{
+	return edt_addr1.value;
+} 
+
+/**
+ * @class 기본 주소를 설정한다.
+ * @param val 설정할 값
+ * @return 
+ */
+function setAddr(val)
+{
+	if (!gfn_isNull(this.bindDataset) && !gfn_isNull(this.bindAddr1Column))
+	{
+		var o = fn_FindForm();
+		var ds;
+		if (o.name == "WorkFrame")
+		{
+			ds = o.div_work.objects[this.bindDataset];
+		}
+		else
+		{
+			ds = o.objects[this.bindDataset];
+		}
+
+		var nRow = ds.rowposition;
+		ds.setColumn(nRow, this.bindAddr1Column, val);
+	}
+	
+	edt_addr1.value = val;
+}
+
+
+//Form Object를 찾는다.
+function fn_FindForm()
+{
+	var findForm = true;
+	var obj = "parent";
+	var i = 0;
+	var o;
+
+	while (findForm)
+	{
+		o = eval(obj);
+		if (o.toString().toUpperCase() == "[OBJECT FORM]")
+		{
+			findForm = false;
+		}
+		else
+		{
+			obj = obj + ".parent";
+		}
+		
+		if (i == 20) 
+		{
+			findForm = false;
+		}
+		
+		i++;
+	}
+	
+	return o;
+}
+
+/**
+ * @class 우편번호 검색 팝업을 호출한다.
+ * @param obj - Event Dataset
+ * @param e - Event 발생정보
+ * @return 
+ */
+function btn_search_onclick(obj:Button,  e:ClickEventInfo)
+{
+	//[[팝업창을 호출한다.
+	var strId       = "ZipSearchPop";
+	var strURL      = "cmn::ZipSearchPop.xfdl";
+	var objArgument = null;
+	var nWidth      = 614;
+	var nHeight     = 525;
+	var strStyle    = "";
+	var nLeft       = -1;
+	var nTop        = -1;
+	var isModeless  = false;
+	var bShowTitle  = true;
+	var strAlign    = "-1";
+
+	// 리턴값을 배열로 받을 경우	
+	var arrRtn = gfn_dialog(strId, strURL, objArgument, nWidth, nHeight, strStyle, nLeft, nTop, isModeless, bShowTitle, strAlign);
+	
+	if (arrRtn instanceof Object)
+	{
+		setZip(arrRtn.zip);
+		setAddr(arrRtn.addr);
+	}
+	//팝업창을 호출한다.
+}
+
+/**
+ * @class KeyDown(Enter)이 발생시에 우편번호 검색 팝업을 호출한다.
+ *        단, Del Key가 발생하면 Binding된 값을 지운다.
+ * @param obj - Event Dataset
+ * @param e - Event 발생정보
+ * @return 
+ */
+function edt_zipNo_onkeydown(obj:MaskEdit, e:KeyEventInfo)
+{
+	// Enter 키
+	if(e.keycode == 13) 
+	{		
+        if (gfn_isNull(obj.value))
+        {
+			btn_search.click();
+		}
+	}
+	// Del 키
+	else if(e.keycode == 46) 
+	{		
+		setZip("");
+		setAddr("");
+	}
+}
+
+/**
+ * @class KeyDown(Enter)이 발생시에 우편번호 검색 팝업을 호출한다.
+ *        단, Del Key가 발생하면 Binding된 값을 지운다.
+ * @param obj - Event Dataset
+ * @param e - Event 발생정보
+ * @return 
+ */
+function edt_addr1_onkeydown(obj:Edit, e:KeyEventInfo)
+{
+	// Enter 키
+	if(e.keycode == 13) 
+	{		
+        if (gfn_isNull(obj.value))
+        {
+			btn_search.click();
+		}
+	}
+	// Del 키
+	else if(e.keycode == 46) 
+	{		
+		setZip("");
+		setAddr("");
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

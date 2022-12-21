@@ -1,0 +1,1561 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+    name="ft.ftr.ftStatsDAO">
+    <desc>식재도매 통계조회 조회</desc>
+
+    <!-- PO별 내수 매입 금액을 조회한다. -->
+    <statement name="pobyDmtBuyAmt" type="select">
+        /*+ com.hwfs.ft.ftr.dao.FtStatsDAO.pobyDmtBuyAmt */
+        <![CDATA[
+SELECT SCC_CODE_NM('ATTACH_DEPT', B.ATTACH_DEPT) AS ATTACH_DEPT_NM  /* 귀속부서 */
+     , B.PO_ORDER_NUM             /* PO No */
+
+     --, B.BL_NUM                   /* BL No */
+     , CASE WHEN A.PO_TYPE= '10' THEN    --수입(KRW)
+                B.BL_NUM
+            ELSE
+                C.ITEM_BL_NUM
+       END AS BL_NUM
+     --, C.ITEM_NM                  /* 품목명 */
+     , K.ITEM_NAME||' '||K.ITEM_SIZE AS ITEM_NM
+
+     , C.UNIT                     /* 기준단위 */
+     , C.QUANTITY                 /* 수량 */
+     , C.WGT                      /* 중량 */
+     , C.UPRICE                   /* 단가 */
+     , D.SIGN_AMT                 /* 매입액 */
+     , D.BILL_PUBLISHDD           /* 계산서발행일자 */
+     , NVL(SCC_CODE_NM('TAX_CD', D.TAX_CD), '매입계산서') AS TAX_NM  /* 과세유형 */
+     , D.SUPPLY_PRICE             /* 공급가액 */
+     , D.VAT_AMT                  /* 부가세 */
+     , NVL(D.SUPPLY_PRICE,0) + NVL(D.VAT_AMT,0) AS TOT_AMT
+     , D.ELCTN_TAX_BILL_NUM       /* 전자세금계산서번호 */
+     , D.ELCTN_TAX_BILL_YN        /* 전자세금계산서여부 */
+     , B.SPLR_NM                  /* 매입처 */
+     , B.SALSPLCE_NM              /* 매출처 */
+     , (SELECT MIN(FIRST_DELIVER_DATE) FROM INVENTORY_MGMT_DELIVER WHERE PO_ORDER_NUM = C.PO_ORDER_NUM) AS FIRST_DELIVER_DATE /* 최초입고일자 */
+     , (SELECT WH_NM FROM INVENTORY_MGMT_DELIVER WHERE WH_CD = C.WH_CD AND ROWNUM = 1) AS WH_NM /* 창고 */
+  FROM PO_PROPOSAL_MST A
+     , PO_ORDER_MST B
+     , PO_ORDER_ITEM_DETAIL C
+     , GDSPAYM_MST D
+     , HLDC_PO_ITEM_MST K
+ WHERE A.PO_PROPOSAL_NUM = B.PO_PROPOSAL_NUM
+   AND B.PO_ORDER_NUM = C.PO_ORDER_NUM
+   AND B.PO_ORDER_NUM = D.PO_ORDER_NUM
+   AND C.ITEM_CD = K.ITEM_CODE(+)
+   AND A.PO_TYPE = '20'
+   <#if startTerm?has_content>
+   AND EXISTS (
+           SELECT 1 FROM INVENTORY_MGMT_DELIVER T
+           WHERE T.PO_ORDER_NUM = B.PO_ORDER_NUM
+           AND T.CURRENT_WH_DELIVER_DATE BETWEEN :startTerm AND :endTerm
+       )
+   </#if>
+   <#if attachDept?has_content>
+       AND B.ATTACH_DEPT = :attachDept
+   </#if>
+    <#if search?has_content>
+       AND B.PO_ORDER_NUM  LIKE '%'||:search||'%'
+    </#if>
+
+ ORDER BY B.PO_ORDER_NUM
+        , C.ITEM_CD
+        , D.BILL_PUBLISHDD
+        ]]>
+    </statement>
+
+    <!-- PO별 수입 현황을 조회한다. -->
+    <statement name="pobyIncomeStatusRpt" type="select">
+        /*+ com.hwfs.ft.ftr.dao.FtStatsDAO.pobyIncomeStatusRpt */
+        <![CDATA[
+WITH T1 AS
+ (SELECT '1' FLAG,
+         0 AS OTHER_AMT_SEQ,
+         B.ATTACH_DEPT,
+         (SELECT CODE_NAME
+            FROM SCC_COMMON_CODE
+           WHERE GROUP_CODE = 'ATTACH_DEPT'
+             AND CODE = B.ATTACH_DEPT) AS ATTACH_DEPT_NM,
+         B.PO_ORDER_NUM,
+         B.BL_NUM,
+         X.ITEM_CD,
+         X.ITEM_SEQ,
+         K.ITEM_NAME||' '||K.ITEM_SIZE AS ITEM_NM,
+         '미착상품' ACCT_NM,
+         '매입대금(선적일)' COMM_CLASS --수수료구분
+        ,NVL(B.EXCHANGE_RATE * X.WONWTR_AMT,0) PAY_AMT --배부액(물품대금(KRW))
+        ,'' SLIP_PUBLISH_DATE --계산서발행일자
+        ,'' TAX_CD --과세유형
+        ,'0' COMM_AMT --합계
+        ,NULL SUPPLY_PRICE --공급가
+        ,NULL VAT_AMT --부가세
+        ,NULL TAX_BILL_NUM --세금계산서번호
+        ,NULL ELCTN_TAX_BILL_YN --전자세금
+        ,(SELECT T.VD_NM_LOC
+            FROM EPROCUSR.ESMVDFW T
+           WHERE T.VD_CD = D.REAL_PAYMENT_PLCE AND T.VD_STS = 'C') SPLR_NM --실지급처명
+        ,X.UNIT,
+         X.QUANTITY,
+         X.WGT,
+         B.AMOUNT_UNIT,
+         X.WONWTR_AMT * B.EXCHANGE_RATE AS WONWTR_AMT,
+         B.EXCHANGE_RATE_DATE --환율일자
+        ,B.EXCHANGE_RATE --선적환율
+        ,(SELECT MAX(INCOME_NEWHGHT_DATE)
+            FROM ENTRY_MST T
+           WHERE PO_ORDER_NUM = D.PO_ORDER_NUM) ENTRY_SCHD_DATE --통관일자
+        ,1 RN
+    FROM PO_PROPOSAL_MST A,
+         PO_ORDER_MST B,
+         PO_ORDER_ITEM_DETAIL X,
+         PO_ORDER_PAY_COND C,
+         GDSPAYM_MST D,
+         (SELECT PO_ORDER_NUM,
+                 SUM(QUANTITY) TOT_QUANTITY,
+                 SUM(WGT) TOT_WGT,
+                 SUM(WONWTR_AMT) TOT_WONWTR_AMT
+            FROM PO_ORDER_ITEM_DETAIL
+           GROUP BY PO_ORDER_NUM) E
+         ,HLDC_PO_ITEM_MST K
+   WHERE A.PO_PROPOSAL_NUM = B.PO_PROPOSAL_NUM
+     AND B.PO_ORDER_NUM = X.PO_ORDER_NUM
+     AND B.PO_ORDER_NUM = C.PO_ORDER_NUM
+     AND C.PO_ORDER_NUM = D.PO_ORDER_NUM(+)
+     AND C.PAY_COND_SEQ = D.SEQ(+)
+     AND B.PO_ORDER_NUM = E.PO_ORDER_NUM
+     AND X.ITEM_CD = K.ITEM_CODE(+)
+     AND EXISTS
+         (SELECT 1
+            FROM INVENTORY_MGMT_DELIVER T, DELIVERITEM_OTHER_AMT_DIV T2
+           WHERE T.DELIVER_NUM = T2.DELIVER_NUM
+             AND T.PO_ORDER_NUM = X.PO_ORDER_NUM
+             AND T.ITEM_CD = X.ITEM_CD
+             AND T.ITEM_SEQ = X.ITEM_SEQ
+             )),
+T2 AS
+ (SELECT '2' FLAG,
+         0 AS OTHER_AMT_SEQ,
+         B.ATTACH_DEPT,
+         (SELECT CODE_NAME
+            FROM SCC_COMMON_CODE
+           WHERE GROUP_CODE = 'ATTACH_DEPT'
+             AND CODE = B.ATTACH_DEPT) AS ATTACH_DEPT_NM,
+         B.PO_ORDER_NUM,
+         B.BL_NUM,
+         X.ITEM_CD,
+         X.ITEM_SEQ,
+         X.ITEM_NM,
+         '미착상품' ACCT_NM,
+         '매입대금(결제일)' COMM_CLASS --수수료구분
+        ,NVL(D.SETTLE_EXCHANGE_RATE * X.WONWTR_AMT, 0) PAY_AMT --배부액(물품대금(KRW))
+        ,'' SLIP_PUBLISH_DATE --계산서발행일자
+        ,'' TAX_CD --과세유형
+        ,'0' COMM_AMT --합계
+        ,NULL SUPPLY_PRICE --공급가
+        ,NULL VAT_AMT --부가세
+        ,NULL TAX_BILL_NUM --세금계산서번호
+        ,NULL ELCTN_TAX_BILL_YN --전자세금
+        ,(SELECT T.VD_NM_LOC
+            FROM EPROCUSR.ESMVDFW T
+           WHERE T.VD_CD = D.REAL_PAYMENT_PLCE AND T.VD_STS = 'C') SPLR_NM --실지급처명
+        ,X.UNIT,
+         X.QUANTITY,
+         X.WGT,
+         B.AMOUNT_UNIT,
+         NVL(D.SETTLE_EXCHANGE_RATE * X.WONWTR_AMT, 0) AS WONWTR_AMT,
+         B.EXCHANGE_RATE_DATE --환율일자
+        ,B.EXCHANGE_RATE --선적환율
+        ,(SELECT MAX(INCOME_NEWHGHT_DATE)
+            FROM ENTRY_MST T
+           WHERE PO_ORDER_NUM = D.PO_ORDER_NUM) ENTRY_SCHD_DATE --통관일자
+        ,1 RN
+    FROM PO_PROPOSAL_MST A,
+         PO_ORDER_MST B,
+         PO_ORDER_ITEM_DETAIL X,
+         PO_ORDER_PAY_COND C,
+         GDSPAYM_MST D,
+         (SELECT PO_ORDER_NUM,
+                 SUM(QUANTITY) TOT_QUANTITY,
+                 SUM(WGT) TOT_WGT,
+                 SUM(WONWTR_AMT) TOT_WONWTR_AMT
+            FROM PO_ORDER_ITEM_DETAIL
+           GROUP BY PO_ORDER_NUM) E
+   WHERE A.PO_PROPOSAL_NUM = B.PO_PROPOSAL_NUM
+     AND B.PO_ORDER_NUM = X.PO_ORDER_NUM
+     AND B.PO_ORDER_NUM = C.PO_ORDER_NUM
+     AND C.PO_ORDER_NUM = D.PO_ORDER_NUM(+)
+     AND C.PAY_COND_SEQ = D.SEQ(+)
+     AND B.PO_ORDER_NUM = E.PO_ORDER_NUM
+     AND EXISTS
+         (SELECT 1
+            FROM INVENTORY_MGMT_DELIVER T, DELIVERITEM_OTHER_AMT_DIV T2
+           WHERE T.DELIVER_NUM = T2.DELIVER_NUM
+             AND T.PO_ORDER_NUM = X.PO_ORDER_NUM
+             AND T.ITEM_CD = X.ITEM_CD
+             AND T.ITEM_SEQ = X.ITEM_SEQ
+             )),
+T3 AS
+ (SELECT '3' FLAG,
+         B.OTHER_AMT_SEQ,
+         A.ATTACH_DEPT,
+         (SELECT CODE_NAME
+            FROM SCC_COMMON_CODE
+           WHERE GROUP_CODE = 'ATTACH_DEPT'
+             AND CODE = A.ATTACH_DEPT) AS ATTACH_DEPT_NM,
+         D.PO_ORDER_NUM,
+         D.BL_NUM,
+         A.ITEM_CD,
+         A.ITEM_SEQ,
+         A.ITEM_NM,
+         '미착상품' AS ACCT_NM,
+         (SELECT CODE_NAME
+            FROM SCC_COMMON_CODE
+           WHERE GROUP_CODE = 'COMM_CLASS'
+             AND CODE = B.COMM_CLASS) AS COMM_CLASS,
+         NVL(B.DIV_AMT,0) AS DIV_AMT,
+         --X.PROC_DATE,
+         C.BILL_PUBLISHDD,
+         (SELECT CODE_NAME
+            FROM SCC_COMMON_CODE
+           WHERE GROUP_CODE = 'TAX_CD'
+             AND CODE = C.TAX_CD) AS TAX_CD,
+         TO_CHAR(C.COMM_AMT) AS COMM_AMT,
+         C.SUPPLY_PRICE,
+         C.VAT_AMT,
+         C.TAX_BILL_NUM,
+         C.ELCTN_TAX_BILL_YN,
+         (SELECT T.VD_NM_LOC
+            FROM EPROCUSR.ESMVDFW T
+           WHERE T.VD_CD = C.REAL_PAYMENT_PLCE AND T.VD_STS = 'C') SPLR_NM --실지급처명
+        ,Y.UNIT,
+         Y.QUANTITY,
+         Y.WGT,
+         D.AMOUNT_UNIT,
+         Y.WONWTR_AMT,
+         NULL EXCHANGE_RATE_DATE --환율일자
+        ,NULL EXCHANGE_RATE --선적환율
+        ,(SELECT MAX(INCOME_NEWHGHT_DATE)
+            FROM ENTRY_MST T
+           WHERE PO_ORDER_NUM = D.PO_ORDER_NUM) ENTRY_SCHD_DATE --통관일자
+        ,ROW_NUMBER() OVER(PARTITION BY D.PO_ORDER_NUM, Y.ITEM_CD, Y.ITEM_SEQ ORDER BY D.PO_ORDER_NUM, Y.ITEM_CD, Y.ITEM_SEQ, B.COMM_CLASS) AS RN
+    FROM INVENTORY_MGMT_DELIVER    A,
+         DELIVERITEM_OTHER_AMT_DIV B,
+         PO_ORDER_OTHER_AMT        C,
+         PO_ORDER_MST              D,
+         PO_ORDER_ITEM_DETAIL      Y,
+         FT_SAP_INTERFACE          X
+   WHERE A.DELIVER_NUM = B.DELIVER_NUM
+     AND A.PO_ORDER_NUM = C.PO_ORDER_NUM
+     AND B.OTHER_AMT_SEQ = C.OTHER_AMT_SEQ
+     AND A.PO_ORDER_NUM = D.PO_ORDER_NUM
+     AND D.PO_ORDER_NUM = Y.PO_ORDER_NUM
+     AND A.ITEM_CD = Y.ITEM_CD
+     AND A.ITEM_SEQ = Y.ITEM_SEQ
+     AND C.SLIP_NUM = X.SLIP_NUM(+))
+SELECT A.*,
+       ROW_NUMBER() OVER(PARTITION BY A.PO_ORDER_NUM, A.ITEM_CD, A.RN, A.FLAG ORDER BY A.PO_ORDER_NUM, A.ITEM_CD, A.ITEM_SEQ,  A.RN, A.FLAG) AS RANK
+  FROM (SELECT X.*
+          FROM T1 X
+
+        UNION ALL
+
+        SELECT Y.*
+          FROM T2 Y
+
+        UNION ALL
+
+        SELECT Z.*
+          FROM T3 Z
+
+        UNION ALL
+
+         (SELECT '4' FLAG,
+                999 OTHER_AMT_SEQ,
+                '' AS ATTACH_DEPT,
+                '' ATTACH_DEPT_NM,
+                TP.PO_ORDER_NUM,
+                '' BL_NUM,
+                TP.ITEM_CD,
+                TP.ITEM_SEQ,
+                '' AS ITEM_NM,
+                '' AS ACC_NUM,
+                '수입금액(선적일기준)' AS COMM_CLASS,
+                NVL(TP.PAY_AMT +
+                    (SELECT SUM(T3.DIV_AMT)
+                       FROM T3
+                      WHERE T3.PO_ORDER_NUM = TP.PO_ORDER_NUM
+                        AND T3.ITEM_CD = TP.ITEM_CD
+                        AND T3.ITEM_SEQ = TP.ITEM_SEQ),
+                    0) AS PAY_AMT,
+                '수입금액(결제일기준)' AS SLIP_PUBLISH_DATE,
+                TO_CHAR(NVL((SELECT SUM(T2.PAY_AMT)
+                               FROM T2
+                              WHERE T2.PO_ORDER_NUM = TP.PO_ORDER_NUM
+                                AND T2.ITEM_CD = TP.ITEM_CD
+                                AND T2.ITEM_SEQ = TP.ITEM_SEQ
+                                ) +
+                            (SELECT SUM(T3.DIV_AMT)
+                               FROM T3
+                              WHERE T3.PO_ORDER_NUM = TP.PO_ORDER_NUM
+                                AND T3.ITEM_CD = TP.ITEM_CD
+                                AND T3.ITEM_SEQ = TP.ITEM_SEQ
+                                ),
+                            0)) AS TAX_CD,
+                '환차액' COMM_AMT --합계
+               ,(NVL(TP.PAY_AMT +
+                      (SELECT SUM(T3.DIV_AMT)
+                         FROM T3
+                        WHERE T3.PO_ORDER_NUM = TP.PO_ORDER_NUM
+                          AND T3.ITEM_CD = TP.ITEM_CD
+                          AND T3.ITEM_SEQ = TP.ITEM_SEQ
+                          ),
+                      0) - NVL((SELECT SUM(T2.PAY_AMT)
+                                   FROM T2
+                                  WHERE T2.PO_ORDER_NUM = TP.PO_ORDER_NUM
+                                    AND T2.ITEM_CD = TP.ITEM_CD
+                                    AND T2.ITEM_SEQ = TP.ITEM_SEQ
+                                    ) +
+                                (SELECT SUM(T3.DIV_AMT)
+                                   FROM T3
+                                  WHERE T3.PO_ORDER_NUM = TP.PO_ORDER_NUM
+                                    AND T3.ITEM_CD = TP.ITEM_CD
+                                    AND T3.ITEM_SEQ = TP.ITEM_SEQ
+                                    ),
+                                0)) AS SUPPLY_PRICE --공급가
+               ,NULL VAT_AMT --부가세
+               ,NULL TAX_BILL_NUM --세금계산서번호
+               ,NULL ELCTN_TAX_BILL_YN --전자세금
+               ,'' SPLR_NM --실지급처명
+               ,'' UNIT,
+                NULL QUANTITY,
+                NULL WGT,
+                '' AMOUNT_UNIT,
+                NULL WONWTR_AMT,
+                NULL EXCHANGE_RATE_DATE --환율일자
+               ,NULL EXCHANGE_RATE --선적환율
+               ,'' ENTRY_SCHD_DATE --통관일자
+               ,1 RN
+           FROM T1 TP)
+           ) A
+ WHERE 1 = 1
+   <#if startTerm?has_content>
+       AND EXISTS (
+                   SELECT 1
+                     FROM ENTRY_MST EM
+                    WHERE EM.PO_ORDER_NUM = A.PO_ORDER_NUM
+                      AND EM.LIC_DATE BETWEEN :startTerm AND :endTerm
+                  )
+   </#if>
+    <#if attachDept?has_content>
+       AND A.ATTACH_DEPT = :attachDept
+    </#if>
+    <#if search?has_content>
+       AND A.PO_ORDER_NUM  LIKE '%'||:search||'%'
+    </#if>
+
+
+ ORDER BY A.PO_ORDER_NUM, A.ITEM_CD, RANK, A.FLAG
+        ]]>
+    </statement>
+    
+   <!-- PO별 수입 현황을 조회한다. -->
+    <statement name="pobyIncomeStatusRpt2" type="select">
+        /*+ com.hwfs.ft.ftr.dao.FtStatsDAO.pobyIncomeStatusRpt2 */
+        <![CDATA[
+WITH T1 AS
+ (SELECT '1' FLAG,
+         0 AS OTHER_AMT_SEQ,
+         B.ATTACH_DEPT,
+         (SELECT CODE_NAME
+            FROM SCC_COMMON_CODE
+           WHERE GROUP_CODE = 'ATTACH_DEPT'
+             AND CODE = B.ATTACH_DEPT) AS ATTACH_DEPT_NM,
+         B.PO_ORDER_NUM,
+         B.BL_NUM,
+         X.ITEM_CD,
+         X.ITEM_SEQ,
+         K.ITEM_NAME||' '||K.ITEM_SIZE AS ITEM_NM,
+         '미착상품' ACCT_NM,
+         '매입대금(선적일)' COMM_CLASS --수수료구분
+        ,NVL(X.DELIVER_AMT,0) PAY_AMT --배부액(물품대금(KRW))
+        ,'' SLIP_PUBLISH_DATE --계산서발행일자
+        ,'' TAX_CD --과세유형
+        ,'0' COMM_AMT --합계
+        ,NULL SUPPLY_PRICE --공급가
+        ,NULL VAT_AMT --부가세
+        ,NULL TAX_BILL_NUM --세금계산서번호
+        ,NULL ELCTN_TAX_BILL_YN --전자세금
+        ,(SELECT T.VD_NM_LOC
+            FROM EPROCUSR.ESMVDFW T
+           WHERE T.VD_CD = D.REAL_PAYMENT_PLCE AND T.VD_STS = 'C') SPLR_NM --실지급처명
+        ,X.UNIT,
+         X.DELIVER_QUANTITY AS QUANTITY,
+         X.DELIVER_WGT AS WGT,
+         B.AMOUNT_UNIT,
+         X.DELIVER_AMT AS WONWTR_AMT,
+         B.EXCHANGE_RATE_DATE --환율일자
+        ,B.EXCHANGE_RATE --선적환율
+        ,(SELECT MAX(INCOME_NEWHGHT_DATE)
+            FROM ENTRY_MST T
+           WHERE PO_ORDER_NUM = D.PO_ORDER_NUM) ENTRY_SCHD_DATE --통관일자
+        ,1 RN
+    FROM PO_PROPOSAL_MST A,
+         PO_ORDER_MST B,
+         INVENTORY_MGMT_DELIVER X,
+         PO_ORDER_PAY_COND C,
+         GDSPAYM_MST D,
+         (SELECT PO_ORDER_NUM,
+                 SUM(DELIVER_QUANTITY) TOT_QUANTITY,
+                 SUM(DELIVER_WGT) TOT_WGT,
+                 SUM(DELIVER_AMT) TOT_WONWTR_AMT
+            FROM INVENTORY_MGMT_DELIVER
+           WHERE DELIVER_STATUS = '20'
+           GROUP BY PO_ORDER_NUM) E
+         ,HLDC_PO_ITEM_MST K
+   WHERE A.PO_PROPOSAL_NUM = B.PO_PROPOSAL_NUM
+     AND B.PO_ORDER_NUM = X.PO_ORDER_NUM
+     AND X.DELIVER_STATUS = '20'
+     AND B.PO_ORDER_NUM = C.PO_ORDER_NUM
+     AND C.PO_ORDER_NUM = D.PO_ORDER_NUM(+)
+     AND C.PAY_COND_SEQ = D.SEQ(+)
+     AND B.PO_ORDER_NUM = E.PO_ORDER_NUM
+     AND X.ITEM_CD = K.ITEM_CODE(+)
+     AND EXISTS
+         (SELECT 1
+            FROM INVENTORY_MGMT_DELIVER T, DELIVERITEM_OTHER_AMT_DIV T2
+           WHERE T.DELIVER_NUM = T2.DELIVER_NUM
+             AND T.PO_ORDER_NUM = X.PO_ORDER_NUM
+             AND T.ITEM_CD = X.ITEM_CD
+             AND T.ITEM_SEQ = X.ITEM_SEQ
+             AND T.DELIVER_STATUS = '20'
+             )),
+T2 AS
+ (SELECT '2' FLAG,
+         0 AS OTHER_AMT_SEQ,
+         B.ATTACH_DEPT,
+         (SELECT CODE_NAME
+            FROM SCC_COMMON_CODE
+           WHERE GROUP_CODE = 'ATTACH_DEPT'
+             AND CODE = B.ATTACH_DEPT) AS ATTACH_DEPT_NM,
+         B.PO_ORDER_NUM,
+         B.BL_NUM,
+         X.ITEM_CD,
+         X.ITEM_SEQ,
+         X.ITEM_NM,
+         '미착상품' ACCT_NM,
+         '매입대금(결제일)' COMM_CLASS --수수료구분
+        ,NVL(X.DELIVER_AMT, 0) PAY_AMT --배부액(물품대금(KRW))
+        ,'' SLIP_PUBLISH_DATE --계산서발행일자
+        ,'' TAX_CD --과세유형
+        ,'0' COMM_AMT --합계
+        ,NULL SUPPLY_PRICE --공급가
+        ,NULL VAT_AMT --부가세
+        ,NULL TAX_BILL_NUM --세금계산서번호
+        ,NULL ELCTN_TAX_BILL_YN --전자세금
+        ,(SELECT T.VD_NM_LOC
+            FROM EPROCUSR.ESMVDFW T
+           WHERE T.VD_CD = D.REAL_PAYMENT_PLCE AND T.VD_STS = 'C') SPLR_NM --실지급처명
+        ,X.UNIT,
+         X.DELIVER_QUANTITY  AS QUANTITY,
+         X.DELIVER_WGT AS WGT,
+         B.AMOUNT_UNIT,
+         NVL(X.DELIVER_AMT, 0) AS WONWTR_AMT,
+         B.EXCHANGE_RATE_DATE --환율일자
+        ,B.EXCHANGE_RATE --선적환율
+        ,(SELECT MAX(INCOME_NEWHGHT_DATE)
+            FROM ENTRY_MST T
+           WHERE PO_ORDER_NUM = D.PO_ORDER_NUM) ENTRY_SCHD_DATE --통관일자
+        ,1 RN
+    FROM PO_PROPOSAL_MST A,
+         PO_ORDER_MST B,
+         INVENTORY_MGMT_DELIVER X,
+         PO_ORDER_PAY_COND C,
+         GDSPAYM_MST D,
+         (SELECT PO_ORDER_NUM,
+                 SUM(DELIVER_QUANTITY) TOT_QUANTITY,
+                 SUM(DELIVER_WGT) TOT_WGT,
+                 SUM(DELIVER_AMT) TOT_WONWTR_AMT
+            FROM INVENTORY_MGMT_DELIVER
+           WHERE DELIVER_STATUS = '20'
+           GROUP BY PO_ORDER_NUM) E
+   WHERE A.PO_PROPOSAL_NUM = B.PO_PROPOSAL_NUM
+     AND B.PO_ORDER_NUM = X.PO_ORDER_NUM
+     AND X.DELIVER_STATUS = '20'
+     AND B.PO_ORDER_NUM = C.PO_ORDER_NUM
+     AND C.PO_ORDER_NUM = D.PO_ORDER_NUM(+)
+     AND C.PAY_COND_SEQ = D.SEQ(+)
+     AND B.PO_ORDER_NUM = E.PO_ORDER_NUM
+     AND EXISTS
+         (SELECT 1
+            FROM INVENTORY_MGMT_DELIVER T, DELIVERITEM_OTHER_AMT_DIV T2
+           WHERE T.DELIVER_NUM = T2.DELIVER_NUM
+             AND T.PO_ORDER_NUM = X.PO_ORDER_NUM
+             AND T.ITEM_CD = X.ITEM_CD
+             AND T.ITEM_SEQ = X.ITEM_SEQ
+             AND T.DELIVER_STATUS = '20'
+             )),
+T3 AS
+ (SELECT '3' FLAG,
+         B.OTHER_AMT_SEQ,
+         A.ATTACH_DEPT,
+         (SELECT CODE_NAME
+            FROM SCC_COMMON_CODE
+           WHERE GROUP_CODE = 'ATTACH_DEPT'
+             AND CODE = A.ATTACH_DEPT) AS ATTACH_DEPT_NM,
+         D.PO_ORDER_NUM,
+         D.BL_NUM,
+         A.ITEM_CD,
+         A.ITEM_SEQ,
+         A.ITEM_NM,
+         '미착상품' AS ACCT_NM,
+         (SELECT CODE_NAME
+            FROM SCC_COMMON_CODE
+           WHERE GROUP_CODE = 'COMM_CLASS'
+             AND CODE = B.COMM_CLASS) AS COMM_CLASS,
+         NVL(B.DIV_AMT,0) AS DIV_AMT,
+         C.BILL_PUBLISHDD,
+         (SELECT CODE_NAME
+            FROM SCC_COMMON_CODE
+           WHERE GROUP_CODE = 'TAX_CD'
+             AND CODE = C.TAX_CD) AS TAX_CD,
+         TO_CHAR(C.COMM_AMT) AS COMM_AMT,
+         C.SUPPLY_PRICE,
+         C.VAT_AMT,
+         C.TAX_BILL_NUM,
+         C.ELCTN_TAX_BILL_YN,
+         (SELECT T.VD_NM_LOC
+            FROM EPROCUSR.ESMVDFW T
+           WHERE T.VD_CD = C.REAL_PAYMENT_PLCE AND T.VD_STS = 'C') SPLR_NM --실지급처명
+        ,Y.UNIT,
+         Y.QUANTITY,
+         Y.WGT,
+         D.AMOUNT_UNIT,
+         Y.WONWTR_AMT,
+         NULL EXCHANGE_RATE_DATE --환율일자
+        ,NULL EXCHANGE_RATE --선적환율
+        ,(SELECT MAX(INCOME_NEWHGHT_DATE)
+            FROM ENTRY_MST T
+           WHERE PO_ORDER_NUM = D.PO_ORDER_NUM) ENTRY_SCHD_DATE --통관일자
+        ,ROW_NUMBER() OVER(PARTITION BY D.PO_ORDER_NUM, Y.ITEM_CD, Y.ITEM_SEQ ORDER BY D.PO_ORDER_NUM, Y.ITEM_CD, Y.ITEM_SEQ, B.COMM_CLASS) AS RN
+    FROM INVENTORY_MGMT_DELIVER    A,
+         DELIVERITEM_OTHER_AMT_DIV B,
+         PO_ORDER_OTHER_AMT        C,
+         PO_ORDER_MST              D,
+         PO_ORDER_ITEM_DETAIL      Y
+   WHERE A.DELIVER_NUM = B.DELIVER_NUM
+     AND A.PO_ORDER_NUM = C.PO_ORDER_NUM
+     AND B.OTHER_AMT_SEQ = C.OTHER_AMT_SEQ
+     AND A.PO_ORDER_NUM = D.PO_ORDER_NUM
+     AND A.PO_ORDER_NUM = Y.PO_ORDER_NUM(+)
+     AND A.ITEM_CD = Y.ITEM_CD(+)
+     AND A.ITEM_SEQ = Y.ITEM_SEQ(+)
+     )
+SELECT A.*,
+       ROW_NUMBER() OVER(PARTITION BY A.PO_ORDER_NUM, A.ITEM_CD, A.RN, A.FLAG ORDER BY A.PO_ORDER_NUM, A.ITEM_CD, A.ITEM_SEQ,  A.RN, A.FLAG) AS RANK
+  FROM (SELECT X.*
+          FROM T1 X
+
+        UNION ALL
+
+        SELECT Y.*
+          FROM T2 Y
+
+        UNION ALL
+
+        SELECT Z.*
+          FROM T3 Z
+
+        UNION ALL
+
+         (SELECT '4' FLAG,
+                999 OTHER_AMT_SEQ,
+                '' AS ATTACH_DEPT,
+                '' ATTACH_DEPT_NM,
+                TP.PO_ORDER_NUM,
+                '' BL_NUM,
+                TP.ITEM_CD,
+                TP.ITEM_SEQ,
+                '' AS ITEM_NM,
+                '' AS ACC_NUM,
+                '수입금액(선적일기준)' AS COMM_CLASS,
+                NVL(TP.PAY_AMT +
+                    (SELECT SUM(T3.DIV_AMT)
+                       FROM T3
+                      WHERE T3.PO_ORDER_NUM = TP.PO_ORDER_NUM
+                        AND T3.ITEM_CD = TP.ITEM_CD
+                        AND T3.ITEM_SEQ = TP.ITEM_SEQ),
+                    0) AS PAY_AMT,
+                '수입금액(결제일기준)' AS SLIP_PUBLISH_DATE,
+                TO_CHAR(NVL((SELECT SUM(T2.PAY_AMT)
+                               FROM T2
+                              WHERE T2.PO_ORDER_NUM = TP.PO_ORDER_NUM
+                                AND T2.ITEM_CD = TP.ITEM_CD
+                                AND T2.ITEM_SEQ = TP.ITEM_SEQ
+                                ) +
+                            (SELECT SUM(T3.DIV_AMT)
+                               FROM T3
+                              WHERE T3.PO_ORDER_NUM = TP.PO_ORDER_NUM
+                                AND T3.ITEM_CD = TP.ITEM_CD
+                                AND T3.ITEM_SEQ = TP.ITEM_SEQ
+                                ),
+                            0)) AS TAX_CD,
+                '환차액' COMM_AMT --합계
+               ,(NVL(TP.PAY_AMT +
+                      (SELECT SUM(T3.DIV_AMT)
+                         FROM T3
+                        WHERE T3.PO_ORDER_NUM = TP.PO_ORDER_NUM
+                          AND T3.ITEM_CD = TP.ITEM_CD
+                          AND T3.ITEM_SEQ = TP.ITEM_SEQ
+                          ),
+                      0) - NVL((SELECT SUM(T2.PAY_AMT)
+                                   FROM T2
+                                  WHERE T2.PO_ORDER_NUM = TP.PO_ORDER_NUM
+                                    AND T2.ITEM_CD = TP.ITEM_CD
+                                    AND T2.ITEM_SEQ = TP.ITEM_SEQ
+                                    ) +
+                                (SELECT SUM(T3.DIV_AMT)
+                                   FROM T3
+                                  WHERE T3.PO_ORDER_NUM = TP.PO_ORDER_NUM
+                                    AND T3.ITEM_CD = TP.ITEM_CD
+                                    AND T3.ITEM_SEQ = TP.ITEM_SEQ
+                                    ),
+                                0)) AS SUPPLY_PRICE --공급가
+               ,NULL VAT_AMT --부가세
+               ,NULL TAX_BILL_NUM --세금계산서번호
+               ,NULL ELCTN_TAX_BILL_YN --전자세금
+               ,'' SPLR_NM --실지급처명
+               ,'' UNIT,
+                NULL QUANTITY,
+                NULL WGT,
+                '' AMOUNT_UNIT,
+                NULL WONWTR_AMT,
+                NULL EXCHANGE_RATE_DATE --환율일자
+               ,NULL EXCHANGE_RATE --선적환율
+               ,'' ENTRY_SCHD_DATE --통관일자
+               ,1 RN
+           FROM T1 TP)
+           ) A
+ WHERE 1 = 1
+   AND EXISTS (
+            SELECT 1
+              FROM INVENTORY_MGMT_DELIVER EM
+             WHERE EM.PO_ORDER_NUM = A.PO_ORDER_NUM
+               AND EM.DELIVER_STATUS = '10'
+           )                   
+   <#if startTerm?has_content>
+       AND EXISTS (
+                   SELECT 1
+                     FROM ENTRY_MST EM
+                    WHERE EM.PO_ORDER_NUM = A.PO_ORDER_NUM
+                      AND EM.LIC_DATE BETWEEN :startTerm AND :endTerm
+                  )
+   </#if>
+    <#if attachDept?has_content>
+       AND A.ATTACH_DEPT = :attachDept
+    </#if>
+    <#if search?has_content>
+       AND A.PO_ORDER_NUM  LIKE '%'||:search||'%'
+    </#if>
+
+
+ ORDER BY A.PO_ORDER_NUM, A.ITEM_CD, RANK, A.FLAG
+        ]]>
+    </statement>    
+
+    <!-- 월별 예상 창고 보관료 조회한다. -->
+    <statement name="expectWhChargamtRpt" type="select">
+        /*+ com.hwfs.ft.ftr.dao.FtStatsDAO.expectWhChargamtRpt */
+        <![CDATA[
+WITH T1 AS
+(
+  SELECT
+       '1' FLAG
+      , '1' RELEASE_NUM
+      , A.DELIVER_NUM
+      ,A.ATTACH_DEPT
+      ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'ATTACH_DEPT' AND CODE = A.ATTACH_DEPT ) AS ATTACH_DEPT_NM
+      ,A.WH_CD
+      ,A.WH_NM
+      ,A.PO_ORDER_NUM
+      ,A.ITEM_CD
+      ,A.ITEM_SEQ
+      --,A.ITEM_NM
+      ,K.ITEM_NAME||' '||K.ITEM_SIZE AS ITEM_NM
+      ,A.UNIT
+      ,:startTerm||'01' AS RELEASE_DELIVER_DATE
+      ,TO_NUMBER(SUBSTR(:startTerm||'01',5,2)) AS DELIVER_MONTH
+      ,TO_NUMBER(SUBSTR(:startTerm||'01',7,2)) AS DELIVER_DAY
+
+     --입고(재고가 없을시 최초 입고수량 VIEW)
+      ,CASE WHEN NVL(B.SUM_RELEASE_QUANTITY,0) = 0 THEN           --입고수량 - 출고가 없을면 입고
+           DECODE(A.UNIT, 'KG', A.DELIVER_WGT, A.DELIVER_QUANTITY)
+       ELSE
+           NULL
+       END AS DELIVER_QUANTITY
+      ,NULL RELEASE_QUANTITY--출고
+      --,재고(넘어온 재고 VIEW)
+      ,CASE WHEN NVL(A.DELIVER_QUANTITY,0) - NVL(B.SUM_RELEASE_QUANTITY,0)  > 0 THEN           --입고수량 - 총출고수량 : 재고가 있음
+            DECODE(A.UNIT, 'KG', A.DELIVER_WGT, A.DELIVER_QUANTITY) - DECODE(A.UNIT, 'KG', B.SUM_RELEASE_WGT, B.SUM_RELEASE_QUANTITY)
+       ELSE
+           NULL
+       END AS INVENTORY_QUANTITY
+
+      ,NULL DAY_CNT          --일수
+      ,(SELECT CHARG_COST FROM WHBY_ITEMBY_CHARG_AMT T WHERE A.ITEM_CD = T.ITEM_CD AND T.WH_CD = A.WH_CD AND T.CHARGCOST_TYPE=A.UNIT)  AS FOC_UPRICE                         --기준단가
+      ,NULL WH_CHARG_COST    --창고비용
+      ,NULL IOUT_COST        --입출고비용
+      ,NULL IOUT_COST_UPRICE        --입출고단가
+      ,A.FIRST_DELIVER_DATE                     --입고일
+      ,'' REMARK1                                 --비고
+      ,ROW_NUMBER() OVER(PARTITION BY A.ATTACH_DEPT, A.WH_CD, A.PO_ORDER_NUM,  A.ITEM_CD, A.ITEM_SEQ ORDER BY A.ATTACH_DEPT, A.WH_CD, A.PO_ORDER_NUM, A.ITEM_CD, A.FIRST_DELIVER_DATE ) AS RANK1
+  FROM INVENTORY_MGMT_DELIVER A
+       ,(
+          SELECT T.DELIVER_NUM
+                ,SUM(T2.RELEASE_QUANTITY) SUM_RELEASE_QUANTITY
+                ,SUM(T2.RELEASE_WGT) SUM_RELEASE_WGT
+          FROM
+            SALE_ORDER_ITEM_MGMT T
+           ,RELEASE_ITEM_MGMT T2
+          WHERE 1=1
+          AND T.SALE_ORDER_NUM = T2.SALE_ORDER_NUM
+          AND T.SALE_ORDER_NUM_SEQ = T2.SALE_ORDER_NUM_SEQ
+          AND T2.RELEASE_DATE < TO_DATE(:startTerm||'01' , 'YYYYMMDD')   /*출고일자 --시점재고 대상 재고포함*/
+          GROUP BY T.DELIVER_NUM
+       ) B
+       ,HLDC_PO_ITEM_MST K
+  WHERE 1=1
+  AND A.DELIVER_NUM = B.DELIVER_NUM(+)
+  AND A.ITEM_CD = K.ITEM_CODE(+)
+  AND A.SALE_TYPE <> '30'
+  AND EXISTS (
+      SELECT 1
+      FROM
+        SALE_ORDER_ITEM_MGMT T
+       ,RELEASE_ITEM_MGMT T2
+      WHERE T.DELIVER_NUM = A.DELIVER_NUM
+      AND T.PO_ORDER_NUM = A.PO_ORDER_NUM
+      AND T.SALE_ORDER_NUM = T2.SALE_ORDER_NUM
+      AND T.SALE_ORDER_NUM_SEQ = T2.SALE_ORDER_NUM_SEQ
+      AND T2.RELEASE_DATE <= LAST_DAY(TO_DATE(:startTerm||'01' , 'YYYYMMDD'))   /*출고일자 --시점재고 대상 재고포함*/
+  )
+  AND A.DELIVER_STATUS <> '10' --가입고 제외
+  AND A.FIRST_DELIVER_DATE <= LAST_DAY(TO_DATE(:startTerm||'01' , 'YYYYMMDD'))   /*입고일자 --시점재고 대상 재고미포함*/
+  <#if chkInventoryYn?has_content>
+       <#if chkInventoryYn == "Y"> /* 재고포함 */
+          AND NVL(A.DELIVER_QUANTITY,0) - NVL(B.SUM_RELEASE_QUANTITY,0) >=0
+       <#else>
+          AND NVL(A.DELIVER_QUANTITY,0) - NVL(B.SUM_RELEASE_QUANTITY,0) >0
+       </#if>
+  <#else>
+       AND NVL(A.DELIVER_QUANTITY,0) - NVL(B.SUM_RELEASE_QUANTITY,0) >0              --재고미포함
+  </#if>
+
+)
+,T2 AS
+(
+  SELECT
+           T.FLAG
+          ,T.RELEASE_NUM
+      , T.DELIVER_NUM
+          ,T.ATTACH_DEPT
+          ,T.ATTACH_DEPT_NM  --판매경로
+          ,T.WH_CD
+          ,T.WH_NM           --창고명
+          ,T.PO_ORDER_NUM    --PO NO
+          ,T.ITEM_CD
+          ,T.ITEM_SEQ
+          ,T.ITEM_NM         --품목명
+          ,T.UNIT
+          ,T.RELEASE_DATE
+          ,T.DELIVER_MONTH   --월
+          ,T.DELIVER_DAY     --일
+          ,T.DELIVER_QUANTITY    --입고수량
+          ,T.RELEASE_QUANTITY     --출고
+          ,T.INVENTORY_QUANTITY
+          ,T.DAY_CNT
+          ,T.CHARG_COST AS  FOC_PRICE                        --기준단가
+          ,ROUND(NVL(T.CHARG_COST,0) * NVL(T.RELEASE_QUANTITY,0) * NVL(T.DAY_CNT,0)) AS WH_CHARG_COST    --창고비용
+          ,ROUND(NVL(T.IOUT_COST,0) * NVL(T.RELEASE_QUANTITY,0) * NVL(T.DAY_CNT,0)) AS IOUT_COST    --입출고비용
+
+          ,T.IOUT_COST AS IOUT_COST_UPRICE        --입출고단가
+          ,T.FIRST_DELIVER_DATE                        --입고일
+          ,T.REMARK                                 --비고
+          ,ROW_NUMBER() OVER(PARTITION BY T.DELIVER_NUM, T.RELEASE_DATE,T.ATTACH_DEPT, T.WH_CD, T.PO_ORDER_NUM,  T.ITEM_CD ORDER BY T.ATTACH_DEPT, T.WH_CD, T.PO_ORDER_NUM, T.ITEM_CD, T.RELEASE_DATE ) AS RANK
+  FROM
+  (
+      SELECT
+          '2' FLAG
+          ,C.RELEASE_NUM
+            , A.DELIVER_NUM
+          ,A.ATTACH_DEPT
+          ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'ATTACH_DEPT' AND CODE = A.ATTACH_DEPT ) AS ATTACH_DEPT_NM  --판매경로
+          ,A.WH_CD
+          ,A.WH_NM           --창고명
+          ,A.PO_ORDER_NUM    --PO NO
+          ,A.ITEM_CD
+          ,A.ITEM_SEQ
+          ,K.ITEM_NAME||' '||K.ITEM_SIZE AS ITEM_NM
+          ,A.UNIT
+          ,C.RELEASE_DATE
+          ,TO_NUMBER(SUBSTR(C.RELEASE_DATE,5,2)) AS DELIVER_MONTH   --월
+          ,TO_NUMBER(SUBSTR(C.RELEASE_DATE,7,2)) AS DELIVER_DAY     --일
+          --입고(재고가 없을시 최초 입고수량 VIEW)
+          ,NULL AS DELIVER_QUANTITY    --입고수량
+          ,DECODE(C.UNIT,'KG',C.RELEASE_WGT,C.RELEASE_QUANTITY) AS RELEASE_QUANTITY     --출고
+          --,재고(넘어온 재고 VIEW)
+          ,CASE WHEN C.UNIT = 'KG' THEN
+                NVL(A.DELIVER_WGT,0) - NVL(D.SUM_RELEASE_WGT,0)   - (SUM(C.RELEASE_WGT) OVER(PARTITION BY A.DELIVER_NUM,A.ITEM_CD ORDER BY A.PO_ORDER_NUM, C.RELEASE_DATE ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW))
+           ELSE
+                NVL(A.DELIVER_QUANTITY,0)  - NVL(D.SUM_RELEASE_QUANTITY,0)   - (SUM(C.RELEASE_QUANTITY) OVER(PARTITION BY A.DELIVER_NUM,A.ITEM_CD ORDER BY A.PO_ORDER_NUM, C.RELEASE_DATE ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW))
+           END  AS INVENTORY_QUANTITY
+
+          ,TO_NUMBER(TO_DATE(C.RELEASE_DATE) - TO_DATE(:startTerm||'01','YYYYMMDD'))+1 AS DAY_CNT   --TO_NUMBER(SUBSTR(A.FIRST_DELIVER_DATE,5,2)) AS DAY_CNT
+
+          ,E.CHARG_COST                         --창고보관료 단가
+          ,B.WH_CHARG_COST    --창고비용
+          ,E.IOUT_COST        --입출고비용
+          ,NULL IOUT_COST_UPRICE        --입출고단가
+          ,A.FIRST_DELIVER_DATE                        --입고일
+          ,C.REMARK                                 --비고
+
+      FROM INVENTORY_MGMT_DELIVER A
+           ,SALE_ORDER_ITEM_MGMT B
+           ,RELEASE_ITEM_MGMT C
+           ,(
+              SELECT T.DELIVER_NUM
+                    ,SUM(T2.RELEASE_QUANTITY) SUM_RELEASE_QUANTITY
+                    ,SUM(T2.RELEASE_WGT) SUM_RELEASE_WGT
+              FROM
+                SALE_ORDER_ITEM_MGMT T
+               ,RELEASE_ITEM_MGMT T2
+              WHERE 1=1
+              AND T.SALE_ORDER_NUM = T2.SALE_ORDER_NUM
+              AND T.SALE_ORDER_NUM_SEQ = T2.SALE_ORDER_NUM_SEQ
+              AND T2.RELEASE_DATE <= TO_DATE(:startTerm||'01' , 'YYYYMMDD')   /*출고일자 --시점재고 대상 재고포함*/
+              GROUP BY T.DELIVER_NUM
+           ) D
+           ,WHBY_ITEMBY_CHARG_AMT E
+           ,HLDC_PO_ITEM_MST K
+      WHERE A.DELIVER_NUM = B.DELIVER_NUM
+      AND B.SALE_ORDER_NUM = C.SALE_ORDER_NUM
+      AND B.SALE_ORDER_NUM_SEQ = C.SALE_ORDER_NUM_SEQ
+      AND A.DELIVER_NUM = D.DELIVER_NUM(+)
+      AND A.ITEM_CD = E.ITEM_CD(+)
+      AND A.WH_CD = E.WH_CD(+)
+      AND A.UNIT = E.CHARGCOST_TYPE(+)
+      AND A.ITEM_CD = K.ITEM_CODE(+)
+      AND A.SALE_TYPE <> '30'
+      AND A.DELIVER_STATUS <> '10' --가입고 제외
+      AND A.FIRST_DELIVER_DATE <= LAST_DAY(TO_DATE(:startTerm||'01' , 'YYYYMMDD'))   /*입고일자 --시점재고 대상 재고미포함*/
+      --AND C.RELEASE_DATE <= LAST_DAY(TO_DATE(:startTerm||'01' , 'YYYYMMDD'))   /*출고일자 --시점재고 대상 재고포함*/
+      AND C.RELEASE_DATE BETWEEN TO_DATE(:startTerm||'01' , 'YYYYMMDD') AND LAST_DAY(TO_DATE(:startTerm||'01' , 'YYYYMMDD'))   /*출고일자 --시점재고 대상 재고포함*/
+      AND NVL(A.DELIVER_QUANTITY,0) - NVL(D.SUM_RELEASE_QUANTITY,0) > 0    -- >= 0 재고 0 포함, >: 재고만 포함
+      <#if chkInventoryYn?has_content>
+           <#if chkInventoryYn == "Y"> /* 재고포함 */
+              AND NVL(A.DELIVER_QUANTITY,0) - NVL(D.SUM_RELEASE_QUANTITY,0) >=0
+           <#else>
+              AND NVL(A.DELIVER_QUANTITY,0) - NVL(D.SUM_RELEASE_QUANTITY,0) >0
+           </#if>
+      <#else>
+           AND NVL(A.DELIVER_QUANTITY,0) - NVL(D.SUM_RELEASE_QUANTITY,0) >0              --재고미포함
+      </#if>
+
+  )  T
+)
+,T3 AS
+(
+SELECT
+     T.FLAG
+    ,T.RELEASE_NUM
+    ,T.DELIVER_NUM
+    ,T.ATTACH_DEPT
+    ,T.ATTACH_DEPT_NM
+    ,T.WH_CD
+    ,T.WH_NM
+    ,T.PO_ORDER_NUM
+    ,T.ITEM_CD
+    ,T.ITEM_SEQ
+    ,T.ITEM_NM
+    ,T.UNIT
+    ,T.RELEASE_DELIVER_DATE
+    ,T.DELIVER_MONTH
+    ,T.DELIVER_DAY
+    ,T.DELIVER_QUANTITY
+    ,T.RELEASE_QUANTITY--출고
+    ,T.INVENTORY_QUANTITY
+    ,T.DAY_CNT
+    ,T.FOC_UPRICE                         --기준단가
+    ,NVL(T.CHARG_COST,0) * NVL(T.INVENTORY_QUANTITY,0) * NVL(T.DAY_CNT,0) AS WH_CHARG_COST    --창고비용
+    ,NVL(T.IOUT_COST,0) * NVL(T.INVENTORY_QUANTITY,0) * NVL(T.DAY_CNT,0) AS IOUT_COST    --입출고비용
+    ,T.IOUT_COST_UPRICE        --입출고단가
+    ,T.FIRST_DELIVER_DATE                     --입고일
+    ,T.REMARK1                                 --비고
+    ,T.RANK1
+FROM
+(
+      SELECT
+           '3' FLAG
+          , '3' RELEASE_NUM
+          , A.DELIVER_NUM
+          ,A.ATTACH_DEPT
+          ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'ATTACH_DEPT' AND CODE = A.ATTACH_DEPT ) AS ATTACH_DEPT_NM
+          ,A.WH_CD
+          ,A.WH_NM
+          ,A.PO_ORDER_NUM
+          ,A.ITEM_CD
+          ,A.ITEM_SEQ
+          --,A.ITEM_NM
+          ,K.ITEM_NAME||' '||K.ITEM_SIZE AS ITEM_NM
+          ,A.UNIT
+          ,TO_CHAR(LAST_DAY(TO_DATE(:startTerm||'01' , 'YYYYMMDD')),'YYYYMMDD') AS RELEASE_DELIVER_DATE
+          ,TO_NUMBER(SUBSTR(TO_CHAR(LAST_DAY(TO_DATE(:startTerm||'01' , 'YYYYMMDD')),'YYYYMMDD'),5,2)) AS DELIVER_MONTH
+          ,TO_NUMBER(SUBSTR(TO_CHAR(LAST_DAY(TO_DATE(:startTerm||'01' , 'YYYYMMDD')),'YYYYMMDD'),7,2)) AS DELIVER_DAY
+
+         --입고(재고가 없을시 최초 입고수량 VIEW)
+          ,CASE WHEN NVL(A.DELIVER_QUANTITY,0) - NVL(B.SUM_RELEASE_QUANTITY,0) > 0 THEN           --입고수량 - 총출고수량 : 재고가 있음
+               NULL
+           ELSE
+--               NVL(A.DELIVER_QUANTITY,0) - NVL(B.SUM_RELEASE_QUANTITY,0)
+               CASE WHEN A.UNIT = 'KG' THEN
+                   NVL(A.DELIVER_WGT,0) - NVL(B.SUM_RELEASE_WGT,0)
+               ELSE
+                   NVL(A.DELIVER_QUANTITY,0) - NVL(B.SUM_RELEASE_QUANTITY,0)
+               END
+
+           END AS DELIVER_QUANTITY
+          ,NULL RELEASE_QUANTITY--출고
+          --,재고(넘어온 재고 VIEW)
+          ,CASE WHEN NVL(A.DELIVER_QUANTITY,0) - NVL(B.SUM_RELEASE_QUANTITY,0)  > 0 THEN           --입고수량 - 총출고수량 : 재고가 있음
+               --NVL(A.DELIVER_QUANTITY,0) - NVL(B.SUM_RELEASE_QUANTITY,0)
+               CASE WHEN A.UNIT = 'KG' THEN
+                   NVL(A.DELIVER_WGT,0) - NVL(B.SUM_RELEASE_WGT,0)
+               ELSE
+                   NVL(A.DELIVER_QUANTITY,0) - NVL(B.SUM_RELEASE_QUANTITY,0)
+               END
+           ELSE
+               NULL
+           END AS INVENTORY_QUANTITY
+
+          ,CASE WHEN NVL(A.DELIVER_QUANTITY,0) - NVL(B.SUM_RELEASE_QUANTITY,0)  > 0 THEN           --입고수량 - 총출고수량 : 재고가 있음
+               TO_NUMBER(LAST_DAY(TO_DATE(:startTerm||'01' , 'YYYYMMDD'))  - TO_DATE(:startTerm||'01', 'YYYYMMDD')) +1
+           ELSE
+                TO_NUMBER(LAST_DAY(TO_DATE(:startTerm||'01' , 'YYYYMMDD'))  - TO_DATE(A.FIRST_DELIVER_DATE, 'YYYYMMDD')) +1                       --.수정
+           END AS DAY_CNT
+
+
+          ,(SELECT CHARG_COST FROM WHBY_ITEMBY_CHARG_AMT T WHERE A.ITEM_CD = T.ITEM_CD AND T.WH_CD = A.WH_CD AND T.CHARGCOST_TYPE=A.UNIT)  AS FOC_UPRICE                         --기준단가
+          ,E.CHARG_COST    --창고비용
+          ,E.IOUT_COST        --입출고비용
+          ,E.IOUT_COST AS IOUT_COST_UPRICE        --입출고단가
+          ,A.FIRST_DELIVER_DATE                     --입고일
+          ,'' REMARK1                                 --비고
+          ,ROW_NUMBER() OVER(PARTITION BY A.ATTACH_DEPT, A.WH_CD, A.PO_ORDER_NUM,  A.ITEM_CD, A.ITEM_SEQ ORDER BY A.ATTACH_DEPT, A.WH_CD, A.PO_ORDER_NUM, A.ITEM_CD, A.FIRST_DELIVER_DATE ) AS RANK1
+      FROM INVENTORY_MGMT_DELIVER A
+           ,(
+              SELECT T.DELIVER_NUM
+                    ,SUM(T2.RELEASE_QUANTITY) SUM_RELEASE_QUANTITY
+                    ,SUM(T2.RELEASE_WGT) SUM_RELEASE_WGT
+                    ,MAX(T2.RELEASE_DATE) AS RELEASE_DATE
+              FROM
+                SALE_ORDER_ITEM_MGMT T
+               ,RELEASE_ITEM_MGMT T2
+              WHERE 1=1
+              AND T.SALE_ORDER_NUM = T2.SALE_ORDER_NUM
+              AND T.SALE_ORDER_NUM_SEQ = T2.SALE_ORDER_NUM_SEQ
+              AND T2.RELEASE_DATE <= LAST_DAY(TO_DATE(:startTerm||'01' , 'YYYYMMDD'))   /*출고일자 --시점재고 대상 재고포함*/
+              GROUP BY T.DELIVER_NUM
+           ) B
+           ,WHBY_ITEMBY_CHARG_AMT E
+           ,HLDC_PO_ITEM_MST K
+      WHERE 1=1
+      AND A.DELIVER_NUM = B.DELIVER_NUM(+)
+      AND A.ITEM_CD = E.ITEM_CD(+)
+      AND A.WH_CD = E.WH_CD(+)
+      AND A.UNIT = E.CHARGCOST_TYPE(+)
+      AND A.ITEM_CD = K.ITEM_CODE(+)
+      AND A.SALE_TYPE <> '30'
+      AND EXISTS (
+          SELECT 1
+          FROM
+            SALE_ORDER_ITEM_MGMT T
+           ,RELEASE_ITEM_MGMT T2
+          WHERE T.DELIVER_NUM = A.DELIVER_NUM
+          AND T.PO_ORDER_NUM = A.PO_ORDER_NUM
+          AND T.SALE_ORDER_NUM = T2.SALE_ORDER_NUM
+          AND T.SALE_ORDER_NUM_SEQ = T2.SALE_ORDER_NUM_SEQ
+          AND T2.RELEASE_DATE <= LAST_DAY(TO_DATE(:startTerm||'01' , 'YYYYMMDD'))   /*출고일자 --시점재고 대상 재고포함*/
+      )
+      AND A.DELIVER_STATUS <> '10' --가입고 제외
+      AND A.FIRST_DELIVER_DATE <= LAST_DAY(TO_DATE(:startTerm||'01' , 'YYYYMMDD'))   /*입고일자 --시점재고 대상 재고미포함*/
+      <#if chkInventoryYn?has_content>
+           <#if chkInventoryYn == "Y"> /* 재고포함 */
+              AND NVL(A.DELIVER_QUANTITY,0) - NVL(B.SUM_RELEASE_QUANTITY,0) >=0
+           <#else>
+              AND NVL(A.DELIVER_QUANTITY,0) - NVL(B.SUM_RELEASE_QUANTITY,0) >0
+           </#if>
+      <#else>
+           AND NVL(A.DELIVER_QUANTITY,0) - NVL(B.SUM_RELEASE_QUANTITY,0) >0              --재고미포함
+      </#if>
+ ) T
+)
+SELECT
+  A.*
+  --, ROW_NUMBER() OVER(PARTITION BY        A.DELIVER_NUM, A.ATTACH_DEPT, A.WH_CD, A.PO_ORDER_NUM,  A.ITEM_CD, A.ITEM_SEQ, A.FLAG ORDER BY A.ATTACH_DEPT, A.WH_CD, A.PO_ORDER_NUM, A.ITEM_CD, A.ITEM_SEQ, A.FLAG, A.RELEASE_NUM ) AS RANK
+FROM
+(
+    SELECT * FROM T1   --최초입고일 기준 입고,재고
+
+    UNION ALL
+
+    SELECT * FROM T2   --출고
+
+    UNION ALL
+
+    SELECT * FROM T3   --최종재고
+) A
+WHERE 1=1
+<#if attachDept?has_content>
+    AND A.ATTACH_DEPT = :attachDept
+</#if>
+ORDER BY DECODE(A.ATTACH_DEPT,'20',1,'10',2,'30',3) , A.WH_CD, A.PO_ORDER_NUM, A.ITEM_CD, A.ITEM_SEQ, A.FLAG, A.RELEASE_DELIVER_DATE
+--ORDER BY A.ATTACH_DEPT, A.WH_CD, A.PO_ORDER_NUM, A.ITEM_CD, A.ITEM_SEQ, A.FLAG, A.RELEASE_DELIVER_DATE
+        ]]>
+    </statement>
+
+    <!-- 주차 조회한다. -->
+    <statement name="selectWeekYearMm" type="select">
+        /*+ com.hwfs.ft.ftr.dao.FtStatsDAO.selectWeekYearMm */
+        <![CDATA[
+WITH ISO AS
+ (SELECT SUBSTR(TO_CHAR(WEEK_START, 'YYYYMMDD'), 1, 4) AS WEEK_OF_YEAR_YEAR,
+         SUBSTR(TO_CHAR(WEEK_START, 'YYYYMMDD'), 5, 2) AS WEEK_OF_YEAR_MONTH,
+         TO_CHAR(WEEK_START, 'YYYYMMDD') WEEK_START,
+         TO_CHAR(WEEK_END, 'YYYYMMDD') WEEK_END,
+         TO_CHAR(WEEK_START, 'W') WEEK_OF_MONTH
+    FROM (SELECT TRUNC(START_DT + LEVEL, 'D') WEEK_START,
+                 TRUNC(START_DT + LEVEL, 'D') + 6 WEEK_END
+            FROM (SELECT ADD_MONTHS(TO_DATE(:yy || :mm || '01', 'YYYYMMDD'), -1) - 1 START_DT,
+                         TO_DATE(:yy || :mm || TO_CHAR(LAST_DAY(TO_DATE(:yy || :mm, 'YYYYMM')), 'DD'), 'YYYYMMDD') END_DT
+                    FROM DUAL)
+          CONNECT BY LEVEL <= END_DT - START_DT)
+   GROUP BY WEEK_START, WEEK_END
+   ORDER BY WEEK_START)
+SELECT (SELECT TO_CHAR(TO_DATE(A.WEEK_START, 'YYYYMMDD'), 'WW') FROM DUAL) AS WEEK_OF_YEAR,
+       TO_CHAR(TO_DATE(A.WEEK_START, 'YYYYMMDD'), 'YYYY-MM-DD') || ' ~ ' || TO_CHAR(TO_DATE(A.WEEK_END, 'YYYYMMDD'), 'YYYY-MM-DD') || ' (' || A.WEEK_OF_MONTH || ')' AS WEEK_OF_YEAR_DAY,
+       A.WEEK_START,
+       A.WEEK_END
+  FROM ISO A
+ WHERE 1 = 1
+   AND SUBSTR(A.WEEK_START, 5, 2) = :mm
+        ]]>
+    </statement>
+
+    <!-- 주차에 대해 이번주차외 이전 5개 조회를 조회한다. -->
+    <statement name="selectWeekOfYearMm" type="select">
+        /*+ com.hwfs.ft.ftr.dao.FtStatsDAO.selectWeekOfYearMm */
+        <![CDATA[
+SELECT MAX(CASE WHEN X.RN = 1 THEN X.WEEK_OF_YEAR_MONTH || '.' || X.WEEK_OF_MONTH || '주 시세' END) AS WEEK_OF_YEAR_1
+     , MAX(CASE WHEN X.RN = 2 THEN X.WEEK_OF_YEAR_MONTH || '.' || X.WEEK_OF_MONTH || '주 시세' END) AS WEEK_OF_YEAR_2
+     , MAX(CASE WHEN X.RN = 3 THEN X.WEEK_OF_YEAR_MONTH || '.' || X.WEEK_OF_MONTH || '주 시세' END) AS WEEK_OF_YEAR_3
+     , MAX(CASE WHEN X.RN = 4 THEN X.WEEK_OF_YEAR_MONTH || '.' || X.WEEK_OF_MONTH || '주 시세' END) AS WEEK_OF_YEAR_4
+     , MAX(CASE WHEN X.RN = 5 THEN X.WEEK_OF_YEAR_MONTH || '.' || X.WEEK_OF_MONTH || '주 시세' END) AS WEEK_OF_YEAR_5
+     , MAX(CASE WHEN X.RN = 6 THEN X.WEEK_OF_YEAR_MONTH || '.' || X.WEEK_OF_MONTH || '주 시세' END) AS WEEK_OF_YEAR_6
+  FROM (
+        WITH ISO AS
+         (SELECT SUBSTR(TO_CHAR(WEEK_START, 'YYYYMMDD'), 1, 4) AS WEEK_OF_YEAR_YEAR,
+                 SUBSTR(TO_CHAR(WEEK_START, 'YYYYMMDD'), 5, 2) AS WEEK_OF_YEAR_MONTH,
+                 TO_CHAR(WEEK_START, 'YYYYMMDD') WEEK_START,
+                 TO_CHAR(WEEK_END, 'YYYYMMDD') WEEK_END,
+                 TO_CHAR(WEEK_START, 'W') WEEK_OF_MONTH,
+                 (SELECT TO_CHAR(WEEK_START, 'WW') FROM DUAL) AS WEEK_OF_YEAR
+            FROM (SELECT TRUNC(START_DT + LEVEL, 'D') WEEK_START,
+                         TRUNC(START_DT + LEVEL, 'D') + 6 WEEK_END
+                    FROM (SELECT ADD_MONTHS(TO_DATE(:yy || :mm || '01', 'YYYYMMDD'), -1) - 1 START_DT,
+                                 TO_DATE(:yy || :mm || TO_CHAR(LAST_DAY(TO_DATE(:yy || :mm, 'YYYYMM')), 'DD'), 'YYYYMMDD') END_DT
+                            FROM DUAL)
+                  CONNECT BY LEVEL <= END_DT - START_DT)
+           GROUP BY WEEK_START, WEEK_END
+           ORDER BY WEEK_START),
+        T1 AS
+        (
+        SELECT WS.WEEK_START
+             , (SELECT TO_CHAR(TO_DATE(WS.WEEK_START, 'YYYYMMDD') - (5 * 7), 'WW') FROM DUAL) AS MIN_WEEK_OF_YEAR
+          FROM (SELECT (SELECT TO_CHAR(WEEK_START, 'WW') FROM DUAL) AS WEEK_OF_YEAR,
+                       TO_CHAR(WEEK_START, 'YYYYMMDD') WEEK_START
+                  FROM (SELECT TRUNC(START_DT + LEVEL, 'D') WEEK_START,
+                               TRUNC(START_DT + LEVEL, 'D') + 6 WEEK_END
+                          FROM (SELECT TO_DATE(:yy || '01' || '01', 'YYYYMMDD') - 1 START_DT,
+                                       TO_DATE(:yy || '12' || '31', 'YYYYMMDD') END_DT
+                                  FROM DUAL)
+                        CONNECT BY LEVEL <= END_DT - START_DT)
+                 GROUP BY WEEK_START, WEEK_END
+                 ORDER BY WEEK_START) WS
+         WHERE WS.WEEK_OF_YEAR = :weekOfYear  /* 주차 */
+           AND SUBSTR(WS.WEEK_START, 1, 4) = :yy
+        )
+        SELECT ROWNUM AS RN
+             , A.*
+          FROM ISO A
+             , T1 T
+         WHERE 1 = 1
+           AND ((CASE WHEN SUBSTR((SELECT TO_CHAR(TO_DATE(T.WEEK_START, 'YYYYMMDD') - (5 * 7), 'YYYYMMDD') FROM DUAL), 1, 4) = TO_NUMBER(:yy)-1 AND
+                           (SUBSTR((SELECT TO_CHAR(TO_DATE(T.WEEK_START, 'YYYYMMDD') - (5 * 7), 'YYYYMMDD') FROM DUAL), 5, 2) = 11 OR
+                            SUBSTR((SELECT TO_CHAR(TO_DATE(T.WEEK_START, 'YYYYMMDD') - (5 * 7), 'YYYYMMDD') FROM DUAL), 5, 2) = 12)
+               THEN
+                   1
+               ELSE
+                   0
+               END = 1)
+               AND
+               (A.WEEK_OF_YEAR >= T.MIN_WEEK_OF_YEAR OR A.WEEK_OF_YEAR <= :weekOfYear))
+            OR
+               ((CASE WHEN SUBSTR((SELECT TO_CHAR(TO_DATE(T.WEEK_START, 'YYYYMMDD') - (5 * 7), 'YYYYMMDD') FROM DUAL), 1, 4) = TO_NUMBER(:yy)-1 AND
+                           (SUBSTR((SELECT TO_CHAR(TO_DATE(T.WEEK_START, 'YYYYMMDD') - (5 * 7), 'YYYYMMDD') FROM DUAL), 5, 2) = 11 OR
+                            SUBSTR((SELECT TO_CHAR(TO_DATE(T.WEEK_START, 'YYYYMMDD') - (5 * 7), 'YYYYMMDD') FROM DUAL), 5, 2) = 12)
+               THEN
+                   1
+               ELSE
+                   0
+               END = 0)
+               AND
+               (A.WEEK_OF_YEAR >= T.MIN_WEEK_OF_YEAR AND A.WEEK_OF_YEAR <= :weekOfYear))
+       ) X
+        ]]>
+    </statement>
+
+    <!-- 품목별 시세 관리 리포트 -->
+    <statement name="itembyPriceMgmtRpt" type="select">
+        /*+ com.hwfs.ft.ftr.dao.FtStatsDAO.itembyPriceMgmtRpt */
+        <![CDATA[
+WITH LAST_DAY AS
+(
+  SELECT WS.WEEK_START
+     , WS.WEEK_END
+     , (SELECT TO_CHAR(TO_DATE(WS.WEEK_START, 'YYYYMMDD') - (5 * 7), 'WW') FROM DUAL) AS MIN_WEEK_OF_YEAR
+  FROM (SELECT (SELECT TO_CHAR(WEEK_START, 'WW') FROM DUAL) AS WEEK_OF_YEAR,
+               TO_CHAR(WEEK_START, 'YYYYMMDD') WEEK_START,
+               TO_CHAR(WEEK_END, 'YYYYMMDD') WEEK_END
+          FROM (SELECT TRUNC(START_DT + LEVEL, 'D') WEEK_START,
+                       TRUNC(START_DT + LEVEL, 'D') + 6 WEEK_END
+                  FROM (SELECT TO_DATE(:yy || '01' || '01', 'YYYYMMDD') - 1 START_DT,
+                               TO_DATE(:yy || '12' || '31', 'YYYYMMDD') END_DT
+                          FROM DUAL)
+                CONNECT BY LEVEL <= END_DT - START_DT)
+         GROUP BY WEEK_START, WEEK_END
+         ORDER BY WEEK_START) WS
+  WHERE WS.WEEK_OF_YEAR = :weekOfYear
+)
+
+SELECT D.DELIVER_NUM
+     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'DELIVER_STATUS' AND CODE = D.DELIVER_STATUS ) AS DELIVER_STATUS_NM
+     , D.PO_ORDER_NUM
+     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'ATTACH_DEPT' AND CODE = D.ATTACH_DEPT ) AS ATTACH_DEPT_NM
+     , D.SPLR_NM
+     , D.SALSPLCE_NM
+     , (SELECT T.NM_KOR
+          FROM HR_PERSONAL T
+             , SCC_CC T2
+         WHERE T2.CC_CD = T.CC_CD
+           AND T.SABUN = (SELECT DRAFTER_ID
+                            FROM PO_PROPOSAL_MST
+                           WHERE PO_PROPOSAL_NUM = C.PO_PROPOSAL_NUM
+                             AND ROWNUM = 1)) AS SALE_PRCG_NM  /* 담당자 */
+     , D.CURRENT_WH_DELIVER_DATE    /* 현재창고입고일 */
+     , (SELECT PROPOSAL_SALE_EDATE
+          FROM PO_PROPOSAL_MST
+         WHERE PO_PROPOSAL_NUM = C.PO_PROPOSAL_NUM) AS PROPOSAL_SALE_EDATE
+     , J.ITEM_NAME||' '||J.ITEM_SIZE AS ITEM_NM
+     , D.WH_NM
+     , CASE WHEN D.PO_TYPE= '10' THEN    --수입(KRW)
+                C.BL_NUM
+            ELSE
+                (
+                  SELECT T.ITEM_BL_NUM
+                    FROM PO_ORDER_ITEM_DETAIL T
+                   WHERE D.PO_ORDER_NUM = T.PO_ORDER_NUM
+                     AND D.ITEM_CD = T.ITEM_CD
+                     AND D.ITEM_SEQ = T.ITEM_SEQ
+                )
+       END AS BL_NUM
+     , D.UNIT
+     , D.DELIVER_QUANTITY
+     , D.DELIVER_WGT
+     , NVL(A.RELEASE_QUANTITY,0) AS RELEASE_QUANTITY /* 출고수량 */
+     , NVL(A.RELEASE_WGT,0) AS RELEASE_WGT /* 출고중량 */
+     , (NVL(D.DELIVER_QUANTITY,0) - NVL(A.RELEASE_QUANTITY,0)- NVL(D.RMA_QUANTITY,0) - NVL(D.WH_MOVE_QUANTITY,0)) + NVL(A.PURCHASE_RETURN_QUANTITY,0) AS INVENTORY_QUANTITY    /* 재고수량 */
+     , (NVL(D.DELIVER_WGT,0) - NVL(A.RELEASE_WGT,0)- NVL(D.RMA_WGT,0) - NVL(D.WH_MOVE_WGT,0)) + NVL(A.PURCHASE_RETURN_WGT,0) AS INVENTORY_WGT    /* 재고중량 */
+     , ROUND(D.DELIVER_UPRICE_KRW) AS DELIVER_UPRICE_KRW
+     , ( (D.DELIVER_AMT+NVL(X.DIV_AMT,0)) - NVL(A.BUY_CST,0)) AS INVENTORY_AMT  /* 재고금액 */
+
+     , NVL(F.AMT_1, 0) AS AMT_1
+     , NVL(F.AMT_2, 0) AS AMT_2
+     , NVL(F.AMT_3, 0) AS AMT_3
+     , NVL(F.AMT_4, 0) AS AMT_4
+     , NVL(F.AMT_5, 0) AS AMT_5
+     , NVL(F.AMT_6, 0) AS AMT_6
+     , F.SOURCE
+     , ( NVL(F.AMT_6, 0) - NVL(D.DELIVER_UPRICE_KRW,0) )  AS ITEM_AMT /* 시세차익(AMT_6 - 입고단가)*/
+     , ( NVL(F.AMT_6, 0) - NVL(D.DELIVER_UPRICE_KRW,0) ) *
+          CASE WHEN D.UNIT = 'KG' THEN
+               NVL((NVL(D.DELIVER_WGT,0) - NVL(A.RELEASE_WGT,0)),0)     --재고중량
+          ELSE
+               NVL((NVL(D.DELIVER_QUANTITY,0) - NVL(A.RELEASE_QUANTITY,0)),0)    --재고수량
+          END
+        AS ITEM_VS_AMT /* 시세대비재고차액(AMT_6*재고수량 - 재고금액) */
+  FROM
+     INVENTORY_MGMT_DELIVER D
+     ,(
+        SELECT T2.INITIAL_DELIVER_NUM
+              ,SUM(T2.DELIVER_QUANTITY) AS DELIVER_QUANTITY
+              ,SUM(T2.DELIVER_WGT) AS DELIVER_WGT
+          FROM INVENTORY_MGMT_DELIVER T2
+              ,LAST_DAY X
+        WHERE T2.CURRENT_WH_DELIVER_DATE <= X.WEEK_END   -- 입고누적
+        GROUP BY T2.INITIAL_DELIVER_NUM
+     ) Y
+     ,(
+        SELECT T2.INITIAL_DELIVER_NUM
+              ,SUM(T2.DELIVER_QUANTITY) AS DELIVER_QUANTITY
+              ,SUM(T2.DELIVER_WGT) AS DELIVER_WGT
+          FROM INVENTORY_MGMT_DELIVER T2
+              ,LAST_DAY X
+        WHERE T2.CURRENT_WH_DELIVER_DATE > X.WEEK_END   -- 입고누적
+        GROUP BY T2.INITIAL_DELIVER_NUM
+     ) Z
+     ,PO_ORDER_MST           C,
+     (SELECT T.DELIVER_NUM
+           , SUM(RELEASE_QUANTITY) AS RELEASE_QUANTITY
+           , SUM(RELEASE_WGT) AS RELEASE_WGT
+
+      FROM SALE_ORDER_ITEM_MGMT T GROUP BY T.DELIVER_NUM ) B,
+     (SELECT
+            T.DELIVER_NUM
+          , ROUND(SUM(T2.REAL_SALE_AMT)) AS SALE_AMT
+          , SUM(T2.RELEASE_QUANTITY) AS RELEASE_QUANTITY
+          , SUM(T2.RELEASE_WGT) AS RELEASE_WGT
+          , SUM(T2.REAL_WGT) AS REAL_WGT
+          , SUM(T2.BUY_CST) AS BUY_CST
+
+          , SUM(T2.PURCHASE_RETURN_QUANTITY) AS PURCHASE_RETURN_QUANTITY
+          , SUM(T2.PURCHASE_RETURN_WGT) AS PURCHASE_RETURN_WGT
+      FROM SALE_ORDER_ITEM_MGMT T, RELEASE_ITEM_MGMT T2
+          ,LAST_DAY X
+      WHERE T.SALE_ORDER_NUM = T2.SALE_ORDER_NUM
+      AND T.SALE_ORDER_NUM_SEQ =T2.SALE_ORDER_NUM_SEQ
+                  AND T2.RELEASE_DATE <= X.WEEK_END              --재고미포함
+      GROUP BY T.DELIVER_NUM
+     ) A,
+     (SELECT T.DELIVER_NUM, SUM(T.DIV_AMT) AS DIV_AMT, NVL(MAX(T.NONARRIV_ALT_YN),'N') AS NONARRIV_ALT_YN FROM DELIVERITEM_OTHER_AMT_DIV T
+         GROUP BY T.DELIVER_NUM
+       ) X
+     ,LAST_DAY K
+     , HLDC_PO_ITEM_MST J
+     , (
+        SELECT X.DELIVER_NUM
+             , MAX(X.AMT_1) AS AMT_1
+             , MAX(X.AMT_2) AS AMT_2
+             , MAX(X.AMT_3) AS AMT_3
+             , MAX(X.AMT_4) AS AMT_4
+             , MAX(X.AMT_5) AS AMT_5
+             , MAX(X.AMT_6) AS AMT_6
+             , MAX(X.SOURCE) AS SOURCE
+          FROM (
+                 SELECT PM.DELIVER_NUM
+                      , CASE WHEN WPM.RN = 1 THEN NVL(PM.AMT,0) ELSE 0 END AMT_1
+                      , CASE WHEN WPM.RN = 2 THEN NVL(PM.AMT,0) ELSE 0 END AMT_2
+                      , CASE WHEN WPM.RN = 3 THEN NVL(PM.AMT,0) ELSE 0 END AMT_3
+                      , CASE WHEN WPM.RN = 4 THEN NVL(PM.AMT,0) ELSE 0 END AMT_4
+                      , CASE WHEN WPM.RN = 5 THEN NVL(PM.AMT,0) ELSE 0 END AMT_5
+                      , CASE WHEN WPM.RN = 6 THEN NVL(PM.AMT,0) ELSE 0 END AMT_6
+                      , PM.SEQ
+                      , CASE WHEN WPM.RN = 6 AND PM.SOURCE IS NOT NULL THEN /* 조회주차에 내용이 있으면 보여주고 없으면 이전 주차의 내요을 출력 */
+                             PM.SOURCE
+                        ELSE
+                             CASE WHEN WPM.RN = 5 THEN PM.SOURCE ELSE '' END
+                        END AS SOURCE
+                   FROM PRICE_MGMT PM
+                      , (
+                          WITH ISO AS
+                           (SELECT SUBSTR(TO_CHAR(WEEK_START, 'YYYYMMDD'), 1, 4) AS WEEK_OF_YEAR_YEAR,
+                                   SUBSTR(TO_CHAR(WEEK_START, 'YYYYMMDD'), 5, 2) AS WEEK_OF_YEAR_MONTH,
+                                   TO_CHAR(WEEK_START, 'YYYYMMDD') WEEK_START,
+                                   TO_CHAR(WEEK_END, 'YYYYMMDD') WEEK_END,
+                                   TO_CHAR(WEEK_START, 'W') WEEK_OF_MONTH,
+                                   (SELECT TO_CHAR(WEEK_START, 'WW') FROM DUAL) AS WEEK_OF_YEAR
+                              FROM (SELECT TRUNC(START_DT + LEVEL, 'D') WEEK_START,
+                                           TRUNC(START_DT + LEVEL, 'D') + 6 WEEK_END
+                                      FROM (SELECT ADD_MONTHS(TO_DATE(:yy || :mm || '01', 'YYYYMMDD'), -1) - 1 START_DT,
+                                                   TO_DATE(:yy || :mm || TO_CHAR(LAST_DAY(TO_DATE(:yy || :mm, 'YYYYMM')), 'DD'), 'YYYYMMDD') END_DT
+                                              FROM DUAL)
+                                    CONNECT BY LEVEL <= END_DT - START_DT)
+                             GROUP BY WEEK_START, WEEK_END
+                             ORDER BY WEEK_START),
+                          T1 AS
+                          (
+                          SELECT WS.WEEK_START
+                               , (SELECT TO_CHAR(TO_DATE(WS.WEEK_START, 'YYYYMMDD') - (5 * 7), 'WW') FROM DUAL) AS MIN_WEEK_OF_YEAR
+                            FROM (SELECT (SELECT TO_CHAR(WEEK_START, 'WW') FROM DUAL) AS WEEK_OF_YEAR,
+                                         TO_CHAR(WEEK_START, 'YYYYMMDD') WEEK_START
+                                    FROM (SELECT TRUNC(START_DT + LEVEL, 'D') WEEK_START,
+                                                 TRUNC(START_DT + LEVEL, 'D') + 6 WEEK_END
+                                            FROM (SELECT TO_DATE(:yy || '01' || '01', 'YYYYMMDD') - 1 START_DT,
+                                                         TO_DATE(:yy || '12' || '31', 'YYYYMMDD') END_DT
+                                                    FROM DUAL)
+                                          CONNECT BY LEVEL <= END_DT - START_DT)
+                                   GROUP BY WEEK_START, WEEK_END
+                                   ORDER BY WEEK_START) WS
+                           WHERE WS.WEEK_OF_YEAR = :weekOfYear
+                          )
+                          SELECT ROWNUM AS RN
+                               , A.*
+                            FROM ISO A
+                               , T1 T
+                           WHERE 1 = 1
+                             AND ((CASE WHEN SUBSTR((SELECT TO_CHAR(TO_DATE(T.WEEK_START, 'YYYYMMDD') - (5 * 7), 'YYYYMMDD') FROM DUAL), 1, 4) = TO_NUMBER(:yy)-1 AND
+                                             (SUBSTR((SELECT TO_CHAR(TO_DATE(T.WEEK_START, 'YYYYMMDD') - (5 * 7), 'YYYYMMDD') FROM DUAL), 5, 2) = 11 OR
+                                              SUBSTR((SELECT TO_CHAR(TO_DATE(T.WEEK_START, 'YYYYMMDD') - (5 * 7), 'YYYYMMDD') FROM DUAL), 5, 2) = 12)
+                                 THEN
+                                     1
+                                 ELSE
+                                     0
+                                 END = 1)
+                                 AND
+                                 (A.WEEK_OF_YEAR >= T.MIN_WEEK_OF_YEAR OR A.WEEK_OF_YEAR <= :weekOfYear))
+                              OR
+                                 ((CASE WHEN SUBSTR((SELECT TO_CHAR(TO_DATE(T.WEEK_START, 'YYYYMMDD') - (5 * 7), 'YYYYMMDD') FROM DUAL), 1, 4) = TO_NUMBER(:yy)-1 AND
+                                             (SUBSTR((SELECT TO_CHAR(TO_DATE(T.WEEK_START, 'YYYYMMDD') - (5 * 7), 'YYYYMMDD') FROM DUAL), 5, 2) = 11 OR
+                                              SUBSTR((SELECT TO_CHAR(TO_DATE(T.WEEK_START, 'YYYYMMDD') - (5 * 7), 'YYYYMMDD') FROM DUAL), 5, 2) = 12)
+                                 THEN
+                                     1
+                                 ELSE
+                                     0
+                                 END = 0)
+                                 AND
+                                 (A.WEEK_OF_YEAR >= T.MIN_WEEK_OF_YEAR AND A.WEEK_OF_YEAR <= :weekOfYear))
+                        ) WPM
+                  WHERE YY = WPM.WEEK_OF_YEAR_YEAR
+                    AND MM = WPM.WEEK_OF_YEAR_MONTH
+                    AND WEEK = WPM.WEEK_OF_YEAR
+               ) X
+         GROUP BY X.DELIVER_NUM
+       ) F
+    WHERE D.PO_ORDER_NUM = C.PO_ORDER_NUM
+    AND D.DELIVER_NUM = F.DELIVER_NUM(+)
+    AND D.DELIVER_NUM = X.DELIVER_NUM(+)
+    AND D.DELIVER_NUM = B.DELIVER_NUM(+)
+    AND D.DELIVER_NUM = A.DELIVER_NUM(+)
+    AND D.DELIVER_NUM = Y.INITIAL_DELIVER_NUM(+)
+    AND D.DELIVER_NUM = Z.INITIAL_DELIVER_NUM(+)
+    AND D.ITEM_CD = J.ITEM_CODE(+)
+    AND D.DELIVER_STATUS <> '10' --가입고 제외
+    AND D.CURRENT_WH_DELIVER_DATE <= K.WEEK_END
+    AND NVL((NVL(D.DELIVER_QUANTITY,0) - NVL(A.RELEASE_QUANTITY,0)),0) > 0
+   <#if attachDept?has_content>
+       AND D.ATTACH_DEPT = :attachDept
+   </#if>
+ ORDER BY D.DELIVER_NUM DESC, D.PO_ORDER_NUM
+        ]]>
+    </statement>
+
+    <!-- 주차에 대해 시세를 저장한다. -->
+    <statement name="saveWeekYearMm" type="update">
+        /*+ com.hwfs.ft.ftr.dao.FtStatsDAO.saveWeekYearMm */
+        <![CDATA[
+MERGE INTO PRICE_MGMT A
+USING DUAL
+ON (
+   DELIVER_NUM = :deliverNum
+   AND YY = :yy
+   AND MM = :mm
+   AND WEEK = :weekOfYear
+)
+WHEN MATCHED THEN
+  UPDATE SET
+         AMT = <#if amt6?exists>:amt6<#else>0</#if>
+       , SOURCE = <#if source?exists>:source<#else>null</#if>
+       , UUSER = :loginSabun
+       , UDATE = SYSDATE
+WHEN NOT MATCHED THEN
+  INSERT (
+         DELIVER_NUM
+       , SEQ
+       , YY
+       , MM
+       , WEEK
+       , AMT
+       , SOURCE
+       , CUSER
+       , CDATE
+       , UUSER
+       , UDATE
+  ) VALUES (
+         :deliverNum
+       , (SELECT NVL(MAX(Y.SEQ), 0) + 1 FROM PRICE_MGMT Y WHERE Y.DELIVER_NUM = :deliverNum)
+       , :yy
+       , :mm
+       , :weekOfYear
+       , <#if amt6?exists>:amt6<#else>0</#if>
+       , <#if source?exists>:source<#else>null</#if>
+       , :loginSabun
+       , SYSDATE
+       , :loginSabun
+       , SYSDATE
+  )
+        ]]>
+    </statement>
+    <statement name="poorInventoryDet">
+    /*+ com.hwfs.ft.ftr.dao.FtStatsDAO.poorInventoryDet */
+    <![CDATA[
+--부진재고 상세
+    SELECT
+    A.ATTACH_DEPT
+    ,(SELECT T.CUSTNM FROM ST_CUST T WHERE A.SALSPLCE_CD = T.CUSTCD AND T.USE_YN='Y') AS SALSPLCE_NM
+    , A.ITEM_NM
+    , NVL(SUM(CASE WHEN A.FLAG = '-1'  THEN
+              ROUND(NVL(A.DELIVER_AMT,0) - NVL(BUY_CST,0))
+          END
+      ),0) PREV_AMT
+    , NVL(SUM(CASE WHEN A.FLAG = '0'  THEN
+              ROUND(NVL(A.DELIVER_AMT,0) - NVL(BUY_CST,0))
+          END
+      ),0) CURRENT_AMT
+    ,
+      NVL(SUM(CASE WHEN A.FLAG = '0'  THEN
+              ROUND(NVL(A.DELIVER_AMT,0) - NVL(BUY_CST,0))
+          END
+      ),0)
+      -
+      NVL(SUM(CASE WHEN A.FLAG = '-1'  THEN
+              ROUND(NVL(A.DELIVER_AMT,0) - NVL(BUY_CST,0))
+          END
+      ),0)
+      AS INC_DEC_AMT
+    , LISTAGG(A.REMARK, ',') WITHIN GROUP (ORDER BY A.ATTACH_DEPT) REMARK
+FROM
+(
+  SELECT
+      '-1' FLAG
+    , A.ATTACH_DEPT
+    , A.SALSPLCE_CD
+    , A.SALSPLCE_NM
+    , A.ITEM_CD
+    , A.ITEM_NM
+    , A.DELIVER_QUANTITY - SUM_RELEASE_QUANTITY AS DELIVER_QUANTITY
+    , A.DELIVER_WGT - SUM_RELEASE_WGT AS DELIVER_WGT
+    , NVL(A.DELIVER_AMT,0) +NVL(X.DIV_AMT,0) AS DELIVER_AMT
+    ,B.BUY_CST
+    , A.UNIT
+    , A.DELIVER_UPRICE_KRW
+    , B.SUM_RELEASE_QUANTITY
+    , A.LAST_SALE_EDATE, TO_DATE(:searchDate,'YYYYMMDD') - TO_DATE(A.LAST_SALE_EDATE,'YYYYMMDD') DIFF_DAY
+    , REMARK
+FROM
+(
+      SELECT
+           A.DELIVER_NUM
+          ,A.DELIVER_QUANTITY
+          ,A.DELIVER_WGT
+          ,A.DELIVER_AMT
+          ,A.LAST_SALE_EDATE
+          ,A.DELIVER_UPRICE_KRW
+          ,A.UNIT
+          ,A.ITEM_CD
+          ,K.ITEM_NAME||' '||K.ITEM_SIZE AS ITEM_NM
+          ,A.ATTACH_DEPT
+          ,A.SALSPLCE_CD
+          ,A.SALSPLCE_NM
+      FROM INVENTORY_MGMT_DELIVER A
+          ,DELIVERITEM_OTHER_AMT_DIV   B
+          ,HLDC_PO_ITEM_MST K
+      WHERE A.DELIVER_NUM = B.DELIVER_NUM(+)
+      AND A.ITEM_CD = K.ITEM_CODE(+)
+      AND TO_CHAR(ADD_MONTHS(LAST_DAY(TO_DATE(:searchDate , 'YYYYMMDD')),-4), 'YYYYMMDD') >= A.LAST_SALE_EDATE
+    ) A
+    ,(SELECT T.DELIVER_NUM
+            , SUM(T2.RELEASE_QUANTITY) AS SUM_RELEASE_QUANTITY, SUM(T2.RELEASE_WGT) AS SUM_RELEASE_WGT
+            ,SUM(T2.BUY_CST) AS BUY_CST
+            ,LISTAGG(T2.REMARK, ',') WITHIN GROUP (ORDER BY T2.RELEASE_NUM) REMARK
+      FROM
+        SALE_ORDER_ITEM_MGMT T
+       ,RELEASE_ITEM_MGMT T2
+     WHERE T.SALE_ORDER_NUM = T2.SALE_ORDER_NUM
+     AND T.SALE_ORDER_NUM_SEQ = T2.SALE_ORDER_NUM_SEQ
+     AND T2.RELEASE_DATE < TO_CHAR(ADD_MONTHS(LAST_DAY(TO_DATE(:searchDate, 'YYYYMMDD')),-1), 'YYYYMMDD')
+    -- AND T2.RELEASE_DATE <= :searchDate
+     GROUP BY T.DELIVER_NUM
+    ) B
+    ,(SELECT T.DELIVER_NUM, SUM(T.DIV_AMT) AS DIV_AMT, NVL(MAX(T.NONARRIV_ALT_YN),'N') AS NONARRIV_ALT_YN FROM DELIVERITEM_OTHER_AMT_DIV T
+       GROUP BY T.DELIVER_NUM
+     ) X
+    WHERE A.DELIVER_NUM = B.DELIVER_NUM(+)
+    AND A.DELIVER_NUM = X.DELIVER_NUM(+)
+    AND NVL(A.DELIVER_QUANTITY,0) - NVL(B.SUM_RELEASE_QUANTITY,0) > 0
+
+    UNION ALL
+
+    SELECT
+          '0' FLAG
+        , A.ATTACH_DEPT
+        , A.SALSPLCE_CD
+        , A.SALSPLCE_NM
+        , A.ITEM_CD
+        , A.ITEM_NM
+        , A.DELIVER_QUANTITY - SUM_RELEASE_QUANTITY AS DELIVER_QUANTITY
+        , A.DELIVER_WGT - SUM_RELEASE_WGT AS DELIVER_WGT
+        , NVL(A.DELIVER_AMT,0) +NVL(X.DIV_AMT,0) AS DELIVER_AMT
+        ,B.BUY_CST
+        , A.UNIT
+        , A.DELIVER_UPRICE_KRW
+        , B.SUM_RELEASE_QUANTITY
+        , A.LAST_SALE_EDATE, TO_DATE(:searchDate,'YYYYMMDD') - TO_DATE(A.LAST_SALE_EDATE,'YYYYMMDD') DIFF_DAY
+        , REMARK
+    FROM
+    (
+      SELECT
+           A.DELIVER_NUM
+          ,A.DELIVER_QUANTITY
+          ,A.DELIVER_WGT
+          ,A.DELIVER_AMT
+          ,A.LAST_SALE_EDATE
+          ,A.DELIVER_UPRICE_KRW
+          ,A.UNIT
+          ,A.ITEM_CD
+          ,A.ITEM_NM
+          ,A.ATTACH_DEPT
+          ,A.SALSPLCE_CD
+          ,A.SALSPLCE_NM
+      FROM INVENTORY_MGMT_DELIVER A
+          ,DELIVERITEM_OTHER_AMT_DIV   B
+      WHERE A.DELIVER_NUM = B.DELIVER_NUM(+)
+    --  AND A.SALSPLCE_CD='659290'
+      AND (TO_DATE(:searchDate,'YYYYMMDD') - 90) >= A.LAST_SALE_EDATE
+    ) A
+    ,(SELECT T.DELIVER_NUM
+            , SUM(T2.RELEASE_QUANTITY) AS SUM_RELEASE_QUANTITY, SUM(T2.RELEASE_WGT) AS SUM_RELEASE_WGT
+            ,SUM(T2.BUY_CST) AS BUY_CST
+            ,LISTAGG(T2.REMARK, ',') WITHIN GROUP (ORDER BY T2.RELEASE_NUM) REMARK
+      FROM
+        SALE_ORDER_ITEM_MGMT T
+       ,RELEASE_ITEM_MGMT T2
+     WHERE T.SALE_ORDER_NUM = T2.SALE_ORDER_NUM
+     AND T.SALE_ORDER_NUM_SEQ = T2.SALE_ORDER_NUM_SEQ
+     AND T2.RELEASE_DATE <= :searchDate
+    -- AND T2.RELEASE_DATE <= :searchDate
+     GROUP BY T.DELIVER_NUM
+    ) B
+    ,(SELECT T.DELIVER_NUM, SUM(T.DIV_AMT) AS DIV_AMT, NVL(MAX(T.NONARRIV_ALT_YN),'N') AS NONARRIV_ALT_YN FROM DELIVERITEM_OTHER_AMT_DIV T
+       GROUP BY T.DELIVER_NUM
+     ) X
+    WHERE A.DELIVER_NUM = B.DELIVER_NUM(+)
+    AND A.DELIVER_NUM = X.DELIVER_NUM(+)
+    AND NVL(A.DELIVER_QUANTITY,0) - NVL(B.SUM_RELEASE_QUANTITY,0) > 0
+) A
+WHERE 1 = 1
+  <#if attachDept?has_content>   AND A.ATTACH_DEPT = :attachDept </#if>
+GROUP BY A.ATTACH_DEPT, A.SALSPLCE_CD, A.SALSPLCE_NM, A.ITEM_NM--,A.FLAG
+
+
+]]>
+</statement>
+</hqml>

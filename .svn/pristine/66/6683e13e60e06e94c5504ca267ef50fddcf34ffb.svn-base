@@ -1,0 +1,177 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="SampleFileUpDown" classname="SampleFileUpDown" left="0" top="0" width="943" height="549" titletext="New Form">
+    <Layouts>
+      <Layout>
+        <Button id="btnDownload" taborder="2" text="파일다운로드" onclick="btnDownload_onclick" left="216" top="240" width="70" height="20" style="padding:0 0 0 0; align:center middle; font:Dotum,8; "/>
+        <Button id="btnUpload" taborder="4" text="파일업로드" onclick="btnUpload_onclick" left="136" top="240" width="70" height="20" style="padding:0 0 0 0; align:center middle; font:Dotum,8; "/>
+        <Grid id="grdList" taborder="7" binddataset="dsFile" useinputpanel="false" cellsizingtype="both" cellsizebandtype="allband" cellmovingtype="col" onheadclick="grdList_onheadclick" onheaddblclick="divRoot_grdList_onheaddblclick" left="10" top="10" right="343" height="220">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="40"/>
+                <Column size="40"/>
+                <Column size="134"/>
+                <Column size="79"/>
+                <Column size="187"/>
+                <Column size="92"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="No"/>
+                <Cell col="1" displaytype="checkbox" edittype="checkbox"/>
+                <Cell col="2" text="파일명"/>
+                <Cell col="3" text="파일크기"/>
+                <Cell col="4" text="파일패스"/>
+                <Cell col="5" edittype="none" text="업로드파일명"/>
+              </Band>
+              <Band id="body">
+                <Cell expr="rowidx+1" autosizerow="default"/>
+                <Cell col="1" displaytype="checkbox" edittype="checkbox" text="bind:chk"/>
+                <Cell col="2" edittype="none" style="align:left;" text="bind:nmFile"/>
+                <Cell col="3" edittype="none" style="align:right;" text="bind:sizeFile"/>
+                <Cell col="4" displaytype="normal" edittype="none" style="align:left;" text="bind:filePath" combodataset="dsCombo" combocodecol="code" combodatacol="value"/>
+                <Cell col="5" displaytype="normal" edittype="none" style="align:left;" text="bind:fileUploadName"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <FileUpload id="FileUpload00" taborder="8" retry="0" index="0" scrollbars="none" onitemchanged="FileUpload00_onitemchanged" left="608" top="8" width="83" height="91" style="buttonsize:60;buttonbordertype:normal 0 0 ;buttoncolor:#504038ff;buttontext:파일첨부;align:left;" itemcount="1" onload="FileUpload00_onload"/>
+        <Button id="Button00" taborder="9" text="Button00" left="10" top="283" width="163" height="37" onclick="Button00_onclick"/>
+        <FileDownload id="fdnDownload" taborder="10" tabstop="false" retry="0" onload="fileDownload_onload" text="FileDownload" visible="false" left="13" top="256" width="118" height="23"/>
+        <Button id="btnDownloadTemp" taborder="11" text="임시파일 다운로드" onclick="btnDownloadTemp_onclick" left="194" top="283" width="230" height="34"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="dsFile" firefirstcount="0" firenextcount="0" useclientlayout="true" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="chk" type="STRING" size="256"/>
+          <Column id="seqRel" type="STRING" size="256"/>
+          <Column id="snAtch" type="STRING" size="256"/>
+          <Column id="nmFile" type="STRING" size="256"/>
+          <Column id="nmSavefile" type="STRING" size="256"/>
+          <Column id="sizeFile" type="BIGDECIMAL" size="256"/>
+          <Column id="pathRel" type="STRING" size="256"/>
+          <Column id="cdClDocatchfl" type="STRING" size="256"/>
+          <Column id="dscCntsFl" type="STRING" size="256"/>
+          <Column id="ynUse" type="STRING" size="1"/>
+          <Column id="ynFax" type="STRING" size="1"/>
+          <Column id="filePath" type="STRING" size="256"/>
+          <Column id="fileUploadName" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript5.0"><![CDATA[/**
+ * 파일업로드/다운로드 테스트 Sample 화면
+ * 업무로직과 연결된 처리는 SampleRecord 참조
+ * @ClassName SampleFileUpDown.xfdl
+ * @Description SampleFileUpDown Form 
+ * @Modification-Information
+ *    수정일       수정자              수정내용
+ *  ----------   ----------   -------------------------------
+ *  2015.03.10.   kksoo       최초생성
+ * 
+ * @author FC종합전산구축 : AA kksoo
+ * @since 2013. 5. 11.
+ * @version 1.0
+ * @see 
+ * 
+ *  Copyright (C) 2014 by HANWHA S&C CO.,LTD. All right reserved.
+ */
+
+include "lib::lib_Com.xjs"
+
+var common_fileup_url = "http://localhost:8080/sc/cmn/uploadFile.do";
+var common_filedown_url = "http://localhost:8080/sc/cmn/downloadFile.do";
+var common_filedowntemp_url = "http://localhost:8080/sc/cmn/downloadTempFile.do";
+
+/**
+ * 파일첨부 버튼 클릭 이벤트 처리
+ */
+this.FileUpload00_onitemchanged = function(obj:FileUpload,  e:TOBE.FileUploadItemChangeEventInfo)
+{
+	//application.SCFile.addUploadFile (obj.value, this.FileUpload00, this.dsFile);
+}
+
+/**
+ * 파일업로드 버튼 클릭 이벤트 처리
+ */
+this.btnUpload_onclick = function(obj:Button,  e:TOBE.ClickEventInfo)
+{
+	//var bSucc = this.FileUpload00.upload(application.common_fileup_url);	
+	var bSucc = this.FileUpload00.upload(common_fileup_url);	
+}
+
+/**
+ * 파일업로드 컴포넌트에서 업로드 후 발생하는 이벤트 처리
+ */
+this.FileUpload00_onload = function(obj:FileUpload,  e:TOBE.FileUploadLoadEventInfo)
+{
+	//alert (e.errorcode + "," + e.errormsg); // errorcode=0, errormsg= "OK" 이면 성공,  datasets이 null이 아니어야 함
+	//업로드되어 저장된 파일명이 데이터셋으로 전달 됨
+	if (e.datasets == null) {
+		application.SCMessage.alertError("업로드 실패=" + e.errormsg);
+		return;
+	}
+	application.SCMessage.alertInfo ("업로드 성공"); //application.common_success_upload);
+	//trace(e.datasets[0].saveXML());
+	alert(e.datasets[0].saveXML());
+
+	//업로드 성공 후 받은 데이터셋에서 해당 파일의 업로드파일명과 파일 타입을 데이터셋에 저장.
+	application.SCFile.setUploadFileInfo (e.datasets[0], this.dsFile);
+
+}
+
+/**
+ * 파일다운로드 버튼 클릭 이벤트 처리
+ * 파일 다운로드 컴포넌트를 이용하여 구현했으면 다운로드 파일을 오픈할 수 없는 문제점이 있다. 
+ * HTNL5에서 이용할 수 있다.
+ */
+this.btnDownload_onclick = function(obj:Button,  e:TOBE.ClickEventInfo)
+{
+	var arrSelRows = application.SCGrid.getSelectedRows (this.grdList, 1);
+	alert(arrSelRows);
+	if (arrSelRows.length == 0) {
+		application.SCMessage.alertMsg("다운로드 할 파일을 선택하세요!");
+		return;
+	}
+	
+	for (var i=0; i<arrSelRows.length; i++) {
+		var strFileName = this.dsFile.getColumn(arrSelRows[i],"nmFile");
+		var strFileUploadName = this.dsFile.getColumn(arrSelRows[i],"fileUploadName");
+		var strRelPath ="";	//파일 저장소의 Root를 제외한 상대 Path
+		//alert(strFileName + "," + strFileUploadName + "," + strRelPath);
+		
+		//(주의) 이 샘플에서는 다운로드 위치에서 파일이 없으므로 오류 발생
+		var strUrl = application.common_filedown_url + "?FileName=" + strFileUploadName + "&RelPath=" + strRelPath;
+		
+		//this.fdnDownload.show();	//V13 추가
+		
+		var bSucc = this.fdnDownload.download(strUrl);
+	}
+}
+
+this.Button00_onclick = function(obj:Button,  e:TOBE.ClickEventInfo)
+{
+	//this.FileUpload00.deleteItem(0); //테스트
+	alert("첨부파일이 있는지 여부=" + application.SCFile.hasUploadFile (this.FileUpload00));
+}
+
+this.btnDownloadTemp_onclick = function(obj:Button,  e:TOBE.ClickEventInfo)
+{
+	//var strFileName = "test.txt";
+	var strFileName = "한글 파일.txt";
+	var strRelPath = "";	//파일 저장소의 Root를 제외한 상대 Path
+	
+	//임시파일 저장소에서 다운로드
+	//var strUrl = application.common_filedowntemp_url + "?FileName=" + strFileName + "&RelPath=" + strRelPath;
+	var strUrl = common_filedowntemp_url + "?FileName=" + strFileName + "&RelPath=" + strRelPath;
+	var bSucc = this.fdnDownload.download(strUrl);
+}
+]]></Script>
+  </Form>
+</FDL>

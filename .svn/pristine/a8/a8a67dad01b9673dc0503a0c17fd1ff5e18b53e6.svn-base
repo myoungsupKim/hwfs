@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fs.fsa.adoptionFsAppraisalDAO">
+	<desc>채용만족도조사 HQML Query</desc>
+
+	<!-- 채용지원정보 목록을 조회한다. -->
+	<statement name="selectReqList" type="select">
+		/*+ com.hwfs.fs.fsa.dao.AdoptionFsAppraisalDAO.selectReqList */
+		<![CDATA[
+		SELECT 
+	            T.REQUEST_UPJANG_CD
+	           ,(SELECT DISTINCT UPJANGNM FROM SCO_UPJANG_MST_V WHERE UPJANG = T.REQUEST_UPJANG_CD) AS REQUEST_UPJANG_NM 
+	           ,T.REQUEST_NUM
+	           ,T.REQUEST_DATE
+	           ,T.CLOSE_DATE
+	           ,T.NEED_NO_MAN
+	           ,(SELECT COUNT(*) FROM FSA_POOL_ASSIGN WHERE REQUEST_UPJANG_CD=T.REQUEST_UPJANG_CD AND REQUEST_NUM=T.REQUEST_NUM AND GOOD_YN = 'G') AS ADOPTED_MAN
+	           ,T.NEED_DUTY1
+	           ,T.NEED_DUTY2
+	           ,T.APPRAISAL                   
+		FROM   FSA_POOL_REQ T
+		WHERE  (T.PROGRESS_STATUS = 'F' OR  T.PROGRESS_STATUS = 'E')
+		<#if upjangCd?has_content>
+		AND T.REQUEST_UPJANG_CD = :upjangCd
+		</#if>
+		<#if stDate?has_content>
+		AND   T.REQUEST_DATE >= :stDate 
+		</#if>
+		<#if edDate?has_content>
+		AND    T.REQUEST_DATE <= :edDate 
+		</#if>
+		<#if appraisal?has_content>
+		AND T.APPRAISAL = :appraisal
+		</#if>
+		ORDER BY REQUEST_UPJANG_CD ASC, REQUEST_NUM DESC
+		]]>
+	</statement>
+	
+	<!-- 채용만족도조사 목록을 조회한다. -->
+	<statement name="selectAppraisalList" type="select">
+		/*+ com.hwfs.fs.fsa.dao.AdoptionFsAppraisalDAO.selectAppraisalList */
+		<![CDATA[
+		SELECT 
+				 REQUEST_UPJANG_CD
+				,REQUEST_NUM
+	            ,SEQ
+	            ,ANSR
+	            ,ETC
+		FROM FSA_POOL_APPR
+		WHERE REQUEST_UPJANG_CD = <#if requestUpjangCd?has_content> :requestUpjangCd <#else> null </#if>
+		AND REQUEST_NUM = <#if requestNum?has_content> :requestNum <#else> null </#if>
+		ORDER BY SEQ
+		]]>
+	</statement>
+
+</hqml>

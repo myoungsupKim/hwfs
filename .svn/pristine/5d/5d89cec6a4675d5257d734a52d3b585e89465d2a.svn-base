@@ -1,0 +1,370 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="ls.lcm.etcSpecmArticleMgmtDAO">
+    <desc>기타검체유형을 관리한다.</desc>
+
+    <!-- 기타검체유형 DATA를 조회한다. -->
+    <statement name="selectList" type="select">
+        /*+ com.hwfs.ls.lcm.dao.EtcSpecmArticleMgmtDAO.selectList */
+        <![CDATA[
+/* 기타검체유형 조회 */
+SELECT A.SPECM_CD,						/* 검체 코드 */
+       A.SPECM_CLASS,					/* 검체 분류 */
+       A.SPECM_NM,						/* 검체명 */
+       A.SPECM_TYPE,					/* 검체유형(공전유형) */
+       A.MGRP_CD,						/* 검체유형 대분류 */
+       A.MCALSS_CD,						/* 검체유형 중분류 */
+       A.SCLASS_CD,						/* 검체유형 소분류 */
+       ((SELECT X.MGRP_NM FROM LCM_SPECM_TYPE_MGRP X WHERE X.SPECM_TYPE = A.SPECM_TYPE AND X.MGRP_CD = A.MGRP_CD AND X.USE_YN = 'Y') || ' / ' ||
+        (SELECT X.MCALSS_NM FROM LCM_SPECM_TYPE_MCALSS X WHERE X.SPECM_TYPE = A.SPECM_TYPE AND X.MCALSS_CD = A.MCALSS_CD AND X.USE_YN = 'Y') || ' / ' ||
+        (SELECT X.SCLASS_NM FROM LCM_SPECM_TYPE_SCLASS X WHERE X.SPECM_TYPE = A.SPECM_TYPE AND X.SCLASS_CD = A.SCLASS_CD AND X.USE_YN = 'Y'))
+       AS SPECM_TYPE_NM,				/* 검체 유형명 ( 대분류명 / 중분류명 / 소분류명 ) */
+       A.SPECM_TYPE_PCLS,
+       SCC_CODE_NM('SPECM_TYPE_PCLS', A.SPECM_TYPE_PCLS) AS SPECM_TYPE_PCLS_NM,	/* 세부 검체 유형 */
+       A.COST_CLASS,					/* 비용 */
+       A.INSPT_MTOD,					/* 검사방법 */
+       A.INSPT_CLASS,					/* 검사구분 */
+       A.INSPT_PURP_1,					/* 검사목적1 */
+       A.INSPT_PURP_2,					/* 검사목적2 */
+       A.INSPT_PURP_3,					/* 검사목적3 */
+       A.SPECM_WTRLST_NM,               /* 검사목적4 */
+       A.LONGSTORAGE_YN,                /* 장기보존여부 */
+       A.INSPTBEFORE_SPECM_STATUS,      /* 검사전검체상태 */
+       A.PICK_STATUS,                   /* 채취상태 */
+       A.INSPT_OBJ_1,                   /* 검사대상1 */
+       A.INSPT_OBJ_2,                   /* 검사대상2 */
+       A.INSPT_OBJ_3,                   /* 검사대상3 */
+       A.INSPT_OBJ_4,                   /* 검사대상4 */
+       A.MFGWON,                        /* 제조원 */
+       A.DTR_VENDOR,                    /* 유통업체 */
+       A.ACCEPTCITY_TEMPR,              /* 접수시품온 */
+       A.STAND,                         /* 규격 */
+       A.UNIT,                          /* 단위 */
+       A.ORIGIN,                        /* 원산지 */
+       A.CHARG_BASIS,                   /* 보관기준 */
+       A.MFGDD,                         /* 제조일자 */
+       A.DTRLIMT,                       /* 유통기한 */
+       A.DTRLIMT_MTS,                   /* 유통기한 월 */
+       A.DTRLIMT_DD,                    /* 유통기한 일 */
+       A.SPECM_DELIVER_PCLSFACT,        /* 검체입고시 세부사항 */
+       A.MFG_VENDOR,                    /* 제조 업체 */
+       A.MFG_NATION,                    /* 제조 국가 */
+       A.MFG_LOCATION,                  /* 제조 소재지 */
+       A.CUSER,                         /*  */
+       A.CDATE,                         /*  */
+       A.UUSER,                         /*  */
+       A.UDATE,                         /*  */
+       CASE WHEN EXISTS (
+                         SELECT 1
+                           FROM LSM_ANNUPLAN_DTL X
+                          WHERE A.SPECM_CD = X.MATERIAL_CD
+                        ) THEN '1'
+       ELSE
+         '0'
+       END AS YEAR_ANNU_EXISTS, /* 년간계획 등록 여부 체크 */
+       CASE WHEN EXISTS (
+                         SELECT 1
+                           FROM LSM_ANNUPLAN_MONTH_DTL X
+                          WHERE A.SPECM_CD = X.MATERIAL_CD
+                        ) THEN '1'
+       ELSE
+         '0'
+       END AS MONTH_ANNU_EXISTS /* 월계획 등록 여부 체크 */
+  FROM LCM_ETC_SPECM_TYPE A
+ WHERE 1 = 1
+<#if specmClass?has_content>   AND A.SPECM_CLASS = :specmClass </#if>
+<#if specmCd?has_content>   AND A.SPECM_CD = :specmCd </#if>
+<#if mgrpCd?has_content>   AND A.MGRP_CD = :mgrpCd </#if>
+<#if mcalssCd?has_content>   AND A.MCALSS_CD = :mcalssCd </#if>
+<#if mcalssNm?has_content>   AND (SELECT X.MCALSS_NM FROM LCM_SPECM_TYPE_MCALSS X WHERE X.SPECM_TYPE = A.SPECM_TYPE AND X.MCALSS_CD = A.MCALSS_CD AND X.USE_YN = 'Y') LIKE '%' || :mcalssCd || '%' </#if>
+<#if edtSearch?has_content>   AND (A.SPECM_CD = :edtSearch OR A.SPECM_NM LIKE '%' || :edtSearch || '%') </#if>
+<#if specmType?has_content>   AND A.SPECM_TYPE = :specmType </#if>
+<#if edtMclassSearch?has_content>
+   AND EXISTS (
+               SELECT 1
+                 FROM LCM_SPECM_TYPE_MCALSS
+                WHERE MGRP_CD = A.MGRP_CD
+                  AND MCALSS_CD = A.MCALSS_CD
+                  AND MCALSS_NM LIKE '%' || :edtMclassSearch || '%'
+              )
+</#if>
+<#if edtSclassSearch?has_content>
+   AND EXISTS (
+               SELECT 1
+                 FROM LCM_SPECM_TYPE_SCLASS
+                WHERE MGRP_CD = A.MGRP_CD
+                  AND MCALSS_CD = A.MCALSS_CD
+                  AND SCLASS_CD = A.SCLASS_CD
+                  AND SCLASS_NM LIKE '%' || :edtSclassSearch || '%'
+              )
+</#if>
+ ORDER BY A.SPECM_CLASS, A.SPECM_CD
+        ]]>
+    </statement>
+
+    <!-- 기타검체유형 건수를 조회한다. -->
+    <statement name="selectSpecmCnt" type="select">
+        /*+ com.hwfs.ls.lcm.dao.EtcSpecmArticleMgmtDAO.selectSpecmCnt */
+        <![CDATA[
+/* 기타검체유형 건수 조회 */
+SELECT COUNT(1) AS CNT
+  FROM LCM_ETC_SPECM_TYPE A
+ WHERE 1 = 1
+   AND A.SPECM_CLASS = :specmClass
+   AND A.SPECM_CD = :specmCd
+        ]]>
+    </statement>
+
+    <!-- 구매/자재 DATA를 조회한다. -->
+    <statement name="selectItemList" type="select">
+        /*+ com.hwfs.ls.lcm.dao.EtcSpecmArticleMgmtDAO.selectItemList */
+        <![CDATA[
+/* 구매/자재 조회 */
+SELECT :specmClass AS SPECM_CLASS									/* 검체 분류 */
+     , A.ITEM_CODE AS SPECM_CD   									/* 품목 코드 */
+     , A.ITEM_NAME AS SPECM_NM   											/* 품목명 + 자재제조업체 */
+     , A.ITEM_SIZE AS STAND	/* 규격 */
+     , A.PO_UOM AS UNIT       										/* 구매단위코드  */
+     , A.MAKER AS MFGWON        									/* 자재제조업체 */
+     , A.ORIGIN_TYPE AS ORIGIN  									/* 원산지구분 코드(코드명) */
+     --, A.ITEM_SIZE    /* 규격 */
+     , A.FOOD_CLS AS SPECM_TYPE     								/* 식품(공전)구분코드 */
+     , A.FOODCD AS MCALSS_CD 										    /* 식품(공전)코드 : 중분류코드 */
+     , CASE WHEN A.FOODCD IS NOT NULL THEN
+           (SELECT Y.MGRP_CD FROM LCM_SPECM_TYPE_MCALSS Y WHERE Y.SPECM_TYPE = A.FOOD_CLS AND Y.MCALSS_CD = A.FOODCD)
+       ELSE
+           ''
+       END AS MGRP_CD                                               /* 식품공전 대분류코드 */
+     , CASE WHEN A.FOODCD IS NOT NULL THEN
+           ((SELECT X.MGRP_NM FROM LCM_SPECM_TYPE_MGRP X WHERE X.SPECM_TYPE = A.FOOD_CLS AND X.MGRP_CD IN
+                    (SELECT Y.MGRP_CD FROM LCM_SPECM_TYPE_SCLASS Y WHERE Y.SPECM_TYPE = A.FOOD_CLS AND Y.MCALSS_CD = A.FOODCD) AND X.USE_YN = 'Y' AND ROWNUM = 1) || ' / ' ||
+            (SELECT X.MCALSS_NM FROM LCM_SPECM_TYPE_MCALSS X WHERE X.SPECM_TYPE = A.FOOD_CLS AND X.MCALSS_CD IN
+                    (SELECT Y.MCALSS_CD FROM LCM_SPECM_TYPE_SCLASS Y WHERE Y.SPECM_TYPE = A.FOOD_CLS AND Y.MCALSS_CD = A.FOODCD) AND X.USE_YN = 'Y' AND ROWNUM = 1))
+       ELSE
+           ''
+       END AS SPECM_TYPE_NM                /* 검체 유형명 ( 대분류명 / 중분류명 ) */
+  FROM HLDC_PO_ITEM_MST A
+ WHERE 1 = 1
+   AND A.ITEM_CLASS1 = 'F'
+   AND A.USE_YN = 'Y'
+   AND EPROCUSR.FN_ITEM_PROCURE_MTG_UNS('100', A.ITEM_CODE) = 'UP'  /* 불용자재 제외 */
+<#if edtSearch?has_content>   AND (A.ITEM_CODE = :edtSearch OR A.ITEM_NAME LIKE '%' || :edtSearch || '%') </#if>
+ ORDER BY A.ITEM_CODE
+        ]]>
+    </statement>
+
+    <!-- 구매이력정보를 DATA를 조회한다. -->
+    <statement name="selectTransItemList" type="select">
+        /*+ com.hwfs.ls.lcm.dao.EtcSpecmArticleMgmtDAO.selectTransItemList */
+        <![CDATA[
+/* 구매이력정보 조회 */
+SELECT A.TRANS_DATE                                             /* 수불일자 */
+     , A.TRANS_UPJANG                                           /* 업장코드 */
+     , (SELECT UPJANGNM FROM SCO_UPJANG_MST_V WHERE UPJANG = A.TRANS_UPJANG) AS TRANS_UPJANG_NM /* 업장명 */
+     , '101' AS SPECM_CLASS                                    /* 검체 분류 */
+     , B.ITEM_CODE AS SPECM_CD                                       /* 품목 코드 */
+     , B.ITEM_NAME AS SPECM_NM                                               /* 품목명 + 자재제조업체 */
+     , B.ITEM_SIZE AS STAND    /* 규격 */
+     , B.PO_UOM AS UNIT                                               /* 구매단위코드  */
+     , B.MAKER AS MFGWON                                            /* 자재제조업체 */
+     , B.ORIGIN_TYPE AS ORIGIN                                      /* 원산지구분 코드(코드명) */
+     , B.FOOD_CLS AS SPECM_TYPE                                     /* 식품(공전)구분코드 */
+     , B.FOODCD AS MCALSS_CD                                             /* 식품(공전)코드 : 중분류코드 */
+     , CASE WHEN B.FOODCD IS NOT NULL THEN
+           (SELECT Y.MGRP_CD FROM LCM_SPECM_TYPE_MCALSS Y WHERE Y.SPECM_TYPE = B.FOOD_CLS AND Y.MCALSS_CD = B.FOODCD)
+       ELSE
+           ''
+       END AS MGRP_CD                                               /* 식품공전 대분류코드 */
+     , CASE WHEN B.FOODCD IS NOT NULL THEN
+           ((SELECT X.MGRP_NM FROM LCM_SPECM_TYPE_MGRP X WHERE X.SPECM_TYPE = B.FOOD_CLS AND X.MGRP_CD IN
+                    (SELECT Y.MGRP_CD FROM LCM_SPECM_TYPE_SCLASS Y WHERE Y.SPECM_TYPE = B.FOOD_CLS AND Y.MCALSS_CD = B.FOODCD) AND X.USE_YN = 'Y' AND ROWNUM = 1) || ' / ' ||
+            (SELECT X.MCALSS_NM FROM LCM_SPECM_TYPE_MCALSS X WHERE X.SPECM_TYPE = B.FOOD_CLS AND X.MCALSS_CD IN
+                    (SELECT Y.MCALSS_CD FROM LCM_SPECM_TYPE_SCLASS Y WHERE Y.SPECM_TYPE = B.FOOD_CLS AND Y.MCALSS_CD = B.FOODCD) AND X.USE_YN = 'Y' AND ROWNUM = 1))
+       ELSE
+           ''
+       END AS SPECM_TYPE_NM                /* 검체 유형명 ( 대분류명 / 중분류명 ) */
+  FROM (SELECT X.TRANS_DATE, X.TRANS_UPJANG, X.ITEM_CODE
+          FROM HLDC_PO_TRANSACTION X
+         WHERE X.TRANS_TYPE IN ( 'I001', 'I002' )
+           --AND X.MVT = '101'
+           AND X.TRANS_DATE BETWEEN :searchTransDateFrom AND :searchTransDateTo
+         GROUP BY X.TRANS_DATE, X.TRANS_UPJANG, X.ITEM_CODE) A
+     , HLDC_PO_ITEM_MST B
+ WHERE A.ITEM_CODE = B.ITEM_CODE
+   AND B.ITEM_CLASS1 = 'F'
+   AND B.USE_YN = 'Y'
+   AND EPROCUSR.FN_ITEM_PROCURE_MTG_UNS('100', B.ITEM_CODE) = 'UP'  /* 불용자재 제외 */
+<#if edtSearch?has_content>   AND (B.ITEM_NAME LIKE '%' || :edtSearch || '%') </#if>
+<#if edtSearchUpjang?has_content>
+    AND (A.TRANS_UPJANG = :edtSearchUpjang)
+<#else>
+    <#if edtSearchUpjangNm?has_content>   AND ((SELECT UPJANGNM FROM SCO_UPJANG_MST_V WHERE UPJANG = A.TRANS_UPJANG) LIKE '%' || :edtSearchUpjangNm || '%') </#if>
+</#if>
+ ORDER BY A.TRANS_DATE, A.ITEM_CODE
+        ]]>
+    </statement>
+
+    <!-- 기타검체유형번호를 채번 한다. -->
+    <statement name="selectCreateCd" type="select">
+        /*+ com.hwfs.ls.lcm.dao.EtcSpecmArticleMgmtDAO.selectCreateCd */
+        <![CDATA[
+/* 기타검체유형번호 채번 */
+SELECT 'C'||LPAD(TO_NUMBER(NVL(MAX(SUBSTR(SPECM_CD,2,9)),0)) + 1, 9, '0') AS SPECM_CD
+  FROM LCM_ETC_SPECM_TYPE
+ WHERE SPECM_CLASS <> '101'	/* 거래중인식재료(자재품목) */
+        ]]>
+    </statement>
+
+    <!-- 기타검체유형을 생성한다. -->
+    <statement name="insertList" type="insert">
+        /*+ com.hwfs.ls.lcm.dao.EtcSpecmArticleMgmtDAO.insertList */
+        <![CDATA[
+/* 기타검체유형 생성 */
+INSERT INTO LCM_ETC_SPECM_TYPE
+(
+ SPECM_CD,
+ SPECM_CLASS,
+ SPECM_NM,
+ SPECM_TYPE,
+ MGRP_CD,
+ MCALSS_CD,
+ SCLASS_CD,
+ SPECM_TYPE_PCLS,
+ COST_CLASS,
+ INSPT_MTOD,
+ INSPT_CLASS,
+ INSPT_PURP_1,
+ INSPT_PURP_2,
+ INSPT_PURP_3,
+ SPECM_WTRLST_NM,
+ LONGSTORAGE_YN,
+ INSPTBEFORE_SPECM_STATUS,
+ PICK_STATUS,
+ INSPT_OBJ_1,
+ INSPT_OBJ_2,
+ INSPT_OBJ_3,
+ INSPT_OBJ_4,
+ MFGWON,
+ MFG_VENDOR,
+ MFG_NATION,
+ MFG_LOCATION,
+ DTR_VENDOR,
+ ACCEPTCITY_TEMPR,
+ STAND,
+ UNIT,
+ ORIGIN,
+ CHARG_BASIS,
+ MFGDD,
+ DTRLIMT,
+ DTRLIMT_MTS,
+ DTRLIMT_DD,
+ SPECM_DELIVER_PCLSFACT,
+ CUSER,
+ CDATE,
+ UUSER,
+ UDATE
+) VALUES (
+ :specmCd,
+<#if specmClass?exists> :specmClass, <#else> null, </#if>
+<#if specmNm?exists> :specmNm, <#else> null, </#if>
+<#if specmType?exists> :specmType, <#else> null, </#if>
+<#if mgrpCd?exists> :mgrpCd, <#else> null, </#if>
+<#if mcalssCd?exists> :mcalssCd, <#else> null, </#if>
+<#if sclassCd?exists> :sclassCd, <#else> null, </#if>
+<#if specmTypePcls?exists> :specmTypePcls, <#else> null, </#if>
+<#if costClass?exists> :costClass, <#else> null, </#if>
+<#if insptMtod?exists> :insptMtod, <#else> null, </#if>
+<#if insptClass?exists> :insptClass, <#else> null, </#if>
+<#if insptPurp1?exists> :insptPurp1, <#else> null, </#if>
+<#if insptPurp2?exists> :insptPurp2, <#else> null, </#if>
+<#if insptPurp3?exists> :insptPurp3, <#else> null, </#if>
+<#if specmWtrlstNm?exists> :specmWtrlstNm, <#else> null, </#if>
+<#if longstorageYn?exists> :longstorageYn, <#else> null, </#if>
+<#if insptbeforeSpecmStatus?exists> :insptbeforeSpecmStatus, <#else> null, </#if>
+<#if pickStatus?exists> :pickStatus, <#else> null, </#if>
+<#if insptObj1?exists> :insptObj1, <#else> null, </#if>
+<#if insptObj2?exists> :insptObj2, <#else> null, </#if>
+<#if insptObj3?exists> :insptObj3, <#else> null, </#if>
+<#if insptObj4?exists> :insptObj4, <#else> null, </#if>
+<#if mfgwon?exists> :mfgwon, <#else> null, </#if>
+<#if mfgVendor?exists> :mfgVendor, <#else> null, </#if>
+<#if mfgNation?exists> :mfgNation, <#else> null, </#if>
+<#if mfgLocation?exists> :mfgLocation, <#else> null, </#if>
+<#if dtrVendor?exists> :dtrVendor, <#else> null, </#if>
+<#if acceptcityTempr?exists> :acceptcityTempr, <#else> null, </#if>
+<#if stand?exists> :stand, <#else> null, </#if>
+<#if unit?exists> :unit, <#else> null, </#if>
+<#if origin?exists> :origin, <#else> null, </#if>
+<#if chargBasis?exists> :chargBasis, <#else> null, </#if>
+<#if mfgdd?exists> :mfgdd, <#else> null, </#if>
+<#if dtrlimt?exists> :dtrlimt, <#else> null, </#if>
+<#if dtrlimtMts?exists> :dtrlimtMts, <#else> null, </#if>
+<#if dtrlimtDd?exists> :dtrlimtDd, <#else> null, </#if>
+<#if specmDeliverPclsfact?exists> :specmDeliverPclsfact, <#else> null, </#if>
+ :loginSabun,
+ SYSDATE,
+ :loginSabun,
+ SYSDATE
+)
+        ]]>
+    </statement>
+
+    <!-- 기타검체유형을 수정한다. -->
+    <statement name="updateList" type="update">
+        /*+ com.hwfs.ls.lcm.dao.EtcSpecmArticleMgmtDAO.updateList */
+        <![CDATA[
+/* 기타검체유형 저장 */
+UPDATE LCM_ETC_SPECM_TYPE SET
+<#if specmClass?exists> SPECM_CLASS = :specmClass, </#if>
+<#if specmNm?exists> SPECM_NM = :specmNm, </#if>
+<#if specmType?exists> SPECM_TYPE = :specmType, </#if>
+<#if mgrpCd?exists> MGRP_CD = :mgrpCd, </#if>
+<#if mcalssCd?exists> MCALSS_CD = :mcalssCd, </#if>
+<#if sclassCd?exists> SCLASS_CD = :sclassCd, </#if>
+<#if specmTypePcls?exists> SPECM_TYPE_PCLS = :specmTypePcls, </#if>
+<#if costClass?exists> COST_CLASS = :costClass, </#if>
+<#if insptMtod?exists> INSPT_MTOD = :insptMtod, </#if>
+<#if insptClass?exists> INSPT_CLASS = :insptClass, </#if>
+<#if insptPurp1?exists> INSPT_PURP_1 = :insptPurp1, </#if>
+<#if insptPurp2?exists> INSPT_PURP_2 = :insptPurp2, </#if>
+<#if insptPurp3?exists> INSPT_PURP_3 = :insptPurp3, </#if>
+<#if specmWtrlstNm?exists> SPECM_WTRLST_NM = :specmWtrlstNm, </#if>
+<#if longstorageYn?exists> LONGSTORAGE_YN = :longstorageYn, </#if>
+<#if insptbeforeSpecmStatus?exists> INSPTBEFORE_SPECM_STATUS = :insptbeforeSpecmStatus, </#if>
+<#if pickStatus?exists> PICK_STATUS = :pickStatus, </#if>
+<#if insptObj1?exists> INSPT_OBJ_1 = :insptObj1, </#if>
+<#if insptObj2?exists> INSPT_OBJ_2 = :insptObj2, </#if>
+<#if insptObj3?exists> INSPT_OBJ_3 = :insptObj3, </#if>
+<#if insptObj4?exists> INSPT_OBJ_4 = :insptObj4, </#if>
+<#if mfgwon?exists> MFGWON = :mfgwon, </#if>
+<#if mfgVendor?exists> MFG_VENDOR = :mfgVendor, </#if>
+<#if mfgNation?exists> MFG_NATION = :mfgNation, </#if>
+<#if mfgLocation?exists> MFG_LOCATION = :mfgLocation, </#if>
+<#if dtrVendor?exists> DTR_VENDOR = :dtrVendor, </#if>
+<#if acceptcityTempr?exists> ACCEPTCITY_TEMPR = :acceptcityTempr, </#if>
+<#if stand?exists> STAND = :stand, </#if>
+<#if unit?exists> UNIT = :unit, </#if>
+<#if origin?exists> ORIGIN = :origin, </#if>
+<#if chargBasis?exists> CHARG_BASIS = :chargBasis, </#if>
+<#if mfgdd?exists> MFGDD = :mfgdd, </#if>
+<#if dtrlimt?exists> DTRLIMT = :dtrlimt, </#if>
+<#if dtrlimtMts?exists> DTRLIMT_MTS = :dtrlimtMts, </#if>
+<#if dtrlimtDd?exists> DTRLIMT_DD = :dtrlimtDd, </#if>
+<#if specmDeliverPclsfact?exists> SPECM_DELIVER_PCLSFACT = :specmDeliverPclsfact, </#if>
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+WHERE  SPECM_CD = :specmCd
+        ]]>
+    </statement>
+
+    <!-- 기타검체유형을 삭제한다. -->
+    <statement name="deleteList" type="delete">
+        /*+ com.hwfs.ls.lcm.dao.EtcSpecmArticleMgmtDAO.deleteList */
+        <![CDATA[
+/* 기타검체유형 삭제 */
+DELETE
+FROM   LCM_ETC_SPECM_TYPE
+WHERE  SPECM_CD = :specmCd
+        ]]>
+    </statement>
+
+</hqml>

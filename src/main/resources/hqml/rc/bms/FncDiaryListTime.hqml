@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.bms.fncDiaryListTimeDAO">
+	<desc>fncDiaryListTime</desc>
+
+	<!-- DATA를 조회한다. -->
+	
+	<!-- 날자를 구한다. 달력에 표시할 첫번재 요일과 해당월의 처음일자 마지막일자 
+	     조건 : monthly = yyyymmdd 로 들어와야 함.
+	-->
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.rc.bms.fncDiaryListTimeDAO.selectList */
+	
+		<![CDATA[
+		   
+		WITH  TTB_TIMES AS (SELECT  CODE, CODE_NAME FROM SCC_COMMON_CODE  WHERE GROUP_CODE = 'BMS_0015' ) --시간
+			, TTB_LAST AS (
+            	 SELECT  
+                       MAST.RESERV_NUM
+                	 , MAST.RESERV_NM
+				     , SCC_CRYPTO.MASKAUTH_FUN(MAST.RSVN_NM,12,:loginPersMask,:maskAuth) AS RSVN_NM
+				     , MAST.AM_CD
+                     , SMGR.AM_NM
+                      
+                     , MENU.STR_DATE
+				     , MENU.END_DATE
+				     , MENU.STR_TIME
+				     , MENU.END_TIME
+                      
+                     , TTIM.CODE_NAME AS TIMES_NM
+				     , TTIM.CODE      AS TIMES_CD 
+			         , BANQ.CATERCHF_NM ||':' || MAST.RESERV_NM || '(' || STIM.CODE_NAME || '~' || ETIM.CODE_NAME  || ')' AS SCHEDULE_TITLE
+				     , MAST.RESERV_STATUS
+                      
+                     , OUTLET.OUTLET_NM AS OUTLET_NM        --영업장명 
+				     , SANG.CODE_NAME AS RESERV_STATUS_NM	--행사상태
+				     , CODE.CODE_NAME AS RESERV_CD_NM	    --행사형태명
+				     , KIND.CODE_NAME AS KIND_CD_NM		    --행사종류명
+			         , STIM.CODE_NAME AS STR_TIME_NM        --시작시간명
+                     , ETIM.CODE_NAME AS END_TIME_NM        --종료시간명
+                     , BANQ.CATERCHF_NM AS BANQ_NM          --연회장명
+				 FROM  BMS_RESERV_MST MAST
+					 INNER JOIN BMS_RESERV_MENU MENU ON MENU.FNB_CLASS ='R'  AND MENU.RESERV_NUM = MAST.RESERV_NUM 
+					 <#if menuCd?has_content >  AND MENU_CD = :menuCd </#if>      --연회룸예약현황
+                     INNER JOIN (SELECT MST.OUTLET_CD, MST.OUTLET_TYPE, MST.OUTLET_NM 
+			                       FROM   SLE_OUTLET_MST MST
+			                          INNER JOIN  SCO_UPJANG_V   UPJANG ON  UPJANG.UPJANG = TO_NUMBER(MST.OUTLET_CD) 
+			                                      
+			          			 ) OUTLET ON OUTLET.OUTLET_CD =  MAST.OUTLET_CD 
+				     INNER JOIN BMS_CATERCHF_MST BANQ ON BANQ.CLASS_CD  ='10' AND BANQ.OUTLET_CD = MENU.OUTLET_CD  
+                                                                              AND BANQ.CATERCHF_CD = MENU.MENU_CD          --연회룸예약현황
+                     
+                     INNER JOIN BMS_AM_MST      SMGR ON SMGR.AM_CD = MAST.AM_CD
+				     INNER JOIN SCC_COMMON_CODE CODE ON CODE.GROUP_CODE = 'BMS_0005' AND CODE.CODE = MAST.RESERV_CD	    --행사형태
+				     INNER JOIN SCC_COMMON_CODE SANG ON SANG.GROUP_CODE = 'BMS_0001' AND SANG.CODE = MAST.RESERV_STATUS	--예약상태
+				     INNER JOIN SCC_COMMON_CODE KIND ON KIND.GROUP_CODE = 'BMS_0002' AND KIND.CODE = MAST.KIND_CD       --예약종류
+                     INNER JOIN SCC_COMMON_CODE STIM ON STIM.GROUP_CODE = 'BMS_0015' AND STIM.CODE = MENU.STR_TIME      --시작시간
+					 INNER JOIN SCC_COMMON_CODE ETIM ON ETIM.GROUP_CODE = 'BMS_0015' AND ETIM.CODE = MENU.END_TIME      --종료시간
+ 					 INNER JOIN SCC_COMMON_CODE TTIM ON TTIM.GROUP_CODE = 'BMS_0015' AND TTIM.CODE BETWEEN MENU.STR_TIME AND MENU.END_TIME
+				WHERE MAST.USE_YN = 'Y'
+                AND :searchDt    BETWEEN MAST.STR_DATE AND MAST.END_DATE
+                <#if outletCd?has_content >   AND MAST.OUTLET_CD  = :outletCd      </#if>  --업장코드
+                
+				<#if amCd?has_content >         AND MAST.AM_CD      = :amCd      </#if>  --am
+				<#if kindCd?has_content >       AND MAST.KIND_CD    = :kindCd    </#if>  --예약종류 (1:연회,2:외딩,3:케이터링)
+				<#if reservStatus?has_content > AND :reservStatus   LIKE '%' || MAST.RESERV_STATUS || '%' </#if> --예약상태(1:예약,2:확정,3:종료,4:취소)
+                
+                                    
+                 
+			)  
+			SELECT  TL.AM_NM, TL.RESERV_NUM, TL.RESERV_NM
+			        ,NVL(MAX(DECODE(CODE,'01',RESERV_STATUS)), '') AS "TT01"
+			        ,NVL(MAX(DECODE(CODE,'02',RESERV_STATUS)), '') AS "TT02"
+                    ,NVL(MAX(DECODE(CODE,'03',RESERV_STATUS)), '') AS "TT03"
+                    ,NVL(MAX(DECODE(CODE,'04',RESERV_STATUS)), '') AS "TT04"
+                    ,NVL(MAX(DECODE(CODE,'05',RESERV_STATUS)), '') AS "TT05"
+                    ,NVL(MAX(DECODE(CODE,'06',RESERV_STATUS)), '') AS "TT06"
+                    ,NVL(MAX(DECODE(CODE,'07',RESERV_STATUS)), '') AS "TT07"
+                    ,NVL(MAX(DECODE(CODE,'08',RESERV_STATUS)), '') AS "TT08"
+                    ,NVL(MAX(DECODE(CODE,'09',RESERV_STATUS)), '') AS "TT09"
+                    ,NVL(MAX(DECODE(CODE,'10',RESERV_STATUS)), '') AS "TT10"
+                    ,NVL(MAX(DECODE(CODE,'11',RESERV_STATUS)), '') AS "TT11"
+                    ,NVL(MAX(DECODE(CODE,'12',RESERV_STATUS)), '') AS "TT12"
+                    ,NVL(MAX(DECODE(CODE,'13',RESERV_STATUS)), '') AS "TT13"
+                    ,NVL(MAX(DECODE(CODE,'14',RESERV_STATUS)), '') AS "TT14"
+                    ,NVL(MAX(DECODE(CODE,'15',RESERV_STATUS)), '') AS "TT15"
+                    ,NVL(MAX(DECODE(CODE,'16',RESERV_STATUS)), '') AS "TT16"
+                    ,NVL(MAX(DECODE(CODE,'17',RESERV_STATUS)), '') AS "TT17"
+                    ,NVL(MAX(DECODE(CODE,'18',RESERV_STATUS)), '') AS "TT18"
+                    ,NVL(MAX(DECODE(CODE,'19',RESERV_STATUS)), '') AS "TT19"
+                    ,NVL(MAX(DECODE(CODE,'20',RESERV_STATUS)), '') AS "TT20"
+                    ,NVL(MAX(DECODE(CODE,'21',RESERV_STATUS)), '') AS "TT21"
+                    ,NVL(MAX(DECODE(CODE,'22',RESERV_STATUS)), '') AS "TT22"
+                    ,NVL(MAX(DECODE(CODE,'23',RESERV_STATUS)), '') AS "TT23"
+                    ,NVL(MAX(DECODE(CODE,'24',RESERV_STATUS)), '') AS "TT24"
+                    ,NVL(MAX(DECODE(CODE,'25',RESERV_STATUS)), '') AS "TT25"
+                    ,NVL(MAX(DECODE(CODE,'26',RESERV_STATUS)), '') AS "TT26"
+                    ,NVL(MAX(DECODE(CODE,'27',RESERV_STATUS)), '') AS "TT27"
+                    ,NVL(MAX(DECODE(CODE,'28',RESERV_STATUS)), '') AS "TT28"
+                    ,NVL(MAX(DECODE(CODE,'29',RESERV_STATUS)), '') AS "TT29"
+                    ,NVL(MAX(DECODE(CODE,'30',RESERV_STATUS)), '') AS "TT30"
+                    ,NVL(MAX(DECODE(CODE,'31',RESERV_STATUS)), '') AS "TT31"
+                    ,NVL(MAX(DECODE(CODE,'32',RESERV_STATUS)), '') AS "TT32"
+                    ,NVL(MAX(DECODE(CODE,'33',RESERV_STATUS)), '') AS "TT33"
+                    ,NVL(MAX(DECODE(CODE,'34',RESERV_STATUS)), '') AS "TT34"
+                    ,NVL(MAX(DECODE(CODE,'35',RESERV_STATUS)), '') AS "TT35"
+                    ,NVL(MAX(DECODE(CODE,'36',RESERV_STATUS)), '') AS "TT36"
+                    ,NVL(MAX(DECODE(CODE,'37',RESERV_STATUS)), '') AS "TT37"
+                    
+			FROM     TTB_LAST  TL 
+			        ,TTB_TIMES TT
+			WHERE    TT.CODE = TL.TIMES_CD
+             
+			GROUP BY TL.AM_NM, TL.RESERV_NUM, TL.RESERV_NM
+			ORDER BY TL.AM_NM, TL.RESERV_NUM, TL.RESERV_NM
+            
+         
+		
+		]]>
+	</statement>
+
+	<statement name="selectDtList" type="select">
+	/*+ com.hwfs.rc.bms.fncDiaryListTimeDAO.selectDtList */
+		<![CDATA[
+		  SELECT CODE, CODE_NAME
+          FROM SCC_COMMON_CODE
+         WHERE GROUP_CODE = 'BMS_0015' 
+         ORDER BY CODE
+		]]>
+	</statement>
+	
+
+
+</hqml>
+		
