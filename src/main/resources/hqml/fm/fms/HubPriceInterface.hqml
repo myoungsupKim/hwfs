@@ -17,20 +17,54 @@
 			  ,CUSTNM AS CUST_NM--업체명
 			  ,PRICE_UPJANG --단가업장
 			  ,(SELECT UPJANGNM FROM SCO_UPJANG_MST_V WHERE UPJANG = PRICE_UPJANG) AS UPJANGNM
-			  ,TO_CHAR(SYSDATE,'YYYYMMDD') AS START_DATE --시작일자
-			
+			  ,:schYM AS START_DATE1 --시작일자
+			  ,:schDD AS START_DATE2
+			  , '' AS CONTRACT_ID --단가계약번호
+			  , '' AS CONTRACT_CREATE --단가생성일시
+			  
 			  ,DECODE(PISTAT2,'R','수신중','S','완료')AS PISTAT --상태
 			  ,PIDATE2 AS PIDATE --최종인터페이스 일시
+			  ,PISABUN --최종인터페이스 수행자
+			  ,(SELECT NM_KOR FROM SCC_USERINFO WHERE SABUN = PISABUN ) AS PISABUN_NM--최종인터페이스 수행자
 			--, --수동인터페이스
 			  ,CS_SABUN --담당CS
 			  ,(SELECT NM_KOR FROM SCC_USERINFO WHERE SABUN = A.CS_SABUN) AS CS_SABUN_NAME --담당CS명
 			  ,ATTR01 AS FRI_MAGAM
 			  ,(SELECT CENTER_CODE FROM HLDC_PO_UPJANG_CENTER WHERE UPJANG = A.PRICE_UPJANG) AS CENTER_CODE
+			  , (SELECT START_DATE FROM HUB_UPJANG_CONTRACT_IF_LOG WHERE UPJANG = A.PRICE_UPJANG AND ROWNUM = 1)AS PI_LAST_DATE
 			  FROM HUB_UPJANG_MST A
 			 WHERE PRICE_UPJANG IS NOT NULL
 		]]>
 	</statement>
 	
+	<!-- 허브메카 단가계약 정보를 조회한다 -->
+	<statement name="selectContractInfo" type="select">
+		/*+ com.hwfs.fm.fms.dao.HubPriceInterfaceDAO.selectContractInfo */
+		<![CDATA[
+        SELECT
+				X.CONTRACT_ID,
+				X.CREATE_DATE AS CONTRACT_CREATE,
+				X.CENTER_CODE,
+				X.UPJANG,
+       			'1' AS ORDR
+		FROM 
+				( 
+				SELECT /*+ NO_MERGE GATHER_PLAN_STATISTICS INDEX(PO_CONTRACT_FSALE PO_CONTRACT_FSALE_I2) */	 -- INDEX 만으로 수행하기 위해 INDEX 변겨 
+				/* GROUP BY 사용시 인덱스 탐색건수 만큼 TABLE ROWID 액세스가 발생하여 필터링 적용 후 ROWID 로 JOIN */
+					ROWID AS RID,
+				  ROW_NUMBER() OVER(PARTITION BY CENTER_CODE,UPJANG,CONTRACT_START ORDER BY CONTRACT_END ) AS RN
+				  FROM PO_CONTRACT_FSALE
+ 				  WHERE CENTER_CODE = :centerCode
+				  AND    UPJANG = :upjang
+				  AND :contractCreate BETWEEN CONTRACT_START AND CONTRACT_END
+					) XX
+				, PO_CONTRACT_FSALE X
+				WHERE XX.RID = X.ROWID
+				AND XX.RN = 1  /* MIN(CONTRACT_END) 를 수행하기 위해 */
+          
+         ORDER BY ORDR ASC, CONTRACT_ID DESC
+		]]>
+	</statement>
 	
 	<!-- User 정보를 조회한다  -->
 	<statement name="selectHubInterface" type="select">

@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fs.fsl.upjangMealTicketMgntPopupDAO">
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="fs.fsl.upjangMealTicketMgntPopupDAO">
 	<desc>선수금 식권 관리조회 HQML Query</desc>
 
 	<!-- 선수금 식권 관리조회 목록을 조회한다. -->
-	<statement name="selectUpjangMealTicketMgntPopupList" type="select">
-		/*+ com.hwfs.fs.fsl.dao.UpjangMealTicketMgntPopupDAO.selectUpjangMealTicketMgntPopupList */
-		<![CDATA[
+	<statement name="selectUpjangMealTicketMgntPopupList"
+		type="select"><![CDATA[
 		SELECT A.ITEM_CODE
 		     , A.ITEM_TYPE
 		     , C.ITEM_NAME ||' '|| C.ITEM_SIZE ||' '              AS ITEM_NAME
@@ -13,7 +13,19 @@
 		     , B.TAX_SHET_PUBLISH_YN
 		     , MAX(DECODE(A.TRANS_TYPE, 'O', A.TICKET_ENDNUM, 0))  AS M_QTY
 		     --, SUM(DECODE(A.TRANS_TYPE, 'I', A.QTY, 'W', 0, (-1 * A.QTY))) AS J_QTY
-		     ,NVL(SUM(DECODE(D.SET1, 'I', A.QTY, 0)), 0) - NVL(SUM(DECODE(D.SET1, 'O', A.QTY, 0)), 0) AS J_QTY
+		     ,NVL(SUM(DECODE(D.SET1, 'I', A.QTY, 0)), 0) 
+		     -- - NVL(SUM(DECODE(D.SET1, 'O', A.QTY, 0)), 0) AS J_QTY
+		     
+		     --X XO 불용폐기식권 결재상태 체크 추가 -> 팀장 승인났을 때 재고 감량조회 20210930
+			  - NVL(SUM(
+				        DECODE(A.TRANS_TYPE,'X', --폐기O
+				                            DECODE(A.TRANS_GUBUN,'XO', --불용폐기O
+				                                                DECODE(A.SUBTEAM_MST_CONGUBN,'Y', --팀장 승인
+				                                                                            DECODE(D.SET1, 'O', A.QTY, 0), --Y 이면 감량
+				                                                                            0), --아니면 0 감량
+				                                                DECODE(D.SET1, 'O', A.QTY, 0)), --불용폐기X -> 기존과 동일
+				                            DECODE(D.SET1, 'O', A.QTY, 0)) --폐기X
+				 ), 0) AS J_QTY
              , MAX(DECODE(A.TRANS_TYPE, 'O', A.TICKET_ENDNUM,0))+1 S_NUM	-- 판매된 종료번호 +1
 		     , MAX(DECODE(A.TRANS_TYPE, 'I', A.TICKET_ENDNUM,0)) E_NUM	-- 입고 종료번호
 		     , 0 S_QTY
@@ -34,12 +46,13 @@
 		   <#if taxShetPublishYn?has_content>AND B.TAX_SHET_PUBLISH_YN = :taxShetPublishYn</#if>
 		 GROUP BY A.ITEM_CODE, A.ITEM_TYPE, C.ITEM_NAME, C.ITEM_SIZE, B.UPRICE, B.TAX_SHET_PUBLISH_YN
 		HAVING NVL(SUM(DECODE(D.SET1, 'I', A.QTY, 0)), 0) - NVL(SUM(DECODE(D.SET1, 'O', A.QTY, 0)), 0) > 0
-		]]>
-	</statement>
-	
+		]]></statement>
+
 	<!-- 선수금 식권 관리조회 목록을 조회한다. -->
 	<statement name="selectUpjangMealTicketDetail" type="select">
-		/*+ com.hwfs.fs.fsl.dao.UpjangMealTicketMgntPopupDAO.selectUpjangMealTicketDetail */
+		/*+
+		com.hwfs.fs.fsl.dao.UpjangMealTicketMgntPopupDAO.selectUpjangMealTicketDetail
+		*/
 		<![CDATA[
 		SELECT A.TRANS_DD
 		     , A.UPJANG AS UPJANG_CD
@@ -70,11 +83,14 @@
 		   ORDER BY A.TRANS_DD, A.TICKET_STARTNUM ASC
 		]]>
 	</statement>
-	
-	
+
+
 	<!-- 선수금 식권 관리조회 목록을 조회한다. -->
-	<statement name="selectUpjangMealSaleRcvyMgntPopupList" type="select">
-		/*+ com.hwfs.fs.fsl.dao.UpjangMealTicketMgntPopupDAO.selectUpjangMealSaleRcvyMgntPopupList */
+	<statement name="selectUpjangMealSaleRcvyMgntPopupList"
+		type="select">
+		/*+
+		com.hwfs.fs.fsl.dao.UpjangMealTicketMgntPopupDAO.selectUpjangMealSaleRcvyMgntPopupList
+		*/
 		<![CDATA[
 			SELECT DISTINCT B.OCCUR_DATE	--매출일자
 			     , B.VAT_CLASS	--과면세여부
@@ -137,10 +153,13 @@
 			                           )
 		]]>
 	</statement>
-	
+
 	<!-- 선수금 식권 관리조회 목록을 조회한다. -->
-	<statement name="selectUpjangMealRecvDlngMgntPopupList" type="select">
-		/*+ com.hwfs.fs.fsl.dao.UpjangMealTicketMgntPopupDAO.selectUpjangMealRecvDlngMgntPopupList */
+	<statement name="selectUpjangMealRecvDlngMgntPopupList"
+		type="select">
+		/*+
+		com.hwfs.fs.fsl.dao.UpjangMealTicketMgntPopupDAO.selectUpjangMealRecvDlngMgntPopupList
+		*/
 		<![CDATA[
 			SELECT M.ADVANCE_NUM, M.OCCUR_ADVANCE_NUM, '입금관리' AS TYPE, RECEIVE_NUM, (M.OCCUR_SUPPLY_AMT+M.OCCUR_VAT_AMT) AS OCCUR_AMT, AD.RECEIVE_AMT, AD.RECEIVE_DATE
 				FROM SLA_ADVANCE_MST M, SLA_ADVANCE_RECEIVE_WAY W, SLA_AR_RECEIVE_DETAIL AD

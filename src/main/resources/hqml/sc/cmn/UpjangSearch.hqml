@@ -4,7 +4,8 @@
 	<desc>시스템에서 업장정보를 조회한다.</desc>
 
 	<!-- RoleSetId : ScoAuthLevel -->
-	<statement name="selectScoAuthLevel" type="select"><![CDATA[
+	<statement name="selectScoAuthLevel" type="select">
+	<![CDATA[
 SELECT TO_CHAR(A.UPJANG) AS UPJANG_CODE,
        A.UPJANGNM AS UPJANG_NAME,
        A.UPJANG,
@@ -111,6 +112,7 @@ AND A.MU_CD = :muCd
 <#if tmCd?has_content>
 AND (A.TM_CD = :tmCd OR A.PT_CD = :tmCd)
 </#if>
+
 		]]></statement>
 
 
@@ -143,6 +145,15 @@ AND    A.UPJANG LIKE '%' || :upjangCode || '%'
 </#if>
 <#if upjangName?has_content>
 AND  UPPER(A.UPJANGNM_DISP) LIKE '%' || UPPER(:upjangName) || '%' --2019.01.17 김명섭 upper적용
+</#if>
+<#if partSalesSabun?has_content>
+AND A.MAIN_UPJANG IN (SELECT DISTINCT MAIN_UPJANG FROM FMS_UPJANG WHERE PART_SALES_SABUN = :partSalesSabun 
+																	<#if closeYn?has_content>
+																		<#if closeYn == "Y">
+																		AND USE_YN = 'Y'
+																		</#if>
+																	</#if>
+)
 </#if>
 <#if isUpjangControl?has_content>
 	<#if isUpjangControl == "Y">
@@ -190,6 +201,9 @@ AND    A.UPJANG LIKE '%' || :upjangCode || '%'
 </#if>
 <#if upjangName?has_content>
 AND  UPPER(A.UPJANGNM_DISP) LIKE '%' || UPPER(:upjangName) || '%' --2019.01.17 김명섭 upper적용
+</#if>
+<#if partSalesSabun?has_content>
+AND A.PART_SALES_SABUN = :partSalesSabun
 </#if>
 <#if isUpjangControl?has_content>
 	<#if isUpjangControl == "Y">
@@ -344,6 +358,15 @@ AND  C.MU_CD = :muCd
 <#if tmCd?has_content>
 AND  (C.TM_CD = :tmCd OR C.PT_CD = :tmCd)
 </#if>
+<#if partSalesSabun?has_content>
+AND A.MAIN_UPJANG IN (SELECT DISTINCT MAIN_UPJANG FROM FMS_UPJANG WHERE PART_SALES_SABUN = :partSalesSabun 
+																	<#if closeYn?has_content>
+																		<#if closeYn == "Y">
+																		AND USE_YN = 'Y'
+																		</#if>
+																	</#if>
+)
+</#if>
 ORDER BY A.UPJANG
 		]]></statement>
 
@@ -388,6 +411,9 @@ AND    C.MU_CD = :muCd
 </#if>
 <#if tmCd?has_content>
 AND    (C.TM_CD = :tmCd OR C.PT_CD = :tmCd)
+</#if>
+<#if partSalesSabun?has_content>
+AND A.PART_SALES_SABUN = :partSalesSabun
 </#if>
 ORDER BY A.UPJANG
 		]]></statement>
@@ -712,6 +738,9 @@ AND  UPPER(A.UPJANGNM_DISP) LIKE '%' || UPPER(:upjangName) || '%' --2019.01.17 �
 <#if muCd?has_content>
 AND    C.MU_CD = :muCd
 </#if>
+<#if partSalesSabun?has_content>
+AND A.PART_SALES_SABUN = :partSalesSabun
+</#if>
 ORDER BY A.UPJANG
 ]]></statement>
 
@@ -759,6 +788,15 @@ AND  A.UPJANG NOT IN (SELECT TO_NUMBER(CODE) FROM SCC_COMMON_CODE WHERE GROUP_CO
 <#if muCd?has_content>
 AND    C.MU_CD = :muCd
 </#if>
+<#if partSalesSabun?has_content>
+AND A.MAIN_UPJANG IN (SELECT DISTINCT MAIN_UPJANG FROM FMS_UPJANG WHERE PART_SALES_SABUN = :partSalesSabun 
+																	<#if closeYn?has_content>
+																		<#if closeYn == "Y">
+																		AND USE_YN = 'Y'
+																		</#if>
+																	</#if>
+)
+</#if>
 ORDER BY A.UPJANG
 ]]>
 </statement>
@@ -780,7 +818,30 @@ ORDER BY A.UPJANG
 		<#if upjangName?has_content>
 		AND  UPPER(A.UPJANGNM_DISP) LIKE '%' || UPPER(:upjangName) || '%' --2019.01.17 김명섭 upper적용
 		</#if>
+		
 		ORDER BY A.UPJANG
+	]]>
+	</statement>
+	
+	<!-- RoleSetId : MartUpjang (윈플러스 마트업장만 조회한다.) -->
+	<statement name="selectMartUpjang" type="select">
+	<![CDATA[
+		/*+ com.hwfs.cmn.dao.UpjangSearchDAO.selectMartUpjang */
+		SELECT TO_CHAR(A.UPJANG) AS UPJANG_CODE,
+			   A.UPJANGNM_DISP AS UPJANG_NAME
+		FROM FMS_UPJANG A
+		WHERE A.MAIN_UPJANG IN ('186968')
+		AND    A.USE_YN = 'Y'
+		<#if upjangCode?has_content>
+		AND    A.UPJANG LIKE '%' || :upjangCode || '%'
+		</#if>
+		<#if upjangName?has_content>
+		AND  UPPER(A.UPJANGNM_DISP) LIKE '%' || UPPER(:upjangName) || '%' 
+		</#if>
+		<#if partSalesSabun?has_content>
+		AND A.PART_SALES_SABUN = :partSalesSabun
+		</#if>
+		ORDER BY UPJANG_CODE
 	]]>
 	</statement>
 		

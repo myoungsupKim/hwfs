@@ -262,7 +262,7 @@
 		          																																		AND DEPT_ID IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'BRAND_UPJANG_POP_ETC') 
 		                   												 																			 )),'') = 'Y'
 		                   		 AND ORDER_YN = 'N' THEN 'Y'  --마트 수발주 예외품목										  
-
+							WHEN D.USE_YN = 'Y' THEN 'Y' --발주제한상품(브랜드)
                        ELSE 'N' END AS ERROR
                        , FMS_GET_ERROR_MSG(A.CEN_FLAG,A.SUB_FLAG,A.SUB_INFO_FLAG,A.ITEM_FLAG,A.CUS_FLAG,A.PO_CNT,A.MIN_QTY_FLAG,A.MAX_QTY_FLAG,A.FMS_FLAG,A.PO_NO_STATUS,A.PO_STATUS)
                        	 || (CASE 
@@ -303,16 +303,20 @@
 		                   				AND ORDER_YN = 'Y' THEN '| 마트 발주가능 품목'  --마트 예외 발주가능품목	
 		                   	ELSE ''
 		                   	END ) 	
-                       
+                       	|| (CASE WHEN D.USE_YN = 'Y' THEN '발주제한상품(브랜드)' END) --발주제한상품(브랜드)
                         AS MSG 
                        --,FMS_GET_ERROR_MSG2(A.ITEM_D_FLAG,A.ORD_FLAG,A.ORD_DAY_FLAG,A.AMT_FLAG) MSG2
                        ,FMS_GET_ERROR_MSG2(A.ITEM_D_FLAG,A.ORD_FLAG,A.ORD_DAY_FLAG,A.AMT_FLAG) || 
                         (CASE WHEN A.AMT_FLAG = 'Y' THEN A.AMT_REMARK ELSE '' END) AS MSG2
 
                        ,FMS_GETPO_STATUS_MSG_FUN(A.VAL_SHP_CNT, A.VAL_UNS_CNT, A.VAL_STP_CNT, A.VAL_EVT_CNT, A.VAL_CTR_CNT, A.VAL_REQ_CNT, A.VAL_SCH_CNT, A.IVT_YN) AS PO_MSG   /* 구매_수발주제한 메시지 */
-                  FROM FMS_SO_PR_TEMP A , HLDC_PO_ITEM_MST B, EXC_ITEM_MST C
+                  FROM FMS_SO_PR_TEMP A , HLDC_PO_ITEM_MST B, EXC_ITEM_MST C, FMP_ORD_LIMIT D
               WHERE A.ITEM_CODE = B.ITEM_CODE(+)
                 AND A.ITEM_CODE = C.ITEM_CODE(+)
+                AND A.ITEM_CODE = D.ITEM_CODE(+)
+                AND A.RC_UPJANG = D.UPJANG(+)
+                AND SYSDATE BETWEEN D.SDATE(+) AND D.EDATE(+)
+                AND D.USE_YN(+) = 'Y'
                 AND PR_SABUN = :loginSabun
                 AND PR_NUM = :prNum
                 ORDER BY RC_UPJANG

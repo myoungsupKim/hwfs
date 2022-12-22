@@ -984,12 +984,12 @@ public class NonarrivAltServiceImpl extends DefaultServiceImpl implements Nonarr
                 Map<String, Object> parameter = dsDetailList.get(i);
 
                 logger.info("entryNum :"+parameter.get("entryNum"));
-                //int getReleaseCnt = inventoryMgmtDeliverDAO.getReleaseCnt(parameter);
-                //logger.info("getReleaseCnt :"+getReleaseCnt);
-                //if ( getReleaseCnt != 0 )	//판매 나 출고 된건이 있으면
-                //{
-                //    throw new BizException("주문 및 출고 건이 존재 합니다. 미착대체 취소 할 수 업습니다.");
-                //}
+                int getReleaseCnt = inventoryMgmtDeliverDAO.getReleaseCnt(parameter);
+                logger.info("getReleaseCnt :"+getReleaseCnt);
+                if ( getReleaseCnt != 0 )	//판매 나 출고 된건이 있으면
+                {
+                    throw new BizException("주문 및 출고 건이 존재 합니다. 미착대체 취소 할 수 업습니다.");
+                }
 
                 //sap모듈 호출후 성공하면후 하단 로직 처리
                 String currYymmdd = LimsUtil.getDate("yyyyMMddHHmmss");
@@ -1056,12 +1056,12 @@ public class NonarrivAltServiceImpl extends DefaultServiceImpl implements Nonarr
                 Map<String, Object> parameter = dsDetailList2.get(i);
 
                 logger.info("entryNum :"+parameter.get("entryNum"));
-                //int getReleaseCnt = inventoryMgmtDeliverDAO.getReleaseCnt(parameter);
-                //logger.info("getReleaseCnt :"+getReleaseCnt);
-                //if ( getReleaseCnt != 0 )	//판매 나 출고 된건이 있으면
-                //{
-                //    throw new BizException("주문 및 출고 건이 존재 합니다. 미착대체 취소 할 수 업습니다.");
-                //}
+                int getReleaseCnt = inventoryMgmtDeliverDAO.getReleaseCnt(parameter);
+                logger.info("getReleaseCnt :"+getReleaseCnt);
+                if ( getReleaseCnt != 0 )	//판매 나 출고 된건이 있으면
+                {
+                    throw new BizException("주문 및 출고 건이 존재 합니다. 미착대체 취소 할 수 업습니다.");
+                }
 
                 //sap모듈 호출후 성공하면후 하단 로직 처리
                 String currYymmdd = LimsUtil.getDate("yyyyMMddHHmmss");

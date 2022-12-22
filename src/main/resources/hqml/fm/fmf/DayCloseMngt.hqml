@@ -361,8 +361,51 @@
                AND USE_YN = 'Y'
                AND CODE_NAME = :sabun
              ]]>
-
 	</statement>
+
+	<!-- 기부업장 체크 로직 (채권미발생을 위해 마감 금지) -->
+	<statement name="selectCheckDonaUpjang">
+		<![CDATA[
+			SELECT CODE -- COUNT(1) CODE
+            FROM SCC_COMMON_CODE
+            WHERE GROUP_CODE = 'DONATION_UPJANG' AND USE_YN = 'Y'
+              <#if upjang?has_content>
+              AND CODE = :upjang
+              </#if>   
+		]]>
+	</statement>
+	
+	<!-- 기부업장 매출목록 -->
+	<statement name="selectDonaUpjangList">
+		<![CDATA[
+			SELECT X.SALE_DATE, X.UPJANG2, X.UPJANG, X.SUBINV_CODE, X.RECEIPT_NUM, 'SYSTEM' AS loginSabun
+            FROM
+            (   SELECT SALE_DATE, UPJANG2, UPJANG, SUBINV_CODE, MAX(RECEIPT_NUM) AS RECEIPT_NUM
+                FROM   FMS_SALES A
+                WHERE  SALE_DATE BETWEEN :schSaleDate AND :schSaleDate
+                AND    SYS_CLASS = '13'
+                AND    MODIFY_SALS_YN = 'N'
+                AND A.UPJANG IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'DONATION_UPJANG' AND USE_YN = 'Y')
+                GROUP BY SALE_DATE, UPJANG2, UPJANG, SUBINV_CODE
+                UNION ALL
+                /* 조정분 */
+                SELECT SALE_DATE, UPJANG2, UPJANG, SUBINV_CODE, RECEIPT_NUM
+                FROM   FMS_SALES A
+                WHERE  SALE_DATE BETWEEN :schSaleDate AND :schSaleDate
+                AND    SYS_CLASS = '13'
+                AND    MODIFY_SALS_YN = 'Y'
+                AND    A.UPJANG IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'DONATION_UPJANG' AND USE_YN = 'Y')
+                GROUP BY SALE_DATE, UPJANG2, UPJANG, SUBINV_CODE, RECEIPT_NUM
+            ) X LEFT JOIN (
+                SELECT RECEIPT_NUM, NVL(MAX(DDDD_CLOSE_YN), 'N') AS CLOSE_YN
+                FROM SLA_IF_UPJANG_SALS_DETAIL
+                WHERE SYS_CLASS = '13'
+                AND    OCCUR_DATE BETWEEN :schSaleDate AND :schSaleDate
+                GROUP BY RECEIPT_NUM
+                ) S ON X.RECEIPT_NUM = S.RECEIPT_NUM
+		]]>
+	</statement>
+
 
 	<!-- 일미마감관리 목록을 조회한다. -->
 	<statement name="selectCheckCloseDayInfo" type="select">
@@ -501,44 +544,49 @@
 	</statement>
 
 	<!-- 하위업장일괄마감 체크 여부에 따라 업장목록 조회 -->
-	<statement name="selectUpjangList" type="select"><![CDATA[  <#if schMainUpjang?has_content>
+	<statement name="selectUpjangList" type="select"><![CDATA[  
+		<#if schMainUpjang?has_content>
 			<#if closingAll == '1'> 
-              SELECT  DISTINCT B.UPJANG AS UPJANG, /*업장코드*/
-                      DECODE(HEAD_CREDIT_YN, 'Y', MAIN_UPJANG, UPJANG) AS UPJANG2      
-				FROM SO_PR A,
-				     FMS_UPJANG B
-				WHERE A.RC_UPJANG = B.UPJANG
-				AND B.MAIN_UPJANG =  :schMainUpjang 
-				AND NEED_DATE  BETWEEN TO_CHAR(TO_DATE( :schSaleDate   ,'YYYYMMDD')-120,'YYYYMMDD') AND TO_CHAR(TO_DATE(  :schSaleDate  ,'YYYYMMDD')+31,'YYYYMMDD')
+            SELECT  DISTINCT B.UPJANG AS UPJANG, /*업장코드*/
+                    DECODE(HEAD_CREDIT_YN, 'Y', MAIN_UPJANG, UPJANG) AS UPJANG2      
+			FROM SO_PR A,
+			     FMS_UPJANG B
+			WHERE A.RC_UPJANG = B.UPJANG
+			  AND B.MAIN_UPJANG =  :schMainUpjang 
+			  AND NEED_DATE  BETWEEN TO_CHAR(TO_DATE( :schSaleDate   ,'YYYYMMDD')-120,'YYYYMMDD') AND TO_CHAR(TO_DATE(  :schSaleDate  ,'YYYYMMDD')+31,'YYYYMMDD')
+			  AND B.UPJANG NOT IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'DONATION_UPJANG' AND USE_YN = 'Y')
 			UNION ALL
 			SELECT  DISTINCT  B.UPJANG  AS UPJANG, /*업장코드*/
 			        DECODE(HEAD_CREDIT_YN, 'Y', MAIN_UPJANG, UPJANG) AS UPJANG2 
 			FROM   FMS_TRANSACTION A,
 			       FMS_UPJANGV B
 			WHERE A.TRANS_UPJANG = B.UPJANG
-			AND B.MAIN_UPJANG =  :schMainUpjang 
-			AND A.TRANS_DATE = :schSaleDate 
+			  AND B.MAIN_UPJANG =  :schMainUpjang 
+			  AND A.TRANS_DATE = :schSaleDate 
+			  AND B.UPJANG NOT IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'DONATION_UPJANG' AND USE_YN = 'Y')
 			<#else>          
 			SELECT UPJANG, 
 			       DECODE(HEAD_CREDIT_YN, 'Y', MAIN_UPJANG, UPJANG) AS UPJANG2 
-			  FROM FMS_UPJANG A 
-			 WHERE UPJANG = :schMainUpjang 
+			FROM FMS_UPJANG A 
+			WHERE UPJANG = :schMainUpjang 
+			AND UPJANG NOT IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'DONATION_UPJANG' AND USE_YN = 'Y')
 			</#if>
 		<#else> 
-              SELECT  DISTINCT B.UPJANG AS UPJANG, /*업장코드*/
-                      DECODE(HEAD_CREDIT_YN, 'Y', MAIN_UPJANG, UPJANG) AS UPJANG2      
-				FROM SO_PR A,
-				     FMS_UPJANG B
-				WHERE A.RC_UPJANG = B.UPJANG
-				AND NEED_DATE  BETWEEN TO_CHAR(TO_DATE( :schSaleDate   ,'YYYYMMDD')-120,'YYYYMMDD') AND TO_CHAR(TO_DATE(  :schSaleDate  ,'YYYYMMDD')+31,'YYYYMMDD')
+            SELECT  DISTINCT B.UPJANG AS UPJANG, /*업장코드*/
+                    DECODE(HEAD_CREDIT_YN, 'Y', MAIN_UPJANG, UPJANG) AS UPJANG2      
+			FROM SO_PR A,
+				 FMS_UPJANG B
+			WHERE A.RC_UPJANG = B.UPJANG
+			  AND NEED_DATE  BETWEEN TO_CHAR(TO_DATE( :schSaleDate   ,'YYYYMMDD')-120,'YYYYMMDD') AND TO_CHAR(TO_DATE(  :schSaleDate  ,'YYYYMMDD')+31,'YYYYMMDD')
+			  AND B.UPJANG NOT IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'DONATION_UPJANG' AND USE_YN = 'Y')
 			UNION ALL
 			SELECT  DISTINCT B.UPJANG  AS UPJANG, /*업장코드*/
 			        DECODE(HEAD_CREDIT_YN, 'Y', MAIN_UPJANG, UPJANG) AS UPJANG2 
 			FROM   FMS_TRANSACTION A,
 			       FMS_UPJANGV B  
 			WHERE A.TRANS_UPJANG = B.UPJANG
-			AND A.TRANS_DATE = :schSaleDate 
-
+			  AND A.TRANS_DATE = :schSaleDate 
+			  AND B.UPJANG NOT IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'DONATION_UPJANG' AND USE_YN = 'Y')
 		</#if>  
        	 ]]></statement>
 

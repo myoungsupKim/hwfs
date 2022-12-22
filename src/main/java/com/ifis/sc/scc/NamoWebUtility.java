@@ -62,7 +62,6 @@ public class NamoWebUtility {
 	 * @throws Exception
 	 */
 	public static String writeContents(String bbsId, String conId, String conts, boolean isMobile) throws Exception {
-		System.out.println("==>NamoWebUrility writeContents");
 		File f = getFile(bbsId, conId);
 		//f.deleteOnExit(); => 필요없을것....같은데....
 		String url = "";
@@ -112,7 +111,6 @@ public class NamoWebUtility {
 				htmlFileWriter.close();
 
 				url = ServiceManagerFactory.getProperty("mobile.bbs.url") + "/" + newDir + "/" + newFile + "/" + newFile+".html";
-				System.out.println("==>url:" + url);
 				//모바일 공지건]]
 			}
 			else {

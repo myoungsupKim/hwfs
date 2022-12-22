@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="ms.msc.saniCheckResultDetailDAO">
+	<desc>SaniCheckResultDetail HQML Query</desc>
+
+	<!-- 위생점검결과 목록을 조회한다. -->
+	
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.ms.msc.saniCheckResultDetailDAO.selectList */
+	<![CDATA[
+		SELECT
+			(SELECT UPJANGNM FROM MAC_UPJANG_V WHERE A.UPJANG = UPJANG) AS UPJANGNM  -- 업장명
+			, A.CHECK_DATE -- 점검일
+			, A.CHECK_TYPE
+			, (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0042' AND USE_YN = 'Y' AND CODE = A.CHECK_TYPE) AS CHECK_TYPE_NM -- 점검구분
+			, (SELECT NM_KOR FROM SCO_FS_HR_PERSONAL_V WHERE A.CHECK_SABUN = SABUN) AS CHECK_SABUN_NM -- 점검자
+			, B.FORM_NAME -- 양식
+			,A.TABLE_TYPE
+			, (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0041' AND USE_YN = 'Y' AND CODE = A.TABLE_TYPE) AS TABLE_TYPE_NM -- 점검표구분
+			, A.CONFIRM_YN -- 확정
+			,DECODE(CASE WHEN A.SIGN_INSTANCE_ID1 IS NOT NULL THEN NVL(SCC_SIGN_STATUS_FUN(A.SIGN_INSTANCE_ID1), 'DRAFT') END,
+				'DRAFT','상신','REJECT','반려','COMPLETE','승인','CANCEL','취소','')  AS SIGN_PROGRESS -- 결재상태
+			, A.ATTR01 -- 지적내용
+			, A.FORM_CD
+			, A.UPJANG
+			, A.CHECK_SABUN
+			, A.LEAD_CHECK_TYPE
+			, A.RPT_DATE
+			, A.UUSER
+			, (SELECT NM_KOR FROM SCO_FS_HR_PERSONAL_V WHERE A.UUSER = SABUN) AS UUSER_NM
+			, A.UDATE
+			, A.SIGN_INSTANCE_ID1  /* 점검결재ID */
+			, CASE WHEN A.SIGN_INSTANCE_ID1 IS NOT NULL THEN NVL(SCC_SIGN_STATUS_FUN(A.SIGN_INSTANCE_ID1), 'DRAFT') END AS SIGN_PROGRESS_STATUS1
+			, A.SIGN_INSTANCE_ID2  /* 개선결재ID */
+			, CASE WHEN A.SIGN_INSTANCE_ID2 IS NOT NULL THEN NVL(SCC_SIGN_STATUS_FUN(A.SIGN_INSTANCE_ID2), 'DRAFT') END AS SIGN_PROGRESS_STATUS2
+			, A.LEADER_SABUN
+			, A.CHARGE_SABUN
+			, B.MAN_SCORE
+		  FROM FSC_RESULT_MST A
+			 , FSC_FORM_MST B
+		 WHERE A.TABLE_TYPE = B.TABLE_TYPE
+		   	AND A.FORM_CD = B.FORM_CD
+		   	
+		   	AND CHECK_DATE BETWEEN :startDate AND :endDate
+		   	
+		   <#if upjang?has_content>
+   			AND UPJANG = :upjang
+   		   <#else>
+   		    AND UPJANG IN (
+   		    	SELECT A.UPJANG
+				FROM FMS_UPJANG A
+				WHERE A.MAIN_UPJANG IN ('186968')
+				AND    A.USE_YN = 'Y'
+   		    )
+   		   </#if>
+   		   
+   		   <#if confirmYn?has_content>
+			AND A.CONFIRM_YN = :confirmYn
+		   </#if>
+		 ORDER BY A.CHECK_DATE DESC, A.CHECK_TYPE
+    
+	]]>
+	</statement>
+</hqml>

@@ -33,6 +33,7 @@
 		  AND A.START_DATE <= :endDate AND A.END_DATE >= :startDate    
 		  AND S.GROUP_CODE = 'FS9180'
 		  AND S.USE_YN = 'Y'
+		  AND A.MU_CD = :muCd
 
 		<#if pbCode?has_content>
 		  AND S.CODE   = :pbCode
@@ -71,10 +72,10 @@
 		/*+ com.hwfs.ft.fsi.dao.pbItemMgmtDAO.saveList */
 		<![CDATA[MERGE INTO FSI_PB_MST A
 		USING (SELECT :itemCode AS ITEM_CODE
-					--, :startDate AS START_DATE
+					, :muCd AS MU_CD
 				FROM DUAL) B 
-		ON ( A.ITEM_CODE = B.ITEM_CODE )
-		--AND A.START_DATE = B.START_DATE)           
+		ON ( A.ITEM_CODE = B.ITEM_CODE 
+		 AND A.MU_CD = B.MU_CD)           
 		WHEN MATCHED THEN
 			UPDATE
 				SET 
@@ -102,6 +103,7 @@
 					, A.PB_GUBUN
 					, A.REMARK
 					, A.USE_YN
+					, A.MU_CD
 					, A.CUSER
 					, A.CDATE
 					, A.UUSER
@@ -113,6 +115,7 @@
 				    , :pbGubun
 					, :remark
 					, DECODE(:useYn, 1, 'Y', 'N')
+					, :muCd
 					, :uuser
 					, SYSDATE
 					, :uuser
@@ -128,6 +131,7 @@
 		SELECT NVL(LISTAGG(ITEM_CODE||'('|| USE_YN ||')', ', ') WITHIN GROUP(ORDER BY ITEM_CODE), '-') AS ITEM_CODE_LIST
 		FROM FSI_PB_MST
 		WHERE ITEM_CODE IN (${itemCode})
+		AND MU_CD IN (${muCd})
 		]]>
 	</statement>
 </hqml>
