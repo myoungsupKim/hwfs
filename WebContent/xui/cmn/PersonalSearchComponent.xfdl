@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <FDL version="1.4">
   <TypeDefinition url="..\default_typedef.xml"/>
-  <Form id="PersonalSearchComponent" classname="PersonalSearchComponent" inheritanceid="" position="absolute 0 0 196 21" titletext="사원 검색용 Component" bindDataset="" bindSabunColumn="" bindNmKorColumn="" qoMuCd="" qoTmCd="" qoTmNm="" onload="PersonalSearchComponent_onload" eventAfterTrigger="" eventBeforeTrigger="" qoCcCd="" qoCcNm="">
+  <Form id="PersonalSearchComponent" classname="PersonalSearchComponent" inheritanceid="" position="absolute 0 0 196 21" titletext="사원 검색용 Component" bindDataset="" bindSabunColumn="" bindNmKorColumn="" qoMuCd="" qoTmCd="" qoTmNm="" onload="PersonalSearchComponent_onload" eventAfterTrigger="" eventBeforeTrigger="" qoCcCd="" qoCcNm="" roleSetId="">
     <Layouts>
       <Layout>
         <Edit id="edt_nmKor" taborder="0" readonly="true" onkeydown="edt_nmKor_onkeydown" position="absolute 0 0 176 21" anchor="left top right" sabun="" nmKor=""/>
@@ -296,7 +296,8 @@ function btn_search_onclick(obj:Button,  e:ClickEventInfo)
 		P_TM_NM : this.qoTmNm,
 		P_CC_CD : this.qoCcCd,
 		P_CC_NM : this.qoCcNm,
-		P_ALL_MU : "FALSE"
+		P_ALL_MU : "FALSE",
+		P_ROLESET_ID : this.roleSetId
 	};
 	var nWidth      = 726;
 	var nHeight     = 495;
@@ -309,11 +310,17 @@ function btn_search_onclick(obj:Button,  e:ClickEventInfo)
 
 	// 리턴값을 배열로 받을 경우	
 	var arrRtn = gfn_dialog(strId, strURL, objArgument, nWidth, nHeight, strStyle, nLeft, nTop, isModeless, bShowTitle, strAlign);
-	
+
 	if (arrRtn instanceof Object)
 	{
+		if (this.roleSetId == "ExcPartSalesSabun" && SCAuth.isAuthLevel("19") && gfn_isNull(arrRtn.sabun)) //영업사원 일 경우, Del금지
+		{
+			return;
+		}
+		
 		setSabun(arrRtn.sabun);
 		setNmKor(arrRtn.nmKor);
+
 // 		edt_userName.userId = arrRtn.userid;
 // 		edt_userName.sosokCode = arrRtn.sosokCode;
 // 		edt_userName.sosokName = arrRtn.sosokName;
@@ -361,6 +368,11 @@ function edt_nmKor_onkeydown(obj:Edit, e:KeyEventInfo)
 			var ret = clearEvent(obj);
 			
 			if (!ret) return;
+		}
+		
+		if (this.roleSetId == "ExcPartSalesSabun" && SCAuth.isAuthLevel("19")) //영업사원 일 경우, Del금지
+		{
+			return;
 		}
 		
 		setSabun("");

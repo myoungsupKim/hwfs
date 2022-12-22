@@ -130,25 +130,27 @@ pageContext.setAttribute("newline", "\n");
         <DIV class="acc_table_basic style1">
             <TABLE style="TABLE-LAYOUT: fixed" border=0 cellSpacing=0>
                 <COLGROUP>
-                    <COL style="WIDTH: 40%"/>
-                    <COL style="WIDTH: 40%"/>
-                    <COL style="WIDTH: 40%"/>
+                    <COL style="WIDTH: 30%"/>
+                    <COL style="WIDTH: 30%"/>
+                    <COL style="WIDTH: 30%"/>
+                    <COL style="WIDTH: 30%"/>
                 </COLGROUP>
                 <TBODY id=tbdArea>
                     <TR>
                         <TH style="TEXT-ALIGN: center"><b>기안자</b></TH>
                         <TH style="TEXT-ALIGN: center"><b>결재자</b></TH>
-                        <TH style="TEXT-ALIGN: center"><b>협조담당</b></TH>
+                        <TH style="TEXT-ALIGN: center"><b>협조</b></TH>
+                        <TH style="TEXT-ALIGN: center"><b>협조</b></TH>
                     </TR>
                     <TR height="60px">
                         <TD style="TEXT-ALIGN: center"><c:out value="${gwDraftMaster.nmKor}"/>(<c:out value="${gwDraftMaster.upjangnm}"/>)</TD>
                         <TD style="TEXT-ALIGN: center">소속팀장</TD>
-                        <TD style="TEXT-ALIGN: center">송현주(정보기획팀)</TD>
-                        <TD style="TEXT-ALIGN: center"></TD>
+                        <TD style="TEXT-ALIGN: center">송현주(정보시스템팀)</TD>
+                        <TD style="TEXT-ALIGN: center">박진영(정보시스템팀)</TD>
                     <TR height="60px">
                         <TD style="TEXT-ALIGN: center" colspan=2>※ 겸직/추가권한 요청시 결재라인 추가</TD>
-                        <TD style="TEXT-ALIGN: center">박지연(구매기획팀)</TD>
-                        <TD style="TEXT-ALIGN: center"></TD>
+                        <TD style="TEXT-ALIGN: center">박지연(상품지원팀)</TD>
+                        <TD style="TEXT-ALIGN: center">유승용(상품지원팀)</TD>
                 </TBODY>
             </TABLE>
         </DIV>

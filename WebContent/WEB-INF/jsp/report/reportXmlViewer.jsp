@@ -45,7 +45,6 @@
 	int pos = strUrl.indexOf("://");
 	pos = strUrl.indexOf("/", pos + 3);
 	String strHostUrl =  strUrl.substring (0, pos);
-
 %>
 <html style='height:100%'>
 <head>
@@ -116,7 +115,7 @@
 			// 기타 설정
 			Insert_OZViewer_Param("viewer.isframe", "false");
 			Insert_OZViewer_Param("information.debug", "true");
-			Insert_OZViewer_Param("viewer.namespace", "OZViewerActiveX60_20150129100/ozviewer");
+			Insert_OZViewer_Param("viewer.namespace", "custom_namespace/ozviewer");
             Start_OZViewer();
         }
         
@@ -131,12 +130,12 @@
 <body onload="onLoad()" style='height:100%'>
 	<div id = "InstallOZViewer">
 	    <script language = "JavaScript">
-	        Initialize_ZT("ZTransferX", "CLSID:C7C7225A-9476-47AC-B0B0-FF3B79D55E67", "0", "0", "<%=propertiesService.getString("oz.download.ztransferx.server")%>ZTransferX_2,2,5,1.cab#version=2,2,5,1", "application/OZTransferX_1027");
+	        Initialize_ZT("ZTransferX", "CLSID:C7C7225A-9476-47AC-B0B0-FF3B79D55E67", "0", "0", "<%=propertiesService.getString("oz.download.ztransferx.server")%>ZTransferX_2,2,6,4.cab#version=2,2,6,4", "application/OZTransferX_1027");
 	        Insert_ZT_Param("download.server", "<%=propertiesService.getString("oz.download.server")%>");
 	        Insert_ZT_Param("download.port", "<%=propertiesService.getString("oz.download.port")%>");
 	        Insert_ZT_Param("download.instruction", "ozrviewer.idf");
 	        Insert_ZT_Param("install.base", "<PROGRAMS>/Forcs");
-	        Insert_ZT_Param("install.namespace", "OZViewerActiveX60_20150129100");
+	        Insert_ZT_Param("install.namespace", "custom_namespace");
 	        Start_ZT();
 	    </script>
 	</div>

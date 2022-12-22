@@ -46,7 +46,6 @@
 	int pos = strUrl.indexOf("://");
 	pos = strUrl.indexOf("/", pos + 3);
 	String strHostUrl =  strUrl.substring (0, pos);
-	
 %>
 <html style='height:100%'>
 <head>
@@ -64,7 +63,7 @@
 	</title>
     <script language ="JavaScript">
     function OZCall() {
-    	var strOZCall;
+    	var strOZCall; 
    		var strOZDataXML;
 		var ozSep = "^";
 		//XML 데이터 바인딩
@@ -95,7 +94,7 @@
     		strOZCall += "connection.reportname=/hwfs/DynamicXmlHorz.ozr" +ozSep;
    	    <%} %>
 
-   	    // 공통 파라미터
+   	    // 공통 파라미터 
     	strOZCall += "connection.args1=p_userInfo=<%=reportViewerDTO.getUserInfo()%>" +ozSep;
     	strOZCall += "connection.args2=p_sabun=<%=reportViewerDTO.getSabun()%>" +ozSep;
     	strOZCall += "connection.args3=p_userNm=<%=reportViewerDTO.getUserNm()%>" +ozSep;
@@ -110,7 +109,7 @@
     	strOZCall += "print.properties=true" +ozSep;
     	strOZCall += "information.debug=true" +ozSep;
     	strOZCall += "viewer.isframe=false" +ozSep;
-    	strOZCall += "viewer.namespace=custom_namespace60\\ozviewer" +ozSep;
+    	strOZCall += "viewer.namespace=custom_namespace\\ozviewer" +ozSep;
     	strOZCall += "viewer.mode=preview" +ozSep;
     	strOZCall += "odi.odinames=sdm3" +ozSep;
     	//strOZCall += "odi.sdm3.usescheduleddata=ozp:///OzSdmMakerForXML_dynamic.js" +ozSep;

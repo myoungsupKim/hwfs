@@ -127,7 +127,6 @@
                 <Column size="56"/>
                 <Column size="27"/>
                 <Column size="62"/>
-                <Column size="80"/>
               </Columns>
               <Rows>
                 <Row size="24" band="head"/>
@@ -151,7 +150,6 @@
                 <Cell col="14" text="적용공전"/>
                 <Cell col="15" text="시험&#13;&#10;방법"/>
                 <Cell col="16" text="일지작성&#13;&#10;여부"/>
-                <Cell col="17" text="시험양식"/>
               </Band>
               <Band id="body">
                 <Cell text="expr:currow+1"/>
@@ -171,7 +169,6 @@
                 <Cell col="14" text="bind:testClass"/>
                 <Cell col="15" displaytype="text" edittype="expand" style="align:center;" text="bind:testMtod" editautoselect="false" editacceptsenter="false" expandshow="show" expandsize="21"/>
                 <Cell col="16" displaytype="expr:testdd==''?fn_testDiaryCheck():'normal'" edittype="none" style="cursor: ;" text="expr:diaryWriteYn=='Y'?'완료':diaryWriteYn=='I'?'작성':'미작성'" calendardisplaynulltype="nulltext"/>
-                <Cell col="17" displaytype="combo" edittype="expand" text="bind:noteFormcd" expandshow="show" combodataset="ds_noteFormcd" combocodecol="code" combodatacol="codeName"/>
               </Band>
             </Format>
           </Formats>
@@ -524,7 +521,6 @@
           <Column id="testMtod" type="STRING" size="256"/>
           <Column id="progressTotsts" type="STRING" size="256"/>
           <Column id="progressSts" type="STRING" size="256"/>
-          <Column id="noteFormcd" type="STRING" size="256"/>
         </ColumnInfo>
       </Dataset>
       <Dataset id="ds_userList" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
@@ -570,12 +566,6 @@
           <Column id="userNm" type="STRING" size="255"/>
         </ColumnInfo>
       </Dataset>
-      <Dataset id="ds_noteFormcd" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
-        <ColumnInfo>
-          <Column id="code" type="STRING" size="256"/>
-          <Column id="codeName" type="STRING" size="256"/>
-        </ColumnInfo>
-      </Dataset>
     </Objects>
     <Script type="xscript4.0"><![CDATA[/*
   화 면 명 : TestResultInquery
@@ -585,7 +575,6 @@
     수정일    수정자                  수정내용
   ----------   -------  --------------------------------------------------
   2015.03.30   jshoon   최초 생성
-  2022.03.16   김명섭  시험양식항목추가
 */
 
 /************************************************************************************************
@@ -609,7 +598,7 @@ var strDraftGubun = '1'	// 1:일반결재, 2:부적합결재
 var iOffsetX = 144;
 var evnentInfo = new GridClickEventInfo(); // 이벤트객체 생성
 var itemChangedInfo = new ItemChangeEventInfo();
-var codeList = "WRITE_YN,END_YN,PROGRESS_STATUS,DECISION,LAST_DECISION,NOTE_FORMCD";
+var codeList = "WRITE_YN,END_YN,PROGRESS_STATUS,DECISION,LAST_DECISION";
 var techMasterYn = "N"; //기술책임자여부
 var techrespUser = "";  //기술책임자사번
 var techrespUserNm = "";//기술책임자명
@@ -1659,35 +1648,7 @@ function grd_testArticleList_onexpanddown(obj:Grid, e:GridMouseEventInfo)
 		{
 			ds_testArticleList.setColumn(e.row, "testMtod", rtnVal);
 		}
-	}
-
-	//시험양식
-	if (e.cell == 17) {
-		var strReqnum = gfn_nvl(ds_testArticleList.getColumn(ds_testArticleList.rowposition, "reqNum"), "");	// 의뢰번호
-		var strSpecmcd = gfn_nvl(ds_specmList.getColumn(ds_specmList.rowposition, "specmCd"), "");	// 검체코드
-		var strAcceptnum = gfn_nvl(ds_testArticleList.getColumn(ds_testArticleList.rowposition, "acceptNum"), "");	// 접수번호
-		var strArticlecd = gfn_nvl(ds_testArticleList.getColumn(ds_testArticleList.rowposition, "articleCd"), "");	// 시험코드
-		var strFormcd = gfn_nvl(ds_testArticleList.getColumn(ds_testArticleList.rowposition, "noteFormcd"), "");	// 양식코드
-		trace(strReqnum+"-"+strSpecmcd+"-"+strAcceptnum+"-"+strArticlecd+"-"+strFormcd);
-
-		if (strFormcd == "")
-		{
-			gfn_alert("시험양식이 등록되지 않았습니다.");
-			return;
-		}
-		
-		var arrParam = new Array();
-		arrParam[0] = strReqnum;
-		arrParam[1] = strSpecmcd;
-		arrParam[2] = strAcceptnum;
-		arrParam[3] = strArticlecd;
-		arrParam[4] = strFormcd;
-		var rtnVal = gfn_dialog("TestNoteFormPop"				// dialogId
-                               , "X_LRM::TestNoteFormPop.xfdl"			// Url
-                               , {fv_Contents:arrParam}			// 배열
-                               , null, null, null, null, null, false, true, -1);
-	}
-
+	}	
 }
 
 /*----------------------------------------------------------------------------------------------

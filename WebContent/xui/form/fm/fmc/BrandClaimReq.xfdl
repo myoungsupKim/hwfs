@@ -118,7 +118,7 @@
                 <Cell col="11" displaytype="date" text="bind:needDate"/>
                 <Cell col="12" displaytype="number" text="bind:poQty"/>
                 <Cell col="13" displaytype="number" text="bind:dlvyQty"/>
-                <Cell col="14" displaytype="number" edittype="expr:iif(lineStatus == 'PD' , 'none',iif(ticketYn == 'Y' , 'none' ,iif(prcsStatus&gt;'01','none','masknumber')))" text="bind:reqQty" mask="#,##0" editautoselect="true"/>
+                <Cell col="14" displaytype="number" edittype="expr:iif(lineStatus == 'PD' , 'none',iif(ticketYn == 'Y' , 'none' ,iif(prcsStatus&gt;'01','none','masknumber')))" text="bind:reqQty" mask="#,##0.00" editautoselect="true"/>
                 <Cell col="15" displaytype="number" text="bind:salePrice"/>
                 <Cell col="16" displaytype="combo" edittype="expr:iif(lineStatus == 'PD' , 'none',iif(ticketYn == 'Y' , 'none' ,iif(prcsStatus !='','none','combo')))" text="bind:ctClaimKind" combodataset="ds_ctClaimKind" combocodecol="code" combodatacol="codeName" combodisplayrowcount="10" combotype="filter"/>
                 <Cell col="17" displaytype="combo" edittype="expr:iif(lineStatus == 'PD' , 'none',iif(prcsStatus != '','none','combo'))" text="bind:reqKind" combodataset="ds_reqKind" combocodecol="code" combodatacol="codeName" combodisplayrowcount="6" combotype="filter"/>
@@ -573,6 +573,25 @@ function fn_save(str)
 		}
 	}	
 	
+	// 요청사항이 반품이면서 입고요청일을 기재하지 않았을경우 컨펌 노출
+	var regConfirmTxt = "";
+	for(var i=0; i<ds_list.getRowCount(); i++) {
+		if(regConfirmTxt == "" && (ds_list.getColumn(i, "reqKind") == "C0201" || ds_list.getColumn(i, "reqKind") == "C0202")) {
+			if(!ds_list.getColumn(i,'reqDate')) {
+				regConfirmTxt = "반품일경우 입고요청일을 확인해주세요.";
+				ds_list.rowposition = i;
+				grd_list.setCellPos(grd_list.getBindCellIndex("Body", 'reqDate'));
+				grd_list.showEditor(true);
+				grd_list.setFocus();
+				//return true;
+			}
+		}
+	}
+	
+	if(regConfirmTxt != ""){
+		if (!gfn_confirm(regConfirmTxt)) return;
+	}
+	
 	for(var i=0; i<ds_list.getRowCount(); i++)
 	{
 		//구매취소된건일경우 체크 못하게 처리
@@ -646,18 +665,18 @@ function fn_save(str)
 			
 			//[PJT]주문채널통합
 			//요청사항이 '반품' 인 경우 입고요청일자 컬럼 필수입력 항목으로 제어 
-			if((values == "C0201" || values == "C0202"))
-			{
-				if(!ds_list.getColumn(i,'reqDate'))
-				{
-					gfn_message("A", "반품일경우 입고요청일을 입력하셔야 합니다.");
-					ds_list.rowposition = i;
-					grd_list.setCellPos(grd_list.getBindCellIndex("Body", 'reqDate'));
-					grd_list.showEditor(true);
-					grd_list.setFocus();
-					return true;
-				}
-			}
+// 			if((values == "C0201" || values == "C0202"))
+// 			{
+// 				if(!ds_list.getColumn(i,'reqDate'))
+// 				{
+// 					gfn_message("A", "반품일경우 입고요청일을 입력하셔야 합니다.");
+// 					ds_list.rowposition = i;
+// 					grd_list.setCellPos(grd_list.getBindCellIndex("Body", 'reqDate'));
+// 					grd_list.showEditor(true);
+// 					grd_list.setFocus();
+// 					return true;
+// 				}
+// 			}
 			
 		}
 	}
@@ -710,11 +729,11 @@ function fn_save(str)
 					2005	구매사업부
 				*/
 				//2015-10-30 임시 보류 
-				trace("rcMuCd : " + ds_list.getColumn(i,"rcMuCd"));
+				//trace("rcMuCd : " + ds_list.getColumn(i,"rcMuCd"));
 				if(false){
 					if(ds_list.getColumn(i,"rcMuCd") == "2001" || ds_list.getColumn(i,"rcMuCd") == "2002" || ds_list.getColumn(i,"rcMuCd") == "2003"){
 						var itemGubun =  gfn_subStr(ds_list.getColumn(i,"itemCode"),0,1);
-						trace("itemGubun : " + itemGubun);
+						//trace("itemGubun : " + itemGubun);
 						if(itemGubun == "F"){
 							fsp_init(this);			// 고도화관련 Frame 관련 SET
 							fn_CurrDateWeek();
@@ -1380,7 +1399,7 @@ function fn_checkTimeMuTr()
 	{
 		if(ds_list.getColumn(i,"checked") == 1)
 		{
-			trace(i + "|" + muCd + "|" + ds_list.getColumn(i,"needDate") + "|" + needDate + "|" + needTime );
+			//trace(i + "|" + muCd + "|" + ds_list.getColumn(i,"needDate") + "|" + needDate + "|" + needTime );
 			if(muCd != "2004")
 			{
 				if((ds_list.getColumn(i,"needDate") < needDate))

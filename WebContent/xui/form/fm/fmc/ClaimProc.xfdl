@@ -252,6 +252,9 @@
           <Column id="centerName" type="STRING" size="255"/>
           <Column id="photo" type="BIGDECIMAL" size="255"/>
           <Column id="transId" type="STRING" size="256"/>
+          <Column id="hnrUpjangYn" type="STRING" size="256"/>
+          <Column id="hnrItemCode" type="STRING" size="256"/>
+          <Column id="hnrSubinvCode" type="STRING" size="256"/>
         </ColumnInfo>
       </Dataset>
       <Dataset id="ds_search" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false" oncolumnchanged="ds_search_oncolumnchanged">
@@ -452,6 +455,22 @@
           <Column id="codeName" type="STRING" size="256"/>
         </ColumnInfo>
       </Dataset>
+      <Dataset id="ds_claimHnrIfHist" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="prNum" type="STRING" size="256"/>
+          <Column id="prId" type="STRING" size="256"/>
+          <Column id="claimType1" type="STRING" size="256"/>
+          <Column id="rstYN" type="STRING" size="256"/>
+          <Column id="rstMSG" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Col id="prNum"/>
+          <Col id="prId"/>
+          <Col id="claimType1"/>
+          <Col id="rstYN"/>
+          <Col id="rstMSG"/>
+        </Rows>
+      </Dataset>
     </Objects>
     <Bind>
       <BindItem id="item10" compid="edt_returnItemSearch" propid="userdata" datasetid="ds_search" columnid="GUBUN"/>
@@ -489,6 +508,7 @@ var fv_eventChange = false;
 var fv_eventMove = false;
 var fv_colId = '';
 var fv_msg;
+var fv_processCnt;
 
 /************************************************************************************************
  * FORM EVENT 영역 (필수)
@@ -526,7 +546,8 @@ function fn_init()
 	//cal_request.fn_initMonthCal(this, "", "", ds_search, "schReturnDate", 'N')
 	
 	//공통코드 호출
-	SCCombo.bind(this, "ComCode", "grd_list.prcsStatus", ds_prcsStatus, {groupCode:"C00"}, SCCombo.ALL);   //처리현황
+	//[PJT]주문채널통합 간혹 조회조건이 설정 안되는 경우가 있어 동기로 변경함.(fn_searchCenter callback에서 처리)
+	SCCombo.bind(this, "ComCode", "grd_list.prcsStatus", ds_prcsStatus, {groupCode:"C00"}, SCCombo.ALL, false);   //처리현황
 	SCCombo.bind(this, "ComCode", "grd_list.ctKind", ds_ctKind, {groupCode:"C03"},SCCombo.CHOOSE);   //센터처리유형
 	SCCombo.bind(this, "ComCode", "grd_list.ctClaimKind", ds_ctClaimKind, {groupCode:"C05", useYn:"Y"}); //센터클레임유형
 	SCCombo.bind(this, "ComCode", "grd_list.reqKind", ds_reqKind, {groupCode:"C02"}, SCCombo.CHOOSE); 
@@ -569,6 +590,7 @@ function fn_init()
 	edt_muCode.value = application.g_Mu_Nm
 	
 	fn_searchCenter();
+	
 }
 
 /*----------------------------------------------------------------------------------------------
@@ -699,7 +721,12 @@ function fn_save(str)
 	//if (gfn_validCheck(grd_list, ds_listValid) == false)	return;
 	for(var i=0; i<ds_list.getRowCount(); i++)
 	{
-		if(ds_list.getColumn(i, "chk") == 1 && str != 'cancel'){	
+		if(ds_list.getColumn(i, "chk") == 1 && str != 'cancel'){
+			
+			// 클레임요청사항 코드명 세팅 
+			var nRowReq = ds_reqKind.findRow("code", ds_list.getColumn(i, "reqKind"));
+			ds_list.setColumn(i, "reqKindNm", ds_reqKind.getColumn(nRowReq, "codeName"));
+			
 			//if ( ds_list.getColumn(i, "ctClaimKind") != "C0519" || ds_list.getColumn(i, "ctClaimKind") != "C0595" ) {	// 업체주의요청건 제외
 			if ( ds_list.getColumn(i, "ctClaimKind") != "C05039" || ds_list.getColumn(i, "ctClaimKind") != "C0595" ) {	// 업체주의요청건 제외
 				if(!ds_list.getColumn(i,'procRtQty'))
@@ -765,6 +792,28 @@ function fn_save(str)
 					return true;
 				}
 			}
+			
+			
+			// 리조트 인터페이스 관련 valid 체크
+			if(ds_list.getColumn(i, "hnrUpjangYn") == 'N' && ds_list.getColumn(i, "ctKind") == 'C0309') {
+				gfn_alert("한화호텔&리조트 업장 외 업장은 '리조트감량' 처리결과를 선택할 수 없습니다.");
+				ds_list.rowposition = i;
+				return true;
+			} 
+
+//			// 클레임 신청시는 매핑자재코드, 창고코드가 없어도 신청이 가능해야 함. 아래 내용은 계속 주석처리해 (06.16)
+// 			if(ds_list.getColumn(i, "hnrUpjangYn") == 'Y' && (ds_list.getColumn(i, "ctKind") == 'C0301'||ds_list.getColumn(i, "ctKind") == 'C0303'||ds_list.getColumn(i, "ctKind") == 'C0309')) {
+// 				if(ds_list.getColumn(i, "hnrItemCode") == '') {
+// 					gfn_alert("리조트 클레임 인터페이스를 위한 매핑 자재코드가 없습니다.");
+// 					ds_list.rowposition = i;
+// 					return true;
+// 				}
+// 				if(ds_list.getColumn(i, "hnrSubinvCode") == '') {
+// 					gfn_alert("리조트 클레임 인터페이스를 위한 매핑 창고코드가 없습니다.");
+// 					ds_list.rowposition = i;
+// 					return true;
+// 				}
+// 			}
 		}
 		
 		if ( ds_list.getColumn(i, "ctClaimKind") == "C05039" || ds_list.getColumn(i, "ctClaimKind") == "C0595" ) {	
@@ -775,7 +824,8 @@ function fn_save(str)
 				grd_list.setFocus();
 				return true;
 			}
-		}	
+		}
+			
 	}
 	
 	ds_save.clearData();
@@ -880,6 +930,19 @@ function fn_save(str)
     gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
 }
 
+
+function fn_saveHnrIfHist() {
+	var strSvcID    = "saveHnrIfHist";
+    var strURL      = "fm/fmc/claimProc/saveHnrIfHist.xdo";
+    var strInDs     = "ds_list=ds_claimHnrIfHist";
+    var strOutDs    = "";
+    var strArg      = "";
+    var strCallback = "fn_callBack";
+    var bAsync      = true;
+    
+    gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+}
+
 /*----------------------------------------------------------------------------------------------
  * 설명      : 출력 버튼 클릭 시 (필수-공통버튼에서 호출됨)
  *---------------------------------------------------------------------------------------------*/
@@ -918,14 +981,63 @@ function fn_callBack(strSvcID, nErrorCode, strErrorMsg)
             //if(ds_list.getRowCount() > 0)ds_list.addColumn("reqKindNm","STRING");
             //ds_list.addColumn("transDate","STRING");
             break;
+            
+        case "saveHnrIfHist" : 
+			//trace("인터페이스 히스토리 저장 완료 ");
+			break;
             		
         case "save" :			// 저장
-			if(fv_msg == undefined)
-				gfn_alert("msg.save.success");	// 저장 되었습니다.
-			else 
-				gfn_alert("저장 되었습니다.\n\n"+fv_msg);
+			//trace("fv_processCnt > " + fv_processCnt);
+			//trace("fv_msg  > " + fv_msg);
+			
+			
+			
+			if(fv_processCnt == 100) {
+				gfn_alert(fv_msg);
+			} else if (fv_processCnt == 200) {
+				//gfn_alert(fv_msg);
+			} else {
+				gfn_alert("저장 되었습니다.");
+				fn_search();
+			}
+			
+			//hnr if 오류건 히스토리 저장 
+			if(fv_processCnt == 200 && !gfn_isNull(fv_msg)) {
+				
+				var objArr;
+				objArr = fv_msg.split("^");
+				//20220317-69072^281031578^C0301^Y^PR_NUM : 20220411-89665 PR_ID : 275402933 ClaimNum : 1 기 수신내역이 존재합니다.
+				//0 : prNum 20220317-69072
+				//1 : prId 281031578
+				//2 : claimType1 C0301
+				//3 : rtnYn Y
+				//4 : rstMSG PR_NUM : 20220411-89665 PR_ID : 275402933 ClaimNum : 1 기 수신내역이 존재합니다.
+				
+				ds_claimHnrIfHist.clearData();
+				ds_claimHnrIfHist.addRow();
+				ds_claimHnrIfHist.setColumn(0,"prNum",objArr[0]);
+				ds_claimHnrIfHist.setColumn(0,"prId",objArr[1]);
+				ds_claimHnrIfHist.setColumn(0,"claimType1",objArr[2]);
+				ds_claimHnrIfHist.setColumn(0,"rstYN",objArr[3]);
+				ds_claimHnrIfHist.setColumn(0,"rstMSG",objArr[4]);
+				
+				gfn_alert("[HNR I/F 오류] \n"+objArr[4]);
+				
+				//trace(ds_claimHnrIfHist.saveXML());
+				
+				fn_saveHnrIfHist();
+			} else if (fv_processCnt == 200 && gfn_isNull(fv_msg)) {
+				gfn_alert("HNR I/F 오류가 발생하였습니다.");
+			}
+			
+			//저장 되었습니다.\n\n 
+// 			if(fv_msg == undefined)
+// 				gfn_alert("msg.save.success" + "?@?!!?");	// 저장 되었습니다.
+// 			else 
+// 				gfn_alert(fv_msg);
 
-			fn_search();
+			//fn_search();
+            
             break;    
         
         case "searchCenter" :			// 저장
@@ -1531,8 +1643,7 @@ function grd_list_onselectchanged(obj:Grid, e:GridSelectEventInfo)
 					return;
 				}
 				*/
-				if(ds_list.getColumn(i,"ctKind") ==  "C0301"||
-				   ds_list.getColumn(i,"ctKind") ==  "C0303"){
+				if(ds_list.getColumn(i,"ctKind") ==  "C0301"||ds_list.getColumn(i,"ctKind") ==  "C0303"||ds_list.getColumn(i,"ctKind") ==  "C0309"){
 					ds_list.rowposition = i;
 					gfn_message("A", "처리결과가 감량 또는 반품일 경우 처리취소가 불가능합니다.");
 					return;
@@ -1576,6 +1687,8 @@ function btn_process_onclick(obj:Button,  e:ClickEventInfo)
 	}
 	for(var i=0;i < ds_list.getRowCount() ; i++){
 		if(ds_list.getColumn(i,"chk") == "1"){
+		
+		
 			if(ds_list.getColumn(i,"clsFlag") == "Y"){
 				ds_list.rowposition = i;
 				gfn_alert("수불 마감이 완료되어 본 작업이 불가능합니다.");
@@ -1591,7 +1704,6 @@ function btn_process_onclick(obj:Button,  e:ClickEventInfo)
 					return;
 				}
 			}
-			
 			
 			if ( ds_list.getColumn(i, "ctClaimKind") == "C05039" || ds_list.getColumn(i, "ctClaimKind") == "C0595" ) {	
 				if ( (ds_list.getColumn(i, "reqKind") == "C0201") || (ds_list.getColumn(i, "reqKind") == "C0202") ) {
@@ -1621,6 +1733,8 @@ function btn_process_onclick(obj:Button,  e:ClickEventInfo)
 				gfn_alert("해당 주문건은 [배송중]건 입니다.\n클레임처리 할 수 없습니다.");
 				return;
 			}
+			
+			
 		}
 	}
 

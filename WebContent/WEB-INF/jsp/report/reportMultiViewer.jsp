@@ -36,7 +36,8 @@
 	
 	//Controller에서 전달된 Model을 얻는다.
 	ReportViewerDTO reportViewerDTO = (ReportViewerDTO)request.getAttribute("reportViewerDTO");
-
+	//String map = request.getAttribute("reportViewerDTO");
+	HashMap<String,String> map = (HashMap<String,String>)request.getAttribute("test");
 	//Parameter Count
 	int paramCnt = 0;
 	
@@ -93,13 +94,11 @@ function fn_onTimer() {
 	    <param name = "toolbar.close"        value="false">
 	    
 	    <%
-	    /*
-	    System.out.println("$$$$$$$$$$$$$$$$$");
-	    System.out.println("sabun : " + reportViewerDTO.getSabun());
-	    System.out.println("sabun : " + reportViewerDTO.getSabun().substring(0,2));
-	    System.out.println("getReportName : " + reportViewerDTO.getReportName());
-	    System.out.println("$$$$$$$$$$$$$$$$$");
-	    */
+	    //System.out.println("$$$$$$$$$$$$$$$$$"+request.getParameter("PO_NUM").split(","));
+	    //String[] sArray1 = request.getParameter("odiParams").split("@");
+	    //System.out.println((int)request.getParameter("odiParams").split("@").length-1);
+	    //int test = request.getParameter("odiParams").split("@").length;
+	    //System.out.println(test-1);
 	    
 	    //FICS 거래명세서출력시 외부고객은 파일을 저장할 수 없게함.
 	    if("CS".equals(reportViewerDTO.getSabun().substring(0,2)) && "/FICS/FMP00350R_R01.ozr".equals(reportViewerDTO.getReportName()))
@@ -137,32 +136,54 @@ function fn_onTimer() {
 	    <!-- <param name = "connection.args6" value = "p_topLogo=<%=propertiesService.getString("oz.toplogo.image")%>"> -->
 	    <param name = "connection.args6" value = "p_topLogo=">
 	    <param name = "connection.args7" value = "p_stamp=<%=propertiesService.getString("oz.stamp.image")%>">
-	    
+	    <!-- 멀티레포트 파라미터 -->
+	    <param name = "viewer.childcount" value = "<%=(int)request.getParameter("odiParams").split("@").length-1%>">
+	    <param name = "viewer.focus_doc_index" value = "0">
+	    <param name = "viewer.showtree" value = "true">
+	    <param name = "print.alldocument" value = "true">
+	    <param name = "global.concatpage" value = "true">
+	    <param name = "global.inheritparameter" value = "true">
 	    <!-- 개발자정의 파라미터 설정: 기존 형식의 경우 p?를 PARAM?로 변경하고, 신규 형식은 파라미터 형식 그대로 전달 -->
 	    <%
 		paramCnt=7;
 	    if (request.getParameter("paramcnvt") != null && request.getParameter("paramcnvt").equalsIgnoreCase("N")) {
 			// 신규 형식의 경우 처리
-			Enumeration params = request.getParameterNames();
-	
-			while (params.hasMoreElements()) {
-				String name = (String)params.nextElement();
-				String value = request.getParameter(name);
-				// 파라미터가 아닌 경우 제외
-				if( name.equals("title") || name.equals("url") || name.equals("zoom") || name.equals("cnt") || 
-					name.equals("lockflag") || name.equals("onceflag") || name.equals("paramcnvt") || name.equals("vertical")){
-					// no parameter
-				}else {
-					paramCnt++;
-			%>
-				<param name = "connection.args<%=paramCnt%>" value = "<%=name%>=<%=value%>">
-			<%	}
-			}
+			System.out.println("odiLengthss"+request.getParameter("odiParams").split("@").length);
+			String[] sArrayParams1 = request.getParameter("odiParams").split("@");
+			//String[] sArrayReportName = request.getParameter("reportName").split(",");
+			for( int i = 0; i < sArrayParams1.length; i++ ){
+		    	String[] sArrayParams2 = sArrayParams1[i].split(",");
+		    	if(i==0){
+		    		System.out.println("connection.pcount"+sArrayParams2.length);
+		    	}else{
+		    		System.out.println("child"+i+".connection.pcount"+sArrayParams2.length);
+		    		%>
+		    		<param name = "child<%=i%>.connection.reportname" value = "<%=reportViewerDTO.getReportName()%>">
+		    		<param name = "child<%=i%>.connection.pcount" value = "<%=sArrayParams2.length%>">
+		    		<%
+		    	}
+			    	for( int j = 0; j < sArrayParams2.length; j++ ){
+			    		if(i==0){
+			    			System.out.println("connection.args"+(j+1)+sArrayParams2[j].replace(":","="));
+			    		%>
+			    			<param name = "connection.reportname" value = "<%=reportViewerDTO.getReportName()%>">
+		    				<param name = "connection.pcount" value = "<%=sArrayParams2.length%>">
+			    			<param name = "connection.args<%=j+1%>" value = "<%=sArrayParams2[j].replace(":","=")%>">
+			    		<%
+			    		}else{
+			    			System.out.println("child"+i+".connection.args"+(j+1)+sArrayParams2[j].replace(":","="));
+			    		%>
+			    			<param name = "child<%=i%>.connection.args<%=j+1%>" value = "<%=sArrayParams2[j].replace(":","=")%>">
+			    		<%
+			    		}
+			    	}
+		    }
 		}else{
 			// 기존 형식의 경우 처리
 			if (request.getParameter("cnt") != null && Integer.parseInt(request.getParameter("cnt").toString()) > 0) {
 				for (int i = 1; i <= Integer.parseInt(request.getParameter("cnt")); i++) {
 					paramCnt++;
+					System.out.println("2222$$$$$$$$$$$$$$$$$"+request.getParameter("p" + i));
 			%>
 					<param name="connection.args<%=paramCnt%>"   value="PARAM<%=i%>=<%=request.getParameter("p" + i)%>">	
 			<%
