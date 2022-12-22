@@ -1,77 +1,0 @@
-<?xml version="1.0" encoding="euc-kr"?>
-<query dynamic="true">
-	<type>select</type>
-	<description><![CDATA[]]></description>
-	<reload>true</reload>
-	<monitoring>true</monitoring>
-	<result-count>1</result-count>
-	<statement>
-/* 기존 인원현황 */
-SELECT 1 SEQ,
-       V.NM_KOR,       V.SABUN,       NVL((SELECT '0' FROM MAS_WELFARE WHERE UPJANG = #UPJANG# AND APPLY_MM = #APPLY_MM# AND SABUN = V.SABUN), '1') CHK  FROM SCO_FS_HR_PERSONAL_V V,       HLDC_SC_DEPT_V A,       (SELECT CC_CD FROM SCO_UPJANG_MST_V WHERE UPJANG = #UPJANG#) C WHERE (V.DEPT_ID = A.DEPT_ID)   AND (A.CC_CD   = C.CC_CD)
-   --퇴사자 조건 변경 : 퇴사일자 -> 재직상태 20200604
-   AND V.GB_JAEJIK != 'RA'
-   --AND V.PER_DTD IS NULL 
-   AND V.EMP_TYPE_CD &lt;&gt; 'ZZ'   AND (SUBSTR(NVL(V.PER_DTD, '99999999'), 1, 6) &gt;= #APPLY_MM#)
-UNION ALL
-/* 일용직 인원현황 */
-SELECT DISTINCT /* 일용직이다 보니 달에 여러번 쓰는 경우 있음. 그래서 DISTINCT */
-       2,
-       V.NAME,
-       V.SABUN,
-       NVL((SELECT '0' FROM MAS_WELFARE WHERE UPJANG = #UPJANG# AND APPLY_MM = #APPLY_MM# AND SABUN = V.SABUN), '1')
-  FROM HLDC_TCPN891 V,
-       HLDC_SC_DEPT_V B,
-       HLDC_ST_UPJANG C
- WHERE (V.ENTER_CD = 'HWRC')
-   AND (V.COST_CD  = B.DEPT_ID)
-   AND (B.CC_CD    = C.CC_CD)
-   AND (C.UPJANG   = #UPJANG#)
-   AND (V.PAY_YMD LIKE #APPLY_MM# || '%') /* 추가조건 */
-  UNION ALL
- /* 기존 인원현황 --외식 구조직 매핑 */
-SELECT 1 SEQ,
-       V.NM_KOR,
-       V.SABUN,
-       NVL((SELECT '0' FROM MAS_WELFARE WHERE UPJANG = #UPJANG# AND APPLY_MM = #APPLY_MM# AND SABUN = V.SABUN), '1') CHK
-  FROM --SCO_FS_HR_PERSONAL_V V,
-       (SELECT P.SABUN, P.PER_DTD, P.EMP_TYPE_CD, O.O_CC_CD AS DEPT_ID, P.NM_KOR, P.GB_JAEJIK FROM SAP_IF.SAP_IFC_CC_MAP O, HR_PERSONAL P WHERE O.N_CC_CD = P.CC_CD)  V,
-       HLDC_SC_DEPT_V A,
-       (SELECT CC_CD FROM SCO_UPJANG_MST_V WHERE UPJANG = #UPJANG#) C
- WHERE (V.DEPT_ID = A.DEPT_ID)
-   AND (A.CC_CD   = C.CC_CD)
-   --AND V.PER_DTD IS NULL 
-   --퇴사자 조건 변경 : 퇴사일자 -> 재직상태 20200604
-   AND V.GB_JAEJIK != 'RA'
-   AND V.EMP_TYPE_CD &lt;&gt; 'ZZ'
-   AND (SUBSTR(NVL(V.PER_DTD, '99999999'), 1, 6) &gt;= #APPLY_MM#)
-UNION ALL
-/* 일용직 인원현황--외식 구조직 매핑  */
-SELECT DISTINCT /* 일용직이다 보니 달에 여러번 쓰는 경우 있음. 그래서 DISTINCT */
-       2,
-       V.NAME,
-       V.SABUN,
-       NVL((SELECT '0' FROM MAS_WELFARE WHERE UPJANG = #UPJANG# AND APPLY_MM = #APPLY_MM# AND SABUN = V.SABUN), '1')
-  FROM HLDC_TCPN891 V,
-       SAP_IF.SAP_IFC_CC_MAP A,
-       HLDC_SC_DEPT_V B,
-       HLDC_ST_UPJANG C
- WHERE (V.ENTER_CD = 'HWRC')
-   AND (V.COST_CD  = B.DEPT_ID)
-   AND (B.CC_CD    = A.N_CC_CD)
-   AND (A.O_CC_CD    = C.CC_CD)
-   AND (C.UPJANG   = #UPJANG#)
-   AND (V.PAY_YMD LIKE #APPLY_MM# || '%') /* 추가조건 */
- ORDER BY SEQ, SABUN 
- 
-</statement>
-	<input default-name="ds_cond">
-		<col name="UPJANG" size="" type="NUMERIC" description="" /> 
-		<col name="APPLY_MM" size="255" type="VARCHAR" description="" /> 			
-	</input>
-	<output default-name="ds_list">
-		<col name="NM_KOR" size="256" type="VARCHAR" description="" /> 	
-		<col name="SABUN" size="256" type="VARCHAR" description="" /> 	
-		<col name="CHK" size="256" type="VARCHAR" description="" /> 	
-	</output>
-</query>
