@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.cmn.persChgDAO">
+	<desc>개인정보 HQML Query</desc>
+
+	<!-- 개인정보 목록을 조회한다. -->
+	<statement name="select" type="select">
+		/*+ com.hwfs.sc.cmn.dao.PersChgDAO.select */
+		<![CDATA[
+SELECT A.SABUN,
+       A.USERID,
+       A.NM_KOR,
+       SCC_TELNO_SPLIT_FUN(A.TEL_NO, 1) AS TEL_NO1,
+       SCC_TELNO_SPLIT_FUN(A.TEL_NO, 2) AS TEL_NO2,
+       SCC_TELNO_SPLIT_FUN(A.TEL_NO, 3) AS TEL_NO3,
+       SCC_TELNO_SPLIT_FUN(A.HP_NO, 1) AS HP_NO1,
+       SCC_TELNO_SPLIT_FUN(A.HP_NO, 2) AS HP_NO2,
+       SCC_TELNO_SPLIT_FUN(A.HP_NO, 3) AS HP_NO3,
+       SCC_TELNO_SPLIT_FUN(A.FAX_NO, 1) AS FAX_NO1,
+       SCC_TELNO_SPLIT_FUN(A.FAX_NO, 2) AS FAX_NO2,
+       SCC_TELNO_SPLIT_FUN(A.FAX_NO, 3) AS FAX_NO3,
+       REPLACE(A.EMAIL_ADDR, '-', '') AS EMAIL_ADDR
+FROM   (SELECT SABUN,
+               USERID,
+               NM_KOR,
+               SCC_CRYPTO.DEC_FUN(TEL_NO_ENC) AS TEL_NO,
+               SCC_CRYPTO.DEC_FUN(HP_NO_ENC) AS HP_NO,
+               SCC_CRYPTO.DEC_FUN(FAX_NO_ENC) AS FAX_NO,
+               SCC_CRYPTO.DEC_FUN(EMAIL_ENC) AS EMAIL_ADDR
+        FROM   SCC_USERINFO
+        WHERE  SABUN = :loginSabun) A
+		]]>
+	</statement>
+
+	<!-- 개인정보(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sc.cmn.dao.PersChgDAO.update */
+		<![CDATA[
+UPDATE SCC_USERINFO SET
+       HP_NO_ENC = SCC_CRYPTO.ENC_FUN(:hpNo1 || :hpNo2 || :hpNo3),
+       EMAIL_ENC = SCC_CRYPTO.ENC_FUN(:emailAddr),
+<#if telNo1?has_content && telNo2?has_content && telNo3?has_content>       TEL_NO_ENC = SCC_CRYPTO.ENC_FUN(:telNo1 || :telNo2 || :telNo3), <#else>       TEL_NO_ENC = null, </#if>
+<#if faxNo1?has_content && faxNo2?has_content && faxNo3?has_content>       FAX_NO_ENC = SCC_CRYPTO.ENC_FUN(:faxNo1 || :faxNo2 || :faxNo3), <#else>       FAX_NO_ENC = null,</#if>
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+WHERE  SABUN = :loginSabun
+		]]>
+	</statement>
+
+	<!-- 개인정보 목록과 고객정보를 조회한다. -->
+	<statement name="selectUserSms" type="select">
+		/*+ com.hwfs.sc.cmn.dao.PersChgDAO.selectUserSms */
+		<![CDATA[
+			SELECT A.SABUN
+			     , A.USERID
+			     , A.NM_KOR
+			     , SCC_CRYPTO.DEC_FUN(A.HP_NO_ENC) AS HP_NO
+			     , CASE
+			              WHEN B.CS_TEL_NO_ENC IS NOT NULL
+			              THEN REPLACE(SCC_CRYPTO.DEC_FUN(B.CS_TEL_NO_ENC), '-', '')
+			              ELSE '0221746200'
+			       END AS CS_NO
+			FROM   SCC_USERINFO A
+			     , FMS_UPJANG B
+			WHERE  SABUN    = :sabun
+			AND    A.UPJANG = B.UPJANG(+) --외부/공급업체인 경우 사업장 없을 수 있음
+		]]>
+	</statement>
+	
+</hqml>

@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="euc-kr"?>
+
+<query dynamic="true">
+	
+<type>select</type>
+	
+<description><![CDATA[]]></description>
+	
+<reload>true</reload>
+	
+<monitoring>true</monitoring>
+	
+<result-count>1</result-count>
+<statement>
+			SELECT
+				    NVL(C.CODE_NAME, '파트없음') AS PART_NAME
+					<isEqual col="VIEW_TYPE" value="0">
+			      ,	TO_CHAR(TO_DATE(T.TRANS_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS SDATE
+					 </isEqual>  
+					<isEqual col="VIEW_TYPE" value="1">
+				  , TO_CHAR(TO_DATE(T.TRANS_DATE, 'YYYYMMDD'), 'YYYY-MM') AS SDATE
+					 </isEqual>  
+					<isEqual col="VIEW_TYPE" value="2">
+			      ,	SUBSTR(T.TRANS_DATE, 1, 4) AS SDATE
+					 </isEqual>  
+			      ,	S.UPJANGNM || '(' || T.MAIN_UPJANG || ')' AS MAIN_UPJANGNM
+			      , T.UPJANGNM || '(' || T.UPJANG || ')' AS UPJANGNM
+       			  --, SUM(ROUND(SALE_AMOUNT * DECODE(SUBSTR(TRANS_TYPE,1,1), 'I', 1, -1))) AS PRE_SALE_AMOUNT
+				  , SUM(DECODE(SUBSTR(TRANS_TYPE,1,1),'I',1,-1) * ROUND(SALE_PRICE * TRANS_QTY)) AS PRE_SALE_AMOUNT 
+				  --, SUM(ROUND(SALE_AMOUNT * DECODE(SUBSTR(TRANS_TYPE,1,1), 'I', 1, -1))) - SUM(ROUND(TRANS_MAMOUNT * DECODE(SUBSTR(TRANS_TYPE,1,1), 'I', 1, -1))) AS PRE_UNIT_AMOUNT
+				  , SUM(DECODE(SUBSTR(TRANS_TYPE,1,1),'I',1,-1) * ROUND(SALE_PRICE * TRANS_QTY)) - SUM(ROUND(TRANS_MAMOUNT * DECODE(SUBSTR(TRANS_TYPE,1,1), 'I', 1, -1))) AS PRE_UNIT_AMOUNT
+--				 , CASE WHEN SUM(ROUND(SALE_AMOUNT * DECODE(SUBSTR(TRANS_TYPE,1,1), 'I', 1, -1))) = 0 THEN 0
+--				 ELSE  ROUND((SUM(ROUND(SALE_AMOUNT * DECODE(SUBSTR(TRANS_TYPE,1,1), 'I', 1, -1))) - SUM(ROUND(TRANS_MAMOUNT * DECODE(SUBSTR(TRANS_TYPE,1,1), 'I', 1, -1))))  /  SUM(ROUND(SALE_AMOUNT * DECODE(SUBSTR(TRANS_TYPE,1,1), 'I', 1, -1))) * 100, 2)
+--				 END AS YUL
+				 , CASE WHEN SUM(DECODE(SUBSTR(TRANS_TYPE,1,1),'I',1,-1) * ROUND(SALE_PRICE * TRANS_QTY)) = 0 THEN 0
+				 ELSE  ROUND((SUM(DECODE(SUBSTR(TRANS_TYPE,1,1),'I',1,-1) * ROUND(SALE_PRICE * TRANS_QTY)) - SUM(ROUND(TRANS_MAMOUNT * DECODE(SUBSTR(TRANS_TYPE,1,1), 'I', 1, -1))))  /  SUM(DECODE(SUBSTR(TRANS_TYPE,1,1),'I',1,-1) * ROUND(SALE_PRICE * TRANS_QTY)) * 100, 2)
+				 END AS YUL
+			      , NVL(C.CODE_NAME, '파트없음') || '-' || T.NM_KOR AS PL_CD
+			      , T.NM_KOR AS PART_SALES_NAME
+			      ,  '1' PL_UP_CD
+			      ,  '0' BL_SHOW
+			      ,  3 LEVEL_NO
+			      ,  '+' BL_PLUS
+			FROM
+				(
+					SELECT
+					<isEqual col="HINT" value="1">
+						/*+ PUSH_PRED(A) */
+					 </isEqual>  
+						    Z.MAIN_UPJANG	
+					      , A.TRANS_UPJANG AS UPJANG
+					      , 	A.TRANS_DATE
+					      , A.ITEM_CODE
+					      , A.ITEM_NAME
+					      , A.ITEM_SIZE
+					      , A.TRANS_UOM
+					      , A.TRANS_TYPE
+					      , A.TRANS_QTY
+						<isEqual col="SCH_PRICE" value="1">
+						  , NVL(A.TRANS_MPRICE, 0) AS TRANS_MPRICE
+						  , NVL(A.TRANS_MAMOUNT, 0) AS TRANS_MAMOUNT
+						</isEqual> 
+						<isEqual col="SCH_PRICE" value="2">
+						  , NVL(A.UNIT_PRICE, 0) AS TRANS_MPRICE
+						  , NVL(A.UNIT_AMOUNT, 0) AS TRANS_MAMOUNT
+						</isEqual> 
+					      , NVL(A.SALE_PRICE, 0) AS SALE_PRICE
+					      , NVL(A.SALE_AMOUNT,0) AS SALE_AMOUNT
+					      , A.TAX_CODE
+					      , B2.DEPT_ID
+					      , D.CC_NM
+					      , B2.UPJANGNM
+					      , Z.PART_SALES_SABUN
+					      , H.NM_KOR
+					      , Z.PART_CODE
+						  , A.FLAG
+					FROM FMS_TRANSACTION_V A
+											INNER JOIN ST_UPJANG B2 ON A.TRANS_UPJANG = B2.UPJANG
+											INNER JOIN FMS_UPJANG Z ON 1 = 1
+																				<isNotNull col="MAIN_UPJANG">
+																				AND Z.MAIN_UPJANG = #MAIN_UPJANG#
+																				</isNotNull>  
+																				<isNotNull col="UPJANG">
+																				AND Z.UPJANG = #UPJANG#
+																				</isNotNull>
+																				<isNotNull col="PART_SALES_SABUN">
+																				 AND Z.PART_SALES_SABUN = #PART_SALES_SABUN#
+																				</isNotNull>  
+																				<isNotNull col="PART_CODE">
+																				 AND Z.PART_CODE = #PART_CODE#
+																				</isNotNull>  
+																				 AND A.TRANS_UPJANG = Z.UPJANG
+											LEFT JOIN HR_PERSONAL H ON 1 = 1
+																				 AND Z.PART_SALES_SABUN = H.SABUN
+											INNER JOIN HLDC_SC_DEPT_V D ON 1 = 1
+																					<isNotNull col="DEPT_ID">
+																						AND D.TM_CD = #DEPT_ID#
+																					</isNotNull>         
+																						AND B2.DEPT_ID = D.DEPT_ID
+
+					WHERE SUBSTR(A.SUBINV_CODE, 1, 2) = 'S1'
+					AND (A.TRANS_TYPE IN '_002' OR A.TRANS_TYPE = 'I001' )
+					AND A.TRANS_DATE2 BETWEEN #TRANS_DATEFR# AND #TRANS_DATETO#
+					<isNotNull col="CENTER_CODE">
+					AND A.CENTER_CODE = #CENTER_CODE#
+					</isNotNull>  
+				) T  LEFT JOIN SCC_COMMON_CODE C ON C.GROUP_CODE = 'FM0022'
+										     AND T.PART_CODE = C.CODE
+				      INNER JOIN ST_UPJANG S ON T.MAIN_UPJANG = S.UPJANG	
+			GROUP BY C.CODE_NAME 
+					<isEqual col="VIEW_TYPE" value="0">
+			          ,	T.TRANS_DATE
+					 </isEqual>  
+					<isEqual col="VIEW_TYPE" value="1">
+					  , TO_CHAR(TO_DATE(T.TRANS_DATE, 'YYYYMMDD'), 'YYYY-MM')
+					 </isEqual>  
+					<isEqual col="VIEW_TYPE" value="2">
+			          ,	SUBSTR(T.TRANS_DATE, 1, 4)
+					 </isEqual>  
+					  ,	S.UPJANGNM 
+					  ,	T.MAIN_UPJANG 
+					  ,	T.UPJANGNM 
+					  ,	T.UPJANG 
+					  ,	T.NM_KOR
+			ORDER BY 1, 2
+</statement>
+	
+<input default-name="ds_cond">
+	    <col name="CENTER_CODE" size="256" type="VARCHAR" description="" /> 
+		
+		<col name="DEPT_ID" size="255" type="NUMERIC" description="" /> 
+		
+		<col name="PART_CODE" size="256" type="VARCHAR" description="" />
+		<col name="MAIN_UPJANG" size="256" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="256" type="VARCHAR" description="" />  
+		
+		<col name="PART_SALES_SABUN" size="256" type="VARCHAR" description="" /> 
+		
+		<col name="TRANS_DATEFR" size="255" type="VARCHAR" description="" /> 
+		
+		<col name="TRANS_DATETO" size="255" type="VARCHAR" description="" /> 
+		<col name="VIEW_TYPE" size="255" type="VARCHAR" description="" /> 
+		<col name="HINT" size="255" type="VARCHAR" description="" /> 
+		<col name="SCH_PRICE" size="255" type="VARCHAR" description="" /> 
+</input>
+	
+<output default-name="ds_list"></output>
+
+</query>

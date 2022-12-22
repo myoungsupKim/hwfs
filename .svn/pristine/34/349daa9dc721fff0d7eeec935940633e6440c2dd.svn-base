@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[레시피검색및 등록 헤드라인조회--코너 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.UPJANG,
+       A.HALL_CD,
+       A.MEAL,
+       C.CODE_NAME MEAL_NAME,
+       A.CORNER,
+       D.CODE_NAME CORNER_NAME,
+       B.MENU_DATE,
+       A.CORNER_DESC,
+       D.CODE_NAME||DECODE(A.CORNER_DESC,NULL,'','['||A.CORNER_DESC||']') CORNER_DETAIL_NAME,
+       B.MENU_FEATURE,
+       B.SALE_PRICE,
+       B.EXPECT_MEAL_QTY, B.REAL_MEAL_QTY,
+       (SELECT 'Y' FROM FSH_CYCLE_RECIPE_ITEM Z WHERE Z.UPJANG = B.UPJANG AND Z.MENU_CD = B.MENU_CD AND Z.ORDER_YN = 'Y' AND ROWNUM = 1) AS ORDER_YN
+FROM   FSA_HALL_DTL A,
+       FSH_CYCLE_MENU_MST B,
+       SCC_COMMON_CODE C,
+       SCC_COMMON_CODE D
+WHERE  A.UPJANG=B.UPJANG
+AND    A.HALL_CD=B.HALL_CD
+AND    A.CORNER=B.CORNER
+AND    A.MEAL=B.MEAL
+AND    C.GROUP_CODE = 'FS0023'  --코너
+AND    D.GROUP_CODE = 'FS0022'  --끼니
+AND    A.MEAL=C.CODE
+AND    A.CORNER=D.CODE
+AND A.USE_YN='Y'--사용중지된 끼니코너 제거
+<isNotEqual col="HALL_CLASS" value="005"> 
+AND B.EXPECT_MEAL_QTY&lt;&gt;0 --식수 예측되지 않은 끼니코너 제거
+</isNotEqual>
+<isNotNull col="UPJANG">
+AND    A.UPJANG=#UPJANG#
+</isNotNull>
+<isNotNull col="HALL_CD">
+AND    A.HALL_CD=#HALL_CD#
+</isNotNull>
+<isNotNull col="CUR_DATE">
+AND    B.MENU_DATE=#CUR_DATE#
+</isNotNull>
+<isNotNull col="MEAL">
+AND    A.MEAL=#MEAL#
+</isNotNull>
+ORDER BY A.CORNER	</statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_Corner">
+	</output>
+</query>

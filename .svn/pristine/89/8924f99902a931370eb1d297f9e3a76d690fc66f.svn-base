@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="rc.rcm.nonCloseListDAO">
+	<desc>미마감현황 HQML Query</desc>
+
+	<!-- 미마감현황 목록을 조회한다. -->
+	<statement name="selectList" type="select"><![CDATA[
+        SELECT  OCCUR_DATE
+                ,SYS_CLASS
+                ,SYS_CLASS_NM
+                ,TM_CD
+                ,TM_NM
+                ,UPJANG_CD
+                ,UPJANG_NM
+                ,SAL_AMT
+                ,PAYMENT_AMT
+                ,ADVANCE_AMT
+                ,COUPON_AMT
+                ,MEAL_AMT
+                ,POS_AMT
+                ,SALS_YN
+                ,PAYMENT_YN
+                ,ADVANCE_YN
+                ,COUPON_YN
+                ,MEAL_YN
+                ,POS_YN
+                ,DECODE(SALS_YN,'Y','마감','N','미마감','Z','미마감','')    SALS_NM
+                ,DECODE(PAYMENT_YN,'Y','마감','N','미마감','Z','미마감','') PAYMENT_NM
+                ,DECODE(ADVANCE_YN,'Y','마감','N','미마감','Z','미마감','') ADVANCE_NM
+                ,DECODE(COUPON_YN,'Y','마감','N','미마감','Z','미마감','')  COUPON_NM
+                ,DECODE(MEAL_YN,'Y','마감','N','미마감','Z','미마감','')    MEAL_NM
+                ,DECODE(POS_YN,'Y','마감','N','미마감','Z','미마감','')     POS_NM
+        FROM    (
+                SELECT  X.OCCUR_DATE
+                        ,X.SYS_CLASS
+                        ,SCC_CODE_NM('SYS_CLASS',X.SYS_CLASS) SYS_CLASS_NM
+                        ,SCC_GET_TM_BY_UPJANG('CODE',Y.UPJANG) TM_CD
+                        ,SCC_GET_TM_BY_UPJANG('NAME',Y.UPJANG) TM_NM
+                        ,Y.UPJANG                   UPJANG_CD
+                        ,SCC_UPJANGNM_FUN(Y.UPJANG) UPJANG_NM
+                        ,SUM(AMT1) SAL_AMT      /* 매출마감 */
+                        ,SUM(AMT2) PAYMENT_AMT  /* 지불마감 */
+                        ,SUM(AMT3) ADVANCE_AMT  /* 선수금마감 */
+                        ,SUM(AMT4) COUPON_AMT   /* 쿠폰마감 */
+                        ,SUM(AMT5) MEAL_AMT     /* 식권마감 */
+                        ,SUM(AMT6) POS_AMT      /* 외상후불(POS)마감 */
+                        ,DECODE(NVL(X.UPJANG_CD,''),'','',SLA_GET_CLOSED_BY_SYS('SALS',X.SYS_CLASS,X.UPJANG_CD,OCCUR_DATE))    SALS_YN
+                        ,DECODE(NVL(X.UPJANG_CD,''),'','',SLA_GET_CLOSED_BY_SYS('PAYMENT',X.SYS_CLASS,X.UPJANG_CD,OCCUR_DATE)) PAYMENT_YN
+                        ,DECODE(NVL(X.UPJANG_CD,''),'','',SLA_GET_CLOSED_BY_SYS('ADVANCE',X.SYS_CLASS,X.UPJANG_CD,OCCUR_DATE)) ADVANCE_YN
+                        ,DECODE(NVL(X.UPJANG_CD,''),'','',SLA_GET_CLOSED_BY_SYS('COUPON',X.SYS_CLASS,X.UPJANG_CD,OCCUR_DATE))  COUPON_YN
+                        ,DECODE(NVL(X.UPJANG_CD,''),'','',SLA_GET_CLOSED_BY_SYS('MEAL',X.SYS_CLASS,X.UPJANG_CD,OCCUR_DATE))    MEAL_YN
+                        ,DECODE(NVL(X.UPJANG_CD,''),'','',SLA_GET_CLOSED_BY_SYS('POS',X.SYS_CLASS,X.UPJANG_CD,OCCUR_DATE))     POS_YN
+                FROM    (
+                        SELECT  OCCUR_DATE  OCCUR_DATE
+                                ,SYS_CLASS  SYS_CLASS
+                                ,UPJANG_CD  UPJANG_CD
+                                ,'SALS'     GUBUN
+                                ,SAL_AMT    AMT1
+                                ,0          AMT2
+                                ,0          AMT3
+                                ,0          AMT4
+                                ,0          AMT5
+                                ,0          AMT6
+                        FROM    SLA_IF_UPJANG_SALS_DETAIL
+                        WHERE   RECD_STATUS = 'L'
+                        AND     OCCUR_DATE  = :occurDate
+                        <#if tmCd?has_content>
+                        AND     (SCC_GET_TM_BY_UPJANG('CODE',UPJANG_CD) = :tmCd OR SCC_GET_PT_BY_UPJANG('CODE',UPJANG_CD) = :tmCd)
+                    </#if>
+                    <#if closeStatus?has_content>
+                        AND     NVL(DDDD_CLOSE_YN,'N') = :closeStatus
+                    </#if>
+                    <#if upjang?has_content>
+                        AND     UPJANG_CD = :upjang
+                    </#if>
+                        UNION ALL
+                        SELECT  OCCUR_DATE
+                                ,SYS_CLASS
+                                ,UPJANG_CD
+                                ,'PAYMENT'
+                                ,0
+                                ,AMT
+                                ,0
+                                ,0
+                                ,0
+                                ,0
+                        FROM    SLA_IF_UPJANG_PAYMENT
+                        WHERE   RECD_STATUS = 'L'
+                        AND     OCCUR_DATE  = :occurDate
+                        <#if tmCd?has_content>
+                        AND     (SCC_GET_TM_BY_UPJANG('CODE',UPJANG_CD) = :tmCd OR SCC_GET_PT_BY_UPJANG('CODE',UPJANG_CD) = :tmCd)
+                    </#if>
+                   <#if closeStatus?has_content>
+                        AND     NVL(DDDD_CLOSE_YN,'N') = :closeStatus
+                    </#if>
+                    <#if upjang?has_content>
+                        AND     UPJANG_CD = :upjang
+                    </#if>
+                        UNION ALL
+                        SELECT  OCCUR_DATE
+                                ,SYS_CLASS
+                                ,UPJANG_CD
+                                ,'ADVANCE'
+                                ,0
+                                ,0
+                                ,AMT
+                                ,0
+                                ,0
+                                ,0
+                        FROM    SLA_IF_ADVANCE_OCCUR
+                        WHERE   OCCUR_DATE  = :occurDate
+                       <#if tmCd?has_content>
+                        AND     (SCC_GET_TM_BY_UPJANG('CODE',UPJANG_CD) = :tmCd OR SCC_GET_PT_BY_UPJANG('CODE',UPJANG_CD) = :tmCd)
+                    </#if>
+                        <#if closeStatus?has_content>
+                        AND     NVL(DDDD_CLOSE_YN,'N') = :closeStatus
+                    </#if>
+                    <#if upjang?has_content>
+                        AND     UPJANG_CD = :upjang
+                    </#if>
+                        UNION ALL
+                        SELECT  SALE_DATE
+                                ,SYS_CLASS
+                                ,UPJANG_CD
+                                ,'COUPON'
+                                ,0
+                                ,0
+                                ,0
+                                ,COUPON_AMT
+                                ,0
+                                ,0
+                        FROM    SLA_IF_COUPON_SAL_MST
+                        WHERE   RECD_STATUS = 'L'
+                        AND     SALE_DATE   = :occurDate
+                       <#if tmCd?has_content>
+                        AND     (SCC_GET_TM_BY_UPJANG('CODE',UPJANG_CD) = :tmCd OR SCC_GET_PT_BY_UPJANG('CODE',UPJANG_CD) = :tmCd)
+                    </#if>
+                        <#if closeStatus?has_content>
+                        AND     NVL(DDDD_CLOSE_YN,'N') = :closeStatus
+                    </#if>
+                    <#if upjang?has_content>
+                        AND     UPJANG_CD = :upjang
+                    </#if>
+                        UNION ALL
+                        SELECT  SALE_DATE
+                                ,SYS_CLASS
+                                ,UPJANG_CD
+                                ,'MEAL'
+                                ,0
+                                ,0
+                                ,0
+                                ,0
+                                ,MEAL_TICKET_AMT
+                                ,0
+                        FROM    SLA_IF_MEAL_TICKET_SAL_MST
+                        WHERE   SALE_DATE   = :occurDate
+                        AND     (SCC_GET_TM_BY_UPJANG('CODE',UPJANG_CD) = :tmCd OR SCC_GET_PT_BY_UPJANG('CODE',UPJANG_CD) = :tmCd)
+                    <#if closeStatus?has_content>
+                        AND     NVL(DDDD_CLOSE_YN,'N') = :closeStatus
+                    </#if>
+                    <#if upjang?has_content>
+                        AND     UPJANG_CD = :upjang
+                    </#if>
+                        UNION ALL
+                        SELECT  ADJUST_DATE
+                                ,SYS_CLASS
+                                ,UPJANG_CD
+                                ,'POS'
+                                ,0
+                                ,0
+                                ,0
+                                ,0
+                                ,0
+                                ,ADJUST_AMT
+                        FROM    SLA_IF_AR_PAY_ADJUST_MST
+                        WHERE   RECD_STATUS = 'L'
+                        AND     ADJUST_DATE = :occurDate
+                       <#if tmCd?has_content>
+                        AND     (SCC_GET_TM_BY_UPJANG('CODE',UPJANG_CD) = :tmCd OR SCC_GET_PT_BY_UPJANG('CODE',UPJANG_CD) = :tmCd)
+                    </#if>
+                        <#if closeStatus?has_content>
+                        AND     NVL(DDDD_CLOSE_YN,'N') = :closeStatus
+                    </#if>
+                    <#if upjang?has_content>
+                        AND     UPJANG_CD = :upjang
+                    </#if>
+                        ) X
+                        ,(
+                        SELECT  UPJANG
+                        FROM    ST_UPJANG
+                        <#if tmCd?has_content>
+                        WHERE   (SCC_GET_TM_BY_UPJANG('CODE',UPJANG) = :tmCd OR SCC_GET_PT_BY_UPJANG('CODE',UPJANG) = :tmCd)
+                         </#if>
+                        ) Y
+                WHERE   Y.UPJANG = X.UPJANG_CD (+)
+            <#if upjang?has_content>
+                AND     Y.UPJANG = :upjang
+            </#if>
+            <#if sysClass?has_content>
+                AND     (X.SYS_CLASS = :sysClass OR X.SYS_CLASS IS NULL)
+            </#if>
+                GROUP BY X.OCCUR_DATE
+                        ,X.SYS_CLASS
+                        ,X.UPJANG_CD
+                        ,Y.UPJANG
+                )
+        ORDER BY OCCUR_DATE
+                ,UPJANG_NM
+                ,SYS_CLASS
+		]]></statement>
+
+</hqml>

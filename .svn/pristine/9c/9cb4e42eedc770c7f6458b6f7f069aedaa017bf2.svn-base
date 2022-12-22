@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="sm.srm.sapSlipSendReptPopDAO">
+	<desc>SAP 전표 전송 내역 HQML Query</desc>
+
+	<!-- SAP 전표 전송 내역 목록을 조회한다. -->
+	<statement name="selectList" type="select"><![CDATA[
+            SELECT   SLIP_NUM                                               -- 외부문서번호
+                    ,BU_CD                                                  -- 회사코드
+                    ,DTL_NUM                                                -- 회계전표의개별항목번호
+                    ,SLIP_TYPE                                              -- 전표유형
+                    ,SCC_CODE_NM('SLIP_TYPE', SLIP_TYPE) SLIP_TYPE_NM
+                    ,SLIP_EVIDENCE_DATE                                     -- 증빙일
+                    ,SLIP_PERIOD_DATE                                       -- 전기일
+                    ,DECODE(DR_CR_CLASS,'1',MASTER_ACCT,'') D_ACCT_CD       -- 차변계정
+                    ,DECODE(DR_CR_CLASS,'1',SCC_ACCT_NM_FUN(MASTER_ACCT),'') D_ACCT_NM
+                    ,DECODE(DR_CR_CLASS,'2',MASTER_ACCT,'') C_ACCT_CD       -- 대변계정
+                    ,DECODE(DR_CR_CLASS,'2',SCC_ACCT_NM_FUN(MASTER_ACCT),'') C_ACCT_NM
+                    ,DECODE(DR_CR_CLASS,'1',LCAL_AMT,0) D_AMT               -- 대변금액
+                    ,DECODE(DR_CR_CLASS,'2',LCAL_AMT,0) C_AMT               -- 차변금액
+                    ,DR_CR_CLASS                                            -- 차대구분
+                    ,DECODE(DR_CR_CLASS,'1','차변','대변') DR_CR_CLASS_NM
+                    ,NEXT_BU_CD                                             -- 다음회사코드
+                    ,CC_CD                                                  -- 코스트센터
+                    ,SCC_CC_NM_FUN(CC_CD) CC_NM
+                    ,ORDER_NUM                                              -- 오더번호
+                    ,FNCT_PRVN                                              -- 기능영역
+                    ,PL_CENTER                                              -- 손익센터
+                    ,MINUS_PERIOD_YN                                        -- 지시자:마이너스전기
+                    ,SLIP_CURRENCY_AMT                                      -- 전표통화금액
+                    ,SUPPLYPLCE_NUM                                         -- 공급처번호
+                    ,GUEST_NUM                                              -- 고객번호
+                    ,FO_SUPPLYPLCE_NUM                                      -- FO공급처번호
+                    ,FO_CUST_NM                                             -- FO거래명
+                    ,MU_CD                                                  -- 사업영역
+                    ,SCC_MU_NM_FUN(MU_CD) MU_NM
+                    ,INLT_YN                                                -- 분양관련여부
+                    ,ITEM_TEXT                                              -- 품목텍스트
+                    ,VAT_CD                                                 -- 부가가치세코드
+                    ,(SELECT V.VAT_NM FROM SLA_VAT_CD_MST V WHERE V.VAT_CD = SLA_SAP_SLIP_DTL.VAT_CD) VAT_NM
+                    ,UPJANG                                                 -- 사업장
+                    ,STD_AMT                                                -- 과세표준금액(전표통화)
+                    ,TAX_AMT                                                -- 세액(전표통화)
+                    ,QUANTITY                                               -- 수량
+                    ,UNIT                                                   -- 단위
+                    ,PAYER_NAME                                             -- 수취인/지급인
+                    ,EXPIRE_CAL_BASIS_DATE                                  -- 만기계산기준일
+                    ,PAY_MTOD                                               -- 지급방법
+                    ,PAY_COND                                               -- 지급조건키
+                    ,PAY_DFER                                               -- 지급보류키
+                    ,PAY_REF                                                -- 지급참조
+                    ,LC_NUM                                                 -- LC번호
+                    ,MEMB_NUM                                               -- 회원권번호
+                    ,REAL_USER                                              -- 실사용자
+                    ,TEL_NUM                                                -- 전화번호
+                    ,USE_NO_MAN                                             -- 사용인원
+                    ,ASSIGN_NUM                                             -- 지정번호
+                    ,PO_NUM                                                 -- PO번호
+                    ,ATTACH_DEPT                                            -- 귀속부서
+                    ,MGMT_DEPT                                              -- 관리부서
+                    ,MGMT_ARTICLE                                           -- 관리항목
+                    ,REASON_CD                                              -- 사유코드
+                    ,CRGLEFT_CLASS                                          -- 계좌구분코드(Banktype)
+                    ,SINGLE_PAY_YN                                          -- 전표에서개별수취인체크마크
+                    ,TEMP_CUST_NM                                           -- 일회성거래처명
+                    ,BANK_ACCT_NO                                           -- 은행계정번호
+                    ,BANK_ACCT_OWNR                                         -- 예금주
+                    ,BANK_CD                                                -- 은행번호
+                    ,CO_PA_GUEST                                            -- CO-PA고객
+                    ,CO_PA_CC_CD                                            -- CO-PA코스트센터
+                    ,START_DATE                                             -- 기간From
+                    ,END_DATE                                               -- 기간To
+                    ,BL_DATE                                                -- BL일자
+                    ,ASSET_NUM                                              -- 주요자산번호
+                    ,ASSET_LLEVEL_NUM                                       -- 자산하위번호
+                    ,MGMT_GUEST                                             -- 관리고객
+                    ,MGMT_SUPPLYPLCE                                        -- 관리공급처
+                    ,CUST_REMARK                                            -- 거래처(TXT)
+                    ,REF_DATE                                               -- 참조일자
+                    ,LSHIP_DATE                                             -- 선적일자
+                    ,TAX_STD_AMT                                            -- 과세표준액
+                    ,MM_AMT                                                 -- 월세
+                    ,TAX_RATE                                               -- 세율
+                    ,INT_RATE                                               -- 이자율
+                    ,GU_OFFICE_NUM                                          -- 구청번호
+                    ,REMARK1                                                -- 참조텍스트(30)
+                    ,REMARK2                                                -- 참조텍스트(100)
+                    ,ADDR                                                   -- 주소
+                    ,ETC                                                    -- 기타6
+                    ,CARD_SRL_NUM                                           -- 카드일련번호
+                    ,CARD_INTERFACE_NUM                                     -- 카드I/FNO
+                    ,CARD_NUM                                               -- 카드번호
+                    ,INTERFACE_LOG_NUM                                      -- InterfaceLogNo.
+                    ,(
+                    SELECT	MAX(M.ELCTNTAX_BILL_APPRVNUM)
+                    FROM	SLA_SAP_SLIP_MST M
+                    WHERE	M.SLIP_NUM = SLA_SAP_SLIP_DTL.SLIP_NUM
+                    AND		M.BU_CD = SLA_SAP_SLIP_DTL.BU_CD
+                    ) ELCTNTAX_BILL_APPRVNUM								-- 전자세금 계산서 승인번호
+            FROM    SLA_SAP_SLIP_DTL
+            WHERE   SLIP_NUM = :slipNum
+            ORDER BY DTL_NUM
+		]]></statement>
+
+</hqml>

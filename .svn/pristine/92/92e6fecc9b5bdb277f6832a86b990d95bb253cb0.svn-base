@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[협력업체 점검분류정보 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.TABLE_TYPE
+     , A.FORM_CD
+     , A.CLASS_CD
+     , A.CLASS_NM
+     , A.CLASS_TYPE
+     , A.WGT_RATE
+     , A.NOT_FIT_CNT
+     , B.HL_CLASS_CD
+     , B.HL_CLASS_NM
+     , B.HM_CLASS_CD
+     , B.HM_CLASS_NM
+     , B.CHK_IDCTR
+     , B.NOT_FIT_SCORE
+     , DECODE(B.FOCS_ARTICLE_YN,'Y',1,0) AS FOCS_ARTICLE_YN
+     , DECODE(A.CLASS_TYPE,'S',B.UUSER,A.UUSER) AS UUSER
+     , DECODE(A.CLASS_TYPE,'S',TO_CHAR(B.UDATE,'YYYY.MM.DD'),TO_CHAR(A.UDATE,'YYYY.MM.DD')) AS UDATE
+     , (SELECT COUNT(1)
+          FROM FSC_CONTRT_FORM_DTL
+         WHERE TABLE_TYPE = A.TABLE_TYPE
+           AND FORM_CD = A.FORM_CD
+           AND HM_CLASS_CD = A.CLASS_CD) AS MGMT_CNT
+     , (SELECT SUM(CHK_IDCTR)
+          FROM FSC_CONTRT_FORM_DTL
+         WHERE TABLE_TYPE = A.TABLE_TYPE
+           AND FORM_CD = A.FORM_CD
+           AND HL_CLASS_CD = A.CLASS_CD) AS TOT_SCORE     
+  FROM FSC_CONTRT_CLASS A                                                                              
+     , FSC_CONTRT_FORM_DTL B                                                                               
+ WHERE A.TABLE_TYPE = B.TABLE_TYPE(+)                                                               
+   AND A.FORM_CD = B.FORM_CD(+)                                                                     
+   AND A.CLASS_CD = B.CLASS_CD(+)                                                                    
+<isNotNull col="TABLE_TYPE">
+   AND A.TABLE_TYPE = #TABLE_TYPE#
+</isNotNull>   
+<isNotNull col="FORM_CD">
+   AND A.FORM_CD = #FORM_CD#
+</isNotNull>   
+ORDER BY A.CLASS_CD ASC
+    </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_classList">
+	</output>
+</query>

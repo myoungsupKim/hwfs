@@ -1,0 +1,145 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\..\..\default_typedef.xml"/>
+  <Form id="ReleaseFaxSendPop" classname="COMP_GUIDE_13" inheritanceid="" position="absolute 0 0 434 122" titletext="출고관리 Fax 발송 Popup" scrollbars="autoboth" onload="form_onload" ontimer="SpecmAcceptListInqueryPop_ontimer">
+    <Layouts>
+      <Layout>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 435 10"/>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 -120 15 107"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 419 -120 434 109"/>
+        <Static id="Static00" text="h06" class="Guide01_AreaRed" visible="false" position="absolute 15 10 215 16"/>
+        <Button id="btn_cancel" taborder="3" text="닫기" onclick="btn_cancel_onclick" class="btn_WF_CRUD" anchor="top right" position="absolute 374 10 419 35" positiontype="position"/>
+        <Static id="Static05" text="아이콘기준 h08" class="Guide01_AreaRed" visible="false" position="absolute 15 48 215 56"/>
+        <Static id="Static20" text="W102" visible="false" position="absolute 372 10 374 35" anchor="top right" style="background:#ff000055;align:center middle;"/>
+        <Static id="sta_reqNo" text="거래처 코드 : " position="absolute 17 17 282 31" style="font:굴림,10,bold;"/>
+        <Button id="btn_draft" taborder="2" text="Fax발송" class="btn_WF_CRUD" position="absolute 303 10 372 35" anchor="top right" onclick="btn_draft_onclick"/>
+        <Static id="Static34" class="sta_WFDA_Labelbg" position="absolute 15 56 419 83" anchor="top right"/>
+        <Static id="Static33" text="Fax No" class="sta_WFDA_Label01" position="absolute 15 56 109 83" anchor="top right"/>
+        <Static id="sta_acceptNm" text="거 래 처  명 : " position="absolute 17 33 387 47" style="font:굴림,10,bold;"/>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 0 107 434 122"/>
+        <Static id="Static18" text="Fax번호는 숫자만 허용 합니다." class="sta_WF_DiscInfo" position="absolute 15 93 411 108" anchor="left bottom"/>
+        <Static id="Static17" text="글자기준간격 h05" class="Guide01_AreaRed" visible="false" position="absolute 0 83 429 93"/>
+        <Edit id="edt_faxNo" taborder="4" class="edt_WF_Essential" position="absolute 111 59 416 80" anchor="top right" inputtype="number"/>
+      </Layout>
+    </Layouts>
+    <Bind>
+      <BindItem id="item2" compid="edt_faxNo" propid="value" datasetid="ds_search" columnid="faxNo"/>
+    </Bind>
+    <Objects>
+      <Dataset id="ds_search" firefirstcount="0" firenextcount="0" useclientlayout="true" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="faxNo" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row/>
+        </Rows>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : ReleaseFaxSendPop
+  파 일 명 : ReleaseFaxSendPop.xfdl
+  기    능 : 출고관리 Fax 발송 Popup
+
+    수정일    수정자                  수정내용
+  ----------   -------  --------------------------------------------------
+  2015.09.08   jshoon   최초 생성
+*/
+
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+************************************************************************************************/
+include "lib::lib_com.xjs";
+include "lib::FTCommon.xjs";
+
+/****************************************************************************************
+ * FORM 변수 선언 영역
+****************************************************************************************/
+var fv_iProcessCnt = 0;  	// 저장건수를 저장한다.(Controller Class에서만 할당함.)
+var objArgs;
+
+/************************************************************************************************
+ * FORM EVENT 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Form Load (필수)
+ *---------------------------------------------------------------------------------------------*/
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+    // Form Load 시 공통 기능 처리(obj:Form, bCreateEvent:이벤트 생성 여부)
+    gfn_formOnLoad(this);		// 검체유형 GRID에는 공통 이벤트 제외
+    
+    objArgs = this.getOwnerFrame().fv_Contents;
+    //trace(objArgs);
+    
+    // 초기값 셋팅
+	fn_init();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 초기값 셋팅
+ *---------------------------------------------------------------------------------------------*/
+function fn_init()
+{
+	if (objArgs[3] == "sales") {
+		sta_reqNo.text = "거래처 코드 : " + objArgs[0];
+		sta_acceptNm.text = "거 래 처  명 : " + objArgs[1];
+	} else {
+		sta_reqNo.text = "창고 코드 : " + objArgs[0];
+		sta_acceptNm.text = "창  고  명 : " + objArgs[1];
+	}
+	//edt_faxNo.value = objArgs[2].replace("-", "");
+	edt_faxNo.value = fn_specialCharRemove(objArgs[2]);
+	edt_faxNo.setFocus();
+}
+
+/************************************************************************************************
+ * TRANSACTION 및 CallBack 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Fax번호의 숫자이외의 특수문자 제거
+ *---------------------------------------------------------------------------------------------*/
+function fn_specialCharRemove(strVal)
+{
+	if (gfn_isNull(gfn_trim(strVal))) return "";
+
+	var pattern = /[^(0-9)]/gi;
+	if (pattern.test(strVal)) {
+		return strVal.replace(pattern, "");
+	}
+	return strVal;
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 취소버튼 클릭 시
+ *---------------------------------------------------------------------------------------------*/
+function btn_cancel_onclick(obj:Button,  e:ClickEventInfo)
+{
+	this.close();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 결재 상신버튼 클릭 시
+ *---------------------------------------------------------------------------------------------*/
+function btn_draft_onclick(obj:Button,  e:ClickEventInfo)
+{
+// 	if (gfn_isSpecialChar(gfn_trim(edt_faxNo.value))) {
+// 		gfn_alert("Fax번호에 특수문자가 포함되어 있습니다.\n확인하여 주십시오.");
+// 		edt_faxNo.setFocus();
+// 		return;
+// 	}
+
+	if (gfn_isNull(gfn_trim(edt_faxNo.value))) {
+		gfn_alert("Fax번호를 입력하여 주십시오.");
+		edt_faxNo.setFocus();
+		return;
+	}
+
+	var objParam = {
+		faxNo : fn_specialCharRemove(edt_faxNo.value)
+	}
+
+	this.close(objParam);
+}
+]]></Script>
+  </Form>
+</FDL>

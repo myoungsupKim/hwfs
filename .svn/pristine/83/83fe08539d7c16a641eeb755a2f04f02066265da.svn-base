@@ -1,0 +1,269 @@
+package com.hwfs.batch.sc.app.dao;
+
+import hone.core.util.record.Record;
+import hone.core.util.record.RecordSet;
+import hone.online.xplatform.map.DataSetMap;
+
+import java.sql.Types;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.springframework.jdbc.core.SqlOutParameter;
+import org.springframework.jdbc.core.SqlParameter;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
+
+import com.hwfs.batch.defaults.DefaultBatchDAO;
+import com.hwfs.cmn.util.DateUtil;
+import com.hwfs.sc.app.dao.AppMasterInterfaceFcusdbDAO;
+import com.hwfs.sc.app.dao.AppMasterInterfaceMariadbDAO;
+
+/**
+ * JOB Schedule Dao Class
+ *
+ * @ClassName AppMasterInterfaceDAO.java
+ * @Description AppMasterInterfaceDAO Class
+ * @Modification-Information
+ * <pre>
+ *    수정일       수정자              수정내용
+ *  ----------   ----------   -------------------------------
+ *  2022.07.14.   김명섭        최초생성
+ * </pre>
+ */
+@Repository("/batch/sc/app/appMasterInterfaceDAO")
+public class AppMasterInterfaceDAO extends DefaultBatchDAO {
+
+    /**
+     * 식재앱 판가,자재마스터 송신 배치
+     * <pre>
+     * 메소드 상세설명 작성(생략 가능)
+     * </pre>
+     *
+     * @param parameter
+     * @return
+     * @throws Exception
+     */
+	/** AppMasterInterfaceFcusdbDAO Bean 생성 */
+	@Resource(name = "/sc/app/appMasterInterfaceFcusdbDAO")
+	private AppMasterInterfaceFcusdbDAO appMasterInterfaceFcusdbDAO;
+	
+	/** AppMasterInterfaceMariadbDAO Bean 생성 */
+	@Resource(name = "/sc/app/appMasterInterfaceMariadbDAO")
+	private AppMasterInterfaceMariadbDAO appMasterInterfaceMariadbDAO;
+
+	@Resource(name ="transactionManagerfdapp")
+	private PlatformTransactionManager txManger;
+	
+	public int batchJob(Map<String, Object> mapParam) throws Exception {
+
+		int insRowCnt = 0;
+		int updRowCnt = 0;
+		int procCnt = 0;
+		RecordSet searchItem;
+		RecordSet searchFsale2;
+		RecordSet searchItem2;
+
+		//Transaction(자재마스터)
+		TransactionStatus txStatus2 = txManger.getTransaction(new DefaultTransactionDefinition());
+		
+		try{
+			
+			searchItem = super.queryForRecordSet("sc.app.appMasterInterfaceFcusdbDAO.selectItem", mapParam);
+			//System.out.println("searchItem : " + searchItem.getRowCount());
+			
+			for(int i=0; i<searchItem.getRowCount(); i++)
+			{
+				//System.out.println("searchItem i : " + i);
+				Map<String, Object> rowData = searchItem.get(i);
+
+				insRowCnt += 1;
+				procCnt = itemInsert(rowData);
+				
+				if(procCnt == -1)
+				{
+					super.update("sc.app.appMasterInterfaceFcusdbDAO.updateErrItem", mapParam);
+				}
+			}
+
+			//System.out.println("itemInsert commit");
+			txManger.commit(txStatus2);
+		}catch( Exception e){
+			//rollback
+			//System.out.println("itemInsert rollback : " + e.toString());
+			txManger.rollback(txStatus2);
+			throw e;
+		}
+
+		//Transaction(공급업체판가)
+		TransactionStatus txStatus3 = txManger.getTransaction(new DefaultTransactionDefinition());
+		
+		try{
+			
+			searchFsale2 = super.queryForRecordSet("sc.app.appMasterInterfaceFcusdbDAO.selectFsale2", mapParam);
+			//System.out.println("searchFsale2 : " + searchFsale2.getRowCount());
+			
+			for(int i=0; i<searchFsale2.getRowCount(); i++)
+			{
+				Map<String, Object> rowData = searchFsale2.get(i);
+
+				insRowCnt += 1;
+				procCnt = fsaleInsert2(rowData);
+				
+				if(procCnt == -1)
+				{
+					super.update("sc.app.appMasterInterfaceFcusdbDAO.updateErrFsale2", mapParam);
+				}
+			}
+			
+			//System.out.println("fsaleInsert2 commit");
+			txManger.commit(txStatus3);
+		}catch( Exception e){
+			//rollback
+			//System.out.println("fsaleInsert2 rollback : " + e.toString());
+			txManger.rollback(txStatus3);
+			throw e;
+		}
+
+		//Transaction(공급업체품목)
+		TransactionStatus txStatus4 = txManger.getTransaction(new DefaultTransactionDefinition());
+		
+		try{
+			
+			searchItem2 = super.queryForRecordSet("sc.app.appMasterInterfaceFcusdbDAO.selectItem2", mapParam);
+			//System.out.println("searchItem2 : " + searchItem2.getRowCount());
+			
+			for(int i=0; i<searchItem2.getRowCount(); i++)
+			{
+				Map<String, Object> rowData = searchItem2.get(i);
+
+				insRowCnt += 1;
+				procCnt = itemInsert2(rowData);
+				
+				if(procCnt == -1)
+				{
+					super.update("sc.app.appMasterInterfaceFcusdbDAO.updateErrItem2", mapParam);
+				}
+			}
+			
+			//System.out.println("itemInsert2 commit");
+			txManger.commit(txStatus4);
+		}catch( Exception e){
+			//rollback
+			//System.out.println("itemInsert2 rollback : " + e.toString());
+			txManger.rollback(txStatus4);
+			throw e;
+		}
+
+		return insRowCnt;
+    }
+
+	public int batchJob2(Map<String, Object> mapParam) throws Exception {
+
+		int insRowCnt = 0;
+		int updRowCnt = 0;
+		int procCnt = 0;
+		RecordSet searchFsale;
+
+		
+		//Transaction(식재판가)
+		TransactionStatus txStatus = txManger.getTransaction(new DefaultTransactionDefinition());
+		
+		try{
+			
+			searchFsale = super.queryForRecordSet("sc.app.appMasterInterfaceFcusdbDAO.selectFsale", mapParam);
+			//System.out.println("searchFsale : " + searchFsale.getRowCount());
+			
+			for(int i=0; i<searchFsale.getRowCount(); i++)
+			{
+				//System.out.println("searchFsale i : " + i);
+				Map<String, Object> rowData = searchFsale.get(i);
+
+				insRowCnt += 1;
+				procCnt = fsaleInsert(rowData);
+				
+				if(procCnt == -1)
+				{
+					super.update("sc.app.appMasterInterfaceFcusdbDAO.updateErrFsale", mapParam);
+				}
+			}
+						
+			//System.out.println("fsaleInsert commit");
+			txManger.commit(txStatus);
+		}catch( Exception e){
+			//rollback
+			//System.out.println("fsaleInsert rollback : " + e.toString());
+			txManger.rollback(txStatus);
+			throw e;
+		}
+
+		return insRowCnt;
+    }
+	
+	public int itemInsert(Map<String, Object> mapParam) throws Exception {
+		int ProcCnt = 0;
+		TransactionStatus txSts = txManger.getTransaction(new DefaultTransactionDefinition());
+		
+		try{
+			ProcCnt += appMasterInterfaceMariadbDAO.itemInsert(mapParam);
+			ProcCnt += super.update("sc.app.appMasterInterfaceFcusdbDAO.updateItem", mapParam);
+			txManger.commit(txSts);
+		}catch( Exception e){
+			txManger.rollback(txSts);
+			ProcCnt = -1;
+		}
+		
+		return ProcCnt;
+	}
+
+	public int fsaleInsert2(Map<String, Object> mapParam) throws Exception {
+		int ProcCnt = 0;
+		TransactionStatus txSts = txManger.getTransaction(new DefaultTransactionDefinition());
+		
+		try{
+			ProcCnt += appMasterInterfaceMariadbDAO.fsaleInsert2(mapParam);
+			ProcCnt += super.update("sc.app.appMasterInterfaceFcusdbDAO.updateFsale2", mapParam);
+			txManger.commit(txSts);
+		}catch( Exception e){
+			txManger.rollback(txSts);
+			ProcCnt = -1;
+		}
+		
+		return ProcCnt;
+	}
+
+	public int itemInsert2(Map<String, Object> mapParam) throws Exception {
+		int ProcCnt = 0;
+		TransactionStatus txSts = txManger.getTransaction(new DefaultTransactionDefinition());
+		
+		try{
+			ProcCnt += appMasterInterfaceMariadbDAO.itemInsert2(mapParam);
+			ProcCnt += super.update("sc.app.appMasterInterfaceFcusdbDAO.updateItem2", mapParam);
+			txManger.commit(txSts);
+		}catch( Exception e){
+			txManger.rollback(txSts);
+			ProcCnt = -1;
+		}
+		
+		return ProcCnt;
+	}
+
+	public int fsaleInsert(Map<String, Object> mapParam) throws Exception {
+		int ProcCnt = 0;
+		TransactionStatus txSts = txManger.getTransaction(new DefaultTransactionDefinition());
+		try{
+			ProcCnt += appMasterInterfaceMariadbDAO.fsaleInsert(mapParam);
+			ProcCnt += super.update("sc.app.appMasterInterfaceFcusdbDAO.updateFsale", mapParam);
+			txManger.commit(txSts);
+		}catch( Exception e){
+			txManger.rollback(txSts);
+			ProcCnt = -1;
+		}
+		
+		return ProcCnt;
+	}
+	
+}

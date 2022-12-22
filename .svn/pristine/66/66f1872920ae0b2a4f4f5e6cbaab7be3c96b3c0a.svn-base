@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="rc.sle.timeSalesListDAO">
+	<desc>시간대별 매출 리스트</desc>
+
+	<!--  bill check list  -->
+
+	<statement name="selectList" type="select"><![CDATA[
+
+			SELECT (SELECT MST.OUTLET_NM
+			                        FROM SLE_OUTLET_MST      MST
+			                        WHERE MST.OUTLET_CD = :outletCd) AS OUTLET_NM			
+				 , :frSalesDt || ' ~ ' || :toSalesDt AS SALES_DATE
+				 , A.GUBUN, SALS_TIME || ' ~ ' || CASE WHEN (TO_NUMBER(SALS_TIME)<9) THEN '0' END || TO_CHAR(TO_NUMBER(SALS_TIME)+1) AS SALS_TIME
+			     , KOR_QTY
+			     , FRGN_QTY
+			     , CUST_QTY
+			     , QTY
+			     , FOOD_AMT
+			     , BEVR_AMT
+			     , OTHER_AMT
+			     , GODS_AMT
+			     , ETEC_AMT
+			     , SELL_AMT
+			     , ROUND((SELL_AMT / NVL(D.GRAND_AMT, 0)) * 100,2) AS GRAND_AMT
+			FROM (            
+			    SELECT 1 AS GUBUN, SALS_TIME, SUM(KOR_QTY) AS KOR_QTY, SUM(FRGN_QTY) AS FRGN_QTY, SUM(CUST_QTY) AS CUST_QTY, COUNT(RECEIPT_NUM) AS QTY,
+			           SUM(FOOD_AMT) AS FOOD_AMT, SUM(BEVR_AMT) AS BEVR_AMT, SUM(OTHER_AMT) AS OTHER_AMT, SUM(GODS_AMT) AS GODS_AMT, SUM(ETEC_AMT) AS ETEC_AMT,
+			           SUM(FOOD_AMT + BEVR_AMT + OTHER_AMT + GODS_AMT + ETEC_AMT) AS SELL_AMT
+			    FROM (
+			            SELECT INFO.SALES_DATE, INFO.OUTLET_CD, INFO.RECEIPT_NUM
+			                 , INFO.SALE_TIME AS SALS_TIME , INFO.KOR_QTY,INFO.FRGN_QTY,INFO.CUST_QTY 
+			                 , FOOD_AMT,BEVR_AMT,OTHER_AMT,GODS_AMT,ETEC_AMT
+			            FROM (
+			                    SELECT SALES_DATE, OUTLET_CD, RECEIPT_NUM  
+			                            , SUM(FOOD_AMT)  AS FOOD_AMT
+			                            , SUM(BEVR_AMT)  AS BEVR_AMT
+			                            , SUM(OTHER_AMT) AS OTHER_AMT
+			                            , SUM(GODS_AMT)  AS GODS_AMT
+			                            , SUM(ETEC_AMT)  AS ETEC_AMT
+			                    FROM(
+			                      SELECT  GOODS.SALES_DATE, GOODS.OUTLET_CD, GOODS.RECEIPT_NUM  
+			                            , DECODE(GOODS.MENU_CLASS,'F', SUM(GOODS.NET_AMT) , 0) AS FOOD_AMT
+			                            , DECODE(GOODS.MENU_CLASS,'B', SUM(GOODS.NET_AMT) , 0) AS BEVR_AMT
+			                            , DECODE(GOODS.MENU_CLASS,'O', SUM(GOODS.NET_AMT) , 0) AS OTHER_AMT
+			                            , DECODE(GOODS.MENU_CLASS,'S', SUM(GOODS.NET_AMT) , 0) AS GODS_AMT
+			                            , DECODE(GOODS.MENU_CLASS,'F',0,DECODE(GOODS.MENU_CLASS,'B',0,DECODE(MENU_CLASS,'O',0,DECODE(GOODS.MENU_CLASS,'S',0,SUM(GOODS.NET_AMT) )))) AS ETEC_AMT
+			                      FROM SLE_SALS_GOODS GOODS
+			                      INNER JOIN (
+											SELECT INFO.OUTLET_CD, INFO.SALES_DATE, INFO.RECEIPT_NUM, INFO.CLOSE_TIME 
+											FROM SLE_SALS_INFO INFO
+											LEFT OUTER JOIN (
+											      SELECT OUTLET_CD, POS_NUM, CODE_NAME FROM SLE_POS_SET POS
+											      INNER JOIN SCC_COMMON_CODE GRP ON GRP.GROUP_CODE = 'SLE_0111' AND GRP.CODE = POS.OUTLET_SUB_CD
+											      <#if outletSub?has_content> WHERE GRP.CODE = :outletSub </#if>  --01:다채움 02:마루 03:나무 
+											      ORDER BY  OUTLET_CD, POS_NUM
+											) POS ON POS.OUTLET_CD = INFO.OUTLET_CD AND POS.POS_NUM = INFO.POS_NUM
+											WHERE INFO.SALS_CLASS     = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+											  <#if internalYn == 'Y' > AND INFO.RECEIPT_STATUS IN ('Q','R','E') </#if> --영수증 상태 Q:정상 R:반품(-)
+                             				  <#if internalYn == 'N' > AND INFO.RECEIPT_STATUS IN ('Q','R') </#if> --영수증 상태 Q:정상 R:반품(-)MST.RECEIPT_STATUS IN('Q','R')   --영수증 상태 Q:정상 R:반품(-)
+                            				  AND INFO.MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+											  AND INFO.SALES_DATE BETWEEN :frSalesDt AND :toSalesDt
+											  <#if outletCd?has_content> AND INFO.OUTLET_CD = :outletCd </#if>
+											  <#if outletSub?has_content> AND INFO.POS_NUM  = POS.POS_NUM  </#if>
+											ORDER BY    INFO.OUTLET_CD, INFO.SALES_DATE, INFO.RECEIPT_NUM
+					    				)  INFO ON INFO.OUTLET_CD   = GOODS.OUTLET_CD 
+					    				       AND INFO.SALES_DATE  = GOODS.SALES_DATE
+					    				       AND INFO.RECEIPT_NUM = GOODS.RECEIPT_NUM	
+					    				       
+			                      WHERE 1=1
+			                       --GOODS.SALS_YN         = 'Y'		--판매여부		                                     
+        			               --시작 : 2017.03.02 현대카드M포인트 제휴 추가로 매출여부 조건 변경 처리자:김호석 CH201702_00668
+				         		   AND GOODS.SELL_YN  = DECODE(GOODS.RECEIPT_STATUS ,'E','N','Y')				--매출 여부
+  					 			   --종료			                       
+			                       AND GOODS.SALS_CLASS       = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+			                       AND GOODS.MODIFY_STATUS    IN ('0','1') --매출조정 0:정상 , 1:조정
+			                       <#if internalYn == 'Y' > AND GOODS.RECEIPT_STATUS IN ('Q','R','E') </#if> --영수증 상태 Q:정상 R:반품(-)
+                                   <#if internalYn == 'N' > AND GOODS.RECEIPT_STATUS IN ('Q','R') </#if> --영수증 상태 Q:정상 R:반품(-)MST.RECEIPT_STATUS IN('Q','R')   --영수증 상태 Q:정상 R:반품(-)                             
+			                       AND GOODS.DATA_CLASS = '1'
+			                       AND GOODS.OUTLET_CD        = :outletCd
+			                       AND GOODS.SALES_DATE BETWEEN :frSalesDt AND :toSalesDt
+			                       AND (1=2 
+			                       <#if w1 == 'Y' >	OR TO_CHAR(TO_DATE(GOODS.SALES_DATE,'YYYY-MM-DD'),'d') = '1' </#if>
+			                       <#if w2 == 'Y' >	OR TO_CHAR(TO_DATE(GOODS.SALES_DATE,'YYYY-MM-DD'),'d') = '2' </#if>
+			                       <#if w3 == 'Y' >	OR TO_CHAR(TO_DATE(GOODS.SALES_DATE,'YYYY-MM-DD'),'d') = '3' </#if>
+			                       <#if w4 == 'Y' >	OR TO_CHAR(TO_DATE(GOODS.SALES_DATE,'YYYY-MM-DD'),'d') = '4' </#if>
+			                       <#if w5 == 'Y' >	OR TO_CHAR(TO_DATE(GOODS.SALES_DATE,'YYYY-MM-DD'),'d') = '5' </#if>
+			                       <#if w6 == 'Y' >	OR TO_CHAR(TO_DATE(GOODS.SALES_DATE,'YYYY-MM-DD'),'d') = '6' </#if>
+			                       <#if w7 == 'Y' >	OR TO_CHAR(TO_DATE(GOODS.SALES_DATE,'YYYY-MM-DD'),'d') = '7' </#if>
+			                       )
+			                     GROUP BY GOODS.SALES_DATE, GOODS.OUTLET_CD, GOODS.RECEIPT_NUM, GOODS.MENU_CLASS
+			                    ) A 
+			                    GROUP BY SALES_DATE, OUTLET_CD, RECEIPT_NUM
+			            ) ITEM
+			            INNER JOIN ( 
+			                    SELECT  SALES_DATE, OUTLET_CD, RECEIPT_NUM  
+			                          --, SUBSTR(MAX(CLOSE_TIME),1,2)AS SALE_TIME
+			                          , SUBSTR(MAX(OPEN_TIME),1,2)AS SALE_TIME
+			                          , SUM(KOR_PSN) AS KOR_QTY
+			                          , SUM(FOR_PSN) AS FRGN_QTY
+			                          , SUM(PSN) AS CUST_QTY
+			                 
+			                    FROM  SLE_SALS_INFO INFO 
+			                     WHERE SALS_CLASS       = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+			                       AND MODIFY_STATUS    IN ('0','1') --매출조정 0:정상 , 1:조정
+			                       <#if internalYn == 'Y' > AND RECEIPT_STATUS IN ('Q','R','E') </#if> --영수증 상태 Q:정상 R:반품(-)
+                                   <#if internalYn == 'N' > AND RECEIPT_STATUS IN ('Q','R') </#if> --영수증 상태 Q:정상 R:반품(-)MST.RECEIPT_STATUS IN('Q','R')   --영수증 상태 Q:정상 R:반품(-)
+                                   AND OUTLET_CD        = :outletCd
+			                       AND SALES_DATE BETWEEN :frSalesDt AND :toSalesDt
+			                     GROUP BY SALES_DATE, OUTLET_CD, RECEIPT_NUM
+			                        
+			                    ) INFO ON INFO.SALES_DATE = ITEM.SALES_DATE 
+			                          AND INFO.OUTLET_CD = ITEM.OUTLET_CD 
+			                          AND INFO.RECEIPT_NUM = ITEM.RECEIPT_NUM
+			                
+			             	 
+			    ) TIMELIST   
+			    GROUP BY SALS_TIME
+			) A
+			      
+			INNER JOIN  ( 
+			                SELECT  1 AS GUBUN, NVL(SUM(GOODS.NET_AMT),0)  AS GRAND_AMT 
+			                FROM SLE_SALS_GOODS GOODS
+			                INNER JOIN (
+									SELECT INFO.OUTLET_CD, INFO.SALES_DATE, INFO.RECEIPT_NUM, INFO.CLOSE_TIME 
+									FROM SLE_SALS_INFO INFO
+									LEFT OUTER JOIN (
+									      SELECT OUTLET_CD, POS_NUM, CODE_NAME FROM SLE_POS_SET POS
+									      INNER JOIN SCC_COMMON_CODE GRP ON GRP.GROUP_CODE = 'SLE_0111' AND GRP.CODE = POS.OUTLET_SUB_CD
+									      <#if outletSub?has_content> WHERE GRP.CODE = :outletSub </#if>  --01:다채움 02:마루 03:나무 
+									      ORDER BY  OUTLET_CD, POS_NUM
+									) POS ON POS.OUTLET_CD = INFO.OUTLET_CD AND POS.POS_NUM = INFO.POS_NUM
+									WHERE INFO.SALS_CLASS     = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+									  AND INFO.MODIFY_STATUS  IN ('0','1') --매출조정 0:정상 , 1:조정
+									  <#if internalYn == 'Y' > AND INFO.RECEIPT_STATUS IN ('Q','R','E') </#if> --영수증 상태 Q:정상 R:반품(-)
+                                      <#if internalYn == 'N' > AND INFO.RECEIPT_STATUS IN ('Q','R') </#if> --영수증 상태 Q:정상 R:반품(-)MST.RECEIPT_STATUS IN('Q','R')   --영수증 상태 Q:정상 R:반품(-)
+                             		  AND INFO.SALES_DATE BETWEEN :frSalesDt AND :toSalesDt
+									  <#if outletCd?has_content> AND INFO.OUTLET_CD = :outletCd </#if>
+									  <#if outletSub?has_content> AND INFO.POS_NUM  = POS.POS_NUM  </#if>
+									ORDER BY    INFO.OUTLET_CD, INFO.SALES_DATE, INFO.RECEIPT_NUM
+			    				)  INFO ON INFO.OUTLET_CD   = GOODS.OUTLET_CD 
+			    				       AND INFO.SALES_DATE  = GOODS.SALES_DATE
+			    				       AND INFO.RECEIPT_NUM = GOODS.RECEIPT_NUM	
+			    				       
+			                 WHERE 1=1
+			                   --GOODS.SALS_YN          = 'Y'		--판매여부		                                     
+        			           --시작 : 2017.03.02 현대카드M포인트 제휴 추가로 매출여부 조건 변경 처리자:김호석 CH201702_00668
+				         	   AND GOODS.SELL_YN  = DECODE(GOODS.RECEIPT_STATUS ,'E','N','Y')				--매출 여부
+  					 		   --종료			                       
+			                   AND GOODS.SALS_CLASS       = '0'	--0:정상매출,1:쿠폰(상품권)대행,2:선수금수납,3:후불정산,4:영업곤리,5:미포스
+			                   AND GOODS.MODIFY_STATUS    IN ('0','1') --매출조정 0:정상 , 1:조정
+			                   <#if internalYn == 'Y' > AND GOODS.RECEIPT_STATUS IN ('Q','R','E') </#if> --영수증 상태 Q:정상 R:반품(-)
+                               <#if internalYn == 'N' > AND GOODS.RECEIPT_STATUS IN ('Q','R') </#if> --영수증 상태 Q:정상 R:반품(-)MST.RECEIPT_STATUS IN('Q','R')   --영수증 상태 Q:정상 R:반품(-)
+                               AND GOODS.OUTLET_CD        = :outletCd
+			                   AND GOODS.SALES_DATE BETWEEN :frSalesDt AND :toSalesDt
+			            ) D ON A.GUBUN = D.GUBUN
+			ORDER BY SALS_TIME		
+
+		]]></statement>
+
+</hqml>
+

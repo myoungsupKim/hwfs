@@ -1,0 +1,294 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\..\..\default_typedef.xml"/>
+  <Form id="FSP00007P" classname="FSP00005P" inheritanceid="" position="absolute 0 0 505 555" titletext="판촉 내부거래" onload="form_onload" onkeydown="frm_OnKeyDown">
+    <Layouts>
+      <Layout>
+        <Static id="Static06" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 490 10"/>
+        <Static id="Static09" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 490 0 505 540"/>
+        <Static id="Static07" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 540"/>
+        <Static id="Static10" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 0 540 505 555"/>
+        <Grid id="grd_list" taborder="0" useinputpanel="false" position="absolute 15 50 490 540" binddataset="ds_list" autoenter="select" onexpandup="grd_list_onexpandup" cellmovingtype="col" cellsizingtype="col" autofittype="col">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="30" band="left"/>
+                <Column size="30" band="left"/>
+                <Column size="150"/>
+                <Column size="200"/>
+              </Columns>
+              <Rows>
+                <Row size="25" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell/>
+                <Cell col="1" displaytype="checkbox" edittype="checkbox"/>
+                <Cell col="2" text="사용자 ID"/>
+                <Cell col="3" text="사용자명"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" style="align:center;" expr="expr:currow + 1"/>
+                <Cell col="1" displaytype="checkbox" edittype="checkbox" text="bind:CHK"/>
+                <Cell col="2" displaytype="normal" edittype="expand" style="align:center;" text="bind:SABUN" expandshow="show" expandsize="20"/>
+                <Cell col="3" style="align:left;" text="bind:NM_KOR"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="MenuID" text="판촉 내부거래" class="sta_WF_Title" position="absolute 15 15 215 39"/>
+        <Static id="Static21" text="W10" visible="false" position="absolute 15 40 490 50" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static00" text="h5" class="Guide01_AreaRed" visible="false" position="absolute 15 35 490 40"/>
+        <Button id="btn_insert" taborder="11" text="입력" onclick="fn_insert" class="btn_WF_CRUD" anchor="default" position="absolute 304 10 349 35" positiontype="position"/>
+        <Button id="btn_delete" taborder="12" text="삭제" onclick="fn_delete" class="btn_WF_CRUD" anchor="default" position="absolute 351 10 396 35" positiontype="position"/>
+        <Button id="btn_save" taborder="13" text="저장" onclick="fn_save" class="btn_WF_CRUD" anchor="default" position="absolute 398 10 443 35" positiontype="position"/>
+        <Button id="btn_close" taborder="15" text="닫기" onclick="fn_Close" class="btn_WF_CRUD" anchor="default" position="absolute 445 10 490 35" positiontype="position"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_list" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false" oncolumnchanged="ds_list_P_oncolumnchanged">
+        <ColumnInfo>
+          <Column id="SP_SABUN" type="STRING" size="256"/>
+          <Column id="SP_USERNM" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/*
+ ******************************************************************************************
+ * 시스템구분	: 구매관리>신청관리>판촉상품등록
+ * 프로그램명	: FSP00006P.xfdl
+ * 기      능	: 판촉 귀속부서
+ * 작  성  자	: 백승현
+ * 작성  일자	: 2016-04-14
+ * 비      고	:
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+ ************************************************************************************************/ 
+include "U_lib::lib_conversionCom.xjs";
+/************************************************************************************************
+ * FORM 변수 선언 영역 (필수)
+ ************************************************************************************************/ 
+
+/************************************************************************************************
+ * FORM EVENT 영역 (필수)
+ ************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Form Load (필수)
+ *---------------------------------------------------------------------------------------------*/
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	// Form Load 시 공통 기능 처리(obj:Form, bCreateEvent:이벤트 생성 여부)
+	gfn_formOnLoad(this);
+
+	// FSP Action 정보 생성
+	fsp_init(this);
+
+	// 화면 초기화
+	fn_init();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 화면 초기화
+ *---------------------------------------------------------------------------------------------*/
+function fn_init()
+{
+	// 조회
+	fn_search();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 화면 공통 단축키 이벤트
+ *---------------------------------------------------------------------------------------------*/
+function frm_OnKeyDown(obj:Form, e:KeyEventInfo)
+{
+	gfn_formKeyDown(obj, e);
+}
+
+/************************************************************************************************
+ * 공통기능 FUNCTION 영역 (필수)
+ ************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 조회 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_search()
+{
+	var strSvcID		= "SEARCH";
+	var strURL			= "U_svc::" + "fs/fsp/FSP00005E_T007.jsp";
+	var strInDatasets	= "";
+	var strOutDatasets	= "ds_list=ds_list";
+	var strArgument		= "sType=" + wrapQuote("search");
+	var strCallbackFunc	= "fn_callback";
+
+	jsp_transaction(this, strSvcID, strURL, strInDatasets, strOutDatasets, strArgument, strCallbackFunc, true, true, false);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 입력 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_insert()
+{
+	var nRow = ds_list.addRow();
+	ds_list.setColumn(nRow, "CHK", "1");
+	
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 저장 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_save()
+{
+	var strSvcID		= "SAVE";
+	var strURL			= "U_svc::" + "fs/fsp/FSP00005E_T007.jsp";
+	var strInDatasets	= "ds_list=ds_list:U";
+	var strOutDatasets	= "";
+	var strArgument		= "sType=" + wrapQuote("save");
+	var strCallbackFunc	= "fn_callback";
+
+	// 서버호출
+	jsp_transaction(this, strSvcID, strURL, strInDatasets, strOutDatasets, strArgument, strCallbackFunc, true, true, false);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 삭제 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_delete()
+{
+	if( ds_list.rowcount < 1 )
+	{
+		g_Message("EE", "삭제할 데이터가 없습니다.");
+		return;
+	}
+
+	if( ds_list.findRow("CHK", "1") == -1 )
+	{
+		g_Message("EE", "삭제할 대상을 선택하세요.");
+		return;
+	}
+
+	if( !g_Confirm("01", '선택한 대상을 삭제하겠습니까?!') )	return;
+
+	for( var i = ds_list.rowcount; i >= 0; i-- )
+	{
+		if( ds_list.getColumn(i, "CHK") == "1" )
+		{
+			ds_list.deleteRow(i);
+		}
+	}
+
+	var strSvcID		= "DELETE";
+	var strURL			= "U_svc::" + "fs/fsp/FSP00005E_T007.jsp";
+	var strInDatasets	= "ds_list=ds_list:U";
+	var strOutDatasets	= "";
+	var strArgument		= "sType=" + wrapQuote("delete");
+	var strCallbackFunc	= "fn_callback";
+
+	// 서버호출
+	jsp_transaction(this, strSvcID, strURL, strInDatasets, strOutDatasets, strArgument, strCallbackFunc, true, true, false);
+
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 출력 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_print(){}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 엑셀 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_Excel(){}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 닫기 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_Close()
+{
+	this.close();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 도움말 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_help(){}
+
+/************************************************************************************************
+ * TRANSACTION 및 CallBack 영역 (필수)
+ ************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 트랜잭션 콜백 함수
+ *---------------------------------------------------------------------------------------------*/
+function fn_callback(nErrorCode, strErrorMsg, strSvcID)
+{
+	if( nErrorCode != 0 )
+	{
+		g_Message("EE", "서비스 오류:시스템 관리자에게 문의하십시오");	
+		return;
+	}
+
+	switch( strSvcID )
+	{
+		case "SEARCH":
+			break;
+
+		case "SAVE":
+			g_Message("EE", "저장 되었습니다.");
+			fn_search();
+			break;
+
+		case "DELETE":
+			g_Message("EE", "삭제 되었습니다.");
+			fn_search();
+			break;
+	}
+}
+
+/************************************************************************************************
+ * 사용자 FUNCTION 영역 (필수)
+ ************************************************************************************************/
+
+/************************************************************************************************
+ * 각 COMPONENT 별 EVENT 영역 (필수)
+ ************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 사용자 팝업
+ *---------------------------------------------------------------------------------------------*/
+function grd_list_onexpandup(obj:Grid, e:GridMouseEventInfo)
+{
+	var sCellProperty = obj.getCellProperty("Body", e.cell, "text");
+	var sBindNm = sCellProperty.replace("bind:", "");
+
+	// 사용자
+	if( sBindNm == "SABUN" )
+	{
+		var strSql  = "SELECT A.SABUN AS SABUN \n";
+			strSql += "     , A.NM_KOR||' ('||B.MU_NM||' '||B.CC_NM||')' AS NM_KOR \n";
+			strSql += "  FROM HLDC_HR_PERSONAL A \n";
+			strSql += "     , HLDC_SC_DEPT_V B \n";
+			strSql += " WHERE A.DEPT_ID = B.DEPT_ID \n";
+			strSql += "   AND A.GB_JAEJIK <> 'RA' \n";	// 퇴직자 제외
+
+		fn_sql_common_setup(strSql,
+							"A.SABUN",
+							"A.NM_KOR",
+							"신청자사번",
+							"신청자이름",
+							"",
+							"",
+							"",
+							"신청자",
+							"SABUN;NM_KOR");
+
+		if( gfn_length(gfn_trim(gds_sql_common.getColumn(0, "ret_code")))!= 0 && gfn_length(gfn_trim(gds_sql_common.getColumn(0, "ret_code"))) != null )
+		{
+			ds_list.setColumn(e.row, "SABUN", gds_sql_common.getColumn(0, "ret_code"));
+			ds_list.setColumn(e.row, "NM_KOR", gds_sql_common.getColumn(0, "ret_name"));
+		}
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

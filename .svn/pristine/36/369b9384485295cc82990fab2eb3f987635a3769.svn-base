@@ -1,0 +1,453 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="fm.fms.foodMaterialsSupplyPriceIndexDAO">
+	<desc>식자재 단가표 HQML Query</desc>
+
+	<!-- 공급 단가정보 타 입 A 목록을 조회한다. -->
+	<statement name="a" type="select">
+		/*+ com.hwfs.fm.fms.dao.FoodMaterialsSupplyPriceIndexDAO.a */
+		<![CDATA[
+		
+		]]>
+	</statement>
+
+	<!-- 공급 단가정보 타입 A 목 록을 조회한다. -->
+	<statement name="selectListA_old" type="select"><![CDATA[
+		 SELECT 
+		 		   C.CLASS_NAME	/*세분류*/
+		     	,  A.ITEM_CODE
+		     	,  B.ITEM_NAME
+		     	,  B.ITEM_SIZE
+		     	,  B.PO_UOM	/*상품번호*//*상품명*//*규격*//*단위*/
+		     	,  A.SALE_PRICE	/*판매가*/
+		     	,  DECODE(B.TAX_CODE,'100','과세') AS TAX_CODE	/*면/과세*/
+		     	, 'D-' || TO_CHAR(NVL(E.D_DAYS,0)) AS D_DAYS	/*발주마감*/
+		     	--, 'D-'||DECODE(SUBSTR(A.ITEM_CODE,1,4),'F26',2,TO_CHAR(NVL(E.D_DAYS,0) + 1)) AS D_DAYS	/*발주마감*/
+		     	, B.ORIGIN_NAT	/*원산지*/
+		     	, DECODE(NVL(A.SALE_PRICE,0),0,NULL,ROUND((D.SALE_PRICE/A.SALE_PRICE)*100)) AS CHGRATE	/*변동율*/
+		     	, NVL(D.SALE_PRICE,0) AS PRE_PRICE	/*전단가*/
+		  FROM PO_CONTRACT_FSALE A
+		     	  , HLDC_PO_ITEM_MST B	
+		     	  , VO_ITEM_CLASS C
+		     	  , PO_PREORDER_LIST E
+		     ,(SELECT D.CENTER_CODE, D.UPJANG, D.ITEM_CODE, D.SALE_PRICE                                     
+			     FROM PO_CONTRACT_FSALE D                                                                    
+			        ,(SELECT F.CENTER_CODE, F.UPJANG, F.ITEM_CODE, MAX(F.CONTRACT_START) AS CONTRACT_START   
+			            FROM PO_CONTRACT_FSALE F                                                             
+			           WHERE 1=1                                                                             
+			             AND F.UPJANG         = SUBSTR(:contractId,17,6)
+			             --AND F.CONTRACT_START < SUBSTR(:contractId,1,8)
+			             AND SUBSTR(:contractId,1,8) BETWEEN F.CONTRACT_START AND F.CONTRACT_END
+			             AND F.USE_YN         = 'Y'                                                          
+			           GROUP BY F.CENTER_CODE, F.UPJANG, F.ITEM_CODE) E                                      
+			    WHERE D.CENTER_CODE    = E.CENTER_CODE                                                       
+			      AND D.UPJANG         = E.UPJANG                                                            
+			      AND D.ITEM_CODE      = E.ITEM_CODE                                                         
+			      AND D.CONTRACT_START = E.CONTRACT_START                                                    
+			      AND D.USE_YN         = 'Y'
+			     ) D           
+		 WHERE 1=1
+		   AND A.CONTRACT_ID = :contractId -- 검색조건
+		   AND A.USE_YN      = 'Y'  
+		   <#if itemClass == '2'>
+		   AND B.ITEM_CLASS2 = C.CLASS_CODE -- 중
+		   <#elseif itemClass == '3'>
+		   AND B.ITEM_CLASS3 = C.CLASS_CODE -- 소
+		   <#elseif itemClass == '4'>
+		   AND B.ITEM_CLASS4 = C.CLASS_CODE -- 세
+		   </#if>
+		   <#if consumYN == 'Y'>
+		   AND B.CONSUM_YN   = 'N'  -- 소모품 제외 체크
+		   </#if>
+		   <#if zeroPrice == 'N'>
+		   AND A.SALE_PRICE != 0    -- 0단가 조회 포함 미체크
+		   </#if> 
+		   AND A.ITEM_CODE   = B.ITEM_CODE
+		   AND A.CENTER_CODE = E.CENTER_CODE(+)
+		   AND A.ITEM_CODE   = E.ITEM_CODE(+)
+		   AND A.ITEM_CODE 	 = D.ITEM_CODE(+) 
+ 		   AND A.CENTER_CODE = D.CENTER_CODE(+) 
+		 ORDER BY A.ITEM_CODE
+		]]></statement>
+
+
+	<!-- 공급 단가정보 타입 A 목록을 조회한다. -->
+	<statement name="selectListA" type="select"><![CDATA[
+		 SELECT /*+ LEADING(A B C E D) USE_NL(A B C E)  USE_HASH(D) */
+		 		  C.CLASS_NAME			/*세분류*/
+		     	, A.ITEM_CODE
+		     	, B.ITEM_NAME
+		     	, B.ITEM_SIZE
+		     	, B.PO_UOM		/*상품번호*//*상품명*//*규격*//*단위*/
+		     	, A.SALE_PRICE	/*판매가*/
+		     	, DECODE(B.TAX_CODE,'100','과세') AS TAX_CODE	/*면/과세*/
+		     	, 'D-' || TO_CHAR(NVL(E.D_DAYS,0)) AS D_DAYS	/*발주마감*/
+		     	--, 'D-'||DECODE(SUBSTR(A.ITEM_CODE,1,4),'F26',2,TO_CHAR(NVL(E.D_DAYS,0) + 1)) AS D_DAYS	/*발주마감*/
+		     	--, B.ORIGIN_NAT	/*원산지*/
+		     	,NVL(B.ORIGIN_TYPE,' - ') || '/' || NVL(B.ORIGIN_NAT,' - ') || '/' || NVL(B.ORIGIN_DTL,' - ') AS ORIGIN_NAT 		/*원산지*/
+                , DECODE(NVL(D.SALE_PRICE,0),0,0,ROUND((A.SALE_PRICE / D.SALE_PRICE)*100, 2)) AS CHGRATE    /*변동율*/
+		     	, NVL(D.SALE_PRICE,0) AS PRE_PRICE	/*전단가*/
+                , NVL(A.SALE_PRICE,0) - NVL(D.SALE_PRICE,0) AS DIF_PRICE			/* 단가 차이금액 */
+                , CASE WHEN NVL(A.SALE_PRICE,0)=0 OR NVL(D.SALE_PRICE,0)=0 THEN '-'
+                  ELSE (CASE WHEN NVL(A.SALE_PRICE,0) - NVL(D.SALE_PRICE,0) > 0 THEN '↑'
+                        ELSE (CASE WHEN NVL(A.SALE_PRICE,0) - NVL(D.SALE_PRICE,0) < 0 THEN '↓'
+                              ELSE '-' END) 
+                        END) 
+                  END AS GUBUN
+                , F.MD_NAME
+                , F.VENDOR_NAME
+		  FROM PO_CONTRACT_FSALE A
+		     	  , HLDC_PO_ITEM_MST B	
+		     	  , VO_ITEM_CLASS C
+		     	  , PO_PREORDER_LIST E
+				  , ( 
+				  SELECT 
+				  		A.CENTER_CODE, A.UPJANG, A.ITEM_CODE, A.SALE_PRICE
+				  FROM  PO_CONTRACT_FSALE A
+				  WHERE A.CONTRACT_ID = (
+    													SELECT /*+ INDEX_DESC(Z PO_CONTRACT_FSALE_LAST_CID) */
+            														Z.CONTRACT_ID
+    													FROM PO_CONTRACT_FSALE Z
+    													WHERE Z.CENTER_CODE = :schCenter
+    													AND    Z.UPJANG = SUBSTR(:contractId,17,6)
+    													AND    Z.CONTRACT_START < SUBSTR(:contractId,1,8)
+    													AND    ROWNUM <= 1
+    													GROUP BY Z.CONTRACT_ID
+				  										)
+				  AND A.USE_YN = 'Y'
+				  ) D
+				  , (
+				  	SELECT A.ITEM_CD, C.WH_CNTR_CD, B.HFC_CHR_ID, EPROCUSR.FC_GET_NAME('100', 'ko_KR', 'HFC', 'USER', B.HFC_CHR_ID, '','','','','') AS MD_NAME
+          					, EPROCUSR.FC_GET_NAME('100', 'ko_KR', 'HFC', 'VENDOR', B.ERP_VD_CD, '','','','','') AS VENDOR_NAME
+  							FROM EPROCUSR.ESPINFO A
+	    						LEFT OUTER JOIN EPROCUSR.ESMVDOG B
+							    ON A.SYS_ID = B.SYS_ID
+							    AND A.COMP_CD = B.COMP_CD
+							    AND A.VD_SN = B.VD_SN
+							    AND B.OPER_ORG_SN = '414' --FC부문만
+							    INNER JOIN EPROCUSR.ESPSWHC C
+							    ON A.SYS_ID = C.SYS_ID
+							    AND A.COMP_CD = C.COMP_CD
+							    AND A.PURC_OPER_ORG_SN = C.OPER_ORG_SN_PURC
+ 							WHERE A.SYS_ID = '100'
+							   AND A.COMP_CD = 'HFC'
+							   AND :contractStDt BETWEEN A.APPLY_SD AND A.APPLY_ED  --계약 기간
+							   AND A.STS <> 'D'
+							   AND SUBSTR(A.ITEM_CD, 0 , 1) = 'F' --식자재만
+							   AND C.WH_CNTR_CD = :schCenter
+   					) F
+		 WHERE 1=1
+		   AND A.CONTRACT_ID = :contractId -- 검색조건
+		   AND A.USE_YN      = 'Y'  
+		   <#if consumYN == 'Y'>
+		   AND B.CONSUM_YN   = 'N'  -- 소모품 제외 체크
+		   </#if>
+		   <#if zeroPrice == 'N'>
+		   AND A.SALE_PRICE != 0    -- 0단가 조회 포함 미체크
+		   </#if> 
+		   AND A.ITEM_CODE   = B.ITEM_CODE
+		   <#if itemClass == '2'>
+		   AND B.ITEM_CLASS2 = C.CLASS_CODE -- 중
+		   <#elseif itemClass == '3'>
+		   AND B.ITEM_CLASS3 = C.CLASS_CODE -- 소
+		   <#elseif itemClass == '4'>
+		   AND B.ITEM_CLASS4 = C.CLASS_CODE -- 세
+		   </#if>
+		   AND A.CENTER_CODE = E.CENTER_CODE(+)
+		   AND A.ITEM_CODE   = E.ITEM_CODE(+)
+ 		   AND A.CENTER_CODE = D.CENTER_CODE(+) 
+ 		   AND A.CENTER_CODE = :schCenter
+ 		   AND A.UPJANG = D.UPJANG(+) 
+		   AND A.ITEM_CODE 	 = D.ITEM_CODE(+) 
+		   AND A.ITEM_CODE = F.ITEM_CD(+)
+		   --AND F.WH_CNTR_CD = :schCenter
+		 ORDER BY 
+		   <#if itemClass == '2'>
+		   B.ITEM_CLASS2, -- 중
+		   <#elseif itemClass == '3'>
+		   B.ITEM_CLASS3, -- 소
+		   <#elseif itemClass == '4'>
+		   B.ITEM_CLASS4, -- 세
+		   </#if>
+		   A.ITEM_CODE
+		 
+		]]></statement>
+
+
+
+	<!-- 공급 단가정보 타입 B 목록을 조회한다. -->
+	<statement name="selectListB" type="select">
+		/*+
+		com.hwfs.fm.fms.dao.FoodMaterialsSupplyPriceIndexDAO.selectListB
+		*/
+		<![CDATA[
+		SELECT '10042' AS 진풍코드
+		     , '50'    AS 단가타입
+		     , '10'    AS 사업장구분
+		     , TO_CHAR(TO_DATE(A.CONTRACT_START,'YYYYMMDD'),'YYYY-MM-DD') AS CONTRACT_START	/*단가시작일*/
+		     , A.ITEM_CODE	/*상품코드*/
+		     , C.ITEM_NAME	/*상품명*/
+		     --, C.ORIGIN_NAT	/*원산지*/
+		     ,NVL(C.ORIGIN_TYPE,' - ') || '/' || NVL(C.ORIGIN_NAT,' - ') || '/' || NVL(C.ORIGIN_DTL,' - ') AS ORIGIN_NAT 		/*원산지*/
+		     , A.CUSTCD AS 매입처코드
+			 , A.CONTRACT_PRICE	/*매입가*/
+--		     , DECODE(SIGN(NVL(B.OP_PRICE,0)),0, SCC_CEIL(A.SALE_PRICE + ROUND(A.SALE_PRICE * NVL(B.OP_RATE,0) / 100),B.CEIL_VAL), B.OP_PRICE) AS SALE_PRICE2	/*판매가*/
+--		     , DECODE(SIGN(NVL(B.OP_PRICE,0)),0, SCC_CEIL(A.SALE_PRICE + ROUND(A.SALE_PRICE * NVL(B.OP_RATE,0) / 100),B.CEIL_VAL), B.OP_PRICE) AS SALE_PRICE3	/*운영단가*/
+		     , A.SALE_PRICE AS SALE_PRICE2	/*매입가*/
+--             , A.OP_PRICE AS SALE_PRICE3	/*운영단가*/
+			 , CASE WHEN CC.OP_PRICE IS NOT NULL OR CC.OP_RATE IS NOT NULL 
+                        THEN DECODE(SIGN(NVL(CC.OP_PRICE,0) ),0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(CC.OP_RATE,0) / 100),CC.CEIL_VAL), CC.OP_PRICE) 
+                        WHEN DD.OP_PRICE IS NOT NULL OR DD.OP_RATE IS NOT NULL 
+                        THEN DECODE(SIGN(NVL(DD.OP_PRICE,0) ),0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(DD.OP_RATE,0) / 100),DD.CEIL_VAL), DD.OP_PRICE) 
+                   ELSE A.SALE_PRICE END AS SALE_PRICE3 
+		     , A.USE_YN		/*사용여부*/
+		  FROM PO_CONTRACT_FSALE A
+		     --, FMU_OP_RATE B
+		     , HLDC_PO_ITEM_MST C
+		     , ( 
+               SELECT * 
+                 FROM FMU_OP_RATE 
+                WHERE UPJANG = :schUpjang
+                  AND :stdDate BETWEEN SDATE AND EDATE 
+                  AND USE_YN = 'Y' 
+                  AND ITEM_TYPE = 'M' 
+               ) CC 
+              ,( 
+               SELECT * 
+                 FROM FMU_OP_RATE 
+                WHERE UPJANG = :schUpjang
+                  AND :stdDate BETWEEN SDATE AND EDATE 
+                  AND USE_YN = 'Y' 
+                  AND ITEM_TYPE = 'C' 
+               ) DD 
+		 WHERE 1=1
+		   AND A.CONTRACT_ID = :contractId -- 검색조건
+		   AND A.CENTER_CODE = :schCenter
+		   --AND A.USE_YN      = 'Y'
+		   <#if consumYN == 'Y'>
+		   AND C.CONSUM_YN   = 'N'  -- 소모품 제외 체크
+		   </#if>
+		   <#if zeroPrice == 'N'>
+		   AND A.SALE_PRICE != 0    -- 0단가 조회 포함 미체크
+		   </#if>
+		   --AND B.UPJANG(+) = :schUpjang
+		   --AND :stdDate BETWEEN B.SDATE(+) AND B.EDATE(+)
+		   --AND B.USE_YN(+) = 'Y'
+		   --AND A.ITEM_CODE   = B.ITEM_CODE(+)
+		   AND A.ITEM_CODE   = C.ITEM_CODE
+		   AND A.ITEM_CODE = CC.ITEM_CODE(+) 
+           AND C.ITEM_CLASS4 = DD.ITEM_CODE(+) 
+           AND CC.UPJANG(+) = :schUpjang
+           AND DD.UPJANG(+) = :schUpjang
+           AND :stdDate BETWEEN CC.SDATE(+) AND CC.EDATE(+)
+           AND :stdDate BETWEEN DD.SDATE(+) AND DD.EDATE(+)
+		 ORDER BY A.ITEM_CODE
+		]]>
+	</statement>
+
+	<!-- 공급 단가정보 타입 C 목록을 조회한다. -->
+	<statement name="selectListC" type="select">
+		/*+
+		com.hwfs.fm.fms.dao.FoodMaterialsSupplyPriceIndexDAO.selectListC
+		*/
+		<![CDATA[
+		SELECT /*+ PUSH_PRED(E)  */ A.ITEM_CODE		/*상품코드*/
+		     , C.CLASS_NAME4	/*세분류*/
+		     , C.CLASS_NAME2	/*중분류*/
+		     , B.ITEM_NAME		/*상품명*/
+		     --, B.ORIGIN_NAT		/*원산지*/
+		     ,NVL(B.ORIGIN_TYPE,' - ') || '/' || NVL(B.ORIGIN_NAT,' - ') || '/' || NVL(B.ORIGIN_DTL,' - ') AS ORIGIN_NAT 		/*원산지*/
+		     , B.PO_UOM			/*발주단위*/
+		     , DECODE(B.TAX_CODE,'100','과세','면세') AS TAX_CODE	/*면/과세*/
+		     , B.KG_CONVERT_RATE * 1000 AS KG_CONVERT_RATE			/*발주환산량*/
+		    -- , 'D-'||DECODE(SUBSTR(A.ITEM_CODE,1,3),'F26',2,TO_CHAR(NVL(E.D_DAYS,0) + 1)) AS D_DAYS	/*리드타임*/
+		     , 'D-' || TO_CHAR(NVL(E.D_DAYS,0)) AS D_DAYS	/*리드타임*/
+		     , B.MIN_ORD_QTY	/*최소발주 량*/
+		     , C.CLASS_CODE2	/*중분류*/
+		     , C.CLASS_CODE3	/*소분류*/
+		     , C.CLASS_CODE4	/*세분류*/
+		     , NULL				/*세분류..*/
+		     , B.ITEM_SIZE		/*규격*/
+		     , B.PO_UOM AS PO_UOM2 	/*발주단위*/
+		     , DECODE(B.TAX_CODE,'100','1','0') AS TAX_CODE2	/*면/과세*/
+		  FROM PO_CONTRACT_FSALE A
+		     , HLDC_PO_ITEM_MST B
+		     , HLDC_PO_ITEM_CLASS_V C
+		     , PO_PREORDER_LIST E
+		 WHERE 1=1
+		   AND A.CONTRACT_ID = :contractId -- 검색조건
+		   AND A.CENTER_CODE = :schCenter
+		   AND A.USE_YN      = 'Y'
+		   <#if consumYN == 'Y'>
+		   AND B.CONSUM_YN   = 'N'  -- 소모품 제외 체크
+		   </#if>
+		   <#if zeroPrice == 'N'>
+		   AND A.SALE_PRICE != 0    -- 0단가 조회 포함 미체크
+		   </#if>
+		   AND A.ITEM_CODE   = B.ITEM_CODE
+		   AND A.CENTER_CODE = E.CENTER_CODE(+)
+		   AND A.ITEM_CODE   = E.ITEM_CODE(+)
+		   AND B.ITEM_CLASS4 = C.CLASS_CODE4(+)
+		 ORDER BY
+		       C.CLASS_CODE2	/*중분류*/
+		     , C.CLASS_CODE3	/*소분류*/
+		     , C.CLASS_CODE4	/*세분류*/
+		 	 , A.ITEM_CODE
+		]]>
+	</statement>
+
+	<!-- 공급 단가정보 타입 D 목록을 조회한다. -->
+	<statement name="selectListD" type="select">
+		/*+
+		com.hwfs.fm.fms.dao.FoodMaterialsSupplyPriceIndexDAO.selectListD
+		*/
+		<![CDATA[
+		SELECT /*+ PUSH_PRED(E) */ A.ITEM_CODE		/*품목코드*/
+		     , B.ITEM_NAME      /*품목명*/
+		     , B.ITEM_SIZE      /*규격(스팩)*/
+		     --, B.ORIGIN_NAT		/*원산지*/
+		     ,NVL(B.ORIGIN_TYPE,' - ') || '/' || NVL(B.ORIGIN_NAT,' - ') || '/' || NVL(B.ORIGIN_DTL,' - ') AS ORIGIN_NAT 		/*원산지*/
+		     , C.CLASS_CODE2    /*중분류*/
+		     , C.CLASS_NAME2    /*중분류명*/
+		     , C.CLASS_CODE3    /*소분류*/
+		     , C.CLASS_NAME3    /*소분류명*/
+		     , C.CLASS_CODE4    /*세분류*/
+		     , C.CLASS_NAME4    /*세분류명*/
+		     , A.SALE_PRICE     /*판매가*/
+		     , B.PO_UOM         /*단위*/
+		     , B.KG_CONVERT_RATE * 1000	AS KG_CONVERT_RATE		/*환산량*/
+		     , DECODE(B.TAX_CODE,'100','Y','N') AS TAX_CODE	/*과/면*/
+		     --, 'D-'||DECODE(SUBSTR(A.ITEM_CODE,1,3),'F26',2,TO_CHAR(NVL(E.D_DAYS,0) + 1)) AS D_DAYS	/*발주마감*/
+		     , 'D-' || TO_CHAR(NVL(E.D_DAYS,0)) AS D_DAYS	/*발주마감*/
+		     , B.POINT_FLAG 
+		  FROM PO_CONTRACT_FSALE A
+		     , HLDC_PO_ITEM_MST B
+		     , HLDC_PO_ITEM_CLASS_V C
+		     , PO_PREORDER_LIST E
+		 WHERE 1=1
+		   AND A.CONTRACT_ID = :contractId -- 검색조건
+		   AND A.CENTER_CODE = :schCenter
+		   AND A.USE_YN      = 'Y' 
+		   <#if consumYN == 'Y'>
+		   AND B.CONSUM_YN   = 'N'  -- 소모품 제외 체크
+		   </#if>
+		   <#if zeroPrice == 'N'>
+		   AND A.SALE_PRICE != 0    -- 0단가 조회 포함 미체크
+		   </#if>
+		   AND A.ITEM_CODE   = B.ITEM_CODE
+		   AND A.CENTER_CODE = E.CENTER_CODE(+)
+		   AND A.ITEM_CODE   = E.ITEM_CODE(+)
+		   AND B.ITEM_CLASS4 = C.CLASS_CODE4(+)
+		 ORDER BY 
+		     C.CLASS_CODE2    /*중분류*/
+		   , C.CLASS_CODE3    /*소분류*/
+		   , C.CLASS_CODE4    /*세분류*/
+		   , A.ITEM_CODE
+		]]>
+	</statement>
+	
+	<!-- 공급 단가정보 브랜드유통 목록을 조회한다. -->
+	<statement name="selectListF" type="select"><![CDATA[
+		 SELECT /*+ LEADING(A B C E D) USE_NL(A B C E)  USE_HASH(D) */
+		 		  C.CLASS_NAME			/*세분류*/
+		     	, A.ITEM_CODE
+		     	, B.ITEM_NAME
+		     	, B.ITEM_SIZE
+		     	, B.PO_UOM		/*상품번호*//*상품명*//*규격*//*단위*/
+		     	, A.SALE_PRICE	/*판매가*/
+		     	, DECODE(B.TAX_CODE,'100','과세') AS TAX_CODE	/*면/과세*/
+		     	, 'D-' || TO_CHAR(NVL(E.D_DAYS,0)) AS D_DAYS	/*발주마감*/
+		     	--, 'D-'||DECODE(SUBSTR(A.ITEM_CODE,1,4),'F26',2,TO_CHAR(NVL(E.D_DAYS,0) + 1)) AS D_DAYS	/*발주마감*/
+		     	--, B.ORIGIN_NAT	/*원산지*/
+		     	,NVL(B.ORIGIN_TYPE,' - ') || '/' || NVL(B.ORIGIN_NAT,' - ') || '/' || NVL(B.ORIGIN_DTL,' - ') AS ORIGIN_NAT 		/*원산지*/
+                , DECODE(NVL(D.SALE_PRICE,0),0,0,ROUND((A.SALE_PRICE / D.SALE_PRICE)*100, 2)) AS CHGRATE    /*변동율*/
+		     	, NVL(D.SALE_PRICE,0) AS PRE_PRICE	/*전단가*/
+                , NVL(A.SALE_PRICE,0) - NVL(D.SALE_PRICE,0) AS DIF_PRICE			/* 단가 차이금액 */
+                , CASE WHEN NVL(A.SALE_PRICE,0)=0 OR NVL(D.SALE_PRICE,0)=0 THEN '-'
+                  ELSE (CASE WHEN NVL(A.SALE_PRICE,0) - NVL(D.SALE_PRICE,0) > 0 THEN '↑'
+                        ELSE (CASE WHEN NVL(A.SALE_PRICE,0) - NVL(D.SALE_PRICE,0) < 0 THEN '↓'
+                              ELSE '-' END) 
+                        END) 
+                  END AS GUBUN
+                , F.MD_NAME
+                , F.VENDOR_NAME
+                , (SELECT WIN_ITEM_CD FROM EPROCUSR.ESMMTGL G WHERE G.SYS_ID = '100' AND B.ITEM_CODE = G.ITEM_CD) AS WIN_ITEM_CD
+		  FROM PO_CONTRACT_FSALE A
+		     	  , HLDC_PO_ITEM_MST B	
+		     	  , VO_ITEM_CLASS C
+		     	  , PO_PREORDER_LIST E
+				  , ( 
+				  SELECT 
+				  		A.CENTER_CODE, A.UPJANG, A.ITEM_CODE, A.SALE_PRICE
+				  FROM  PO_CONTRACT_FSALE A
+				  WHERE A.CONTRACT_ID = (
+    													SELECT /*+ INDEX_DESC(Z PO_CONTRACT_FSALE_LAST_CID) */
+            														Z.CONTRACT_ID
+    													FROM PO_CONTRACT_FSALE Z
+    													WHERE Z.CENTER_CODE = :schCenter
+    													AND    Z.UPJANG = SUBSTR(:contractId,17,6)
+    													AND    Z.CONTRACT_START < SUBSTR(:contractId,1,8)
+    													AND    ROWNUM <= 1
+    													GROUP BY Z.CONTRACT_ID
+				  										)
+				  AND A.USE_YN = 'Y'
+				  ) D
+				  , (
+				  	SELECT A.ITEM_CD, C.WH_CNTR_CD, B.HFC_CHR_ID, EPROCUSR.FC_GET_NAME('100', 'ko_KR', 'HFC', 'USER', B.HFC_CHR_ID, '','','','','') AS MD_NAME
+          					, EPROCUSR.FC_GET_NAME('100', 'ko_KR', 'HFC', 'VENDOR', B.ERP_VD_CD, '','','','','') AS VENDOR_NAME
+  							FROM EPROCUSR.ESPINFO A
+	    						LEFT OUTER JOIN EPROCUSR.ESMVDOG B
+							    ON A.SYS_ID = B.SYS_ID
+							    AND A.COMP_CD = B.COMP_CD
+							    AND A.VD_SN = B.VD_SN
+							    AND B.OPER_ORG_SN = '414' --FC부문만
+							    INNER JOIN EPROCUSR.ESPSWHC C
+							    ON A.SYS_ID = C.SYS_ID
+							    AND A.COMP_CD = C.COMP_CD
+							    AND A.PURC_OPER_ORG_SN = C.OPER_ORG_SN_PURC
+ 							WHERE A.SYS_ID = '100'
+							   AND A.COMP_CD = 'HFC'
+							   AND :contractStDt BETWEEN A.APPLY_SD AND A.APPLY_ED  --계약 기간
+							   AND A.STS <> 'D'
+							   AND SUBSTR(A.ITEM_CD, 0 , 1) = 'F' --식자재만
+							   AND C.WH_CNTR_CD = :schCenter
+   					) F
+		 WHERE 1=1
+		   AND A.CONTRACT_ID = :contractId -- 검색조건
+		   AND A.USE_YN      = 'Y'  
+		   <#if consumYN == 'Y'>
+		   AND B.CONSUM_YN   = 'N'  -- 소모품 제외 체크
+		   </#if>
+		   <#if zeroPrice == 'N'>
+		   AND A.SALE_PRICE != 0    -- 0단가 조회 포함 미체크
+		   </#if> 
+		   AND A.ITEM_CODE   = B.ITEM_CODE
+		   <#if itemClass == '2'>
+		   AND B.ITEM_CLASS2 = C.CLASS_CODE -- 중
+		   <#elseif itemClass == '3'>
+		   AND B.ITEM_CLASS3 = C.CLASS_CODE -- 소
+		   <#elseif itemClass == '4'>
+		   AND B.ITEM_CLASS4 = C.CLASS_CODE -- 세
+		   </#if>
+		   AND A.CENTER_CODE = E.CENTER_CODE(+)
+		   AND A.ITEM_CODE   = E.ITEM_CODE(+)
+ 		   AND A.CENTER_CODE = D.CENTER_CODE(+) 
+ 		   AND A.CENTER_CODE = :schCenter
+ 		   AND A.UPJANG = D.UPJANG(+) 
+		   AND A.ITEM_CODE 	 = D.ITEM_CODE(+) 
+		   AND A.ITEM_CODE = F.ITEM_CD(+)
+		   --AND F.WH_CNTR_CD = :schCenter
+		 ORDER BY 
+		   <#if itemClass == '2'>
+		   B.ITEM_CLASS2, -- 중
+		   <#elseif itemClass == '3'>
+		   B.ITEM_CLASS3, -- 소
+		   <#elseif itemClass == '4'>
+		   B.ITEM_CLASS4, -- 세
+		   </#if>
+		   A.ITEM_CODE
+		 
+		]]></statement>
+
+</hqml>
+

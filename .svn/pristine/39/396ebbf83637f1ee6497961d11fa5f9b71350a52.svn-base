@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT B.ITEM_CLASS2,                                     
+       (SELECT C.CLASS_NAME FROM HLDC_PO_ITEM_CLASS_HLDC_V C WHERE B.ITEM_CLASS2 = C.CLASS_CODE) 
+       AS CLASS2_NAME,                                        
+       B.ITEM_CLASS3,                                           
+       (SELECT C.CLASS_NAME FROM HLDC_PO_ITEM_CLASS_HLDC_V C WHERE B.ITEM_CLASS3 = C.CLASS_CODE) 
+       AS CLASS3_NAME,                                        
+       A.SUBINV_CODE,                                          
+       A.SUBINV_NAME,                                          
+       A.ITEM_CODE,                                              
+       A.ITEM_NAME,                                              
+       A.ITEM_SIZE,                                               
+       A.UOM_CODE,                                             
+       DECODE(NVL(A.TO_QTY,0),0,0,A.TO_QTY) AS REAL_QTY,
+       DECODE(NVL(A.OUT_QTY,0),0,0,A.OUT_QTY) AS USE_QTY,
+       A.PRICE,           
+       A.OPPRICE,           
+       (NVL(A.FROM_QTY,0) + NVL(A.IN_QTY,0)) AS DAY_QTY,         
+       --A.CONTENTS,
+       NVL(A.CONTENTS, ' ') CONTENTS,
+       A.SID,
+       A.FROM_OPAMOUNT,
+       A.IN_OPAMOUNT,
+       A.FROM_OPAMOUNT + A.IN_OPAMOUNT AS DAY_OPAMOUNT,
+       A.OUT_OPAMOUNT,
+       A.SDATE AS ONHAND_DATE,
+       A.TO_OPAMOUNT, 
+       B.ORIGIN_TYPE, 
+       B.ORIGIN_NAT                                
+    FROM FMP_SUBUL A, FMS_ITEM_V B, FMS_SUBINVENTORY C
+       ,(SELECT SUBINV_CODE, ITEM_CODE
+           FROM FMS_STOCK_ITEM WHERE UPJANG = #UPJANG# AND STOCK_YN = 'Y' AND USE_YN = 'Y'
+          UNION ALL
+         SELECT A.SUBINV_CODE
+              , DECODE((SELECT COUNT(*) FROM FMS_STOCK_ITEM B
+                        WHERE B.UPJANG = A.UPJANG
+                          AND B.SUBINV_CODE = A.SUBINV_CODE
+                          AND B.STOCK_YN = 'Y' AND B.USE_YN = 'Y')
+                      ,0,'%','X') AS ITEM_CODE
+           FROM FMS_SUBINVENTORY A
+          WHERE A.UPJANG = #UPJANG#
+            AND A.STOCK_YN = 'Y'
+        ) D
+   WHERE A.ITEM_CODE = B.ITEM_CODE
+     AND A.SUBINV_CODE = C.SUBINV_CODE AND C.STOCK_YN = 'Y'
+     AND A.SUBINV_CODE = D.SUBINV_CODE AND A.ITEM_CODE LIKE D.ITEM_CODE
+<isNotNull col="SUBINV_CODE">
+     AND A.SUBINV_CODE = #SUBINV_CODE#       
+</isNotNull>
+     AND A.UPJANG = #UPJANG#
+     AND A.SDATE = #SDATE#
+<isNotNull col="ZERO">
+     AND (NVL(A.FROM_QTY,0) + NVL(A.IN_QTY,0)) &lt;&gt; '0'
+</isNotNull>
+  ORDER BY A.SUBINV_CODE, A.ITEM_CODE	</statement>
+	<input default-name="ds_cond">
+		<col name="UPJANG" size="50" type="VARCHAR" description="" /> 
+		<col name="SUBINV_CODE" size="50" type="VARCHAR" description="" /> 
+		<col name="SDATE" size="20" type="VARCHAR" description="" /> 
+		<col name="ZERO" size="10" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="ITEM_CLASS2" size="50" type="VARCHAR" description="" /> 
+		<col name="CLASS2_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="ITEM_CLASS3" size="50" type="VARCHAR" description="" /> 
+		<col name="CLASS3_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="SUBINV_CODE" size="100" type="VARCHAR" description="" /> 
+		<col name="SUBINV_NAME" size="200" type="VARCHAR" description="" /> 
+		<col name="ITEM_CODE" size="100" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAME" size="200" type="VARCHAR" description="" /> 
+		<col name="ITEM_SIZE" size="100" type="VARCHAR" description="" /> 
+		<col name="UOM_CODE" size="100" type="VARCHAR" description="" /> 
+		<col name="REAL_QTY" size="100" type="VARCHAR" description="" /> 
+		<col name="PRICE" size="100" type="VARCHAR" description="" /> 
+		<col name="OPPRICE" size="100" type="VARCHAR" description="" /> 
+		<col name="DAY_QTY" size="100" type="VARCHAR" description="" /> 
+		<col name="CONTENTS" size="200" type="VARCHAR" description="" /> 
+		<col name="USE_QTY" size="200" type="VARCHAR" description="" /> 
+		<col name="SID" size="200" type="VARCHAR" description="" /> 
+		<col name="FROM_OPAMOUNT" size="100" type="VARCHAR" description="" /> 
+		<col name="IN_OPAMOUNT" size="100" type="VARCHAR" description="" /> 
+		<col name="DAY_OPAMOUNT" size="100" type="VARCHAR" description="" /> 
+		<col name="OUT_OPAMOUNT" size="100" type="VARCHAR" description="" /> 
+		<col name="TO_OPAMOUNT" size="100" type="VARCHAR" description="" /> 
+		<col name="ONHAND_DATE" size="100" type="VARCHAR" description="" />
+		<col name="ORIGIN_TYPE" size="100" type="VARCHAR" description="" />
+		<col name="ORIGIN_NAT" size="100" type="VARCHAR" description="" /> 
+	</output>
+</query>

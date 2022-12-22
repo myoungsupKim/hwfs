@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[매출집계 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT ACC_OCC.UPJANG
+     , ACC_OCC.ACCTCD
+     , ACC_OCC.CUST_ID
+     , '' AS SALE_TYPE
+     , '' AS TAX_CODE
+     , SUM(ACC_OCC.OCCUR_AMT) AS OCCUR_AMT
+     , SUM(CASE WHEN ACC_OCC.TAX_CODE = '100' THEN ROUND(ACC_OCC.OCCUR_AMT/1.1) ELSE ACC_OCC.OCCUR_AMT END) AS OCCUR_SUPAMT
+     , SUM(CASE WHEN ACC_OCC.TAX_CODE = '100' THEN ACC_OCC.OCCUR_AMT - ROUND(ACC_OCC.OCCUR_AMT/1.1) ELSE 0 END) AS OCCUR_TAXAMT
+     , SUM(ACC_OCC.OCCUR_QTY) AS OCCUR_QTY
+     , SUBSTR(ACC_OCC.OCCUR_DATE,0,6) AS OCCUR_YYYYMM
+     , (
+                SELECT UPJANGNM
+                FROM   FMS_UPJANG_V
+                WHERE  UPJANG = ACC_OCC.UPJANG
+          ) AS UPJANGNM
+     , (
+                SELECT CUSTNM
+                FROM   FMS_CUSTOM
+                WHERE  ACC_OCC.CUST_ID = CUST_ID
+       ) AS CUSTNM
+     , ACC.ACCTNM
+     , '' AS SALE_TYPE_NM
+  FROM FMO_ACCT_OCCUR ACC_OCC
+     , FMS_UPJANG UJ
+     , FMO_ACCOUNT ACC
+WHERE ACC_OCC.UPJANG = UJ.UPJANG
+  AND UJ.USE_YN = 'Y'
+  AND SUBSTR(ACC_OCC.OCCUR_DATE,0,6) BETWEEN #OCCUR_F_DATE# AND #OCCUR_T_DATE#
+  AND ACC.UPJANG = #MAIN_UPJANG#
+  AND ACC_OCC.ACCTCD = ACC.ACCTCD
+  AND UJ.MAIN_UPJANG = #MAIN_UPJANG#
+<isNotNull col="ACCT_TYPE">
+  AND ACC.ACCT_TYPE = #ACCT_TYPE#
+</isNotNull>
+<isNotNull col="UPJANG">
+  AND ACC_OCC.UPJANG = #UPJANG#
+</isNotNull>
+<isEqual col="g_UserKind" value="사업장">
+  -- 사업장인 경우
+  AND (ACC_OCC.UPJANG = #g_Upjang#
+         OR ACC_OCC.UPJANG IN ( SELECT UPJANG FROM FMS_USER_UPJANG WHERE SABUN = #g_EmpNo# ))
+</isEqual>
+ GROUP BY ACC_OCC.UPJANG, ACC_OCC.ACCTCD, ACC.ACCTNM, ACC_OCC.CUST_ID, SUBSTR(ACC_OCC.OCCUR_DATE,0,6)	</statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

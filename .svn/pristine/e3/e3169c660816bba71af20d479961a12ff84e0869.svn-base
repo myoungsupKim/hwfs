@@ -1,0 +1,196 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FSM00204P" onload="form_onload" titletext="레시피상세보기" position="absolute 0 0 950 500" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Grid autoenter="select" binddataset="ds_list" cellmovingtype="col" cellsizingtype="both" readonly="false" enable="true" id="grd_list" useinputpanel="false" onheadclick="grd_list_OnHeadClick" taborder="1" tabstop="true" usecontextmenu="true" useselcolor="true" visible="true" wheelscrollrow="1" position="absolute 9 45 940 487" selecttype="row" autofittype="col" anchor="all" class="grd_WF_LineNone">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="30"/>
+                <Column size="67"/>
+                <Column size="106"/>
+                <Column size="77"/>
+                <Column size="110"/>
+                <Column size="90"/>
+                <Column size="60"/>
+                <Column size="58"/>
+                <Column size="66"/>
+                <Column size="76"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="text"/>
+                <Cell col="1" displaytype="text" text="레시피코드" wordwrap="word"/>
+                <Cell col="2" displaytype="text" text="레시피명"/>
+                <Cell col="3" displaytype="text" text="자재코드" wordwrap="word"/>
+                <Cell col="4" displaytype="text" text="자재명"/>
+                <Cell col="5" displaytype="text" text="자재특성"/>
+                <Cell col="6" displaytype="text" text="규격"/>
+                <Cell col="7" displaytype="text" text="단위"/>
+                <Cell col="8" displaytype="text" text="1인량(g)" wordwrap="word"/>
+                <Cell col="9" displaytype="text" text="표준원가" wordwrap="word"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" style="align:center;" expr="expr:currow+1"/>
+                <Cell col="1" displaytype="text" style="align:center;" text="bind:RECIPE_CD" suppress="1"/>
+                <Cell col="2" displaytype="text" style="align:left;" text="bind:RECIPE_NAME" suppress="1"/>
+                <Cell col="3" displaytype="text" style="align:center;" text="bind:ITEM_CODE" suppress="2"/>
+                <Cell col="4" displaytype="text" style="align:left;" text="bind:ITEM_NAME" suppress="3"/>
+                <Cell col="5" displaytype="text" style="align:left;" text="bind:FEATURE_NAME" suppress="3"/>
+                <Cell col="6" displaytype="text" style="align:left;" text="bind:ITEM_SIZE" suppress="3"/>
+                <Cell col="7" displaytype="text" style="align:center;" text="bind:PO_UOM" suppress="3"/>
+                <Cell col="8" displaytype="number" style="align:right;" text="bind:NEED_QTY"/>
+                <Cell col="9" displaytype="number" style="align:right;" text="bind:MENU_COST" mask="#,##0"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Edit enable="false" id="ed_menuNm" taborder="3" position="absolute 118 10 547 37" style=":disabled {background:white;}"/>
+        <Static id="st_gubun" text="식 단 명" position="absolute 9 10 119 37" class="sta_WFDA_Label01"/>
+        <Button id="btn_close" taborder="7" text="닫기" onclick="fn_close" class="btn_WF_CRUD" position2="absolute r:10 w:45 t:11 h:25" positiontype="position2"/>
+        <Static id="Static01" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 0 0 840 10"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 10 420"/>
+        <Static id="Static03" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 940 0 950 420"/>
+        <Static id="Static00" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 0 487 840 500"/>
+        <Static id="Static04" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 0 37 840 45"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_list">
+        <ColumnInfo>
+          <Column id="FEATURE_NAME" size="100" type="STRING"/>
+          <Column id="ITEM_CODE" size="12" type="STRING"/>
+          <Column id="ITEM_NAME" size="200" type="STRING"/>
+          <Column id="ITEM_SIZE" size="100" type="STRING"/>
+          <Column id="MENU_COST" size="22" type="BIGDECIMAL"/>
+          <Column id="NEED_QTY" size="22" type="BIGDECIMAL"/>
+          <Column id="PERSON_PRICE" size="22" type="BIGDECIMAL"/>
+          <Column id="PO_UOM" size="10" type="STRING"/>
+          <Column id="RECIPE_CD" size="20" type="STRING"/>
+          <Column id="RECIPE_NAME" size="50" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 메뉴관리/식단관리/표준식단검색 
+ * 프로그램명   : FSM00201V.XML
+ * 기      능   : 표준식단검색 
+ * 작  성  자   : 
+ * 작성  일자   : 2007-12-21
+ * 비      고   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js";
+//@@컨버터에서 주석처리 #include "LIB::tit_comm_0001.js";		// X-Framework Lib
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+	
+	// X-Framework : Action 정보 생성 
+	fsp_init(this);
+	
+	ed_menuNm.value = fa_menuNm;
+	
+    var arg = "SINGLE_MENU_CD=" + wrapQuote(fa_menuCd);
+        arg += " MENU_DATE=" + wrapQuote(fa_menu_date);
+        arg += " UPJANG=" + wrapQuote( fa_upjang ); 
+        arg += " SUBINV_CODE=" + wrapQuote( fa_subinv );
+        arg += " MAIN_UPJANG=" + wrapQuote( fa_mainupjang );
+            
+        
+	if ( fa_gubun == "S" ) {
+        // 표준 
+        fsp_addSearch(this, "fs/fsm:FSM00200E_S012");
+  
+	} else {
+        // 업장 
+        fsp_addSearch(this, "fs/fsm:FSM00200E_S013");
+	}
+	
+    fsp_callService(this, "", ""
+        , ""
+        , "ds_list=ds_list"
+        , arg
+        , "fn_afterSearch"
+        , true);		// 서비스 호출 
+}
+
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_close()
+ * 기      능   : [닫기 버튼 ]
+ ******************************************************************************************
+ */
+function fn_close(obj:Button, e:ClickEventInfo)
+{
+    close();
+}
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_afterSearch()
+ * 입      력   : errCode 	= 에러코드
+				  errMsg	= 에러메세지
+ * 반      환   : 없음
+ * 기      능   : 조회 후 실행 함수
+ * 작  성  자   : 
+ * 작성  일자   : 
+ ******************************************************************************************
+ */
+function fn_afterSearch(errCode, errMsg)
+{
+    gfn_showMsgGrid(grd_list);
+}
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : grd_List_OnHeadClick(obj,nCell,nX,nY,nPivotIndex)
+ * 기      능   : 그리드헤드 더블클릭시 Sort
+ * 작  성  자   : 
+ * 작성  일자   : 
+ ******************************************************************************************
+ */
+function grd_list_OnHeadClick(obj:Grid, e:GridClickEventInfo)
+{
+    gfn_gridSort(obj, e); //(eval(obj.binddataset), obj, e.cell);    
+}]]></Script>
+  </Form>
+</FDL>

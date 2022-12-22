@@ -1,0 +1,233 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\..\..\default_typedef.xml"/>
+  <Form id="frm_This" classname="COMP_GUIDE_13" inheritanceid="" position="absolute 0 0 1252 725" titletext="Batch로 등록되지 않은 스케줄 관리" scrollbars="autoboth" onload="form_onload">
+    <Layouts>
+      <Layout>
+        <Grid id="grd_list" taborder="1" autoenter="select" useinputpanel="false" cellsizingtype="col" position="absolute 0 56 1237 710" anchor="all" binddataset="ds_list" autofittype="col" cellmovingtype="col">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="30" band="left"/>
+                <Column size="142"/>
+                <Column size="86"/>
+                <Column size="154"/>
+                <Column size="356"/>
+                <Column size="89"/>
+                <Column size="248"/>
+                <Column size="65"/>
+                <Column size="64"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell class="head_Excel"/>
+                <Cell col="1" text="스케줄명"/>
+                <Cell col="2" text="Job그룹"/>
+                <Cell col="3" text="Job이름"/>
+                <Cell col="4" text="스케줄 설명"/>
+                <Cell col="5" text="트리거형태"/>
+                <Cell col="6" text="스케줄 주기"/>
+                <Cell col="7" text="실행서버"/>
+                <Cell col="8" text="컨테이너"/>
+              </Band>
+              <Band id="body">
+                <Cell expr="currow+1"/>
+                <Cell col="1" style="align:left;" text="bind:schdName"/>
+                <Cell col="2" style="align:left;" text="bind:jobGroup"/>
+                <Cell col="3" style="align:left;" text="bind:jobName"/>
+                <Cell col="4" style="align:left;" text="bind:schdDesc"/>
+                <Cell col="5" displaytype="normal" style="align:center;" text="bind:triggerType"/>
+                <Cell col="6" style="align:left;" text="bind:cronExpression"/>
+                <Cell col="7" displaytype="number" style="align:center;" text="bind:execServer"/>
+                <Cell col="8" displaytype="number" style="align:center;" text="bind:execContainer"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="Static06" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 1237 0 1252 710" anchor="top right"/>
+        <Static id="Static71" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 0 710 1252 725" anchor="left bottom"/>
+        <Div id="div_cmnBtn" anchor="left top right" taborder="0" url="cmn::CmnBtn.xfdl" text="Div00" scrollbars="none" position="absolute 0 0 1237 30"/>
+        <Static id="Static22" text="Batch로 등록되지 않은 스케줄 목록" class="sta_WF_Title01" position="absolute 0 40 450 58" anchor="left top"/>
+        <Static id="Static16" text="글자기준간격 h05" class="Guide01_AreaRed" visible="false" position="absolute 0 53 450 58" anchor="left top"/>
+        <Static id="Static04" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 0 30 93 40" anchor="left top"/>
+      </Layout>
+    </Layouts>
+    <Bind/>
+    <Objects>
+      <Dataset id="ds_cmnAuth" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="srcYn" type="STRING" size="256"/>
+          <Column id="insYn" type="STRING" size="256"/>
+          <Column id="delYn" type="STRING" size="256"/>
+          <Column id="savYn" type="STRING" size="256"/>
+          <Column id="prtYn" type="STRING" size="256"/>
+          <Column id="exlYn" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="srcYn">1</Col>
+            <Col id="insYn">0</Col>
+            <Col id="delYn">0</Col>
+            <Col id="savYn">0</Col>
+            <Col id="prtYn">0</Col>
+            <Col id="exlYn">0</Col>
+          </Row>
+        </Rows>
+      </Dataset>
+      <Dataset id="ds_list" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false" oncolumnchanged="ds_list_oncolumnchanged">
+        <ColumnInfo>
+          <Column id="schdName" type="STRING" size="50"/>
+          <Column id="jobGroup" type="STRING" size="100"/>
+          <Column id="jobName" type="STRING" size="256"/>
+          <Column id="schdDesc" type="STRING" size="400"/>
+          <Column id="cronExpression" type="STRING" size="256"/>
+          <Column id="execServer" type="STRING" size="256"/>
+          <Column id="execContainer" type="STRING" size="256"/>
+          <Column id="triggerType" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : NonBatchSchdMngt
+  파 일 명 : NonBatchSchdMngt.xfdl
+  기    능 : 배치로 등록되지 않은 스케쥴 관리 
+
+    수정일    수정자                  수정내용
+  ----------   -------  --------------------------------------------------
+  2015.04.16   kksoo     최초 생성
+*/
+
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+************************************************************************************************/
+include "lib::lib_com.xjs";
+
+
+/************************************************************************************************
+ * FORM 변수 선언 영역 (필수)
+************************************************************************************************/
+
+/************************************************************************************************
+ * FORM EVENT 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Form Load (필수)
+ *---------------------------------------------------------------------------------------------*/
+function form_onload(obj:Form, e:LoadEventInfo)
+{	
+	// Form Load 시 공통 기능 처리(obj:Form, bCreateEvent:이벤트 생성 여부)
+	gfn_formOnLoad(this);
+	
+	// 초기값 셋팅
+	fn_init();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 초기값 셋팅
+ *---------------------------------------------------------------------------------------------*/
+function fn_init()
+{
+	//조회 실행
+	fn_search()
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 화면 닫기 전 변경 유무 체크 (필수-Frame에서 창 닫힐때 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_close()
+{	
+	return true;
+}
+
+/************************************************************************************************
+ * 공통기능 FUNCTION 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 조회 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_search()
+{
+    // Grid sort 표시 초기화(필수)
+    gfn_clearSortMark(grd_list);
+
+    var strSvcID    = "search";
+    var strURL      = "sc/scb/batchSchdMngt/selectNonBatchSchedulerList.xdo";
+    var strInDs     = "";
+    var strOutDs    = "ds_list=ds_list";
+    var strArg      = "";
+    var strCallback = "fn_callBack";
+    var bAsync      = true;
+    
+    gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 신규 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_insert()
+{
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 삭제 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_delete()
+{
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 저장 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_save()
+{
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 출력 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_print()
+{
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 도움말 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_help()
+{
+}
+
+/************************************************************************************************
+ * TRANSACTION 및 CallBack 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 트랜잭션 콜백 함수 (필수)
+ *---------------------------------------------------------------------------------------------*/
+function fn_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	// 에러시 gfn_callBack에서 메시지 제공, 화면별 특정 에러 발생시에만 사용하세요.
+	if (nErrorCode < 0) 
+	{
+		return;
+	}
+	
+    switch(strSvcID)
+    {
+		// 조회
+        case "search" :
+            break;
+    }
+}
+
+/************************************************************************************************
+ * 사용자 FUNCTION 영역 (필수)
+************************************************************************************************/
+
+/************************************************************************************************
+ * 각 COMPONENT 별 EVENT 영역 (필수)
+************************************************************************************************/
+]]></Script>
+  </Form>
+</FDL>

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT  A_CNT, A_NM, B_CNT, B_NM, C_CNT, C_NM
+FROM
+      -- 미승인내역
+      (
+      SELECT SUM(CNT) A_CNT, '미승인' A_NM
+        FROM
+             (
+              -- 미승인 내역(신규레시피 신청)
+              SELECT COUNT(*) CNT
+                FROM FSR_NEW_RECIPE_MST
+               WHERE UPJANG = #UPJANG#
+                 AND APPRV_YN = 'N'
+              UNION ALL
+              --일마감취소신청
+               SELECT COUNT(*)
+                FROM MAS_CLOSE_MODIFYREQ
+                WHERE (UPJANG = #UPJANG#)
+                AND   (TEAM_MST_CONGUBN = 'N' OR APPRV_GUBUN = 'N')
+              UNION ALL
+              --전도금신청
+               SELECT COUNT(*)
+                FROM MAS_ADV_REQ_MST
+                WHERE (UPJANG = #UPJANG#)
+                AND   (TEAM_MST_CONGUBN = 'N' OR HEAD_MST_CONGUBN = 'N')
+              UNION ALL
+              --식권폐기신청
+               SELECT COUNT(*)
+                FROM  MAS_TICKET_MST
+                WHERE (UPJANG = #UPJANG#)
+                AND   (TRANS_TYPE = 'X')
+                AND   ((TEAM_MST_CONGUBN = 'N' AND APPROV_CONGUBN = 'N') OR APPROV_CONGUBN = 'N')
+             )
+      ) A,       
+      -- 구매반려
+      (
+      SELECT COUNT(*) B_CNT, '구매반려' B_NM
+        FROM HLDC_PO_PR A
+       WHERE A.NEED_DATE BETWEEN TO_CHAR(SYSDATE, 'YYYYMMDD') AND TO_CHAR(SYSDATE+7, 'YYYYMMDD')
+         AND A.LINE_STATUS   = '005'
+         AND A.RC_UPJANG = #UPJANG#  -- [g_Upjang]
+      ) B,   
+      -- 도래채권 건수
+      (
+      SELECT COUNT(*) C_CNT, '도래채권' C_NM
+        FROM MAS_DD_BOND V
+      WHERE (V.BOND_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'))
+      AND   ((NVL(V.DO_BOND_AMT, 0) + NVL(V.AK_BOND_AMT, 0)) <> 0)
+      AND   (EXISTS (SELECT 'X' FROM SCO_UPJANG_MST WHERE UPJANG = V.UPJANG AND UPJANG = #UPJANG#)) --점장   
+      ) C	]]></statement>
+	<input default-name="ds_in">
+	</input>
+	<output default-name="ds_mydesk">
+	</output>
+</query>

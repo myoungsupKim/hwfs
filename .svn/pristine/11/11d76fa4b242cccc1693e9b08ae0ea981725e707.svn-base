@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[여신내역 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.EXT_ID, A.REQ_DATE,
+       (SELECT CC_NM FROM HLDC_SC_DEPT_V WHERE DEPT_ID = C.DEPT_ID) AS DEPT_NM,
+       C.NM_KOR AS REQ_NAME,
+       (SELECT UPJANGNM_DISP FROM FMS_UPJANG WHERE UPJANG = B.MAIN_UPJANG) AS MAIN_UPJANGNM,
+       B.UPJANGNM_DISP AS UPJANGNM, A.CREDIT_EXT_DAYS, A.CREDIT_EXT_AMOUNT,
+       B.CREDIT_TURN_DAYS, B.CREDIT_AMOUNT,
+       A.SUPPLY_START, NVL(A.SUPPLY_END,'99991231') AS SUPPLY_END,
+       SUBSTR(A.SUPPLY_START, 1, 4) || '-' || SUBSTR(A.SUPPLY_START, 5, 2) || '-' || SUBSTR(A.SUPPLY_START, 7, 2) || ' ~ ' || SUBSTR(NVL(A.SUPPLY_END,'99991231'), 1, 4) || '-' || SUBSTR(NVL(A.SUPPLY_END,'99991231'), 5, 2) || '-' || SUBSTR(NVL(A.SUPPLY_END,'99991231'), 7, 2) AS SUPPLY_DATE,
+       D.NM_KOR AS APPR_NAME, A.APPR_YN, A.REMARK,
+       CASE WHEN B.CREDIT_TURN_CONTROL_YN = 'Y' THEN
+         DECODE(B.CREDIT_AMOUNT_CONTROL_YN, 'Y', '4', 'N', '2')
+       ELSE
+         DECODE(B.CREDIT_AMOUNT_CONTROL_YN, 'Y', '3', 'N', '1')
+       END AS CREDIT_STAN
+  FROM FMS_CREDIT_EXT A, FMS_UPJANG B,
+       HLDC_HR_PERSONAL C, HLDC_HR_PERSONAL D
+ WHERE 1 = 1
+  <isNotNull col="UPJANG">
+   AND A.UPJANG = #UPJANG# --선택 검색조건(업장)
+  </isNotNull>
+  <isNotEqual col="APPR_YN" value="A">
+   AND A.APPR_YN = #APPR_YN# --필수 검색조건(승인여부)
+  </isNotEqual>
+   AND A.USE_YN = 'Y'
+   AND SUBSTR(A.REQ_DATE, 0, 8) BETWEEN #FROM_DATE# AND #TO_DATE# --필수 검색조건(요청일자)
+   AND A.UPJANG = B.UPJANG
+   AND A.REQ_SABUN = C.SABUN
+   AND A.APPR_SABUN = D.SABUN
+  <isNotNull col="MAIN_UPJANG">
+   AND B.MAIN_UPJANG = #MAIN_UPJANG# --선택 검색조건(본사)
+  </isNotNull>
+ ORDER BY A.REQ_DATE DESC	</statement>
+	<input default-name="ds_Input">
+	</input>
+	<output default-name="ds_List">
+		<col name="APPR_NAME" size="20" type="VARCHAR" description="" /> 
+		<col name="APPR_SABUN" size="9" type="VARCHAR" description="" /> 
+		<col name="APPR_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="CREDIT_AMOUNT" size="22" type="NUMERIC" description="" /> 
+		<col name="CREDIT_EXT_AMOUNT" size="22" type="NUMERIC" description="" /> 
+		<col name="CREDIT_EXT_DAYS" size="22" type="NUMERIC" description="" /> 
+		<col name="CREDIT_STAN" size="1" type="VARCHAR" description="" /> 
+		<col name="CREDIT_TURN_DAYS" size="22" type="NUMERIC" description="" /> 
+		<col name="DEPT_NM" size="50" type="VARCHAR" description="" /> 
+		<col name="MAIN_UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="MAIN_UPJANG_NM" size="4000" type="VARCHAR" description="" /> 
+		<col name="REMARK" size="300" type="VARCHAR" description="" /> 
+		<col name="REQ_NAME" size="20" type="VARCHAR" description="" /> 
+		<col name="REQ_SABUN" size="9" type="VARCHAR" description="" /> 
+		<col name="SUPPLY_END" size="8" type="VARCHAR" description="" /> 
+		<col name="SUPPLY_START" size="8" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="UPJANG_NM" size="4000" type="VARCHAR" description="" /> 
+	</output>
+</query>

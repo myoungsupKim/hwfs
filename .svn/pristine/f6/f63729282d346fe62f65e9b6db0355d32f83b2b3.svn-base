@@ -1,0 +1,169 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="SCC80012P" onload="form_onload" titletext="게시판 트리 보기" position="absolute 0 0 376 573" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Static id="Static02" class="sta_WFSA_Labelbg" position="absolute 15 40 361 81" anchor="left top right"/>
+        <Grid id="tv_main" position="absolute 15 112 361 558" binddataset="ds_list" autofittype="col" treeusecheckbox="false" treeinitstatus="expand,null">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="135"/>
+              </Columns>
+              <Rows>
+                <Row size="24"/>
+              </Rows>
+              <Band id="body">
+                <Cell displaytype="tree" edittype="tree" text="bind:BBS_NAME" treestartlevel="1" treelevel="bind:LEVEL"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="st_tOwner" text="게시판 구분" position="absolute 30 50 109 71" class="sta_WFSA_label"/>
+        <Combo codecolumn="CODE" datacolumn="CODE_NAME" displayrowcount="10" id="cbo_bbsType" innerdataset="ds_SC0100Cd" onitemchanged="cbo_bbsType_OnChanged" taborder="4" position="absolute 116 50 248 70" class="cmb_WF_Essential"/>
+        <Button id="Button0" onclick="fn_Close" taborder="6" tabstop="false" text="닫기" position="absolute 316 10 361 35" class="btn_WF_CRUD" image=""/>
+        <Static id="Static05" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 237"/>
+        <Static id="Static06" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 368 10"/>
+        <Static id="Static07" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 361 0 376 238"/>
+        <Static id="Static08" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 0 558 362 573"/>
+        <Static id="Static19" text="h13" class="Guide01_AreaRed" visible="false" position="absolute 15 81 217 94" anchor="left top"/>
+        <Static id="Static20" text="게시판 트리" class="sta_WF_Title01" position="absolute 15 94 217 112" anchor="left top"/>
+        <Static id="Static21" text="글자기준간격 h05" class="Guide01_AreaRed" visible="false" position="absolute 15 107 217 112" anchor="left top"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_SC0100Cd">
+        <ColumnInfo>
+          <Column id="CODE" size="256" type="STRING"/>
+          <Column id="CODE_NAME" size="256" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_list">
+        <ColumnInfo>
+          <Column id="BBS_GUBUN" size="50" type="STRING"/>
+          <Column id="BBS_ID" size="22" type="BIGDECIMAL"/>
+          <Column id="BBS_NAME" size="100" type="STRING"/>
+          <Column id="BBS_TYPE" size="50" type="STRING"/>
+          <Column id="COPY_YN" size="1" type="STRING"/>
+          <Column id="IMAGE_ID" size="50" type="STRING"/>
+          <Column id="LEVELS" size="22" type="BIGDECIMAL"/>
+          <Column id="PARENT_BBS_ID" size="22" type="BIGDECIMAL"/>
+          <Column id="PARENT_BBS_NAME" size="100" type="STRING"/>
+          <Column id="PRIV_YN" size="1" type="STRING"/>
+          <Column id="REP_YN" size="1" type="STRING"/>
+          <Column id="SORT_SEQ" size="22" type="BIGDECIMAL"/>
+          <Column id="VOC_YN" size="1" type="STRING"/>
+          <Column id="BBS_GUBUN_NM" size="50" type="STRING"/>
+          <Column id="BBS_TYPE_NM" size="50" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_cond">
+        <ColumnInfo>
+          <Column id="BBS_GUBUN" size="255" type="STRING"/>
+          <Column id="BBS_TYPE" size="255" type="STRING"/>
+        </ColumnInfo>
+        <Rows>
+          <Row>
+            <Col id="BBS_GUBUN"/>
+            <Col id="BBS_TYPE"/>
+          </Row>
+        </Rows>
+      </Dataset>
+    </Objects>
+    <Bind>
+      <BindItem id="cbo_bbsType_value" compid="cbo_bbsType" propid="value" datasetid="ds_cond" columnid="BBS_TYPE"/>
+    </Bind>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 게시판 트리로 보기 
+ * 프로그램명   : 
+ * 기      능   : 게시물 복사 
+ * 작  성  자   : 조은영 
+ * 작성  일자   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "LIB::sc_comon.js";
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js";
+//@@컨버터에서 주석처리 #include "LIB::tit_comm_0001.js";		// X-Framework Lib
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+	
+	//초기화
+	fsp_init(this);
+
+    Copy(ds_SC0100Cd,opener.ds_SC0100Cd);
+    ds_SC0100Cd.deleteRow(0);
+    cbo_bbsType.index = 0;
+    
+    Copy(ds_list,opener.ds_list);
+    
+    var e = new EventInfo();
+    e.postvalue = cbo_bbsType.value;
+    cbo_bbsType_OnChanged(cbo_bbsType, e);
+}
+// 닫기 
+function fn_Close() {
+    close();
+}
+function cbo_bbsType_OnChanged(obj, e)
+{
+	fsp_clear(this);
+
+    tv_main.Binddataset = "";
+    // 조회 
+    fsp_addSearch(this,"sc/scc:SCC80010E_S001");
+    
+    http.Sync = true;
+    // 서버 호출 
+    fsp_callService(this, "", ""
+        , "ds_cond=ds_cond"
+        , "ds_list=ds_list"
+        , ""
+        , ""
+        , true);
+     
+        
+    
+	ds_list.filter(" USE_YN == '1' && BBS_TYPE == '" + e.postvalue + "'");
+
+    ds_list.addColumn("IMG_COL_E", "string");
+    ds_list.addColumn("IMG_COL", "string");
+    
+    for( var i = 0; i < ds_list.getRowCount(); i++ ) {
+        if ( ds_list.getColumn(i, "BBS_GUBUN") == "100") {
+            ds_list.setColumn(i, "IMG_COL", 1);
+            ds_list.setColumn(i, "IMG_COL_E", 1);
+        } else {
+            ds_list.setColumn(i, "IMG_COL", 3);
+            ds_list.setColumn(i, "IMG_COL_E",3);
+        }
+    }
+    
+    tv_main.binddataset = "ds_list";
+    http.Sync = false;    
+ 
+}
+]]></Script>
+  </Form>
+</FDL>

@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="ms.cmn.mobileCommonDAO">
+	<desc>모바일 공통 서비스 HQML Query</desc>
+
+	<!-- 모바일 공통 서비스 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.ms.cmn.dao.MobileCommonDAO.selectList */
+		<![CDATA[
+	SELECT CODE AS CD
+	     , CODE_NAME AS CD_NM
+	     , CONTENTS AS CONTENTS
+	     , SET1 AS SET1
+	     , SET2 AS SET2
+	     , SET3 AS SET3
+	     , SET4 AS SET4
+	     , SET5 AS SET5
+	     , REMARK AS REMARK
+	FROM   SCC_COMMON_CODE
+	WHERE  GROUP_CODE = :groupCode
+	<#if code?has_content>AND    CODE= :code</#if>
+	<#if gubun?has_content>AND    SET1= :gubun</#if>
+	<#if query?has_content>
+	${query}
+	</#if>
+	AND    USE_YN     = 'Y'
+	ORDER BY SORT_SEQ 		
+	]]></statement>
+
+	<!-- 가계약등록시 AM코드값을 추출한다. -->
+	<statement name="selectMenuAuthList" type="select">
+		/*+ com.hwfs.ms.cmn.dao.MobileCommonDAO.selectMenuAuthList */
+		<![CDATA[
+	SELECT AM_CD AS CD
+         , AM_NM AS CD_NM
+	FROM   BMS_AM_MST
+	WHERE  EMP_NUM = :empNo
+	]]></statement>
+
+	<!-- PUSH정보를 조회한다. -->
+	<statement name="selectPushList" type="select">
+		/*+ com.hwfs.ms.cmn.dao.MobileCommonDAO.selectPushList */
+		<![CDATA[
+	SELECT A.MSG_ID
+	     , A.USER_ID
+	     , A.DVIC_ID
+	     , TITLE
+	     , BODY
+	     , MSG
+	     , CREATE_TIME
+	     , TOT_CNT
+	FROM   ( SELECT ROWNUM RNUM
+	             , S.*
+	       FROM    ( SELECT DISTINCT M.MSG_ID
+	                              , D.USER_ID
+	                              , D.DVIC_ID
+	                              , TO_CHAR(SUBSTR(M.MSG, INSTR(M.MSG,'Title":"',1,1)+8, INSTR(M.MSG,'"',INSTR(M.MSG,'Title":"',1,1)+8,1) - (INSTR(M.MSG,'Title":"',1,1)+8))) AS TITLE
+	                              , REPLACE(REPLACE(TO_CHAR(SUBSTR(M.MSG, INSTR(M.MSG,'Body":"',1,1)+7, INSTR(M.MSG,'"',INSTR(M.MSG,'Body":"',1,1)+7,1) - (INSTR(M.MSG,'Body":"',1,1)+7))),'\r',chr(13)),'\n',chr(10))  AS BODY
+	                              , TO_CHAR(M.MSG) MSG
+	                              , TO_CHAR(TO_DATE(M.CREATE_TIME, 'YYYYMMDDHH24MISS'), 'YYYY.MM.DD HH24:MI') AS CREATE_TIME
+	                              , ROWNUM
+	                              , COUNT(*) OVER() TOT_CNT
+	               FROM             FSPUS.SZ_MSG_USER M
+	                              , FSPUS.FSP_USER_DVIC D
+	               WHERE            M.USER_ID   = D.DVIC_ID
+	               AND              M.PUSH_TYPE = 'T'
+	               AND              D.USER_ID = :userId
+	               AND              TO_CHAR(SUBSTR(M.MSG, INSTR(M.MSG,'Title":"',1,1)+8, INSTR(M.MSG,'"',INSTR(M.MSG,'Title":"',1,1)+8,1) - (INSTR(M.MSG,'Title":"',1,1)+8))) LIKE '%' || '' || '%'
+	               ORDER BY         CREATE_TIME DESC
+	               )
+	               S
+	       )
+	       A
+	WHERE  1         =1
+	AND    ROWNUM <= :pageRow and RNUM >= :curPageNum
+	AND    A.USER_ID = :userId
+	AND    A.TITLE LIKE '%' || :title || '%'
+	]]></statement>
+
+	<!-- PUSH 메세지를 INTERFACE 테이블에 입력한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.ms.cmn.dao.MobileCommonDAO.insert */
+		<![CDATA[
+	INSERT
+	INTO   FSPUS.SZ_MSG_INTERFACE
+	       (
+	              MSG_ID
+	            , PUSH_TYPE
+	            , MSG_TYPE
+	            , LOGGING_YN
+	            , CONFIRM_YN
+	            , MSG
+	            , TARGET_USERS
+	            , CREATE_ID
+	            , CREATE_NM
+	            , RESERV_DT
+	            , APP_ID
+	       )
+	SELECT FSPUS.GET_MSG_SEQ('S_')
+	     , 'T'
+	     , '1'
+	     , 'Y'
+	     , 'N'
+	     , :msg
+	     , DVIC_ID
+	     , :loginSabun
+	     , '발송자'
+	     , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+	     , APP_ID
+	FROM   FSPUS.FSP_USER_DVIC
+	WHERE  USER_ID = :userId
+	AND    ATTR3   = 'Y'
+	]]></statement>
+
+	<!-- 모바일 권한부여된 메뉴를 조회한다. -->
+	<statement name="selectMenuList" type="select">
+		/*+ com.hwfs.ms.cmn.dao.MobileCommonDAO.selectMenuList */
+		<![CDATA[
+	SELECT A.SYS_ID,
+	       A.SYS_NAME,
+	       A.MENU_ID,
+	       A.MENU_NAME,
+	       A.PARENT_MENU_ID,
+	       A.PRG_ID,
+	       A.PRG_NM AS PRG_NAME,
+	       A.PRG_PATH,
+	       A.MENU_TYPE,
+	       LEVEL-1 AS LEVELS,
+	       A.SORT_SEQ,
+	       A.USE_YN,
+	       A.PRG_TYPE,
+	       A.LEADER_MENU,
+	       DECODE(CONNECT_BY_ISLEAF, 0, NULL, 0) AS IS_LEAF,
+	       A.CALL_PARAM,
+	       A.HELP_ID,
+	       (SELECT ATTR01 FROM SCC_USER_MENU WHERE SABUN = :loginSabun AND MENU_ID = A.MENU_ID) AS ATTR01	-- 상품발주 탭식별정보
+	FROM   (SELECT DISTINCT A.SYS_ID*999999 AS SYS_ID,
+	               (SELECT SYS_NAME FROM SCC_SYSTEM B WHERE B.SYS_ID = A.SYS_ID) AS SYS_NAME,
+	               A.MENU_ID,
+	               A.MENU_NAME,
+	               DECODE(NVL(A.PARENT_MENU_ID, ''), '', A.SYS_ID*999999, A.PARENT_MENU_ID) AS PARENT_MENU_ID,
+	               A.PRG_ID,
+	               (SELECT PRG_NM FROM SCC_PRG B WHERE B.SYS_TYPE = A.SYS_TYPE AND B.PRG_ID = A.PRG_ID) AS PRG_NM,
+	               (SELECT PRG_PATH FROM SCC_PRG B WHERE B.SYS_TYPE = A.SYS_TYPE AND B.PRG_ID = A.PRG_ID) AS PRG_PATH,
+	               (SELECT HELP_ID FROM SCC_PRG B WHERE B.SYS_TYPE = A.SYS_TYPE AND B.PRG_ID = A.PRG_ID) AS HELP_ID,
+	               A.MENU_TYPE,
+	               A.SORT_SEQ,
+	               A.USE_YN,
+	               A.PRG_TYPE,
+	               'N' AS LEADER_MENU,
+	               A.CALL_PARAM
+	        FROM   SCC_MENU A
+	        WHERE  A.SYS_ID IN (SELECT SYS_ID FROM SCC_SYSTEM WHERE SYS_TYPE = :sysType)
+	        AND    A.USE_YN = 'Y'
+	        START WITH A.MENU_ID IN (SELECT MENU_ID FROM SCC_USER_MOBILE_ROLE_V WHERE SYS_TYPE = :sysType AND SABUN = :loginSabun)
+	        CONNECT BY PRIOR A.PARENT_MENU_ID = A.MENU_ID
+	        UNION ALL
+	        SELECT DISTINCT A.SYS_ID*999999 AS SYS_ID,
+	               A.SYS_NAME,
+	               A.SYS_ID*999999 AS MENU_ID,
+	               A.SYS_NAME AS MENU_NAME,
+	               NULL AS PARENT_MENU_ID,
+	               ATTR02 AS PRG_ID,
+	               NULL AS PRG_NM,
+	               ATTR03 AS PRG_PATH,
+	               NULL AS HELP_ID,
+	               NVL(ATTR01, 'M') AS MENU_TYPE,
+	               A.SORT_SEQ,
+	               A.USE_YN,
+	               'M' AS PRG_TYPE,
+	               'N' AS LEADER_MENU,
+	               NULL AS CALL_PARAM
+	        FROM  SCC_SYSTEM A,
+	              SCC_USER_MOBILE_ROLE_V B
+	        WHERE B.SYS_ID = A.SYS_ID
+	        AND   A.SYS_TYPE = :sysType
+	        AND   A.USE_YN = 'Y'
+	        AND   B.SABUN = :loginSabun
+	        AND   B.SYS_TYPE = :sysType
+	        ) A
+	START WITH A.PARENT_MENU_ID IS NULL
+	CONNECT BY PRIOR A.MENU_ID = A.PARENT_MENU_ID
+	ORDER SIBLINGS BY A.SORT_SEQ
+	]]></statement>
+
+	<!-- 콤보권한 부여를 위해 PC화면에 부여된 권한 메뉴를 조회한다. -->
+	<statement name="selectComboAuthMenuList" type="select">
+		/*+ com.hwfs.ms.cmn.dao.MobileCommonDAO.selectComboAuthMenuList
+		*/
+		<![CDATA[
+	SELECT DISTINCT A.SYS_ID*999999 AS SYS_ID
+              , (SELECT SYS_NAME
+                FROM    SCC_SYSTEM B
+                WHERE   B.SYS_ID = A.SYS_ID
+                )
+                AS SYS_NAME
+              , A.MENU_ID
+              , A.MENU_NAME
+              , DECODE(NVL(A.PARENT_MENU_ID, ''), ''
+                     , A.SYS_ID*999999
+                     , A.PARENT_MENU_ID) AS PARENT_MENU_ID
+              , A.PRG_ID
+              , (SELECT PRG_NM
+                FROM    SCC_PRG B
+                WHERE   B.SYS_TYPE = A.SYS_TYPE
+                AND     B.PRG_ID   = A.PRG_ID
+                )
+                AS PRG_NM
+              , (SELECT PRG_PATH
+                FROM    SCC_PRG B
+                WHERE   B.SYS_TYPE = A.SYS_TYPE
+                AND     B.PRG_ID   = A.PRG_ID
+                )
+                AS PRG_PATH
+              , (SELECT HELP_ID
+                FROM    SCC_PRG B
+                WHERE   B.SYS_TYPE = A.SYS_TYPE
+                AND     B.PRG_ID   = A.PRG_ID
+                )
+                AS HELP_ID
+              , A.MENU_TYPE
+              , A.SORT_SEQ
+              , A.USE_YN
+              , A.PRG_TYPE
+              , 'N' AS LEADER_MENU
+              , A.CALL_PARAM
+FROM            SCC_MENU A
+WHERE           A.SYS_ID IN
+                (SELECT SYS_ID
+                FROM    SCC_SYSTEM
+                WHERE   SYS_TYPE IN ('IFIS'
+                                   ,'LIMS')
+                )
+AND             A.USE_YN = 'Y'
+                START WITH A.MENU_ID IN
+                (SELECT MENU_ID
+                FROM    SCC_USER_MOBILE_ROLE_V
+                WHERE   SYS_TYPE IN ('IFIS'
+                                   ,'LIMS')
+                AND     SABUN = :loginSabun
+                )
+                CONNECT BY PRIOR A.PARENT_MENU_ID = A.MENU_ID
+        
+        
+ 	]]></statement>
+
+	<!-- 복수업장을 조회한다. -->
+	<statement name="selectDualUpjangList" type="select">
+		/*+ com.hwfs.ms.cmn.dao.MobileCommonDAO.selectDualUpjangList */
+		<![CDATA[
+	SELECT C.CC_CD,
+	       C.CC_NM,
+	       TO_CHAR(D.MAIN_UPJANG) AS MAIN_UPJANG,
+	       (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = D.MAIN_UPJANG) AS MAIN_UPJANG_NM,
+	       C.MU_CD,
+	       C.MU_NM,
+	       C.SC_CD,
+	       C.SC_NM,
+	       C.TM_CD,
+	       C.TM_NM,
+	       --TO_CHAR(D.UPJANG) AS UPJANG_CODE,
+	       DECODE(D.UPJANG, NULL, TO_CHAR(B.UPJANG), TO_CHAR(D.UPJANG)) AS UPJANG_CODE,
+	       D.CUST_TYPE AS UPJANG_GROUP,
+	       --B.UPJANGNM AS UPJANG_NAME
+	       --D.UPJANGNM_DISP AS UPJANG_NAME 
+	       DECODE(D.UPJANGNM_DISP, NULL, B.UPJANGNM, D.UPJANGNM_DISP) AS UPJANG_NAME
+	FROM   SCC_USERINFO A,
+	       ST_UPJANG B,
+	       HLDC_SC_DEPT_V C,
+	       FMS_UPJANG D
+	WHERE  B.UPJANG = A.UPJANG
+	AND    C.CC_CD = B.CC_CD
+	AND	   DECODE(D.USE_YN, NULL, B.USE_YN, D.USE_YN) = 'Y'
+	<#if userKind?exists>
+		<#if userKind == '본사'>
+			AND	B.UPJANG = D.MAIN_UPJANG
+		<#else>
+			AND D.UPJANG(+) = B.UPJANG
+		</#if>
+	<#else>
+	AND    D.UPJANG(+) = B.UPJANG
+	</#if>
+	AND    A.SABUN = :loginSabun
+	<#if upjangCd?has_content>
+	AND    B.UPJANG LIKE '%' || :upjangCd || '%'
+	</#if>
+	<#if upjangNm?has_content>
+	AND    D.UPJANGNM_DISP LIKE '%' || :upjangNm || '%'
+	</#if>
+	UNION
+	SELECT D.CC_CD,
+	       D.CC_NM,
+	       TO_CHAR(C.MAIN_UPJANG) AS MAIN_UPJANG,
+	       (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = C.MAIN_UPJANG) AS MAIN_UPJANG_NM,
+	       D.MU_CD,
+	       D.MU_NM,
+	       D.SC_CD,
+	       D.SC_NM,
+	       D.TM_CD,
+	       D.TM_NM,
+	       TO_CHAR(A.UPJANG) AS UPJANG_CODE,
+	       C.CUST_TYPE AS UPJANG_GROUP,
+	       A.UPJANGNM AS UPJANG_NAME
+	FROM   ST_UPJANG A,
+	       FMS_USER_UPJANG B,
+	       FMS_UPJANG C,
+	       HLDC_SC_DEPT_V D
+	WHERE  B.UPJANG = A.UPJANG
+	AND    C.UPJANG(+) = A.UPJANG
+	AND    D.CC_CD = A.CC_CD
+	AND    (B.USE_YN = 'Y' AND NVL(B.ATTR01, TO_CHAR(SYSDATE, 'YYYYMMDD')) <= TO_CHAR(SYSDATE, 'YYYYMMDD') AND NVL(B.ATTR02, TO_CHAR(SYSDATE, 'YYYYMMDD')) >= TO_CHAR(SYSDATE, 'YYYYMMDD'))
+	AND    B.SABUN = :loginSabun
+	<#if upjangCd?has_content>
+	AND    A.UPJANG LIKE '%' || :upjangCd || '%'
+	</#if>
+	<#if upjangNm?has_content>
+	AND    A.UPJANGNM LIKE '%' || :upjangNm || '%'
+	</#if>
+	ORDER BY UPJANG_CODE
+	]]></statement>
+
+	<!-- 시험접수승인(LIMS)권한 부여를 위해 승인자 정보를 조회한다. -->
+	<statement name="selectLimsAuthLevels" type="select">
+		/*+ com.hwfs.ms.cmn.dao.MobileCommonDAO.selectLimsAuthLevels */
+		<![CDATA[
+	SELECT AUTH_CD
+	     , SABUN
+	     , INSPT_FLD
+	FROM   LCM_USER
+	WHERE  SABUN  = :loginSabun
+	AND    USE_YN = 'Y'
+	]]></statement>
+</hqml>

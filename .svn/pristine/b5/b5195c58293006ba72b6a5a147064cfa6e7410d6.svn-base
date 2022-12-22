@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+    <type>select</type>
+    <description><![CDATA[사업장 운영정보2  조회]]></description>
+    <reload>true</reload>
+    <monitoring>true</monitoring>
+    <result-count>1</result-count>
+    <statement>
+SELECT T1.TM_NM,
+       JOB_NAME,
+       SUB_JOB_NAME,
+       (SELECT NM_KOR FROM SCO_FS_HR_PERSONAL_V WHERE SABUN = T1.LEADER_SABUN) LEADER_SABUNNM,
+       T1.UPJANGNM, T1.CHARGE_SABUNNM, T1.KUNSOK, T1.FIRST_JUMJANG_YN, T1.DIST_TYPENM, T1.CLOSE_DATE,
+       T2.HALL_NAME, T2.MENU_NAME,
+       T2.MEAL_UPRICE, T2.AVG_MEAL_QTY, T2.RATION_METHOD,
+       T2.FIRST_TIME,
+       T1.STORE_YN
+  FROM (
+        SELECT A.TM_NM
+             , A.JOB_CD
+             , A.SUB_JOB_CD
+             , A.LEADER_SABUN
+             , A.UPJANG
+             , A.UPJANGNM
+             , B.NM_KOR AS CHARGE_SABUNNM
+             , DECODE(B.PER_DTA, NULL, '', SCC_KUNSOK_YMD_FUN(B.PER_DTA, DECODE(B.PER_DTD, NULL, TO_CHAR(SYSDATE,'YYYYMMDD'), B.PER_DTD))) AS KUNSOK
+             , A.FIRST_JUMJANG_YN
+             , C.CODE_NAME AS DIST_TYPENM
+             , A.CLOSE_DATE
+             , A.STORE_YN
+          FROM SCO_UPJANG_MST_V A,
+               SCO_FS_HR_PERSONAL_V B,
+               (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0005') C --배식형태코드
+         WHERE 1 = 1
+          <isNotNull col="MU_CD">
+           AND A.MU_CD = #MU_CD# --검색조건(사업부)
+          </isNotNull>
+          <isNotNull col="TM_CD">
+           AND A.TM_CD = #TM_CD# --검색조건(운영부서)
+          </isNotNull>
+          <isNotEqual col="JOB_CD" value="000">
+           AND A.JOB_CD = #JOB_CD# --검색조건(직군)
+          </isNotEqual>
+          <isNotEqual col="SUB_JOB_CD" value="000000">
+           AND A.SUB_JOB_CD = #SUB_JOB_CD# --검색조건(상세직군)
+          </isNotEqual>
+          <isNotNull col="LEADER_SABUN">
+           AND A.LEADER_SABUN = #LEADER_SABUN# --검색조건(리더)
+          </isNotNull>
+          <isNotNull col="UPJANG">
+           AND A.UPJANG = #UPJANG# --검색조건(업장)
+          </isNotNull>
+          <isNotEqual col="DIST_TYPE" value="000">
+           AND A.DIST_TYPE = #DIST_TYPE# --검색조건(배식형태)
+          </isNotEqual>
+          <isNotEqual col="FIRST_JUMJANG_YN" value="0">
+           AND A.FIRST_JUMJANG_YN = #FIRST_JUMJANG_YN# --검색조건(초임여부)
+          </isNotEqual>
+          <isEqual col="CHK_CLOSE" value="Y">
+           AND A.CLOSE_DATE IS NULL -- 폐점업장 제외
+          </isEqual>
+           AND A.CHARGE_SABUN = B.SABUN(+)
+           AND A.DIST_TYPE = C.CODE(+)
+         ORDER BY A.TM_CD, A.JOB_CD, A.SUB_JOB_CD, A.UPJANG ) T1,
+       (
+        SELECT A.UPJANG, A.HALL_CD, A.HALL_NAME, B.MEAL, B.CORNER,
+               (C.CODE_NAME || D.CODE_NAME) || DECODE(B.CORNER_DESC, NULL, '', '(' || B.CORNER_DESC || ')') AS MENU_NAME,
+               NVL(B.MEAL_UPRICE,0) AS MEAL_UPRICE, B.AVG_MEAL_QTY, E.CODE_NAME AS RATION_METHOD,
+               (DECODE(LENGTH(B.FIRST_START_TIME), 4, SUBSTR(B.FIRST_START_TIME,0,2) || ':' || SUBSTR(B.FIRST_START_TIME,3,2), '') || ' ~ ' ||
+                DECODE(LENGTH(B.FIRST_END_TIME), 4, SUBSTR(B.FIRST_END_TIME,0,2) || ':' || SUBSTR(B.FIRST_END_TIME,3,2), '')) AS FIRST_TIME
+          FROM FSA_HALL_MST A,
+               FSA_HALL_DTL B,
+               (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0023') C, --끼니코드
+               (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0022') D, --코너코드
+               (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0024') E -- 배식방법
+         WHERE A.UPJANG = B.UPJANG
+           AND A.HALL_CD = B.HALL_CD
+           AND B.USE_YN = 'Y'
+           AND B.MEAL = C.CODE(+)
+           AND B.CORNER = D.CODE(+)
+           AND B.RATION_METHOD = E.CODE(+)
+         UNION ALL
+        SELECT A.UPJANG, A.HALL_CD, A.HALL_NAME, '' AS MEAL, '' AS CORNER,
+               '' AS MENU_NAME,
+               NULL AS MEAL_UPRICE, NULL AS AVG_MEAL_QTY, '' AS RATION_METHOD,
+               '' AS FIRST_TIME
+          FROM FSA_HALL_MST A
+         WHERE USE_YN = 'Y'
+           AND A.CATER_YN = 'Y'
+         ) T2, MAS_JOB B, MAS_JOB_SUB C
+ WHERE T1.JOB_CD = B.JOB_CD
+   AND T1.JOB_CD = C.JOB_CD AND T1.SUB_JOB_CD = C.SUB_JOB_CD
+   AND T1.UPJANG = T2.UPJANG(+)
+  <isNotNull col="FROM_KUNSOK">
+   AND DECODE(T1.KUNSOK, NULL, 0, TO_NUMBER(SUBSTR(T1.KUNSOK, 1, 2))) &gt;= DECODE(T1.KUNSOK, NULL, 1, #FROM_KUNSOK#) --검색조건(FROM 근속년수)
+  </isNotNull>
+  <isNotNull col="TO_KUNSOK">
+   AND DECODE(T1.KUNSOK, NULL, 1, TO_NUMBER(SUBSTR(T1.KUNSOK, 1, 2))) &lt;= DECODE(T1.KUNSOK, NULL, 1, #TO_KUNSOK#) --검색조건(TO 근속년수)
+  </isNotNull>
+  <isNotNull col="FROM_UPRICE">
+   AND T2.MEAL_UPRICE &gt;= #FROM_UPRICE# --검색조건(FROM 식단가)
+  </isNotNull>
+  <isNotNull col="TO_UPRICE">
+   AND T2.MEAL_UPRICE &lt;= #TO_UPRICE# --검색조건(TO 식단가)
+  </isNotNull>
+ ORDER BY T1.TM_NM, JOB_NAME, SUB_JOB_NAME, T1.UPJANGNM, T2.HALL_NAME, T2.MEAL, T2.CORNER	</statement>
+    <input default-name="ds_Input">
+    </input>
+    <output default-name="ds_List2">
+    </output>
+</query>

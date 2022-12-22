@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	SELECT DISTINCT
+	       0 AS CHK 
+	     , A.UPJANG 
+	     , A.UPJANGNM  
+	  FROM SCO_UPJANG_MST_V A
+	     , MAS_DC_OIL_UPJANG B
+	 WHERE A.UPJANG = B.UPJANG(+)  
+       AND NOT EXISTS (
+                       SELECT 1
+                         FROM MAS_DC_OIL_UPJANG L
+                            , MAS_DC_OIL_REMV_VENDOR M
+                        WHERE L.CUSTCD = M.CUSTCD
+                          AND L.CONTRACT_DD = M.CONTRACT_DD
+                          AND M.CONTRACT_TERM_START &lt;= #CONTRACT_TERM_END# AND M.CONTRACT_TERM_END &gt;= #CONTRACT_TERM_START#
+                          AND L.UPJANG = A.UPJANG)
+	   AND A.CLOSE_DATE IS NULL
+	<isNotNull col="DC_OIL_PROC">
+       AND NVL(A.DC_OIL_PROC, '001') = #DC_OIL_PROC# -- 001 - 자가, 002-위탁
+    </isNotNull>
+	<isNotNull col="MU_CD">
+       AND A.MU_CD = #MU_CD#	    
+    </isNotNull>
+	<isNotNull col="TM_CD">
+       AND A.TM_CD = #TM_CD#	    
+    </isNotNull>
+	<isNotNull col="UPJANG">
+       AND A.UPJANG = #UPJANG#	    
+    </isNotNull>
+	ORDER BY A.UPJANGNM ASC
+    </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

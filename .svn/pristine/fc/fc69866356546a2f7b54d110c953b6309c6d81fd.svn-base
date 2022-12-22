@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fm.fms.returnItemMgntDAO">
+	<desc>반환가능품목등록 HQML Query</desc>
+	
+	<!-- 자재를 조회한다  -->
+	<statement name="selectItem" type="select">
+		/* fm.fms.returnItemMgntDAO.selectItem */
+		<![CDATA[
+		SELECT '0'           AS CHK              /* 선택 */
+		     , A.ITEM_CODE                       /* 자재코드 */
+		     , A.ITEM_CLASS1                     /* 자재분류코드1 */
+		     , A.ITEM_CLASS2                     /* 자재분류코드2 */
+		     , A.ITEM_CLASS3                     /* 자재분류코드3 */
+		     , A.ITEM_CLASS4                     /* 자재분류코드4 */
+		     , C2.CLASS_NAME AS ITEM_CLASS_NAME2 /* 자재분류명2 */
+		     , C3.CLASS_NAME AS ITEM_CLASS_NAME3 /* 자재분류명3 */
+		     , C4.CLASS_NAME AS ITEM_CLASS_NAME4 /* 자재분류명4 */
+		     , A.ITEM_NAME                       /* 자재명 */
+		     , A.ITEM_SIZE                       /* 규격 */
+		     , A.UOM_CODE                        /* 단위 */
+		     , B.WIN_ITEM_CD                     /* 88코드 */
+		  FROM EPROCUSR.MV_ITEM_MST3     A
+		     , EPROCUSR.ESMMTGL          B
+		     , HLDC_PO_ITEM_CLASS_HLDC_V C2
+		     , HLDC_PO_ITEM_CLASS_HLDC_V C3
+		     , HLDC_PO_ITEM_CLASS_HLDC_V C4
+		 WHERE A.ITEM_CODE   = B.ITEM_CD(+)
+		   AND B.SYS_ID      = '100'
+		   AND A.ITEM_CLASS2 = C2.CLASS_CODE
+		   AND A.ITEM_CLASS3 = C3.CLASS_CODE
+		   AND A.ITEM_CLASS4 = C4.CLASS_CODE
+		   AND A.ITEM_CLASS1 = 'F'
+		   <#if classCodeM?has_content> AND ITEM_CLASS2 =  :classCodeM </#if>
+		   <#if classCodeS?has_content> AND ITEM_CLASS3 =  :classCodeS </#if>
+		   <#if classCodeD?has_content> AND ITEM_CLASS4 =  :classCodeD </#if>
+		   <#if searchText?has_content>
+		       <#if gbn == '88'>        AND B.WIN_ITEM_CD LIKE '%' || :searchText        /* 88코드 */   </#if>
+		       <#if gbn == 'ITEM_CODE'> AND A.ITEM_CODE   LIKE '%' || :searchText || '%' /* 자재코드 */ </#if>
+		       <#if gbn == 'ITEM_NAME'> AND A.ITEM_NAME   LIKE '%' || :searchText || '%' /* 자재명 */   </#if>
+		   </#if>
+		   AND NOT EXISTS ( SELECT 1
+		                      FROM RTN_ITEM_MST X
+		                     WHERE X.ITEM_CODE = A.ITEM_CODE
+		                  )
+		   <#if tempItemCode?has_content>
+		       /* 화면에 저장 하지 않은 DATA 제외 처리 */
+		       AND (A.ITEM_CODE, 0) NOT IN (
+		           <#list tempItemCode?split(",") as item>
+		               ('${item}', 0)<#if item_has_next>,</#if>
+		           </#list>
+		       )
+		   </#if>
+		 ORDER BY A.ITEM_CODE
+		]]>
+	</statement>
+	
+	<!-- 반환가능품목을 조회한다  -->
+	<statement name="selectReturnItem" type="select">
+		/* fm.fms.returnItemMgntDAO.selectReturnItem */
+		<![CDATA[
+		SELECT '0'                                       AS CHK        /* 선택 */
+		     , R.ITEM_CODE                                             /*  */
+		     , R.USE_YN                                                /* 사용여부 */
+		     , R.APPLY_SD                                              /* 적용시작일자 */
+		     , R.APPLY_ED                                              /* 적용종료일자 */
+		     , R.UUSER                                                 /* 수정자 */
+		     , HR.NM_KOR                                 AS UUSER_NAME /* 수정자명 */
+		     , TO_CHAR(R.UDATE, 'YYYY-MM-DD HH24:MI:SS') AS UDATE      /* 수정시각 */
+		     , R.ATTR01                          /*  */
+		     , R.ATTR02                          /*  */
+		     , A.ITEM_CLASS1                     /* 자재분류코드1 */
+		     , A.ITEM_CLASS2                     /* 자재분류코드2 */
+		     , A.ITEM_CLASS3                     /* 자재분류코드3 */
+		     , A.ITEM_CLASS4                     /* 자재분류코드4 */
+		     , C2.CLASS_NAME AS ITEM_CLASS_NAME2 /* 자재분류명2 */
+		     , C3.CLASS_NAME AS ITEM_CLASS_NAME3 /* 자재분류명3 */
+		     , C4.CLASS_NAME AS ITEM_CLASS_NAME4 /* 자재분류명4 */
+		     , A.ITEM_NAME                       /* 자재명 */
+		     , A.ITEM_SIZE                       /* 규격 */
+		     , A.UOM_CODE                        /* 단위 */
+		     , B.WIN_ITEM_CD                     /* 88코드 */
+		  FROM RTN_ITEM_MST              R
+		     , EPROCUSR.MV_ITEM_MST3     A
+		     , EPROCUSR.ESMMTGL          B
+		     , HLDC_PO_ITEM_CLASS_HLDC_V C2
+		     , HLDC_PO_ITEM_CLASS_HLDC_V C3
+		     , HLDC_PO_ITEM_CLASS_HLDC_V C4
+		     , HR_PERSONAL               HR
+		 WHERE R.ITEM_CODE   = A.ITEM_CODE
+		   AND R.ITEM_CODE   = B.ITEM_CD(+)
+		   AND B.SYS_ID      = '100'
+		   AND A.ITEM_CLASS2 = C2.CLASS_CODE
+		   AND A.ITEM_CLASS3 = C3.CLASS_CODE
+		   AND A.ITEM_CLASS4 = C4.CLASS_CODE
+		   AND R.UUSER       = HR.SABUN
+		   AND A.ITEM_CLASS1 = 'F'
+		   <#if itemCode?has_content>
+		       AND R.ITEM_CODE = :itemCode
+		   </#if>
+		   <#if searchText?has_content>
+		       <#if gbn == '88'>        AND B.WIN_ITEM_CD LIKE '%' || :searchText        /* 88코드 */   </#if>
+		       <#if gbn == 'ITEM_CODE'> AND R.ITEM_CODE   LIKE '%' || :searchText || '%' /* 자재코드 */ </#if>
+		       <#if gbn == 'ITEM_NAME'> AND A.ITEM_NAME   LIKE '%' || :searchText || '%' /* 자재명 */   </#if>
+		   </#if>
+		 ORDER BY R.ITEM_CODE, R.USE_YN, R.UDATE
+		]]>
+	</statement>
+	
+	<!-- 반환가능품목을 추가한다  -->
+	<statement name="insertReturnItem" type="insert">
+		/* fm.fms.returnItemMgntDAO.insertReturnItem */
+		<![CDATA[
+		INSERT INTO RTN_ITEM_MST 
+		     ( ITEM_CODE    /*  */
+		     , USE_YN       /* 사용여부 */
+		     , APPLY_SD     /* 적용시작일자 */
+		     , APPLY_ED     /* 적용종료일자 */
+		     , UUSER        /* 수정자 */
+		     , UDATE        /* 수정시각 */
+		     , ATTR01       /*  */
+		     , ATTR02       /*  */
+		     )
+		VALUES 
+		     ( :itemCode                    /*  */
+		     , :useYn                       /* 사용여부 */
+		     , :applySd                     /* 적용시작일자 */
+		     , :applyEd                     /* 적용종료일자 */
+		     , :loginSabun                  /* 수정자 */
+		     , SYSDATE                      /* 수정시각 */
+		     , :attr01                      /*  */
+		     , :attr02                      /*  */
+		     )
+		]]>
+	</statement>
+	
+	<!-- 반환가능품목을 수정한다  -->
+	<statement name="updateReturnItem" type="update">
+		/* fm.fms.returnItemMgntDAO.updateReturnItem */
+		<![CDATA[
+		UPDATE RTN_ITEM_MST
+		   SET USE_YN    = :useYn                       /* 사용여부 */
+		     , UUSER     = :loginSabun                  /* 수정자 */
+		     , UDATE     = SYSDATE                      /* 수정시각 */
+		     , ATTR01    = :attr01                      /*  */
+		     , ATTR02    = :attr02                      /*  */
+		 WHERE ITEM_CODE = :itemCode                    /*  */
+		   AND APPLY_SD  = :applySd                     /* 적용시작일자 */
+		   AND APPLY_ED  = :applyEd                     /* 적용종료일자 */
+		]]>
+	</statement>
+
+	<!-- 반환가능품목을 삭제한다  -->
+	<statement name="deleteReturnItem" type="delete">
+		/* fm.fms.returnItemMgntDAO.deleteReturnItem */
+		<![CDATA[
+		DELETE FROM RTN_ITEM_MST
+		 WHERE ITEM_CODE = :itemCode /*  */
+		   AND APPLY_SD  = :applySd  /* 적용시작일자 */
+		   AND APPLY_ED  = :applyEd  /* 적용종료일자 */
+		]]>
+	</statement>
+
+</hqml>

@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.JOB_CD 		AS JOB_CD,
+	 A.JOB_NAME 		AS JOB_NAME,
+	 A.JOB_GRADE_CD 	AS JOB_GRADE_CD,
+	 A.JOB_GRADE_NAME 	AS JOB_GRADE_NAME,
+	 C.PYY_NO_MAN 		AS PYY_NO_MAN,
+	 B.PMM_NO_MAN 		AS PMM_NO_MAN,
+	 SUM(A.ACT_NO_MAN) 	AS ACT_NO_MAN,
+	 C.PYY_AMT/1000 		AS PYY_AMT,
+	 B.PMM_AMT/1000 		AS PMM_AMT,
+	 SUM(A.ACT_AMT)/1000 	AS ACT_AMT,
+	 D.PYY_ACCUM_AMT/1000 	AS PYY_ACCUM_AMT,
+	 D.ACT_ACCUM_AMT/1000 	AS ACT_ACCUM_AMT
+FROM MAM_PAYROLL_V3 A,
+   (SELECT JOB_CD,
+	       JOB_NAME,
+	       JOB_GRADE_CD,
+	       JOB_GRADE_NAME,
+	       SUM(ACT_NO_MAN) as PMM_NO_MAN,
+	       SUM(ACT_AMT) as PMM_AMT
+      FROM MAM_PAYROLL_V3
+     WHERE YYMM = TO_CHAR(ADD_MONTHS(TO_DATE(#YYMM#,'YYYYMM'),-1), 'YYYYMM')  -- 전월
+       <isNotNull col="TM_CD"> 
+       AND TM_CD = #TM_CD#
+       </isNotNull>
+       <isNotNull col="UPJANG">
+       AND UPJANG = #UPJANG#
+       </isNotNull>
+   GROUP BY JOB_CD,
+	        JOB_NAME,
+	        JOB_GRADE_CD,
+	        JOB_GRADE_NAME
+   ORDER BY JOB_CD, JOB_GRADE_CD  ) B,
+   (SELECT JOB_CD,
+	       JOB_NAME,
+	       JOB_GRADE_CD,
+	       JOB_GRADE_NAME,
+	       SUM(ACT_NO_MAN) as PYY_NO_MAN,
+	       SUM(ACT_AMT) as PYY_AMT
+      FROM MAM_PAYROLL_V3
+     WHERE YYMM = TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(#YYMM#,1,4),'YYYY'),-12), 'YYYY')||'12'  -- 전년말
+       <isNotNull col="TM_CD"> 
+       AND TM_CD = #TM_CD#
+       </isNotNull>
+       <isNotNull col="UPJANG">
+       AND UPJANG = #UPJANG#
+       </isNotNull>
+ 	GROUP BY JOB_CD,
+	         JOB_NAME,
+	         JOB_GRADE_CD,
+	         JOB_GRADE_NAME
+    ORDER BY JOB_CD, JOB_GRADE_CD ) C,
+    (SELECT X.JOB_CD,
+	        X.JOB_NAME,
+	        X.JOB_GRADE_CD,
+	        X.JOB_GRADE_NAME,
+	       (SELECT SUM(ACT_AMT)
+        	  FROM MAM_PAYROLL_V3
+        	 WHERE JOB_CD = X.JOB_CD
+         	   AND JOB_GRADE_CD = X.JOB_GRADE_CD
+               AND YYMM BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(#YYMM#,1,4),'YYYY'),-12), 'YYYY')||'01' AND TO_CHAR(ADD_MONTHS(TO_DATE(#YYMM#,'YYYYMM'),-12),'YYYYMM') -- 전년누계
+         	   <isNotNull col="TM_CD"> 
+		       AND TM_CD = #TM_CD#
+		       </isNotNull>
+		       <isNotNull col="UPJANG">
+		       AND UPJANG = #UPJANG#
+		       </isNotNull>  
+		     ) AS PYY_ACCUM_AMT,
+            SUM(X.ACT_AMT) AS ACT_ACCUM_AMT
+       FROM MAM_PAYROLL_V3 X
+      WHERE X.YYMM BETWEEN TO_CHAR(TO_DATE(#YYMM#,'YYYYMM'),'YYYY')||'01' AND #YYMM#  -- 당월누계
+        <isNotNull col="TM_CD"> 
+        AND TM_CD = #TM_CD#
+        </isNotNull>
+        <isNotNull col="UPJANG">
+        AND UPJANG = #UPJANG#
+        </isNotNull>
+ 	GROUP BY JOB_CD,
+	         JOB_NAME,
+	         JOB_GRADE_CD,
+	         JOB_GRADE_NAME
+    ORDER BY JOB_CD, JOB_GRADE_CD  ) D
+WHERE A.JOB_CD = B.JOB_CD(+)
+  AND A.JOB_GRADE_CD= B.JOB_GRADE_CD(+)
+  AND A.JOB_CD = C.JOB_CD(+)
+  AND A.JOB_GRADE_CD = C.JOB_GRADE_CD(+)
+  AND A.JOB_CD = D.JOB_CD(+)
+  AND A.JOB_GRADE_CD = D.JOB_GRADE_CD(+)
+  AND A.YYMM(+) = #YYMM#
+  <isNotNull col="TM_CD"> 
+  AND TM_CD = #TM_CD#
+  </isNotNull>
+  <isNotNull col="UPJANG">
+  AND UPJANG = #UPJANG#
+  </isNotNull>
+ GROUP BY A.JOB_CD,
+		  A.JOB_NAME,
+		  A.JOB_GRADE_CD,
+		  A.JOB_GRADE_NAME,
+		  B.PMM_NO_MAN,
+		  C.PYY_NO_MAN,
+		  C.PYY_AMT,
+		  B.PMM_AMT,
+		  D.PYY_ACCUM_AMT,
+		  D.ACT_ACCUM_AMT
+ ORDER BY A.JOB_CD, A.JOB_GRADE_CD
+	</statement>
+	<input default-name="ds_in">
+		<col name="YYMM" size="6" type="VARCHAR" description="" /> 
+		<col name="TM_CD" size="3" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="6" type="VARCHAR" description="" /> 
+	</input>
+    <output default-name="ds_out">
+        <col name="JOB_CD" size="50" type="VARCHAR" description="" /> 
+		<col name="JOB_NAME" size="100" type="VARCHAR" description="" />
+		<col name="JOB_GRADE_CD" size="100" type="VARCHAR" description="" /> 
+		<col name="JOB_GRADE_NAME" size="20" type="VARCHAR" description="" />
+		<col name="PYY_NO_MAN" size="22" type="NUMERIC" description="" /> 
+		<col name="PMM_NO_MAN" size="22" type="NUMERIC" description="" /> 
+		<col name="ACT_NO_MAN" size="22" type="NUMERIC" description="" /> 
+		<col name="PYY_AMT" size="22" type="NUMERIC" description="" /> 
+		<col name="PMM_AMT" size="22" type="NUMERIC" description="" /> 
+		<col name="ACT_AMT" size="22" type="NUMERIC" description="" /> 
+		<col name="PYY_ACCUM_AMT" size="22" type="NUMERIC" description="" /> 
+		<col name="ACT_ACCUM_AMT" size="22" type="NUMERIC" description="" /> 
+	 </output>
+</query>

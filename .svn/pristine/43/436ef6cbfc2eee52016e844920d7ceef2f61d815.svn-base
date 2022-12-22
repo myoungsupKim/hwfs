@@ -1,0 +1,481 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="sm.cmn.commonDAO">
+	<desc>공통 HQML Query</desc>
+
+	<!-- 기본적인 공통코드의 정보를 조회한다. -->
+	<statement name="selectComCode" type="select">
+		/*+ com.hwfs.sm.cmn.dao.CommonDAO.selectComCode */
+		<![CDATA[
+            SELECT  GROUP_CODE
+                    ,CODE
+                    ,CODE_NAME
+                    ,SORT_SEQ
+                    ,SYSTEM_YN
+                    ,SET1
+                    ,SET2
+                    ,SET3
+                    ,SET4
+                    ,SET5
+                    ,ATTR01
+                    ,ATTR02
+                    ,ATTR03
+                    ,ATTR04
+                    ,ATTR05
+                    ,ATTR06
+                    ,ATTR07
+                    ,ATTR08
+                    ,ATTR09
+                    ,ATTR10
+                    ,USE_YN
+            FROM    SCC_COMMON_CODE
+            WHERE   GROUP_CODE IN (:groupCode)
+            <#if code?has_content>AND    CODE= :code</#if>
+            <#if useYn?has_content>AND    USE_YN = :useYn</#if>
+            <#if set1?has_content>AND    SET1 = :set1</#if>
+            <#if set2?has_content>AND    SET2 = :set2</#if>
+            <#if set3?has_content>AND    SET3 = :set3</#if>
+            <#if set4?has_content>AND    SET4 = :set4</#if>
+            <#if set5?has_content>AND    SET5 = :set5</#if>
+            <#if attr01?has_content>AND    ATTR01 = :attr01</#if>
+            <#if attr02?has_content>AND    ATTR02 = :attr02</#if>
+            <#if attr03?has_content>AND    ATTR03 = :attr03</#if>
+            <#if attr04?has_content>AND    ATTR04 = :attr04</#if>
+            <#if attr05?has_content>AND    ATTR05 = :attr05</#if>
+            <#if attr06?has_content>AND    ATTR06 = :attr06</#if>
+            <#if attr07?has_content>AND    ATTR07 = :attr07</#if>
+            <#if attr08?has_content>AND    ATTR08 = :attr08</#if>
+            <#if attr09?has_content>AND    ATTR09 = :attr09</#if>
+            <#if attr10?has_content>AND    ATTR10 = :attr10</#if>
+            <#if value?has_content>AND    (CODE LIKE '%' || :value || '%' OR CODE_NAME LIKE '%' || :value || '%')</#if>
+            ORDER BY GROUP_CODE, SORT_SEQ
+        ]]>
+	</statement>
+
+	<!-- 사업부(Combo)를 조회한다. -->
+	<statement name="selectMuCd" type="select">
+		/*+ com.hwfs.sm.cmn.dao.CommonDAO.selectMuCd */
+		<![CDATA[
+			SELECT  MU_CD, MU_NM
+			FROM    HLDC_SC_MU
+			WHERE   USE_YN = 'Y'
+        ]]>
+	</statement>
+
+	<!-- 영업유형코드(Combo)를 조회한다. -->
+	<statement name="selectTypeCd" type="select">
+		/*+ com.hwfs.sm.cmn.dao.CommonDAO.selectTypeCd */
+		<![CDATA[
+        <#if gubun?has_content>
+            SELECT  '' TYPE_CD
+                    ,DECODE(:gubun,'A','전체','S','선택','') TYPE_NM
+                    ,'' DR_CR_CLASS
+                    ,'' ACCT_CD
+            FROM    DUAL
+            UNION ALL
+        </#if>
+            SELECT  TYPE_CD
+                    ,TYPE_NM
+                    ,DR_CR_CLASS
+                    ,ACCT_CD
+            FROM    SLA_TYPE_CD_MST
+            WHERE   USE_YN = 'Y'
+            AND     TYPE_GRP_CD = :typeGrpCd
+        <#if deptYn?has_content && deptYn == 'Y'>
+            AND     TYPE_CD IN (
+                                SELECT  X.TYPE_CD
+                                FROM    SLA_TM_USE_TYPE_CD X
+                                        ,HLDC_SC_DEPT_V Y
+                                WHERE   X.MU_CD = Y.MU_CD
+                                AND     X.TM_CD = Y.TM_CD
+                                AND     X.TYPE_GRP_CD = :typeGrpCd
+                                AND     X.TYPE_CD IS NOT NULL
+                                AND     X.TYPE_GRP_CD = TYPE_GRP_CD
+                                AND     X.TYPE_CD = TYPE_CD
+            <#if ccCd?has_content>
+                                AND     Y.CC_CD = :ccCd
+            <#else>
+                <#if tmCd?has_content>
+                                AND     (X.TM_CD = :tmCd OR Y.PT_CD = :tmCd)
+                <#else>
+                    <#if muCd?has_content>
+                                AND     X.MU_CD = :muCd
+                    </#if>
+                </#if>
+            </#if>
+                                UNION
+                                SELECT  UP.TYPE_CD
+                                FROM    SLA_UPJANG_USE_TYPE_CD UP
+                                WHERE   UP.TYPE_GRP_CD = :typeGrpCd
+                                AND     UP.TYPE_CD IS NOT NULL
+                                AND     UP.TYPE_GRP_CD = TYPE_GRP_CD
+                                AND     UP.TYPE_CD = TYPE_CD
+            <#if ccCd?has_content>
+                                AND     UP.CC_CD = :ccCd
+            <#else>
+            <#if tmCd?has_content>
+                                AND     UP.CC_CD IN (
+                                                    SELECT  A.CC_CD
+                                                    FROM    SCC_CC A
+                                                            ,HLDC_SC_DEPT_V B
+                                                    WHERE   B.CC_CD = A.CC_CD
+                                                    AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+                                                    AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+                                                    AND     (B.TM_CD = :tmCd OR B.PT_CD = :tmCd)
+                                                    )
+                <#else>
+                    <#if muCd?has_content>
+                                AND     UP.MU_CD = :muCd
+                    </#if>
+                </#if>
+            </#if>
+                                )
+        </#if>
+            ORDER BY TYPE_CD NULLS FIRST
+        ]]>
+	</statement>
+
+	<!-- 전표유형에 해당하는 시스템코드Combo 조회 -->
+	<statement name="selectSysClassBySlipType" type="select">
+		/*+ com.hwfs.sm.cmn.dao.CommonDAO.selectSysClassBySlipType */
+		<![CDATA[
+            SELECT  CODE
+                    ,CODE_NAME
+            FROM    SCC_COMMON_CODE
+            WHERE   GROUP_CODE = 'SYS_CLASS'
+            AND		(ATTR01 = :slipType OR ATTR02 = :slipType)
+            ORDER BY GROUP_CODE, SORT_SEQ
+        ]]>
+	</statement>
+
+	<!-- 사업부에 해당하는 시스템코드Combo 조회 -->
+	<statement name="selectSysClassByMuCd" type="select">
+		/*+ com.hwfs.sm.cmn.dao.CommonDAO.selectSysClassByMuCd */
+		<![CDATA[
+            SELECT  CODE
+                    ,CODE || ':' || CODE_NAME AS CODE_NAME
+            FROM    SCC_COMMON_CODE
+            WHERE   GROUP_CODE = 'SYS_CLASS'
+            AND		(SET1 = :muCd OR SET4 = :muCd OR SET5 = :muCd OR SET1 = '9999' OR CODE = '17')	-- '17:특판'은예외처리
+            AND		USE_YN = 'Y'
+            ORDER BY CODE, SORT_SEQ
+        ]]>
+	</statement>
+
+	<!-- 사업부에 해당하는 전표유형Combo 조회 -->
+	<statement name="selectSlipTypeByMuCd" type="select">
+		/*+ com.hwfs.sm.cmn.dao.CommonDAO.selectSlipTypeByMuCd */
+		<![CDATA[
+            SELECT  CODE
+                    ,CODE || ':' || CODE_NAME AS CODE_NAME
+            FROM    SCC_COMMON_CODE
+            WHERE   GROUP_CODE = 'SLIP_TYPE'
+            AND		(SET2 = :muCd OR SET2 = '9999' OR SET3 = :muCd)
+            AND		USE_YN = 'Y'
+            ORDER BY CODE, SORT_SEQ
+        ]]>
+	</statement>
+
+	<!-- 용역 시급정보(Combo)를 조회한다. -->
+	<statement name="selectDutyAmt" type="select"><![CDATA[
+            SELECT  PART_TIME_SALARY_CD
+                    ,PART_TIME_SALARY_CD_NM
+                    ,WEEKLY_DUTY_AMT
+                    ,NGHT_DUTY_AMT
+                    ,EXTENSION_DUTY_AMT
+                    ,NVL(TRIM(TO_CHAR(WEEKLY_DUTY_AMT,'999,999,999')),0) WEEKLY_DUTY_AMT_STR
+                    ,NVL(TRIM(TO_CHAR(NGHT_DUTY_AMT,'999,999,999')),0) NGHT_DUTY_AMT_STR
+                    ,NVL(TRIM(TO_CHAR(EXTENSION_DUTY_AMT,'999,999,999')),0) EXTENSION_DUTY_AMT_STR
+                    ,DAILY_PAY_YN
+            FROM    RSS_PART_TIME_SALARY_INFO
+            WHERE   USE_YN = 'Y'
+            ORDER BY SORT_ORDER
+        ]]></statement>
+
+	<!-- 보유계좌정보를 조회한다. -->
+	<statement name="selectAcntCd" type="select">
+		/*+ com.hwfs.sm.cmn.dao.CommonDAO.selectAcntCd */
+		<![CDATA[
+            SELECT  FCUS.SCC_CRYPTO.DEC_FUN(A.ACNTCD_ENC) ACNT_CD
+                    ,(SELECT ACCT.ACCTNM FROM HLDC_ST_ACCOUNT_V ACCT WHERE A.ACCTCD = ACCT.ACCTCD) ACNT_NM
+            FROM    FCUS.ST_ACNT A
+            WHERE   A.UPJANG IN (
+                                SELECT  DISTINCT UPJANG
+                                FROM    SCO_UPJANG_V
+                                WHERE   CC_CD IN (${ccCd})
+                                AND		TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN START_DATE AND END_DATE
+                                )
+        ]]>
+	</statement>
+
+	<!-- 회사코드(BU_CD)를 조회한다. -->
+	<statement name="selectBuCd" type="select">
+		/*+ com.hwfs.sm.cmn.dao.CommonDAO.selectBuCd */
+		<![CDATA[
+            SELECT  BU_CD, BU_CD||':'||BU_NM BU_NM
+            FROM    SCC_BU
+            --WHERE   USE_YN = 'Y'
+        ]]>
+	</statement>
+
+	<!-- 사업부를 조회한다.(영업회계 공통) -->
+	<statement name="getMuCd" type="select">
+		/*+ com.hwfs.sm.cmn.dao.CommonDAO.getMuCd */
+		<![CDATA[
+            SELECT  MU_CD
+            		,MU_NM
+            FROM    HLDC_SC_MU
+            WHERE   USE_YN = 'Y'
+            AND     MU_CD IN (
+                            SELECT  A.MU_CD
+                            FROM    SCC_CC A
+                                    ,HLDC_SC_DEPT_V B
+                            WHERE   B.CC_CD = A.CC_CD
+                            AND		A.USE_YN = 'Y'
+                            AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+                            AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+                            AND     A.CC_CD IN (
+                                                SELECT  CC_CD
+                                                FROM    SLA_USERBY_CC_INFO
+                                                WHERE   USE_YN = 'Y'
+                                                AND     EMP_NUM = :empNum
+                                                UNION ALL
+                                                SELECT 	SLA_GET_USERINFO_FUN('CC',:empNum)
+                                                FROM 	DUAL
+                                                )
+                        <#if muCd?has_content>
+                            AND     A.MU_CD = :muCd
+                        </#if>
+                        <#if tmCd?has_content>
+                            AND     B.TM_CD = :tmCd
+                        </#if>
+                        <#if ccCd?has_content>
+                            AND     A.CC_CD = :ccCd
+                        </#if>
+                            )
+        	ORDER BY MU_CD
+        ]]>
+	</statement>
+
+	<!-- 팀을 조회한다.(영업회계 공통) -->
+	<statement name="getTmCd" type="select">
+		/*+ com.hwfs.sm.cmn.dao.CommonDAO.getTmCd */
+		<![CDATA[
+            SELECT  MU_CD
+            		,MU_NM
+            		,TM_CD
+            		,TM_NM
+            FROM    HLDC_SC_TM
+            WHERE   USE_YN = 'Y'
+        <#if empNum?has_content>
+            AND     TM_CD IN (
+                            SELECT  B.TM_CD
+                            FROM    SCC_CC A
+                                    ,HLDC_SC_DEPT_V B
+                            WHERE   B.CC_CD = A.CC_CD
+                            AND		A.USE_YN = 'Y'
+                            AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+                            AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+                            AND     A.CC_CD IN (
+                                                SELECT  CC_CD
+                                                FROM    SLA_USERBY_CC_INFO
+                                                WHERE   USE_YN = 'Y'
+                                                AND     EMP_NUM = :empNum
+                                                UNION ALL
+                                                SELECT 	SLA_GET_USERINFO_FUN('CC',:empNum)
+                                                FROM 	DUAL                                                
+                                                )
+                        <#if ccCd?has_content>
+                            AND     A.CC_CD = :ccCd
+                        </#if>
+                            )
+        </#if>
+        <#if muCd?has_content>
+            AND     MU_CD = :muCd
+        </#if>
+        <#if tmCd?has_content>
+            AND     TM_CD = :tmCd
+        </#if>
+        <#if inputVal?has_content>
+            AND     (TM_CD LIKE '%'||:inputVal||'%' OR TM_NM LIKE '%'||:inputVal||'%')
+        </#if>
+        	ORDER BY MU_CD, TM_CD
+        ]]>
+	</statement>
+
+	<!-- CC를 조회한다.(영업회계 공통) -->
+	<statement name="getCcCd" type="select">
+		/*+ com.hwfs.sm.cmn.dao.CommonDAO.getCcCd */
+		<![CDATA[
+            SELECT  A.MU_CD
+            		,B.MU_NM
+            		,B.TM_CD
+            		,B.TM_NM
+            		,A.CC_CD
+            		,A.CC_NM
+            FROM    SCC_CC A
+                    ,HLDC_SC_DEPT_V B
+            WHERE   B.CC_CD = A.CC_CD
+            AND		A.USE_YN = 'Y'
+            AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+            AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+        <#if empNum?has_content>
+            AND     A.CC_CD IN (
+                                SELECT  CC_CD
+                                FROM    SLA_USERBY_CC_INFO
+                                WHERE   USE_YN = 'Y'
+                                AND     EMP_NUM = :empNum
+                                UNION ALL
+                                SELECT 	SLA_GET_USERINFO_FUN('CC',:empNum)
+                                FROM 	DUAL
+                                )
+        </#if>
+        <#if muCd?has_content>
+            AND     A.MU_CD = :muCd
+        </#if>
+        <#if tmCd?has_content>
+            AND     B.TM_CD = :tmCd
+        </#if>
+        <#if ccCd?has_content>
+            AND     A.CC_CD = :ccCd
+        </#if>
+        <#if inputVal?has_content>
+            AND     (A.CC_CD LIKE '%'||:inputVal||'%' OR A.CC_NM LIKE '%'||:inputVal||'%')
+        </#if>
+        	ORDER BY A.MU_CD, B.TM_CD, A.CC_CD
+        ]]>
+	</statement>
+
+	<!-- 업장을 조회한다.(영업회계 공통) -->
+	<statement name="getUpjangCd" type="select">
+		/*+ com.hwfs.sm.cmn.dao.CommonDAO.getUpjangCd */
+		<![CDATA[
+            SELECT  Y.MU_CD
+            		,Y.MU_NM
+            		,Y.TM_CD
+            		,Y.TM_NM
+            		,Y.CC_CD
+            		,Y.CC_NM
+            		,X.UPJANG
+            		,X.UPJANGNM
+            FROM    ST_UPJANG X
+                    ,(
+                    SELECT  A.MU_CD, B.MU_NM, B.TM_CD, B.TM_NM, A.CC_CD, A.CC_NM
+                    FROM    SCC_CC A
+                            ,HLDC_SC_DEPT_V B
+                    WHERE   B.CC_CD = A.CC_CD
+                    AND		A.USE_YN = 'Y'
+                    AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+                    AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+                    ) Y
+            WHERE   X.CC_CD = Y.CC_CD
+        <#if empNum?has_content>
+            AND   	X.CC_CD IN (
+                            SELECT  CC_CD
+                            FROM    SLA_USERBY_CC_INFO
+                            WHERE   USE_YN = 'Y'
+                            AND     EMP_NUM = :empNum
+                            UNION ALL
+                            SELECT 	SLA_GET_USERINFO_FUN('CC',:empNum)
+                            FROM 	DUAL
+                            )
+        </#if>
+        <#if muCd?has_content>
+            AND     X.CC_CD IN (
+                            SELECT  A.CC_CD
+                            FROM    SCC_CC A
+                                    ,HLDC_SC_DEPT_V B
+                            WHERE   B.CC_CD = A.CC_CD
+                            AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+                            AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+                            AND     A.MU_CD = :muCd
+                            )
+        </#if>
+        <#if tmCd?has_content>
+            AND     X.CC_CD IN (
+                            SELECT  A.CC_CD
+                            FROM    SCC_CC A
+                                    ,HLDC_SC_DEPT_V B
+                            WHERE   B.CC_CD = A.CC_CD
+                            AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+                            AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+                            AND     B.TM_CD = :tmCd                          
+                            )
+        </#if>
+        <#if ccCd?has_content>
+            AND     X.CC_CD = :ccCd
+        </#if>
+        <#if upjang?has_content>
+            AND     X.UPJANG = :upjang
+        </#if>
+        <#if inputVal?has_content>
+            AND     (X.UPJANG LIKE '%'||:inputVal||'%' OR X.UPJANGNM LIKE '%'||:inputVal||'%')
+        </#if>
+        	ORDER BY Y.MU_CD, Y.TM_CD, Y.CC_CD, X.UPJANG       
+        ]]>
+	</statement>
+
+	<!-- 영업현금 잔액 체크 -->
+	<statement name="getCashAltYn">
+		/*+ com.hwfs.sm.cmn.dao.CommonDAO.getCashAltYn */
+		<![CDATA[
+            SELECT  CASE WHEN (NVL(M.OCCUR_AMT,0)
+                        - NVL((
+                            SELECT  NVL(SUM(DD.RECEIVE_AMT),0)
+                            FROM    SLA_SALES_CASH_ALT_DETAIL DD
+                            WHERE   DD.RECD_STATUS = 'L'
+                            AND     DD.SALES_CASH_NUM = M.SALES_CASH_NUM
+                        ),0)
+                        - TO_NUMBER(:receiveAmt)) < 0 THEN 'N' ELSE 'Y' END CASH_YN
+            FROM    SLA_SALES_CASH_OCCUR_INFO M
+            WHERE   SALES_CASH_NUM = :salesCashNum
+        ]]>
+	</statement>
+
+	<!--  채권(입금) 잔액 체크 -->
+	<statement name="getArReceiveYn">
+		/*+ com.hwfs.sm.cmn.dao.CommonDAO.getArReceiveYn */
+		<![CDATA[
+            SELECT  --마이너스채권인 경우 조건 변경 처리(잔액 부족 잘못나오는 문제 수정) 20190807 김호석
+            		CASE WHEN (NVL(M.AR_AMT,0) > 0) THEN
+	            		CASE WHEN (NVL(M.AR_AMT,0)
+	                        - NVL((
+	                            SELECT  NVL(SUM(DD.RECEIVE_AMT),0)
+	                            FROM    SLA_AR_RECEIVE_DETAIL DD
+	                            WHERE   DD.RECD_STATUS = 'L'
+	                            AND     DD.AR_NUM = M.AR_NUM
+	                        ),0)
+	                    <#if receiveNum ?has_content>
+	                        + NVL((
+	                            SELECT  NVL(SUM(DD.RECEIVE_AMT),0)
+	                            FROM    SLA_AR_RECEIVE_DETAIL DD
+	                            WHERE   DD.RECD_STATUS = 'L'
+	                            AND     DD.AR_NUM = M.AR_NUM
+	                            AND     DD.RECEIVE_NUM = :receiveNum
+	                        ),0)
+	                    </#if>                        
+	                        - TO_NUMBER(<#if receiveAmt?has_content>:receiveAmt<#else>0</#if>)) < 0 THEN 'N' ELSE 'Y' END 
+	                ELSE
+	                	CASE WHEN (NVL(M.AR_AMT,0)
+	                        - NVL((
+	                            SELECT  NVL(SUM(DD.RECEIVE_AMT),0)
+	                            FROM    SLA_AR_RECEIVE_DETAIL DD
+	                            WHERE   DD.RECD_STATUS = 'L'
+	                            AND     DD.AR_NUM = M.AR_NUM
+	                        ),0)
+	                    <#if receiveNum ?has_content>
+	                        + NVL((
+	                            SELECT  NVL(SUM(DD.RECEIVE_AMT),0)
+	                            FROM    SLA_AR_RECEIVE_DETAIL DD
+	                            WHERE   DD.RECD_STATUS = 'L'
+	                            AND     DD.AR_NUM = M.AR_NUM
+	                            AND     DD.RECEIVE_NUM = :receiveNum
+	                        ),0)
+	                    </#if>                        
+	                        - TO_NUMBER(<#if receiveAmt?has_content>:receiveAmt<#else>0</#if>)) > 0 THEN 'N' ELSE 'Y' END	                
+	                END AR_RECEIVE_YN
+            FROM    SLA_AR_MST M
+            WHERE   AR_NUM = :arNum
+        ]]>
+	</statement>
+</hqml>

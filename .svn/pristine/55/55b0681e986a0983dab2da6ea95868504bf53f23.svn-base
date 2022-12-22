@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT B.OTCUSTCD, #OTCUSTNM# AS OTCUSTNM
+     , #MAIN_UPJANG# AS MAIN_UPJANG, #MAIN_UPJANGNM# AS MAIN_UPJANGNM
+     , #UPJANG# AS UPJANG, #UPJANGNM# AS UPJANGNM
+     , B.ITEM_CODE, B.ITEM_NAME, B.ITEM_SIZE, B.PO_UOM
+     , DECODE(B.TAX_CODE,'100','과세','210','면세','영세') AS TAX_CODE
+     , DECODE(C.SDATE,NULL,NULL,TO_CHAR(TO_DATE(C.SDATE,'YYYYMMDD'),'YYYY-MM-DD')) AS SDATE
+     , DECODE(C.EDATE,NULL,NULL,TO_CHAR(TO_DATE(C.EDATE,'YYYYMMDD'),'YYYY-MM-DD')) AS EDATE
+     , C.SALE_PRICE, NVL(C.CINFO,'단가미등록') AS CINFO, C.USE_YN
+  FROM FMP_OTCUST_ITEM B
+     ,(SELECT A.ITEM_CODE, A.SALE_PRICE, A.SDATE, A.EDATE, A.USE_YN
+            , TO_CHAR(A.CDATE,'YYYY-MM-DD')||' '||A.CUSER||' '||B.NM_KOR AS CINFO
+         FROM FMP_OTCUST_PRICE_AVA_V A, SCC_USERINFO B
+            ,(SELECT UPJANG, ITEM_CODE, MAX(SDATE) AS SDATE
+                FROM FMP_OTCUST_PRICE_AVA_V
+               WHERE UPJANG = (SELECT OTCUST_PRICE_UPJANG FROM FMS_UPJANG WHERE UPJANG = #UPJANG#)
+                 AND ITEM_CODE LIKE #OTCUSTCD#||'%'
+                 AND SDATE <= #SDATE#
+               GROUP BY UPJANG, ITEM_CODE) D
+        WHERE A.CUSER  = B.SABUN(+)
+          AND A.UPJANG = D.UPJANG
+          AND A.ITEM_CODE = D.ITEM_CODE
+          AND A.SDATE  = D.SDATE) C
+ WHERE B.ITEM_CODE = C.ITEM_CODE
+   AND B.ITEM_CODE LIKE #OTCUSTCD#||'%'
+   AND B.ITEM_CLASS2 LIKE NVL(#ITEM_CLASS2#,'%')
+   AND B.ITEM_CLASS3 LIKE NVL(#ITEM_CLASS3#,'%')
+   AND B.ITEM_CLASS4 LIKE NVL(#ITEM_CLASS4#,'%')
+   AND (B.ITEM_CODE LIKE #ITEM_CODE#||'%' OR B.ITEM_NAME LIKE '%'||#ITEM_CODE#||'%')
+   AND B.USE_YN = 'Y'
+ ORDER BY B.ITEM_CODE	]]></statement>
+	<input default-name="ds_Cond">
+		<col name="OTCUSTNM" size="4000" type="VARCHAR" description="" /> 
+		<col name="MAIN_UPJANGNM" size="4000" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="UPJANGNM" size="4000" type="VARCHAR" description="" /> 
+		<col name="OTCUSTCD" size="50" type="VARCHAR" description="" /> 
+		<col name="SDATE" size="8" type="VARCHAR" description="" /> 
+		<col name="MAIN_UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="CONSUM_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="ITEM_CLASS2" size="8" type="VARCHAR" description="" /> 
+		<col name="ITEM_CLASS3" size="8" type="VARCHAR" description="" /> 
+		<col name="ITEM_CLASS4" size="8" type="VARCHAR" description="" /> 
+		<col name="ITEM_CODE" size="100" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_List">
+		<col name="OTCUSTCD" size="50" type="VARCHAR" description="" /> 
+		<col name="OTCUSTNM" size="4000" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="MAIN_UPJANGNM" size="4000" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="4000" type="VARCHAR" description="" /> 
+		<col name="UPJANGNM" size="4000" type="VARCHAR" description="" /> 
+		<col name="ITEM_CODE" size="50" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAME" size="200" type="VARCHAR" description="" /> 
+		<col name="ITEM_SIZE" size="100" type="VARCHAR" description="" /> 
+		<col name="PO_UOM" size="10" type="VARCHAR" description="" /> 
+		<col name="TAX_CODE" size="4" type="VARCHAR" description="" /> 
+		<col name="SDATE" size="10" type="VARCHAR" description="" /> 
+		<col name="EDATE" size="10" type="VARCHAR" description="" /> 
+		<col name="SALE_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="CINFO" size="41" type="VARCHAR" description="" /> 
+		<col name="USE_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="MAIN_UPJANG" size="22" type="NUMERIC" description="" /> 
+	</output>
+</query>

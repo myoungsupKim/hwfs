@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.bms.resultYearListDAO">
+	<desc>룸별 회전률(연별)</desc>
+
+	<!-- DATA를 조회한다. -->
+	<statement name="selectList" type="select">
+		<![CDATA[
+
+			--사업장,연회룸,예약건수(년),대관료,사용횟수,회전율,전녀도회전율,회전율증감
+			
+			SELECT MENU.OUTLET_CD         AS OUTLET_CD  --사업장코드
+                 , MAX(OUTLET.OUTLET_NM)  AS OUTLET_NM  --사업장명
+			     , MENU.MENU_CD           AS MENU_CD    --메뉴코드(룸코드)
+			     , MAX(CATER.CATERCHF_NM) AS MENU_NM    --연회룸
+                 , SUM(MAST.CNT)          AS CNT        --예약건수
+				 , SUM(MENU.TOT_AMT)      AS TOT_AMT    --대관료
+                 , SUM(ROOM.ROOM_TOT)     AS ROOM_TOT   --전체룸
+                 , SUM(UQTY.USE_CNT)      AS USE_CNT    --사용횟수 시작일과 종료일의 기간을 횟수로 본다.
+                 , ROUND(SUM(UQTY.USE_TIME) / (365*12)  ,2)  AS USE_PER
+				 , ROUND(SUM(YYYY.USE_TIME) / (365*12)  ,2)  AS OLD_PER
+                 , ROUND(SUM(UQTY.USE_TIME) / (365*12)  ,2) - ROUND(SUM(YYYY.USE_TIME) / (365*12)  ,2) AS SUB_PER
+                 --, ROUND(SUM(UQTY.USE_TIME) / SUM(ROOM.ROOM_TOT*12) * 100 ,2)  AS USE_PER
+				 --, ROUND(SUM(YYYY.USE_TIME) / SUM(ROOM.ROOM_TOT*12) * 100 ,2)  AS OLD_PER
+                 --, ROUND(SUM(UQTY.USE_TIME) / SUM(ROOM.ROOM_TOT*12) * 100 ,2) - ROUND(SUM(YYYY.USE_TIME) / SUM(ROOM.ROOM_TOT*12) * 100 ,2) AS SUB_PER
+		   	FROM   BMS_RESERV_MENU MENU
+		   	INNER JOIN ( SELECT  A.RESERV_NUM, A.RESERV_STATUS, A.KIND_CD, A.AM_CD ,  1 AS CNT
+                            FROM BMS_RESERV_MST A
+                            INNER JOIN BMS_RESERV_MENU B ON B.RESERV_NUM = A.RESERV_NUM
+                                                        WHERE  A.USE_YN = 'Y'
+                                                        AND   SUBSTR(A.STR_DATE,1,4) BETWEEN :reservDtFr   AND :reservDtTo
+                             GROUP BY A.RESERV_NUM, A.RESERV_STATUS, A.KIND_CD, A.AM_CD
+            			)MAST ON MAST.RESERV_NUM = MENU.RESERV_NUM   --예약 마스터
+			
+			INNER JOIN (SELECT MST.OUTLET_CD, MST.OUTLET_TYPE, MST.OUTLET_NM
+                         FROM   SLE_OUTLET_MST MST
+                            INNER JOIN  SCO_UPJANG_V   UPJANG ON  UPJANG.UPJANG = TO_NUMBER(MST.OUTLET_CD)
+                                      -- <#if muCd?has_content> AND  UPJANG.MU_CD = :muCd </#if>
+                                      -- <#if tmCd?has_content> AND  UPJANG.TM_CD = :tmCd </#if>
+                           ) OUTLET ON OUTLET.OUTLET_CD =  MENU.OUTLET_CD
+			INNER JOIN (SELECT OUTLET_CD, CATERCHF_CD, CATERCHF_NM   FROM BMS_CATERCHF_MST  
+                                    WHERE CLASS_CD  = '10'
+						) CATER ON  CATER.OUTLET_CD = MENU.OUTLET_CD AND CATER.CATERCHF_CD   = MENU.MENU_CD
+			INNER JOIN  (SELECT  OUTLET_CD, COUNT(CATERCHF_CD) AS ROOM_TOT   FROM BMS_CATERCHF_MST  
+                                    WHERE CLASS_CD  = '10'
+                                    GROUP BY OUTLET_CD
+						) ROOM ON  ROOM.OUTLET_CD = MENU.OUTLET_CD 
+			--검색조건과 같이 해야함 중요 사용일수 구하기
+            INNER JOIN (SELECT  OUTLET_CD, MENU_CD, SUM(USE_CNT) AS USE_CNT, SUM(USE_TIME) AS USE_TIME
+                           FROM (
+                                SELECT A.OUTLET_CD, A.MENU_CD, TO_DATE(A.END_DATE,'YYYYMMDD') - TO_DATE(A.STR_DATE,'YYYYMMDD') +1 AS USE_CNT,
+                                	   (TO_DATE(A.END_DATE,'YYYYMMDD') - TO_DATE(A.STR_DATE,'YYYYMMDD') +1)*(TO_NUMBER(A.END_TIME) - TO_NUMBER(A.STR_TIME))*0.5 AS USE_TIME 
+                                FROM BMS_RESERV_MENU A
+                                INNER JOIN BMS_RESERV_MST B ON B.RESERV_NUM = A.RESERV_NUM
+                                WHERE A.USE_YN ='Y' 
+                                  AND A.FNB_CLASS ='R'
+                                  
+                                  <#if reservDtFr?has_content >   AND SUBSTR(A.STR_DATE,1,4) BETWEEN :reservDtFr   AND :reservDtTo </#if>
+								  <#if outletCd?has_content >     AND A.OUTLET_CD  = :outletCd  </#if>
+								  <#if amCd?has_content >         AND B.AM_CD      = :amCd      </#if>
+								  <#if kindCd?has_content >       AND B.KIND_CD    = :kindCd    </#if>
+								  <#if reservStatus?has_content > AND :reservStatus   LIKE '%' || B.RESERV_STATUS || '%' </#if>	
+								  
+                                  GROUP BY  A.OUTLET_CD, A.MENU_CD, A.STR_DATE, A.END_DATE, A.STR_TIME, A.END_TIME
+                            ) DUAL GROUP BY OUTLET_CD, MENU_CD
+                            
+            			) UQTY ON  UQTY.OUTLET_CD = MENU.OUTLET_CD AND UQTY.MENU_CD = MENU.MENU_CD
+            --전년예약현황 구하기
+             LEFT OUTER JOIN (SELECT  OUTLET_CD, MENU_CD, SUM(USE_CNT) AS USE_CNT, SUM(USE_TIME) AS USE_TIME
+                           FROM (
+                                SELECT A.OUTLET_CD, A.MENU_CD, TO_DATE(A.END_DATE,'YYYYMMDD') - TO_DATE(A.STR_DATE,'YYYYMMDD') +1 AS USE_CNT,
+                                       (TO_DATE(A.END_DATE,'YYYYMMDD') - TO_DATE(A.STR_DATE,'YYYYMMDD') +1)*(TO_NUMBER(A.END_TIME) - TO_NUMBER(A.STR_TIME))*0.5 AS USE_TIME
+                                FROM BMS_RESERV_MENU A
+                                INNER JOIN BMS_RESERV_MST B ON B.RESERV_NUM = A.RESERV_NUM
+                                WHERE A.USE_YN ='Y' 
+                                  AND A.FNB_CLASS ='R'
+                                  
+                                  <#if reservDtFr?has_content >   AND SUBSTR(A.STR_DATE,1,4) BETWEEN TO_CHAR(TO_NUMBER(:reservDtFr)-1)   AND TO_CHAR(TO_NUMBER(:reservDtTo)-1) </#if>
+								  <#if outletCd?has_content >     AND A.OUTLET_CD  = :outletCd  </#if>
+								  <#if amCd?has_content >         AND B.AM_CD      = :amCd      </#if>
+								  <#if kindCd?has_content >       AND B.KIND_CD    = :kindCd    </#if>
+								  <#if reservStatus?has_content > AND :reservStatus   LIKE '%' || B.RESERV_STATUS || '%' </#if>	
+                                  
+                                  GROUP BY  A.OUTLET_CD, A.MENU_CD, A.STR_DATE, A.END_DATE, A.STR_TIME, A.END_TIME
+                            ) DUAL GROUP BY OUTLET_CD, MENU_CD
+                            
+            			) YYYY ON  YYYY.OUTLET_CD = MENU.OUTLET_CD AND YYYY.MENU_CD = MENU.MENU_CD
+                                    
+			WHERE MENU.USE_YN = 'Y'    --사용유무
+			  AND MENU.FNB_CLASS ='R'  --연회룸 예약건만 검색 한다.AL
+             
+              <#if reservDtFr?has_content >   AND SUBSTR(MENU.STR_DATE,1,4) BETWEEN :reservDtFr   AND :reservDtTo </#if>
+			  <#if outletCd?has_content >     AND MENU.OUTLET_CD  = :outletCd  </#if>
+			  <#if amCd?has_content >         AND MAST.AM_CD      = :amCd      </#if>
+			  <#if kindCd?has_content >       AND MAST.KIND_CD    = :kindCd    </#if>
+			  <#if reservStatus?has_content > AND :reservStatus   LIKE '%' || MAST.RESERV_STATUS || '%' </#if>	
+			  
+            GROUP BY MENU.OUTLET_CD, MENU.MENU_CD,  SUBSTR(MENU.STR_DATE,1,4)
+			ORDER BY MENU.OUTLET_CD, MENU.MENU_CD,  SUBSTR(MENU.STR_DATE,1,4)
+
+		]]>
+	</statement>
+	
+</hqml>	
+		

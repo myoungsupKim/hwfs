@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="rc.rrm.standardRecipeInquirybyRecipeDAO">
+	<desc>표준 레시피 HQML Query</desc>
+
+	<!-- 표준 레시피 검색(레시피 내역 가장 상단에 표시될 레시피) -->
+	<statement name="selectRecipe" type="select"><![CDATA[
+		SELECT MU_CD,
+			   UPJANG_TYPE,
+		       STD_RECIPE_CD,
+		       RECIPE_NM,
+		       STD_RECIPE_CD AS MATERIAL_CD,
+		       RECIPE_NM AS MATERIAL_CD_NM,
+		       '' AS SDATE,
+		       '' AS EDATE,
+		       0 AS NEED_QTY,
+		       0 AS SUM_NEED_QTY,
+		       0 AS CST_AMT,
+		       UNIT_CD AS PO_UNIT,
+		       '' AS RECIPE_APPLY_UNIT,
+		       '' AS OFFER_UNIT,
+		       '' AS OFFER_UNIT_NM,
+		       '' AS LOSS_RATE,
+		       'Y' AS SEMI_GOODS_YN,
+		       0 AS INVEST_AMT,
+		       '' AS ITEM_SIZE,
+		       '' AS MAKER,
+		       '' AS ORIGIN_TYPE,
+		       0 AS TREE_LEVEL,
+		       0 AS GRAM_PRICE,
+		       0 AS APPLY_QTY
+		FROM   RSS_STD_RECIPE_CD_MST
+		WHERE  MU_CD = :muCd
+		AND	   UPJANG_TYPE = :upjangType
+		AND	   STD_RECIPE_CD = :stdRecipeCd
+		]]></statement>
+
+	<!-- 표준 레시피 목록을 조회한다. -->
+	<statement name="selectList" type="select"><![CDATA[
+	SELECT
+	       A.MU_CD
+	     , A.UPJANG_TYPE
+	     , A.STD_RECIPE_CD
+	     , A.RECIPE_NM
+	     , A.MATERIAL_CD
+	     , DECODE(A.SEMI_GOODS_YN, 'Y', A.SUB_RECIPE_NM, A.ITEM_NAME) AS MATERIAL_CD_NM
+	     , A.SDATE
+	     , A.EDATE
+	     , A.NEED_QTY
+	     , CASE WHEN A.LOSS_RATE > 100
+	            --THEN ROUND(A.NEED_QTY / (A.LOSS_RATE / 100), 3)  16.04.20(이다미씨 요청으로 변경)
+	            THEN ROUND(A.NEED_QTY * (A.LOSS_RATE / 100), 3)
+	            ELSE ROUND(A.NEED_QTY * (A.LOSS_RATE / 100), 3)
+	        END AS SUM_NEED_QTY
+	     , A.CONTRACT_PRICE AS CST_AMT
+	     , DECODE(A.SEMI_GOODS_YN, 'Y', ROUND(A.G_PRICE, 2), ROUND(A.CONTRACT_PRICE / A.KG_CONVERT_RATE / 1000, 2)) AS GRAM_PRICE
+	     , A.PO_UNIT
+	     , A.RECIPE_APPLY_UNIT
+	     , A.OFFER_UNIT
+	     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'OFFER_UNIT' AND CODE = A.OFFER_UNIT) AS OFFER_UNIT_NM
+	     , A.LOSS_RATE
+	      --, DECODE(A.MATERIAL_CD, '0006248', 'N', A.SEMI_GOODS_YN) AS SEMI_GOODS_YN
+         , A.SEMI_GOODS_YN
+	     , CASE WHEN A.SEMI_GOODS_YN = 'Y'
+	            THEN CASE WHEN A.LOSS_RATE > 100
+	                      --THEN ROUND((A.NEED_QTY / (A.LOSS_RATE / 100)) * A.G_PRICE, 3)
+	                      THEN ROUND((A.NEED_QTY * (A.LOSS_RATE / 100)) * A.G_PRICE, 3)
+	                      ELSE ROUND((A.NEED_QTY * (A.LOSS_RATE / 100)) * A.G_PRICE, 3)
+	                  END
+	            ELSE ROUND(A.NEED_QTY * (A.CONTRACT_PRICE / A.KG_CONVERT_RATE / 1000), 3)
+	        END AS INVEST_AMT	--투입재료비
+	     , A.ITEM_SIZE
+	     , A.MAKER
+	     , A.ORIGIN_TYPE
+	     , 0 AS APPLY_QTY
+	     , :treeLevel AS TREE_LEVEL
+	  FROM (
+	        SELECT /*+ PUSH_PRED(D) */
+		           A.MU_CD
+		         , A.UPJANG_TYPE
+		         , A.STD_RECIPE_CD
+		         , B.RECIPE_NM
+		         , A.MATERIAL_CD
+		         , A.SEMI_GOODS_YN
+		         , E.RECIPE_NM AS SUB_RECIPE_NM
+		         , C.ITEM_NAME
+		         , A.SDATE
+		         , A.EDATE
+		         , NVL(A.NEED_QTY, 0) AS NEED_QTY
+		         , A.LOSS_RATE
+		         , NVL(D.CONTRACT_PRICE, 0) AS CONTRACT_PRICE
+		         , DECODE(C.KG_CONVERT_RATE, 0, 1, C.KG_CONVERT_RATE) AS KG_CONVERT_RATE
+		         , A.PO_UNIT
+	  	         , A.RECIPE_APPLY_UNIT
+		         , E.OFFER_UNIT
+		         , C.ITEM_SIZE
+		         , C.MAKER
+		         , C.ORIGIN_TYPE		         		         
+	             --, DECODE(A.SEMI_GOODS_YN, 'Y', FN_RECIPE_AMT_FUN('', A.MATERIAL_CD, :stdDate, '2'), 0) AS G_PRICE	             
+	             , DECODE(A.SEMI_GOODS_YN, 'Y', (SELECT FN_RECIPE_AMT_FUN('', A.MATERIAL_CD, :stdDate, '2') FROM DUAL), 0) AS G_PRICE
+	             , A.SORT_ORDER
+		      FROM RSS_STD_RECIPE_CD_DETAIL A
+		         , RSS_STD_RECIPE_CD_MST B
+		         , HLDC_PO_ITEM_MST C
+		         , (SELECT /*+ LEADING(A.UP) INDEX(A.MR IX_ESPSSGPITM_03)  */ 
+		                   ITEM_CODE
+		                 , MAX(CONTRACT_START) AS CONTRACT_START
+		                 , MAX(CONTRACT_END) AS CONTRACT_END
+		                 , AVG(CONTRACT_PRICE) AS  CONTRACT_PRICE
+		              --FROM EPROCUSR.VO_CONTRACT_F
+		              FROM	EPROCUSR.VO_CONTRACT_F_RCP -- 논리적 분사이후 단가불러오는 뷰 변경 20200309
+		             WHERE 1 = 1
+                   	   AND UPJANG = '217840' --FC 외식 메뉴개발실 단가 연결  2017.10.31 이다미 요청
+		               AND :stdDate BETWEEN CONTRACT_START AND CONTRACT_END
+	                 GROUP BY ITEM_CODE) D
+		         , RSS_STD_RECIPE_CD_MST E
+		     WHERE A.STD_RECIPE_CD = B.STD_RECIPE_CD(+)
+	           AND A.MATERIAL_CD = C.ITEM_CODE(+)
+	           AND A.MATERIAL_CD = D.ITEM_CODE(+)
+	           AND A.MATERIAL_CD = E.STD_RECIPE_CD(+)
+	           AND A.MU_CD = :muCd
+	           AND (A.UPJANG_TYPE = :upjangType OR A.UPJANG_TYPE = '99')
+	           AND A.STD_RECIPE_CD = :stdRecipeCd
+	        <#if materialCd?has_content>
+	           AND A.MATERIAL_CD = :materialCd
+	        </#if>
+	        <#if sdate?has_content>
+	           AND A.SDATE = :sdate
+	        </#if>
+	        <#if stdDate?has_content>
+	           AND A.SDATE <= :stdDate
+	           AND A.EDATE >= :stdDate
+	        </#if>
+	       ) A
+	 ORDER BY A.SEMI_GOODS_YN ASC, A.SORT_ORDER ASC
+		]]></statement>
+
+</hqml>

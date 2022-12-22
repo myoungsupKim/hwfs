@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+--------------------------------------------------------------------------------------------------------
+-- 영업장부 가수금대체
+--------------------------------------------------------------------------------------------------------
+SELECT 1 AS LEV,
+	S.SAP_SUSPENSE_NUM,
+	S.RECEIVE_DATE, 
+	S.BANK_CD,
+    S.BANK_ACCT_NO,
+    SCC_CRYPTO.MASKAUTH_FUN(S.BANK_ACCT_NO,6,'YYYYNNYYYYYNNNN',0) AS BANK_ACCT_NO_DEC,
+    S.RECEIVE_AMT,
+    S.RECEIVE_GUEST_NM,
+    S.CC_CD,
+    '' AS CC_NM,		--(SELECT CC_NM FROM SCC_CC WHERE CC_CD = S.CC_CD)
+    S.ADDTIME,
+    '' AS ALT_NUM,
+    '' AS SUSPENSE_ALT_TYPE,
+    NULL AS ALT_DATE,
+    NVL((SELECT SUM(ALT_AMT) FROM SLA_SAP_SUSPENSE_ALT_DETAIL SD WHERE S.SAP_SUSPENSE_NUM = SD.SAP_SUSPENSE_NUM AND SD.RECD_STATUS='L'), 0) AS ALT_AMT,
+    S.RECEIVE_AMT - NVL((SELECT SUM(ALT_AMT) FROM SLA_SAP_SUSPENSE_ALT_DETAIL SD WHERE S.SAP_SUSPENSE_NUM = SD.SAP_SUSPENSE_NUM AND SD.RECD_STATUS='L'), 0) AS TOT_AMT,
+    '' AS ALT_PROC_DATE,		--대체처리일자    
+    '' AS RECEIVE_TYPE_CD_NM
+FROM SLA_SAP_SUSPENSE_INFO S
+WHERE S.CC_CD = #CC_CD#
+    AND S.RECEIVE_DATE BETWEEN #DATEFR#||'01' AND TO_CHAR(LAST_DAY(TO_DATE(#DATETO#, 'YYYYMM')),'YYYYMMDD')
+    AND S.RECD_STATUS= 'L'
+--ORDER BY SAP_SUSPENSE_NUM, RECEIVE_DATE
+
+UNION ALL 
+
+SELECT 2 AS LEV,
+	S.SAP_SUSPENSE_NUM,
+	'' AS RECEIVE_DATE, 
+	'' BANK_CD,
+    '' BANK_ACCT_NO,
+    '' AS BANK_ACCT_NO_DEC,
+    NULL RECEIVE_AMT,
+    '' RECEIVE_GUEST_NM,
+    SD.CC_CD,
+    (SELECT CC_NM FROM SCC_CC WHERE CC_CD = SD.CC_CD) AS CC_NM,
+    S.ADDTIME,
+    SD.ALT_NUM,
+    SD.SUSPENSE_ALT_TYPE,
+    SD.RECEIVE_DATE AS ALT_DATE,
+    SD.ALT_AMT,
+    NULL AS TOT_AMT,
+    SM.ALT_PROC_DATE,		--대체처리일자    
+    DECODE(SD.SUSPENSE_ALT_TYPE,'SAP', 'SAP 가수금 대체', 'L04', '선수금등록', (SELECT SET1 FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'TYPE_GRP_CD' AND CODE =(SELECT TP.TYPE_GRP_CD FROM SLA_TYPE_CD_MST TP WHERE  TP.TYPE_CD = SD.SUSPENSE_ALT_TYPE)))  RECEIVE_TYPE_CD_NM
+FROM SLA_SAP_SUSPENSE_INFO S, SLA_SAP_SUSPENSE_ALT_DETAIL SD, SLA_SAP_SUSPENSE_ALT_MST SM
+WHERE S.SAP_SUSPENSE_NUM = SD.SAP_SUSPENSE_NUM
+	AND SD.ALT_NUM = SM.ALT_NUM
+	AND S.CC_CD = #CC_CD#
+--	AND SD.CC_CD = #CC_CD#
+    AND S.RECEIVE_DATE BETWEEN #DATEFR#||'01' AND TO_CHAR(LAST_DAY(TO_DATE(#DATETO#, 'YYYYMM')),'YYYYMMDD')
+    AND S.RECD_STATUS= 'L'
+    AND SD.RECD_STATUS = 'L'
+    AND SM.RECD_STATUS = 'L'
+ORDER BY SAP_SUSPENSE_NUM, RECEIVE_DATE, LEV
+
+
+</statement>
+	<input default-name="ds_cond">
+		<col name="CC_CD" size="6" type="NUMERIC" description="CC코드" /> 
+	</input>
+	<output default-name="ds_listDetail8">
+	</output>
+</query>

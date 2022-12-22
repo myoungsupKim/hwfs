@@ -1,0 +1,1478 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="ft.ftp.proposalDAO">
+    <desc>구매 품의 마스터를 관리한다.</desc>
+
+    <!-- 구매 품의 마스터 조회한다. -->
+    <statement name="selectPoOrderList" type="select">
+        <![CDATA[
+            SELECT
+                 A.PO_PROPOSAL_NUM
+                ,CASE WHEN SCC_SIGN_STATUS_FUN(SIGN_INSTANCE_ID) = 'COMPLETE' THEN
+                     '30'
+                 WHEN SCC_SIGN_STATUS_FUN(SIGN_INSTANCE_ID) = 'REJECT' THEN
+                     '40'
+                 WHEN SCC_SIGN_STATUS_FUN(SIGN_INSTANCE_ID) = 'CANCEL' THEN
+                     '50'
+                 ELSE
+                     A.PO_PROPOSAL_STATUS
+                 END PO_PROPOSAL_STATUS
+
+                ,CASE SCC_SIGN_STATUS_FUN(SIGN_INSTANCE_ID)
+                 WHEN 'COMPLETE' THEN
+                     (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND  CODE='30' )
+                 WHEN 'REJECT' THEN
+                     (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND  CODE='40' )
+                 WHEN 'CANCEL' THEN
+                     (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND  CODE='50' )
+                 ELSE
+                     (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND CODE = A.PO_PROPOSAL_STATUS )
+                 END PO_PROPOSAL_STATUS_NM
+
+                ,A.ATTACH_DEPT
+                ,A.PO_TYPE
+                ,A.DRAFTER_ID
+                --,(SELECT T.NM_KOR FROM   HR_PERSONAL T, SCC_CC T2 WHERE  T2.CC_CD = T.CC_CD AND A.DRAFTER_ID =T.SABUN ) DRAFTER_NM
+                ,D.NM_KOR DRAFTER_NM
+                --,(SELECT LISTAGG (PAY_COND_CD, ',') WITHIN GROUP (ORDER BY PAY_COND_CD) AS PAY_COND_CD FROM PO_PROPOSAL_PAY_COND WHERE PO_PROPOSAL_NUM = A.PO_PROPOSAL_NUM ) PAY_COND_CD
+                 ,(SELECT LISTAGG (T2.CODE_NAME, ',') WITHIN GROUP (ORDER BY PAY_SEQ ) AS PAY_COND_CD
+                    FROM PO_PROPOSAL_PAY_COND T,
+                         SCC_COMMON_CODE T2
+                    WHERE T.PAY_COND_CD = T2.CODE
+                    AND T2.GROUP_CODE = 'PAY_TERMS_CD'
+                    AND PO_PROPOSAL_NUM = A.PO_PROPOSAL_NUM
+                 ) PAY_COND_CD
+
+                ,A.PROPOSAL_TITLE
+                ,A.SPLR_CD
+                ,A.SPLR_NM
+                ,A.SALSPLCE_CD
+                ,A.SALSPLCE_NM
+                ,A.SALE_TYPE
+                ,A.SALE_TYPEBY_EXPECT_GAINRAT
+                ,CASE WHEN A.PROPOSAL_CLASS = 'A' THEN
+                     TO_CHAR(A.SIGN_INSTANCE_ID)
+                 ELSE
+                     A.GROUP_PROPOSAL_NUM
+                 END  AS GROUP_PROPOSAL_NUM
+                ,A.PROPOSAL_WRITE_DATE
+                ,A.PROPOSAL_UPNEW_DATE
+                ,CASE WHEN A.PROPOSAL_CLASS = 'A' THEN		--FTIS
+                    (
+                      SELECT TO_CHAR(APPROV_DATE, 'YYYYMMDD')
+                        FROM SCC_SIGN_INFO
+                       WHERE SIGN_INSTANCE_ID = A.SIGN_INSTANCE_ID
+                    )
+                 ELSE		--그룹웨어 상신
+                     A.PROPOSAL_APPRV_DATE
+                 END  AS PROPOSAL_APPRV_DATE
+                ,A.PROPOSAL_SALE_EDATE
+                ,A.LSHIP_SCHD_DATE
+                ,A.ARRIV_SCHD_DATE
+                ,A.LC_ISSUING_SCHD_DATE
+                ,A.ENTRY_SCHD_DATE
+
+                ,A.PROPOSAL_AMOUNT_UNIT
+                ,A.PROPOSAL_EXCHANGE_RATE_DATE
+                ,A.PROPOSAL_EXCHANGE_RATE
+                ,A.LSHIP_NATION_CD
+                ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'NATION_CD' AND CODE = A.LSHIP_NATION_CD ) AS LSHIP_NATION_NM
+
+                ,A.ARRIV_NATION_CD
+                ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'NATION_CD' AND CODE = A.ARRIV_NATION_CD ) AS ARRIV_NATION_NM
+
+                ,A.ARRIVPORT_PORT_CD
+                ,'' AS ARRIVPORT_PORT_NM   /* 만들어지면 */
+
+                ,A.ORIGIN_NATION_CD
+                ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'NATION_CD' AND CODE = A.ORIGIN_NATION_CD ) AS ORIGIN_NATION_NM
+
+                ,A.INCOTERMS
+                ,A.DELIVER_WH_CD
+                ,(SELECT MAX(T.VD_NM_LOC) FROM EPROCUSR.ESMVDFW T WHERE T.VD_CD = A.DELIVER_WH_CD AND T.CUS_VD_CLS IN ('10', '50')  AND T.VD_STS = 'C')  DELIVER_WH_NM	/*창고명 */
+
+                ,A.TARIFF_HOUSE_CD
+                ,A.WH_CHARG_AMT
+                ,A.WH_CHARG_AMT_CAL_BASIS
+                ,A.IOUT_AMT
+                ,A.IOUT_AMT_CAL_BASIS
+                ,A.EXPECT_SALS_AMT
+                ,A.INT_RATE
+                ,A.EXPECT_SALS_GAIN_RATE
+                ,A.EXPECT_GAIN_AMT_SALS
+                ,A.EXPECT_DRCT_GAIN_RATE
+                ,A.EXPECT_GAIN_AMT_DRCT
+                ,A.AR_MGMT_SCHM
+                ,A.REMARK
+                ,A.PO_CREATION_YN
+                ,A.INCOME_TYPE
+                ,A.DEL_YN
+                ,NVL(B.TOT_WONWTR_AMT,0) AS PROPOSAL_AMT
+                ,(NVL(B.TOT_WONWTR_AMT,0) - NVL(C.TOT_WONWTR_AMT,0) ) PROPOSAL_BAL_AMT	  /*품의 잔액*/
+                ,A.DELIVER_SCHD_DATE
+                ,SIGN_INSTANCE_ID
+                ,SCC_SIGN_STATUS_FUN(SIGN_INSTANCE_ID) AS SIGN_PROGRESS_STATUS
+                ,A.COMM
+                ,A.DEAL_STRUCT_IMGE_SRLNUM
+                ,A.FILE_REF_SRL_NUM
+                ,A.SETTLE_SCHD_DATE
+                ,(SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.CUSER) AS CUSER
+                ,A.CDATE
+                ,(SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.UUSER) AS UUSER
+                ,A.UDATE
+                ,A.PROPOSAL_CLASS
+                ,A.PO_KIND
+                ,A.SALSPLCE_PAY_COND
+                ,C.ITEM_NM
+            FROM PO_PROPOSAL_MST A
+                ,(SELECT PO_PROPOSAL_NUM PO_PROPOSAL_NUM, SUM(WONWTR_AMT) TOT_WONWTR_AMT, SUM(QUANTITY) TOT_QUANTITY, SUM( WGT) TOT_WGT FROM PO_PROPOSAL_ITEM_DTL GROUP BY PO_PROPOSAL_NUM ) B
+                ,(
+                    SELECT A.PO_PROPOSAL_NUM, SUM(WONWTR_AMT) TOT_WONWTR_AMT, SUM(QUANTITY) TOT_QUANTITY, SUM( WGT) TOT_WGT, MAX(B.ITEM_NM) AS ITEM_NM FROM PO_ORDER_MST A, PO_ORDER_ITEM_DETAIL B
+                    WHERE A.PO_ORDER_NUM = B.PO_ORDER_NUM
+                    GROUP BY A.PO_PROPOSAL_NUM
+                ) C
+                ,(SELECT T.NM_KOR, T.SABUN FROM   HR_PERSONAL T, SCC_CC T2 WHERE  T2.CC_CD = T.CC_CD  ) D
+            WHERE 1=1
+            AND A.PO_PROPOSAL_NUM = B.PO_PROPOSAL_NUM(+)
+            AND B.PO_PROPOSAL_NUM = C.PO_PROPOSAL_NUM(+)
+            AND A.DRAFTER_ID =D.SABUN(+)
+            <#if term?has_content>
+                <#if term == "A">	/* 품의작성일자 */
+                    AND A.PROPOSAL_WRITE_DATE BETWEEN :startTerm AND :endTerm
+                <#elseif term == "B">	/* 품의상신일자 */
+                    AND A.PROPOSAL_UPNEW_DATE BETWEEN :startTerm AND :endTerm
+                <#elseif term == "C">	/* 상신완료일자 */
+                    AND A.PROPOSAL_APPRV_DATE BETWEEN :startTerm AND :endTerm
+                </#if>
+            </#if>
+            <#if search?has_content>
+                <#if searchContents?has_content>
+                    <#if search == "A">	/* 품의번호(내부) */
+                        AND A.PO_PROPOSAL_NUM LIKE '%'||:searchContents||'%'
+                    <#elseif search == "B">	/* 품의번호(G/W) */
+                        AND A.GROUP_PROPOSAL_NUM LIKE '%'||:searchContents||'%'
+                    <#elseif search == "C">	/* 기안자 */
+                        AND D.NM_KOR LIKE '%'||:searchContents||'%'
+                    <#elseif search == "D">	/* 제목 */
+                        AND A.PROPOSAL_TITLE LIKE '%'||:searchContents||'%'
+                    </#if>
+                </#if>
+            </#if>
+            <#if status?has_content>
+                AND (
+                  CASE WHEN SCC_SIGN_STATUS_FUN(SIGN_INSTANCE_ID)='COMPLETE' THEN
+                      '30'
+                  WHEN SCC_SIGN_STATUS_FUN(SIGN_INSTANCE_ID)='REJECT' THEN
+                      '40'
+                  WHEN SCC_SIGN_STATUS_FUN(SIGN_INSTANCE_ID)='CANCEL' THEN
+                      '50'
+                  ELSE
+                      A.PO_PROPOSAL_STATUS
+                  END
+                ) = :status
+            </#if>
+            <#if attachDept?has_content>
+                AND A.ATTACH_DEPT =:attachDept
+            </#if>
+            AND NVL(DEL_YN,'N') <> 'Y'
+            ORDER BY A.CDATE DESC,A.PO_PROPOSAL_NUM DESC
+        ]]>
+    </statement>
+
+    <!-- 품의상태를 수정한다. -->
+    <statement name="updatePoProposalDraft" type="update">
+        <![CDATA[
+            UPDATE PO_PROPOSAL_MST SET
+                 PO_PROPOSAL_STATUS          = :poProposalStatus
+                ,PROPOSAL_UPNEW_DATE         = :proposalUpnewDate
+                ,SIGN_INSTANCE_ID         	 = :signInstanceId
+                ,UUSER                       = :uuser
+                ,UDATE                       = SYSDATE
+            WHERE PO_PROPOSAL_NUM = :poProposalNum
+        ]]>
+    </statement>
+
+    <!-- 품의 삭제한다. -->
+    <statement name="deletePoProposalMst" type="update">
+        <![CDATA[
+            UPDATE PO_PROPOSAL_MST SET
+                 DEL_YN          			 = :delYn
+                ,UUSER                       = :uuser
+                ,UDATE                       = SYSDATE
+            WHERE PO_PROPOSAL_NUM = :poProposalNum
+        ]]>
+    </statement>
+
+    <!-- 구매 품의 마스터 시퀀스 조회 한다. -->
+    <statement name="getPoProposalMstS" type="select">
+        <![CDATA[
+            select LPAD(PO_PROPOSAL_MST_S.NEXTVAL,4,'0000') AS PO_ORDER_NUM FROM DUAL
+        ]]>
+    </statement>
+
+
+    <!-- 구매 품의 마스터 조회한다. -->
+    <statement name="selectProposalDtl" type="select">
+        <![CDATA[
+            SELECT
+                 A.PO_PROPOSAL_NUM
+                ,CASE WHEN A.PROPOSAL_CLASS = 'A' THEN
+                     TO_CHAR(A.SIGN_INSTANCE_ID)
+                 ELSE
+                     A.GROUP_PROPOSAL_NUM
+                 END  AS GROUP_PROPOSAL_NUM
+                ,CASE WHEN SCC_SIGN_STATUS_FUN(SIGN_INSTANCE_ID) = 'COMPLETE' THEN
+                     '30'
+                 WHEN SCC_SIGN_STATUS_FUN(SIGN_INSTANCE_ID) = 'REJECT' THEN
+                     '40'
+                 WHEN SCC_SIGN_STATUS_FUN(SIGN_INSTANCE_ID) = 'CANCEL' THEN
+                     '50'
+                 ELSE
+                     A.PO_PROPOSAL_STATUS
+                 END PO_PROPOSAL_STATUS
+
+                ,CASE SCC_SIGN_STATUS_FUN(SIGN_INSTANCE_ID)
+                 WHEN 'COMPLETE' THEN
+                     (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND  CODE='30' )
+                 WHEN 'REJECT' THEN
+                     (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND  CODE='40' )
+                 WHEN 'CANCEL' THEN
+                     (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND  CODE='50' )
+                 ELSE
+                     (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND CODE = A.PO_PROPOSAL_STATUS )
+                 END PO_PROPOSAL_STATUS_NM
+                ,A.ATTACH_DEPT
+                ,A.PO_TYPE
+                ,A.DRAFTER_ID
+                ,(SELECT T.NM_KOR FROM   HR_PERSONAL T, SCC_CC T2 WHERE  T2.CC_CD = T.CC_CD AND A.DRAFTER_ID =T.SABUN ) DRAFTER_NM
+                --,(SELECT LISTAGG (PAY_COND_CD, ',') WITHIN GROUP (ORDER BY PAY_SEQ ) AS PAY_COND_CD FROM PO_PROPOSAL_PAY_COND WHERE PO_PROPOSAL_NUM = A.PO_PROPOSAL_NUM ) PAY_COND_CD
+                 ,(SELECT LISTAGG (T2.CODE_NAME, ',') WITHIN GROUP (ORDER BY PAY_SEQ ) AS PAY_COND_CD
+                    FROM PO_PROPOSAL_PAY_COND T,
+                         SCC_COMMON_CODE T2
+                    WHERE T.PAY_COND_CD = T2.CODE
+                    AND T2.GROUP_CODE = 'PAY_TERMS_CD'
+                    AND PO_PROPOSAL_NUM = A.PO_PROPOSAL_NUM
+                 ) PAY_COND_CD
+
+                ,A.PROPOSAL_TITLE
+                ,A.SPLR_CD
+                ,A.SPLR_NM
+                ,A.SALSPLCE_CD
+                ,A.SALSPLCE_NM
+                ,A.SALE_TYPE
+                ,A.SALE_TYPEBY_EXPECT_GAINRAT
+                --,A.SIGN_INSTANCE_ID AS GROUP_PROPOSAL_NUM
+                ,A.PROPOSAL_WRITE_DATE
+                ,A.PROPOSAL_UPNEW_DATE
+                ,CASE WHEN A.PROPOSAL_CLASS ='A' THEN	--FTIS상신
+                      (SELECT TO_CHAR(T.APPROV_DATE,'YYYYMMDD') FROM SCC_SIGN_INFO T WHERE T.SIGN_INSTANCE_ID =A.SIGN_INSTANCE_ID AND T.SIGN_PROGRESS_STATUS='COMPLETE' )
+                 ELSE	--그룹웨어 상신
+                      A.PROPOSAL_APPRV_DATE
+                 END  AS PROPOSAL_APPRV_DATE
+                ,A.PROPOSAL_SALE_EDATE
+                ,A.LSHIP_SCHD_DATE
+                ,A.ARRIV_SCHD_DATE
+                ,A.LC_ISSUING_SCHD_DATE
+                ,A.ENTRY_SCHD_DATE
+                ,B.TOT_WONWTR_AMT
+                ,B.TOT_WONWTR_AMT TOT_USD_WONWTR_AMT
+                ,CASE WHEN A.PO_TYPE = '10' THEN --수입
+                     B.TOT_WONWTR_AMT * A.PROPOSAL_EXCHANGE_RATE
+                 ELSE
+                     B.TOT_WONWTR_AMT
+                 END TOT_KRW_WONWTR_AMT
+                ,B.TOT_QUANTITY
+                ,B.TOT_WGT
+                ,B.TOT_BUY_AMT EXPECT_BUY_AMT
+                ,B.TOT_SALS_AMT EXPECT_SALS_AMT
+
+                ,A.PROPOSAL_AMOUNT_UNIT
+                ,A.PROPOSAL_EXCHANGE_RATE_DATE
+                ,A.PROPOSAL_EXCHANGE_RATE
+                ,A.LSHIP_NATION_CD
+                --,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'NATION_CD' AND CODE = A.LSHIP_NATION_CD ) AS LSHIP_NATION_NM
+                ,(SELECT PORT_NM_ENGLISH FROM PORT_AIRPORT_MGMT_PORT WHERE A.LSHIP_NATION_CD = PORT_CD ) LSHIP_NATION_NM
+
+                ,A.ARRIV_NATION_CD
+                ,(SELECT PORT_NM_ENGLISH FROM PORT_AIRPORT_MGMT_PORT WHERE A.ARRIVPORT_PORT_CD = PORT_CD ) ARRIV_NATION_NM
+                --,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'NATION_CD' AND CODE = A.ARRIV_NATION_CD ) AS ARRIV_NATION_NM
+
+                ,A.ARRIVPORT_PORT_CD
+                ,D.PORT_NM_HANGUL AS ARRIVPORT_PORT_NM
+
+                ,A.ORIGIN_NATION_CD
+                ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'NATION_CD' AND CODE = A.ORIGIN_NATION_CD ) AS ORIGIN_NATION_NM
+
+                ,A.INCOTERMS
+                ,A.DELIVER_WH_CD
+                ,(SELECT VD_NM_LOC FROM EPROCUSR.ESMVDFW WHERE A.DELIVER_WH_CD = VD_CD AND CUS_VD_CLS IN ('10', '50') AND VD_STS = 'C' ) DELIVER_WH_NM
+                ,A.TARIFF_HOUSE_CD
+                ,(SELECT VD_NM_LOC FROM EPROCUSR.ESMVDFW WHERE A.TARIFF_HOUSE_CD = VD_CD AND CUS_VD_CLS = '30' AND VD_STS = 'C' ) TARIFF_HOUSE_NM
+                ,A.WH_CHARG_AMT
+                ,A.WH_CHARG_AMT_CAL_BASIS
+                ,A.IOUT_AMT
+                ,A.IOUT_AMT_CAL_BASIS
+                ,A.EXPECT_SALS_AMT PL_EXPECT_SALS_AMT
+                ,A.INT_RATE
+                --,(SELECT AVG(SALS_GAIN_RAT) FROM PO_PROPOSAL_ITEM_DTL WHERE PO_PROPOSAL_NUM = A.PO_PROPOSAL_NUM) EXPECT_SALS_GAIN_RATE
+                ,(SELECT ROUND(SUM(SALS_GAIN_AMT)/DECODE(NVL(SUM(SALS_AMT),0),0,1,SUM(SALS_AMT))*100,1) FROM PO_PROPOSAL_ITEM_DTL WHERE PO_PROPOSAL_NUM = A.PO_PROPOSAL_NUM) EXPECT_SALS_GAIN_RATE
+                ,(SELECT SUM(SALS_GAIN_AMT) FROM PO_PROPOSAL_ITEM_DTL WHERE PO_PROPOSAL_NUM = A.PO_PROPOSAL_NUM) EXPECT_GAIN_AMT_SALS
+                --,(SELECT AVG(DRCT_GAIN_RAT) FROM PO_PROPOSAL_ITEM_DTL WHERE PO_PROPOSAL_NUM = A.PO_PROPOSAL_NUM) EXPECT_DRCT_GAIN_RATE
+                ,(SELECT ROUND(SUM(DRCT_GAIN_AMT)/DECODE(NVL(SUM(SALS_AMT),0),0,1,SUM(SALS_AMT))*100,1) FROM PO_PROPOSAL_ITEM_DTL WHERE PO_PROPOSAL_NUM = A.PO_PROPOSAL_NUM) EXPECT_DRCT_GAIN_RATE
+                ,(SELECT SUM(DRCT_GAIN_AMT) FROM PO_PROPOSAL_ITEM_DTL WHERE PO_PROPOSAL_NUM = A.PO_PROPOSAL_NUM) EXPECT_GAIN_AMT_DRCT
+                ,A.AR_MGMT_SCHM
+                ,A.REMARK
+                ,A.PO_CREATION_YN
+                ,A.INCOME_TYPE
+                ,A.DEL_YN
+                 ,(NVL(B.TOT_WONWTR_AMT,0) - NVL(C.TOT_WONWTR_AMT,0) ) PROPOSAL_BAL_AMT	  /*품의 잔액*/
+                ,A.DEAL_OTLN
+                ,A.DEAL_SCALE_REMARK
+                <#if flag?has_content>
+                    <#if flag == "COPY">
+                        ,NULL DEAL_STRUCT_IMGE_SRLNUM
+                    <#else>
+                        ,A.DEAL_STRUCT_IMGE_SRLNUM
+                    </#if>
+                </#if>
+
+                ,A.DEAL_COND_REMARK
+                ,A.SAL_GAIN_PLAN_REMARK
+                ,A.PRICE_MGMT_SCHM
+                ,A.PRICE_MGMT_REMARK
+                ,A.QUALITY_MGMT_SCHM
+                <#if flag?has_content>
+                    <#if flag == "COPY" >
+                        ,NULL FILE_REF_SRL_NUM
+                        ,'' IMG_PATH
+                    <#else>
+                        ,A.FILE_REF_SRL_NUM
+                        ,(
+                          SELECT
+                                 REL_PATH||'/'||SAVE_FILE_NM
+                          FROM   SCC_APPEND_FILE
+                          WHERE  REF_SEQ = A.DEAL_STRUCT_IMGE_SRLNUM
+                        ) IMG_PATH
+                    </#if>
+                <#else>
+                    ,A.FILE_REF_SRL_NUM
+                    ,(
+                      SELECT
+                             REL_PATH||'/'||SAVE_FILE_NM
+                      FROM   SCC_APPEND_FILE
+                      WHERE  REF_SEQ = A.DEAL_STRUCT_IMGE_SRLNUM
+                    ) IMG_PATH
+                </#if>
+
+                ,A.DELIVER_SCHD_DATE
+                ,(TO_DATE(PROPOSAL_SALE_EDATE,'YYYYMMDD') - TO_DATE(DELIVER_SCHD_DATE,'YYYYMMDD') ) DAYS
+                ,A.ADD_GVRNTAX_RATE
+                ,A.COMM
+                ,(SELECT LISTAGG (CONTENTS, '  ,') WITHIN GROUP (ORDER BY PAY_COND_CD) AS PAY_COND_CD
+                    FROM PO_PROPOSAL_PAY_COND T, SCC_COMMON_CODE T2
+                    WHERE   CODE = T.PAY_COND_CD
+                    AND T.PAY_COND_CLASS ='A'
+                    AND PO_PROPOSAL_NUM = A.PO_PROPOSAL_NUM
+                  ) PAY_COND_NMA       --매출처 거래조건
+                        ,(SELECT LISTAGG (CONTENTS, '  ,') WITHIN GROUP (ORDER BY PAY_COND_CD) AS PAY_COND_CD
+                    FROM PO_PROPOSAL_PAY_COND T, SCC_COMMON_CODE T2
+                    WHERE   CODE = T.PAY_COND_CD
+                    AND T.PAY_COND_CLASS ='B'
+                    AND PO_PROPOSAL_NUM = A.PO_PROPOSAL_NUM
+                  ) PAY_COND_NMB       --매입처 거래조건
+                ,A.EXPECT_BL_AMT
+                ,A.ENTRY_OTHER_AMT
+                ,A.SETTLE_SCHD_DATE
+                ,(SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.CUSER) AS CUSER
+                ,A.CDATE
+                ,(SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.UUSER) AS UUSER
+                ,A.UDATE
+                ,A.PROPOSAL_CLASS
+                ,A.PO_KIND
+                ,A.SALSPLCE_PAY_COND
+                ,A.SPLR_PAY_COND
+                ,(
+                  SELECT LISTAGG(B.ITEM_NM|| ': ' || B.REMARK, '<br/>')
+                         WITHIN GROUP (ORDER BY B.PROPOSAL_SEQ) AS PO_REMARK
+                    FROM PO_PROPOSAL_ITEM_DTL B
+                   WHERE B.PO_PROPOSAL_NUM = A.PO_PROPOSAL_NUM
+                     AND B.REMARK IS NOT NULL
+                 ) AS PO_REMARK
+            FROM PO_PROPOSAL_MST A
+                ,(SELECT PO_PROPOSAL_NUM PO_PROPOSAL_NUM, SUM(WONWTR_AMT) TOT_WONWTR_AMT, SUM(QUANTITY) TOT_QUANTITY, SUM( WGT) TOT_WGT, SUM(BUY_AMT) TOT_BUY_AMT, SUM(SALS_AMT) TOT_SALS_AMT FROM PO_PROPOSAL_ITEM_DTL GROUP BY PO_PROPOSAL_NUM ) B
+                ,(
+                    SELECT A.PO_PROPOSAL_NUM, SUM(WONWTR_AMT) TOT_WONWTR_AMT, SUM(QUANTITY) TOT_QUANTITY, SUM( WGT) TOT_WGT FROM PO_ORDER_MST A, PO_ORDER_ITEM_DETAIL B
+                    WHERE A.PO_ORDER_NUM = B.PO_ORDER_NUM
+                    GROUP BY A.PO_PROPOSAL_NUM
+                ) C
+                ,PORT_AIRPORT_MGMT_PORT D
+
+            WHERE 1=1
+            AND A.PO_PROPOSAL_NUM = B.PO_PROPOSAL_NUM(+)
+            AND B.PO_PROPOSAL_NUM = C.PO_PROPOSAL_NUM(+)
+            AND A.ARRIV_NATION_CD = D.NATION_CD(+)
+            AND A.ARRIVPORT_PORT_CD = D.PORT_CD(+)
+            AND A.PO_PROPOSAL_NUM = :poProposalNum
+        ]]>
+    </statement>
+
+
+    <!-- 구매 품의 마스터 불러오기 조회한다. -->
+    <statement name="selectCallProposalDtl" type="select">
+        <![CDATA[
+            SELECT
+                 A.PO_PROPOSAL_NUM
+                ,A.PO_PROPOSAL_STATUS
+                ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND CODE = A.PO_PROPOSAL_STATUS ) AS PO_PROPOSAL_STATUS_NM
+                ,A.ATTACH_DEPT
+                ,A.PO_TYPE
+                ,A.DRAFTER_ID
+                ,(SELECT T.NM_KOR FROM   HR_PERSONAL T, SCC_CC T2 WHERE  T2.CC_CD = T.CC_CD AND A.DRAFTER_ID =T.SABUN ) DRAFTER_NM
+                ,(SELECT LISTAGG (PAY_COND_CD, ',') WITHIN GROUP (ORDER BY PAY_SEQ ) AS PAY_COND_CD FROM PO_PROPOSAL_PAY_COND WHERE PO_PROPOSAL_NUM = A.PO_PROPOSAL_NUM ) PAY_COND_CD
+                ,A.PROPOSAL_TITLE
+                ,A.SPLR_CD
+                ,A.SPLR_NM
+                ,A.SALSPLCE_CD
+                ,A.SALSPLCE_NM
+                ,A.SALE_TYPE
+                ,A.SALE_TYPEBY_EXPECT_GAINRAT
+                ,A.SIGN_INSTANCE_ID AS GROUP_PROPOSAL_NUM
+                ,A.PROPOSAL_WRITE_DATE
+                ,A.PROPOSAL_UPNEW_DATE
+                ,A.PROPOSAL_APPRV_DATE
+                ,A.PROPOSAL_SALE_EDATE SALE_EDATE
+                ,A.LSHIP_SCHD_DATE LSHIP_DATE
+                ,A.ARRIV_SCHD_DATE ARRIV_DATE
+                ,A.LC_ISSUING_SCHD_DATE LC_ISSUING_DATE
+                ,A.ENTRY_SCHD_DATE
+                ,B.TOT_WONWTR_AMT
+                ,B.TOT_QUANTITY
+                ,B.TOT_WGT
+
+                ,A.PROPOSAL_AMOUNT_UNIT AMOUNT_UNIT
+                ,A.PROPOSAL_EXCHANGE_RATE_DATE  EXCHANGE_RATE_DATE
+                ,A.PROPOSAL_EXCHANGE_RATE EXCHANGE_RATE
+                ,A.LSHIP_NATION_CD
+                ,(SELECT T2.CODE_NAME FROM PORT_AIRPORT_MGMT_PORT T, SCC_COMMON_CODE T2
+                  WHERE GROUP_CODE = 'NATION_CD'
+                  AND T.NATION_CD = T2.CODE
+                  AND T.PORT_CD = A.LSHIP_NATION_CD     ) LSHIP_NATION_NM
+
+
+                ,A.ARRIV_NATION_CD
+                ,(SELECT T2.CODE_NAME FROM PORT_AIRPORT_MGMT_PORT T, SCC_COMMON_CODE T2
+                  WHERE GROUP_CODE = 'NATION_CD'
+                  AND T.NATION_CD = T2.CODE
+                  AND T.PORT_CD = A.ARRIV_NATION_CD     ) ARRIV_NATION_NM
+                ,A.ARRIVPORT_PORT_CD  AS ARRIV_PORT_PORT_CD
+                ,(SELECT PORT_NM_ENGLISH FROM PORT_AIRPORT_MGMT_PORT WHERE A.ARRIVPORT_PORT_CD = PORT_CD ) ARRIV_PORT_PORT_NM
+
+                ,A.ARRIVPORT_PORT_CD LSHIP_PORT_PORT_CD
+                ,(SELECT PORT_NM_HANGUL FROM PORT_AIRPORT_MGMT_PORT WHERE A.LSHIP_NATION_CD = PORT_CD ) LSHIP_PORT_PORT_NM
+
+
+                ,A.ORIGIN_NATION_CD
+                ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'NATION_CD' AND CODE = A.ORIGIN_NATION_CD ) AS ORIGIN_NATION_NM
+
+                ,A.INCOTERMS
+                ,A.DELIVER_WH_CD
+                ,(SELECT VD_NM_LOC FROM EPROCUSR.ESMVDFW WHERE A.DELIVER_WH_CD = VD_CD AND CUS_VD_CLS IN ('10', '50') AND VD_STS = 'C' ) DELIVER_WH_NM
+                ,A.TARIFF_HOUSE_CD
+                ,A.WH_CHARG_AMT
+                ,A.WH_CHARG_AMT_CAL_BASIS
+                ,A.IOUT_AMT
+                ,A.IOUT_AMT_CAL_BASIS
+                ,A.EXPECT_SALS_AMT
+                ,A.INT_RATE
+                --,(SELECT AVG(SALS_GAIN_RAT) FROM PO_PROPOSAL_ITEM_DTL WHERE PO_PROPOSAL_NUM = A.PO_PROPOSAL_NUM) EXPECT_SALS_GAIN_RATE
+                ,(SELECT ROUND(SUM(SALS_GAIN_AMT)/SUM(SALS_AMT)*100,1) FROM PO_PROPOSAL_ITEM_DTL WHERE PO_PROPOSAL_NUM = A.PO_PROPOSAL_NUM) EXPECT_SALS_GAIN_RATE
+                ,(SELECT SUM(SALS_GAIN_AMT) FROM PO_PROPOSAL_ITEM_DTL WHERE PO_PROPOSAL_NUM = A.PO_PROPOSAL_NUM) EXPECT_GAIN_AMT_SALS
+                --,(SELECT AVG(DRCT_GAIN_RAT) FROM PO_PROPOSAL_ITEM_DTL WHERE PO_PROPOSAL_NUM = A.PO_PROPOSAL_NUM) EXPECT_DRCT_GAIN_RATE
+                ,(SELECT ROUND(SUM(DRCT_GAIN_AMT)/SUM(SALS_AMT)*100,1) FROM PO_PROPOSAL_ITEM_DTL WHERE PO_PROPOSAL_NUM = A.PO_PROPOSAL_NUM) EXPECT_DRCT_GAIN_RATE
+                ,(SELECT SUM(DRCT_GAIN_AMT) FROM PO_PROPOSAL_ITEM_DTL WHERE PO_PROPOSAL_NUM = A.PO_PROPOSAL_NUM) EXPECT_GAIN_AMT_DRCT
+                ,A.AR_MGMT_SCHM
+                ,A.REMARK
+                ,A.PO_CREATION_YN
+                ,A.INCOME_TYPE
+                ,A.DEL_YN
+                 ,(NVL(B.TOT_WONWTR_AMT,0) - NVL(C.TOT_WONWTR_AMT,0) ) PROPOSAL_BAL_AMT	  /*품의 잔액*/
+                ,A.DEAL_OTLN
+                ,A.DEAL_SCALE_REMARK
+                ,A.DEAL_STRUCT_IMGE_SRLNUM
+                ,A.DEAL_COND_REMARK
+                ,A.SAL_GAIN_PLAN_REMARK
+                ,A.PRICE_MGMT_SCHM
+                ,A.PRICE_MGMT_REMARK
+                ,A.QUALITY_MGMT_SCHM
+                ,A.FILE_REF_SRL_NUM
+                ,(
+                  SELECT
+                         REL_PATH||'/'||SAVE_FILE_NM
+                  FROM   SCC_APPEND_FILE
+                  WHERE  REF_SEQ = A.DEAL_STRUCT_IMGE_SRLNUM
+                ) IMG_PATH
+                ,A.DELIVER_SCHD_DATE
+                ,(TO_DATE(PROPOSAL_SALE_EDATE,'YYYYMMDD') - TO_DATE(DELIVER_SCHD_DATE,'YYYYMMDD') ) DAYS
+                ,A.ADD_GVRNTAX_RATE
+                ,A.COMM
+                ,(SELECT LISTAGG (CONTENTS, '  ,') WITHIN GROUP (ORDER BY PAY_COND_CD) AS PAY_COND_CD
+                    FROM PO_PROPOSAL_PAY_COND T, SCC_COMMON_CODE T2
+                    WHERE   CODE = T.PAY_COND_CD
+                    AND T.PAY_COND_CLASS ='A'
+                    AND PO_PROPOSAL_NUM = A.PO_PROPOSAL_NUM
+                  ) PAY_COND_NMA       --매출처 거래조건
+                        ,(SELECT LISTAGG (CONTENTS, '  ,') WITHIN GROUP (ORDER BY PAY_COND_CD) AS PAY_COND_CD
+                    FROM PO_PROPOSAL_PAY_COND T, SCC_COMMON_CODE T2
+                    WHERE   CODE = T.PAY_COND_CD
+                    AND T.PAY_COND_CLASS ='B'
+                    AND PO_PROPOSAL_NUM = A.PO_PROPOSAL_NUM
+                  ) PAY_COND_NMB       --매입처 거래조건
+                ,A.EXPECT_BL_AMT
+                ,A.ENTRY_OTHER_AMT
+                ,A.SETTLE_SCHD_DATE
+                ,(SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.CUSER) AS CUSER
+                ,A.CDATE
+                ,(SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.UUSER) AS UUSER
+                ,A.UDATE
+                ,A.PROPOSAL_CLASS
+                ,A.PO_KIND
+                ,A.SALSPLCE_PAY_COND
+            FROM PO_PROPOSAL_MST A
+                ,(SELECT PO_PROPOSAL_NUM PO_PROPOSAL_NUM, SUM(WONWTR_AMT) TOT_WONWTR_AMT, SUM(QUANTITY) TOT_QUANTITY, SUM( WGT) TOT_WGT FROM PO_PROPOSAL_ITEM_DTL GROUP BY PO_PROPOSAL_NUM ) B
+                ,(
+                    SELECT A.PO_PROPOSAL_NUM, SUM(WONWTR_AMT) TOT_WONWTR_AMT, SUM(QUANTITY) TOT_QUANTITY, SUM( WGT) TOT_WGT FROM PO_ORDER_MST A, PO_ORDER_ITEM_DETAIL B
+                    WHERE A.PO_ORDER_NUM = B.PO_ORDER_NUM
+                    GROUP BY A.PO_PROPOSAL_NUM
+                ) C
+                ,PORT_AIRPORT_MGMT_PORT D
+
+            WHERE 1=1
+            AND A.PO_PROPOSAL_NUM = B.PO_PROPOSAL_NUM(+)
+            AND B.PO_PROPOSAL_NUM = C.PO_PROPOSAL_NUM(+)
+            AND A.ARRIV_NATION_CD = D.NATION_CD(+)
+            AND A.ARRIVPORT_PORT_CD = D.PORT_CD(+)
+            AND A.PO_PROPOSAL_NUM = :poProposalNum
+        ]]>
+    </statement>
+
+
+    <!-- 구매 품의 품목 상세 조회한다. -->
+    <statement name="selectPoProposalItemDtlList" type="select">
+        <![CDATA[
+            SELECT
+                   B.PROPOSAL_SEQ     /* 품의 순번     */
+                  ,B.ITEM_CD          /* 품목 코드     */
+                  --,B.ITEM_NM ||' '|| B.GRADE_STAND  AS ITEM_NM       /* 품목 명       */
+                  ,C.ITEM_NAME ||' '|| B.GRADE_STAND  AS ITEM_NM       /* 품목 명       */
+--                  ,(SELECT HS_CD FROM GVRNTAX_RATE_MGMT WHERE NATION_CD = A.ORIGIN_NATION_CD AND ITEM_CD=B.ITEM_CD AND :entrySchdDate BETWEEN SDATE AND EDATE ) HS_CD  /*HS코드*/
+                  ,B.HS_CD  /*HS코드*/
+                  ,B.UNIT             /* 단위          */
+                  ,B.QUANTITY         /* 수량          */
+                  ,B.UPRICE           /* 단가          */
+                  ,B.UPRICE * A.PROPOSAL_EXCHANGE_RATE AS UPRICE_KRW          /* 단가          */
+                  ,B.WONWTR_AMT       /* 원물 금액     */
+                  ,B.WONWTR_AMT * A.PROPOSAL_EXCHANGE_RATE AS WONWTR_AMT_KRW
+                  ,B.WGT              /* 중량          */
+                  ,B.TAX_YN           /* 과세 여부     */
+                  ,ROUND(B.WONWTR_AMT, 2) AS CAL_AMOUNT
+                  ,B.BRAND
+                  ,B.ORIGIN
+                  ,B.GRADE_STAND
+                  ,TO_CHAR(ROUND(B.OFFER, 2), 'FM9999990.00') AS OFFER
+                  ,CASE WHEN B.OFFER2 = '0' THEN
+                      ''
+                   ELSE
+                      SUBSTR(B.OFFER2,1,1)
+                   END AS OFFER2_SIGN
+                   /*
+                  ,TO_CHAR(ROUND(
+                       CASE WHEN B.OFFER2 = '0' THEN
+                          B.OFFER2
+                       ELSE
+                          REPLACE(SUBSTR(B.OFFER2, 2, LENGTH(B.OFFER2)), ',', '')
+                       END, 2), 'FM9999990.00') AS OFFER2
+                       */
+                  ,B.OFFER2
+                  ,ROUND(B.WHOLE_SALE) AS WHOLE_SALE
+                  ,CASE WHEN B.WHOLE_SALE2 = '0' THEN
+                      ''
+                   ELSE
+                      SUBSTR(B.WHOLE_SALE2,1,1)
+                   END AS WHOLE_SALE2_SIGN
+                   /*
+                  ,ROUND(
+                       CASE WHEN B.WHOLE_SALE2 = '0' THEN
+                          B.WHOLE_SALE2
+                       ELSE
+                          REPLACE(SUBSTR(B.WHOLE_SALE2, 2, LENGTH(B.WHOLE_SALE2)), ',', '')
+                       END) AS WHOLE_SALE2
+                   */
+                  ,B.WHOLE_SALE2
+                  ,B.REMARK
+                  ,B.COMM
+                  ,B.WH_COST
+                  ,B.INT_RATE
+                  ,ROUND(B.BUY_PRICE) AS BUY_PRICE
+                  ,B.BUY_AMT
+                  ,B.SALS_UPRICE
+                  ,B.SALS_AMT
+                  ,B.SALS_GAIN_AMT
+                  ,ROUND(B.SALS_GAIN_RAT, 1) AS SALS_GAIN_RAT
+                  ,B.DRCT_GAIN_AMT
+                  ,ROUND(B.DRCT_GAIN_RAT, 1) AS DRCT_GAIN_RAT
+                  ,(SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = B.CUSER) AS CUSER            /* 생성자        */
+                  ,B.CDATE            /* 생성일        */
+                  ,(SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = B.UUSER) AS UUSER            /* 수정자        */
+                  ,B.UDATE            /* 수정일        */
+                  ,B.PO_PROPOSAL_NUM	/* 구매 품의 번호*/
+                  ,A.PROPOSAL_EXCHANGE_RATE	/* 품의 환율*/
+                  ,B.GVRNTAX_RATE  /*관세율*/
+                  ,B.EXPECT_BL_PAYM
+                  ,B.ENTRY_OTHER_AMT
+                  ,A.PROPOSAL_CLASS
+                  ,A.PO_KIND
+                  ,A.SALSPLCE_PAY_COND
+                  ,C.KG_CONVERT_RATE
+                  ,A.PROPOSAL_AMOUNT_UNIT
+                  ,(
+                    SELECT SET1
+                      FROM SCC_COMMON_CODE
+                     WHERE GROUP_CODE = 'ITEM_UNIT'
+                       AND CODE = B.UNIT
+                       AND USE_YN = 'Y'
+                   ) AS SET1
+                  ,A.DELIVER_WH_CD WH_CD
+                  ,(SELECT MAX(T.VD_NM_LOC) FROM EPROCUSR.ESMVDFW T WHERE T.VD_CD = A.DELIVER_WH_CD AND T.CUS_VD_CLS IN ('10', '50')  AND T.VD_STS = 'C' )  WH_NM  /*창고명 */
+            FROM  PO_PROPOSAL_MST A,
+                PO_PROPOSAL_ITEM_DTL B,
+                  HLDC_PO_ITEM_MST C
+            WHERE 1=1
+          AND A.PO_PROPOSAL_NUM= B.PO_PROPOSAL_NUM
+            AND B.ITEM_CD = C.ITEM_CODE(+)
+            AND B.PO_PROPOSAL_NUM = :poProposalNum
+      ORDER BY B.PROPOSAL_SEQ
+        ]]>
+    </statement>
+
+    <!-- 구매 품의 품목 sum 조회한다. -->
+    <statement name="selectPoProposalItemDtlSum" type="select">
+        <![CDATA[
+            SELECT
+                SUM(B.QUANTITY) AS QUANTITY
+                ,SUM(B.WGT) AS WGT
+                --,SUM(B.BUY_PRICE) AS BUY_PRICE  
+                ,ROUND(AVG(B.BUY_PRICE)) AS BUY_PRICE
+                ,ROUND(SUM(B.WONWTR_AMT),2) AS CAL_AMOUNT
+                ,SUM(B.BUY_AMT) AS BUY_AMT
+                --,SUM(B.SALS_UPRICE) AS SALS_UPRICE
+                ,ROUND(AVG(B.SALS_UPRICE)) AS SALS_UPRICE
+                ,SUM(B.SALS_GAIN_AMT) AS SALS_GAIN_AMT
+                ,SUM(B.DRCT_GAIN_AMT) AS DRCT_GAIN_AMT
+                ,SUM(B.SALS_AMT) AS SALS_AMT
+                ,CASE WHEN SUM(B.SALS_AMT) = 0 THEN
+                     0
+                 ELSE
+                     ROUND(SUM(B.SALS_GAIN_AMT) / SUM(B.SALS_AMT) *100,1)
+                 END AS SALS_GAIN_RAT   --매출이익액 /매출액
+                ,CASE WHEN SUM(B.SALS_AMT) = 0 THEN
+                     0
+                 ELSE
+                     ROUND(SUM(B.DRCT_GAIN_AMT) / SUM(B.SALS_AMT) *100,1)
+                 END AS DRCT_GAIN_RAT   --직접이익액 /매출액
+            FROM PO_PROPOSAL_MST A,
+                 PO_PROPOSAL_ITEM_DTL B,
+                 HLDC_PO_ITEM_MST C
+            WHERE 1=1
+            AND A.PO_PROPOSAL_NUM= B.PO_PROPOSAL_NUM
+            AND B.ITEM_CD = C.ITEM_CODE(+)
+            AND B.PO_PROPOSAL_NUM = :poProposalNum
+        ]]>
+    </statement>
+
+    <!-- 구매 품의 지불 조건 조회한다. -->
+    <statement name="selectPoProposalPayCondList" type="select">
+        <![CDATA[
+            SELECT
+                A.PAY_COND_CLASS
+               ,A.PAY_COND_CLASS AS ORG_PAY_COND_CLASS
+               ,A.PAY_SEQ
+              ,A.PAY_COND_CD
+              <#if flag == "CALL">	/* 품의작성일자 */
+                  ,A.PAY_EXPECT_AMT  PAY_AMT
+              <#else>
+                  ,A.PAY_EXPECT_AMT
+              </#if>
+              ,(SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.CUSER) AS CUSER
+              ,A.CDATE
+              ,(SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.UUSER) AS UUSER
+              ,A.UDATE
+              ,A.PO_PROPOSAL_NUM
+            FROM PO_PROPOSAL_PAY_COND A
+            WHERE 1=1
+            AND A.PO_PROPOSAL_NUM = :poProposalNum
+            ORDER BY A.PAY_SEQ
+        ]]>
+    </statement>
+
+    <!-- 구매 품의 벌점 조건 조회한다. -->
+    <statement name="selectPoProposalBlckMarkCondList" type="select">
+        <![CDATA[
+        SELECT PO_PROPOSAL_NUM,
+               SEQ,
+               BASIS_DAYS,
+               BASIS_BLCK_MARK_RAT,
+               INC_DAYS,
+               INC_BLCK_MARK_RAT,
+               (SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.CUSER) AS CUSER,
+               CDATE,
+               (SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.UUSER) AS UUSER,
+               UDATE
+        FROM   PO_PROPOSAL_BLCK_MARK_COND A
+        WHERE  PO_PROPOSAL_NUM = :poProposalNum
+        ORDER BY A.SEQ
+
+        ]]>
+    </statement>
+
+
+    <!-- 구매 품의 마스터를 생성한다. -->
+    <statement name="insertPoProposal" type="insert">
+        <![CDATA[
+        INSERT INTO PO_PROPOSAL_MST
+        (
+         PO_PROPOSAL_NUM,
+         PO_PROPOSAL_STATUS,
+         ATTACH_DEPT,
+         PO_TYPE,
+         DRAFTER_ID,
+         PROPOSAL_TITLE,
+         SPLR_CD,
+         SPLR_NM,
+         SALSPLCE_CD,
+         SALSPLCE_NM,
+         SALE_TYPE,
+         SALE_TYPEBY_EXPECT_GAINRAT,
+         GROUP_PROPOSAL_NUM,
+         PROPOSAL_WRITE_DATE,
+         PROPOSAL_UPNEW_DATE,
+         PROPOSAL_APPRV_DATE,
+         PROPOSAL_SALE_EDATE,
+         LSHIP_SCHD_DATE,
+         ARRIV_SCHD_DATE,
+         LC_ISSUING_SCHD_DATE,
+         ENTRY_SCHD_DATE,
+         PROPOSAL_AMOUNT_UNIT,
+         PROPOSAL_EXCHANGE_RATE_DATE,
+         PROPOSAL_EXCHANGE_RATE,
+         LSHIP_NATION_CD,
+         ARRIV_NATION_CD,
+         ARRIVPORT_PORT_CD,
+         ORIGIN_NATION_CD,
+         INCOTERMS,
+         DELIVER_WH_CD,
+         TARIFF_HOUSE_CD,
+         WH_CHARG_AMT,
+         WH_CHARG_AMT_CAL_BASIS,
+         IOUT_AMT,
+         IOUT_AMT_CAL_BASIS,
+         EXPECT_SALS_AMT,
+         INT_RATE,
+         EXPECT_SALS_GAIN_RATE,
+         EXPECT_GAIN_AMT_SALS,
+         EXPECT_DRCT_GAIN_RATE,
+         EXPECT_GAIN_AMT_DRCT,
+         AR_MGMT_SCHM,
+         REMARK,
+         PO_CREATION_YN,
+         INCOME_TYPE,
+         DEL_YN,
+         DEAL_OTLN,
+         DEAL_SCALE_REMARK,
+         DEAL_STRUCT_IMGE_SRLNUM,
+         DEAL_COND_REMARK,
+         SAL_GAIN_PLAN_REMARK,
+         PRICE_MGMT_SCHM,
+         PRICE_MGMT_REMARK,
+         QUALITY_MGMT_SCHM,
+         FILE_REF_SRL_NUM,
+         DELIVER_SCHD_DATE,
+         COMM,
+         EXPECT_BL_AMT,
+         ENTRY_OTHER_AMT,
+         ADD_GVRNTAX_RATE,
+         SETTLE_SCHD_DATE,
+         SIGN_INSTANCE_ID,
+         PROPOSAL_CLASS,
+         PO_KIND,
+         SALSPLCE_PAY_COND,
+         SPLR_PAY_COND,
+         CUSER,
+         CDATE,
+         UUSER,
+         UDATE
+        ) VALUES (
+         :poProposalNum,
+        <#if poProposalStatus?exists> :poProposalStatus, <#else> '10', /*작성중*/ </#if>
+        <#if attachDept?exists> :attachDept, <#else> null, </#if>
+        <#if poType?exists> :poType, <#else> null, </#if>
+        <#if drafterId?exists> :drafterId, <#else> null, </#if>
+        <#if proposalTitle?exists> :proposalTitle, <#else> null, </#if>
+        <#if splrCd?exists> :splrCd, <#else> null, </#if>
+        <#if splrNm?exists> :splrNm, <#else> null, </#if>
+        <#if salsplceCd?exists> :salsplceCd, <#else> null, </#if>
+        <#if salsplceNm?exists> :salsplceNm, <#else> null, </#if>
+        <#if saleType?exists> :saleType, <#else> null, </#if>
+        <#if saleTypebyExpectGainrat?exists> :saleTypebyExpectGainrat, <#else> null, </#if>
+        <#if groupProposalNum?exists> :groupProposalNum, <#else> null, </#if>
+        <#if proposalWriteDate?exists> :proposalWriteDate, <#else> ( SELECT  TO_CHAR(SYSDATE,'YYYYMMDD') FROM DUAL), </#if>
+        <#if proposalUpnewDate?exists> :proposalUpnewDate, <#else> null, </#if>
+        <#if proposalApprvDate?exists> :proposalApprvDate, <#else> null, </#if>
+        <#if proposalSaleEdate?exists> :proposalSaleEdate, <#else> null, </#if>
+        <#if lshipSchdDate?exists> :lshipSchdDate, <#else> null, </#if>
+        <#if arrivSchdDate?exists> :arrivSchdDate, <#else> null, </#if>
+        <#if lcIssuingSchdDate?exists> :lcIssuingSchdDate, <#else> null, </#if>
+        <#if entrySchdDate?exists> :entrySchdDate, <#else> null, </#if>
+        <#if proposalAmountUnit?exists> :proposalAmountUnit, <#else> null, </#if>
+        <#if proposalExchangeRateDate?exists> :proposalExchangeRateDate, <#else> null, </#if>
+        <#if proposalExchangeRate?exists> :proposalExchangeRate, <#else> null, </#if>
+        <#if lshipNationCd?exists> :lshipNationCd, <#else> null, </#if>
+        <#if arrivNationCd?exists> :arrivNationCd, <#else> null, </#if>
+        <#if arrivportPortCd?exists> :arrivportPortCd, <#else> null, </#if>
+        <#if originNationCd?exists> :originNationCd, <#else> null, </#if>
+        <#if incoterms?exists> :incoterms, <#else> null, </#if>
+        <#if deliverWhCd?exists> :deliverWhCd, <#else> null, </#if>
+        <#if tariffHouseCd?exists> :tariffHouseCd, <#else> null, </#if>
+        <#if whChargAmt?exists> :whChargAmt, <#else> null, </#if>
+        <#if whChargAmtCalBasis?exists> :whChargAmtCalBasis, <#else> null, </#if>
+        <#if ioutAmt?exists> :ioutAmt, <#else> null, </#if>
+        <#if ioutAmtCalBasis?exists> :ioutAmtCalBasis, <#else> null, </#if>
+        <#if expectSalsAmt?exists> :expectSalsAmt, <#else> null, </#if>
+        <#if intRate?exists> :intRate, <#else> null, </#if>
+        <#if expectSalsGainRate?exists> :expectSalsGainRate, <#else> null, </#if>
+        <#if expectGainAmtSals?exists> :expectGainAmtSals, <#else> null, </#if>
+        <#if expectDrctGainRate?exists> :expectDrctGainRate, <#else> null, </#if>
+        <#if expectGainAmtDrct?exists> :expectGainAmtDrct, <#else> null, </#if>
+        <#if arMgmtSchm?exists> :arMgmtSchm, <#else> null, </#if>
+        <#if remark?exists> :remark, <#else> null, </#if>
+        <#if poCreationYn?exists> :poCreationYn, <#else> 'N', </#if>
+        <#if incomeType?exists> :incomeType, <#else> null, </#if>
+        <#if delYn?exists> :delYn, <#else> 'N', </#if>
+        <#if dealOtln?exists> :dealOtln, <#else> null, </#if>
+        <#if dealScaleRemark?exists> :dealScaleRemark, <#else> null, </#if>
+        <#if dealStructImgeSrlnum?exists> :dealStructImgeSrlnum, <#else> null, </#if>
+        <#if dealCondRemark?exists> :dealCondRemark, <#else> null, </#if>
+        <#if salGainPlanRemark?exists> :salGainPlanRemark, <#else> null, </#if>
+        <#if priceMgmtSchm?exists> :priceMgmtSchm, <#else> null, </#if>
+        <#if priceMgmtRemark?exists> :priceMgmtRemark, <#else> null, </#if>
+        <#if qualityMgmtSchm?exists> :qualityMgmtSchm, <#else> null, </#if>
+        <#if fileRefSrlNum?exists> :fileRefSrlNum, <#else> null, </#if>
+        <#if deliverSchdDate?exists> :deliverSchdDate, <#else> null, </#if>
+        <#if comm?exists> :comm, <#else> null, </#if>
+        NVL((SELECT SUM(EXPECT_BL_PAYM) FROM PO_PROPOSAL_ITEM_DTL WHERE PO_PROPOSAL_NUM=:poProposalNum), 0),
+        NVL((SELECT SUM(ENTRY_OTHER_AMT) FROM PO_PROPOSAL_ITEM_DTL WHERE PO_PROPOSAL_NUM=:poProposalNum), 0),
+        <#if addGvrntaxRate?exists> :addGvrntaxRate, <#else> null, </#if>
+        <#if settleSchdDate?exists> :settleSchdDate, <#else> null, </#if>
+        <#if signInstanceId?exists> :signInstanceId, <#else> null, </#if>
+        <#if proposalClass?exists> :proposalClass, <#else> null, </#if>
+        <#if poKind?exists> :poKind, <#else> null, </#if>
+        <#if salsplcePayCond?exists> :salsplcePayCond, <#else> null, </#if>
+        <#if splrPayCond?exists> :splrPayCond, <#else> null, </#if>
+         :loginSabun,
+         SYSDATE,
+         :loginSabun,
+         SYSDATE
+        )
+        ]]>
+    </statement>
+
+    <!-- 구매품의 마스터를 수정한다. -->
+    <statement name="updatePoProposal" type="update">
+        <![CDATA[
+            UPDATE PO_PROPOSAL_MST SET
+                 PO_PROPOSAL_STATUS          = :poProposalStatus
+                ,ATTACH_DEPT                 = :attachDept
+                ,PO_TYPE                     = :poType
+                ,DRAFTER_ID                  = :drafterId
+                ,PROPOSAL_TITLE              = :proposalTitle
+                ,SPLR_CD                     = :splrCd
+                ,SPLR_NM                     = :splrNm
+                ,SALSPLCE_CD                 = :salsplceCd
+                ,SALSPLCE_NM                 = :salsplceNm
+                ,SALE_TYPE                   = :saleType
+                ,SALE_TYPEBY_EXPECT_GAINRAT  = :saleTypebyExpectGainrat
+                ,GROUP_PROPOSAL_NUM          = :groupProposalNum
+                ,PROPOSAL_WRITE_DATE         = :proposalWriteDate
+                ,PROPOSAL_UPNEW_DATE         = :proposalUpnewDate
+                ,PROPOSAL_APPRV_DATE         = :proposalApprvDate
+                ,PROPOSAL_SALE_EDATE         = :proposalSaleEdate
+                ,LSHIP_SCHD_DATE             = :lshipSchdDate
+                ,ARRIV_SCHD_DATE             = :arrivSchdDate
+                ,LC_ISSUING_SCHD_DATE        = :lcIssuingSchdDate
+                ,ENTRY_SCHD_DATE             = :entrySchdDate
+                ,PROPOSAL_AMOUNT_UNIT        = :proposalAmountUnit
+                ,PROPOSAL_EXCHANGE_RATE_DATE = :proposalExchangeRateDate
+                ,PROPOSAL_EXCHANGE_RATE      = :proposalExchangeRate
+                ,LSHIP_NATION_CD             = :lshipNationCd
+                ,ARRIV_NATION_CD             = :arrivNationCd
+                ,ARRIVPORT_PORT_CD           = :arrivportPortCd
+                ,ORIGIN_NATION_CD            = :originNationCd
+                ,INCOTERMS                   = :incoterms
+                ,DELIVER_WH_CD               = :deliverWhCd
+                ,TARIFF_HOUSE_CD             = :tariffHouseCd
+                ,WH_CHARG_AMT                = :whChargAmt
+                ,WH_CHARG_AMT_CAL_BASIS      = :whChargAmtCalBasis
+                ,IOUT_AMT                    = :ioutAmt
+                ,IOUT_AMT_CAL_BASIS          = :ioutAmtCalBasis
+                ,EXPECT_SALS_AMT             = :expectSalsAmt
+                ,INT_RATE                    = :intRate
+                ,EXPECT_SALS_GAIN_RATE       = :expectSalsGainRate
+                ,EXPECT_GAIN_AMT_SALS        = :expectGainAmtSals
+                ,EXPECT_DRCT_GAIN_RATE       = :expectDrctGainRate
+                ,EXPECT_GAIN_AMT_DRCT        = :expectGainAmtDrct
+                ,AR_MGMT_SCHM                = :arMgmtSchm
+                ,REMARK                      = :remark
+                ,PO_CREATION_YN              = :poCreationYn
+                ,INCOME_TYPE                 = :incomeType
+                ,DEL_YN                      = :delYn
+                ,DEAL_OTLN 					 = :dealOtln
+                ,DEAL_SCALE_REMARK 			 = :dealScaleRemark
+                <#if dealStructImgeSrlnum?exists> ,DEAL_STRUCT_IMGE_SRLNUM 	 = :dealStructImgeSrlnum <#else>, DEAL_STRUCT_IMGE_SRLNUM 	 = null </#if>
+                ,DEAL_COND_REMARK 			 = :dealCondRemark
+                ,SAL_GAIN_PLAN_REMARK 		 = :salGainPlanRemark
+                ,PRICE_MGMT_SCHM 			 = :priceMgmtSchm
+                ,PRICE_MGMT_REMARK 			 = :priceMgmtRemark
+                ,QUALITY_MGMT_SCHM	 		 = :qualityMgmtSchm
+                <#if dealStructImgeSrlnum?exists> ,FILE_REF_SRL_NUM	 		 = :fileRefSrlNum <#else>, FILE_REF_SRL_NUM=null </#if>
+                ,DELIVER_SCHD_DATE	 		 = :deliverSchdDate
+                ,COMM	 		 			 = :comm
+                ,EXPECT_BL_AMT   = NVL((SELECT SUM(EXPECT_BL_PAYM) FROM PO_PROPOSAL_ITEM_DTL WHERE PO_PROPOSAL_NUM=:poProposalNum), 0)
+                ,ENTRY_OTHER_AMT = NVL((SELECT SUM(ENTRY_OTHER_AMT) FROM PO_PROPOSAL_ITEM_DTL WHERE PO_PROPOSAL_NUM=:poProposalNum), 0)
+                ,ADD_GVRNTAX_RATE  = :addGvrntaxRate
+                ,SETTLE_SCHD_DATE  = :settleSchdDate
+                ,PROPOSAL_CLASS    = :proposalClass
+                ,PO_KIND           = :poKind
+                ,SALSPLCE_PAY_COND = :salsplcePayCond
+                ,SPLR_PAY_COND = :splrPayCond
+                ,UUSER                       = :uuser
+                ,UDATE                       = SYSDATE
+            WHERE PO_PROPOSAL_NUM = :poProposalNum
+        ]]>
+    </statement>
+
+<!-- 구매품의 마스터의 판매유형 수정한다. -->
+    <statement name="updatePoProposalPoType" type="update">
+        <![CDATA[
+            UPDATE PO_PROPOSAL_MST SET
+                SALE_TYPE                     = :saleType
+                ,UUSER                       = :uuser
+                ,UDATE                       = SYSDATE
+            WHERE PO_PROPOSAL_NUM = :poProposalNum
+        ]]>
+    </statement>
+    
+    <!--구매 품의 품목 상세를 생성한다. -->
+    <statement name="insertProposalItemList" type="insert">
+        <![CDATA[
+            INSERT INTO PO_PROPOSAL_ITEM_DTL (
+                 PO_PROPOSAL_NUM,
+                 PROPOSAL_SEQ,
+                 ITEM_CD,
+                 ITEM_NM,
+                 HS_CD,
+                 UNIT,
+                 QUANTITY,
+                 UPRICE,
+                 WONWTR_AMT,
+                 WGT,
+                 TAX_YN,
+                 BRAND,
+                 ORIGIN,
+                 GRADE_STAND,
+                 OFFER,
+                 OFFER2,
+                 WHOLE_SALE,
+                 WHOLE_SALE2,
+                 REMARK,
+                 GVRNTAX_RATE,
+                 BUY_PRICE,
+                 BUY_AMT,
+                 SALS_UPRICE,
+                 SALS_AMT,
+                 SALS_GAIN_AMT,
+                 SALS_GAIN_RAT,
+                 DRCT_GAIN_AMT,
+                 DRCT_GAIN_RAT,
+                 COMM,
+                 WH_COST,
+                 INT_RATE,
+                 EXPECT_BL_PAYM,
+                 ENTRY_OTHER_AMT,
+                 CUSER,
+                 CDATE,
+                 UUSER,
+                 UDATE
+            ) VALUES (
+                :poProposalNum,	/* 구매 품의 번호*/
+                (SELECT NVL(MAX(PROPOSAL_SEQ),0) +1 FROM PO_PROPOSAL_ITEM_DTL WHERE PO_PROPOSAL_NUM=:poProposalNum),   /* 품의 순번     */
+                <#if itemCd?exists> :itemCd, <#else> null, </#if>
+                <#if itemNm?exists> :itemNm, <#else> null, </#if>
+                <#if hsCd?exists> :hsCd, <#else> null, </#if>
+                <#if unit?exists> :unit, <#else> null, </#if>
+                <#if quantity?exists> :quantity, <#else> null, </#if>
+                <#if uprice?exists> :uprice, <#else> null, </#if>
+                <#if wonwtrAmt?exists> :wonwtrAmt, <#else> null, </#if>
+                <#if wgt?exists> :wgt, <#else> null, </#if>
+                <#if taxYn?exists> :taxYn, <#else> null, </#if>
+                <#if brand?exists> :brand, <#else> null, </#if>
+                <#if origin?exists> :origin, <#else> null, </#if>
+                <#if gradeStand?exists> :gradeStand, <#else> null, </#if>
+                <#if offer?exists> :offer, <#else> null, </#if>
+                <#if offer2?exists> :offer2, <#else> null, </#if>
+                <#if wholeSale?exists> :wholeSale, <#else> null, </#if>
+                <#if wholeSale2?exists> :wholeSale2, <#else> null, </#if>
+                <#if remark?exists> :remark, <#else> null, </#if>
+                <#if gvrntaxRate?exists> :gvrntaxRate, <#else> null, </#if>
+                <#if buyPrice?exists> :buyPrice, <#else> null, </#if>
+                <#if buyAmt?exists> :buyAmt, <#else> null, </#if>
+                <#if salsUprice?exists> :salsUprice, <#else> null, </#if>
+                <#if salsAmt?exists> :salsAmt, <#else> null, </#if>
+                <#if salsGainAmt?exists> :salsGainAmt, <#else> null, </#if>
+                <#if salsGainRat?exists> :salsGainRat, <#else> null, </#if>
+                <#if drctGainAmt?exists> :drctGainAmt, <#else> null, </#if>
+                <#if drctGainRat?exists> :drctGainRat, <#else> null, </#if>
+                <#if comm?exists> :comm, <#else> null, </#if>
+                <#if whCost?exists> :whCost, <#else> null, </#if>
+                <#if intRate?exists> :intRate, <#else> null, </#if>
+                <#if expectBlPaym?exists> :expectBlPaym, <#else> null, </#if>
+                <#if entryOtherAmt?exists> :entryOtherAmt, <#else> null, </#if>
+                 :loginSabun,
+                 SYSDATE,
+                 :loginSabun,
+                 SYSDATE
+            )
+        ]]>
+    </statement>
+
+    <!-- 구매 품의 품목 상세를 수정한다. -->
+    <statement name="updateProposalItemList" type="update">
+        <![CDATA[
+            UPDATE PO_PROPOSAL_ITEM_DTL SET
+            <#if itemCd?exists> ITEM_CD = :itemCd, </#if>
+            <#if itemNm?exists> ITEM_NM = :itemNm, </#if>
+            <#if hsCd?exists> HS_CD = :hsCd, </#if>
+            <#if unit?exists> UNIT = :unit, </#if>
+            <#if quantity?exists> QUANTITY = :quantity, </#if>
+            <#if uprice?exists> UPRICE = :uprice, </#if>
+            <#if wonwtrAmt?exists> WONWTR_AMT = :wonwtrAmt, </#if>
+            <#if wgt?exists> WGT = :wgt, </#if>
+            <#if taxYn?exists> TAX_YN = :taxYn, </#if>
+            <#if brand?exists> BRAND = :brand, </#if>
+            <#if origin?exists> ORIGIN = :origin, </#if>
+            <#if gradeStand?exists> GRADE_STAND = :gradeStand, </#if>
+            <#if offer?exists> OFFER = :offer, </#if>
+            <#if offer2?exists> OFFER2 = :offer2, </#if>
+            <#if wholeSale?exists> WHOLE_SALE = :wholeSale, </#if>
+            <#if wholeSale2?exists> WHOLE_SALE2 = :wholeSale2, </#if>
+            <#if remark?exists> REMARK = :remark, </#if>
+            <#if gvrntaxRate?exists> GVRNTAX_RATE = :gvrntaxRate, </#if>
+            <#if buyPrice?exists> BUY_PRICE = :buyPrice, </#if>
+            <#if buyAmt?exists> BUY_AMT = :buyAmt, </#if>
+            <#if salsUprice?exists> SALS_UPRICE = :salsUprice, </#if>
+            <#if salsAmt?exists> SALS_AMT = :salsAmt, </#if>
+            <#if salsGainAmt?exists> SALS_GAIN_AMT = :salsGainAmt, </#if>
+            <#if salsGainRat?exists> SALS_GAIN_RAT = :salsGainRat, </#if>
+            <#if drctGainAmt?exists> DRCT_GAIN_AMT = :drctGainAmt, </#if>
+            <#if drctGainRat?exists> DRCT_GAIN_RAT = :drctGainRat, </#if>
+            <#if comm?exists> COMM = :comm, </#if>
+            <#if whCost?exists> WH_COST = :whCost, </#if>
+            <#if intRate?exists> INT_RATE = :intRate, </#if>
+            <#if expectBlPaym?exists> EXPECT_BL_PAYM = :expectBlPaym, </#if>
+            <#if entryOtherAmt?exists> ENTRY_OTHER_AMT = :entryOtherAmt, </#if>
+                   UUSER = :loginSabun,
+                   UDATE = SYSDATE
+            WHERE  PO_PROPOSAL_NUM = :poProposalNum
+            AND    PROPOSAL_SEQ = :proposalSeq
+        ]]>
+    </statement>
+
+    <!-- 구매 품의 품목 상세를 삭제한다. -->
+    <statement name="deleteProposalItemList" type="delete">
+        <![CDATA[
+            DELETE FROM PO_PROPOSAL_ITEM_DTL
+            WHERE PO_PROPOSAL_NUM = :poProposalNum
+            AND PROPOSAL_SEQ = :proposalSeq
+        ]]>
+    </statement>
+
+    <!--구매 품의 품목 상세를 생성한다. -->
+    <statement name="insertProposalPayList" type="insert">
+        <![CDATA[
+            INSERT INTO PO_PROPOSAL_PAY_COND (
+                 PO_PROPOSAL_NUM
+                ,PAY_COND_CLASS
+                ,PAY_SEQ
+                ,PAY_COND_CD
+                ,PAY_EXPECT_AMT
+                ,CUSER
+                ,CDATE
+                ,UUSER
+                ,UDATE
+            ) VALUES (
+                 :poProposalNum	/* 구매 품의 번호*/
+                ,:payCondClass
+                ,(SELECT NVL(MAX(PAY_SEQ),0) +1 FROM PO_PROPOSAL_PAY_COND WHERE PO_PROPOSAL_NUM=:poProposalNum)   /* 품의 순번     */
+                ,:payCondCd
+                ,:payExpectAmt
+                ,:cuser
+                ,SYSDATE
+                ,:uuser
+                ,SYSDATE
+            )
+        ]]>
+    </statement>
+
+    <!-- 구매 품의 품목 상세를 수정한다. -->
+    <statement name="updateProposalPayList" type="update">
+        <![CDATA[
+            UPDATE PO_PROPOSAL_PAY_COND SET
+                 PAY_COND_CLASS =:payCondClass
+                ,PAY_COND_CD     =:payCondCd
+                ,PAY_EXPECT_AMT  =:payExpectAmt
+                ,UUSER           =:uuser
+                ,UDATE           =SYSDATE
+            WHERE PO_PROPOSAL_NUM = :poProposalNum
+            AND PAY_COND_CLASS = :orgPayCondClass
+            AND PAY_SEQ = :paySeq
+        ]]>
+    </statement>
+
+    <!-- 구매 품의 품목 상세를 삭제한다. -->
+    <statement name="deleteProposalPayList" type="delete">
+        <![CDATA[
+            DELETE FROM PO_PROPOSAL_PAY_COND
+            WHERE PO_PROPOSAL_NUM = :poProposalNum
+            AND PAY_COND_CLASS = :payCondClass
+            AND PAY_SEQ = :paySeq
+        ]]>
+    </statement>
+
+    <!--구매 품의 벌점 조건를 생성한다. -->
+    <statement name="insertProposalBlckMarkList" type="insert">
+        <![CDATA[
+        INSERT INTO PO_PROPOSAL_BLCK_MARK_COND
+        (
+         PO_PROPOSAL_NUM,
+         SEQ,
+         BASIS_DAYS,
+         BASIS_BLCK_MARK_RAT,
+         INC_DAYS,
+         INC_BLCK_MARK_RAT,
+         CUSER,
+         CDATE,
+         UUSER,
+         UDATE
+        ) VALUES (
+         :poProposalNum,
+         (SELECT NVL(MAX(SEQ),0) +1 FROM PO_PROPOSAL_BLCK_MARK_COND WHERE PO_PROPOSAL_NUM=:poProposalNum),   /* 품의 순번     */
+        <#if basisDays?exists> :basisDays, <#else> null, </#if>
+        <#if basisBlckMarkRat?exists> :basisBlckMarkRat, <#else> null, </#if>
+        <#if incDays?exists> :incDays, <#else> null, </#if>
+        <#if incBlckMarkRat?exists> :incBlckMarkRat, <#else> null, </#if>
+         :loginSabun,
+         SYSDATE,
+         :loginSabun,
+         SYSDATE
+        )
+
+        ]]>
+    </statement>
+
+    <!-- 구매 품의 벌점 조건를 수정한다. -->
+    <statement name="updateProposalBlckMarkList" type="update">
+        <![CDATA[
+        UPDATE PO_PROPOSAL_BLCK_MARK_COND SET
+        <#if basisDays?exists> BASIS_DAYS = :basisDays, </#if>
+        <#if basisBlckMarkRat?exists> BASIS_BLCK_MARK_RAT = :basisBlckMarkRat, </#if>
+        <#if incDays?exists> INC_DAYS = :incDays, </#if>
+        <#if incBlckMarkRat?exists> INC_BLCK_MARK_RAT = :incBlckMarkRat, </#if>
+               UUSER = :loginSabun,
+               UDATE = SYSDATE
+        WHERE  PO_PROPOSAL_NUM = :poProposalNum
+        AND    SEQ = :seq
+
+        ]]>
+    </statement>
+
+    <!-- 구매 품의 벌점 조건를 삭제한다. -->
+    <statement name="deleteProposalBlckMarkList" type="delete">
+        <![CDATA[
+        DELETE
+        FROM   PO_PROPOSAL_BLCK_MARK_COND
+        WHERE  PO_PROPOSAL_NUM = :poProposalNum
+        AND    SEQ = :seq
+        ]]>
+    </statement>
+
+    <!-- 구매 품의 마스터 조회한다. -->
+    <statement name="selectProposalSearchPop" type="select">
+        <![CDATA[
+    SELECT
+    *
+    FROM
+    (
+        SELECT
+            A.PO_PROPOSAL_NUM
+           ,A.PROPOSAL_TITLE
+           --,(SELECT  LISTAGG (ITEM_NM||' '||T2.ITEM_SIZE, ',') WITHIN GROUP (ORDER BY ITEM_NM ) AS ITEM_NM
+           -- LISTAGG varchar2 길이 이상될 경우 에러
+           ,(SELECT  LISTAGG (ITEM_NM, ',') WITHIN GROUP (ORDER BY ITEM_NM ) AS ITEM_NM
+             FROM PO_PROPOSAL_ITEM_DTL T,
+                  HLDC_PO_ITEM_MST T2
+             WHERE a.PO_PROPOSAL_NUM = T.PO_PROPOSAL_NUM
+             AND T.ITEM_CD = T2.ITEM_CODE
+             AND T2.USE_YN='Y'
+             ) ITEM_NM   /*품목명*/
+           ,A.PO_PROPOSAL_STATUS
+           ,CASE SCC_SIGN_STATUS_FUN(SIGN_INSTANCE_ID)
+            WHEN 'COMPLETE' THEN
+                (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND  CODE='30' )
+            WHEN 'REJECT' THEN
+                (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND  CODE='40' )
+            WHEN 'CANCEL' THEN
+                (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND  CODE='50' )
+            ELSE
+                (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND CODE = A.PO_PROPOSAL_STATUS )
+            END PO_PROPOSAL_STATUS_NM
+           ,A.PROPOSAL_UPNEW_DATE
+           ,(
+             SELECT TO_CHAR(APPROV_DATE, 'YYYYMMDD')
+               FROM SCC_SIGN_INFO
+              WHERE SIGN_INSTANCE_ID = A.SIGN_INSTANCE_ID
+            ) AS PROPOSAL_APPRV_DATE
+           ,A.PO_TYPE
+           ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_TYPE' AND CODE = A.PO_TYPE ) AS PO_TYPE_NM
+           ,A.ATTACH_DEPT
+           ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'ATTACH_DEPT' AND CODE = A.ATTACH_DEPT ) AS ATTACH_DEPT_NM
+           ,A.DRAFTER_ID
+           ,B.NM_KOR DRAFTER_NM
+           ,A.ENTRY_SCHD_DATE
+         FROM PO_PROPOSAL_MST A
+             ,(SELECT T.NM_KOR, SABUN FROM   HR_PERSONAL T, SCC_CC T2 WHERE  T2.CC_CD = T.CC_CD ) B
+             ,(SELECT PO_PROPOSAL_NUM PO_PROPOSAL_NUM, SUM(WONWTR_AMT) TOT_WONWTR_AMT, SUM(QUANTITY) TOT_QUANTITY, SUM( WGT) TOT_WGT, SUM(BUY_AMT) TOT_BUY_AMT, SUM(SALS_AMT) TOT_SALS_AMT FROM PO_PROPOSAL_ITEM_DTL GROUP BY PO_PROPOSAL_NUM ) C
+             ,(
+                 SELECT A.PO_PROPOSAL_NUM, SUM(WONWTR_AMT) TOT_WONWTR_AMT, SUM(QUANTITY) TOT_QUANTITY, SUM( WGT) TOT_WGT FROM PO_ORDER_MST A, PO_ORDER_ITEM_DETAIL B
+                 WHERE A.PO_ORDER_NUM = B.PO_ORDER_NUM
+                 GROUP BY A.PO_PROPOSAL_NUM
+             ) D
+         WHERE 1=1
+         AND A.DRAFTER_ID =B.SABUN(+)
+         AND A.PO_PROPOSAL_NUM = C.PO_PROPOSAL_NUM(+)
+         AND C.PO_PROPOSAL_NUM = D.PO_PROPOSAL_NUM(+)
+
+         AND NVL(DEL_YN,'') <> 'Y'
+         AND NVL(A.PO_CREATION_YN,'') ='N'
+         AND SCC_SIGN_STATUS_FUN(A.SIGN_INSTANCE_ID) IN ('DRAFT','COMPLETE','APPROVE')	 /*상신중, 승인완료*/
+         AND (NVL(C.TOT_WONWTR_AMT,0) - NVL(D.TOT_WONWTR_AMT,0) )  >0   --잔액 있는건만 조회
+            AND A.PROPOSAL_WRITE_DATE BETWEEN :startProposalWriteDate AND :endProposalWriteDate
+
+            <#if poType?has_content>
+             AND A.PO_TYPE = :poType
+         </#if>
+            <#if poProposalNum?has_content>
+             AND A.PO_PROPOSAL_NUM LIKE '%'||:poProposalNum||'%'
+         </#if>
+            <#if attachDept?has_content>
+             AND A.ATTACH_DEPT = :attachDept
+         </#if>
+            <#if proposalTitle?has_content>
+             AND A.PROPOSAL_TITLE LIKE '%'||:proposalTitle||'%'
+         </#if>
+            <#if drafterNm?has_content>
+             AND B.NM_KOR LIKE '%'||:drafterNm||'%'
+         </#if>
+
+UNION ALL
+
+        SELECT
+            A.PO_PROPOSAL_NUM
+           ,A.PROPOSAL_TITLE
+           --,(SELECT  LISTAGG (ITEM_NM||' '||T2.ITEM_SIZE, ',') WITHIN GROUP (ORDER BY ITEM_NM ) AS ITEM_NM
+           -- LISTAGG varchar2 길이 이상될 경우 에러
+           ,(SELECT  LISTAGG (ITEM_NM, ',') WITHIN GROUP (ORDER BY ITEM_NM ) AS ITEM_NM
+             FROM PO_PROPOSAL_ITEM_DTL T,
+                  HLDC_PO_ITEM_MST T2
+             WHERE a.PO_PROPOSAL_NUM = T.PO_PROPOSAL_NUM
+             AND T.ITEM_CD = T2.ITEM_CODE
+             AND T2.USE_YN='Y'
+             ) ITEM_NM   /*품목명*/
+           ,A.PO_PROPOSAL_STATUS
+           ,CASE SCC_SIGN_STATUS_FUN(SIGN_INSTANCE_ID)
+            WHEN 'COMPLETE' THEN
+                (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND  CODE='30' )
+            WHEN 'REJECT' THEN
+                (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND  CODE='40' )
+            WHEN 'CANCEL' THEN
+                (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND  CODE='50' )
+            ELSE
+                (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_PROPOSAL_STATUS' AND CODE = A.PO_PROPOSAL_STATUS )
+            END PO_PROPOSAL_STATUS_NM
+           ,A.PROPOSAL_UPNEW_DATE
+           ,(
+             SELECT TO_CHAR(APPROV_DATE, 'YYYYMMDD')
+               FROM SCC_SIGN_INFO
+              WHERE SIGN_INSTANCE_ID = A.SIGN_INSTANCE_ID
+            ) AS PROPOSAL_APPRV_DATE
+           ,A.PO_TYPE
+           ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'PO_TYPE' AND CODE = A.PO_TYPE ) AS PO_TYPE_NM
+           ,A.ATTACH_DEPT
+           ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'ATTACH_DEPT' AND CODE = A.ATTACH_DEPT ) AS ATTACH_DEPT_NM
+           ,A.DRAFTER_ID
+           ,B.NM_KOR DRAFTER_NM
+           ,A.ENTRY_SCHD_DATE
+         FROM PO_PROPOSAL_MST A
+             ,(SELECT T.NM_KOR, SABUN FROM   HR_PERSONAL T, SCC_CC T2 WHERE  T2.CC_CD = T.CC_CD ) B
+             ,(SELECT PO_PROPOSAL_NUM PO_PROPOSAL_NUM, SUM(WONWTR_AMT) TOT_WONWTR_AMT, SUM(QUANTITY) TOT_QUANTITY, SUM( WGT) TOT_WGT, SUM(BUY_AMT) TOT_BUY_AMT, SUM(SALS_AMT) TOT_SALS_AMT FROM PO_PROPOSAL_ITEM_DTL GROUP BY PO_PROPOSAL_NUM ) C
+             ,(
+                 SELECT A.PO_PROPOSAL_NUM, SUM(WONWTR_AMT) TOT_WONWTR_AMT, SUM(QUANTITY) TOT_QUANTITY, SUM( WGT) TOT_WGT FROM PO_ORDER_MST A, PO_ORDER_ITEM_DETAIL B
+                 WHERE A.PO_ORDER_NUM = B.PO_ORDER_NUM
+                 GROUP BY A.PO_PROPOSAL_NUM
+             ) D
+         WHERE 1=1
+         AND A.DRAFTER_ID =B.SABUN(+)
+         AND A.PO_PROPOSAL_NUM = C.PO_PROPOSAL_NUM(+)
+         AND C.PO_PROPOSAL_NUM = D.PO_PROPOSAL_NUM(+)
+
+         AND NVL(DEL_YN,'') <> 'Y'
+         AND NVL(A.PO_CREATION_YN,'') ='N'
+         AND PROPOSAL_CLASS ='B'   /*그룹웨어 상신*/
+         AND (NVL(C.TOT_WONWTR_AMT,0) - NVL(D.TOT_WONWTR_AMT,0) )  >0   --잔액 있는건만 조회
+            AND A.PROPOSAL_WRITE_DATE BETWEEN :startProposalWriteDate AND :endProposalWriteDate
+
+            <#if poType?has_content>
+             AND A.PO_TYPE = :poType
+         </#if>
+            <#if poProposalNum?has_content>
+             AND A.PO_PROPOSAL_NUM LIKE '%'||:poProposalNum||'%'
+         </#if>
+            <#if attachDept?has_content>
+             AND A.ATTACH_DEPT = :attachDept
+         </#if>
+            <#if proposalTitle?has_content>
+             AND A.PROPOSAL_TITLE LIKE '%'||:proposalTitle||'%'
+         </#if>
+            <#if drafterNm?has_content>
+             AND B.NM_KOR LIKE '%'||:drafterNm||'%'
+         </#if>
+    ) A
+    ORDER BY A.PO_PROPOSAL_NUM DESC
+        ]]>
+    </statement>
+
+    <!-- 환율을 조회 한다. -->
+    <statement name="getExchangeRate" type="select">
+        <![CDATA[
+        SELECT A.EXCHANGE_RATE, A.EXCHANGE_RATE_BASIS FROM SLA_SAP_EXCHANGE_RATE A
+        WHERE A.EXCHANGE_RATE_DATE = :exchangeRateDate
+        AND SEQ=1
+        AND A.OBJ_CURRENCY =:amountUnit
+        --AND A.BASIS_CURRENCY = :amountUnit
+        ]]>
+    </statement>
+
+    <!-- 단위변경시 단위에 해당하는 실단위 가져오기. -->
+    <statement name="getUnitInfo" type="select">
+        <![CDATA[
+        SELECT
+               SET1
+        FROM   SCC_COMMON_CODE A
+        WHERE  A.GROUP_CODE = 'ITEM_UNIT'
+        AND    A.USE_YN = 'Y'
+        AND A.CODE = :unit
+        ]]>
+    </statement>
+
+    <!-- 수수료구분 변경시 계정정보 가져오기 -->
+    <statement name="getAccCdInfo" type="select">
+        <![CDATA[
+        SELECT
+              A.ACCT_CD
+             ,A.ACCT_NM
+             ,A.DR_ACCT_CD
+             ,A.DR_ACCT_NM
+             ,A.CR_ACCT_CD
+             ,A.CR_ACCT_NM
+             ,B.ATTR01 BL_TYPE
+             ,B.ATTR02 BAE_BU_YN
+             ,B.CODE_NAME AS COMM_CLASS_NM
+             ,B.ATTR03 ATTR03
+             ,(SELECT  T.CC_NM FROM scc_cc T WHERE B.ATTR03 = T.CC_CD) ATTR03_NM
+        FROM ACCT_MGMT A
+            ,SCC_COMMON_CODE B
+        WHERE 1=1
+        AND A.DR_ACCT_CD = B.SET1
+        <#if commFlag == "COMM_CLASS">	/* 수수료 */
+            AND A.CR_ACCT_CD = B.SET3
+        <#elseif commFlag == "PREPAYAMT_CLASS">	/* 선급금 */
+            AND A.CR_ACCT_CD = B.SET2
+        </#if>
+        AND B.CODE=:commClass
+        AND B.GROUP_CODE = :commFlag
+        <#if commClass == "B-22">
+            AND A.ACCT_TYPE ='D'
+        <#elseif commClass == "C-01" || commClass == "C-02">	/* 선급금 */
+            AND A.ACCT_TYPE IN ('G')
+        <#else>
+            AND A.ACCT_TYPE IN ( 'D' ,'E','G')
+        </#if>
+        ]]>
+    </statement>
+
+    <!-- 매출 이익율을 조회 한다. -->
+    <statement name="getSalsGainRat" type="select">
+        <![CDATA[
+        SELECT AVG(A.COMM) AS SALS_GAIN_RAT	--최종 수수료
+        FROM PO_PROPOSAL_MST A
+            ,PO_PROPOSAL_ITEM_DTL B
+            ,PO_ORDER_MST C
+        WHERE A.PO_PROPOSAL_NUM = B.PO_PROPOSAL_NUM
+        AND B.PO_PROPOSAL_NUM = C.PO_PROPOSAL_NUM
+        AND C.PO_ORDER_NUM= :poOrderNum
+--        AND B.ITEM_CD=:itemCd
+--        AND B.PROPOSAL_SEQ=:proposalSeq
+        ]]>
+    </statement>
+
+    <!-- 패널티 요을 조회 한다. -->
+    <statement name="getRatio" type="select">
+        <![CDATA[
+          SELECT
+                 B.BASIS_DAYS
+                 ,B.BASIS_BLCK_MARK_RAT
+                 ,B.INC_DAYS
+                 ,B.INC_BLCK_MARK_RAT
+          FROM PO_ORDER_MST A, PO_PROPOSAL_BLCK_MARK_COND B
+          WHERE A.PO_PROPOSAL_NUM = B.PO_PROPOSAL_NUM
+          AND A.PO_ORDER_NUM =:poOrderNum
+        ]]>
+    </statement>
+
+    <!-- BL번호 중복체크. -->
+    <statement name="chkDupBlnum" type="select">
+        <![CDATA[
+            SELECT
+             COUNT(*) CNT
+            FROM
+            (
+              SELECT BL_NUM FROM PO_ORDER_MST A
+              WHERE 1=1
+              <#if poOrderNum?has_content>
+                  AND A.PO_ORDER_NUM <> :poOrderNum
+              </#if>
+              AND A.DEL_YN<>'Y'	  --삭제 아닌건만 체크
+              UNION ALL
+              SELECT ITEM_BL_NUM FROM PO_ORDER_ITEM_DETAIL A
+            ) A
+            WHERE A.BL_NUM =:blNum
+        ]]>
+    </statement>
+
+</hqml>

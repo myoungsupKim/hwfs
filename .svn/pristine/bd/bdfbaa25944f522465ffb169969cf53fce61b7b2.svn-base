@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="ms.msc.saniImgDAO">
+	<desc>SaniImg HQML Query</desc>
+
+	<!-- 위생점검결과 목록을 조회한다. -->
+	
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.ms.msc.saniImgDAO.selectList */
+	<![CDATA[
+			SELECT SRLNUM
+				 , TABLE_TYPE
+				 , FORM_CD
+				 , UPJANG
+				 , CHK_DD
+				 , CLASS_CD
+				 , ORGNL_IMGE
+				 , SVR_IMGE
+				 , FILE_SIZE
+				 , IMPROV_ORGNL_IMGE
+				 , IMPROV_SVR_IMGE
+				 , IMPROV_FILE_SIZE
+				 , CUSER
+				 , TO_CHAR(CDATE, 'YYYY-MM-DD') AS CDATE
+				 , UUSER
+				 , UDATE
+				 , PHOTO_TYPE
+				 , DECODE(IMPROV_SVR_IMGE,'','미등록','등록') AS IMPROV_YN
+				 , SVR_IMGE AS PRE_VIEW
+				 , '' AS FILE_PATH
+				 , IMPROV_SVR_IMGE AS IMPROV_PRE_VIEW
+				 , '' AS IMPROV_FILE_PATH
+				 , '0' AS CHK
+			  FROM FSC_CHK_IMGE
+			 WHERE TABLE_TYPE = :tableType
+			   AND FORM_CD    = :formCd
+			   AND UPJANG     = :upjang
+			   AND CHK_DD     = :chkDd
+			   AND CLASS_CD   = :classCd
+			 ORDER BY CDATE DESC 
+	]]>
+	</statement>
+	
+	<!-- 양식구분 코드를 조회한다. -->
+	<statement name="selectCommonCdList" type="select">
+	/*+ com.hwfs.ms.msc.saniImgDAO.selectCommonCdList */
+	<![CDATA[
+		SELECT A.CODE, A.CODE_NAME, A.SET1 
+		FROM SCC_COMMON_CODE A, SCC_COMMON_GROUP B 
+		WHERE A.GROUP_CODE = B.GROUP_CODE 
+  		AND A.GROUP_CODE = :groupCode
+  		AND A.USE_YN = 'Y' AND B.USE_YN = 'Y'
+	]]>
+	</statement>
+	
+	
+	<!-- 점검사진을 저장한다. -->
+	<statement name="insertCheckImg" type="insert">
+	/*+ com.hwfs.ms.msc.saniImgDAO.insertCheckImg */
+	<![CDATA[
+			INSERT INTO FSC_CHK_IMGE (		  
+				SRLNUM                     			
+				, TABLE_TYPE                 
+				, FORM_CD                    
+				, UPJANG                     
+				, CHK_DD                     
+				, CLASS_CD                   
+				, ORGNL_IMGE                 
+				, SVR_IMGE                   
+				, FILE_SIZE                  
+				, IMPROV_ORGNL_IMGE          
+				, IMPROV_SVR_IMGE            
+				, IMPROV_FILE_SIZE           
+				, CUSER                      
+				, CDATE                      
+				, UUSER                      
+				, UDATE                      
+				, PHOTO_TYPE                 
+			) VALUES (                        
+				(SELECT NVL(MAX(SRLNUM), 0) + 1 FROM FSC_CHK_IMGE)
+				, :tableType
+				, :formCd
+				, :upjang
+				, :chkDd
+				, :classCd
+				, :orgnlImge
+				, :svrImge
+				, :fileSize
+				, ''
+				, ''
+				, ''
+				, :sabun
+				, SYSDATE                   
+				, :sabun
+				, SYSDATE                   
+				, :photoType
+			)                                
+	]]>
+	</statement>
+	
+	
+	<!-- 개선사진을 저장한다. -->
+	<statement name="updateImproveImg" type="insert">
+	/*+ com.hwfs.ms.msc.saniImgDAO.updateImproveImg */
+	<![CDATA[
+			UPDATE FSC_CHK_IMGE
+			   SET IMPROV_ORGNL_IMGE= :improvOrgnlImge
+				 , IMPROV_SVR_IMGE  = :improvSvrImge   
+				 , IMPROV_FILE_SIZE = :improvFileSize
+				 , UUSER            = :sabun          
+				 , UDATE            = SYSDATE                
+				 , PHOTO_TYPE       = :photoType        
+			 WHERE SRLNUM = :srlnum  
+                          
+	]]>
+	</statement>
+	
+	
+	<!-- 점검사진 및 개선사진을 삭제한다. -->
+	<statement name="deleteCheckImg" type="update">
+	/*+ com.hwfs.ms.msc.saniImgDAO.deleteCheckImg */
+	<![CDATA[
+			DELETE FROM FSC_CHK_IMGE
+			WHERE SRLNUM = :srlnum
+	]]>
+	</statement>
+	
+	<!-- 개선사진을 삭제한다. -->
+	<statement name="deleteImproveImg" type="update">
+	/*+ com.hwfs.ms.msc.saniImgDAO.deleteImproveImg */
+	<![CDATA[
+			UPDATE FSC_CHK_IMGE
+			SET IMPROV_ORGNL_IMGE = ''
+			  , IMPROV_SVR_IMGE = ''
+			  , IMPROV_FILE_SIZE = ''
+			  , UUSER = :sabun
+			  , UDATE = SYSDATE
+			WHERE SRLNUM = :srlnum
+	]]>
+	</statement>
+</hqml>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.cmn.sap.eAILogDAO">
+	<desc>EAI 호출로그 HQML Query</desc>
+
+	<!-- EAI 호출로그 건수를 조회한다. -->
+	<statement name="select" type="select">
+		/*+ com.hwfs.sc.cmn.sap.dao.EAILogDAO.select*/
+		<![CDATA[
+SELECT COUNT(*) AS CNT FROM SCC_SAP_LOG
+		]]>
+	</statement>
+
+	<!-- EAI 호출로그의 건수가 10만건 이상인 경우 과거 1000건씩 삭제한다. -->
+	<statement name="delete" type="select">
+		/*+ com.hwfs.sc.cmn.sap.dao.EAILogDAO.delete*/
+		<![CDATA[
+DELETE
+FROM   SCC_SAP_LOG
+WHERE  LOG_DDTT IN (SELECT A.LOG_DDTT
+                    FROM   (SELECT LOG_DDTT
+                            FROM   SCC_SAP_LOG
+                            ORDER BY LOG_DDTT) A
+                    WHERE ROWNUM <= :deletesize)
+		]]>
+	</statement>
+
+	<!-- EAI 호출로그(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sc.cmn.sap.dao.EAILogDAO.insert */
+		<![CDATA[
+INSERT INTO SCC_SAP_LOG
+(
+ LOG_DDTT,
+ INTERFACE_ID,
+ EMP_INFO,
+ PROC_DESC,
+ LOG_DATA,
+ LOG_REF_KEY,
+ IS_ERROR,
+ SEND_MAIN_YN
+) VALUES (
+ SYSDATE,
+ :interfaceId,
+ :loginSabun,
+ :procDesc,
+ :logData,
+ :logRefKey,
+ :isError,
+ :sendMainYn
+)
+		]]>
+	</statement>
+</hqml>

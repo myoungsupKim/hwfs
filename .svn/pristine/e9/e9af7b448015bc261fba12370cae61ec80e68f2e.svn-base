@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fm.fms.returnOrderListDAO">
+	<desc>발주현황(브랜드) HQML Query</desc>
+
+	<!-- 발주현황 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/* com.hwfs.fm.fms.returnOrderListDAO.selectList */
+		<![CDATA[
+		
+	SELECT * FROM (	
+		
+	<#if schOrderType != '0'> -- 주문유형 ; 전체, 반환, 교환, 증정 의 경우 
+		
+		SELECT /*+ LEADING(F)   USE_NL(F A G HP V E) */ --인덱스 탐색 유도
+		       '0' CHK
+		     , A.PR_NUM
+		     , REPLACE(G.UPJANGNM_DISP||'('||(SELECT F.SUBINV_NAME FROM HLDC_PO_SUBINVENTORY F WHERE F.SUBINV_CODE =  A.SUBINV_CODE)||')','()','') UPJANGNM
+		     , TO_CHAR(TO_DATE(A.PR_DATE,'YYYYMMDD'),'YYYY-MM-DD') PR_DATE
+		     , A.ITEM_NAME || DECODE(SIGN(F.CNT - 1), 1, ' 외 ' || TO_CHAR(F.CNT - 1) || '건') AS ITEM_NAME /* 제목 */
+		     , F.AMT ITEM_AMT
+		     , F.VAT ITEM_VAT
+		     , F.AMT + F.VAT AS SUM_AMT
+		     , A.PO_TYPE
+		     , A.RC_UPJANG
+		     , A.CUSTCD
+		     , A.CENTER_CODE
+		     , (SELECT CENTER_NAME FROM HLDC_PO_CENTER WHERE CENTER_CODE = A.CENTER_CODE) AS CENTER_NAME
+		     , A.SUBINV_CODE
+		     , A.LINE_STATUS
+		     , A.SO_STATUS
+		     , A.PR_SABUN
+		     , F.NEED_DATE
+		     , G.HEAD_CREDIT_YN
+		     , G.MAIN_UPJANG
+		     , (SELECT CODE_NAME FROM SCC_COMMON_CODE C WHERE C.GROUP_CODE = 'RTN_LINE_STATUS' AND C.CODE = A.LINE_STATUS AND USE_YN = 'Y') LINE_STATUS_NM --진행상황
+		     , G.CS_SABUN
+		     , F.FLAG
+		     , SUBSTR(A.PO_TYPE, 1, 1) AS ORDER_TYPE -- 주문유형
+		     , CASE WHEN A.PO_TYPE LIKE '5%' THEN '반환'
+		            WHEN A.PO_TYPE LIKE '6%' THEN '교환'
+		            WHEN A.PO_TYPE LIKE '7%' THEN '증정'
+		       ELSE '기타' END               AS PO_TYPE_NM-- 주문유형명
+		     --, F.O_RTN_MSG
+		     --, DECODE(SUBSTR(A.PO_TYPE, 1, 1),'7', F.PR_REMARK, F.O_RTN_MSG) AS O_RTN_MSG  --증정 비고추가 2022.02.28
+		     , F.PR_REMARK AS O_RTN_MSG
+		     , TO_CHAR(A.CREATE_DATE,'YYYY-MM-DD') AS CREATE_DATE
+		     , TO_DATE(A.NEED_DATE, 'YYYYMMDD') - TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD')) - NVL(D.D_DAYS, 0) AS D_DAYS
+		     , SIGN(TO_DATE(A.NEED_DATE, 'YYYYMMDD') - TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD')) - DECODE(SUBSTR(A.PO_TYPE, 1, 1), '5', 0, NVL(D.D_DAYS, 0))) AS D_DAY_SIGN
+		  	 , CASE WHEN A.PO_TYPE LIKE '5%'
+					THEN (SELECT DECODE(COUNT(SOPR.PR_ID), 0, 'N', 'Y')
+							FROM SO_PR SOPR
+							WHERE SOPR.RC_UPJANG = A.RC_UPJANG AND SOPR.NEED_DATE = A.NEED_DATE
+							AND SOPR.LINE_STATUS NOT IN ('003', '005'))
+				ELSE 'NONE' END
+				AS ORDER_CNT_YN --반환의경우 동일업장,입고일자에 정상주문 있는지의 여부값
+		  FROM SO_PR_RTN       A
+		     , HLDC_PO_PREORDER_LIST D
+		     , FMS_UPJANG      G 
+		     , (
+		         SELECT /*+ LEADING(A) INDEX(A SO_PR_I2) */ --  index없지만 그대로 사용함.
+		                MIN(A.PR_ID)                                                AS PR_ID
+		              , COUNT(*)                                                    AS CNT
+		              , SUM(A.SALE_PRICE * A.PO_QTY)                                AS AMT
+		              , SUM(A.SALE_PRICE * A.PO_QTY * DECODE(A.TAX_CODE,100,0.1,0)) AS VAT
+		              , MIN(A.NEED_DATE)                                            AS NEED_DATE
+		              , MAX(A.LINE_STATUS)                                          AS LINE_STATUS
+		              , MAX(A.FROM_TYPE)                                            AS FROM_TYPE
+		              , COUNT(DISTINCT A.PO_TYPE)                                   AS FLAG
+		              , MAX(A.O_RTN_MSG)                                            AS O_RTN_MSG
+		              , MAX(A.PR_REMARK)                                            AS PR_REMARK
+		           FROM SO_PR_RTN A 
+		          WHERE A.NEED_DATE BETWEEN :schFromDate AND :schToDate
+		            AND A.RC_DEPT_ID IN ( SELECT X.CC_CD
+		                                    FROM HLDC_SC_DEPT_V X
+		                                   WHERE X.BU_CD = '2000'
+		                                     AND X.MU_CD = '2004'
+		                                     --AND X.TM_CD LIKE 'CI%'
+		                                     AND (X.TM_CD LIKE 'CI%' OR X.DEPT_ID IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'BRAND_UPJANG_POP_ETC'))
+		                                )   -- 브랜드유통사업장장
+		            AND A.LINE_STATUS NOT IN ('003', '004')
+		            AND A.PO_QTY           > 0
+		            <#if schUpjang?has_content>AND A.RC_UPJANG  = :schUpjang</#if>
+		            <#if schCenter?has_content>AND A.CENTER_CODE = :schCenter</#if>
+		            <#if schLineStatus?has_content>AND A.LINE_STATUS = :schLineStatus</#if>
+		            <#if schOrderType?has_content>AND A.PO_TYPE LIKE :schOrderType || '%' </#if>
+		          GROUP BY PR_NUM
+		       ) F
+		 WHERE 1=1 
+		   AND A.ITEM_CODE        = D.ITEM_CODE
+		   AND A.CENTER_CODE      = D.CENTER_CODE
+		   AND A.RC_UPJANG        = G.UPJANG
+		   AND A.PR_ID            = F.PR_ID
+		   AND A.LINE_STATUS NOT IN ('003', '004')
+		   AND A.PO_QTY           > 0
+		   <#if schCsSabun?has_content>AND G.PART_SALES_SABUN  = :schCsSabun</#if>
+		 --ORDER BY A.PR_NUM
+	</#if>
+		
+	<#if schOrderType?has_content> 
+	<#else> -- 주문유형 ; 전체 의 경우 
+	UNION ALL
+	</#if> 
+		 
+	<#if !schOrderType?has_content || schOrderType == '0'>  -- 주문유형 ; 전체, 정상주문  의 경우  
+		SELECT
+    		'0' CHK
+    		, A.PR_NUM
+    		, REPLACE(G.UPJANGNM_DISP||'('||(SELECT F.SUBINV_NAME FROM HLDC_PO_SUBINVENTORY F WHERE F.SUBINV_CODE =  A.SUBINV_CODE)||')','()','') UPJANGNM
+    		, TO_CHAR(TO_DATE(A.PR_DATE,'YYYYMMDD'),'YYYY-MM-DD') PR_DATE
+    		, A.ITEM_NAME || DECODE(SIGN(F.CNT - 1),1,' 외 ' || TO_CHAR(F.CNT - 1) || '건') AS ITEM_NAME		/* 제목 */
+    		, F.AMT ITEM_AMT
+    		, F.VAT ITEM_VAT
+    		, F.AMT + F.VAT AS SUM_AMT
+    		, A.PO_TYPE
+    		, A.RC_UPJANG
+    		, A.CUSTCD
+    		, A.CENTER_CODE
+    		, (SELECT CENTER_NAME FROM HLDC_PO_CENTER WHERE CENTER_CODE = A.CENTER_CODE) AS CENTER_NAME
+    		, A.SUBINV_CODE
+    		, A.LINE_STATUS
+    		, A.SO_STATUS
+    		, A.PR_SABUN
+    		, F.NEED_DATE
+    		, G.HEAD_CREDIT_YN
+    		, G.MAIN_UPJANG
+    		, FMS_PO_LINESTATUS_FUN(A.PR_ID, A.PR_NUM, 'N') AS LINE_STATUS_NM	--진행상황
+    		, G.CS_SABUN
+    		, F.FLAG
+    		, '0' AS ORDER_TYPE
+    		, '정상주문' AS PO_TYPE_NM
+    		, F.O_RTN_MST
+    		, TO_CHAR(A.CREATE_DATE,'YYYY-MM-DD') AS CREATE_DATE
+    		, TO_DATE(A.NEED_DATE, 'YYYYMMDD') - TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD')) - NVL(D.D_DAYS, 0) AS D_DAYS
+		    , SIGN(TO_DATE(A.NEED_DATE, 'YYYYMMDD') - TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD')) - DECODE(SUBSTR(A.PO_TYPE, 1, 1), '5', 0, NVL(D.D_DAYS, 0))) AS D_DAY_SIGN
+			,  'NONE' AS ORDER_CNT_YN
+		FROM SO_PR A, HLDC_PO_PREORDER_LIST D,  FMS_UPJANG G
+   			, (SELECT   /*+ LEADING(A) INDEX(A SO_PR_I2) */
+			            MIN(A.PR_ID) AS PR_ID
+           				, COUNT(*) AS CNT
+           				, SUM(A.SALE_PRICE * A.PO_QTY) AS AMT
+           				, SUM(A.SALE_PRICE * A.PO_QTY * DECODE(A.TAX_CODE,100,0.1,0)) AS VAT
+           				, MIN(A.NEED_DATE) NEED_DATE
+           				, MAX(A.SO_STATUS) AS LINE_STATUS
+           				, MAX(A.FROM_TYPE) AS FROM_TYPE
+           				, COUNT(DISTINCT A.PO_TYPE) AS FLAG
+            			, MAX(A.O_RTN_MSG) AS O_RTN_MST
+       			FROM SO_PR A
+       			WHERE A.NEED_DATE BETWEEN :schFromDate AND :schToDate
+         		AND A.RC_DEPT_ID IN ( SELECT X.CC_CD FROM HLDC_SC_DEPT_V X
+                           				WHERE X.BU_CD = '2000'AND X.MU_CD = '2004'
+                             			AND (X.TM_CD LIKE 'CI%' OR X.DEPT_ID IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'BRAND_UPJANG_POP_ETC'))
+                        			)   -- 브랜드유통사업장장
+         		AND A.PO_TYPE IN ('07','29', '97')
+         		AND A.SO_STATUS NOT IN ('003' , '005', '999')
+         		AND A.PO_QTY > 0
+				<#if schUpjang?has_content>AND A.RC_UPJANG  = :schUpjang</#if>
+				<#if schCenter?has_content>AND A.CENTER_CODE = :schCenter</#if>
+
+		       GROUP BY PR_NUM
+     		) F
+ 		WHERE 1=1
+   		AND A.PR_ID = F.PR_ID
+   		AND A.ITEM_CODE    = D.ITEM_CODE
+   		AND A.CENTER_CODE  = D.CENTER_CODE
+   		AND A.RC_UPJANG    = G.UPJANG
+   		AND A.SO_STATUS NOT IN ('003' , '005', '999')
+   		AND A.PO_QTY > 0
+   		<#if schCsSabun?has_content>AND G.PART_SALES_SABUN  = :schCsSabun</#if>
+
+		--ORDER BY A.PR_NUM
+	</#if>
+	
+	) 
+	ORDER BY PR_NUM
+		 
+	]]>
+	</statement>
+	
+	<!-- 주문신청 상세정보 목록을 조회한다.(교환/반품/증정) -->
+	<statement name="selectSub" type="select">
+		/*+ com.hwfs.fm.fms.returnOrderListDAO.selectSub */
+		<![CDATA[
+		SELECT '0' CHK
+		     , A.PR_ID
+		     , A.PR_NUM
+		     , A.APPROVE_NUM
+		     , A.ITEM_CODE
+		     , A.ITEM_NAME
+		     , A.ITEM_SIZE
+		     , A.PO_UOM AS ITEM_UNIT
+		     , A.UNIT_PRICE
+		     , A.MARGIN_PRICE
+		     , A.SALE_PRICE
+		     , ROUND(DECODE(A.TAX_CODE, 100, A.SALE_PRICE*1.1, A.SALE_PRICE)) SALE_PRICE_TAX
+		     , A.OP_PRICE
+		     , A.PR_QTY
+		     , A.PO_QTY
+		     , (A.SALE_PRICE * A.PO_QTY) AS SALE_AMOUNT
+		     , A.SALE_PRICE * A.PO_QTY * DECODE(A.TAX_CODE,100,0.1,0) AS VAT
+		     , ROUND((A.SALE_PRICE * A.PO_QTY) + (A.SALE_PRICE * A.PO_QTY * DECODE(A.TAX_CODE,100,0.1,0))) AS SUM_AMOUNT
+		     , A.LINE_STATUS
+		     , A.PR_REMARK
+		     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'RTN_LINE_STATUS' AND CODE = A.LINE_STATUS) PO_LINE_STATUS_NM
+		     , A.SUBINV_CODE
+		     , A.NEED_DATE
+		     , DECODE(A.TAX_CODE,'100','과세','면세') AS TAX_CODE
+		     , A.CUSTCD
+		     , A.CENTER_FLAG
+		     , A.CENTER_CODE
+		     , A.PR_UPJANG
+		     , A.RC_UPJANG
+		     , A.INVAT_FLAG
+		     , A.OUTVAT_FLAG
+		     , A.DOCU_SOURCE
+		     , A.APPLY_SD
+		     , A.VD_SN
+		     , A.UPJANG_GRP
+		     , A.OP_RATE
+		     , A.T_ORDER
+		     , TO_CHAR(A.CREATE_DATE, 'YYYY-MM-DD HH24:MI:SS') AS CREATE_DATE
+		     , A.CREATE_BY
+		     , TO_CHAR(A.UPDATE_DATE, 'YYYY-MM-DD HH24:MI:SS') AS UPDATE_DATE /* 최종변경시각 */
+		     , C.WIN_ITEM_CD
+		     , NVL(HR.NM_KOR, UI.NM_KOR)      AS UPDATE_USER_NAME /* 최종변경자 */
+		     , SUBSTR(A.PO_TYPE, 1, 1) AS ORDER_TYPE -- 판매유형
+		     , TO_DATE(A.NEED_DATE, 'YYYYMMDD') - TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD')) - NVL(D.D_DAYS, 0) AS D_DAYS
+		     , SIGN(TO_DATE(A.NEED_DATE, 'YYYYMMDD') - TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD')) - DECODE(SUBSTR(A.PO_TYPE, 1, 1), '5', 0, NVL(D.D_DAYS, 0))) AS D_DAY_SIGN
+		  	 --, DECODE(SUBSTR(A.PO_TYPE, 1, 1),'7', A.PR_REMARK, '' ) AS O_RTN_MSG  --증정 비고추가 2022.02.28
+			 , A.PR_REMARK AS O_RTN_MSG
+		  FROM SO_PR_RTN             A
+		     , EPROCUSR.ESMMTGL      C
+		     , HLDC_PO_PREORDER_LIST D
+		     , HR_PERSONAL           HR
+		     , SCC_USERINFO          UI
+		 WHERE A.ITEM_CODE        = C.ITEM_CD(+)
+		   AND C.SYS_ID           = '100'
+		   AND A.ITEM_CODE        = D.ITEM_CODE
+		   AND A.CENTER_CODE      = D.CENTER_CODE
+		   AND A.UPDATE_BY        = HR.SABUN(+)
+		   AND A.UPDATE_BY        = UI.SABUN(+)
+		   AND A.PR_NUM           = :schPrNum
+		   AND A.NEED_DATE        = :schNeedDate
+		   AND A.LINE_STATUS NOT IN ('003', '004')
+		   AND A.PO_TYPE         IN (:schOrderType2||'1', :schOrderType2||'2') -- 반환, 교환, 증정
+		   AND A.PR_QTY           > 0
+		 ORDER BY A.PR_ID
+		]]>
+	</statement>
+	
+	<!-- 주문신청 상세정보 목록을 조회한다.(정상발주) -->
+	<statement name="selectSubOrder" type="select">
+		/*+ com.hwfs.fm.fms.returnOrderListDAO.selectSubOrder */
+		<![CDATA[
+		SELECT
+            '0' CHK
+            , A.PR_ID
+            , A.PR_NUM
+            , A.APPROVE_NUM
+            , A.ITEM_CODE
+            , A.ITEM_NAME
+            , A.ITEM_SIZE
+            , A.PO_UOM AS ITEM_UNIT
+            , A.UNIT_PRICE
+            , A.MARGIN_PRICE
+            , A.SALE_PRICE
+            , ROUND(DECODE(A.TAX_CODE, 100, A.SALE_PRICE*1.1, A.SALE_PRICE)) SALE_PRICE_TAX
+            , A.OP_PRICE
+            , A.PR_QTY
+            , A.PO_QTY
+            , (A.SALE_PRICE * A.PO_QTY) AS SALE_AMOUNT
+            , A.SALE_PRICE * A.PO_QTY * DECODE(A.TAX_CODE,100,0.1,0) AS VAT
+            , ROUND((A.SALE_PRICE * A.PO_QTY) + (A.SALE_PRICE * A.PO_QTY * DECODE(A.TAX_CODE,100,0.1,0))) AS SUM_AMOUNT
+            , A.LINE_STATUS --, A.SO_STATUS
+            , A.PR_REMARK
+            , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FM0037' AND CODE = PO.LINE_STATUS) PO_LINE_STATUS_NM
+            , A.SUBINV_CODE
+            , A.NEED_DATE
+            , DECODE(A.TAX_CODE,'100','과세','면세') AS TAX_CODE
+            , A.CUSTCD
+            , A.CENTER_FLAG
+            , A.CENTER_CODE
+            , A.PR_UPJANG
+            , A.RC_UPJANG
+            , A.INVAT_FLAG
+            , A.OUTVAT_FLAG
+            , A.DOCU_SOURCE
+            , A.APPLY_SD
+            , A.VD_SN
+            , A.UPJANG_GRP
+            , A.OP_RATE
+            , A.T_ORDER
+            , TO_CHAR(A.CREATE_DATE, 'YYYY-MM-DD HH24:MI:SS') AS CREATE_DATE
+            , A.CREATE_BY
+            , TO_CHAR(A.UPDATE_DATE, 'YYYY-MM-DD HH24:MI:SS') AS UPDATE_DATE /* 최종변경시각 */
+            , C.WIN_ITEM_CD
+            , NVL(HR.NM_KOR, UI.NM_KOR)      AS UPDATE_USER_NAME /* 최종변경자 */
+            , SUBSTR(A.PO_TYPE, 1, 1) AS ORDER_TYPE -- 판매유형
+            , TO_DATE(A.NEED_DATE, 'YYYYMMDD') - TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD')) - NVL(D.D_DAYS, 0) AS D_DAYS
+            , SIGN(TO_DATE(A.NEED_DATE, 'YYYYMMDD') - TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD')) - DECODE(SUBSTR(A.PO_TYPE, 1, 1), '5', 0, NVL(D.D_DAYS, 0))) AS D_DAY_SIGN
+        FROM SO_PR 					A
+            , HLDC_PO_PO 			PO
+            , HLDC_PO_PREORDER_LIST D
+            , EPROCUSR.ESMMTGL      C
+            , HR_PERSONAL           HR
+            , SCC_USERINFO          UI
+        WHERE A.PR_NUM				= :schPrNum
+            AND A.NEED_DATE			= :schNeedDate
+            AND A.SO_STATUS NOT IN ('003' , '005', '999')
+            AND A.PO_TYPE IN ('07','29', '97')
+            AND A.PR_ID				= PO.PO_ID
+            AND A.PR_NUM			= PO.PO_NUM
+            AND A.ITEM_CODE        	= D.ITEM_CODE
+            AND A.CENTER_CODE      	= D.CENTER_CODE
+            AND A.ITEM_CODE        	= C.ITEM_CD(+)
+            AND C.SYS_ID          	= '100'
+            AND A.UPDATE_BY        	= HR.SABUN(+)
+            AND A.UPDATE_BY        	= UI.SABUN(+)
+       
+		]]>
+	</statement>
+	
+	<!-- 주문신청 (교환/반품/증정) 확정 -->
+	<statement name="updateConfirm" type="update">
+		/*+ com.hwfs.fm.fms.returnOrderListDAO.updateConfirm */
+		<![CDATA[
+		UPDATE SO_PR_RTN A
+		   SET LINE_STATUS      = '008'
+		     , UPDATE_DATE      = SYSDATE
+		     , UPDATE_BY        = :loginSabun
+		 WHERE PR_NUM           = :prNum
+		   AND LINE_STATUS     IN ('001', '998')
+		   AND PR_QTY           > 0
+		   AND EXISTS ( SELECT 1
+		                  FROM HLDC_PO_PREORDER_LIST X
+		                 WHERE X.ITEM_CODE = A.ITEM_CODE
+		                   AND X.CENTER_CODE = A.CENTER_CODE
+		                   AND TO_DATE(A.NEED_DATE, 'YYYYMMDD') - TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDD')) >= NVL(X.D_DAYS, 0)
+		              )
+		]]>
+	</statement>
+	
+	<!-- 주문신청 (교환/반품/증정) 반려 -->
+	<statement name="updateReturn" type="update">
+		/*+ com.hwfs.fm.fms.returnOrderListDAO.updateReturn */
+		<![CDATA[
+		UPDATE SO_PR_RTN
+		   SET LINE_STATUS = '004'
+		     , UPDATE_DATE = SYSDATE
+		     , UPDATE_BY   = :loginSabun
+		 WHERE PR_ID       = :prId
+		   AND LINE_STATUS = :lineStatus
+		]]>
+	</statement>
+	
+</hqml>

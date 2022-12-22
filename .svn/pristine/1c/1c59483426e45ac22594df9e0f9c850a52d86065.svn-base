@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fm.fms.hubInterfaceStopItemDAO">
+	<desc>허브메카 stop자재 설정 HQML Query</desc>
+
+
+	<!-- 허브메카 stop자재 조회-->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.fm.fms.dao.HubInterfaceStopItemDAO.selectList */
+		<![CDATA[
+		SELECT '0' AS CHK
+			  , (SELECT CENTER_NAME FROM HLDC_PO_CENTER WHERE CENTER_CODE = (SELECT CENTER_CODE FROM HLDC_PO_UPJANG_CENTER WHERE UPJANG = B.PRICE_UPJANG)) AS CENTER_NAME
+			  , A.USERID
+			  , A.USERID || ' ' ||B.CUSTNM AS USERID2
+			  , A.ITEM_CODE
+			  , A.ITEM_NAME
+			  , A.START_DATE
+			  , A.END_DATE
+			  , A.USE_YN
+			  , A.UPDATE_USER AS UUSER /* 수정자 */
+		      , (SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = A.UPDATE_USER) AS UUSER_NAME /* 수정자명 */
+		      , A.UPDATE_DATE AS UDATE      /* 수정시각 */
+		  FROM HUB_STOP_ITEM_MST A, HUB_UPJANG_MST B
+		 WHERE 1=1
+		   <#if schFromDate?has_content>
+		   AND A.START_DATE BETWEEN TO_CHAR(TO_DATE(:schFromDate),'YYYYMMDD')  AND TO_CHAR(TO_DATE(:schToDate),'YYYYMMDD')
+		   AND A.END_DATE BETWEEN TO_CHAR(TO_DATE(:schFromDate),'YYYYMMDD')  AND TO_CHAR(TO_DATE(:schToDate),'YYYYMMDD')
+		   </#if>
+		   <#if schDate?has_content>
+		   AND :schDate BETWEEN A.START_DATE AND A.END_DATE
+		   </#if>
+		   <#if schUserId?has_content>
+			AND A.USERID = :schUserId
+			</#if>
+			<#if csSabun?has_content>
+			AND B.CS_SABUN = :csSabun
+			</#if>
+			
+		   AND A.USERID = B.USERID 			
+   	    	ORDER BY A.USERID, A.ITEM_CODE, A.START_DATE
+	
+		]]>
+	</statement>
+
+
+	<!-- 허브메카 stop자재 사용유무 변경 저장-->
+	<statement name="update"><![CDATA[	
+	
+     UPDATE HUB_STOP_ITEM_MST
+     	SET USE_YN = :useYn
+     	, PISTAT = 'R'
+     	, UPDATE_USER = :loginSabun
+     	, UPDATE_DATE = SYSDATE
+     WHERE USERID = :userid
+       AND ITEM_CODE = :itemCode
+       AND START_DATE = :startDate
+       AND END_DATE = :endDate	     
+  	
+		]]></statement>
+
+		
+	<!-- 허브메카 stop자재 등록용 자재정보 조회-->
+	<statement name="selectItem" type="select">
+		/*+ com.hwfs.fm.fms.dao.HubInterfaceStopItemDAO.selectItem */
+		<![CDATA[
+		SELECT  ITEM_CODE
+			  , ITEM_NAME
+			  , ITEM_SIZE
+			  , TO_CHAR(TO_DATE(SYSDATE+1), 'YYYYMMDD') AS START_DATE
+			  , TO_CHAR(TO_DATE(SYSDATE+1), 'YYYYMMDD') AS END_DATE
+			  , 'Y' AS USE_YN
+		  FROM HLDC_PO_ITEM_MST
+		 WHERE ITEM_CODE LIKE '%' || :schItemCode || '%'
+		   AND USE_YN = 'Y'
+		]]>
+	</statement>
+		
+		<!-- 허브메카 엑셀업로드 내역 조회-->
+	<statement name="selectExcel" type="select">
+		/*+ com.hwfs.fm.fms.dao.HubInterfaceSalePriceDAO.selectExcel */
+		<![CDATA[
+		SELECT B.ITEM_CODE AS ITEM_CODE, A.ITEM_NAME AS ITEM_NAME, A.ITEM_SIZE AS ITEM_SIZE,
+			   B.START_DATE AS START_DATE, B.END_DATE AS END_DATE, B.USE_YN AS USE_YN
+   	     FROM HLDC_PO_ITEM_MST A, HUB_STOP_ITEM_UPLOAD_TEMP B
+   	     WHERE A.ITEM_CODE = B.ITEM_CODE
+		   AND A.USE_YN = 'Y'
+		   AND B.CUSER = :loginSabun
+
+		   
+		]]>
+	</statement>
+
+	<!-- 허브메카 엑셀업로드 temp삭제-->
+	<statement name="tempDelete"><![CDATA[	
+	 DELETE FROM HUB_STOP_ITEM_UPLOAD_TEMP
+	 WHERE CUSER = :loginSabun
+	]]>
+	</statement>
+	
+	<!-- 허브메카 엑셀업로드 데이터 임시테이블 저장-->
+	<statement name="tempInsert"><![CDATA[	
+	 INSERT INTO HUB_STOP_ITEM_UPLOAD_TEMP
+	 (
+		ITEM_CODE
+		,START_DATE
+		,END_DATE
+		,USE_YN
+		,CUSER
+		,CDATE
+	 ) VALUES
+	 ( 
+		:itemCode
+		,:startDate
+		,:endDate
+		,:useYn
+		 ,:loginSabun
+		 ,SYSDATE
+	 )
+	]]>
+	</statement>	
+		
+	<!-- 허브메카 STOP자재 조회 (중복체크)-->
+	<statement name="selectStopItem"><![CDATA[	
+	SELECT ITEM_CODE, UPDATE_USER AS UUSER /* 수정자 */
+		    , (SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = A.UPDATE_USER) AS UUSER_NAME /* 수정자명 */
+		    , TO_CHAR(UPDATE_DATE, 'YYYY-MM-DD HH24:MI:SS') AS UDATE      /* 수정시각 */
+	FROM HUB_STOP_ITEM_MST A
+	WHERE USERID = :userid
+	AND ITEM_CODE = :itemCode
+	AND (:startDate BETWEEN START_DATE AND END_DATE OR :endDate BETWEEN START_DATE AND END_DATE)
+	AND USE_YN = 'Y'
+	]]>
+	</statement>	
+	
+	<!-- 허브메카 STOP자재 저장-->
+	<statement name="insert"><![CDATA[		
+	 INSERT INTO HUB_STOP_ITEM_MST
+	 (
+		USERID
+		,ITEM_CODE
+		,ITEM_NAME
+		,START_DATE
+		,END_DATE
+		,USE_YN
+		,CREATE_USER
+		,CREATE_DATE
+		,UPDATE_USER
+		,UPDATE_DATE
+		,PISTAT	
+	)VALUES
+	 ( 
+		:userid
+		,:itemCode
+		,:itemName
+		,:startDate
+		,:endDate
+		,:useYn
+		,:loginSabun
+		,SYSDATE
+		,:loginSabun
+		,SYSDATE
+		,'R'
+	)	
+	]]>
+	</statement>		
+	
+</hqml>

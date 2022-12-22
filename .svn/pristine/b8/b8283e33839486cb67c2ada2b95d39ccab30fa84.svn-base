@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+		http://www.springframework.org/schema/batch http://www.springframework.org/schema/batch/spring-batch-2.1.xsd">
+
+	<import resource="../abstractBase/batchBase.xml" />
+	<!--*****************************************************************************
+			Job에 대한 상세한 설명을 여기에 표현한다. (주요 처리 내용)
+		*****************************************************************************-->
+
+	<job id="jdbcToFixedLengthJob" parent="batchBaseJob"
+		xmlns="http://www.springframework.org/schema/batch">
+		<description>JDBC로 DB에서 데이터를 읽어 고정길이의 파일로 생성한다.</description>
+		<step id="jdbcToFixedLengthStep" parent="batchBaseStep">
+			<tasklet>
+				<chunk reader="jdbcToFixedLengthJob.jdbcToFixedLengthStep.jdbcItemReader"
+					processor="jdbcToFixedLengthJob.jdbcToFixedLengthStep.itemProcessor"
+					writer="jdbcToFixedLengthJob.jdbcToFixedLengthStep.formatItemWriter"
+					commit-interval="10" />
+			</tasklet>
+		</step>
+	</job>
+
+	<!-- JDBC Cursor 기반 ItemReader -->
+	<bean id="jdbcToFixedLengthJob.jdbcToFixedLengthStep.jdbcItemReader" 
+		class="org.springframework.batch.item.database.JdbcCursorItemReader">
+	   <property name="dataSource" ref="batchDataSource"/>
+	   <property name="sql" value="SELECT ID, NAME, CREDIT FROM GUIDE_CUSTOMER ORDER BY ID"/>
+	   <property name="rowMapper">
+	      <bean class="com.hwfs.batch.guide.sample.CustomerCreditRowMapper"/>
+	   </property>
+	</bean>
+	
+	<bean id="jdbcToFixedLengthJob.jdbcToFixedLengthStep.formatItemWriter"
+		class="org.springframework.batch.item.file.FlatFileItemWriter" scope="step">
+		<property name="resource" value="#{jobParameters[outputFile]}" />
+		<property name="lineAggregator">
+			<bean
+				class="org.springframework.batch.item.file.transform.FormatterLineAggregator">
+				<property name="fieldExtractor">
+					<bean
+						class="org.springframework.batch.item.file.transform.BeanWrapperFieldExtractor">
+						<property name="names" value="name,credit" />
+					</bean>
+				</property>
+				<property name="format" value="%-15s%-5.0f" />	<!-- Left Alignment -->
+			</bean>
+		</property>
+	</bean>
+
+	<bean id="jdbcToFixedLengthJob.jdbcToFixedLengthStep.itemProcessor"
+		class="com.hwfs.batch.guide.sample.CustomerCreditProcessor" />
+
+</beans>

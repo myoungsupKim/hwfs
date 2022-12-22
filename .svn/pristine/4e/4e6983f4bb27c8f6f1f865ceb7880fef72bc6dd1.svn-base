@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[메뉴지도 차수 조회-사업장용]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[	    
+SELECT A.GUID_YEAR
+     , A.GUID_SEQ
+     , A.GUID_NM
+     , A.SDATE
+     , A.EDATE
+     , A.CLOSE_YN
+     , A.CUSER
+     , A.CDATE
+     , A.UUSER
+     , A.UDATE
+     , (SELECT COUNT(1) 
+          FROM FSM_MENU_GUID_REQ 
+         WHERE GUID_YEAR = A.GUID_YEAR
+           AND GUID_SEQ = A.GUID_SEQ) AS STATUS_CNT1	/* 신청건수 */
+     , (SELECT COUNT(1) 
+          FROM FSM_MENU_GUID_REQ 
+         WHERE GUID_YEAR = A.GUID_YEAR
+           AND GUID_SEQ = A.GUID_SEQ
+           AND STATUS_CD = '02') AS STATUS_CNT2 /* 승인건수 */
+     , (SELECT COUNT(1) 
+          FROM FSM_MENU_GUID_REQ 
+         WHERE GUID_YEAR = A.GUID_YEAR
+           AND GUID_SEQ = A.GUID_SEQ
+           AND STATUS_CD = '03') AS STATUS_CNT3 /* 반려건수 */
+     , (SELECT COUNT(1) 
+          FROM FSM_MENU_GUID_REQ 
+         WHERE GUID_YEAR = A.GUID_YEAR
+           AND GUID_SEQ = A.GUID_SEQ
+           AND STATUS_CD = '01') AS STATUS_CNT4	/* 미처리건수 */
+     , CASE WHEN A.SDATE > SYSDATE THEN '01' /* 예정 */
+            WHEN A.EDATE < SYSDATE THEN '03' /* 종료 */
+            WHEN SYSDATE BETWEEN A.SDATE AND A.EDATE THEN '02' /* 진행중 */
+       END AS STATUS_CD
+  FROM FSM_MENU_GUID_MGMT A
+ WHERE A.GUID_YEAR = #GUID_YEAR#
+]]>
+<isNotNull col="GUID_NM">
+   AND A.GUID_NM LIKE '%'||#GUID_NM#||'%'
+</isNotNull>
+<isNotNull col="GUID_DD">
+   AND #GUID_DD# BETWEEN A.SDATE AND A.EDATE
+</isNotNull>
+ORDER BY A.GUID_SEQ DESC   
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_guidSeqList">
+	</output>
+</query>

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[도소매 상품 조회(맹수영)]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.ITEM_CODE
+      ,A.ITEM_NAME ||'('|| A.ITEM_SIZE || ')' AS ITEM_NAME
+      ,A.ITEM_NAME AS ITEM_NAME_DISP
+      ,A.ITEM_SIZE
+      ,(SELECT OTCUSTNM FROM FMW_OTCUST WHERE OTCUSTCD = D.OTCUSTCD) OTCUSTNM 
+      ,A.ITEM_SIZE_BONG
+      ,A.TAX_CODE
+      ,0 AMOUNT_BONG
+      ,0 AMOUNT_BOX      
+      ,DECODE((SELECT COUNT(*) FROM FMW_FIXED_SALE_PRICE WHERE ITEM_CODE = A.ITEM_CODE AND HALL_CODE = #HALL_CODE#),0,A.PRICE_BONG,(SELECT SALE_PRICE FROM FMW_FIXED_SALE_PRICE WHERE ITEM_CODE = A.ITEM_CODE AND HALL_CODE = #HALL_CODE# )) PRICE_BONG
+      ,DECODE((SELECT COUNT(*) FROM FMW_FIXED_SALE_PRICE WHERE ITEM_CODE = A.ITEM_CODE AND HALL_CODE = #HALL_CODE#),0,A.PRICE_BOX,(SELECT SALE_PRICE FROM FMW_FIXED_SALE_PRICE WHERE ITEM_CODE = A.ITEM_CODE AND HALL_CODE = #HALL_CODE# ) * A.ITEM_SIZE_BONG ) PRICE_BOX
+      ,A.UPJANG
+      , B.TRANS_QTY AS 재고
+      ,B.TRANS_QTY  
+      ,SUBSTR(FMW_UNIT_CHG_FUN(A.ITEM_CODE ,1,NULL,NVL(B.TRANS_QTY,0)),1,INSTR(FMW_UNIT_CHG_FUN(A.ITEM_CODE,1,NULL,NVL(B.TRANS_QTY,0)),',')-1) AS INV_BOX
+      ,SUBSTR(FMW_UNIT_CHG_FUN(A.ITEM_CODE ,1,NULL,NVL(B.TRANS_QTY,0)),INSTR(FMW_UNIT_CHG_FUN(A.ITEM_CODE,1,NULL,NVL(B.TRANS_QTY,0)),',')+1) AS INV_BONG
+  FROM
+     (SELECT V.ITEM_CODE,  
+           V.ITEM_SIZE_BONG,
+           --V.ITEM_NAME||' ('||(SELECT OTCUSTNM FROM FMW_OTCUST WHERE OTCUSTCD = V.OTCUSTCD)||')' ITEM_NAME,
+           V.ITEM_NAME ITEM_NAME, V.ITEM_SIZE,
+           (SELECT OTCUSTNM FROM FMW_OTCUST WHERE OTCUSTCD = V.OTCUSTCD) OTCUSTNM,
+           DECODE(V.TAX_CODE,'100','과세','210','면세','면세') TAX_CODE,
+           V.SALE_PRICE_BONG PRICE_BONG,
+           (V.ITEM_SIZE_BONG * V.SALE_PRICE_BONG) PRICE_BOX,UPJANG
+      FROM FMW_ITEM_V V
+     WHERE (UPJANG  = #UPJANG# OR UPJANG = '0')
+       AND USE_YN  = 'Y') A,
+    (SELECT B.ITEM_CODE, SUM(B.TRANS_QTY  * PHYSIC_GUBUN) AS TRANS_QTY
+       FROM FMW_PO_TRANSACTION B
+      WHERE B.TRANS_DATE BETWEEN '20110101' AND #TRANS_DATE# 
+        AND B.SUBINV_CODE = #SUBINV_CODE# GROUP BY B.ITEM_CODE) B,
+     FMW_ITEM_V D
+WHERE A.ITEM_CODE = B.ITEM_CODE(+)
+  AND A.ITEM_CODE = D.ITEM_CODE
+  --and a.item_code not in (#gds_currupjang.TM_CD$#)
+<isNotNull col="ITEM_CODE">
+   AND A.ITEM_CODE LIKE #ITEM_CODE#||'%'
+</isNotNull>
+<isNotNull col="ITEM_NAME">
+   AND A.ITEM_NAME LIKE '%'||#ITEM_NAME#||'%'
+</isNotNull>
+ORDER BY A.ITEM_CODE
+   </statement>
+	<input default-name="ds_in1">
+		<col name="ITEM_CODE" size="12" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAME" size="200" type="VARCHAR" description="" /> 
+		<col name="OTCUSTNM" size="100" type="VARCHAR" description="" />
+		<col name="TAX_CODE" size="20" type="VARCHAR" description="" /> 
+		<col name="INV_BOX" size="8" type="NUMERIC" description="" /> 
+		<col name="INV_BONG" size="8" type="NUMERIC" description="" /> 
+		<col name="PRICE_BOX" size="8" type="NUMERIC" description="" /> 
+		<col name="PRICE_BONG" size="1" type="NUMERIC" description="" /> 
+		<col name="TRANS_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="ITEM_SIZE_BONG" size="8" type="NUMERIC" description="" /> 
+		<col name="AMOUNT_BONG" size="8" type="NUMERIC" description="" /> 
+		<col name="AMOUNT_BOX" size="8" type="NUMERIC" description="" /> 
+	</input>
+	<output default-name="gds_Csqlout">
+		<col name="ITEM_CODE" size="12" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAME" size="200" type="VARCHAR" description="" /> 
+		<col name="OTCUSTNM" size="100" type="VARCHAR" description="" />
+		<col name="TAX_CODE" size="3" type="VARCHAR" description="" /> 
+		<col name="INV_BOX" size="22" type="NUMERIC" description="" /> 
+		<col name="INV_BONG" size="22" type="NUMERIC" description="" /> 
+		<col name="PRICE_BOX" size="1" type="VARCHAR" description="" /> 
+		<col name="PRICE_BONG" size="22" type="NUMERIC" description="" /> 
+		<col name="TRANS_DATE" size="8" type="VARCHAR" description="" />
+        <col name="ITEM_SIZE_BONG" size="8" type="NUMERIC" description="" />
+		<col name="AMOUNT_BONG" size="8" type="NUMERIC" description="" /> 
+		<col name="AMOUNT_BOX" size="8" type="NUMERIC" description="" /> 
+	</output>
+</query>

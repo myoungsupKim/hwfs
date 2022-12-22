@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fs.fse.eventPopDAO">
+    <desc>이벤트 조회 팝업 HQML Query</desc>
+
+
+<!-- 이벤트 Master 목록을 조회한다. -->
+    <statement name="selectEventPopList" type="select">
+        /*+ com.hwfs.fs.fse.dao.eventPopDAO.selectEventPopList */
+        <![CDATA[
+                SELECT  A.LCLASS_CD         AS LCLASS_CD           /* 대분류_코드      */
+                    --, A.USE_YN            AS USE_YN_A
+                    --, B.USE_YN            AS USE_YN_B
+                      , A.MCLASS_CD         AS MCLASS_CD           /* 중분류_코드      */
+                      , A.MCLASS_NM         AS MCLASS_NM           /* 중분류_명        */
+                      , B.SCLASS_CD         AS SCLASS_CD           /* 소분류_코드      */
+                      , B.SCLASS_NM         AS SCLASS_NM           /* 소분류_명        */
+                      , C.SEQ               AS SEQ                 /* 순번             */
+                      , C.PROPS_TERM_SDATE  AS PROPS_TERM_SDATE    /* 추진_기간_시작일 */
+                      , C.PROPS_TERM_EDATE  AS PROPS_TERM_EDATE    /* 추진_기간_종료일 */
+                      , C.EVNT_TITLE        AS EVNT_TITLE          /* 이벤트_제목      */
+                      , C.OFFER_MENU        AS OFFER_MENU          /* 제공_식단        */
+                      , C.CNPT_EXPL         AS CNPT_EXPL           /* 개념_설명        */
+                      , C.FILE_ID           AS FILE_ID	           /* FILE_ID	       */
+                  FROM  FS_MCLASS A, FS_SCLASS B, FSE_EVNT_MASTER C
+                 WHERE  A.MU_CD       = B.MU_CD
+                   AND  A.LCLASS_CD   = B.LCLASS_CD
+                   AND  B.LCLASS_CD   = C.MGRP_CD
+                   AND	A.MCLASS_CD	  = B.MCLASS_CD
+                   AND  B.MCLASS_CD   = C.MCLASS_CD
+                   AND  B.SCLASS_CD   = C.SCLASS_CD
+                   AND  A.USE_YN      = 'Y'
+                   AND  B.USE_YN      = 'Y'
+                   AND  C.USE_YN      = 'Y'
+                   AND  C.SIGN_STATUS = '002'
+                <#if fName?has_content>AND  C.SIGN_STATUS = '002'</#if>
+                <#if mclassCd?has_content>
+                   AND  A.MCLASS_CD = :mclassCd
+                </#if>
+                <#if sclassCd?has_content>
+                   AND  B.SCLASS_CD = :sclassCd
+                </#if>
+                <#if mclassNm?has_content>
+                   AND  A.MCLASS_NM   LIKE '%' || :mclassNm  || '%'
+                </#if>
+                <#if evntTitle?has_content>
+                   AND  C.EVNT_TITLE  LIKE '%' || :evntTitle || '%'
+                </#if>
+              ORDER BY  MCLASS_NM ASC, SCLASS_NM ASC, EVNT_TITLE ASC
+            ]]>
+    </statement>
+
+	<!-- 이벤트 Master 목록을 조회한다. -->
+    <statement name="selectEventProcessInfoList" type="select">
+        /*+ com.hwfs.fs.fse.dao.eventPopDAO.selectEventPopList */
+        <![CDATA[
+                SELECT  D.MU_CD        AS MU_CD
+                  , D.MU_NM        AS MU_NM
+                  , D.TM_CD        AS TM_CD
+                  , D.TM_NM        AS TM_NM
+                  , D.UPJANG       AS UPJANG_CD
+                  , D.UPJANGNM     AS UPJANG_NM
+                --, A.USE_YN       AS USE_YN_A
+                --, B.USE_YN       AS USE_YN_B
+                  , A.LCLASS_CD    AS LCLASS_CD
+                  , A.MCLASS_CD    AS MCLASS_CD
+                  , A.MCLASS_NM    AS MCLASS_NM
+                  , B.SCLASS_CD    AS SCLASS_CD
+                  , B.SCLASS_NM    AS SCLASS_NM
+                  , C.EVNT_ID      AS EVNT_ID
+                  , C.EVNT_TITLE   AS EVNT_TITLE
+                  , C.SIGN_STATUS  AS SIGN_STATUS
+                  , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'EVENT_SIGN_STATUS' AND CODE = C.SIGN_STATUS) AS SIGN_STATUS_NM
+                  , C.CUSER        AS CUSER
+                --, (SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = C.CUSER AND ROWNUM = 1)  AS CUSER_NM
+                  , NVL(J.NM_KOR,  I.NM_KOR)  AS CUSER_NM
+              FROM  FS_MCLASS A, FS_SCLASS B, FSE_EVNT_REQUEST C, SCO_UPJANG_MST_V D
+                  , SCC_USERINFO I, HR_PERSONAL J
+             WHERE  A.LCLASS_CD         = B.LCLASS_CD
+               AND  A.MCLASS_CD         = B.MCLASS_CD
+               AND  B.LCLASS_CD         = C.LCLASS_CD
+               AND  B.MCLASS_CD         = C.MCLASS_CD
+               AND  B.SCLASS_CD         = C.SCLASS_CD
+               AND  A.USE_YN            = 'Y'
+               AND  B.USE_YN            = 'Y'
+               AND  C.REQUEST_UPJANG_CD = D.UPJANG
+               AND  C.CUSER             = I.SABUN(+)
+               AND  I.SABUN             = J.SABUN(+)
+               AND  I.USE_YN            = 'Y'
+             <#if muCd?has_content>
+               AND  D.MU_CD     = :muCd
+             </#if>
+             <#if tmCd?has_content>
+               AND  D.TM_CD     = :tmCd
+             </#if>
+             <#if upjangCd?has_content>
+               AND  D.UPJANG    = :upjangCd
+             </#if>
+             <#if mclassCd?has_content>
+                AND  A.MCLASS_CD = :mclassCd
+             </#if>
+             <#if sclassCd?has_content>
+                AND  A.SCLASS_CD = :sclassCd
+             </#if>
+             <#if evntTitle?has_content>
+                AND  C.EVNT_TITLE  LIKE '%' || :evntTitle || '%'
+             </#if>
+              ORDER BY  MCLASS_NM ASC, SCLASS_NM ASC, EVNT_TITLE ASC
+            ]]>
+    </statement>
+
+    <!-- 이벤트 분류 목록을 조회한다. -->
+    <statement name="selectCodeMclass" type="select">
+		/*+ com.hwfs.fs.fse.dao.eventPopDAO.selectCodeMclass */
+		<![CDATA[
+		        SELECT  MU_CD
+		              , LCLASS_CD
+		              , MCLASS_CD
+		              , MCLASS_NM
+		              , LEV
+		              , USE_YN
+		          FROM  FS_MCLASS
+		         WHERE  LCLASS_CD = 'E01'
+		           AND  USE_YN    = 'Y'
+		      ORDER BY  MU_CD, LCLASS_CD, MCLASS_CD
+		]]>
+	</statement>
+
+    <!-- 이벤트 테마 목록을 조회한다. -->
+    <statement name="selectCodeSclass" type="select">
+		/*+ com.hwfs.fs.fse.dao.eventPopDAO.selectCodeSclass */
+		<![CDATA[
+		        SELECT  A.MCLASS_CD
+		              , A.MCLASS_NM
+		              , B.SCLASS_CD
+		              , B.SCLASS_NM
+                    --, A.USE_YN     AS USE_YN_A
+                    --, B.USE_YN     AS USE_YN_B
+		          FROM  FS_MCLASS A, FS_SCLASS B
+		         WHERE  A.MU_CD     = B.MU_CD
+		           AND  A.LCLASS_CD = B.LCLASS_CD
+		           AND  A.MCLASS_CD = B.MCLASS_CD
+		           AND  A.LCLASS_CD = 'E01'
+		           AND  A.USE_YN    = 'Y'
+		           AND  B.USE_YN    = 'Y'
+		]]>
+	</statement>
+
+</hqml>
+

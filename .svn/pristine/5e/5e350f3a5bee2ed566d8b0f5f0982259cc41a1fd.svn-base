@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[일요일 주문확정 품목관리]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT 	A.CENTER_CODE AS CENTER_CODE,
+		(SELECT  CENTER_NAME FROM HLDC_PO_CENTER WHERE USE_YN = 'Y' AND CENTER_CODE = A.CENTER_CODE) AS CENTER_NAME,		
+		B.ITEM_CODE AS ITEM_CODE,			
+		B.ITEM_NAME AS ITEM_NAME,
+		B.ITEM_SIZE AS ITEM_SIZE,
+        B.PO_UOM AS PO_UOM,			
+		DECODE(A.USE_YN, 'Y', '1', '0') AS USE_YN,					
+		A.REMARK AS REMARK,
+		SCC_USERINFO_NM_KOR_FUN(A.CUSER, '2') AS CUSER,
+      	TO_CHAR(A.CDATE, 'YYYY-MM-DD') AS CDATE,
+      	SCC_USERINFO_NM_KOR_FUN(A.UUSER, '2') AS UUSER,
+        TO_CHAR(A.UDATE, 'YYYY-MM-DD') AS UDATE,
+        (SELECT Z.VD_NM FROM VO_FC_VENDOR Z, EPROCUSR.ESPINFO Y WHERE Z.VD_SN = Y.VD_SN AND Y.ITEM_CD = B.ITEM_CODE AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN Y.APPLY_SD AND Y.APPLY_ED AND ROWNUM = 1) CUSTNM,
+        '0' AS CHK 					
+  FROM 	FMS_WEEKEND_ITEM A,					
+			HLDC_PO_ITEM_MST B					
+	WHERE 	1=1									
+   AND 	A.ITEM_CODE = B.ITEM_CODE(+) 		
+   AND 	B.USE_YN = 'Y' 						
+   AND 	B.ITEM_CLASS1 = 'F' 				
+   AND 	A.CENTER_CODE = #CENTER_CODE#  	
+ ORDER  BY ITEM_NAME	
+   ]]></statement>
+	<input default-name="ds_Cond">
+	</input>
+	<output default-name="ds_List">
+	</output>
+</query>

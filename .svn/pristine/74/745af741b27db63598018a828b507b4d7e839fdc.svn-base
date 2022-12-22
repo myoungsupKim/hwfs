@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[표준레시피 자재구성]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.RECIPE_CD,
+       F.RECIPE_NAME,
+       A.ITEM_CODE,
+       C.ITEM_NAME,
+       C.ITEM_SIZE, --규격
+       C.PO_UOM,    --구매단위
+       A.NEED_QTY,  --1인소요량
+       ROUND(A.NEED_QTY*((100-D.DISUSE_RATE)/100),2) EDIBLE_QTY, --가식부량
+       A.CUT_SPEC,  --커팅규격
+       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0017' AND CODE = A.CUT_SPEC) CUT_SPEC_NAME, --커팅규격명
+       ROUND((A.NEED_QTY) * (NVL(B.MARGIN_PRICE,0) / C.KG_CONVERT_RATE / 1000) ) AS ITEM_COST, -- 1인원가
+       ROUND( NVL(D.CAL,0) * A.NEED_QTY / 100,2) AS ITEM_CAL , -- 열량
+       NVL(D.DISUSE_RATE,0) AS DISUSE_RATE,
+       NVL2(E.RESTRICT_SEQ,'1','0') RESTRICT_YN
+      ,E.RESTRICT_PERIOD
+      ,E.RESTRICT_REASON
+      ,B.MARGIN_PRICE
+      , FN_ITEM_FEATURE_ICON(
+      			(SELECT DUTY_YN FROM HLDC_PO_CONTRACT_F WHERE ITEM_CODE = A.ITEM_CODE AND ROWNUM <= 1 ), 
+      			C.PB_YN, C.ECO_ITEM, '') AS ITEM_SPEC
+      --,I.FEATURE_NAME AS ITEM_SPEC --자재특성
+      ,C.ORIGIN_NAT
+  FROM FMR_STD_RECIPE_ITEM A ,
+       FMI_STD_PRICE B ,
+       (
+       SELECT ITEM_CODE,
+              ITEM_NAME,
+              ITEM_SIZE,
+              PO_UOM,
+              KG_CONVERT_RATE,
+              ORIGIN_NAT,
+              -- 표준에서는 어떻게 가져올지 추후 협의가 필요. 일단은 모두 'N'로 표시(센터별 기준업장으로 보여줄지는 협의가 필요) (2015.08.29)
+              'N'  AS PB_YN,
+              ECO_ITEM
+         FROM HLDC_PO_ITEM_MST
+        WHERE ITEM_CLASS1 = 'F'
+       ) C,
+       FSI_ITEM_NUT D,
+       (SELECT RESTRICT_SEQ, ITEM_CODE
+              ,RESTRICT_REASON
+               ,TO_CHAR(TO_DATE(RESTRICT_START, 'YYYYMMDD' ) , 'YYYY.MM.DD' ) || '~' || TO_CHAR(TO_DATE(RESTRICT_END, 'YYYYMMDD' ) , 'YYYY.MM.DD' ) AS RESTRICT_PERIOD
+          FROM FSI_RESTRICT_MST
+         WHERE TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN RESTRICT_START AND RESTRICT_END
+           AND USE_YN = 'Y'
+       ) E,
+       FMR_STD_RECIPE_MST F,
+       (
+        SELECT ITEM_CODE,
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0033' AND CODE = ITEM_FEATURE) AS FEATURE_NAME
+          FROM FSI_ITEM_FEATURE
+         WHERE (ITEM_CODE, CDATE) IN
+               (
+                SELECT ITEM_CODE, MAX(CDATE) AS CDATE
+                  FROM FSI_ITEM_FEATURE
+                 WHERE (1=1)
+                  AND  (CENTER_CODE, CUSTCD, ITEM_CODE, APPLY_DATE) IN (
+                        SELECT
+                               CENTER_CODE, CUSTCD, ITEM_CODE, MAX(APPLY_DATE) AS APPLY_DATE
+                          FROM  FSI_ITEM_FEATURE
+                         WHERE  CENTER_CODE  = '300001'
+                           AND  TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN APPLY_DATE AND TO_CHAR(ADD_MONTHS(TO_DATE(APPLY_DATE,'YYYYMMDD'),1)-1,'YYYYMMDD')
+                         GROUP BY CENTER_CODE, CUSTCD, ITEM_CODE
+                       )
+                 GROUP BY ITEM_CODE
+               )
+       ) I
+ WHERE A.ITEM_CODE = B.ITEM_CODE
+   AND A.ITEM_CODE = C.ITEM_CODE
+   AND A.ITEM_CODE = D.ITEM_CODE(+)
+   AND A.ITEM_CODE = E.ITEM_CODE(+)
+   AND A.RECIPE_CD = F.RECIPE_CD
+   AND A.ITEM_CODE = I.ITEM_CODE(+)
+   AND A.RECIPE_CD = #RECIPE_CD#
+ ORDER BY ITEM_SEQ	]]></statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_Detail">
+	</output>
+</query>

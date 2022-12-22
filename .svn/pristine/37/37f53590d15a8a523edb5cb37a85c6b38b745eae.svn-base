@@ -1,0 +1,425 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.cmn.loginDAO">
+	<desc>로그인 정보 HQML Query</desc>
+
+	<!-- 로그인 정보를 조회한다. 비밀번호 일치여부 검사도 한다.-->
+	<statement name="selectLoginInfo" type="select">
+		/*+ com.hwfs.sc.cmn.dao.LoginDAO.selectLoginInfo */
+		<![CDATA[
+	    SELECT
+	           A.USERID
+	         , A.SABUN
+	         , A.NM_KOR
+	         , B.DEPT_ID
+	         , B.MU_NM||' '||B.SC_NM||' '||B.CC_NM AS DEPT_NM
+	         , A.CUSTCD AS CUST_CD
+	         , E.CUSTNM AS CUST_NM
+	         , A.OTCUSTCD AS OT_CUST_CD
+	         , F.OTCUSTNM AS OT_CUST_NM
+	         , B.MU_CD
+	         , B.MU_NM
+	         , B.SC_CD
+	         , B.SC_NM
+	         , B.TM_CD
+	         , B.TM_NM
+             , NVL((SELECT SET1 FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'CC2PART' AND CODE = B.CC_CD AND USE_YN = 'Y'), 'NO_PT') AS PT_CD
+             , NVL((SELECT SET2 FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'CC2PART' AND CODE = B.CC_CD AND USE_YN = 'Y'), 'NO_PT') AS PT_NM
+	         , B.CC_CD
+	         , B.CC_NM
+	         , B.UPJANG
+	         , B.UPJANGNM AS UPJANG_NM
+	         , D.MAIN_UPJANG AS MAIN_UPJANG
+	         , NVL((SELECT NVL(MAIN_UPJANG_IMG, 'NO_IMG') FROM FMS_UPJANG WHERE UPJANG = D.MAIN_UPJANG), 'NO_IMG') AS MAIN_UPJANG_IMG
+	         , (SELECT CC.UPJANGNM FROM ST_UPJANG CC WHERE CC.UPJANG = D.MAIN_UPJANG) AS MAIN_UPJANG_NM
+	         , D.CUST_TYPE AS UPJANG_GROUP
+	         , A.SYSTEM_MST
+	         , A.BOARD_MST
+	         , A.SIMPLE_PO_YN
+	         --, NVL(D.HOLIDAY_CHK_YN,'N') AS HOLIDAY_CHK_YN
+	         , A.USER_GROUP
+	         , A.USER_TYPE
+	         , CASE WHEN A.USER_GROUP = '리조트' OR A.USER_GROUP = 'FC' THEN '본부'
+	                WHEN B.UPJANG = D.MAIN_UPJANG THEN '본사'
+	                ELSE '사업장'
+	           END AS USER_KIND
+	         <#if autologinYn?has_content && autologinYn=='Y'>
+	         , 'N' AS VALID_PWD_YN
+	         <#else>
+	         , CASE
+	                WHEN A.PASSWORD = SCC_CRYPTO.ONEWAY_ENC_FUN(:pwd)
+	                THEN 'Y'
+	                ELSE 'N'
+	           END AS VALID_PWD_YN                  /* 비밀번호 일치 여부 */
+	         </#if>
+	         ,(SELECT MAX(AUTHLEVEL)
+	           FROM   SCC_USER_AUTHLEVEL
+	           WHERE  SABUN=A.SABUN) AS AUTH_LEVEL  /* 대표 권한레벨 */
+	         ,(SELECT LISTAGG(AUTHLEVEL, ',') WITHIN GROUP (ORDER BY AUTHLEVEL)
+	           FROM   SCC_USER_AUTHLEVEL
+	           WHERE  SABUN=A.SABUN) AS AUTH_LEVELS /* 권한레벨 리스트 */
+	         , MANAGE_ALLOW_IP
+             , (SELECT LISTAGG(AA.ROLE, ',') WITHIN GROUP (ORDER BY AA.ROLE)
+                FROM (SELECT DISTINCT ROLE, SABUN
+                      FROM   SCC_USER_ROLE_V) AA
+                WHERE AA.SABUN = A.SABUN) AS USER_ROLES
+	         , A.CTI_USE_YN
+	         , A.CTI_USER_ID
+	         , A.PERS_INFO_PROC_LEVEL
+	         , A.PERS_INFO_PROC_GRADE
+	         ,(SELECT P.PCLT_DSCT_INFO_MASK_YN||P.PCLT_DSCT_INFO_MASK_YN||P.PCLT_DSCT_INFO_MASK_YN||P.PCLT_DSCT_INFO_MASK_YN||P.FIN_INFO_MASK_YN||P.FIN_INFO_MASK_YN||P.EMAIL_MASK_YN||P.HAND_PHONENUM_MASK_YN||P.TELNO_MASK_YN||P.PREX_ADDR_MASK_YN||P.ROADNM_ADDR_MASK_YN||P.NAME_MASK_YN||P.BIRTHDAY_MASK_YN||P.IPV4_MASK_YN||P.IPV6_MASK_YN
+	           FROM   SCC_PERS_INFO_PROC_GRADE P
+	           WHERE  P.PERS_INFO_PROC_GRADE = A.PERS_INFO_PROC_GRADE) AS PERS_INFO_MASK
+	         , NVL((SELECT ESST_ARTICLE_AGREE_YN FROM SCC_PERS_INFO_AGREE WHERE SABUN=A.SABUN), 'N') AS PERS_INFO_AGREE_YN
+	         , A.PWD_CHG_DATE
+	         ,(SELECT CASE
+	                      WHEN SYSDATE - TO_DATE(A.PWD_CHG_DATE) >= ENV_INFO_VALUE
+	                      THEN 'Y'
+	                      ELSE 'N'
+	                  END AS CHG_PWD_YN
+	           FROM  SCC_PERS_INFO_MGMT_ENV WHERE ENV_INFO_ID='PWD_CHG_PERIOD') AS PWD_CHG_YN
+	         , NVL(A.PWD_ERR_CNT, 0) AS PWD_ERR_CNT
+	         ,(SELECT ENV_INFO_VALUE FROM SCC_PERS_INFO_MGMT_ENV WHERE ENV_INFO_ID='PWD_ERR_CNT') AS MAX_PWD_ERR_CNT
+	         , ACCT_STATUS
+	         , ACCT_LK_REASON_CD
+	         , TEMP_SABUN_MANAGE_SABUN
+	         , NVL((SELECT SET1 FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MAIN_TYPE' AND CODE = A.MAIN_TYPE), 'IntroFrameType01.xfdl') AS INTRO_PAGE
+	         , SCC_CRYPTO.DEC_FUN(A.HP_NO_ENC) AS HP_NO
+	         , SCC_CRYPTO.DEC_FUN(A.HP_NO_ENC) AS TEL_NO  
+	         , SCC_CRYPTO.DEC_FUN(A.EMAIL_ENC) AS EMAIL_ADDR
+	         <#if connIp?has_content>
+	         , CASE
+	                WHEN (SELECT COUNT(*) FROM SCC_NO_PRMI_USER WHERE SABUN=A.SABUN AND CONN_IP=:connIp AND ITCT_YN='Y') > 0
+	                THEN 'Y'
+	                ELSE 'N'
+	           END AS ITCT_YN                  			/* 무단사용자 차단여부 */
+	         <#else>
+	         , 'N' AS ITCT_YN
+	         </#if>
+	         , CASE
+	                WHEN TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.SDATE AND A.EDATE
+	                THEN 'Y'
+	                ELSE 'N'
+	           END AS USE_DATE_YN                  		/* 사용가능일 여부 */
+	         , A.SDATE || '~' || A.EDATE AS USE_DATE 	/* 사용가능일 */
+			 , (SELECT COUNT(*) FROM SCC_USER_USE_SYS_TYPE_V WHERE SABUN = A.SABUN) AS SYS_TYPE_CNT
+			 , (SELECT COUNT(*)+1 FROM FMS_USER_UPJANG WHERE SABUN = A.SABUN) AS UPJANG_CNT
+			 , :applyAuthYn AS APPLY_AUTH_YN
+			 , CASE WHEN A.TEMP_SABUN_MANAGE_SABUN IS NOT NULL THEN A.TEMP_SABUN_MANAGE_SABUN ELSE A.SABUN END AS SLIP_SABUN
+	         --, TO_CHAR(TO_DATE(A.SDATE, 'YYYYMMDD'), 'YYYY-MM-DD') || '~' || TO_CHAR(TO_DATE(A.EDATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS USE_DATE
+	         --하루에 근태코드 여러개 들어와도 모두 보이도록 수정 20190220 김호석
+	         ,NVL((SELECT REPLACE(WM_CONCAT(I.GNT_CD),',','-') GNT_CD
+									FROM (
+										SELECT G.SABUN, G.GNT_CD,H.GNT_NM
+						 				FROM IF_EHR_GNT_MST G 
+                        ,IF_EHR_GNT_CD H
+                    WHERE G.GNT_CD = H.GNT_CD
+        							AND TO_CHAR(sysdate,'YYYYMMDD') BETWEEN G.S_YMD AND G.E_YMD
+								) I
+                WHERE I.SABUN = A.SABUN
+                GROUP BY I.SABUN 
+                ),NULL) AS GNT_CD
+	          ,(SELECT REPLACE(WM_CONCAT(I.GNT_NM),',','-') GNT_NM
+										FROM (
+											SELECT G.SABUN, G.GNT_CD,H.GNT_NM
+							 				FROM IF_EHR_GNT_MST G 
+	                        ,IF_EHR_GNT_CD H
+	                    WHERE G.GNT_CD = H.GNT_CD
+	        							AND TO_CHAR(sysdate,'YYYYMMDD') BETWEEN G.S_YMD AND G.E_YMD
+									) I 
+	                WHERE I.SABUN = A.SABUN
+	                GROUP BY I.SABUN
+	                ) AS GNT_NM
+	          ,NVL((SELECT REPLACE(WM_CONCAT(I.GNT_CD),',','-') GNT_CD
+										FROM (
+											SELECT G.SABUN, G.GNT_CD,H.GNT_NM
+							 				FROM IF_EHR_GNT_MST G 
+	                        ,IF_EHR_GNT_CD H
+	                    WHERE G.GNT_CD = H.GNT_CD
+	        							AND TO_CHAR(sysdate+1,'YYYYMMDD') BETWEEN G.S_YMD AND G.E_YMD
+									) I 
+	                WHERE I.SABUN = A.SABUN
+	                GROUP BY I.SABUN
+	                ),NULL) AS N_GNT_CD
+	          ,(SELECT REPLACE(WM_CONCAT(I.GNT_NM),',','-') GNT_NM
+										FROM (
+											SELECT G.SABUN, G.GNT_CD,H.GNT_NM
+							 				FROM IF_EHR_GNT_MST G 
+	                        ,IF_EHR_GNT_CD H
+	                    WHERE G.GNT_CD = H.GNT_CD
+	        							AND TO_CHAR(sysdate+1,'YYYYMMDD') BETWEEN G.S_YMD AND G.E_YMD
+									) I 
+	                WHERE I.SABUN = A.SABUN
+	                GROUP BY I.SABUN 
+	                ) AS N_GNT_NM	        
+	         , DECODE((SELECT COUNT(*) FROM SCC_EHR_LOG HRL WHERE HRL.SABUN = A.SABUN AND HRL.LOG_DATE = TO_CHAR(sysdate,'YYYYMMDD')), 0, 'N','Y') AS GNT_YN --노무수령 거부 확인여부        
+	    FROM   SCC_USERINFO A,
+	           (SELECT X.UPJANG, X.UPJANGNM, Y.* FROM ST_UPJANG X, HLDC_SC_DEPT_V Y WHERE X.DEPT_ID = Y.DEPT_ID) B,
+	           FMS_UPJANG D,
+	           HLDC_ST_CUST E,
+	           FMP_OTHER_CUST F
+	    WHERE  A.USERID   = :id
+	    AND    A.USE_YN   = 'Y'
+	    AND    A.UPJANG   = B.UPJANG(+)
+	    AND    A.UPJANG   = D.UPJANG(+)
+	    AND    A.CUSTCD   = E.CUSTCD(+)
+	    AND    A.OTCUSTCD = F.OTCUSTCD(+)
+        
+		]]>
+	</statement>
+
+	<!-- 로그인 비밀번호 오류 횟수를 증가한다. -->
+	<statement name="updateLoginPwdErrCnt" type="update">
+		/*+ com.hwfs.sc.cmn.dao.LoginDAO.updateLoginPwdErrCnt */
+		<![CDATA[
+		UPDATE SCC_USERINFO
+		SET    PWD_ERR_CNT = NVL(PWD_ERR_CNT, 0)+1
+		  ,    UUSER = 'LOGIN'
+		  ,    UDATE = SYSDATE
+		WHERE  USERID = :id
+		]]>
+	</statement>
+
+	<!-- 로그인 비밀번호 오류 횟수를 초기화한다. -->
+	<statement name="updateLoginPwdErrCntInit" type="update">
+		/*+ com.hwfs.sc.cmn.dao.LoginDAO.updateLoginPwdErrCntInit */
+		<![CDATA[
+		UPDATE SCC_USERINFO
+		SET    PWD_ERR_CNT = 0
+		  ,    UUSER = 'LOGIN'
+		  ,    UDATE = SYSDATE
+		WHERE  USERID = :id
+		]]>
+	</statement>
+
+	<!-- 비밀번호 오류 횟수 초과로 계정을 잠근다. -->
+	<statement name="updateAccountLockForPwdErrOver" type="update">
+		/*+ com.hwfs.sc.cmn.dao.LoginDAO.updateAccountLockForPwdErrOver */
+		<![CDATA[
+		UPDATE SCC_USERINFO
+		SET    ACCT_STATUS = 'LOCK'
+		     , ACCT_LK_REASON_CD = 'PWD_ERR_OVER'
+		     , ACCT_LK_DD  = SYSDATE
+		     , UUSER = :sabun
+		     , UDATE = SYSDATE
+		WHERE  USERID = :id
+		]]>
+	</statement>
+
+	<!-- 계정상태를 정상으로 설정한다. -->
+	<statement name="updateAccountToNormal" type="update">
+		/*+ com.hwfs.sc.cmn.dao.LoginDAO.updateAccountToNormal */
+		<![CDATA[
+		UPDATE SCC_USERINFO
+		SET    ACCT_STATUS = 'NORMAL'
+		     , ACCT_LK_REASON_CD = NULL
+		     , ACCT_LK_DD  = NULL
+		     , UUSER = :sabun
+		     , UDATE = SYSDATE
+		WHERE  SABUN = :sabun
+		]]>
+	</statement>
+
+	<!-- 접속 로그를 등록한다. -->
+	<statement name="insertConnUserLog" type="insert">
+		/*+ com.hwfs.sc.cmn.dao.LoginDAO.insertConnUserLog */
+		<![CDATA[
+		INSERT INTO SCC_CONN_USER_LOG
+		(
+		       APP_ID,
+		       SABUN,
+			   LOGIN_DDTT,
+			   LOGOUT_DDTT,
+			   CONN_IP,
+			   CONN_SUCC_YN,
+		       CDATE,
+		       ERR_DESC,
+		       LOG_DESC
+		)
+		VALUES
+		(
+		       :appId,
+		       :sabun,
+			   <#if loginYn == 'Y'>
+			    SYSDATE,
+			    NULL,
+			   <#else>
+			    NULL,
+			    SYSDATE,
+			   </#if>
+		       :connIp,
+		       :connSuccYn,
+		       SYSDATE,
+		       :errDesc,
+		       :logDesc
+		)
+		]]>
+	</statement>
+
+	<!-- 접속사용자 로그인 정보를 저장한다. (Insert or Update) -->
+	<statement name="saveLoginConnUser" type="update">
+		/*+ com.hwfs.sc.cmn.dao.LoginDAO.saveLoginConnUser */
+		<![CDATA[
+		MERGE INTO SCC_CONN_USER
+        USING DUAL
+        ON   (APP_ID = :appId
+        AND   SABUN  = :sabun)
+        WHEN  MATCHED THEN
+              UPDATE
+              SET
+              		LOGIN_YN = 'Y',
+              		LOGIN_DDTT = SYSDATE,
+              		LOGOUT_DDTT = NULL,
+              		CONN_IP = :connIp,
+              		<#if sysType?has_content>   SYS_TYPE   = :sysType,    <#else> SYS_TYPE   = NULL, </#if>
+              		<#if prgId?has_content>     PRG_ID     = :prgId ,     <#else> PRG_ID     = NULL, </#if>
+              		<#if sessionId?has_content> SESSION_ID = :sessionId , <#else> SESSION_ID = NULL, </#if>
+              		UUSER = :sabun,
+              		UDATE = SYSDATE
+        WHEN NOT MATCHED THEN
+              INSERT (
+                    APP_ID,
+                    SABUN,
+              		LOGIN_YN,
+              		LOGIN_DDTT,
+              		LOGOUT_DDTT,
+              		CONN_IP,
+              		SYS_TYPE,
+              		PRG_ID,
+              		SESSION_ID,
+              		CUSER,
+              		CDATE,
+              		UUSER,
+              		UDATE
+              )
+              VALUES (
+                    :appId,
+                    :sabun,
+              		'Y',
+              		SYSDATE,
+              		NULL,
+              		:connIp,
+              		<#if sysType?has_content>   :sysType,    <#else> NULL, </#if>
+              		<#if prgId?has_content>     :prgId ,     <#else> NULL, </#if>
+              		<#if sessionId?has_content> :sessionId , <#else> NULL, </#if>
+              		:sabun,
+              		SYSDATE,
+              		:sabun,
+              		SYSDATE
+              )
+        ]]>
+	</statement>
+
+	<!-- 특정 사용자 로그인 정보를 조회한다. -->
+	<statement name="selectLoginConnUser" type="select">
+		/*+ com.hwfs.sc.cmn.dao.LoginDAO.selectLoginConnUser */
+		<![CDATA[
+		SELECT LOGIN_YN   AS ALREADY_LOGIN_YN,
+			   TO_CHAR(LOGIN_DDTT, 'YYYY-MM-DD HH24:MI:SS') AS ALREADY_LOGIN_DATE,
+			   CONN_IP    AS ALREADY_CONN_IP
+		FROM   SCC_CONN_USER
+		WHERE  APP_ID = :appId
+		AND    SABUN  = :sabun
+        ]]>
+	</statement>
+
+	<!-- 접속사용자 로그아웃 정보를 저장한다. (Insert or Update) -->
+	<statement name="saveLogoutConnUser" type="update">
+		/*+ com.hwfs.sc.cmn.dao.LoginDAO.saveLogoutConnUser */
+		<![CDATA[
+		MERGE INTO SCC_CONN_USER
+        USING DUAL
+        ON   (APP_ID = :appId
+        AND   SABUN  = :sabun)
+        WHEN  MATCHED THEN
+              UPDATE
+              SET
+              		LOGIN_YN = 'N',
+              		LOGOUT_DDTT = SYSDATE,
+              		<#if sysType?has_content> SYS_TYPE = :sysType, <#else> SYS_TYPE = NULL, </#if>
+              		<#if prgId?has_content>   PRG_ID   = :prgId ,  <#else> PRG_ID   = NULL, </#if>
+              		UUSER = :sabun,
+              		UDATE = SYSDATE
+        WHEN NOT MATCHED THEN
+              INSERT (
+                    APP_ID,
+                    SABUN,
+              		LOGIN_YN,
+              		LOGOUT_DDTT,
+              		CONN_IP,
+              		SYS_TYPE,
+              		PRG_ID,
+              		CUSER,
+              		CDATE
+              )
+              VALUES (
+                    :appId,
+                    :sabun,
+              		'N',
+              		SYSDATE,
+              		:connIp,
+              		<#if sysType?has_content> :sysType, <#else> NULL, </#if>
+              		<#if prgId?has_content>   :prgId ,  <#else> NULL, </#if>
+              		:sabun,
+              		SYSDATE
+              )
+        ]]>
+	</statement>
+
+	<!-- 접속사용자 로그아웃 생태로 변경한다. -->
+	<statement name="changeLogoutStatus" type="update">
+		/*+ com.hwfs.sc.cmn.dao.LoginDAO.changeLogoutStatus */
+		<![CDATA[
+        UPDATE SCC_CONN_USER
+        SET
+        	   LOGIN_YN = 'N',
+        	   LOGOUT_DDTT = SYSDATE,
+        	   UUSER = :loginSabun,
+        	   UDATE = SYSDATE
+        WHERE  APP_ID = :appId
+        AND    SABUN  = :sabun
+        ]]>
+	</statement>
+
+	<!-- 세션ID를 이용하여 접속사용자 로그아웃 생태로 변경한다. -->
+	<statement name="changeLogoutStatusBySessionId" type="update">
+		/*+ com.hwfs.sc.cmn.dao.LoginDAO.changeLogoutStatusBySessionId */
+		<![CDATA[
+        UPDATE SCC_CONN_USER
+        SET
+        	   LOGIN_YN = 'N',
+        	   LOGOUT_DDTT = SYSDATE,
+        	   UDATE = SYSDATE
+        WHERE  SESSION_ID = :sessionId
+        ]]>
+	</statement>
+
+	<!-- 접속사용자 평문정보를 저장한다. (Insert or Update) -->
+	<statement name="saveUserPlain" type="update">
+		/*+ com.hwfs.sc.cmn.dao.LoginDAO.saveUserPlain */
+		<![CDATA[
+		MERGE INTO SCC_USER_PLAIN
+        USING DUAL
+        ON   (SYSTEM = :appId
+        AND   USERID  = :sabun)
+        WHEN  MATCHED THEN
+              UPDATE
+              SET
+              		PLAIN_TXT = :pwd,
+              		UDATE = SYSDATE
+        WHEN NOT MATCHED THEN
+              INSERT (
+                    SYSTEM,
+                    USERID,
+              		PLAIN_TXT,
+              		UDATE
+              )
+              VALUES (
+                    :appId,
+                    :sabun,
+              		:pwd,
+              		SYSDATE
+              )
+        ]]>
+	</statement>
+	
+</hqml>

@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.bms.buffetMgmtDAO">
+	<desc>뷰페 내역 관리</desc>
+	
+	<!-- 검색 한다. -->
+	<statement name="selectListCst" type="select">
+		/*+ com.hwfs.rc.bms.buffetMgmtDAO.selectList */
+		<![CDATA[
+		
+		 
+			SELECT CST_NM,
+			       RESERV_NUM,
+			       FNB_CLASS,
+			       SEQ,
+			       CST_DATE,
+			       CST_NUM,
+			       UPRICE,
+			       PSN,
+			       AMT,
+			       DECODE(USE_YN, 'Y', 1, 0) AS USE_YN,
+			       CDATE,
+			       CUSER,
+			       UDATE,
+			       UUSER
+			FROM   BMS_CST
+			WHERE  RESERV_NUM = :reservNum
+		
+		]]>
+	</statement>
+	
+	
+	<statement name="selectListCstDetail" type="select">
+		/*+ com.hwfs.rc.bms.buffetMgmtDAO.selectListCstDetail */
+		<![CDATA[
+
+			SELECT :reservNum  AS RESERV_NUM
+			   	 , B.CST_NUM
+			     , B.SEQ
+			     , A.STD_RECIPE_CD AS CLSFI_CD 
+			     , A.RECIPE_NM 
+			     , A.STAND_NM
+		         ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'SCLASS_CD' AND CODE = A.SCLASS_CD) SCLASS_NM
+				 , NVL(A.SALE_PRICE,0)    AS SALE_PRICE
+		         , (
+		           SELECT
+		                SUM(TRUNC((D.NEED_QTY * D.LOSS_RATE) * NVL(DECODE(D.SEMI_GOODS_YN, 'Y', FN_RECIPE_AMT_FUN(D.UPJANG_CD, D.MATERIAL_CD, '20160222', '1'), G.CONTRACT_PRICE / E.KG_CONVERT_RATE / 1000),0),3)) AS INVEST_AMT	--투입재료비
+				            FROM RSS_UPJANG_RECIPE_CD_DETAIL D,
+		                HLDC_PO_ITEM_MST E,
+		               EPROCUSR.VO_CONTRACT_F G
+		           WHERE  D.MATERIAL_CD = E.ITEM_CODE(+)
+		           AND	   D.MATERIAL_CD = G.ITEM_CODE(+)
+		               AND	   D.UPJANG_CD = G.UPJANG(+)			--계약테이블의 업장과 조인
+		           AND    D.UPJANG_CD = :outletCd     
+		           AND    D.STD_RECIPE_CD = A.STD_RECIPE_CD
+		               AND    D.SDATE <= TO_CHAR(sysdate, 'YYYYMMDD')
+		           AND	   D.EDATE >= TO_CHAR(sysdate, 'YYYYMMDD')
+		           AND    G.CONTRACT_START(+) <= TO_CHAR(sysdate, 'YYYYMMDD')
+		           AND	   G.CONTRACT_END(+) >= TO_CHAR(sysdate, 'YYYYMMDD')
+		         ) AS CST
+			     , A.OFFER_UNIT_NM AS CLSFI_GRP 
+			     , A.COOK_UNIT     AS SERVICE_QUANTITY
+			     , NVL(B.PSN, 0) AS PSN 
+			     , B.MAX_PSN
+			     , B.CHOICE_STATUS
+			     , NVL(B.EXPECT_CST, 0) AS EXPECT_CST
+			     , B.EXE_CST
+			     , NVL(B.USE_YN,1)   AS USE_YN
+			     , NVL(B.EXPECT_AMT, 0) AS EXPECT_AMT
+			     , B.CST_PER
+			 FROM RSS_UPJANG_RECIPE_SUB_V  A
+			 LEFT OUTER JOIN (SELECT DET.CST_NUM,
+			                         DET.SEQ,
+			                         DET.CLSFI_CD,
+			                         DET.CLSFI_GRP,
+			                         DET.SERVICE_QUANTITY,
+			                         DET.PSN,
+			                         DET.MAX_PSN,
+			                         DET.CST,
+			                         DECODE(DET.CHOICE_STATUS, 'Y', 1, 0) AS CHOICE_STATUS,
+			                         DET.EXPECT_CST,
+			                         DET.EXE_CST,
+			                         DECODE(NVL(DET.USE_YN,'Y'), 'Y', 1, 0) AS USE_YN,
+			                         SALE_PRICE,
+			                         EXPECT_AMT,
+			                         CST_PER
+			                          
+			                  FROM   BMS_CST_DETAIL DET
+			                  INNER JOIN  BMS_CST   MST ON MST.CST_NUM = DET.CST_NUM
+			                  WHERE MST.RESERV_NUM = :reservNum   
+							) B ON B.CLSFI_CD = A.STD_RECIPE_CD
+			 WHERE A.USE_YN    = 'Y'
+               AND A.UPJANG_CD = :outletCd               
+         
+         <#if ChouceStatus?has_content >       AND B.CHOICE_STATUS     = :ChouceStatus     </#if>
+         
+			 ORDER BY B.CHOICE_STATUS DESC, B.CST_NUM, SEQ, A.RECIPE_NM 
+
+
+		]]>
+	</statement>
+	
+	
+	<!--  DATA를 수정 또는 저장 한다. -->
+	<statement name="insertDataCst" type="insert">
+		/*+ com.hwfs.rc.bms.buffetMgmtDAO.insertDataCst */
+		<![CDATA[
+ 
+		MERGE INTO BMS_CST 
+		USING DUAL
+		ON (		   CST_NUM = :cstNum
+				 
+		)
+		WHEN MATCHED THEN
+		    UPDATE   SET
+				
+				<#if reservNum?exists> RESERV_NUM = :reservNum, </#if>
+				<#if fnbClass?exists>  FNB_CLASS  = :fnbClass,  </#if>
+				<#if seq?exists>       SEQ        = :seq,       </#if>
+				       
+				<#if cstNm?exists>     CST_NM     = :cstNm, </#if>
+				<#if cstDate?exists>   CST_DATE   = :cstDate, </#if>
+				<#if uprice?exists>    UPRICE     = :uprice, </#if>
+				<#if psn?exists>       PSN        = :psn, </#if>
+				<#if amt?exists>       AMT        = :amt, </#if>
+				<#if useYn?exists>     USE_YN     = DECODE(:useYn, '1', 'Y', 'N'), </#if>
+				                       UDATE      = SYSDATE,
+				                       UUSER      = :loginSabun
+				
+				
+		WHEN NOT MATCHED THEN
+			 INSERT  
+					(
+					 CST_NUM,
+					 CST_NM,
+					 
+					 RESERV_NUM,
+					 FNB_CLASS,
+					 SEQ,
+					 
+					 CST_DATE,
+					 UPRICE,
+					 PSN,
+					 AMT,
+					 USE_YN,
+					 CDATE,
+					 CUSER,
+					 UDATE,
+					 UUSER
+					) VALUES (
+					:cstNum,
+					<#if cstNm?exists>     :cstNm, <#else> null, </#if>
+			
+					<#if reservNum?exists> :reservNum, <#else> null, </#if>
+					<#if fnbClass?exists>  :fnbClass, <#else> null, </#if>
+					<#if seq?exists>       :seq, <#else> null, </#if>
+					 
+					<#if cstDate?exists>   :cstDate, <#else> null, </#if>
+					<#if uprice?exists>    :uprice, <#else> null, </#if>
+					<#if psn?exists>       :psn, <#else> null, </#if>
+					<#if amt?exists>       :amt, <#else> null, </#if>
+					<#if useYn?exists> DECODE(:useYn, '1', 'Y', 'N'), <#else> null, </#if>
+					 SYSDATE,
+					 :loginSabun,
+					 SYSDATE,
+					 :loginSabun
+					)
+
+				
+				]]>
+	</statement>
+	
+	<!--  DATA를 수정 또는 저장 한다. -->
+	<statement name="insertDataDetail" type="insert">
+		/*+ com.hwfs.rc.bms.buffetMgmtDAO.insertDataDetail */
+		<![CDATA[
+ 
+		MERGE INTO BMS_CST_DETAIL 
+		USING DUAL
+		ON (		   CST_NUM = :cstNum
+				AND    SEQ     = :seq
+				 
+		)
+		WHEN MATCHED THEN
+		    UPDATE  SET
+				<#if clsfiCd?exists>         CLSFI_CD = :clsfiCd, </#if>
+				<#if clsfiGrp?exists>        CLSFI_GRP = :clsfiGrp, </#if>
+				<#if serviceQuantity?exists> SERVICE_QUANTITY = :serviceQuantity, </#if>
+				<#if psn?exists>             PSN = :psn, </#if>
+				<#if maxPsn?exists>          MAX_PSN = :maxPsn, </#if>
+				<#if cst?exists>             CST = :cst, </#if>
+				<#if choiceStatus?exists>    CHOICE_STATUS =  DECODE(:choiceStatus, '1', 'Y', 'N'), </#if>
+				<#if expectCst?exists>       EXPECT_CST = :expectCst, </#if>
+				<#if exeCst?exists>          EXE_CST = :exeCst, </#if>
+				<#if useYn?exists>           USE_YN = DECODE(:useYn, '1', 'Y', 'N'), </#if>
+				<#if standNm?exists>         STAND_NM = :standNm, </#if>
+				<#if sclassNm?exists>        SCALSS_NM = :sclassNm, </#if>
+				<#if expectAmt?exists>       EXPECT_AMT = :expectAmt, </#if>
+				<#if cstPer?exists>          CST_PER = :cstPer, </#if>
+				<#if salePrice?exists>       SALE_PRICE = :salePrice, </#if>
+				       UDATE = SYSDATE,
+				       UUSER = :loginSabun
+			 
+		WHEN NOT MATCHED THEN
+			 INSERT    
+						(
+						 CST_NUM,
+						 SEQ,
+						 CLSFI_CD,
+						 CLSFI_GRP,
+						 SERVICE_QUANTITY,
+						 PSN,
+						 MAX_PSN,
+						 CST,
+						 CHOICE_STATUS,
+						 EXPECT_CST,
+						 EXE_CST,
+						 USE_YN,
+						 STAND_NM,
+						 SCALSS_NM,
+						 EXPECT_AMT,
+						 CST_PER,
+						 SALE_PRICE,
+						 CDATE,
+						 CUSER,
+						 UDATE,
+						 UUSER
+						) VALUES (
+						 :cstNum,
+						 :seq,
+						<#if clsfiCd?exists> :clsfiCd, <#else> null, </#if>
+						<#if clsfiGrp?exists> :clsfiGrp, <#else> null, </#if>
+						<#if serviceQuantity?exists> :serviceQuantity, <#else> null, </#if>
+						<#if psn?exists> :psn, <#else> null, </#if>
+						<#if maxPsn?exists> :maxPsn, <#else> null, </#if>
+						<#if cst?exists> :cst, <#else> null, </#if>
+						<#if choiceStatus?exists> DECODE(:choiceStatus, '1', 'Y', 'N'), <#else> null, </#if>
+						<#if expectCst?exists> :expectCst, <#else> null, </#if>
+						<#if exeCst?exists> :exeCst, <#else> null, </#if>
+						<#if useYn?exists> DECODE(:useYn, '1', 'Y', 'N'), <#else> null, </#if>
+						<#if standNm?exists> :standNm, </#if>
+						<#if sclassNm?exists> :sclassNm, </#if>
+						<#if expectAmt?exists> :expectAmt, </#if>
+						<#if cstPer?exists> :cstPer, </#if>
+						<#if salePrice?exists> :salePrice, </#if>
+						 SYSDATE,
+						 :loginSabun,
+						 SYSDATE,
+						 :loginSabun
+						)
+
+				]]>
+	</statement>
+	
+	
+	<!-- MAX 코드를 생성한다. -->
+	<statement name="maxCodeCreateMst" type="select">
+	/*+ com.hwfs.rc.bms.buffetMgmtDAO.maxCodeCreateMst */
+		<![CDATA[
+		
+ 		SELECT  TO_CHAR(SYSDATE,'YYYYMM') || LPAD(NVL(MAX(TO_NUMBER(SUBSTR(CST_NUM,7,4))),'0') + 1,4,'0')  AS MAX_CODE 
+ 		FROM BMS_CST
+ 		WHERE SUBSTR(CST_NUM,1,6) = TO_CHAR(SYSDATE,'YYYYMM')
+        
+		]]>
+	</statement>
+	<statement name="maxCodeCreateDetail" type="select">
+	/*+ com.hwfs.rc.bms.buffetMgmtDAO.maxCodeCreateDetail */
+		<![CDATA[
+		
+ 		SELECT  NVL(MAX(TO_NUMBER(SEQ)),'0') + 1  AS MAX_SEQ 
+ 		FROM BMS_CST_DETAIL
+ 		WHERE CST_NUM = :cstNum
+        
+		]]>
+	</statement>
+	
+	 
+</hqml>	

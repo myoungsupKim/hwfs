@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.sle.posDeviceMgmtDAO">
+	<desc>포스주변기기 등록 관리</desc>
+
+	 
+	
+	
+	<!--  DATA를 조회한다. -->
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.rc.sle.dao.posDeviceMgmtDAO.selectList */
+	<![CDATA[
+ 
+		 
+ 
+		SELECT DVC.OUTLET_CD, SHOP.OUTLET_NM AS OUTLET_NM,
+		       DVC.POS_NUM, DVC.POS_NUM AS POS_NUM_NM,
+		       DVC.DVC_CD,
+		       DVC.SEQ,
+		       DVC.DVC_NM,
+		       DVC.DVC_TYPE,
+		       DVC.PORT_NUM,
+		       DVC.SET_FACT,
+		       DVC.MODEL_CD,	MODEL.CODE_NAME AS MODEL_NM,
+		       DECODE(DVC.USE_YN, 'Y', 1, 0) AS USE_YN,
+		       DVC.VERSION 
+		        
+		FROM   SLE_POS_DVC	DVC
+		INNER      JOIN SLE_OUTLET_MST  SHOP   ON SHOP.OUTLET_CD  = DVC.OUTLET_CD  -- 업장 코드
+		LEFT OUTER JOIN SCC_COMMON_CODE MODEL  ON MODEL.GROUP_CODE = DVC.DVC_CD AND MODEL.CODE = DVC.MODEL_CD
+		
+		WHERE 1=1
+		
+		<#if useYn?has_content>  AND   DVC.USE_YN = DECODE(:useYn, '1', 'Y', DVC.USE_YN)  </#if>
+		<#if outletCd?has_content>  AND   DVC.OUTLET_CD  = :outletCd  </#if>
+	 	<#if posNum?has_content>    
+	 		<#if posNum != '00'>	AND   DVC.POS_NUM    = :posNum	  </#if>  
+	 	</#if>
+	 	<#if dvcCd?has_content>     AND   DVC.DVC_CD     = :dvcCd     </#if>
+	 	<#if seq?has_content>       AND   DVC.SEQ        = :seq       </#if>
+		
+		ORDER BY DVC.OUTLET_CD, DVC.POS_NUM, DVC.SEQ
+	]]>
+	</statement>
+	
+ 
+	
+		
+	<!--  DATA를 저장한다. -->
+	<statement name="insertData" type="insert">
+	/*+ com.hwfs.rc.sle.dao.posDeviceMgmtDAO.insertData */
+		<![CDATA[
+	 INSERT INTO SLE_POS_DVC
+			(
+			OUTLET_CD,
+			POS_NUM,
+			DVC_CD,
+			SEQ,
+			DVC_NM,
+			DVC_TYPE,
+			PORT_NUM,
+			SET_FACT,
+			MODEL_CD,
+			USE_YN,
+			CDATE,
+			CUSER,
+			UDATE,
+			UUSER,
+			VERSION
+		) VALUES (
+			:outletCd,
+			:posNum,
+			:dvcCd,
+			:seq,
+			<#if dvcNm?exists>   :dvcNm,   <#else> null, </#if>
+			<#if dvcType?exists> :dvcType, <#else> null, </#if>
+			<#if portNum?exists> :portNum, <#else> null, </#if>
+			<#if setFact?exists> :setFact, <#else> null, </#if>
+			<#if modelCd?exists> :modelCd, <#else> null, </#if>
+			<#if useYn?exists> DECODE(:useYn, '1', 'Y', 'N'), <#else> null, </#if>
+			SYSDATE,
+			:loginSabun,
+			SYSDATE,
+			:loginSabun,
+			:version
+		)
+
+
+		]]>
+	</statement>
+	
+	<!--  DATA를 수정한다. -->
+	<statement name="updateData" type="update">
+	/*+ com.hwfs.rc.sle.dao.posDeviceMgmtDAO.updateData */
+		<![CDATA[
+		UPDATE SLE_POS_DVC SET
+		<#if dvcNm?exists>   DVC_NM = :dvcNm, </#if>
+		<#if dvcType?exists> DVC_TYPE = :dvcType, </#if>
+		<#if portNum?exists> PORT_NUM = :portNum, </#if>
+		<#if setFact?exists> SET_FACT = :setFact, </#if>
+		<#if modelCd?exists> MODEL_CD = :modelCd, </#if>
+		<#if useYn?exists>   USE_YN = DECODE(:useYn, '1', 'Y', 'N'), </#if>
+		<#if version?exists> VERSION = :version, </#if>
+		       UDATE = SYSDATE,
+		       UUSER = :loginSabun
+		WHERE  OUTLET_CD = :outletCd
+		AND    POS_NUM = :posNum
+		AND    DVC_CD = :dvcCd
+		AND    SEQ = :seq
+
+	 
+ 
+		]]>
+	</statement>
+	
+	 <!--  코드를 생성한다. -->
+	<statement name="maxCodeCreate" type="select">
+	/*+ com.hwfs.rc.sle.dao.posDeviceMgmtDAO.maxCodeCreate */
+		<![CDATA[
+		 
+		SELECT  NVL(MAX(SEQ),'0') + 1 AS MAX_CODE
+ 		FROM SLE_POS_DVC
+ 		WHERE  OUTLET_CD = :outletCd
+		AND    POS_NUM   = :posNum
+		AND    DVC_CD    = :dvcCd
+		]]>
+	</statement>
+	 
+</hqml>	

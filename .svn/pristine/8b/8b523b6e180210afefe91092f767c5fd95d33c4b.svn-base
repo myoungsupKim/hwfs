@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[실제식단원가정보]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+           A.MENU_DATE,
+           A.UPJANG,
+           A.CORNER,
+           B.CODE_NAME AS CORNER_NAME,
+           A.MEAL,
+           C.CODE_NAME AS MEAL_NAME,
+           A.EXPECT_MEAL_QTY,
+           ROUND(SUM(A.NEED_QTY * A.G_ITEM_PRICE),0)      AS MENU_COST_PRICE,
+           A.EXPECT_MEAL_QTY*ROUND(SUM(A.NEED_QTY * A.G_ITEM_PRICE)) AS TOT_MENU_COST_PRICE,
+           A.SALE_PRICE,
+           A.EXPECT_MEAL_QTY*A.SALE_PRICE AS TOT_SALE_PRICE,
+           ROUND(ROUND(SUM(A.NEED_QTY * A.G_ITEM_PRICE),2)/A.SALE_PRICE*100,1) AS TOT_COST_RATE --원가율은 소숫점 1자리
+  FROM
+       (
+           SELECT  A.MENU_DATE,
+                   A.UPJANG,
+                   A.CORNER,
+                   A.MEAL,
+                   NVL(A.EXPECT_MEAL_QTY,0) AS EXPECT_MEAL_QTY,
+                   NVL(A.SALE_PRICE,0) AS SALE_PRICE,
+                   B.ITEM_CODE,
+                   B.NEED_QTY,
+                   HLDC_GRAM_PRICE_FUN(A.UPJANG,A.SUBINV_CODE,B.ITEM_CODE,A.MENU_DATE) AS G_ITEM_PRICE
+              FROM
+                   FSM_REAL_MENU_MST    A
+                  ,FSM_REAL_RECIPE_ITEM B
+             WHERE B.UPJANG    = A.UPJANG
+                   AND B.MENU_CD   = A.MENU_CD
+                   AND A.UPJANG    = #UPJANG#
+                   AND A.HALL_CD   = #HALL_CD#
+			       <isNotNull col="CORNER">
+			       AND A.CORNER = #CORNER#
+			       </isNotNull>
+			       <isNotNull col="MEAL">
+			       AND A.MEAL = #MEAL#
+			       </isNotNull>
+			       AND A.MENU_DATE   = #START_DATE# 
+      ) A,
+      SCC_COMMON_CODE B,
+      SCC_COMMON_CODE C
+WHERE  A.CORNER = B.CODE
+AND    A.MEAL   = C.CODE
+AND    B.GROUP_CODE = 'FS0022'
+AND    C.GROUP_CODE = 'FS0023'
+GROUP BY A.MENU_DATE, A.UPJANG, A.CORNER, A.MEAL, A.EXPECT_MEAL_QTY, A.SALE_PRICE, B.CODE_NAME, C.CODE_NAME	</statement>
+	<input default-name="ds_in_S003">
+		<col name="MENU_CD" size="100" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_FSH_REAL_PRICE">
+		<col name="MENU_SALE_PRICE" size="100" type="VARCHAR" description="" /> 
+	</output>
+</query>

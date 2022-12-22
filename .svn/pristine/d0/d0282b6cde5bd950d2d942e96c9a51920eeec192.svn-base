@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sm.sar.giftBillingPopDAO">
+	<desc>상품권 청구처리 HQML Query</desc>
+
+	<!-- 상품권 청구처리 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sm.sar.dao.GiftBillingPopDAO.selectList */
+		<![CDATA[
+		SELECT DECODE(NVL(A.GIFT_BILLING_YN, 'N'), 'N', 0, 1) AS CHK
+			 , A.OCCUR_DATE
+			 , A.SYS_CLASS
+		     , A.SEQ
+		     , A.AR_NUM
+		     , A.RECEIVE_NUM
+		     , C.AR_ALT_NUM
+		     , A.GIFT_KIND_CD
+		     , A.GIFT_NUM
+		     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'GIFT_TYPE' AND CODE = A.GIFT_KIND_CD) AS GIFT_KIND_NM
+		     , A.GIFT_AMT
+		     , A.USE_AMT
+		     , A.COMM_AMT
+		     , A.COMM_VAT_AMT
+		     , (A.GIFT_AMT - A.COMM_AMT - A.COMM_VAT_AMT) AS BILLING_AMT
+		     , A.MU_CD
+		     , (SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE MU.MU_CD = A.MU_CD)  AS MU_NM
+		     , A.CC_CD
+		     , (SELECT  CC_NM FROM SCC_CC WHERE CC_CD = A.CC_CD) AS CC_NM
+		     , (SELECT  ORG_LEVEL_CD3 FROM SCC_CC WHERE CC_CD = A.CC_CD) AS INQUERY_TM_CD
+		     , (SELECT  ORG_LEVEL_NM3 FROM SCC_CC WHERE CC_CD = A.CC_CD) AS INQUERY_TM_NM
+		     , A.RECEIPT_NUM
+		     , A.REMARK
+		     , B.COMM_ACCT_CD
+		     , B.CUST_CD
+		     , B.DIFFER_AMT_ACCT
+		     , B.VAT_ACCT_CD
+		  FROM SLA_GIFT_WITHDRAW_INFO A 
+		     , SLA_GIFT_KIND_MST B
+		     , SLA_AR_RECEIVE_DETAIL C
+		 WHERE A.GIFT_KIND_CD=B.GIFT_KIND_CD
+		   AND A.AR_NUM      = C.AR_NUM(+)
+		   AND A.RECEIVE_NUM = C.RECEIVE_NUM(+)
+		   AND A.RECD_STATUS='L'
+		    <#if giftBillingNum?has_content>
+		    	AND A.GIFT_BILLING_NUM = :giftBillingNum 
+		    <#else>
+				AND NVL(A.GIFT_BILLING_YN,'N')='N'
+				<#if occurDateFr?has_content>AND    A.OCCUR_DATE >= :occurDateFr	</#if>	
+				<#if occurDateTo?has_content>AND    A.OCCUR_DATE <= :occurDateTo	</#if>	
+				<#if giftKindCd?has_content>AND    A.GIFT_KIND_CD = :giftKindCd	</#if>	
+				<#if muCd?has_content>AND    A.MU_CD = :muCd	</#if>	
+				<#if tmCd?has_content>
+					AND     A.CC_CD IN (
+					                SELECT  A.CC_CD
+					                FROM    SCC_CC A
+					                        ,HLDC_SC_DEPT_V B
+					                WHERE   B.CC_CD = A.CC_CD
+					                AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+					                AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+					                AND     B.TM_CD = :tmCd
+					                )
+		        </#if>	
+				<#if ccCd?has_content>AND    A.CC_CD = :ccCd	</#if>	
+			</#if>
+		ORDER BY A.AR_NUM ASC
+		]]>
+	</statement>
+
+	<!-- 상품권 청구번호 생성번호를 조회한다. -->
+	<statement name="selectMaxBillingNum" type="select">
+		/*+ com.hwfs.sm.sar.dao.GiftBillingPopDAO.selectMaxBillingNum */
+		<![CDATA[
+			SELECT :occurDate || SUBSTR('0000' || (NVL(MAX(TO_NUMBER(SUBSTR(GIFT_BILLING_NUM,9,4))),0)+1), -4) AS maxBillingNum
+			FROM SLA_GIFT_BILLING_MST WHERE SUBSTR(GIFT_BILLING_NUM,1,8) = :occurDate
+		]]>
+	</statement>
+
+	<!-- 상품권 청구처리(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sm.sar.dao.GiftBillingPopDAO.insert */
+		<![CDATA[
+		INSERT INTO SLA_GIFT_BILLING_MST
+		(
+			 GIFT_BILLING_NUM,
+			 AR_NUM,
+			 GIFT_KIND_CD,
+			 MU_CD,
+			 CC_CD,
+			 OCCUR_DATE,
+			 OCCUR_DATE_FR,
+			 OCCUR_DATE_TO,
+			 CUST_CD,
+			 AR_AMT,
+			 COMM_ACCT_CD,
+			 COMM_AMT,
+			 DIFFER_ACCT_CD,
+			 DIFFER_AMT,
+			 VAT_YN,
+			 VAT_CD,
+			 VAT_ACCT_CD,
+			 NEWHGHT_UPJANG,
+			 TAX_SHET_DATE,
+			 TAX_BILL_NUM,
+			 SUPPLY_AMT,
+			 VAT_AMT,
+			 USE_AMT,
+			 BATCH_ID,
+			 REMARK,
+			 RECD_STATUS,
+			 CUSER,
+			 CDATE,
+			 UUSER,
+			 UDATE
+		) VALUES (
+			 :giftBillingNum,
+			 :arNum,
+			<#if giftKindCd?exists> :giftKindCd, <#else> null, </#if>
+			<#if muCd?exists> :muCd, <#else> null, </#if>
+			<#if ccCd?exists> :ccCdSch, <#else> null, </#if>
+			<#if occurDate?exists> :occurDate, <#else> null, </#if>
+			<#if occurDateFr?exists> :occurDateFr, <#else> null, </#if>
+			<#if occurDateTo?exists> :occurDateTo, <#else> null, </#if>
+			<#if custCd?exists> :custCd, <#else> null, </#if>
+			<#if arAmt?exists> :arAmt, <#else> null, </#if>
+			<#if commAcctCd?exists> :commAcctCd, <#else> null, </#if>
+			<#if commAmt?exists> :commAmt, <#else> null, </#if>
+			<#if differAcctCd?exists> :differAcctCd, <#else> null, </#if>
+			<#if differAmt?exists> :differAmt, <#else> null, </#if>
+			<#if vatYn?exists> DECODE(:vatYn, '1', 'Y', 'N'), <#else> null, </#if>
+			<#if vatCd?exists> :vatCd, <#else> null, </#if>
+			<#if vatAcctCd?exists> :vatAcctCd, <#else> null, </#if>
+			<#if newhghtUpjang?exists> :newhghtUpjang, <#else> null, </#if>
+			<#if taxShetDate?exists> :taxShetDate, <#else> null, </#if>
+			<#if taxBillNum?exists> :taxBillNum, <#else> null, </#if>
+			<#if supplyAmt?exists> :supplyAmt, <#else> null, </#if>
+			<#if vatAmt?exists> :vatAmt, <#else> null, </#if>
+			<#if useAmt?exists> :useAmt, <#else> null, </#if>
+			<#if batchId?exists> :batchId, <#else> null, </#if>
+			<#if remark?exists> :remark, <#else> null, </#if>
+			<#if recdStatus?exists> :recdStatus, <#else> null, </#if>
+			 :loginSabun,
+			 SYSDATE,
+			 :loginSabun,
+			 SYSDATE
+		)
+
+		]]>
+	</statement>
+	
+	<!-- 상품권 청구처리(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sm.sar.dao.GiftBillingPopDAO.update */
+		<![CDATA[
+		UPDATE SLA_GIFT_BILLING_MST SET
+			<#if giftKindCd?exists> GIFT_KIND_CD = :giftKindCd, </#if>
+			<#if muCd?exists> MU_CD = :muCd, </#if>
+			<#if ccCd?exists> CC_CD = :ccCdSch, </#if>
+			<#if occurDate?exists> OCCUR_DATE = :occurDate, </#if>
+			<#if occurDateFr?exists> OCCUR_DATE_FR = :occurDateFr, </#if>
+			<#if occurDateTo?exists> OCCUR_DATE_TO = :occurDateTo, </#if>
+			<#if custCd?exists> CUST_CD = :custCd, </#if>
+			<#if arAmt?exists> AR_AMT = :arAmt, </#if>
+			<#if commAcctCd?exists> COMM_ACCT_CD = :commAcctCd, </#if>
+			<#if commAmt?exists> COMM_AMT = :commAmt, </#if>
+			<#if differAcctCd?exists> DIFFER_ACCT_CD = :differAcctCd, </#if>
+			<#if differAmt?exists> DIFFER_AMT = :differAmt, </#if>
+			<#if vatYn?exists> VAT_YN = DECODE(:vatYn, '1', 'Y', 'N'), </#if>
+			<#if vatCd?exists> VAT_CD = :vatCd, </#if>
+			<#if vatAcctCd?exists> VAT_ACCT_CD = :vatAcctCd, </#if>
+			<#if newhghtUpjang?exists> NEWHGHT_UPJANG = :newhghtUpjang, </#if>
+			<#if taxShetDate?exists> TAX_SHET_DATE = :taxShetDate, </#if>
+			<#if taxBillNum?exists> TAX_BILL_NUM = :taxBillNum, </#if>
+			<#if supplyAmt?exists> SUPPLY_AMT = :supplyAmt, </#if>
+			<#if vatAmt?exists> VAT_AMT = :vatAmt, </#if>
+			<#if useAmt?exists> USE_AMT = :useAmt, </#if>
+			<#if batchId?exists> BATCH_ID = :batchId, </#if>
+			<#if remark?exists> REMARK = :remark, </#if>
+			<#if recdStatus?exists> RECD_STATUS = :recdStatus, </#if>
+	       UUSER = :loginSabun,
+	       UDATE = SYSDATE
+		WHERE  GIFT_BILLING_NUM = :giftBillingNum
+			AND    AR_NUM = :arNum
+
+		]]>
+	</statement>
+	
+	<!-- 상품권 청구처리(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.sm.sar.dao.GiftBillingPopDAO.delete */
+		<![CDATA[
+		UPDATE SLA_GIFT_BILLING_MST SET
+			RECD_STATUS = 'D',
+	       	UUSER = :loginSabun,
+	       	UDATE = SYSDATE
+		WHERE  GIFT_BILLING_NUM = :giftBillingNum
+			AND    AR_NUM = :arNum
+		]]>
+	</statement>
+
+
+	<!-- 상품권 회수정보에 청구처리(을)를 업데이트 한다. -->
+	<statement name="updateWithdraw" type="update">
+		/*+ com.hwfs.sm.sar.dao.GiftBillingPopDAO.updateWithdraw */
+		<![CDATA[
+		UPDATE SLA_GIFT_WITHDRAW_INFO SET 
+			 COMM_AMT = :commAmt
+		     , COMM_VAT_AMT=:commVatAmt 
+		     , GIFT_BILLING_YN=:giftBillingYn 
+		     , GIFT_BILLING_NUM=:giftBillingNum
+		     , RECEIVE_NUM = :receiveNum
+		     , UUSER = :loginSabun
+	       	 , UDATE = SYSDATE
+		 WHERE OCCUR_DATE=:occurDate 
+		       AND SEQ=:seq
+		       AND CC_CD=:ccCd
+		       AND AR_NUM=:arNum
+		]]>
+	</statement>
+
+</hqml>

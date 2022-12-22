@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+		MAX(TYPE_NAME) 	AS TYPE_NAME
+       ,TRX_TYPE
+       ,MAX(CUSTCDNM) 	AS CUSTNM
+       ,CUST_CD
+       ,SUM(AMT) 		AS AMT
+       ,MAX(TRX_DESC) 	AS TRX_DESC   
+
+FROM(
+      SELECT 
+            (SELECT X.SALS_TYPE_NM 
+             FROM SLA_SALES_SALS_TYPE X
+                 ,SLA_TYPE_CD_MST Y 
+              WHERE X.TYPE_GRP_CD = Y.TYPE_GRP_CD
+              AND X.TYPE_CD = Y.TYPE_CD
+              AND X.SALS_TYPE = B.SALS_CLASS) TYPE_NAME
+            , (SELECT X.SALS_TYPE 
+                FROM SLA_SALES_SALS_TYPE X
+                    ,SLA_TYPE_CD_MST Y 
+                WHERE X.TYPE_GRP_CD = Y.TYPE_GRP_CD
+                AND X.TYPE_CD = Y.TYPE_CD
+                AND X.SALS_TYPE = B.SALS_CLASS) TRX_TYPE
+            , (SELECT X.CUSTNM FROM ST_CUST X WHERE X.CUSTCD = A.CUST_CD AND USE_YN = 'Y') CUSTCDNM
+            , (SELECT X.CUSTCD FROM ST_CUST X WHERE X.CUSTCD = A.CUST_CD AND USE_YN = 'Y') CUST_CD 
+            , B.SAL_AMT AS AMT 
+            , C.REMARK AS TRX_DESC
+              FROM SLA_IF_UPJANG_SALS_MST A 
+                 , SLA_IF_UPJANG_SALS_DETAIL B 
+                 , SLA_IF_UPJANG_PAYMENT C
+                 , SLA_IF_CARD_APPRV_INFO D
+      WHERE (1=1)
+             AND A.OCCUR_DATE = B.OCCUR_DATE
+             AND A.SYS_CLASS = B.SYS_CLASS
+             AND A.UPJANG_CD = B.UPJANG_CD
+             AND A.RECEIPT_NUM = B.RECEIPT_NUM
+             AND A.OCCUR_DATE = C.OCCUR_DATE
+             AND A.SYS_CLASS = C.SYS_CLASS
+             AND A.UPJANG_CD = C.UPJANG_CD
+             AND A.RECEIPT_NUM = C.RECEIPT_NUM
+             AND B.SEQ = C.SEQ  --선수금 수 
+             AND C.OCCUR_DATE = D.OCCUR_DATE(+)
+             AND C.SYS_CLASS = D.SYS_CLASS(+)
+             AND C.UPJANG_CD = D.UPJANG_CD(+)
+             AND C.RECEIPT_NUM = D.RECEIPT_NUM(+)
+             AND C.SEQ = D.SEQ(+)
+             AND A.OCCUR_DATE BETWEEN TO_CHAR(#DATEFR#||'01') AND  TO_CHAR(LAST_DAY(TO_DATE((#DATETO#||'01'),'YYYYMMDD')),'YYYYMMDD')
+            -- AND A.SYS_CLASS = '11' /*단체급식 11, 컨세션 12 (하단 그리드는 SYSCLASS가 다른 것)*/
+            AND A.MU_CD = '2002'
+             AND A.UPJANG_CD = #UPJANG#
+             AND NVL(B.JOURNALZ_YN,'N') &lt;> 'N' 		/* 	전표생성 여부	*/
+)      
+GROUP BY CUST_CD, TRX_TYPE
+HAVING NVL(SUM(AMT), 0) &lt;&gt; 0
+</statement>
+	<input default-name="ds_cond">
+		<col name="UPJANG" size="6" type="NUMERIC" description="업장코드" /> 
+		<col name="DATEFR" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_listDetail4_A">
+		<col name="CUSTNM" size="50" type="VARCHAR" description="" /> 
+		<col name="AMT" size="22" type="NUMERIC" description="" /> 
+		<col name="TYPE_NAME" size="50" type="VARCHAR" description="" /> 		
+	</output>
+</query>

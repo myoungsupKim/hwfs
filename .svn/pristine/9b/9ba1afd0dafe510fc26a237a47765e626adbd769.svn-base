@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.cmn.pwdChgDAO">
+	<desc>비밀번호 HQML Query</desc>
+
+	<!-- 비밀번호를 체크자료를 조회한다. -->
+	<statement name="select" type="select">
+		/*+ com.hwfs.sc.cmn.dao.PwdChgDAO.select */
+		<![CDATA[
+SELECT A.SABUN,
+	   A.CUR_PWD,
+       A.NEW_PWD,
+       CASE WHEN SCC_TELNO_SPLIT_FUN(A.TEL_NO, 1) IS NOT NULL
+            THEN CASE WHEN INSTR(:newPwd, SCC_TELNO_SPLIT_FUN(A.TEL_NO, 1)) > 0 THEN 'FALSE' ELSE 'TRUE' END
+            ELSE 'TRUE' END AS TEL_NO1,
+       CASE WHEN SCC_TELNO_SPLIT_FUN(A.TEL_NO, 2) IS NOT NULL
+            THEN CASE WHEN INSTR(:newPwd, SCC_TELNO_SPLIT_FUN(A.TEL_NO, 2)) > 0 THEN 'FALSE' ELSE 'TRUE' END
+            ELSE 'TRUE' END AS TEL_NO2,
+       CASE WHEN SCC_TELNO_SPLIT_FUN(A.TEL_NO, 3) IS NOT NULL
+            THEN CASE WHEN INSTR(:newPwd, SCC_TELNO_SPLIT_FUN(A.TEL_NO, 3)) > 0 THEN 'FALSE' ELSE 'TRUE' END
+            ELSE 'TRUE' END AS TEL_NO3,
+       CASE WHEN SCC_TELNO_SPLIT_FUN(A.TEL_NO, 1) || SCC_TELNO_SPLIT_FUN(A.TEL_NO, 2) || SCC_TELNO_SPLIT_FUN(A.TEL_NO, 3) IS NOT NULL
+            THEN CASE WHEN INSTR(:newPwd, SCC_TELNO_SPLIT_FUN(A.TEL_NO, 1) || SCC_TELNO_SPLIT_FUN(A.TEL_NO, 2) || SCC_TELNO_SPLIT_FUN(A.TEL_NO, 3)) > 0 THEN 'FALSE' ELSE 'TRUE' END
+            ELSE 'TRUE' END AS TEL_NO,
+       CASE WHEN SCC_TELNO_SPLIT_FUN(A.HP_NO, 1) IS NOT NULL
+            THEN CASE WHEN INSTR(:newPwd, SCC_TELNO_SPLIT_FUN(A.HP_NO, 1)) > 0 THEN 'FALSE' ELSE 'TRUE' END
+            ELSE 'TRUE' END AS HP_NO1,
+       CASE WHEN SCC_TELNO_SPLIT_FUN(A.HP_NO, 2) IS NOT NULL
+            THEN CASE WHEN INSTR(:newPwd, SCC_TELNO_SPLIT_FUN(A.HP_NO, 2)) > 0 THEN 'FALSE' ELSE 'TRUE' END
+            ELSE 'TRUE' END AS HP_NO2,
+       CASE WHEN SCC_TELNO_SPLIT_FUN(A.HP_NO, 3) IS NOT NULL
+            THEN CASE WHEN INSTR(:newPwd, SCC_TELNO_SPLIT_FUN(A.HP_NO, 3)) > 0 THEN 'FALSE' ELSE 'TRUE' END
+            ELSE 'TRUE' END AS HP_NO3,
+       CASE WHEN SCC_TELNO_SPLIT_FUN(A.HP_NO, 1) || SCC_TELNO_SPLIT_FUN(A.HP_NO, 2) || SCC_TELNO_SPLIT_FUN(A.HP_NO, 3) IS NOT NULL
+            THEN CASE WHEN INSTR(:newPwd, SCC_TELNO_SPLIT_FUN(A.HP_NO, 1) || SCC_TELNO_SPLIT_FUN(A.HP_NO, 2) || SCC_TELNO_SPLIT_FUN(A.HP_NO, 3)) > 0 THEN 'FALSE' ELSE 'TRUE' END
+            ELSE 'TRUE' END AS HP_NO,
+       CASE WHEN A.SABUN = :newPwd OR A.USERID = :newPwd THEN 'FALSE' ELSE 'TRUE' END AS PER_CHK1,
+       A.ACCT_STATUS
+FROM   (SELECT SABUN,
+               USERID,
+               <#if curPwd?has_content>
+               CASE WHEN PASSWORD = SCC_CRYPTO.ONEWAY_ENC_FUN(:curPwd) THEN 'TRUE' ELSE 'FALSE' END CUR_PWD,
+               <#else>
+               'TRUE' AS CUR_PWD,
+               </#if>
+               CASE WHEN PRVSPWD = SCC_CRYPTO.ONEWAY_ENC_FUN(:newPwd) THEN 'FALSE' ELSE 'TRUE' END NEW_PWD,
+               SCC_CRYPTO.DEC_FUN(TEL_NO_ENC) AS TEL_NO,
+               SCC_CRYPTO.DEC_FUN(HP_NO_ENC) AS HP_NO,
+               CASE ACCT_STATUS WHEN 'LOCK' THEN 'Y' WHEN 'NORMAL' THEN 'Y' ELSE 'N' END ACCT_STATUS
+        FROM   SCC_USERINFO
+        <#if userid?has_content>
+        WHERE  USERID = :userid
+        <#else>
+        WHERE  SABUN = :loginSabun
+        </#if>
+        ) A
+		]]>
+	</statement>
+
+	<!-- 비밀번호(을)를 수정한다. (계정상태를 정상으로 추가. by kksoo) -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sc.cmn.dao.PwdChgDAO.update */
+		<![CDATA[
+UPDATE SCC_USERINFO
+SET    PASSWORD = SCC_CRYPTO.ONEWAY_ENC_FUN(:newPwd),
+       PRVSPWD = SCC_CRYPTO.ONEWAY_ENC_FUN(:curPwd),
+       PWD_CHG_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+       ACCT_STATUS = 'NORMAL',
+	   ACCT_LK_REASON_CD = NULL,
+	   ACCT_LK_DD  = NULL,
+	   <#if userid?has_content>
+	   UUSER = (SELECT SABUN FROM SCC_USERINFO WHERE USERID = :userid),
+	   <#else>
+       UUSER = :loginSabun,
+       </#if>
+       UDATE = SYSDATE
+<#if userid?has_content>
+WHERE  USERID = :userid
+<#else>
+WHERE  SABUN = :loginSabun
+</#if>
+		]]>
+	</statement>
+
+
+</hqml>

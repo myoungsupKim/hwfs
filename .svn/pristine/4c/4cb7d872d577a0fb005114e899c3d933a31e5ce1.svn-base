@@ -1,0 +1,167 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="MAIN_APPLIST" onload="form_onload" titletext="미승인 내역" position="absolute 0 0 454 315" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Static id="Static00" position="absolute 2 2 435 296"/>
+        <Grid binddataset="ds_list" enable="true" id="grd_list" useinputpanel="false" taborder="1" tabstop="true" usecontextmenu="true" useselcolor="true" visible="true" wheelscrollrow="1" position="absolute 10 10 439 300" readonly="true" selecttype="row">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="130"/>
+                <Column size="80"/>
+                <Column size="200"/>
+              </Columns>
+              <Rows>
+                <Row size="27" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="text" text="구분"/>
+                <Cell col="1" displaytype="text" text="신청일자"/>
+                <Cell col="2" displaytype="text" text="내용"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" style="align:left;" text="bind:GUBUN"/>
+                <Cell col="1" displaytype="date" style="align:center;" text="bind:GUBUN_DATE"/>
+                <Cell col="2" displaytype="text" style="align:left;" text="bind:GUBUN_TEXT"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_list">
+        <ColumnInfo>
+          <Column id="GUBUN" size="256" type="STRING"/>
+          <Column id="GUBUN_DATE" size="256" type="STRING"/>
+          <Column id="GUBUN_TEXT" size="256" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 시스템관리 > 공통관리 
+ * 프로그램명   : MAIN_APPLIST.xml
+ * 기      능   : 미승인 내역
+ * 작  성  자   : 구종화
+ * 작성  일자   : 
+ * 비      고   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "lib::sc_comon.js"
+//@@컨버터에서 주석처리 #include "lib::tit_comm_0001.js"
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js";
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+var	v_rtn = "";
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	fsp_init(null);
+	fn_ds_list();
+	
+}
+
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_ds_list
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : 하위업장관리 메뉴를 읽어옴
+ * 작  성  자   : 구종화
+ * 작성  일자   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function fn_ds_list()
+{
+	// 초기화
+	ds_list.clearData();
+	
+	// 조회
+	var actionName, cmdName, inData, outData, otherArg, callBackFnc;
+	
+	outData			= "ds_list=ds_list";
+	callBackFnc		= "fn_afterSearch";
+	otherArg	 	= "UPJANG="+wrapQuote(g_Upjang) + " EMP_NO="+wrapQuote(g_EmpNo) + " AUTH="+wrapQuote(g_AuthLevel);
+ 	
+	fsp_clear(this); 
+	
+	
+	if (
+	     (g_AuthLevel == "14") ||
+	     (g_AuthLevel == "16") ||
+	     (g_AuthLevel == "17")
+	   )
+    fsp_addSearch(this, "sc/scz:SCZ_MAINAPPLIST_S002");									// 조회
+    else
+    fsp_addSearch(this, "sc/scz:SCZ_MAINAPPLIST_S001");
+    
+    
+	http.Sync = true;
+    fsp_callService(this, actionName, cmdName, inData, outData, otherArg, callBackFnc);		// 서비스 호출 
+	http.Sync = false;
+	
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_afterSearch()
+ * 입      력   : errCode 	= 에러코드
+				  errMsg	= 에러메세지
+ * 반      환   : 없음
+ * 기      능   : 사업장 조회 후 실행 함수
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2007-11-20  
+ ******************************************************************************************
+ */
+function fn_afterSearch(errCode, errMsg)
+{
+	if(errCode!=0)
+	{
+		g_Message("EE",	"서비스 오류:시스템 관리자에게 문의하십시오");
+		return;
+	}
+	
+}
+
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+]]></Script>
+  </Form>
+</FDL>

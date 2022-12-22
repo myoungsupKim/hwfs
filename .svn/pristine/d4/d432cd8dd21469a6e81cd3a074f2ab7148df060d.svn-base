@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[--레시피검색및 등록 헤드라인조회--
+==> 끼니 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT MAX(A.UPJANG) UPJANG,
+       MAX(A.HALL_CD) HALL_CD,
+       A.MEAL,
+       C.CODE_NAME MEAL_NAME
+FROM   FSA_HALL_DTL A,
+       FSH_CYCLE_MENU_MST B,
+       SCC_COMMON_CODE C,
+       SCC_COMMON_CODE D
+WHERE  A.UPJANG=B.UPJANG
+AND    A.HALL_CD=B.HALL_CD
+AND    A.CORNER=B.CORNER
+AND    A.MEAL=B.MEAL
+AND    C.GROUP_CODE = 'FS0023'  --코너
+AND    D.GROUP_CODE = 'FS0022'  --끼니
+AND    A.MEAL=C.CODE
+AND    A.CORNER=D.CODE
+AND A.USE_YN='Y'--사용중지된 끼니코너 제거
+<isNotEqual col="HALL_CLASS" value="005">
+AND B.EXPECT_MEAL_QTY&lt;&gt;0 --식수 예측되지 않은 끼니코너 제거
+</isNotEqual>
+<isNotNull col="UPJANG">
+AND    A.UPJANG=#UPJANG#
+</isNotNull>
+<isNotNull col="HALL_CD">
+AND    A.HALL_CD=#HALL_CD#
+</isNotNull>
+<isNotNull col="CUR_DATE">
+AND    B.MENU_DATE=#CUR_DATE#
+</isNotNull>
+GROUP BY A.MEAL,C.CODE_NAME
+ORDER BY A.MEAL	</statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_Meal">
+	</output>
+</query>

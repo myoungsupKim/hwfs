@@ -1,0 +1,2713 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="sm.cmn.advanceCommonDAO">
+	<desc>선수금정보 공통 HQML Query</desc>
+
+	<!-- 선수금번호 채번. -->
+	<statement name="getMaxAdvanceNum" type="select">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.getMaxAdvanceNum */
+		<![CDATA[
+         --   SELECT  TO_CHAR(SYSDATE,'YYYYMMDD')||''||LPAD(NVL(MAX(TO_NUMBER(SUBSTR(ADVANCE_NUM,9,6)))+1,'000001'),6,'0') MAX_ADVANCE_NUM
+         --   FROM    SLA_ADVANCE_MST
+         --   WHERE   SUBSTR(ADVANCE_NUM,0,8) = TO_CHAR(SYSDATE,'YYYYMMDD')
+         
+            SELECT	TO_CHAR(SYSDATE,'YYYYMMDD')||''||SLA_ADVANCE_NUM_S.NEXTVAL AS MAX_ADVANCE_NUM
+            FROM	DUAL         
+        ]]>
+	</statement>
+
+	<!-- 선수금 대체번호 채번. -->
+	<statement name="getMaxAtlNum" type="select">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.getMaxAtlNum */
+		<![CDATA[
+            SELECT	'AD'||TO_CHAR(SYSDATE,'YYYYMMDD')||''||SLA_ADVANCE_ALT_NUM_S.NEXTVAL AS MAX_ALT_NUM
+            FROM	DUAL
+        ]]>
+	</statement>
+
+	<!-- 선수금 대체 정보조회. (선수금대체정보(조회조건)를 조회한다.) -->
+	<statement name="selectAdvanceAltMst" type="select"><![CDATA[
+            SELECT  X.ALT_NUM                 
+                    ,X.ALT_DATE                
+                    ,X.ADVANCE_ALT_OCCUR_CLASS 
+                    ,X.ALT_TYPE_CD             
+                    ,X.SYS_CLASS               
+                    ,X.MU_CD                   
+                    ,X.CC_CD                   
+                    ,X.ACCT_CD                 
+                    ,X.ALT_AMT                 
+                    ,X.ADJUST_AMT              
+                    ,X.EXC_AMT                 
+                    ,X.PAY_GRP                 
+                    ,X.PAY_TYPE                
+                    ,X.PAY_SCHD_DATE           
+                    ,X.REMARK                  
+                    ,X.BATCH_ID                
+                    ,X.UPJANG_CD               
+                    ,X.POS_NUM                 
+                    ,X.RECEIPT_NUM             
+                    ,X.COUPON_NUM              
+                    ,X.CUST_CD                 
+                    ,X.CUST_NM                 
+                    ,X.RESERV_NUM              
+                    ,X.JOURNALZ_YN             
+                    ,X.JOURNALZ_NUM            
+                    ,X.RESERV_DATE             
+                    ,X.INQUERY_START_DATE      
+                    ,X.INQUERY_END_DATE        
+                    ,X.INQUERY_MU_CD           
+                    ,X.INQUERY_TM_CD           
+                    ,X.INQUERY_CC_CD           
+                    ,X.INQUERY_UPJANG_CD       
+                    ,X.INQUERY_CUST_CD         
+                    ,X.INQUERY_ADVANCE_TYPE_CD 
+                    ,X.INQUERY_ADVANCE_NUM     
+                    ,X.TRANS_CUST_CD
+                    ,X.TRANS_CC_CD
+                    ,X.RECD_STATUS
+                    ,X.FISCAL_DATE
+                    ,X.TRANS_TYPE_CD   
+                    ,X.OCCUR_DATE_FROM 
+                    ,X.OCCUR_DATE_TO   
+                    ,X.FISCAL_DATE_FROM
+                    ,X.FISCAL_DATE_TO  
+                    ,(SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE X.MU_CD = MU.MU_CD) MU_NM
+                    ,(SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE X.CC_CD = CC.CC_CD) CC_NM
+                    ,(SELECT DISTINCT UP.UPJANGNM FROM ST_UPJANG UP WHERE TO_CHAR(UP.UPJANG) = X.UPJANG_CD) UPJANG_NM
+                    ,(SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE X.INQUERY_MU_CD = MU.MU_CD) INQUERY_MU_NM
+                    --,(SELECT DISTINCT TM.TM_NM FROM HLDC_SC_DEPT_V TM WHERE X.INQUERY_TM_CD = TM.TM_CD) INQUERY_TM_NM
+                    --팀명 중복문제 수정 
+                    ,(SELECT DISTINCT TM.TM_NM FROM HLDC_SC_DEPT_V TM WHERE X.INQUERY_TM_CD = TM.TM_CD AND X.CC_CD = TM.CC_CD) INQUERY_TM_NM
+                    ,(SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE X.INQUERY_CC_CD = CC.CC_CD) INQUERY_CC_NM
+                    ,(SELECT DISTINCT UP.UPJANGNM FROM ST_UPJANG UP WHERE TO_CHAR(UP.UPJANG) = X.INQUERY_UPJANG_CD) INQUERY_UPJANG_NM
+                    ,(SELECT DISTINCT CUST.CUSTNM FROM ST_CUST CUST WHERE X.INQUERY_CUST_CD = CUST.CUSTCD) INQUERY_CUST_NM
+                    ,(SELECT DISTINCT CUST.CUSTNM FROM ST_CUST CUST WHERE X.TRANS_CUST_CD = CUST.CUSTCD) TRANS_CUST_NM
+                    ,(SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE X.TRANS_CC_CD = CC.CC_CD) TRANS_CC_NM
+                    ,X.UPJANG_CD_TO
+                    ,(SELECT DISTINCT UP.UPJANGNM FROM ST_UPJANG UP WHERE TO_CHAR(UP.UPJANG) = X.UPJANG_CD_TO) UPJANG_NM_TO
+                    ,'' ADVANCE_NUM
+                    ,'' ADVANCE_TYPE_CD
+                    ,'' ROW_STATUS
+                    ,'' TYPE_GRP_CD
+                    ,X.BANK_CD
+                    ,X.BANK_ACCT_OWNR
+                    ,X.BANK_ACCT_NO
+                    ,X.TAX_CREATE_YN   
+                    ,DECODE(X.ALT_TYPE_CD, 'H03', X.CUST_CD) AS CARD_CUST_CD   
+                    ,DECODE(X.ALT_TYPE_CD, 'H03', X.CUST_NM) AS CARD_CUST_NM    
+                    ,DECODE(X.ALT_TYPE_CD, 'H03', X.CARD_AR_NUM) AS CARD_AR_NUM   
+                    ,DECODE(X.ALT_TYPE_CD, 'H03', (SELECT SUM(RECEIVE_AMT) FROM SLA_AR_RECEIVE_DETAIL AR WHERE AR.AR_NUM = X.CARD_AR_NUM AND AR.RECD_STATUS='L')) AS CARD_AR_RECEIVE_AMT
+                    --식권환불 시 세금계산서 승인번호 가져오기 20190405 김호석 추가
+                    ,(SELECT Q.TAX_SHET_APPRV_NUM FROM SLA_ADVANCE_ALT_MST Q WHERE Q.ALT_NUM = X.ALT_NUM ) AS TAX_SHET_APPRV_NUM           
+            FROM    ( 
+                    SELECT  M.ALT_NUM                       -- 선수금 대체 번호
+                            ,M.ALT_DATE                     -- 대체일자
+                            ,M.ADVANCE_ALT_OCCUR_CLASS      -- 선수금 대체 발생 구분
+                            ,M.ALT_TYPE_CD                  -- 선수금 대체 유형 코드
+                            ,M.SYS_CLASS                    -- 시스템 구분
+                            ,M.MU_CD                        -- MU 코드
+                            ,M.CC_CD                        -- CC 코드
+                            ,M.ACCT_CD                      -- 계정 코드
+                            ,M.ALT_AMT                      -- 대체 금액
+                            ,M.ADJUST_AMT                   -- 정산금액
+                            ,M.EXC_AMT                      -- 제외금액
+                            ,M.PAY_GRP                      -- 지불그룹
+                            ,M.PAY_TYPE                     -- 지불유형
+                            ,M.PAY_SCHD_DATE                -- 지불 예정일
+                            ,M.REMARK                       -- 비고
+                            ,M.BATCH_ID                     -- BATCH ID
+                            ,M.UPJANG_CD                    -- 업장 코드
+                            ,M.POS_NUM                      -- POS번호
+                            ,M.RECEIPT_NUM                  -- 영수증 번호
+                            ,M.COUPON_NUM                   -- 쿠폰번호
+                            ,M.CUST_CD                      -- 거래처 코드
+                            ,M.CUST_NM                      -- 거래처 명
+                            ,M.RESERV_NUM                   -- 예약 번호
+                            ,NVL(M.JOURNALZ_YN,'N') JOURNALZ_YN  -- 분개여부
+                            ,M.JOURNALZ_NUM                 -- 분개번호
+                            ,M.RESERV_DATE                  -- 예약 일자
+                            ,M.INQUERY_START_DATE           -- 조회 시작 일자
+                            ,M.INQUERY_END_DATE             -- 조회 종료 일자
+                            ,M.INQUERY_MU_CD                -- 조회 MU 코드
+                            ,M.INQUERY_TM_CD                -- 조회 TM 코드
+                            ,M.INQUERY_CC_CD                -- 조회 CC 코드
+                            ,M.INQUERY_UPJANG_CD            -- 조회 업장 코드
+                            ,M.INQUERY_CUST_CD              -- 조회 거래처 코드
+                            ,M.INQUERY_ADVANCE_TYPE_CD      -- 조회 선수금 유형 코드
+                            ,M.INQUERY_ADVANCE_NUM          -- 조회 선수금 번호
+                            ,(
+                            SELECT  DISTINCT CUST_CD
+                            FROM    SLA_ADVANCE_MST MST
+                            --WHERE   MST.RECD_STATUS = 'L'
+                            WHERE (MST.RECD_STATUS = 'L' OR (MST.RECD_STATUS = 'D' AND MST.TRANS_STATUS = 'N')) 
+                            AND     MST.REF_NUM = M.ALT_NUM
+                            ) TRANS_CUST_CD                 -- 분할거래처코드
+                            ,(
+                            SELECT  DISTINCT CC_CD
+                            FROM    SLA_ADVANCE_MST MST
+                            --WHERE   MST.RECD_STATUS = 'L'
+                            WHERE (MST.RECD_STATUS = 'L' OR (MST.RECD_STATUS = 'D' AND MST.TRANS_STATUS = 'N'))
+                            AND     MST.REF_NUM = M.ALT_NUM
+                            ) TRANS_CC_CD                   -- 분할CC코드
+                            ,(
+                            --SELECT  DISTINCT UPJANG_CD
+                            SELECT  MAX(UPJANG_CD)
+                            FROM    SLA_ADVANCE_MST MST
+                            --WHERE   MST.RECD_STATUS = 'L'
+                            WHERE (MST.RECD_STATUS = 'L' OR (MST.RECD_STATUS = 'D' AND MST.TRANS_STATUS = 'N'))
+                            AND     MST.REF_NUM = M.ALT_NUM
+                            ) UPJANG_CD_TO                   -- 분할UPJANG코드
+                            ,M.RECD_STATUS                  -- 레코드 상태
+                            ,M.ALT_DATE                 FISCAL_DATE
+                            ,M.ALT_TYPE_CD              TRANS_TYPE_CD
+                            ,M.INQUERY_START_DATE       OCCUR_DATE_FROM     -- 생성 시작 일자
+                            ,M.INQUERY_END_DATE         OCCUR_DATE_TO       -- 생성 종료 일자
+                            ,M.INQUERY_START_DATE       FISCAL_DATE_FROM    -- 회계 시작 일자
+                            ,M.INQUERY_END_DATE         FISCAL_DATE_TO      -- 회계 종료 일자
+                            ,M.BANK_CD
+                            ,M.BANK_ACCT_OWNR
+                            ,DECODE(M.BANK_ACCT_NO,NULL,NULL,SCC_CRYPTO.MASKAUTH_FUN(M.BANK_ACCT_NO, 6, :loginPersMask, 1)) BANK_ACCT_NO
+                            ,(SELECT COUNT(*) FROM SLA_TAX_SHET_OCCUR_OBJ T WHERE T.ALT_NUM = :altNum AND T.RECD_STATUS = 'L') AS TAX_CREATE_YN			--식권 환불 처리된 데이터에 대해서 세금계산서 발행여부 체크
+                            ,M.CARD_AR_NUM
+                    FROM    SLA_ADVANCE_ALT_MST M           -- 선수금 대체 마스터
+                    
+                    --WHERE   M.RECD_STATUS = 'L'
+                    WHERE (M.RECD_STATUS = 'L' OR (M.RECD_STATUS = 'D' AND M.TRANS_STATUS = 'N'))
+                    AND     M.ALT_NUM = :altNum
+                    ) X
+		]]></statement>
+
+	<!-- 선수금정보 조회 -->
+	<statement name="selectAdvanceMst" type="select"><![CDATA[
+            SELECT  0 AS CHK
+            		,ADVANCE_NUM
+                    ,SEQ
+                    ,OCCUR_DATE
+                    ,FISCAL_DATE
+                    ,ADVANCE_OCCUR_CLASS
+                    ,ADVANCE_TYPE_CD
+                    ,CUST_CD
+                    ,SYS_CLASS
+                    ,MU_CD
+                    ,CC_CD
+                    ,ACCT_CD
+                    ,BATCH_ID
+                    ,OCCUR_AMT_ORG
+                    ,APPLY_AMT_ORG
+                    ,OCCUR_SUPPLY_AMT
+                    ,OCCUR_VAT_AMT
+                    ,APPLY_SUPPLY_AMT
+                    ,APPLY_VAT_AMT
+                    ,VAT_CD
+                    ,NEWHGHT_UPJANG
+                    ,RESERV_NUM
+                    ,RESERV_DATE
+                    ,CUST_NM
+                    ,GUEST_TEL_NUM
+                    ,JOURNALZ_YN
+                    ,JOURNALZ_NUM
+                    ,UPJANG_CD
+                    ,RECEIPT_NUM
+                    ,MNGMV_ADVANCE_NUM
+                    ,REF_NUM
+                    ,COUPON_PROC_NUM
+                    ,RECD_STATUS
+                    ,ALT_NUM
+                    ,ALT_DATE
+                    ,ADVANCE_ALT_NUM
+                    ,RECEIVE_NUM
+                    ,REMARK
+                    ,REMARK2
+                    ,OCCUR_AMT
+                    ,APPLY_AMT
+                    ,BAL_AMT
+                    ,ROW_STATUS
+                    ,0 APPLY_AMT_SUM
+                    ,ALT_SUPPLY_AMT
+                    ,ALT_VAT_AMT
+                    ,ADVANCE_OCCUR_CLASS_NM
+                    ,ADVANCE_TYPE_CD_NM
+                    ,SYS_CLASS_NM
+                    ,MU_NM
+                    ,CC_NM
+                    ,ACCT_NM
+                    ,'' ADVANCE_ALT_OCCUR_CLASS
+                    ,'' ALT_TYPE_CD
+                    ,'' TRANS_ALT_DATE
+                    ,'' TRANS_YN
+                    ,'' TRANS_CUST_CD
+                    ,'' TRANS_CUST_NM
+                    ,'' TRANS_CC_CD
+                    ,'' TRANS_CC_NM
+                    ,'' TRANS_UPJANG_CD
+                    ,'' TRANS_UPJANG_NM
+                    ,'' TYPE_GRP_CD
+                    ,NVL((SELECT SUM(AMT)
+                      FROM   SLA_IF_ADVANCE_ADJUST AJ
+                      WHERE  AJ.ADVANCE_NUM = T.ADVANCE_NUM
+                      GROUP BY AJ.ADVANCE_NUM), 0) ADVANCE_USE_AMT
+                    ,TAX_SEND_YN
+                    ,TAX_YN
+                    ,0 NET_AMT
+                    ,0 VAT_AMT 
+                    ,TRANS_ALT_COUNT    
+            FROM    (
+                    SELECT  M.ADVANCE_NUM                   -- 선수금 번호
+                            ,M.SEQ                          -- 순번
+                            ,M.OCCUR_DATE                   -- 발생 일자
+                            ,M.FISCAL_DATE                  -- 회계일자
+                            ,M.ADVANCE_OCCUR_CLASS          -- 선수금 발생 구분
+                            ,M.ADVANCE_TYPE_CD              -- 선수금 유형 코드
+                            ,M.CUST_CD                      -- 거래처 코드
+                            ,M.SYS_CLASS                    -- 시스템 구분
+                            ,M.MU_CD                        -- MU 코드
+                            ,M.CC_CD                        -- CC 코드
+                            ,M.ACCT_CD                      -- 계정 코드
+                            ,M.BATCH_ID                     -- BATCH ID
+                            ,M.OCCUR_AMT OCCUR_AMT_ORG      -- 발생금액(Master)
+                            ,M.APPLY_AMT APPLY_AMT_ORG      -- 적용금액(Master)
+                            ,M.OCCUR_SUPPLY_AMT             -- 발생 공급가액
+                            ,M.OCCUR_VAT_AMT                -- 발생 부가세 금액
+                            ,M.APPLY_SUPPLY_AMT             -- 적용 공급가액
+                            ,M.APPLY_VAT_AMT                -- 적용 부가세 금액
+                            ,M.VAT_CD                       -- 부가세 코드
+                            ,M.NEWHGHT_UPJANG               -- 신고 사업장
+                            ,M.RESERV_NUM                   -- 예약번호
+                            ,M.RESERV_DATE                  -- 예약 일자
+                            ,M.CUST_NM                      -- 거래처 명
+                            ,M.GUEST_TEL_NUM                -- 고객 전화 번호
+                            ,M.UPJANG_CD                    -- 업장코드
+                            ,M.RECEIPT_NUM                  -- 영수증 번호
+                            ,M.MNGMV_ADVANCE_NUM            -- 이관 선수금 번호
+                            ,M.REF_NUM						-- 참조번호
+                            ,M.COUPON_PROC_NUM              -- 쿠폰 처리 번호
+                            ,M.RECD_STATUS                  -- 레코드 상태
+                <#if altNum?has_content>
+                            ,NVL(D.JOURNALZ_YN,'N') JOURNALZ_YN  -- 분개여부
+                            ,D.JOURNALZ_NUM                 -- 분개번호
+                            ,D.ALT_NUM                      -- 선수금 대체 번호
+                            ,D.ALT_DATE                     -- 대체일자
+                            ,D.ADVANCE_ALT_NUM              -- 순번
+                            ,D.RECEIVE_NUM                  -- 입금번호
+                            ,M.REMARK
+                            ,CASE WHEN M.ADVANCE_OCCUR_CLASS = 'AO07' THEN (SELECT REMARK FROM SLA_IF_MEAL_TICKET_SETTLE_WAY A,
+                                                                                           SLA_IF_MEAL_TICKET_SAL_MST B
+                                                                                      WHERE A.SYS_CLASS = B.SYS_CLASS
+                                                                                        AND A.SALE_DATE = B.SALE_DATE
+                                                                                        AND A.UPJANG_CD = B.UPJANG_CD
+                                                                                        AND A.RECEIPT_NUM = B.RECEIPT_NUM
+                                                                                        AND A.UPJANG_CD = M.UPJANG_CD
+                                                                                        AND B.OCCUR_ADVANCE_NUM = M.OCCUR_ADVANCE_NUM 
+                                                                                        AND A.UPJANG_CD = M.UPJANG_CD 
+                                                                                        AND A.SALE_DATE = M.OCCUR_DATE) 
+                                   WHEN M.ADVANCE_OCCUR_CLASS = 'AO08' THEN (SELECT REMARK FROM SLA_IF_MEAL_TICKET_SETTLE_WAY A,
+                                                                                           SLA_IF_MEAL_TICKET_SAL_MST B
+                                                                                      WHERE A.SYS_CLASS = B.SYS_CLASS
+                                                                                        AND A.SALE_DATE = B.SALE_DATE
+                                                                                        AND A.UPJANG_CD = B.UPJANG_CD
+                                                                                        AND A.RECEIPT_NUM = B.RECEIPT_NUM
+                                                                                        AND A.UPJANG_CD = M.UPJANG_CD
+                                                                                        AND B.OCCUR_ADVANCE_NUM = M.OCCUR_ADVANCE_NUM
+                                                                                        AND A.UPJANG_CD = M.UPJANG_CD 
+                                                                                        AND A.SALE_DATE = M.OCCUR_DATE) 
+                                   ELSE
+                                       ( SELECT REMARK
+                                          FROM SLA_IF_ADVANCE_OCCUR B
+                                          WHERE B.OCCUR_ADVANCE_NUM = M.OCCUR_ADVANCE_NUM 
+                                          -- 2건이상 조회되는 오류 수정 20170529 김호석 CH201705_00469
+                                          AND B.UPJANG_CD = M.UPJANG_CD
+                                          AND B.OCCUR_DATE = M.OCCUR_DATE
+                                          AND B.RECEIPT_NUM = M.RECEIPT_NUM)  
+                                   END  REMARK2  
+                            ,CASE WHEN M.ADVANCE_TYPE_CD = 'F05' OR M.ADVANCE_TYPE_CD = 'F10' THEN
+                                -- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 함. 처리자 : 맹수영 ()
+                            	--M.OCCUR_SUPPLY_AMT + M.OCCUR_VAT_AMT - NVL((                            	
+	                            -- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 하고 계산서 발행 아닌 식권도 부가세는 없으므로 SUPPLY_AMT만 적용해야함	   
+                            	NVL(M.OCCUR_SUPPLY_AMT,0)  - NVL((   
+                            	--NVL(M.OCCUR_SUPPLY_AMT,0) + DECODE(M.TAX_SHET_PUBLISH_YN, 'N', NVL(M.OCCUR_VAT_AMT,0),0) - NVL((
+	                                --세금계산서 발행 식권이 아닌경우는 총대체금액으로 처리 20160803 맹수영 CH201608_00065 
+                            	    --SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0)                            	    
+                            	    --SELECT  DECODE(M.TAX_SHET_PUBLISH_YN,'Y',  NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0), NVL(SUM( APPLY_AMT),0))
+                            	    SELECT  NVL(SUM(DD.APPLY_AMT),0) 
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                --WHERE DD.RECD_STATUS = 'L'
+	                                WHERE (DD.RECD_STATUS = 'L' OR (DD.RECD_STATUS = 'D' AND DD.TRANS_STATUS = 'N'))
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0) + NVL((
+	                               -- SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0)
+	                               --SELECT  DECODE(M.TAX_SHET_PUBLISH_YN,'Y',  NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0), NVL(SUM( APPLY_AMT),0))
+	                               SELECT  NVL(SUM(DD.APPLY_AMT),0) 
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                --WHERE DD.RECD_STATUS = 'L'
+	                                WHERE (DD.RECD_STATUS = 'L' OR (DD.RECD_STATUS = 'D' AND DD.TRANS_STATUS = 'N'))
+	                                AND     DD.ADVANCE_ALT_NUM = D.ADVANCE_ALT_NUM
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0)                            	
+                            ELSE
+	                            M.OCCUR_AMT - NVL((
+	                                SELECT  NVL(SUM(DD.APPLY_AMT),0)
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                --WHERE DD.RECD_STATUS = 'L'
+	                                WHERE (DD.RECD_STATUS = 'L' OR (DD.RECD_STATUS = 'D' AND DD.TRANS_STATUS = 'N'))
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0) + NVL((
+	                                SELECT  NVL(SUM(DD.APPLY_AMT),0)      
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                --WHERE DD.RECD_STATUS = 'L'
+	                                WHERE (DD.RECD_STATUS = 'L' OR (DD.RECD_STATUS = 'D' AND DD.TRANS_STATUS = 'N'))
+	                                AND     DD.ADVANCE_ALT_NUM = D.ADVANCE_ALT_NUM
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0)
+	                        END OCCUR_AMT
+                            ,CASE WHEN M.ADVANCE_TYPE_CD = 'F05' OR M.ADVANCE_TYPE_CD = 'F10' THEN
+	                            NVL((
+	                              --  SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0)
+	                              -- 부가세 식권 계산 식 수정 20160927 맹수영
+	                              --SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0) + DECODE(M.TAX_SHET_PUBLISH_YN, 'N', NVL(SUM(DD.ALT_VAT_AMT),0),0)
+	                              -- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 하고 계산서 발행 아닌 식권도 부가세는 없으므로 SUPPLY_AMT만 적용해야함	                              
+                            	  SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0) 
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                --WHERE DD.RECD_STATUS = 'L'
+	                                WHERE (DD.RECD_STATUS = 'L' OR (DD.RECD_STATUS = 'D' AND DD.TRANS_STATUS = 'N'))
+	                                AND     DD.ADVANCE_ALT_NUM = D.ADVANCE_ALT_NUM
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0)
+                            ELSE
+	                            NVL((
+	                                SELECT  NVL(SUM(DD.APPLY_AMT),0)      
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                --WHERE DD.RECD_STATUS = 'L'
+	                                WHERE (DD.RECD_STATUS = 'L' OR (DD.RECD_STATUS = 'D' AND DD.TRANS_STATUS = 'N'))
+	                                AND     DD.ADVANCE_ALT_NUM = D.ADVANCE_ALT_NUM
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0) 
+                            END APPLY_AMT
+                            ,CASE WHEN M.ADVANCE_TYPE_CD = 'F05' OR M.ADVANCE_TYPE_CD = 'F10' THEN
+                                -- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 함. 처리자 : 맹수영 ()
+                            	--M.OCCUR_SUPPLY_AMT + M.OCCUR_VAT_AMT - NVL((
+                            	--NVL(M.OCCUR_SUPPLY_AMT,0) + DECODE(M.TAX_SHET_PUBLISH_YN, 'N', NVL(M.OCCUR_VAT_AMT,0),0) - NVL((
+                            	-- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 하고 계산서 발행 아닌 식권도 부가세는 없으므로 SUPPLY_AMT만 적용해야함
+                            	NVL(M.OCCUR_SUPPLY_AMT,0)  - NVL((   
+	                                SELECT  NVL(SUM(DD.APPLY_AMT),0)
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                --WHERE DD.RECD_STATUS = 'L'
+	                                WHERE (DD.RECD_STATUS = 'L' OR (DD.RECD_STATUS = 'D' AND DD.TRANS_STATUS = 'N'))
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0)
+	                        ELSE
+	                            M.OCCUR_AMT - NVL((
+	                                --SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0)
+	                                SELECT  NVL(SUM(DD.APPLY_AMT),0) 
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD	                                
+	                                --WHERE DD.RECD_STATUS = 'L'
+	                                WHERE (DD.RECD_STATUS = 'L' OR (DD.RECD_STATUS = 'D' AND DD.TRANS_STATUS = 'N'))
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0)
+                            END BAL_AMT 
+                            ,'UPDATE' ROW_STATUS
+                            ,NVL((
+	                                SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0)
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD	                                
+	                                --WHERE DD.RECD_STATUS = 'L'
+	                                WHERE (DD.RECD_STATUS = 'L' OR (DD.RECD_STATUS = 'D' AND DD.TRANS_STATUS = 'N'))
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                                AND     DD.ADVANCE_ALT_NUM = D.ADVANCE_ALT_NUM
+	                            ),M.APPLY_SUPPLY_AMT) ALT_SUPPLY_AMT
+                            ,NVL((
+	                                SELECT  NVL(SUM(DD.ALT_VAT_AMT),0)
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                --WHERE DD.RECD_STATUS = 'L'
+	                                WHERE (DD.RECD_STATUS = 'L' OR (DD.RECD_STATUS = 'D' AND DD.TRANS_STATUS = 'N'))
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                                AND     DD.ADVANCE_ALT_NUM = D.ADVANCE_ALT_NUM
+	                            ),M.APPLY_VAT_AMT) ALT_VAT_AMT
+                            ,SCC_COMMON_CODE_NAME_FUN('ADVANCE_OCCUR_CLASS',M.ADVANCE_OCCUR_CLASS) ADVANCE_OCCUR_CLASS_NM
+                            ,(SELECT TP.TYPE_NM FROM SLA_TYPE_CD_MST TP WHERE TP.TYPE_GRP_CD = '006' AND TP.TYPE_CD = M.ADVANCE_TYPE_CD) ADVANCE_TYPE_CD_NM
+                            ,SCC_COMMON_CODE_NAME_FUN('SYS_CLASS',M.SYS_CLASS) SYS_CLASS_NM
+                            ,(SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE M.MU_CD = MU.MU_CD) MU_NM
+                            ,(SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE M.CC_CD = CC.CC_CD) CC_NM
+                            ,(SELECT DISTINCT ACCT.ACCTNM FROM HLDC_ST_ACCOUNT_V ACCT WHERE M.ACCT_CD = ACCT.ACCTCD) ACCT_NM
+                            ,SLA_GET_TAX_SHET_OCCUR_YN('ADVANCE',M.ADVANCE_NUM) TAX_SEND_YN
+                            ,TAX_SHET_PUBLISH_YN AS  TAX_YN
+                    		,(SELECT COUNT(*) FROM SLA_ADVANCE_ALT_DETAIL DD, SLA_ADVANCE_MST AM WHERE DD.ADVANCE_NUM = AM.ADVANCE_NUM AND AM.MNGMV_ADVANCE_NUM = M.ADVANCE_NUM AND AM.REF_NUM = D.ALT_NUM AND DD.RECD_STATUS='L' AND AM.RECD_STATUS='L') AS TRANS_ALT_COUNT                    		                                
+                    FROM    SLA_ADVANCE_MST M
+                            ,SLA_ADVANCE_ALT_DETAIL D
+                    WHERE   M.ADVANCE_NUM = D.ADVANCE_NUM        
+                    AND (M.RECD_STATUS = 'L' OR (M.RECD_STATUS = 'D' AND M.TRANS_STATUS = 'N'))
+                    AND (D.RECD_STATUS = 'L' OR (D.RECD_STATUS = 'D' AND D.TRANS_STATUS = 'N'))
+                    --AND     M.RECD_STATUS = 'L'
+                    --AND     D.RECD_STATUS = 'L'
+	                AND     D.ALT_NUM = :altNum 
+                <#else>
+                            ,NVL(M.JOURNALZ_YN,'N') JOURNALZ_YN  -- 분개여부
+                            ,M.JOURNALZ_NUM                 -- 분개번호
+                            ,'' ALT_NUM
+                            ,'' ALT_DATE
+                            ,'' ADVANCE_ALT_NUM
+                            ,'' RECEIVE_NUM
+                            ,M.REMARK
+                            ,CASE WHEN M.ADVANCE_OCCUR_CLASS = 'AO07' THEN (SELECT REMARK FROM SLA_IF_MEAL_TICKET_SETTLE_WAY A,
+                                                                                           SLA_IF_MEAL_TICKET_SAL_MST B
+                                                                                      WHERE A.SYS_CLASS = B.SYS_CLASS
+                                                                                        AND A.SALE_DATE = B.SALE_DATE
+                                                                                        AND A.UPJANG_CD = B.UPJANG_CD
+                                                                                        AND A.RECEIPT_NUM = B.RECEIPT_NUM
+                                                                                        AND A.UPJANG_CD = M.UPJANG_CD 
+                                                                                        AND B.OCCUR_ADVANCE_NUM = M.OCCUR_ADVANCE_NUM
+                                                                                        AND A.UPJANG_CD = M.UPJANG_CD 
+                                                                                        AND A.SALE_DATE = M.OCCUR_DATE) 
+                                   WHEN M.ADVANCE_OCCUR_CLASS = 'AO08' THEN (SELECT REMARK FROM SLA_IF_MEAL_TICKET_SETTLE_WAY A,
+                                                                                           SLA_IF_MEAL_TICKET_SAL_MST B
+                                                                                      WHERE A.SYS_CLASS = B.SYS_CLASS
+                                                                                        AND A.SALE_DATE = B.SALE_DATE
+                                                                                        AND A.UPJANG_CD = B.UPJANG_CD
+                                                                                        AND A.RECEIPT_NUM = B.RECEIPT_NUM
+                                                                                        AND A.UPJANG_CD = M.UPJANG_CD 
+                                                                                        AND B.OCCUR_ADVANCE_NUM = M.OCCUR_ADVANCE_NUM
+                                                                                        AND A.UPJANG_CD = M.UPJANG_CD 
+                                                                                        AND A.SALE_DATE = M.OCCUR_DATE) 
+                                   ELSE
+                                       ( SELECT REMARK
+                                          FROM SLA_IF_ADVANCE_OCCUR B
+                                          WHERE B.OCCUR_ADVANCE_NUM = M.OCCUR_ADVANCE_NUM
+                                          -- 2건이상 조회되는 오류 수정 20170529 김호석CH201705_00469
+                                          AND B.UPJANG_CD = M.UPJANG_CD
+                                          AND B.OCCUR_DATE = M.OCCUR_DATE
+                                          AND B.RECEIPT_NUM = M.RECEIPT_NUM)  
+                                   END  REMARK2                         
+                            ,CASE WHEN M.ADVANCE_TYPE_CD = 'F05' OR M.ADVANCE_TYPE_CD = 'F10' THEN
+                            	--NVL(M.OCCUR_SUPPLY_AMT,0) + NVL(M.OCCUR_VAT_AMT,0) - NVL((
+                                -- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 함. 처리자 : 맹수영 ()
+                            	--NVL(M.OCCUR_SUPPLY_AMT,0) + DECODE(M.TAX_SHET_PUBLISH_YN, 'N', NVL(M.OCCUR_VAT_AMT,0),0) - NVL((                            	
+                            	-- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 하고 계산서 발행 아닌 식권도 부가세는 없으므로 SUPPLY_AMT만 적용해야함
+                            	NVL(M.OCCUR_SUPPLY_AMT,0)  - NVL((   
+                            	 SELECT  NVL(SUM(DD.APPLY_AMT),0) 
+	                               -- SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0)
+	                           -- SELECT  DECODE(M.TAX_SHET_PUBLISH_YN,'Y',  NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0), NVL(SUM( APPLY_AMT),0))   
+                            	FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0)  
+                            ELSE
+                            	NVL(M.OCCUR_AMT,0) - NVL((SELECT  SUM(DD.APPLY_AMT) FROM SLA_ADVANCE_ALT_DETAIL DD WHERE   DD.RECD_STATUS = 'L'  AND DD.ADVANCE_NUM = M.ADVANCE_NUM),0)
+                          	END OCCUR_AMT
+                            ,0 APPLY_AMT
+                            ,CASE WHEN M.ADVANCE_TYPE_CD = 'F05' OR M.ADVANCE_TYPE_CD = 'F10' THEN
+                            	--NVL(M.OCCUR_SUPPLY_AMT,0) + NVL(M.OCCUR_VAT_AMT,0) - NVL((
+                                -- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 함. 처리자 : 맹수영 (CH201606_00531)
+                            	--NVL(M.OCCUR_SUPPLY_AMT,0) + DECODE(M.TAX_SHET_PUBLISH_YN, 'N', NVL(M.OCCUR_VAT_AMT,0),0) - NVL((                                   	
+                            	-- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 하고 계산서 발행 아닌 식권도 부가세는 없으므로 SUPPLY_AMT만 적용해야함                  	
+                            	NVL(M.OCCUR_SUPPLY_AMT,0) - NVL((
+	                               -- SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0)
+	                           SELECT  NVL(SUM(DD.APPLY_AMT),0) 
+                            	--SELECT  DECODE(M.TAX_SHET_PUBLISH_YN,'Y',  NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0), NVL(SUM( APPLY_AMT),0))    
+                            	FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0)  
+                            ELSE
+                            	NVL(M.OCCUR_AMT,0) - NVL((SELECT  SUM(DD.APPLY_AMT) FROM SLA_ADVANCE_ALT_DETAIL DD WHERE   DD.RECD_STATUS = 'L'  AND DD.ADVANCE_NUM = M.ADVANCE_NUM),0)
+                          	END BAL_AMT
+                            ,'INSERT' ROW_STATUS
+                            ,NVL((
+	                                SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0)
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0) ALT_SUPPLY_AMT
+                            ,NVL((
+	                                SELECT  NVL(SUM(DD.ALT_VAT_AMT),0)
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0) ALT_VAT_AMT
+                            ,SCC_COMMON_CODE_NAME_FUN('ADVANCE_OCCUR_CLASS',M.ADVANCE_OCCUR_CLASS) ADVANCE_OCCUR_CLASS_NM
+                            ,(SELECT TP.TYPE_NM FROM SLA_TYPE_CD_MST TP WHERE TP.TYPE_GRP_CD = '006' AND TP.TYPE_CD = M.ADVANCE_TYPE_CD) ADVANCE_TYPE_CD_NM
+                            ,SCC_COMMON_CODE_NAME_FUN('SYS_CLASS',M.SYS_CLASS) SYS_CLASS_NM
+                            ,(SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE M.MU_CD = MU.MU_CD) MU_NM
+                            ,(SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE M.CC_CD = CC.CC_CD) CC_NM
+                            ,(SELECT DISTINCT ACCT.ACCTNM FROM HLDC_ST_ACCOUNT_V ACCT WHERE M.ACCT_CD = ACCT.ACCTCD) ACCT_NM
+                            ,SLA_GET_TAX_SHET_OCCUR_YN('ADVANCE',M.ADVANCE_NUM) TAX_SEND_YN
+                            ,TAX_SHET_PUBLISH_YN AS  TAX_YN
+                            ,0 TRANS_ALT_COUNT
+                    FROM    SLA_ADVANCE_MST M
+                    WHERE   M.RECD_STATUS = 'L'
+             --       AND     M.ADVANCE_NUM NOT IN (
+             --                                   SELECT  ADVANCE_NUM
+             --                                   FROM    SLA_TAX_SHET_OCCUR_OBJ
+             --                                   WHERE   ADVANCE_NUM IS NOT NULL
+             --                                   ) 
+	                <#if inqueryCustCd?has_content>
+	                    <#if custNm?has_content>
+	                        AND     (M.CUST_CD = :inqueryCustCd OR M.CUST_NM LIKE '%'||:custNm||'%')
+	                    <#else>
+	                        AND     M.CUST_CD = :inqueryCustCd
+	                    </#if>
+	                <#else>
+	                    <#if custNm?has_content>
+		                    AND     M.CUST_NM LIKE '%'||:custNm||'%'
+		                </#if>
+	                </#if>   
+	                <#if inqueryStartDate?has_content>
+	                    AND     M.OCCUR_DATE >= :inqueryStartDate
+	                </#if>
+	                <#if inqueryEndDate?has_content>
+	                    AND     M.OCCUR_DATE <= :inqueryEndDate
+	                </#if>	                          
+                </#if>
+
+                <#if inqueryMuCd?has_content>
+                    AND     M.MU_CD = :inqueryMuCd
+                </#if>
+                
+                <#if inqueryTmCd?has_content>
+                	<#if receiveNum?has_content>
+                	-- 입금관리 상세 패스 2018.02.22 김호석 수정 선조치(TM_CD가 변경되어 처리내역 조회안되는 문제 수정)
+                	<#else>
+		            AND     M.CC_CD IN (
+		                            SELECT  A.CC_CD
+		                            FROM    SCC_CC A
+		                                    ,HLDC_SC_DEPT_V B
+		                            WHERE   B.CC_CD = A.CC_CD
+		                            AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+		                            AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+		                            AND     B.TM_CD = :inqueryTmCd
+		                            )
+		             </#if>
+                </#if>
+                <#if inqueryCcCd?has_content>
+                  --  AND     M.CC_CD = :inqueryCcCd
+                </#if>
+                
+                <#if inqueryUpjangCd?has_content>
+                    AND     M.UPJANG_CD = :inqueryUpjangCd
+                </#if>
+                <#if inqueryAdvanceTypeCd?has_content>
+                    AND     M.ADVANCE_TYPE_CD = :inqueryAdvanceTypeCd
+                </#if>
+                <#if inqueryAdvanceNum?has_content>
+                    AND     M.ADVANCE_NUM LIKE '%'||:inqueryAdvanceNum||'%'
+                </#if>
+                
+                <#if altNum?has_content>
+                	--대체상세 조회 시 조건 X
+                <#else>
+                	--선수금 이관 시 상신중인 선수금번호는 제외 20190415 김호석(이성희과장 요청)
+                    AND NOT EXISTS (SELECT H.ADVANCE_NUM FROM SLA_ADVANCE_ALT_DETAIL H, SCC_SIGN_INFO S WHERE H.ADVANCE_NUM = M.ADVANCE_NUM AND H.RECD_STATUS = 'D' AND H.TRANS_STATUS != 'Y' AND H.SIGN_INSTANCE_ID = S.SIGN_INSTANCE_ID(+) AND S.SIGN_PROGRESS_STATUS NOT IN ('REJECT','CANCEL'))
+                	<#if advanceAltOccurClass?has_content>
+	                	<#if advanceAltOccurClass == 'TO03'>
+	                		--선수금 이관시 선수/외상식권 안나오도록
+	                		AND		M.ADVANCE_TYPE_CD NOT IN ('F05','F10','F04','F09') --쿠폰선수금은 이관 못하게 수정(쿠폰번호 마스터에 선수금번호 맵핑되어있어 변경불가)                		
+	                		--AND		M.ADVANCE_TYPE_CD NOT IN ('F10')                		
+	                	</#if>
+	                	--고객사 선수금 이관 시 외상/선수 식권선수금도 가능하도록 수정 2018.09.12 김호석(김성권대리 확인)
+	                	--선수/외상식권 선수금 이관 선수/외상식권 선수금만 나오도록
+	                	<#if advanceAltOccurClass == 'TO11' || advanceAltOccurClass == 'TO14'>
+	                		AND		M.ADVANCE_TYPE_CD IN ('F05','F10')
+	                    </#if>
+	                </#if>
+	            </#if>
+                <#if fiscalDateFrom?has_content>
+                    AND     M.FISCAL_DATE >= :fiscalDateFrom
+                </#if>
+                <#if fiscalDateTo?has_content>
+                   -- AND     M.FISCAL_DATE <= :fiscalDateTo
+                </#if>
+                <#if advanceOccurClass?has_content>
+                    AND     M.ADVANCE_OCCUR_CLASS = :advanceOccurClass
+                </#if>
+                    ) T
+        <#if altNum?has_content>
+            WHERE   1=1
+        <#else>
+        	--마이너스 입금처리인 경우 선수금금액이 0인 건도 가져올수 있도록 수정 20180411 김호석
+        	<#if minusYn?has_content>
+        	  WHERE   OCCUR_AMT >= 0 
+        	<#else>
+              WHERE   OCCUR_AMT <> 0
+            </#if>
+        </#if>
+        <#if inputVal?has_content>
+            AND     (REMARK LIKE '%'||:inputVal||'%' OR RESERV_NUM LIKE '%'||:inputVal||'%'
+            		 OR CUST_NM LIKE '%'||:inputVal||'%' OR GUEST_TEL_NUM LIKE '%'||:inputVal||'%')
+        </#if>
+        <#if gubun?has_content> --여기서부터 수정(Yu)
+        <#else>
+        	ORDER BY ADVANCE_NUM, ALT_NUM, ADVANCE_ALT_NUM
+        </#if>
+        <#if gubun?has_content>
+	        UNION ALL
+	        SELECT 0 AS CHK
+            		,A.RECEIPT_NUM ADVANCE_NUM
+                    ,0 SEQ
+                    ,A.OCCUR_DATE
+                    ,'' FISCAL_DATE
+                    ,'' ADVANCE_OCCUR_CLASS
+                    ,'' ADVANCE_TYPE_CD
+                    ,B.CUST_CD
+                    ,A.SYS_CLASS
+                    ,A.MU_CD
+                    ,A.CC_CD
+                    ,'' ACCT_CD
+                    ,'' BATCH_ID
+                    ,0 OCCUR_AMT_ORG
+                    ,0 APPLY_AMT_ORG
+                    ,0 OCCUR_SUPPLY_AMT
+                    ,0 OCCUR_VAT_AMT
+                    ,0 APPLY_SUPPLY_AMT
+                    ,0 APPLY_VAT_AMT
+                    ,'' VAT_CD
+                    ,'' NEWHGHT_UPJANG
+                    ,'' RESERV_NUM
+                    ,'' RESERV_DATE
+                    ,A.CUST_NM
+                    ,'' GUEST_TEL_NUM
+                    ,'N' JOURNALZ_YN
+                    ,'' JOURNALZ_NUM
+                    ,'' UPJANG_CD
+                    ,'' RECEIPT_NUM
+                    ,'' MNGMV_ADVANCE_NUM
+                    ,'' REF_NUM
+                    ,'' COUPON_PROC_NUM
+                    ,'L' RECD_STATUS
+                    ,'' ALT_NUM
+                    ,'' ALT_DATE
+                    ,'' ADVANCE_ALT_NUM
+                    ,'' RECEIVE_NUM
+                    ,'' REMARK
+                    ,'' REMARK2
+                    ,NVL(A.AMT, 0) OCCUR_AMT
+                    ,0 APPLY_AMT
+                    ,NVL(A.AMT, 0) BAL_AMT
+                    ,NVL(A.AMT, 0)
+                    ,'' ROW_STATUS
+                    ,0 APPLY_AMT_SUM
+                    ,0 ALT_SUPPLY_AMT
+                    ,0 ALT_VAT_AMT
+                    ,'' ADVANCE_OCCUR_CLASS_NM
+                    ,'' ADVANCE_TYPE_CD_NM
+                    ,'' SYS_CLASS_NM
+                    ,'' MU_NM
+                    ,'' CC_NM
+                    ,'' ACCT_NM
+                    ,'' ADVANCE_ALT_OCCUR_CLASS
+                    ,'' ALT_TYPE_CD
+                    ,'' TRANS_ALT_DATE
+                    ,'' TRANS_YN
+                    ,'' TRANS_CUST_CD
+                    ,'' TRANS_CUST_NM
+                    ,'' TRANS_CC_CD
+                    ,'' TRANS_CC_NM
+                    ,'' TYPE_GRP_CD
+                    ,0 ADVANCE_USE_AMT
+	        FROM   SLA_IF_ADVANCE_OCCUR A,
+	        	   SLA_IF_ADVANCE_SETTLE_WAY B
+	        WHERE  A.SYS_CLASS= B.SYS_CLASS(+)
+	        AND	   A.OCCUR_DATE = B.OCCUR_DATE(+)
+	        AND	   A.UPJANG_CD = B.UPJANG_CD(+)
+	        AND	   A.RECEIPT_NUM = B.RECEIPT_NUM(+)
+	        AND	   NVL(A.DDDD_CLOSE_YN, 'N') = 'N'
+	        <#if inqueryMuCd?has_content>
+	        AND	   A.MU_CD = :inqueryMuCd
+	        </#if>
+        	<#if inqueryCustCd?has_content>
+        	AND	   B.CUST_CD = :inqueryCustCd
+        	</#if>
+        </#if>
+        ]]></statement>
+
+	<!-- 선수금 대체 정보조회. (선수금대체정보(조회조건)를 조회한다.) -->
+	<statement name="selectAdvanceReceiveWay" type="select">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.selectAdvanceReceiveWay
+		*/
+		<![CDATA[
+            SELECT A.ADVANCE_NUM,            	   
+            	   --대체금액이 있을 경우 취소 못하도록 수정 2017.11.01 김호석
+                   NVL((SELECT SUM(AA.APPLY_AMT) FROM SLA_ADVANCE_ALT_DETAIL AA WHERE AA.ADVANCE_NUM = A.ADVANCE_NUM AND AA.RECD_STATUS = 'L'),0) AS ALT_AMT,
+                   --미수금(신용카드) 대체된 내역있으면 취소 못하도록 수정 20190308 김호석
+                   CASE WHEN A.AR_NUM IS NOT NULL THEN (SELECT COUNT(AR_NUM) FROM SLA_AR_RECEIVE_DETAIL D WHERE D.AR_NUM = A.AR_NUM AND D.RECD_STATUS = 'L') ELSE 0 END AS AR_NUM_CHK,
+                   --선수금발생 전표처리 내역있으면 취소 못하도록 수정 20190308 김호석
+                   B.JOURNALZ_YN,                    
+			       A.SEQ,
+			       A.RECEIVE_TYPE_CD,
+			       A.CUST_CD,
+			       B.CUST_NM,
+			       A.AR_TYPE_CD,
+			       A.AR_NUM,
+			       A.BUYCPNY_CD,
+			       A.SELF_BU_CLASS_CD,
+			       A.CREDIT_CARD_NUM,
+			       A.APPRV_NUM,
+			       A.VALID_YYMM,
+			       A.RECEIVE_BANKCD,
+			       A.IMNO_CRGLEFT_NUM,
+			       A.SUSPENSE_DATE,
+			       A.IMNO_RECEIVE_SEQ,
+			       A.SUSPENSE_SRLNUM,
+			       A.IMNO_ALT_NUM,
+			       A.ADJUST_AMT,
+			       A.RECD_STATUS,
+			       A.CUSER,
+			       A.CDATE,
+			       A.UUSER,
+			       A.UDATE,
+			       A.SALES_CASH_NUM,
+			       A.SETTLE_CLASS,
+			       A.ADVANCE_ALT_NUM,
+			       B.UPJANG_CD,
+			       (SELECT UPJANGNM FROM ST_UPJANG WHERE UPJANG = B.UPJANG_CD) AS UPJANG_NM,
+			       B.MU_CD,
+			       (SELECT DISTINCT MU_NM FROM   HLDC_SC_DEPT_V WHERE MU_CD = B.MU_CD)  AS MU_NM,
+			       C.TM_CD,
+			       C.TM_NM,
+			       B.CC_CD,
+			       (SELECT  CC_NM FROM SCC_CC WHERE CC_CD = B.CC_CD) AS CC_NM,
+			       B.REMARK,
+			       B.OCCUR_DATE  AS PROC_DATE
+			FROM   SLA_ADVANCE_RECEIVE_WAY A,
+			       SLA_ADVANCE_MST B,
+             	   HLDC_SC_DEPT_V C
+			WHERE  1=1
+			AND    A.ADVANCE_NUM = B.ADVANCE_NUM
+			AND    A.ADVANCE_NUM = :advanceNum
+      		AND    B.CC_CD = C.CC_CD
+			AND    A.SEQ = :seq
+		]]>
+	</statement>
+
+	<!-- 선수금 대체 마스터 정보를 등록한다. -->
+	<statement name="insertAdvanceAltMst" type="insert">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.insertAdvanceAltMst */
+		<![CDATA[
+            INSERT INTO SLA_ADVANCE_ALT_MST (
+                ALT_NUM
+                ,ALT_DATE
+                ,ADVANCE_ALT_OCCUR_CLASS
+                ,ALT_TYPE_CD
+                ,SYS_CLASS
+                ,MU_CD
+                ,CC_CD
+                ,ACCT_CD
+                ,ALT_AMT
+                ,ADJUST_AMT
+                ,EXC_AMT
+                ,PAY_GRP
+                ,PAY_TYPE
+                ,PAY_SCHD_DATE
+                ,REMARK
+                ,BATCH_ID
+                ,UPJANG_CD
+                ,POS_NUM
+                ,RECEIPT_NUM
+                ,COUPON_NUM
+                ,CUST_CD
+                ,CUST_NM
+                ,RESERV_NUM
+                ,JOURNALZ_YN
+                ,JOURNALZ_NUM
+                ,RESERV_DATE
+                ,INQUERY_START_DATE
+                ,INQUERY_END_DATE
+                ,INQUERY_MU_CD
+                ,INQUERY_TM_CD
+                ,INQUERY_CC_CD
+                ,INQUERY_UPJANG_CD
+                ,INQUERY_CUST_CD
+                ,INQUERY_ADVANCE_TYPE_CD
+                ,INQUERY_ADVANCE_NUM
+                ,BANK_CD
+                ,BANK_ACCT_OWNR
+                ,BANK_ACCT_NO
+                ,RECD_STATUS
+                ,CUSER
+                ,CDATE
+                ,CARD_AR_NUM
+                ,TAX_SHET_APPRV_NUM
+            ) VALUES (
+                :altNum
+                ,:altDate
+                ,:advanceAltOccurClass
+                ,:altTypeCd
+                <#if sysClass?exists> ,:sysClass <#else> ,null </#if>
+                <#if muCd?exists> ,:muCd <#else> ,null </#if>
+                <#if ccCd?exists> ,:ccCd <#else> ,null </#if>
+                <#if acctCd?exists>
+                	,:acctCd
+                <#else>
+					<#if typeGrpCd?exists && altTypeCd?exists>
+						,(
+			                SELECT  DISTINCT ACCT_CD
+			                FROM    SLA_TYPE_CD_MST
+			                WHERE   TYPE_GRP_CD = :typeGrpCd
+			                AND     TYPE_CD = :altTypeCd
+			                )
+			        <#else>
+			             ,null   
+                	</#if>
+                </#if>
+                ,:altAmt
+                <#if adjustAmt?exists> ,:adjustAmt <#else> ,null </#if>
+                <#if excAmt?exists> ,:excAmt <#else> ,null </#if>
+                <#if payGrp?exists> ,:payGrp <#else> ,null </#if>
+                <#if payType?exists> ,:payType <#else> ,null </#if>
+                <#if paySchdDate?exists> ,:paySchdDate <#else> ,null </#if>
+                <#if remark?exists> ,:remark <#else> ,null </#if>
+                <#if batchId?exists> ,:batchId <#else> ,null </#if>
+                --업장코드 안들어가는 문제 수정 2017.08.09 김호석
+                <#if upjangCd?exists>                
+                		<#if upjangCd == '' >
+                			, (SELECT MAX(UPJANG) FROM ST_UPJANG WHERE ST_UPJANG.CC_CD = :ccCd)
+                		<#else>		  
+                			,:upjangCd 
+                		</#if>                		
+                <#else>                  	               		
+                		, (SELECT MAX(UPJANG) FROM ST_UPJANG WHERE ST_UPJANG.CC_CD = :ccCd)
+                </#if>
+                <#if posNum?exists> ,:posNum <#else> ,null </#if>
+                <#if receiptNum?exists> ,:receiptNum <#else> ,null </#if>
+                <#if couponNum?exists> ,:couponNum <#else> ,null </#if>
+                <#if custCd?exists> ,:custCd <#else> ,null </#if>
+                <#if custNm?exists> ,:custNm <#else> ,null </#if>
+                <#if reservNum?exists> ,:reservNum <#else> ,null </#if>
+                <#if journalzYn?exists> ,DECODE(:journalzYn, '1', 'Y', 'N') <#else> ,null </#if>
+                <#if journalzNum?exists> ,:journalzNum <#else> ,null </#if>
+                <#if reservDate?exists> ,:reservDate <#else> ,null </#if>
+                <#if inqueryStartDate?exists> ,:inqueryStartDate <#else> ,null </#if>
+                <#if inqueryEndDate?exists> ,:inqueryEndDate <#else> ,null </#if>
+                <#if inqueryMuCd?exists> ,:inqueryMuCd <#else> ,null </#if>
+                <#if inqueryTmCd?exists> ,:inqueryTmCd <#else> ,null </#if>
+                <#if inqueryCcCd?exists> ,:inqueryCcCd <#else> ,null </#if>
+                <#if inqueryUpjangCd?exists> ,:inqueryUpjangCd <#else> ,null </#if>
+                <#if inqueryCustCd?exists> ,:inqueryCustCd <#else> ,null </#if>
+                <#if inqueryAdvanceTypeCd?exists> ,:inqueryAdvanceTypeCd <#else> ,null </#if>
+                <#if inqueryAdvanceNum?exists> ,:inqueryAdvanceNum <#else> ,null </#if>
+                <#if bankCd?exists> ,:bankCd <#else> ,null </#if>
+                <#if bankAcctOwnr?exists> ,:bankAcctOwnr <#else> ,null </#if>
+                <#if bankAcctNo?exists> , SCC_CRYPTO.ENC_FUN(:bankAcctNo) <#else> ,null </#if>
+                ,'L'
+                ,:loginSabun
+                ,SYSDATE
+                <#if cardArNum?exists> , :cardArNum <#else> ,null </#if>
+                <#if taxShetApprvNum?exists> , :taxShetApprvNum <#else> ,null </#if>
+            )
+        ]]>
+	</statement>
+	
+	<!-- 선수금 대체 마스터 정보를 등록한다. (선수금 이관 전자결재 상신후) -->
+	<statement name="insertAdvanceAltMst2" type="insert">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.insertAdvanceAltMst2 */
+		<![CDATA[
+            INSERT INTO SLA_ADVANCE_ALT_MST (
+                ALT_NUM
+                ,ALT_DATE
+                ,ADVANCE_ALT_OCCUR_CLASS
+                ,ALT_TYPE_CD
+                ,SYS_CLASS
+                ,MU_CD
+                ,CC_CD
+                ,ACCT_CD
+                ,ALT_AMT
+                ,ADJUST_AMT
+                ,EXC_AMT
+                ,PAY_GRP
+                ,PAY_TYPE
+                ,PAY_SCHD_DATE
+                ,REMARK
+                ,BATCH_ID
+                ,UPJANG_CD
+                ,POS_NUM
+                ,RECEIPT_NUM
+                ,COUPON_NUM
+                ,CUST_CD
+                ,CUST_NM
+                ,RESERV_NUM
+                ,JOURNALZ_YN
+                ,JOURNALZ_NUM
+                ,RESERV_DATE
+                ,INQUERY_START_DATE
+                ,INQUERY_END_DATE
+                ,INQUERY_MU_CD
+                ,INQUERY_TM_CD
+                ,INQUERY_CC_CD
+                ,INQUERY_UPJANG_CD
+                ,INQUERY_CUST_CD
+                ,INQUERY_ADVANCE_TYPE_CD
+                ,INQUERY_ADVANCE_NUM
+                ,BANK_CD
+                ,BANK_ACCT_OWNR
+                ,BANK_ACCT_NO
+                ,RECD_STATUS
+                ,CUSER
+                ,CDATE
+                ,CARD_AR_NUM
+                ,SIGN_INSTANCE_ID
+                ,TRANS_STATUS
+            ) VALUES (
+                :altNum
+                ,:altDate
+                ,:advanceAltOccurClass
+                ,:altTypeCd
+                <#if sysClass?exists> ,:sysClass <#else> ,null </#if>
+                <#if muCd?exists> ,:muCd <#else> ,null </#if>
+                <#if ccCd?exists> ,:ccCd <#else> ,null </#if>
+                <#if acctCd?exists>
+                	,:acctCd
+                <#else>
+					<#if typeGrpCd?exists && altTypeCd?exists>
+						,(
+			                SELECT  DISTINCT ACCT_CD
+			                FROM    SLA_TYPE_CD_MST
+			                WHERE   TYPE_GRP_CD = :typeGrpCd
+			                AND     TYPE_CD = :altTypeCd
+			                )
+			        <#else>
+			             ,null   
+                	</#if>
+                </#if>
+                ,:altAmt
+                <#if adjustAmt?exists> ,:adjustAmt <#else> ,null </#if>
+                <#if excAmt?exists> ,:excAmt <#else> ,null </#if>
+                <#if payGrp?exists> ,:payGrp <#else> ,null </#if>
+                <#if payType?exists> ,:payType <#else> ,null </#if>
+                <#if paySchdDate?exists> ,:paySchdDate <#else> ,null </#if>
+                <#if remark?exists> ,:remark <#else> ,null </#if>
+                <#if batchId?exists> ,:batchId <#else> ,null </#if>
+                --업장코드 안들어가는 문제 수정 2017.08.09 김호석
+                <#if upjangCd?exists>                
+                		<#if upjangCd == '' >
+                			, (SELECT MAX(UPJANG) FROM ST_UPJANG WHERE ST_UPJANG.CC_CD = :ccCd)
+                		<#else>		  
+                			,:upjangCd 
+                		</#if>                		
+                <#else>                  	               		
+                		, (SELECT MAX(UPJANG) FROM ST_UPJANG WHERE ST_UPJANG.CC_CD = :ccCd)
+                </#if>
+                <#if posNum?exists> ,:posNum <#else> ,null </#if>
+                <#if receiptNum?exists> ,:receiptNum <#else> ,null </#if>
+                <#if couponNum?exists> ,:couponNum <#else> ,null </#if>
+                <#if custCd?exists> ,:custCd <#else> ,null </#if>
+                <#if custNm?exists> ,:custNm <#else> ,null </#if>
+                <#if reservNum?exists> ,:reservNum <#else> ,null </#if>
+                <#if journalzYn?exists> ,DECODE(:journalzYn, '1', 'Y', 'N') <#else> ,null </#if>
+                <#if journalzNum?exists> ,:journalzNum <#else> ,null </#if>
+                <#if reservDate?exists> ,:reservDate <#else> ,null </#if>
+                <#if inqueryStartDate?exists> ,:inqueryStartDate <#else> ,null </#if>
+                <#if inqueryEndDate?exists> ,:inqueryEndDate <#else> ,null </#if>
+                <#if inqueryMuCd?exists> ,:inqueryMuCd <#else> ,null </#if>
+                <#if inqueryTmCd?exists> ,:inqueryTmCd <#else> ,null </#if>
+                <#if inqueryCcCd?exists> ,:inqueryCcCd <#else> ,null </#if>
+                <#if inqueryUpjangCd?exists> ,:inqueryUpjangCd <#else> ,null </#if>
+                <#if inqueryCustCd?exists> ,:inqueryCustCd <#else> ,null </#if>
+                <#if inqueryAdvanceTypeCd?exists> ,:inqueryAdvanceTypeCd <#else> ,null </#if>
+                <#if inqueryAdvanceNum?exists> ,:inqueryAdvanceNum <#else> ,null </#if>
+                <#if bankCd?exists> ,:bankCd <#else> ,null </#if>
+                <#if bankAcctOwnr?exists> ,:bankAcctOwnr <#else> ,null </#if>
+                <#if bankAcctNo?exists> , SCC_CRYPTO.ENC_FUN(:bankAcctNo) <#else> ,null </#if>
+                ,'D'
+                ,:loginSabun
+                ,SYSDATE
+                <#if cardArNum?exists> , :cardArNum <#else> ,null </#if>
+                <#if signInstanceId?exists> ,:signInstanceId <#else> ,null </#if>
+                ,'N'
+            )
+        ]]>
+	</statement>
+
+	<!-- 선수금 대체 마스터 정보를 수정한다. -->
+	<statement name="updateAdvanceAltMst" type="update">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.updateAdvanceAltMst */
+		<![CDATA[
+            UPDATE  SLA_ADVANCE_ALT_MST
+            SET     ALT_DATE = :altDate
+                    <#if advanceAltOccurClass?exists> ,ADVANCE_ALT_OCCUR_CLASS = :advanceAltOccurClass </#if>
+                    <#if altTypeCd?exists> ,ALT_TYPE_CD = :altTypeCd </#if>
+                    <#if sysClass?exists> ,SYS_CLASS = :sysClass </#if>
+                    <#if muCd?exists> ,MU_CD = :muCd </#if>
+                    <#if ccCd?exists> ,CC_CD = :ccCd </#if>
+                    <#if acctCd?exists> ,ACCT_CD = :acctCd </#if>
+                    ,ALT_AMT = :altAmt
+                    <#if adjustAmt?exists> ,ADJUST_AMT = :adjustAmt </#if>
+                    <#if excAmt?exists> ,EXC_AMT = :excAmt </#if>
+                    <#if payGrp?exists> ,PAY_GRP = :payGrp </#if>
+                    <#if payType?exists> ,PAY_TYPE = :payType </#if>
+                    <#if paySchdDate?exists> ,PAY_SCHD_DATE = :paySchdDate </#if>
+                    <#if remark?exists> ,REMARK = :remark </#if>
+                    <#if batchId?exists> ,BATCH_ID = :batchId </#if>
+                    <#if upjangCd?exists> ,UPJANG_CD = :upjangCd </#if>
+                    <#if posNum?exists> ,POS_NUM = :posNum </#if>
+                    <#if receiptNum?exists> ,RECEIPT_NUM = :receiptNum </#if>
+                    <#if couponNum?exists> ,COUPON_NUM = :couponNum </#if>
+                    <#if custCd?exists> ,CUST_CD = :custCd </#if>
+                    <#if custNm?exists> ,CUST_NM = :custNm </#if>
+                    <#if reservNum?exists> ,RESERV_NUM = :reservNum </#if>
+                    <#if journalzYn?exists> ,JOURNALZ_YN = DECODE(:journalzYn, '1', 'Y', 'N') </#if>
+                    <#if journalzNum?exists> ,JOURNALZ_NUM = :journalzNum </#if>
+                    <#if reservDate?exists> ,RESERV_DATE = :reservDate </#if>
+                    <#if inqueryStartDate?exists> ,INQUERY_START_DATE = :inqueryStartDate </#if>
+                    <#if inqueryEndDate?exists> ,INQUERY_END_DATE = :inqueryEndDate </#if>
+                    <#if inqueryMuCd?exists> ,INQUERY_MU_CD = :inqueryMuCd </#if>
+                    <#if inqueryTmCd?exists> ,INQUERY_TM_CD = :inqueryTmCd </#if>
+                    <#if inqueryCcCd?exists> ,INQUERY_CC_CD = :inqueryCcCd </#if>
+                    <#if inqueryUpjangCd?exists> ,INQUERY_UPJANG_CD = :inqueryUpjangCd </#if>
+                    <#if inqueryCustCd?exists> ,INQUERY_CUST_CD = :inqueryCustCd </#if>
+                    <#if inqueryAdvanceTypeCd?exists> ,INQUERY_ADVANCE_TYPE_CD = :inqueryAdvanceTypeCd </#if>
+                    <#if inqueryAdvanceNum?exists> ,INQUERY_ADVANCE_NUM = :inqueryAdvanceNum </#if>
+                    <#if bankCd?exists> ,BANK_CD = :bankCd </#if>
+                    <#if bankAcctOwnr?exists> ,BANK_ACCT_OWNR = :bankAcctOwnr </#if>
+                    <#if bankAcctNo?exists> ,BANK_ACCT_NO = SCC_CRYPTO.ENC_FUN(:bankAcctNo) </#if>
+                    <#if recdStatus?exists> ,RECD_STATUS = :recdStatus </#if>
+                    ,UUSER = :loginSabun
+                    ,UDATE = SYSDATE
+            WHERE   ALT_NUM = :altNum
+        ]]>
+	</statement>
+
+	<!-- 선수금 대체 디테일 정보를 등록한다. -->
+	<statement name="insertAdvanceAltDtl" type="insert"><![CDATA[
+            INSERT INTO SLA_ADVANCE_ALT_DETAIL (
+                ADVANCE_ALT_NUM
+                ,ALT_DATE
+                ,ADVANCE_NUM
+                ,ALT_NUM
+                ,RECEIVE_NUM
+                ,COUPON_PROC_NUM
+                ,OCCUR_DATE
+                ,CUST_CD
+                ,MU_CD
+                ,CC_CD
+                ,ACCT_CD
+                ,VAT_CD
+                ,OCCUR_AMT
+                ,APPLY_AMT
+                ,ALT_SUPPLY_AMT
+                ,ALT_VAT_AMT
+                ,REMARK
+                ,BATCH_ID
+                ,RECD_STATUS
+                ,CUSER
+                ,CDATE
+            ) VALUES (
+                SLA_ADVANCE_ALT_NUM_SEQ.NEXTVAL
+                <#if altDate?exists> ,:altDate <#else> ,null </#if>
+                ,:advanceNum
+                ,:altNum
+                <#if receiveNum?exists> ,:receiveNum <#else> ,null </#if>
+                <#if couponProcNum?exists> ,:couponProcNum <#else> ,null </#if>
+                <#if occurDate?exists> ,:occurDate <#else> ,null </#if>
+                <#if custCd?exists> ,:custCd <#else> ,null </#if>
+                <#if muCd?exists> ,:muCd <#else> ,null </#if>
+                <#if ccCd?exists> ,:ccCd <#else> ,null </#if>
+				<#if typeGrpCd?exists && altTypeCd?exists>		
+					,NVL((
+		                SELECT  DISTINCT ACCT_CD
+		                FROM    SLA_TYPE_CD_MST
+		                WHERE   TYPE_GRP_CD = :typeGrpCd
+		                AND     TYPE_CD = :altTypeCd
+		                ),(
+			                SELECT  ACCT_CD
+			                FROM    SLA_ADVANCE_MST
+			                WHERE   ADVANCE_NUM = :advanceNum
+			                AND		ROWNUM = 1
+		                ))
+		        <#else>
+		             ,NVL(:acctCd,
+		             	(
+			                SELECT  ACCT_CD
+			                FROM    SLA_ADVANCE_MST
+			                WHERE   ADVANCE_NUM = :advanceNum
+			                AND		ROWNUM = 1
+		                ))
+               	</#if>
+                <#if vatCd?exists> ,:vatCd <#else> ,null </#if>
+                ,:occurAmt
+                <#if advanceTypeCd?exists>
+                    --선수/외상식권선수금
+	                <#if advanceTypeCd == 'F05' || advanceTypeCd == 'F10'>
+	                    <#if vatCd == '20'>	                    
+	                        <#if altTypeCd == 'G01'> 
+	                        	--잡이익 처리시에는 부가세 생기면 안됨 김호석 수정 2017.06.27 선조치 
+	                			,:applyAmt
+			                	,:applyAmt
+			                	,0
+			                <#else>			      
+		                		-- 환불하는 경우만 부가세 환급하기 위해 alt_vat_amt 금액 계산해서 넣는 부분 필요   
+			                	<#if altTypeCd == 'H01' || altTypeCd == 'H02' || altTypeCd == 'H03' >	
+			                		,ROUND(:applyAmt / 1.1)
+			                		,ROUND(:applyAmt / 1.1)
+			                		,:applyAmt - ROUND(:applyAmt / 1.1)	
+			                	<#else>		
+			                		--선수/외상식권의 경우 세금계산서 발행여부에 따라 과면세 처리가 필요 20180406 김호석
+			                		,:applyAmt
+				                	,:applyAmt
+				                	--,ROUND(:applyAmt*0.1,0) --선수/와상 식권 중 세금계산서 발행 선수금인 경우 20180816			                	
+			                		,0
+			                		--	,ROUND(:applyAmt / 1.1)
+			                		--	,ROUND(:applyAmt / 1.1)
+			                		--	,:applyAmt - ROUND(:applyAmt / 1.1)	
+		                		</#if>	             			
+		                	</#if>
+		                <#else>
+		                	,:applyAmt
+		                	,:applyAmt
+		                	,0
+		                </#if>
+	                <#else>
+	                	<#if vatCd == '20' ||  vatCd == '10'>
+	                		,:applyAmt
+		                	,ROUND(:applyAmt / 1.1)
+		                	,:applyAmt - ROUND(:applyAmt / 1.1)
+		                <#else>
+		                	,:applyAmt
+		                	,:applyAmt
+		                	,0
+		                </#if>
+	                </#if>
+                <#else>
+                	<#if vatCd == '20' ||  vatCd == '10'>
+                		,:applyAmt
+	                	,ROUND(:applyAmt / 1.1)
+	                	,:applyAmt - ROUND(:applyAmt / 1.1)
+	                <#else>
+	                	,:applyAmt
+	                	,:applyAmt
+	                	,0
+	                </#if>
+                </#if>
+                <#if remark?exists> ,:remark <#else> ,null </#if>
+                <#if batchId?exists> ,:batchId <#else> ,null </#if>
+                ,'L'
+                ,:loginSabun
+                ,SYSDATE
+            )
+        ]]></statement>
+    
+    
+	<!-- 선수금 대체 디테일 정보를 등록한다.(선수금 이관 전자결재 상신후) -->
+	<statement name="insertAdvanceAltDtl2" type="insert"><![CDATA[
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.insertAdvanceAltDtl2 */
+            INSERT INTO SLA_ADVANCE_ALT_DETAIL (
+                ADVANCE_ALT_NUM
+                ,ALT_DATE
+                ,ADVANCE_NUM
+                ,ALT_NUM
+                ,RECEIVE_NUM
+                ,COUPON_PROC_NUM
+                ,OCCUR_DATE
+                ,CUST_CD
+                ,MU_CD
+                ,CC_CD
+                ,ACCT_CD
+                ,VAT_CD
+                ,OCCUR_AMT
+                ,APPLY_AMT
+                ,ALT_SUPPLY_AMT
+                ,ALT_VAT_AMT
+                ,REMARK
+                ,BATCH_ID
+                ,RECD_STATUS
+                ,CUSER
+                ,CDATE
+                ,SIGN_INSTANCE_ID
+                ,TRANS_STATUS
+            ) VALUES (
+                SLA_ADVANCE_ALT_NUM_SEQ.NEXTVAL
+                <#if altDate?exists> ,:altDate <#else> ,null </#if>
+                ,:advanceNum
+                ,:altNum
+                <#if receiveNum?exists> ,:receiveNum <#else> ,null </#if>
+                <#if couponProcNum?exists> ,:couponProcNum <#else> ,null </#if>
+                <#if occurDate?exists> ,:occurDate <#else> ,null </#if>
+                <#if custCd?exists> ,:custCd <#else> ,null </#if>
+                <#if muCd?exists> ,:muCd <#else> ,null </#if>
+                <#if ccCd?exists> ,:ccCd <#else> ,null </#if>
+				<#if typeGrpCd?exists && altTypeCd?exists>		
+					,NVL((
+		                SELECT  DISTINCT ACCT_CD
+		                FROM    SLA_TYPE_CD_MST
+		                WHERE   TYPE_GRP_CD = :typeGrpCd
+		                AND     TYPE_CD = :altTypeCd
+		                ),(
+			                SELECT  ACCT_CD
+			                FROM    SLA_ADVANCE_MST
+			                WHERE   ADVANCE_NUM = :advanceNum
+			                AND		ROWNUM = 1
+		                ))
+		        <#else>
+		             ,NVL(:acctCd,
+		             	(
+			                SELECT  ACCT_CD
+			                FROM    SLA_ADVANCE_MST
+			                WHERE   ADVANCE_NUM = :advanceNum
+			                AND		ROWNUM = 1
+		                ))
+               	</#if>
+                <#if vatCd?exists> ,:vatCd <#else> ,null </#if>
+                ,:occurAmt
+                <#if advanceTypeCd?exists>
+                    --선수/외상식권선수금
+	                <#if advanceTypeCd == 'F05' || advanceTypeCd == 'F10'>
+	                    <#if vatCd == '20'>	                    
+	                        <#if altTypeCd == 'G01'> 
+	                        	--잡이익 처리시에는 부가세 생기면 안됨 김호석 수정 2017.06.27 선조치 
+	                			,:applyAmt
+			                	,:applyAmt
+			                	,0
+			                <#else>			      
+		                		-- 환불하는 경우만 부가세 환급하기 위해 alt_vat_amt 금액 계산해서 넣는 부분 필요   
+			                	<#if altTypeCd == 'H01' || altTypeCd == 'H02' || altTypeCd == 'H03' >	
+			                		,ROUND(:applyAmt / 1.1)
+			                		,ROUND(:applyAmt / 1.1)
+			                		,:applyAmt - ROUND(:applyAmt / 1.1)	
+			                	<#else>		
+			                		--선수/외상식권의 경우 세금계산서 발행여부에 따라 과면세 처리가 필요 20180406 김호석
+			                		,:applyAmt
+				                	,:applyAmt
+				                	--,ROUND(:applyAmt*0.1,0) --선수/와상 식권 중 세금계산서 발행 선수금인 경우 20180816			                	
+			                		,0
+			                		--	,ROUND(:applyAmt / 1.1)
+			                		--	,ROUND(:applyAmt / 1.1)
+			                		--	,:applyAmt - ROUND(:applyAmt / 1.1)	
+		                		</#if>	             			
+		                	</#if>
+		                <#else>
+		                	,:applyAmt
+		                	,:applyAmt
+		                	,0
+		                </#if>
+	                <#else>
+	                	<#if vatCd == '20' ||  vatCd == '10'>
+	                		,:applyAmt
+		                	,ROUND(:applyAmt / 1.1)
+		                	,:applyAmt - ROUND(:applyAmt / 1.1)
+		                <#else>
+		                	,:applyAmt
+		                	,:applyAmt
+		                	,0
+		                </#if>
+	                </#if>
+                <#else>
+                	<#if vatCd == '20' ||  vatCd == '10'>
+                		,:applyAmt
+	                	,ROUND(:applyAmt / 1.1)
+	                	,:applyAmt - ROUND(:applyAmt / 1.1)
+	                <#else>
+	                	,:applyAmt
+	                	,:applyAmt
+	                	,0
+	                </#if>
+                </#if>
+                <#if remark?exists> ,:remark <#else> ,null </#if>
+                <#if batchId?exists> ,:batchId <#else> ,null </#if>
+                ,'D'
+                ,:loginSabun
+                ,SYSDATE
+                <#if signInstanceId?exists> ,:signInstanceId <#else> ,null </#if>
+                ,'N'
+            )
+        ]]></statement>
+
+	<!-- 선수금 대체 디테일 정보를 수정한다. -->
+	<statement name="updateAdvanceAltDtl" type="update">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.updateAdvanceAltDtl */
+		<![CDATA[
+            UPDATE  SLA_ADVANCE_ALT_DETAIL
+            SET     ALT_DATE = :altDate
+                    <#if receiveNum?exists> ,RECEIVE_NUM = :receiveNum </#if>
+                    <#if couponProcNum?exists> ,COUPON_PROC_NUM = :couponProcNum </#if>
+                    <#if occurDate?exists> ,OCCUR_DATE = :occurDate </#if>
+                    <#if custCd?exists> ,CUST_CD = :custCd </#if>
+                    <#if muCd?exists> ,MU_CD = :muCd </#if>
+                    <#if ccCd?exists> ,CC_CD = :ccCd </#if>
+                    <#if acctCd?exists> ,ACCT_CD = :acctCd
+                         <#else> ,ACCT_CD = NVL((
+							                SELECT  DISTINCT ACCT_CD
+							                FROM    SLA_TYPE_CD_MST
+							                WHERE   TYPE_GRP_CD = :typeGrpCd
+							                AND     TYPE_CD = :altTypeCd
+							                ),' ')
+				    </#if>
+                    <#if vatCd?exists> ,VAT_CD = :vatCd </#if>
+                    <#if applyAmt?exists>
+	                    <#if advanceTypeCd?exists>
+			                <#if advanceTypeCd == 'F05' || advanceTypeCd == 'F10'>
+			                	<#if vatCd == '20'>
+			                		,APPLY_AMT 		= ROUND(:applyAmt / 1.1)
+			                		,ALT_SUPPLY_AMT = ROUND(:applyAmt / 1.1)
+			                		,ALT_VAT_AMT 	= :applyAmt - ROUND(:applyAmt * 0.1)
+				                <#else>
+				                	,APPLY_AMT 		= :applyAmt
+				                	,ALT_SUPPLY_AMT = :applyAmt
+				                	,ALT_VAT_AMT 	= 0
+				                </#if>
+			                <#else>
+			                	<#if vatCd == '20' || vatCd == '10'>
+		                			,APPLY_AMT 		= :applyAmt
+				                	,ALT_SUPPLY_AMT = ROUND(:applyAmt / 1.1)
+				                	,ALT_VAT_AMT 	= :applyAmt - ROUND(:applyAmt / 1.1)
+				                <#else>
+				                	,APPLY_AMT 		= :applyAmt
+				                	,ALT_SUPPLY_AMT = :applyAmt
+				                	,ALT_VAT_AMT 	= 0
+				                </#if>
+			                </#if> 
+		                <#else>
+		                	<#if vatCd == '20' || vatCd == '10'>
+		                		,APPLY_AMT 		= :applyAmt
+			                	,ALT_SUPPLY_AMT = ROUND(:applyAmt / 1.1)
+			                	,ALT_VAT_AMT 	= :applyAmt - ROUND(:applyAmt / 1.1)
+			                <#else>
+			                	,APPLY_AMT 		= :applyAmt
+			                	,ALT_SUPPLY_AMT = :applyAmt
+			                	,ALT_VAT_AMT = 0
+			                </#if>	                
+		                </#if> 
+                    </#if>
+                    <#if remark?exists> ,REMARK = :remark </#if>
+                    <#if batchId?exists> ,BATCH_ID = :batchId </#if>
+                    <#if recdStatus?exists> ,RECD_STATUS = :recdStatus </#if>
+                    ,UUSER = :loginSabun
+                    ,UDATE = SYSDATE
+            WHERE   ADVANCE_ALT_NUM = :advanceAltNum
+        ]]>
+	</statement>
+
+	<!-- 단건 대체취소 - 선수금 대체디테일정보 삭제 -->
+	<statement name="deleteAdvanceAltDtl" type="delete">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.deleteAdvanceAltDtl */
+		<![CDATA[
+            DELETE
+            FROM    SLA_ADVANCE_ALT_DETAIL
+            WHERE   ALT_NUM = :altNum
+            <#if advanceAltNum?has_content> AND  ADVANCE_ALT_NUM = :advanceAltNum </#if>
+            <#if couponProcNum?has_content> AND  COUPON_PROC_NUM = :couponProcNum </#if>
+        ]]>
+	</statement>
+
+	<!-- 선수금 대체시 선수금 마스터정보의 적용금액을 변경한다. -->
+	<statement name="updateAdvanceApplyAmtProc" type="update">
+		/*+
+		com.hwfs.sm.cmn.dao.AdvanceCommonDAO.updateAdvanceApplyAmtProc
+		*/
+		<![CDATA[
+            UPDATE  SLA_ADVANCE_MST
+            SET     APPLY_AMT = (
+                                SELECT  NVL(SUM(APPLY_AMT),0)
+                                FROM    SLA_ADVANCE_ALT_DETAIL
+                                WHERE   ADVANCE_NUM = :advanceNum
+                                AND     RECD_STATUS = 'L'
+                                )
+                    ,UUSER      = :loginSabun
+                    ,UDATE      = SYSDATE
+            WHERE   ADVANCE_NUM = :advanceNum
+        ]]>
+	</statement>
+
+	<!-- 선수금 대체취소시 선수금 마스터정보의 잔액을 초기화한다. -->
+	<statement name="updateAdvanceApplyAmtCancel" type="update">
+		/*+
+		com.hwfs.sm.cmn.dao.AdvanceCommonDAO.updateAdvanceApplyAmtCancel
+		*/
+		<![CDATA[
+            UPDATE  SLA_ADVANCE_MST
+            SET     APPLY_AMT   = APPLY_AMT - (
+                                SELECT  NVL(SUM(APPLY_AMT),0)
+                                FROM    SLA_ADVANCE_ALT_DETAIL
+                                WHERE   ADVANCE_NUM = :advanceNum
+                                AND		ALT_NUM = :altNum
+                                AND     RECD_STATUS = 'L'
+                                )
+                    ,UUSER      = :loginSabun
+                    ,UDATE      = SYSDATE
+            WHERE   ADVANCE_NUM = :advanceNum
+        ]]>
+	</statement>
+
+	<!-- 선수금 대체취소시 선수금 대체 마스터 정보를 삭제한다.(RECD_STATUS = 'D') -->
+	<statement name="cancelAdvanceAltMaster" type="delete">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.cancelAdvanceAltMaster
+		*/
+		<![CDATA[
+            UPDATE  SLA_ADVANCE_ALT_MST
+            SET     RECD_STATUS = 'D'
+                    ,UUSER  = :loginSabun
+                    ,UDATE  = SYSDATE
+            WHERE   ALT_NUM = :altNum
+        ]]>
+	</statement>
+
+	<!-- 선수금 대체취소시 선수금 대체 디테일 정보를 삭제한다.(RECD_STATUS = 'D') -->
+	<statement name="cancelAdvanceAltDetail" type="delete">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.cancelAdvanceAltDetail
+		*/
+		<![CDATA[
+            UPDATE  SLA_ADVANCE_ALT_DETAIL
+            SET     RECD_STATUS = 'D'
+                    ,UUSER  = :loginSabun
+                    ,UDATE  = SYSDATE            
+            WHERE   ALT_NUM = :altNum
+        ]]>
+	</statement>
+
+	<!-- 단건 대체취소 - 선수금 마스터정보 적용금액 (-)  -->
+	<statement name="updateAdvanceApplyAmt" type="update">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.updateAdvanceApplyAmt
+		*/
+		<![CDATA[
+            UPDATE  SLA_ADVANCE_MST
+            SET     APPLY_AMT   = APPLY_AMT - (
+                                SELECT  NVL(APPLY_AMT,0)
+                                FROM    SLA_ADVANCE_ALT_DETAIL
+                                WHERE   ADVANCE_ALT_NUM = :advanceAltNum
+                                AND		ALT_NUM = :altNum
+                                AND     RECD_STATUS = 'L'
+                                )
+                    ,UUSER      = :loginSabun
+                    ,UDATE      = SYSDATE
+            WHERE   ADVANCE_NUM = :advanceNum
+        ]]>
+	</statement>
+
+	<!-- 단건 대체취소 - 선수금 대체마스터정보 적용금액 (-) -->
+	<statement name="updateAdvanceAltApplyAmtCancel" type="delete">
+		/*+
+		com.hwfs.sm.cmn.dao.AdvanceCommonDAO.updateAdvanceAltApplyAmtCancel
+		*/
+		<![CDATA[
+            UPDATE  SLA_ADVANCE_ALT_MST
+            SET     ALT_AMT  =  ALT_AMT - (
+                                SELECT  NVL(APPLY_AMT,0)
+                                FROM    SLA_ADVANCE_ALT_DETAIL
+                                WHERE   ADVANCE_ALT_NUM = :advanceAltNum
+                                AND		ALT_NUM = :altNum
+                                AND     RECD_STATUS = 'L'
+                                )
+                    ,UUSER  = :loginSabun
+                    ,UDATE  = SYSDATE
+            WHERE   ALT_NUM = :altNum
+        ]]>
+	</statement>
+
+	<!-- 선수금 마스터 정보를 등록한다. -->
+	<statement name="insertAdvanceMaster" type="insert">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.insertAdvanceMaster */
+		<![CDATA[
+            INSERT INTO SLA_ADVANCE_MST
+			(
+			 ADVANCE_NUM,
+			 SEQ,
+			 OCCUR_DATE,
+			 FISCAL_DATE,
+			 ADVANCE_OCCUR_CLASS,
+			 ADVANCE_TYPE_CD,
+			 CUST_CD,
+			 SYS_CLASS,
+			 MU_CD,
+			 CC_CD,
+			 ACCT_CD,
+			 OCCUR_AMT,
+			 APPLY_AMT,
+			 REMARK,
+			 BATCH_ID,
+			 OCCUR_SUPPLY_AMT,
+			 OCCUR_VAT_AMT,
+			 APPLY_SUPPLY_AMT,
+			 APPLY_VAT_AMT,
+			 VAT_CD,
+			 NEWHGHT_UPJANG,
+			 RESERV_NUM,
+			 RESERV_DATE,
+			 CUST_NM,
+			 GUEST_TEL_NUM,
+			 JOURNALZ_YN,
+			 JOURNALZ_NUM,
+			 UPJANG_CD,
+			 RECEIPT_NUM,
+			 MNGMV_ADVANCE_NUM,
+			 REF_NUM,
+			 COUPON_PROC_NUM,
+			 RECD_STATUS,
+			 CUSER,
+			 CDATE,
+			 UUSER,
+			 UDATE
+			) VALUES (
+			 :maxAdvanceNum,
+			<#if seq?exists> :seq, <#else> null, </#if>
+			 :occurDate,
+			<#if fiscalDate?exists> :fiscalDate, <#else> null, </#if>
+			 :advanceOccurClass,
+			<#if advanceTypeCd?exists> :advanceTypeCd, <#else> null, </#if>
+			<#if custCd?exists> :custCd, <#else> null, </#if>
+			<#if sysClass?exists> :sysClass, <#else> null, </#if>
+			<#if muCd?exists> :muCd, <#else> null, </#if>
+			<#if ccCd?exists> :ccCd, <#else> null, </#if>
+			<#if acctCd?exists> :acctCd, <#else> null, </#if>
+			 :occurAmt,
+			 0,
+			 :remark,
+			<#if batchId?exists> :batchId, <#else> null, </#if>
+			<#if advanceTypeCd?exists>
+	            <#if advanceTypeCd == 'F05' || advanceTypeCd == 'F10'>
+	            	<#if vatCd == '20'>
+	            		:occurAmt,
+	            		ROUND(:occurAmt * 0.1),
+		            <#else>
+		             	:occurAmt,
+		             	0,
+		            </#if>
+	            <#else>
+	            	<#if vatCd == '20' || vatCd == '10'>
+		            	ROUND(:occurAmt / 1.1),
+		            	:occurAmt - ROUND(:occurAmt / 1.1),
+		            <#else>
+		             	:occurAmt,
+		             	0,
+		            </#if>	            
+	            </#if>
+            <#else>
+            	<#if vatCd == '20' || vatCd == '10'>
+	            	ROUND(:occurAmt / 1.1),
+	            	:occurAmt - ROUND(:occurAmt / 1.1),
+	            <#else>
+	             	:occurAmt,
+	             	0,
+	            </#if>	             
+            </#if>
+			<#if applySupplyAmt?exists> :applySupplyAmt, <#else> null, </#if>
+			<#if applyVatAmt?exists> :applyVatAmt, <#else> null, </#if>
+			 :vatCd,
+			<#if newhghtUpjang?exists> :newhghtUpjang, <#else> null, </#if>
+			<#if reservNum?exists> :reservNum, <#else> null, </#if>
+			<#if reservDate?exists> :reservDate, <#else> null, </#if>
+			<#if custNm?exists> :custNm, <#else> null, </#if>
+			<#if guestTelNum?exists> :guestTelNum, <#else> null, </#if>
+			 :journalzYn,
+			<#if journalzNum?exists> :journalzNum, <#else> null, </#if>			
+            --업장코드 안들어가는 문제 수정 2017.08.09 김호석
+			<#if upjangCd?exists>						
+				<#if upjangCd == '' >				
+					<#if muCd == '2004'>
+						<#if custCd?exists>
+							(SELECT MAX(UPJANG) FROM ST_UPJANG WHERE CUSTCD = :custCd),
+						<#else>
+							:upjangCd, 
+						</#if>	
+					<#else>
+           			 	(SELECT MAX(UPJANG) FROM ST_UPJANG WHERE ST_UPJANG.CC_CD = :ccCd),  --1
+           			</#if>           			
+           		<#else>		  
+           			:upjangCd, 
+           		</#if>           		      
+			<#else>
+				<#if muCd == '2004'>
+					<#if custCd?exists>
+						(SELECT MAX(UPJANG) FROM ST_UPJANG WHERE CUSTCD = :custCd),
+					<#else>
+						null,
+					</#if>	
+				<#else>
+					 (SELECT MAX(UPJANG) FROM ST_UPJANG WHERE ST_UPJANG.CC_CD = :ccCd), 
+				</#if>			
+			</#if>
+			<#if receiptNum?exists> :receiptNum, <#else> null, </#if>
+			<#if mngmvAdvanceNum?exists> :mngmvAdvanceNum, <#else> null, </#if>
+			<#if refNum?exists> :refNum, <#else> null, </#if>
+			<#if couponProcNum?exists> :couponProcNum, <#else> null, </#if>
+			'L',
+			 :loginSabun,
+			 SYSDATE,
+			 :loginSabun,
+			 SYSDATE
+			)
+        ]]>
+	</statement>
+
+	<!-- 선수금 마스터 정보를 등록한다. (거래처/업장 이관시 사용) -->
+	<statement name="insertAdvanceMasterTrans" type="insert">
+		/*+
+		com.hwfs.sm.cmn.dao.AdvanceCommonDAO.insertAdvanceMasterTrans */
+		<![CDATA[
+            INSERT INTO SLA_ADVANCE_MST (
+                ADVANCE_NUM
+                ,SEQ
+                ,OCCUR_DATE
+                ,FISCAL_DATE
+                ,ADVANCE_OCCUR_CLASS
+                ,ADVANCE_TYPE_CD
+                ,CUST_CD
+                ,SYS_CLASS
+                ,MU_CD
+                ,CC_CD
+                ,ACCT_CD
+                ,OCCUR_AMT
+                ,APPLY_AMT
+                ,REMARK
+                ,BATCH_ID
+                ,OCCUR_SUPPLY_AMT
+                ,OCCUR_VAT_AMT
+                ,APPLY_SUPPLY_AMT
+                ,APPLY_VAT_AMT
+                ,VAT_CD
+                ,NEWHGHT_UPJANG
+                ,RESERV_NUM
+                ,RESERV_DATE
+                ,CUST_NM
+                ,GUEST_TEL_NUM
+                ,JOURNALZ_YN
+                ,JOURNALZ_NUM
+                ,UPJANG_CD
+                ,RECEIPT_NUM
+                ,MNGMV_ADVANCE_NUM
+                ,REF_NUM
+                ,COUPON_PROC_NUM
+                ,WH_NUM
+                ,RECD_STATUS
+                ,TAX_SHET_PUBLISH_YN
+                ,CUSER
+                ,CDATE
+            )
+            SELECT  :transAdvanceNum
+                    ,SEQ
+                    ,:transAltDate
+                    ,:transAltDate
+                    ,:advanceOccurClass
+                    ,:advanceTypeCd
+                    <#if transCustCd?exists> ,:transCustCd <#else> ,CUST_CD </#if>
+                    ,SYS_CLASS
+                    --,MU_CD
+                    --타부서 이관 시 이관된 부서의 사업부 코드로 들어가도록 수정 20180508 김호석 추가
+                    <#if transCcCd?exists> ,(SELECT MU_CD FROM SCC_CC WHERE CC_CD = :transCcCd) <#else> ,MU_CD </#if>
+                    <#if transCcCd?exists> ,:transCcCd <#else> ,CC_CD </#if>
+                    --계정코드가 넘어오면 넘어온 값 사용(계정이관시) 20190416 김호석                    
+                    <#if acctCd?exists> ,:acctCd <#else> ,ACCT_CD </#if>
+                    --,ACCT_CD
+                    ,:applyAmt
+                    ,0
+                    ,:remark
+                    ,BATCH_ID
+	                <#if advanceTypeCd == 'F05' || advanceTypeCd == 'F10'>
+	                	<#if vatCd == '20'>
+	                		,:applyAmt
+	                		,ROUND(:applyAmt * 0.1)
+		                <#else>
+		                	,:applyAmt
+		                	--식권선수금 이관 시(환불처리를 위함) 2018.03.22 김호석
+		                	--,ROUND(:applyAmt * 0.1)
+		                	,0
+		                </#if>
+	                <#else>
+	                	<#if vatCd == '20' || vatCd == '10'>
+		                	,ROUND(:applyAmt / 1.1)
+		                	,:applyAmt - ROUND(:applyAmt / 1.1)
+		                <#else>
+		                	,:applyAmt
+		                	,0
+		                </#if>	                
+	                </#if>
+                    ,0
+                    ,0
+                    --식권 선수금 이관 시 부가세 처리 2018.03.22 김호석
+	                <#if advanceTypeCd == 'F05' || advanceTypeCd == 'F10'>
+	                	--, '20'
+	                	,VAT_CD
+	                <#else>
+                   	 	,VAT_CD
+                    </#if>
+                    
+                    ,NEWHGHT_UPJANG
+                    ,RESERV_NUM
+                    ,RESERV_DATE
+                    <#if transCustNm?exists> ,:transCustNm <#else> ,CUST_NM </#if>
+                    ,GUEST_TEL_NUM
+                    --식권 선수금 이관 시 2018.03.22 김호석
+	                <#if advanceTypeCd == 'F05' || advanceTypeCd == 'F10'>
+	    				--, 'N'
+	    				--, null  
+	                    ,:journalzYn
+    	                ,:journalzNum          
+	                <#else>
+	                    ,:journalzYn
+    	                ,:journalzNum
+                    </#if>
+                    --업장코드 안들어가는 문제 수정 2017.08.09 김호석
+                    <#if transUpjangCd?exists && transUpjangCd != ''> 
+                    	,:transUpjangCd
+                    <#else> 
+                    	--, UPJANG_CD
+                    	--식재사업부 타부서 이관인 경우 업장코드가 잘못들어가는 문제 수정 2018.03.12 김호석(선조치)
+                    	<#if transCcCd?exists>
+                    		--타부서 이관 시 UPJANG_CD 변경되도록 오류 수정 20181029 김호석
+                    		,CASE WHEN ((SELECT MU_CD FROM SCC_CC WHERE CC_CD = :transCcCd) = '2004') THEN
+							 	UPJANG_CD --기존 업장코드 그대로 넣기
+							 ELSE 
+								(SELECT MAX(UPJANG) FROM ST_UPJANG WHERE ST_UPJANG.CC_CD = :transCcCd)	 --CC코드에 해당되는 업장코드
+							 END
+						<#else>
+                    		, (SELECT MAX(UPJANG) FROM ST_UPJANG WHERE ST_UPJANG.CC_CD = :ccCd) --CC코드에 해당되는 업장코드
+                        </#if>
+                    </#if>
+                    ,RECEIPT_NUM
+                    ,:mngmvAdvanceNum
+                    ,:refNum
+                    ,COUPON_PROC_NUM
+                    , WH_NUM
+                    ,'L'
+                    ,TAX_SHET_PUBLISH_YN
+                    ,:loginSabun
+                    ,SYSDATE
+            FROM    SLA_ADVANCE_MST
+            WHERE   ADVANCE_NUM = :advanceNum
+        ]]>
+	</statement>
+	
+	<!-- 선수금 마스터 정보를 등록한다. (거래처/업장 이관시 사용) (선수금 이관 전자결재 상신후) -->
+	<statement name="insertAdvanceMasterTrans2" type="insert">
+		/*+
+		com.hwfs.sm.cmn.dao.AdvanceCommonDAO.insertAdvanceMasterTrans2 */
+		<![CDATA[
+            INSERT INTO SLA_ADVANCE_MST (
+                ADVANCE_NUM
+                ,SEQ
+                ,OCCUR_DATE
+                ,FISCAL_DATE
+                ,ADVANCE_OCCUR_CLASS
+                ,ADVANCE_TYPE_CD
+                ,CUST_CD
+                ,SYS_CLASS
+                ,MU_CD
+                ,CC_CD
+                ,ACCT_CD
+                ,OCCUR_AMT
+                ,APPLY_AMT
+                ,REMARK
+                ,BATCH_ID
+                ,OCCUR_SUPPLY_AMT
+                ,OCCUR_VAT_AMT
+                ,APPLY_SUPPLY_AMT
+                ,APPLY_VAT_AMT
+                ,VAT_CD
+                ,NEWHGHT_UPJANG
+                ,RESERV_NUM
+                ,RESERV_DATE
+                ,CUST_NM
+                ,GUEST_TEL_NUM
+                ,JOURNALZ_YN
+                ,JOURNALZ_NUM
+                ,UPJANG_CD
+                ,RECEIPT_NUM
+                ,MNGMV_ADVANCE_NUM
+                ,REF_NUM
+                ,COUPON_PROC_NUM
+                ,WH_NUM
+                ,RECD_STATUS
+                ,TAX_SHET_PUBLISH_YN
+                ,CUSER
+                ,CDATE
+                ,SIGN_INSTANCE_ID
+                ,TRANS_STATUS
+            )
+            SELECT  :transAdvanceNum
+                    ,SEQ
+                    ,:transAltDate
+                    ,:transAltDate
+                    ,:advanceOccurClass
+                    ,:advanceTypeCd
+                    <#if transCustCd?exists> ,:transCustCd <#else> ,CUST_CD </#if>
+                    ,SYS_CLASS
+                    --,MU_CD
+                    --타부서 이관 시 이관된 부서의 사업부 코드로 들어가도록 수정 20180508 김호석 추가
+                    <#if transCcCd?exists> ,(SELECT MU_CD FROM SCC_CC WHERE CC_CD = :transCcCd) <#else> ,MU_CD </#if>
+                    <#if transCcCd?exists> ,:transCcCd <#else> ,CC_CD </#if>                    
+                    --계정코드가 넘어오면 넘어온 값 사용(계정이관시) 20190416 김호석                    
+                    <#if acctCd?exists> ,:acctCd <#else> ,ACCT_CD </#if>
+                    ,:applyAmt
+                    ,0
+                    ,:remark
+                    ,BATCH_ID
+	                <#if advanceTypeCd == 'F05' || advanceTypeCd == 'F10'>
+	                	<#if vatCd == '20'>
+	                		,:applyAmt
+	                		,ROUND(:applyAmt * 0.1)
+		                <#else>
+		                	,:applyAmt
+		                	--식권선수금 이관 시(환불처리를 위함) 2018.03.22 김호석
+		                	--,ROUND(:applyAmt * 0.1)
+		                	,0
+		                </#if>
+	                <#else>
+	                	<#if vatCd == '20' || vatCd == '10'>
+		                	,ROUND(:applyAmt / 1.1)
+		                	,:applyAmt - ROUND(:applyAmt / 1.1)
+		                <#else>
+		                	,:applyAmt
+		                	,0
+		                </#if>	                
+	                </#if>
+                    ,0
+                    ,0
+                    --식권 선수금 이관 시 부가세 처리 2018.03.22 김호석
+	                <#if advanceTypeCd == 'F05' || advanceTypeCd == 'F10'>
+	                	--, '20'
+	                	,VAT_CD
+	                <#else>
+                   	 	,VAT_CD
+                    </#if>
+                    
+                    ,NEWHGHT_UPJANG
+                    ,RESERV_NUM
+                    ,RESERV_DATE
+                    <#if transCustNm?exists> ,:transCustNm <#else> ,CUST_NM </#if>
+                    ,GUEST_TEL_NUM
+                    --식권 선수금 이관 시 2018.03.22 김호석
+	                <#if advanceTypeCd == 'F05' || advanceTypeCd == 'F10'>
+	    				--, 'N'
+	    				--, null  
+	                    ,:journalzYn
+    	                ,:journalzNum          
+	                <#else>
+	                    ,:journalzYn
+    	                ,:journalzNum
+                    </#if>
+                    --업장코드 안들어가는 문제 수정 2017.08.09 김호석
+                    <#if transUpjangCd?exists && transUpjangCd != ''> 
+                    	,:transUpjangCd
+                    <#else> 
+                    	--, UPJANG_CD
+                    	--식재사업부 타부서 이관인 경우 업장코드가 잘못들어가는 문제 수정 2018.03.12 김호석(선조치)
+                    	<#if transCcCd?exists>
+                    		--타부서 이관 시 UPJANG_CD 변경되도록 오류 수정 20181029 김호석
+                    		,CASE WHEN ((SELECT MU_CD FROM SCC_CC WHERE CC_CD = :transCcCd) = '2004') THEN
+							 	UPJANG_CD --기존 업장코드 그대로 넣기
+							 ELSE 
+								(SELECT MAX(UPJANG) FROM ST_UPJANG WHERE ST_UPJANG.CC_CD = :transCcCd)	 --CC코드에 해당되는 업장코드
+							 END
+						<#else>
+                    		, (SELECT MAX(UPJANG) FROM ST_UPJANG WHERE ST_UPJANG.CC_CD = :ccCd) --CC코드에 해당되는 업장코드
+                        </#if>
+                    </#if>
+                    ,RECEIPT_NUM
+                    ,:mngmvAdvanceNum
+                    ,:refNum
+                    ,COUPON_PROC_NUM
+                    , WH_NUM
+                    ,'D'
+                    ,TAX_SHET_PUBLISH_YN
+                    ,:loginSabun
+                    ,SYSDATE
+                    <#if signInstanceId?exists> ,:signInstanceId <#else> ,null </#if>
+                    ,'N'
+            FROM    SLA_ADVANCE_MST
+            WHERE   ADVANCE_NUM = :advanceNum
+        ]]>
+	</statement>
+
+	<!-- 선수금 대체시 선수금 마스터정보의 적용금액을 변경한다. -->
+	<statement name="updateAdvanceMasterTrans" type="update">
+		/*+
+		com.hwfs.sm.cmn.dao.AdvanceCommonDAO.updateAdvanceMasterTrans */
+		<![CDATA[
+            UPDATE  SLA_ADVANCE_MST
+            SET     OCCUR_AMT           = :applyAmt
+            	<#if advanceTypeCd?exists>
+	                <#if advanceTypeCd == 'F05' || advanceTypeCd == 'F10'>
+	                	<#if vatCd == '20'>
+	                		,OCCUR_SUPPLY_AMT = :applyAmt
+	                		,OCCUR_VAT_AMT = ROUND(:applyAmt * 0.1)
+		                <#else>
+		                	,OCCUR_SUPPLY_AMT = :applyAmt
+		                	,OCCUR_VAT_AMT = 0
+		                </#if>
+	                <#else>
+	                	<#if vatCd == '20' || vatCd == '10'>
+		                	,OCCUR_SUPPLY_AMT = ROUND(:applyAmt / 1.1)
+		                	,OCCUR_VAT_AMT = :applyAmt - ROUND(:applyAmt / 1.1)
+		                <#else>
+		                	,OCCUR_SUPPLY_AMT = :applyAmt
+		                	,OCCUR_VAT_AMT = 0
+		                </#if>	                
+	                </#if>
+                <#else>
+                	<#if vatCd == '20' || vatCd == '10'>
+	                	,OCCUR_SUPPLY_AMT = ROUND(:applyAmt / 1.1)
+	                	,OCCUR_VAT_AMT = :applyAmt - ROUND(:applyAmt / 1.1)
+	                <#else>
+	                	,OCCUR_SUPPLY_AMT = :applyAmt
+	                	,OCCUR_VAT_AMT = 0
+	                </#if>	                
+
+                </#if>
+                    ,UUSER              = :loginSabun
+                    ,UDATE              = SYSDATE
+            WHERE   REF_NUM         	= :altNum
+        ]]>
+	</statement>
+
+	<!-- 선수금마스터 정보 수정(쿠폰판매)  -->
+	<statement name="updateAdvanceMasterCoupon" type="update">
+		/*+
+		com.hwfs.sm.cmn.dao.AdvanceCommonDAO.updateAdvanceMasterCoupon
+		*/
+		<![CDATA[
+            UPDATE  SLA_ADVANCE_MST
+            SET     <#if occurDate?exists> OCCUR_DATE = :occurDate, </#if>
+                    <#if muCd?exists> MU_CD = :muCd, </#if>
+				    <#if ccCd?exists> CC_CD = :ccCd, </#if>
+				    <#if occurAmt?exists> OCCUR_AMT = :occurAmt, </#if>
+				    <#if remark?exists> REMARK = :remark, </#if>
+				    <#if occurSupplyAmt?exists> OCCUR_SUPPLY_AMT = :occurSupplyAmt, </#if>
+				    <#if occurVatAmt?exists> OCCUR_VAT_AMT = :occurVatAmt, </#if>
+                    UUSER      = :loginSabun,
+                    UDATE      = SYSDATE
+            WHERE   ADVANCE_NUM = :advanceNum
+        ]]>
+	</statement>
+
+	<!-- 선수금 이관취소시 선수금 마스터 정보를 삭제한다.(RECD_STATUS = 'D') -->
+	<statement name="cancelAdvanceMaster" type="delete">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.cancelAdvanceMaster */
+		<![CDATA[
+            UPDATE  SLA_ADVANCE_MST
+            SET     RECD_STATUS = 'D'
+                    ,UUSER  = :loginSabun
+                    ,UDATE  = SYSDATE            
+            WHERE   ADVANCE_NUM =  (
+            						SELECT 	ADVANCE_NUM
+            						FROM	SLA_ADVANCE_MST
+            						WHERE	RECD_STATUS = 'L'
+            						AND		MNGMV_ADVANCE_NUM = :advanceNum
+            						AND     REF_NUM = :altNum
+            						)
+        ]]>
+	</statement>
+
+	<!-- 선수금 취소시 선수금 마스터 정보를 삭제한다.(RECD_STATUS = 'D') -->
+	<statement name="mstAdvanceCancel" type="delete">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.mstAdvanceCancel */
+		<![CDATA[
+            UPDATE  SLA_ADVANCE_MST
+            SET     RECD_STATUS = 'D'
+                    ,UUSER  = :loginSabun
+                    ,UDATE  = SYSDATE
+            WHERE   ADVANCE_NUM = :advanceNum
+        ]]>
+	</statement>
+
+	<!-- 재이관 여부 체크 -->
+	<statement name="chkAdvanceTransInfo" type="select">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.chkAdvanceTransInfo */
+		<![CDATA[
+            SELECT  COUNT(*) CNT
+            FROM    SLA_ADVANCE_MST
+            WHERE   RECD_STATUS = 'L'
+            AND     MNGMV_ADVANCE_NUM = :advanceNum
+        ]]>
+	</statement>
+
+	<!-- 이관취소 가능여부 -->
+	<statement name="chkAdvanceTransCancel" type="select">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.chkAdvanceTransCancel
+		*/
+		<![CDATA[
+            SELECT  COUNT(*) CNT
+            FROM    SLA_ADVANCE_MST
+            WHERE   RECD_STATUS = 'L'
+            AND     MNGMV_ADVANCE_NUM = :advanceNum
+        ]]>
+	</statement>
+
+	<!-- 계정코드 등록. -->
+	<statement name="setAcctCd" type="update">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.setAcctCd */
+		<![CDATA[
+            UPDATE  SLA_ADVANCE_ALT_DETAIL
+            SET     ACCT_CD =   (
+                                SELECT  DISTINCT ACCT_CD
+                                FROM    SLA_TYPE_CD_MST
+                                WHERE   TYPE_GRP_CD = '007'
+                                AND     TYPE_CD = :altTypeCd
+                                )
+                    ,UUSER = :loginSabun
+                    ,UDATE = SYSDATE
+            WHERE   ADVANCE_ALT_NUM = :advanceAltNum
+        ]]>
+	</statement>
+
+	<!-- 선수금총잔액 조회 -->
+	<statement name="selectTotalAdvanceAmt" type="select">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.selectTotalAdvanceAmt
+		*/
+		<![CDATA[
+            SELECT  NVL(SUM(OCCUR_AMT),0) - NVL(SUM(APPLY_AMT),0) AS TOTAL_ADVANCE_AMT
+            FROM    SLA_ADVANCE_MST
+            WHERE   RECD_STATUS = 'L'
+            AND     MU_CD = :muCd
+            AND     CC_CD = :ccCd
+            AND     CUST_CD = :custCd
+        ]]>
+	</statement>
+
+	<!-- 가수금 대체시 선수금 마스터 정보등록 후 지불 수단 발생 -->
+	<statement name="insertAdvanceReceiveWay" type="insert">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.insertAdvanceReceiveWay
+		*/
+		<![CDATA[
+            INSERT INTO SLA_ADVANCE_RECEIVE_WAY (
+                ADVANCE_NUM
+                ,SEQ
+                ,RECEIVE_TYPE_CD
+                ,CUST_CD
+                ,IMNO_ALT_NUM
+                ,ADJUST_AMT
+                ,RECD_STATUS
+                ,CUSER
+                ,CDATE
+                ,UUSER
+                ,UDATE
+                ,SETTLE_CLASS
+            ) VALUES (
+                :advanceNum
+                ,(
+                SELECT NVL(MAX(SEQ) + 1, 1)
+                FROM   SLA_ADVANCE_RECEIVE_WAY
+                WHERE  ADVANCE_NUM = :advanceNum
+                )
+                ,'AO05'  --가수금전환
+                ,:custCd
+                ,:altNum
+                ,:occurAmt
+                ,'L'
+                ,:loginSabun
+                ,SYSDATE
+                ,:loginSabun
+                ,SYSDATE
+                ,'3'
+            )
+        ]]>
+	</statement>
+
+	<!-- 선수금 입금 수단 발생 -->
+	<statement name="insertOriAdvanceReceiveWay" type="insert">
+		/*+
+		com.hwfs.sm.cmn.dao.AdvanceCommonDAO.insertOriAdvanceReceiveWay
+		*/
+		<![CDATA[
+            INSERT INTO SLA_ADVANCE_RECEIVE_WAY (
+                 ADVANCE_NUM,
+				 SEQ,
+				 RECEIVE_TYPE_CD,
+				 CUST_CD,
+				 AR_TYPE_CD,
+				 AR_NUM,
+				 BUYCPNY_CD,
+				 SELF_BU_CLASS_CD,
+				 CREDIT_CARD_NUM,
+				 APPRV_NUM,
+				 VALID_YYMM,
+				 RECEIVE_BANKCD,
+				 IMNO_CRGLEFT_NUM,
+				 SUSPENSE_DATE,
+				 IMNO_RECEIVE_SEQ,
+				 SUSPENSE_SRLNUM,
+				 IMNO_ALT_NUM,
+				 ADJUST_AMT,
+				 RECD_STATUS,
+				 CUSER,
+				 CDATE,
+				 UUSER,
+				 UDATE,
+				 SALES_CASH_NUM,
+				 SETTLE_CLASS,
+				 ADVANCE_ALT_NUM
+            ) VALUES (
+                 :advanceNum,
+				 (
+                SELECT NVL(MAX(SEQ) + 1, 1)
+                FROM   SLA_ADVANCE_RECEIVE_WAY
+                WHERE  ADVANCE_NUM = :advanceNum
+                ),
+				 :receiveTypeCd,
+				<#if custCd?exists> :custCd, <#else> null, </#if>
+				<#if arTypeCd?exists> :arTypeCd, <#else> null, </#if>
+				<#if arNum?exists> :arNum, <#else> null, </#if>
+				<#if buycpnyCd?exists> :buycpnyCd, <#else> null, </#if>
+				<#if selfBuClassCd?exists> :selfBuClassCd, <#else> null, </#if>
+				<#if creditCardNum?exists> :creditCardNum, <#else> null, </#if>
+				<#if apprvNum?exists> :apprvNum, <#else> null, </#if>
+				<#if validYymm?exists> :validYymm, <#else> null, </#if>
+				<#if receiveBankcd?exists> :receiveBankcd, <#else> null, </#if>
+				<#if imnoCrgleftNum?exists> :imnoCrgleftNum, <#else> null, </#if>
+				<#if suspenseDate?exists> :suspenseDate, <#else> null, </#if>
+				<#if imnoReceiveSeq?exists> :imnoReceiveSeq, <#else> null, </#if>
+				<#if suspenseSrlnum?exists> :suspenseSrlnum, <#else> null, </#if>
+				<#if imnoAltNum?exists> :imnoAltNum, <#else> null, </#if>
+				<#if adjustAmt?exists> :adjustAmt, <#else> null, </#if>
+				'L',
+				 :loginSabun,
+				 SYSDATE,
+				 :loginSabun,
+				 SYSDATE,
+				<#if salesCashNum?exists> :salesCashNum, <#else> null, </#if>
+				<#if settleClass?exists> :settleClass, <#else> null, </#if>
+				<#if advanceAltNum?exists> :advanceAltNum <#else> null </#if>
+            )
+        ]]>
+	</statement>
+
+	<!-- 선수금 취소시 선수금 입금수단 정보를 삭제한다.(RECD_STATUS = 'D') -->
+	<statement name="advanceReceiveWayCancel" type="delete">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.advanceReceiveWayCancel
+		*/
+		<![CDATA[
+            UPDATE  SLA_ADVANCE_RECEIVE_WAY
+            SET     RECD_STATUS = 'D'
+                    ,UUSER  = :loginSabun
+                    ,UDATE  = SYSDATE
+            WHERE   ADVANCE_NUM = :advanceNum
+        ]]>
+	</statement>
+
+	<!-- MAS_TICKET_MST(식권환불/이관) 등록 -->
+	<statement name="insertMasTicketMst" type="update">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.insertMasTicketMst */
+		<![CDATA[
+            INSERT INTO MAS_TICKET_MST (
+                TICKET_SEQ
+                ,TICKET_GROUP_SEQ
+                ,UPJANG
+                ,ITEM_TYPE
+                ,ITEM_CODE
+                ,TRANS_DD
+                ,TRANS_TYPE
+                ,TRANS_GUBUN
+                ,UPRICE
+                ,QTY
+                ,TICKET_STARTNUM
+                ,TICKET_ENDNUM
+                ,REMARK_DESC
+                ,ATTR02
+                ,AUTO_GUBUN
+                ,AUTO_KIND
+                ,SOURCE_ID
+                ,RECEIPT_NUM
+                ,ADVANCE_ALT_NUM
+                ,SUBTEAM_MST_SABUN
+				,APPROV_SABUN
+				,TEAM_MST_SABUN
+                ,CUSER
+                ,CDATE
+            ) VALUES (
+                MAS_TICKET_MST_S.NEXTVAL
+                ,MAS_TICKET_MST_GROUP_S.NEXTVAL
+                ,<#if upjang?has_content>:upjang            <#else> null </#if>
+                ,<#if itemType?has_content>:itemType        <#else> null </#if>
+                ,<#if itemCode?has_content>:itemCode        <#else> null </#if>
+                ,<#if transDd?has_content>:transDd<#else>TO_CHAR(SYSDATE, 'YYYYMMDD')</#if>
+                ,<#if transType?has_content>:transType      <#else> null </#if>
+                ,<#if transGubun?has_content>:transGubun    <#else> null </#if>
+                ,<#if price?has_content>:price              <#else> null </#if>
+                ,<#if qty?has_content>:qty                  <#else> null </#if>
+                ,<#if ticketStartnum?has_content>:ticketStartnum <#else> null </#if>
+                ,<#if ticketEndnum?has_content>:ticketEndnum <#else> null </#if>
+                ,<#if remarkDesc?has_content>:remarkDesc    <#else> null </#if>
+                ,<#if attr02?has_content>:attr02            <#else> null </#if>
+                ,'N'
+                ,NULL
+                ,<#if substId?has_content>:substId          <#else> null </#if>
+                ,<#if receiptNum?has_content>	:receiptNum <#else> null	</#if>
+                ,:advanceAltNum
+                ,(SELECT DISTINCT SUBTEAM_MST_SABUN FROM SCO_UPJANG_MST WHERE UPJANG = :upjang) -- SUBTEAM_MST_SABUN
+                ,(SELECT DISTINCT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0123' AND USE_YN = 'Y' AND ROWNUM = 1) --APPROV_SABUN
+                ,(SELECT DISTINCT TEAM_MST_SABUN FROM SCO_UPJANG_MST WHERE UPJANG = :upjang) --TEAM_MST_SABUN
+                ,:loginSabun
+                ,SYSDATE
+            )
+        ]]>
+	</statement>
+
+	<!-- MAS_TICKET_MST(식권환불/이관) 삭제 -->
+	<statement name="deleteMasTicketMst" type="delete">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.deleteMasTicketMst */
+		<![CDATA[
+            DELETE
+            FROM    MAS_TICKET_MST
+            WHERE   ADVANCE_ALT_NUM = :altNum
+            AND     UPJANG          = :upjangCd
+            <#if receiptNum?has_content>AND     RECEIPT_NUM     = :receiptNum</#if>
+            AND TRANS_GUBUN = 'XR'
+        ]]>
+	</statement>
+
+	<statement name="insertMasTicketMst_bak" type="update">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.insertMasTicketMst */
+		<![CDATA[
+            MERGE INTO  MAS_TICKET_MST A
+                USING   (
+                        SELECT  :receiptNum                                                             RECEIPT_NUM
+                                ,<#if qty?has_content>:qty                          <#else> null </#if> QTY
+                                ,<#if substId?has_content>:substId                  <#else> null </#if> SUBST_ID
+                                ,<#if price?has_content>:price                      <#else> null </#if> UPRICE
+                                ,<#if upjang?has_content>:upjang                    <#else> null </#if> UPJANG
+                                ,<#if itemCode?has_content>:itemCode                <#else> null </#if> ITEM_CODE
+                                ,<#if itemType?has_content>:itemType                <#else> null </#if> ITEM_TYPE
+                                ,<#if transType?has_content>:transType              <#else> null </#if> TRANS_TYPE
+                                ,<#if transGubun?has_content>:transGubun            <#else> null </#if> TRANS_GUBUN
+                                ,<#if remarkDesc?has_content>:remarkDesc            <#else> null </#if> REMARK_DESC
+                                ,<#if attr02?has_content>:attr02                    <#else> null </#if> ATTR02
+                        FROM    DUAL)  B
+                    ON  (A.RECEIPT_NUM = B.RECEIPT_NUM)
+            WHEN MATCHED THEN
+                UPDATE
+                SET     A.QTY                   = B.QTY
+                        ,A.SUBST_ID             = B.SUBST_ID
+                        ,A.UPRICE               = B.UPRICE
+                        ,A.UPJANG               = B.UPJANG
+                        ,A.ITEM_CODE            = B.ITEM_CODE
+                        ,A.ITEM_TYPE            = B.ITEM_TYPE
+                        ,A.TRANS_DD             = TO_CHAR(SYSDATE, 'YYYYMMDD')
+                        ,A.TRANS_TYPE           = B.TRANS_TYPE
+                        ,A.TRANS_GUBUN          = B.TRANS_GUBUN
+                        ,A.REMARK_DESC          = B.REMARK_DESC
+                        ,A.ATTR02               = B.ATTR02
+                        ,A.TICKET_STARTNUM      = NULL
+                        ,A.TICKET_ENDNUM        = NULL
+                        ,A.AUTO_GUBUN           = 'N'
+                        ,A.AUTO_KIND            = NULL
+                        ,A.UUSER                = :loginSabun
+                        ,A.UDATE                = SYSDATE
+            WHEN NOT MATCHED THEN
+                INSERT  (
+                        TICKET_SEQ
+                        ,TICKET_GROUP_SEQ
+                        ,UPJANG
+                        ,ITEM_TYPE
+                        ,ITEM_CODE
+                        ,TRANS_DD
+                        ,TRANS_TYPE
+                        ,TRANS_GUBUN
+                        ,UPRICE
+                        ,QTY
+                        ,TICKET_STARTNUM
+                        ,TICKET_ENDNUM
+                        ,REMARK_DESC
+                        ,ATTR02
+                        ,AUTO_GUBUN
+                        ,AUTO_KIND
+                        --,SOURCE_ID
+                        ,RECEIPT_NUM
+                        ,CUSER
+                        ,CDATE
+                ) VALUES (
+                        MAS_TICKET_MST_S.NEXTVAL
+                        ,MAS_TICKET_MST_GROUP_S.NEXTVAL
+                        ,B.UPJANG
+                        ,B.ITEM_TYPE
+                        ,B.ITEM_CODE
+                        ,TO_CHAR(SYSDATE, 'YYYYMMDD')
+                        ,B.TRANS_TYPE
+                        ,B.TRANS_GUBUN
+                        ,B.UPRICE
+                        ,B.QTY
+                        ,NULL
+                        ,NULL
+                        ,B.REMARK_DESC
+                        ,B.ATTR02
+                        ,'N'
+                        ,NULL
+                        --,B.SOURCE_ID
+                        ,B.RECEIPT_NUM
+                        ,:loginSabun
+                        ,SYSDATE
+                )
+        ]]>
+	</statement>
+
+	<!-- 선수금잔액 체크 -->
+	<statement name="getAdvanceAltYn">
+		/*+ com.hwfs.sm.cmn.dao.AdvanceCommonDAO.getAdvanceAltYn */
+		<![CDATA[
+            SELECT  CASE WHEN SLA_GET_ADVANCE_BAL_AMT(ADVANCE_TYPE_CD, ADVANCE_NUM, :applyAmt) + :applyAmtOrg < 0 THEN 'N' ELSE 'Y' END ADVANCE_YN
+            FROM    SLA_ADVANCE_MST
+            WHERE   ADVANCE_NUM = :advanceNum
+        ]]>
+	</statement>
+
+	<!-- 선수금정보 환불 대상 조회 -->
+	<statement name="selectAdvanceRefundMst" type="select"><![CDATA[
+            SELECT  0 AS CHK
+            		,ADVANCE_NUM
+                    ,SEQ
+                    ,OCCUR_DATE
+                    ,FISCAL_DATE
+                    ,ADVANCE_OCCUR_CLASS
+                    ,ADVANCE_TYPE_CD
+                    ,CUST_CD
+                    ,SYS_CLASS
+                    ,MU_CD
+                    ,CC_CD
+                    ,ACCT_CD
+                    ,BATCH_ID
+                    ,OCCUR_AMT_ORG
+                    ,APPLY_AMT_ORG
+                    ,OCCUR_SUPPLY_AMT
+                    ,OCCUR_VAT_AMT
+                    ,APPLY_SUPPLY_AMT
+                    ,APPLY_VAT_AMT
+                    ,VAT_CD
+                    ,NEWHGHT_UPJANG
+                    ,RESERV_NUM
+                    ,RESERV_DATE
+                    ,CUST_NM
+                    ,GUEST_TEL_NUM
+                    ,JOURNALZ_YN
+                    ,JOURNALZ_NUM
+                    ,UPJANG_CD
+                    ,RECEIPT_NUM
+                    ,MNGMV_ADVANCE_NUM
+                    ,REF_NUM
+                    ,COUPON_PROC_NUM
+                    ,RECD_STATUS
+                    ,ALT_NUM
+                    ,ALT_DATE
+                    ,ADVANCE_ALT_NUM
+                    ,RECEIVE_NUM
+                    ,REMARK
+                    ,OCCUR_AMT
+                    ,APPLY_AMT
+                    ,BAL_AMT
+                    ,ROW_STATUS
+                    ,0 APPLY_AMT_SUM
+                    ,ALT_SUPPLY_AMT
+                    ,ALT_VAT_AMT
+                    ,ADVANCE_OCCUR_CLASS_NM
+                    ,ADVANCE_TYPE_CD_NM
+                    ,SYS_CLASS_NM
+                    ,MU_NM
+                    ,CC_NM
+                    ,ACCT_NM
+                    ,'' ADVANCE_ALT_OCCUR_CLASS
+                    ,'' ALT_TYPE_CD
+                    ,'' TRANS_ALT_DATE
+                    ,'' TRANS_YN
+                    ,'' TRANS_CUST_CD
+                    ,'' TRANS_CUST_NM
+                    ,'' TRANS_CC_CD
+                    ,'' TRANS_CC_NM
+                    ,'' TRANS_UPJANG_CD
+                    ,'' TRANS_UPJANG_NM
+                    ,'' TYPE_GRP_CD
+                    ,NVL((SELECT SUM(AMT)
+                      FROM   SLA_IF_ADVANCE_ADJUST AJ
+                      WHERE  AJ.ADVANCE_NUM = T.ADVANCE_NUM
+                      GROUP BY AJ.ADVANCE_NUM), 0) ADVANCE_USE_AMT
+                    ,TAX_SEND_YN
+                    ,TAX_YN
+                    ,0 NET_AMT
+                    ,0 VAT_AMT   
+                    ,(SELECT Q.TAX_SHET_APPRV_NUM FROM SLA_ADVANCE_ALT_MST Q WHERE Q.ALT_NUM = T.ALT_NUM ) AS TAX_SHET_APPRV_NUM                              
+            FROM    (
+                    SELECT  M.ADVANCE_NUM                   -- 선수금 번호
+                            ,M.SEQ                          -- 순번
+                            ,M.OCCUR_DATE                   -- 발생 일자
+                            ,M.FISCAL_DATE                  -- 회계일자
+                            ,M.ADVANCE_OCCUR_CLASS          -- 선수금 발생 구분
+                            ,M.ADVANCE_TYPE_CD              -- 선수금 유형 코드
+                            ,M.CUST_CD                      -- 거래처 코드
+                            ,M.SYS_CLASS                    -- 시스템 구분
+                            ,M.MU_CD                        -- MU 코드
+                            ,M.CC_CD                        -- CC 코드
+                            ,M.ACCT_CD                      -- 계정 코드
+                            ,M.BATCH_ID                     -- BATCH ID
+                            ,M.OCCUR_AMT OCCUR_AMT_ORG      -- 발생금액(Master)
+                            ,M.APPLY_AMT APPLY_AMT_ORG      -- 적용금액(Master)
+                            ,M.OCCUR_SUPPLY_AMT             -- 발생 공급가액
+                            ,M.OCCUR_VAT_AMT                -- 발생 부가세 금액
+                            ,M.APPLY_SUPPLY_AMT             -- 적용 공급가액
+                            ,M.APPLY_VAT_AMT                -- 적용 부가세 금액
+                            ,M.VAT_CD                       -- 부가세 코드
+                            ,M.NEWHGHT_UPJANG               -- 신고 사업장
+                            ,M.RESERV_NUM                   -- 예약번호
+                            ,M.RESERV_DATE                  -- 예약 일자
+                            ,M.CUST_NM                      -- 거래처 명
+                            ,M.GUEST_TEL_NUM                -- 고객 전화 번호
+                            ,M.UPJANG_CD                    -- 업장코드
+                            ,M.RECEIPT_NUM                  -- 영수증 번호
+                            ,M.MNGMV_ADVANCE_NUM            -- 이관 선수금 번호
+                            ,M.REF_NUM						-- 참조번호
+                            ,M.COUPON_PROC_NUM              -- 쿠폰 처리 번호
+                            ,M.RECD_STATUS                  -- 레코드 상태
+                <#if altNum?has_content>
+                            ,NVL(D.JOURNALZ_YN,'N') JOURNALZ_YN  -- 분개여부
+                            ,D.JOURNALZ_NUM                 -- 분개번호
+                            ,D.ALT_NUM                      -- 선수금 대체 번호
+                            ,D.ALT_DATE                     -- 대체일자
+                            ,D.ADVANCE_ALT_NUM              -- 순번
+                            ,D.RECEIVE_NUM                  -- 입금번호
+                            ,M.REMARK
+                            ,CASE WHEN M.ADVANCE_TYPE_CD = 'F05' OR M.ADVANCE_TYPE_CD = 'F10' THEN
+                            	--M.OCCUR_SUPPLY_AMT + M.OCCUR_VAT_AMT - NVL((
+                            	NVL(M.OCCUR_SUPPLY_AMT,0) - NVL((
+	                               --SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0)
+	                               -- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 함
+	                               --SELECT  DECODE(M.TAX_SHET_PUBLISH_YN,'N', NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0),NVL(SUM(DD.APPLY_AMT),0))
+	                               -- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 하고 계산서 발행 아닌 식권도 부가세는 없으므로 SUPPLY_AMT만 적용해야함
+	                               SELECT  NVL(SUM(DD.APPLY_AMT),0)  
+                            	     FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0) + NVL((
+	                                --SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0)
+	                                SELECT  NVL(SUM(DD.APPLY_AMT),0) 
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.ADVANCE_ALT_NUM = D.ADVANCE_ALT_NUM
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0)                            	
+                            ELSE
+	                            M.OCCUR_AMT - NVL((
+	                                SELECT  NVL(SUM(DD.APPLY_AMT),0)
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0) + NVL((
+	                                SELECT  NVL(SUM(DD.APPLY_AMT),0)      
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.ADVANCE_ALT_NUM = D.ADVANCE_ALT_NUM
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0)
+	                        END OCCUR_AMT
+                            ,CASE WHEN M.ADVANCE_TYPE_CD = 'F05' OR M.ADVANCE_TYPE_CD = 'F10' THEN
+	                            NVL((
+	                               -- SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0)
+	                           	   -- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 함
+	                               --SELECT  DECODE(M.TAX_SHET_PUBLISH_YN,'N', NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0),NVL(SUM(DD.APPLY_AMT),0))
+	                               SELECT  NVL(SUM(DD.APPLY_AMT),0)      
+	                                 FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.ADVANCE_ALT_NUM = D.ADVANCE_ALT_NUM
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0)
+                            ELSE
+	                            NVL((
+	                                SELECT  NVL(SUM(DD.APPLY_AMT),0)      
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.ADVANCE_ALT_NUM = D.ADVANCE_ALT_NUM
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0)   
+                            END APPLY_AMT
+                            ,CASE WHEN M.ADVANCE_TYPE_CD = 'F05' OR M.ADVANCE_TYPE_CD = 'F10' THEN
+                            	-- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 함
+                            	--M.OCCUR_SUPPLY_AMT + DECODE(M.TAX_SHET_PUBLISH_YN, 'N', NVL(M.OCCUR_VAT_AMT,0),0) - NVL((                            	
+                            	-- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 하고 계산서 발행 아닌 식권도 부가세는 없으므로 SUPPLY_AMT만 적용해야함
+                            	M.OCCUR_SUPPLY_AMT - NVL((  
+	                                SELECT  NVL(SUM(DD.APPLY_AMT),0)
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0)
+	                        ELSE
+	                            M.OCCUR_AMT - NVL((
+	                                --SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0)
+	                                SELECT  NVL(SUM(DD.APPLY_AMT),0) 
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0)
+                            END BAL_AMT
+                            ,'UPDATE' ROW_STATUS
+                            ,NVL((
+	                                SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0)
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                                AND     DD.ADVANCE_ALT_NUM = D.ADVANCE_ALT_NUM
+	                            ),M.APPLY_SUPPLY_AMT) ALT_SUPPLY_AMT
+                            ,NVL((
+	                                SELECT  NVL(SUM(DD.ALT_VAT_AMT),0)
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                                AND     DD.ADVANCE_ALT_NUM = D.ADVANCE_ALT_NUM
+	                            ),M.APPLY_VAT_AMT) ALT_VAT_AMT
+                            ,SCC_COMMON_CODE_NAME_FUN('ADVANCE_OCCUR_CLASS',M.ADVANCE_OCCUR_CLASS) ADVANCE_OCCUR_CLASS_NM
+                            ,(SELECT TP.TYPE_NM FROM SLA_TYPE_CD_MST TP WHERE TP.TYPE_GRP_CD = '006' AND TP.TYPE_CD = M.ADVANCE_TYPE_CD) ADVANCE_TYPE_CD_NM
+                            ,SCC_COMMON_CODE_NAME_FUN('SYS_CLASS',M.SYS_CLASS) SYS_CLASS_NM
+                            ,(SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE M.MU_CD = MU.MU_CD) MU_NM
+                            ,(SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE M.CC_CD = CC.CC_CD) CC_NM
+                            ,(SELECT DISTINCT ACCT.ACCTNM FROM HLDC_ST_ACCOUNT_V ACCT WHERE M.ACCT_CD = ACCT.ACCTCD) ACCT_NM
+                            ,SLA_GET_TAX_SHET_OCCUR_YN('ADVANCE',M.ADVANCE_NUM) TAX_SEND_YN
+                            ,TAX_SHET_PUBLISH_YN AS  TAX_YN
+                    FROM    SLA_ADVANCE_MST M
+                            ,SLA_ADVANCE_ALT_DETAIL D
+                    WHERE   M.ADVANCE_NUM = D.ADVANCE_NUM
+                    AND     M.RECD_STATUS = 'L'
+                    AND     D.RECD_STATUS = 'L'
+	                AND     D.ALT_NUM = :altNum 
+                <#else>
+                            ,NVL(M.JOURNALZ_YN,'N') JOURNALZ_YN  -- 분개여부
+                            ,M.JOURNALZ_NUM                 -- 분개번호
+                            ,'' ALT_NUM
+                            ,'' ALT_DATE
+                            ,'' ADVANCE_ALT_NUM
+                            ,'' RECEIVE_NUM
+                            ,M.REMARK
+                            ,CASE WHEN M.ADVANCE_TYPE_CD = 'F05' OR M.ADVANCE_TYPE_CD = 'F10' THEN
+                            	--NVL(M.OCCUR_SUPPLY_AMT,0) + NVL(M.OCCUR_VAT_AMT,0) - NVL((
+                                -- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 함. 처리자 : 맹수영 (CH201606_00531)
+                            	--NVL(M.OCCUR_SUPPLY_AMT,0) + DECODE(M.TAX_SHET_PUBLISH_YN, 'N', NVL(M.OCCUR_VAT_AMT,0),0) - NVL((   
+                            	-- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 하고 계산서 발행 아닌 식권도 부가세는 없으므로 SUPPLY_AMT만 적용해야함                   	
+                            	NVL(M.OCCUR_SUPPLY_AMT,0) - NVL((
+	                               -- SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0)
+	                            SELECT  NVL(SUM(DD.APPLY_AMT),0) 
+                            	--SELECT  DECODE(M.TAX_SHET_PUBLISH_YN,'Y',  NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0), NVL(SUM( APPLY_AMT),0))    
+                            	FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0) - NVL((
+	                                SELECT  NVL(SUM(DD.NET_AMT),0) + NVL(SUM(DD.VAT_AMT),0)
+	                                FROM    SLA_IF_UPJANG_PAYMENT DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.EVIDENCE_1 = M.ADVANCE_NUM AND DD.DDDD_CLOSE_YN = 'N'
+	                            ),0)    
+                            ELSE
+                            	NVL(M.OCCUR_AMT,0) - NVL((SELECT  SUM(DD.APPLY_AMT) FROM SLA_ADVANCE_ALT_DETAIL DD WHERE   DD.RECD_STATUS = 'L'  AND DD.ADVANCE_NUM = M.ADVANCE_NUM),0) 
+                          	END OCCUR_AMT
+                            ,0 APPLY_AMT
+                            ,CASE WHEN M.ADVANCE_TYPE_CD = 'F05' OR M.ADVANCE_TYPE_CD = 'F10' THEN
+	                            --NVL(M.OCCUR_SUPPLY_AMT,0) + NVL(M.OCCUR_VAT_AMT,0) - NVL((
+                                -- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 함. 처리자 : 맹수영 (CH201606_00531)
+                            	--NVL(M.OCCUR_SUPPLY_AMT,0) + DECODE(M.TAX_SHET_PUBLISH_YN, 'N', NVL(M.OCCUR_VAT_AMT,0),0) - NVL((  
+                            	-- 세금계산서 발행 식권인경우 발행금액의 부가세 금액을 제외시켜야 하고 계산서 발행 아닌 식권도 부가세는 없으므로 SUPPLY_AMT만 적용해야함                   	
+                            	NVL(M.OCCUR_SUPPLY_AMT,0) - NVL((                    	
+	                               -- SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0)
+	                           SELECT  NVL(SUM(DD.APPLY_AMT),0) 
+                            	--SELECT  DECODE(M.TAX_SHET_PUBLISH_YN,'Y',  NVL(SUM(DD.ALT_SUPPLY_AMT),0) + NVL(SUM(DD.ALT_VAT_AMT),0), NVL(SUM( APPLY_AMT),0))    
+                            	FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0)  - NVL((
+	                                SELECT  NVL(SUM(DD.NET_AMT),0) + NVL(SUM(DD.VAT_AMT),0)
+	                                FROM    SLA_IF_UPJANG_PAYMENT DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.EVIDENCE_1 = M.ADVANCE_NUM AND DD.DDDD_CLOSE_YN = 'N'
+	                            ),0)    	                            
+                            ELSE
+                            	NVL(M.OCCUR_AMT,0) - NVL((SELECT  SUM(DD.APPLY_AMT) FROM SLA_ADVANCE_ALT_DETAIL DD WHERE   DD.RECD_STATUS = 'L'  AND DD.ADVANCE_NUM = M.ADVANCE_NUM),0)
+                          	END BAL_AMT
+                            ,'INSERT' ROW_STATUS
+                            ,NVL((
+	                                SELECT  NVL(SUM(DD.ALT_SUPPLY_AMT),0)
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0) ALT_SUPPLY_AMT
+                            ,NVL((
+	                                SELECT  NVL(SUM(DD.ALT_VAT_AMT),0)
+	                                FROM    SLA_ADVANCE_ALT_DETAIL DD
+	                                WHERE   DD.RECD_STATUS = 'L'
+	                                AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+	                            ),0) ALT_VAT_AMT
+                            ,SCC_COMMON_CODE_NAME_FUN('ADVANCE_OCCUR_CLASS',M.ADVANCE_OCCUR_CLASS) ADVANCE_OCCUR_CLASS_NM
+                            ,(SELECT TP.TYPE_NM FROM SLA_TYPE_CD_MST TP WHERE TP.TYPE_GRP_CD = '006' AND TP.TYPE_CD = M.ADVANCE_TYPE_CD) ADVANCE_TYPE_CD_NM
+                            ,SCC_COMMON_CODE_NAME_FUN('SYS_CLASS',M.SYS_CLASS) SYS_CLASS_NM
+                            ,(SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE M.MU_CD = MU.MU_CD) MU_NM
+                            ,(SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE M.CC_CD = CC.CC_CD) CC_NM
+                            ,(SELECT DISTINCT ACCT.ACCTNM FROM HLDC_ST_ACCOUNT_V ACCT WHERE M.ACCT_CD = ACCT.ACCTCD) ACCT_NM
+                            ,SLA_GET_TAX_SHET_OCCUR_YN('ADVANCE',M.ADVANCE_NUM) TAX_SEND_YN
+                            ,TAX_SHET_PUBLISH_YN AS  TAX_YN
+                    FROM    SLA_ADVANCE_MST M
+                    WHERE   M.RECD_STATUS = 'L'
+             --       AND     M.ADVANCE_NUM NOT IN (
+             --                                   SELECT  ADVANCE_NUM
+             --                                   FROM    SLA_TAX_SHET_OCCUR_OBJ
+             --                                   WHERE   ADVANCE_NUM IS NOT NULL
+             --                                   ) 
+	                <#if inqueryCustCd?has_content>
+	                    <#if custNm?has_content>
+	                        AND     (M.CUST_CD = :inqueryCustCd OR M.CUST_NM LIKE '%'||:custNm||'%')
+	                    <#else>
+	                        AND     M.CUST_CD = :inqueryCustCd
+	                    </#if>
+	                <#else>
+	                    <#if custNm?has_content>
+		                    AND     M.CUST_NM LIKE '%'||:custNm||'%'
+		                </#if>
+	                </#if>             
+                </#if>
+                --상세조회인 경우 조건 제외 20180828 김호석, 상세조회 안되는 문제 수정(환불일자와 선수금 발생일이 다른 경우 안나옴)
+                <#if altNum?has_content>
+                <#else>                             
+	                <#if inqueryStartDate?has_content>
+	                    AND     M.OCCUR_DATE >= :inqueryStartDate
+	                </#if>
+	                <#if inqueryEndDate?has_content>
+	                    AND     M.OCCUR_DATE <= :inqueryEndDate
+	                </#if>
+	            </#if>
+                <#if inqueryMuCd?has_content>
+                    AND     M.MU_CD = :inqueryMuCd
+                </#if>
+                <#if inqueryTmCd?has_content>
+		            AND     M.CC_CD IN (
+		                            SELECT  A.CC_CD
+		                            FROM    SCC_CC A
+		                                    ,HLDC_SC_DEPT_V B
+		                            WHERE   B.CC_CD = A.CC_CD
+		                            AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+		                            AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+		                            AND     B.TM_CD = :inqueryTmCd
+		                            )
+                </#if>
+                <#if inqueryCcCd?has_content>
+                    AND     M.CC_CD = :inqueryCcCd
+                </#if>
+                <#if inqueryUpjangCd?has_content>
+                    AND     M.UPJANG_CD = :inqueryUpjangCd
+                </#if>
+                <#if inqueryAdvanceTypeCd?has_content>
+                    AND     M.ADVANCE_TYPE_CD = :inqueryAdvanceTypeCd
+                </#if>
+                <#if inqueryAdvanceNum?has_content>
+                    AND     M.ADVANCE_NUM LIKE '%'||:inqueryAdvanceNum||'%'
+                </#if>
+                <#if advanceAltOccurClass?has_content>
+                	<#if advanceAltOccurClass == 'TO03'>
+                		AND		M.ADVANCE_TYPE_CD NOT IN ('F05','F10','F04','F09') --쿠폰은 쿠폰환불에서 처리필요
+                	</#if>
+                	<#if advanceAltOccurClass == 'TO11' ||  advanceAltOccurClass == 'TO14'>
+                		AND		M.ADVANCE_TYPE_CD IN ('F05','F10')
+                    </#if>
+                </#if>
+                --상세조회인 경우 조건 제외 20180828 김호석, 상세조회 안되는 문제 수정(환불일자와 선수금 발생일이 다른 경우 안나옴)
+                <#if altNum?has_content>   
+                <#else>   
+                    --선수금 환불 시 상신중인 선수금번호는 제외 20190415 김호석(이성희과장 요청)                                
+                	AND NOT EXISTS (SELECT H.ADVANCE_NUM FROM SLA_ADVANCE_ALT_DETAIL H, SCC_SIGN_INFO S WHERE H.ADVANCE_NUM = M.ADVANCE_NUM AND H.RECD_STATUS = 'D' AND H.TRANS_STATUS != 'Y' AND H.SIGN_INSTANCE_ID = S.SIGN_INSTANCE_ID(+) AND S.SIGN_PROGRESS_STATUS NOT IN ('REJECT','CANCEL'))
+                	<#if fiscalDateFrom?has_content>
+	                    AND     M.FISCAL_DATE >= :fiscalDateFrom
+	                </#if>
+	                <#if fiscalDateTo?has_content>
+	                    AND     M.FISCAL_DATE <= :fiscalDateTo
+	                </#if>
+	            </#if>
+                <#if advanceOccurClass?has_content>
+                    AND     M.ADVANCE_OCCUR_CLASS = :advanceOccurClass
+                </#if>
+                    ) T
+        <#if altNum?has_content>
+            WHERE   1=1
+        <#else>
+            WHERE   OCCUR_AMT NOT IN (-2,-1,0,1,2)
+        </#if>
+        <#if inputVal?has_content>
+            AND     (REMARK LIKE '%'||:inputVal||'%' OR RESERV_NUM LIKE '%'||:inputVal||'%'
+            		 OR CUST_NM LIKE '%'||:inputVal||'%' OR GUEST_TEL_NUM LIKE '%'||:inputVal||'%')
+        </#if>
+        <#if gubun?has_content> --여기서부터 수정(Yu)
+        <#else>
+        	ORDER BY ADVANCE_NUM, ALT_NUM, ADVANCE_ALT_NUM
+        </#if>
+
+        ]]></statement>
+</hqml>

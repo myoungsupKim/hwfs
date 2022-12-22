@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+       A.UPJANG
+     , A.MENU_DATE
+     , SUBSTR(A.MENU_DATE,7,2) ||'일('|| TO_CHAR(TO_DATE(A.MENU_DATE,'YYYYMMDD'),'DY','NLS_DATE_LANGUAGE=KOREAN') ||')' AS V_DAY
+     , A.MENU_CD
+     , A.HALL_CD
+     , B.HALL_CLASS
+     , B.HALL_NAME
+     -- 행사식/카페테리아 단가 표시 위해 변경  20160613  요청자:윤지혜 처리자 : 맹수영 (SR201605_16114)
+     --, C.MEAL_UPRICE
+     --, DECODE(B.HALL_CLASS,'010',A.SALE_PRICE, C.MEAL_UPRICE) MEAL_UPRICE
+     , DECODE(B.HALL_CLASS,'010',A.SALE_PRICE, '005',(SELECT SUM(SALE_PRICE) FROM FSM_REAL_RECIPE_MST F WHERE F.MENU_CD = A.MENU_CD AND F.UPJANG = A.UPJANG),C.MEAL_UPRICE) MEAL_UPRICE
+     , A.MEAL
+     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0023' AND CODE = A.MEAL) MEAL_NM
+     , A.CORNER
+     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0022' AND CODE = A.CORNER) CORNER_NM
+     , (SELECT AB.CORNER_DESC FROM FSA_HALL_DTL AB
+         WHERE AB.UPJANG  = A.UPJANG
+           AND AB.HALL_CD = A.HALL_CD
+           AND AB.MEAL    = A.MEAL
+           AND AB.CORNER  = A.CORNER) CORNER_DESC
+     , A.EXPECT_MEAL_QTY
+     , A.REAL_MEAL_QTY
+     , A.COOK_MEAL_QTY
+     , (A.REAL_MEAL_QTY - A.EXPECT_MEAL_QTY) OH_CHA
+     , FSM_REAL_RECIPE_NAME_FUN(A.UPJANG,A.MENU_CD) AS SIKDAN
+     , A.MENU_FEATURE
+  FROM FSM_REAL_MENU_MST A,
+       FSA_HALL_MST B,
+       FSA_HALL_DTL C
+ WHERE A.UPJANG = #UPJANG#
+   AND MENU_DATE = #MENU_DATE#
+   AND A.UPJANG = B.UPJANG(+)
+   AND A.HALL_CD = B.HALL_CD(+)
+   AND A.UPJANG = C.UPJANG(+)
+   AND A.HALL_CD = C.HALL_CD(+)
+   AND A.MEAL = C.MEAL(+)
+   AND A.CORNER = C.CORNER(+)
+   AND C.USE_YN(+) = 'Y'
+ORDER BY B.HALL_CLASS, A.MENU_CD	]]></statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

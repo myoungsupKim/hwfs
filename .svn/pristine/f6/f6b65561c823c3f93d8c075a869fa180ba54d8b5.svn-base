@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[영양평가]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 'AA' AS DATA_GUBUN, A.MENU_DATE,
+       A.UPJANG,
+       A.HALL_CD,
+       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE='FS0022' AND CODE=A.CORNER) AS CORNER_NAME,
+       SUM(ROUND((D.CAL * C.EDIBLE_QTY / 100),2)) CAL,     -- "열량"
+       SUM(ROUND((D.PROT * C.EDIBLE_QTY / 100),2)) PROT,   --"단백질"
+	   SUM(ROUND((D.CARBO * C.EDIBLE_QTY / 100),2)) CARBO, --"당질"
+	   SUM(ROUND((D.FAT * C.EDIBLE_QTY / 100),2)) FAT,     --"지질"
+	   SUM(ROUND((D.WATER * C.EDIBLE_QTY / 100),2)) WATER, --"수분"
+       SUM(ROUND((D.FIBER * C.EDIBLE_QTY / 100),2)) FIBER, --"섬유소"
+	   SUM(ROUND((D.CA * C.EDIBLE_QTY / 100),2)) CA,       --"칼슘"
+	   SUM(ROUND((D.P * C.EDIBLE_QTY / 100),2)) P,         --"인"
+	   SUM(ROUND((D.FE * C.EDIBLE_QTY / 100),2)) FE,        --"철분"
+       SUM(ROUND((D.NA * C.EDIBLE_QTY / 100),2)) NA,       --"나트륨"
+       SUM(ROUND((D.K * C.EDIBLE_QTY / 100),2)) K,         --"칼륨"
+       SUM(ROUND((D.CHOLE * C.EDIBLE_QTY / 100),2)) CHOLE --"콜레스테롤"
+  FROM FSH_CYCLE_MENU_MST A,    -- 실재 식단 마스터(KEY : UPJANG, MENU_CD)
+       FSH_CYCLE_RECIPE_MST B,  -- 실재 레시피 마스터(KEY : UPJANG, MENU_CD, RECIPE_CD)
+       FSH_CYCLE_RECIPE_ITEM C, -- 실재 레시피 품목(KEY : UPJANG, MENU_CD, RECIPE_CD, ITEM_CODE)
+       FSI_ITEM_NUT D
+ WHERE A.UPJANG = #UPJANG# -- "업장코드(필수조회조건)"
+   AND A.HALL_CD = #HALL_CD# -- "식당코드(필수조회조건)"
+<isNotNull col="CORNER">
+   AND A.CORNER = #CORNER# --"코너코드(검색조건)"
+</isNotNull>
+   AND A.MENU_DATE BETWEEN #FROM_MENU_DATE# AND #TO_MENU_DATE# -- "제공일자(검색조건)"
+   AND A.UPJANG = B.UPJANG
+   AND A.MENU_CD = B.MENU_CD
+   AND B.UPJANG = C.UPJANG
+   AND B.MENU_CD = C.MENU_CD
+   AND B.RECIPE_CD = C.RECIPE_CD
+   AND C.ITEM_CODE = D.ITEM_CODE
+ GROUP BY A.MENU_DATE, A.UPJANG, A.HALL_CD, A.CORNER
+ UNION ALL
+SELECT 'BB' AS DATA_GUBUN,  A.MENU_DATE,
+       A.UPJANG,
+       A.HALL_CD,
+       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE='FS0022' AND CODE=A.CORNER) AS CORNER_NAME,
+       DECODE(NVL(B.CAL_STD,  0), 0, 0, ROUND((A.CAL  /B.CAL_STD*100),2)),
+       DECODE(NVL(B.PROT_STD, 0), 0, 0, ROUND((A.PROT /B.PROT_STD*100),2)),
+       DECODE(NVL(B.CARBO_STD,0), 0, 0, ROUND((A.CARBO/B.CARBO_STD*100),2)),
+       DECODE(NVL(B.FAT_STD,  0), 0, 0, ROUND((A.FAT  /B.FAT_STD*100),2)),
+       DECODE(NVL(B.WATER_STD,0), 0, 0, ROUND((A.WATER/B.WATER_STD*100),2)),
+       DECODE(NVL(B.FIBER_STD,0), 0, 0, ROUND((A.FIBER/B.FIBER_STD*100),2)),
+       DECODE(NVL(B.CA_STD,   0), 0, 0, ROUND((A.CA   /B.CA_STD*100),2)),
+       DECODE(NVL(B.P_STD,    0), 0, 0, ROUND((A.P    /B.P_STD*100),2)),
+       DECODE(NVL(B.FE_STD,   0), 0, 0, ROUND((A.FE   /B.FE_STD*100),2)),
+       DECODE(NVL(B.NA_STD,   0), 0, 0, ROUND((A.NA   /B.NA_STD*100),2)),
+       DECODE(NVL(B.K_STD,    0), 0, 0, ROUND((A.K    /B.K_STD*100),2)),
+       DECODE(NVL(B.CHOLE_STD,0), 0, 0, ROUND((A.CHOLE/B.CHOLE_STD*100),2))
+  FROM (
+SELECT A.MENU_DATE,
+       A.UPJANG,
+       A.HALL_CD,
+       A.CORNER,
+       SUM(ROUND((D.CAL * C.EDIBLE_QTY / 100),2)) CAL,     --"열량"
+       SUM(ROUND((D.PROT * C.EDIBLE_QTY / 100),2)) PROT,   --"단백질"
+	   SUM(ROUND((D.CARBO * C.EDIBLE_QTY / 100),2)) CARBO, --"당질"
+	   SUM(ROUND((D.FAT * C.EDIBLE_QTY / 100),2)) FAT,     --"지질"
+	   SUM(ROUND((D.WATER * C.EDIBLE_QTY / 100),2)) WATER, --"수분"
+       SUM(ROUND((D.FIBER * C.EDIBLE_QTY / 100),2)) FIBER, --"섬유소"
+	   SUM(ROUND((D.CA * C.EDIBLE_QTY / 100),2)) CA,       --"칼슘"
+	   SUM(ROUND((D.P * C.EDIBLE_QTY / 100),2)) P,         --"인"
+	   SUM(ROUND((D.FE * C.EDIBLE_QTY / 100),2)) FE,       --"철분"
+       SUM(ROUND((D.NA * C.EDIBLE_QTY / 100),2)) NA,       --"나트륨"
+       SUM(ROUND((D.K * C.EDIBLE_QTY / 100),2)) K,         --"칼륨"
+       SUM(ROUND((D.CHOLE * C.EDIBLE_QTY / 100),2)) CHOLE --"콜레스테롤"
+  FROM FSH_CYCLE_MENU_MST A,    -- 실재 식단 마스터(KEY : UPJANG, MENU_CD)
+       FSH_CYCLE_RECIPE_MST B,  -- 실재 레시피 마스터(KEY : UPJANG, MENU_CD, RECIPE_CD)
+       FSH_CYCLE_RECIPE_ITEM C, -- 실재 레시피 품목(KEY : UPJANG, MENU_CD, RECIPE_CD, ITEM_CODE)
+       FSI_ITEM_NUT D
+ WHERE A.UPJANG = #UPJANG# -- "업장코드(필수조회조건)"
+   AND A.HALL_CD = #HALL_CD# -- "식당코드(필수조회조건)"
+<isNotNull col="CORNER">
+   AND A.CORNER = #CORNER# --"코너코드(검색조건)"
+</isNotNull>
+   AND A.MENU_DATE BETWEEN #FROM_MENU_DATE# AND #TO_MENU_DATE# -- "제공일자(검색조건)"
+   AND A.UPJANG = B.UPJANG
+   AND A.MENU_CD = B.MENU_CD
+   AND B.UPJANG = C.UPJANG
+   AND B.MENU_CD = C.MENU_CD
+   AND B.RECIPE_CD = C.RECIPE_CD
+   AND C.ITEM_CODE = D.ITEM_CODE
+ GROUP BY A.MENU_DATE, A.UPJANG, A.HALL_CD, A.CORNER
+) A,
+(SELECT UPJANG, HALL_CD, CORNER,
+        MAX(CAL_QTY)          CAL_STD,
+        MAX(PROT_QTY)         PROT_STD,
+        MAX(CARBO_RCMD_QTY)   CARBO_STD,
+        MAX(FAT_RCMD_QTY)     FAT_STD,
+        MAX(WATER_QTY)        WATER_STD,
+        MAX(FIBER_QTY)        FIBER_STD,
+        MAX(CA_RCMD_QTY)      CA_STD,
+        MAX(P_QTY)            P_STD,
+        MAX(FE_RCMD_QTY)      FE_STD,
+        MAX(NA_QTY)           NA_STD,
+        MAX(K_QTY)            K_STD,
+        MAX(CHOLE_QTY)        CHOLE_STD
+  FROM FSA_HALL_NUT_STD
+WHERE  UPJANG  = #UPJANG#
+AND    HALL_CD = #HALL_CD#
+GROUP BY UPJANG, HALL_CD, CORNER) B
+ WHERE A.UPJANG = B.UPJANG
+   AND A.HALL_CD = B.HALL_CD
+   AND A.CORNER = B.CORNER
+ORDER BY 2,3,4,5	</statement>
+	<input default-name="ds_Input">
+	</input>
+	<output default-name="ds_List">
+	</output>
+</query>

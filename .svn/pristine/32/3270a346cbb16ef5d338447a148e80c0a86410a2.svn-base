@@ -1,0 +1,486 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fm.fms.strategyProfitDAO">
+	<desc>전략이익율 등록 HQML Query</desc>
+
+	<!-- 전략이익율 CC별 목록을 조회한다. -->
+	<statement name="selectStd" type="select">
+		/*+ com.hwfs.fm.fms.dao.StrategyProfitDAO.selectStd */
+		<![CDATA[
+		SELECT
+			  B.CENTER_NAME 
+			, A.SET2 AS CENTER_CODE
+			, A.SET1 AS CC_CD
+			, A.CODE_NAME || '(' || A.SET1 || ')' AS CC_NM
+			, :schDate AS SCH_DATE
+			, (SELECT COUNT(*) FROM FMS_STRATEGY_PROFIT WHERE CENTER_CODE = A.SET2 AND CC_CD = A.SET1 AND PROFIT_DATE =:schDate AND CLASS_TYPE = 'D') AS CLASS_CNT 
+			, (SELECT COUNT(*) FROM FMS_STRATEGY_PROFIT WHERE CENTER_CODE = A.SET2 AND CC_CD = A.SET1 AND PROFIT_DATE =:schDate AND CLASS_TYPE = 'M') AS ITEM_CNT 
+		FROM SCC_COMMON_CODE A INNER JOIN HLDC_PO_CENTER B ON A.SET2 = B.CENTER_CODE
+		WHERE A.GROUP_CODE = 'FMS_STRATEGY'
+		AND A.USE_YN = 'Y'
+		<#if schCenter?has_content>
+			<#if schCenter != '*'>
+			AND A.SET2 = :schCenter
+			</#if>
+		</#if>
+		ORDER BY A.SORT_SEQ		
+		]]>
+	</statement>
+
+	<!-- 자재분류 정보를 조회한다. -->
+	<statement name="selectClassType" type="select">
+		/*+ com.hwfs.fm.fms.dao.StrategyProfitDAO.selectClassType */
+		<![CDATA[
+		SELECT
+	  		  B.SET1 CLASS_CODE 
+			, B.CODE AS CLASS_CODE2	
+			, B.CODE_NAME CLASS_NAME
+			, 0 AS STRATEGY_RATE
+			, 0 AS PLANNING_RATE
+		FROM VO_ITEM_CLASS A INNER JOIN SCC_COMMON_CODE B ON B.GROUP_CODE = 'FM0034'	/* 식재 견적서 자재분류 */
+										     												AND A.CLASS_CODE = B.CODE
+		WHERE CLASS_TYPE = 'M'		/* 조건 : 중분류 */
+		ORDER BY B.SORT_SEQ
+		]]>
+	</statement>
+
+
+	<!-- 분류별 목록을 조회한다. -->
+	<statement name="selectClass" type="select">
+		/*+ com.hwfs.fm.fms.dao.StrategyProfitDAO.selectClass */
+		<![CDATA[
+		SELECT
+			ROWNUM AS ROW_NUM,
+			M.CLS_CD4,
+			M.CLS_NM1,
+			M.CLS_NM2,
+			M.CLS_NM3,
+			M.CLS_NM4,
+			NVL(S.STRATEGY_RATE,0) AS STRATEGY_RATE,
+			NVL(S.PLANNING_RATE,0) AS PLANNING_RATE,
+			:selCenter AS CENTER_CODE,
+			:selCcCd AS CC_CD,
+			:selDate AS PROFIT_DATE,
+			'D' AS CLASS_TYPE,
+			M.CLS_CD1,
+			M.CLS_CD2,
+			M.CLS_CD3,
+			M.USE_YN
+		FROM 
+		(
+			SELECT
+				A.CLASS_CODE1 AS CLS_CD1,
+				A.CLASS_NAME1 AS CLS_NM1,
+				A.CLASS_CODE2 AS CLS_CD2,
+				A.CLASS_NAME2 AS CLS_NM2,
+				A.CLASS_CODE3 AS CLS_CD3,
+				A.CLASS_NAME3 AS CLS_NM3,
+				A.CLASS_CODE4 AS CLS_CD4,
+				A.CLASS_NAME4 AS CLS_NM4,
+				USE_YN4 AS USE_YN,
+				A.CLASS_CODE4 AS ORDR
+			FROM HLDC_PO_ITEM_CLASS_V	 A
+			WHERE A.CLASS_CODE1 = 'F'
+		) M LEFT JOIN FMS_STRATEGY_PROFIT S ON S.CENTER_CODE = :selCenter
+													   AND S.CC_CD = :selCcCd
+													   AND S.PROFIT_DATE = :selDate	
+													   AND S.CLASS_TYPE = 'D'
+									  				   AND M.CLS_CD4 = S.ITEM_CODE
+		ORDER  BY M.ORDR
+		]]>
+	</statement>
+
+
+	<!-- 분류별 목록을 조회한다. -->
+	<statement name="selectClassBef" type="select">
+		/*+ com.hwfs.fm.fms.dao.StrategyProfitDAO.selectClassBef */
+		<![CDATA[
+		SELECT
+			ROWNUM AS ROW_NUM,
+			M.CLS_CD4,
+			M.CLS_NM1,
+			M.CLS_NM2,
+			M.CLS_NM3,
+			M.CLS_NM4,
+			NVL(S.STRATEGY_RATE,0) AS STRATEGY_RATE,
+			NVL(S.PLANNING_RATE,0) AS PLANNING_RATE,
+			:selCenter AS CENTER_CODE,
+			:selCcCd AS CC_CD,
+			:selDate AS PROFIT_DATE,
+			'D' AS CLASS_TYPE,
+			M.CLS_CD1,
+			M.CLS_CD2,
+			M.CLS_CD3,
+			M.USE_YN
+		FROM 
+		(
+			SELECT
+				A.CLASS_CODE1 AS CLS_CD1,
+				A.CLASS_NAME1 AS CLS_NM1,
+				A.CLASS_CODE2 AS CLS_CD2,
+				A.CLASS_NAME2 AS CLS_NM2,
+				A.CLASS_CODE3 AS CLS_CD3,
+				A.CLASS_NAME3 AS CLS_NM3,
+				A.CLASS_CODE4 AS CLS_CD4,
+				A.CLASS_NAME4 AS CLS_NM4,
+				USE_YN4 AS USE_YN,
+				A.CLASS_CODE4 AS ORDR
+			FROM HLDC_PO_ITEM_CLASS_V	 A
+			WHERE A.CLASS_CODE1 = 'F'
+		) M LEFT JOIN FMS_STRATEGY_PROFIT S ON S.CENTER_CODE = :selCenter
+													   AND S.CC_CD = :selCcCd
+													   AND S.PROFIT_DATE = DECODE(SUBSTR(:selDate,7,2),
+                                                                            '16', SUBSTR(:selDate,1,6) || '01',
+                                                                            '01', TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(:selDate,1,6), 'YYYYMM'), -1), 'YYYYMM') || '16')
+													   AND S.CLASS_TYPE = 'D'
+									  				   AND M.CLS_CD4 = S.ITEM_CODE
+		ORDER  BY M.ORDR
+		]]>
+	</statement>
+
+
+	<!-- 자재별 목록을 조회한다. -->
+	<statement name="selectItem" type="select">
+		/*+ com.hwfs.fm.fms.dao.StrategyProfitDAO.selectItem */
+		<![CDATA[
+		SELECT
+	  		  ROWNUM AS ROW_NUM
+			, A.ITEM_CODE
+			, B.ITEM_NAME
+			, DECODE(B.TAX_CODE,'100','과)','면)') || B.ITEM_SIZE AS ITEM_SIZE
+			, B.PO_UOM AS ITEM_UNIT
+			, NVL(A.CONTRACT_PRICE_P, 0) AS CONTRACT_PRICE
+    		, NVL(A.STRATEGY_RATE, 0) AS STRATEGY_RATE
+    		, NVL(A.STRATEGY_PRICE, 0) AS STRATEGY_PRICE
+    		, NVL(A.PLANNING_RATE, 0) AS PLANNING_RATE
+    		, NVL(A.PLANNING_PRICE, 0) AS PLANNING_PRICE
+			, :selCenter AS CENTER_CODE
+			, :selCcCd AS CC_CD
+			, :selDate AS PROFIT_DATE
+			, 'M' AS CLASS_TYPE
+		FROM FMS_STRATEGY_PROFIT A INNER JOIN HLDC_PO_ITEM_MST B ON A.ITEM_CODE = B.ITEM_CODE
+		WHERE A.CENTER_CODE = :selCenter
+		AND    A.CC_CD = :selCcCd
+		AND    A.PROFIT_DATE =:selDate
+		AND    A.CLASS_TYPE NOT IN ('D')
+		ORDER BY A.ITEM_CODE ASC
+		]]>
+	</statement>
+
+
+	<!-- 자재별 목록을 조회한다. 이전 차수-->
+	<statement name="selectItemBef" type="select">
+		/*+ com.hwfs.fm.fms.dao.StrategyProfitDAO.selectItemBef */
+		<![CDATA[
+		SELECT
+	  		  ROWNUM AS ROW_NUM
+			, A.ITEM_CODE
+			, B.ITEM_NAME
+			, DECODE(B.TAX_CODE,'100','과)','면)') || B.ITEM_SIZE AS ITEM_SIZE
+			, B.PO_UOM AS ITEM_UNIT
+			, NVL(A.CONTRACT_PRICE_P, 0) AS CONTRACT_PRICE
+    		, NVL(A.STRATEGY_RATE, 0) AS STRATEGY_RATE
+    		, NVL(A.STRATEGY_PRICE, 0) AS STRATEGY_PRICE
+    		, NVL(A.PLANNING_RATE, 0) AS PLANNING_RATE
+    		, NVL(A.PLANNING_PRICE, 0) AS PLANNING_PRICE
+			, :selCenter AS CENTER_CODE
+			, :selCcCd AS CC_CD
+			, :selDate AS PROFIT_DATE
+			, 'M' AS CLASS_TYPE
+		FROM FMS_STRATEGY_PROFIT A INNER JOIN HLDC_PO_ITEM_MST B ON A.ITEM_CODE = B.ITEM_CODE
+		WHERE A.CENTER_CODE = :selCenter
+		AND    A.CC_CD = :selCcCd
+		AND    A.PROFIT_DATE = DECODE(SUBSTR(:selDate,7,2),
+                      '16', SUBSTR(:selDate,1,6) || '01',
+                      '01', TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(:selDate,1,6), 'YYYYMM'), -1), 'YYYYMM') || '16')
+		AND    A.CLASS_TYPE NOT IN ('D')
+		ORDER BY A.ITEM_CODE ASC
+		]]>
+	</statement>
+
+	<!--세분류목록을 삭제한다.(세분류 기준) -->
+	<statement name="deleteClass" type="delete">
+		/*+ com.hwfs.fm.fms.dao.StrategyProfitDAO.deleteClass */
+		<![CDATA[
+		DELETE 
+		FROM   FMS_STRATEGY_PROFIT 
+		WHERE CENTER_CODE = :centerCode
+		AND    CC_CD = :ccCd
+		AND    PROFIT_DATE = :profitDate
+		AND    CLASS_TYPE = 'D'	/* 조건 : 세분류 */
+		]]>
+	</statement>
+
+	<!--자재별목록을 삭제한다.(자재 기준) -->
+	<statement name="deleteItem" type="delete">
+		/*+ com.hwfs.fm.fms.dao.StrategyProfitDAO.deleteItem */
+		<![CDATA[
+		DELETE 
+		FROM   FMS_STRATEGY_PROFIT 
+		WHERE CENTER_CODE = :centerCode
+		AND    CC_CD = :ccCd
+		AND    PROFIT_DATE = :profitDate
+		AND    CLASS_TYPE = 'M'	/* 조건 : 자재 */
+		]]>
+	</statement>
+
+
+	<!-- 세분류목록을 등록한다. -->
+	<statement name="insertClass" type="insert">
+		/*+ com.hwfs.fm.fms.dao.StrategyProfitDAO.insertClass */
+		<![CDATA[
+		MERGE INTO FMS_STRATEGY_PROFIT A
+		USING DUAL
+		ON  (CENTER_CODE = :centerCode
+		AND CC_CD = :ccCd
+		AND PROFIT_DATE = :profitDate
+		AND ITEM_CODE = :clsCd4
+		AND CLASS_TYPE = 'D')
+		
+		WHEN MATCHED THEN 
+			UPDATE  SET
+			   CONTRACT_PRICE_P = <#if contractPrice?has_content> :contractPrice <#else> null </#if>,
+			   STRATEGY_RATE = <#if strategyRate?has_content> :strategyRate <#else> null </#if>,
+			   STRATEGY_PRICE = <#if strategyPrice?has_content> :strategyPrice <#else> null </#if>,
+			   PLANNING_RATE = <#if planningRate?has_content> :planningRate <#else> null </#if>,
+			   PLANNING_PRICE = <#if planningPrice?has_content> :planningPrice <#else> null </#if>,
+			   STATUS = '수정',
+			   REMARK = <#if remark?has_content> :remark <#else> null </#if>,
+			   --PROFIT_END =  DECODE(SUBSTR(:profitDate,7,2),'01',SUBSTR(:profitDate,1,6) || '15',  TO_CHAR(LAST_DAY(TO_DATE(SUBSTR(:profitDate,1,6), 'YYYYMM')),'YYYYMMDD')),
+		       PROFIT_END = '20991231',
+		       UPDATE_BY = :loginSabun,
+		       UPDATE_DATE = SYSDATE		
+		WHERE CENTER_CODE = :centerCode
+		AND    CC_CD = :ccCd
+		AND    PROFIT_DATE = :profitDate
+		AND    ITEM_CODE = :clsCd4
+		AND    CLASS_TYPE = 'D'
+		
+        WHEN NOT MATCHED THEN
+		INSERT  
+		(
+		         CENTER_CODE
+		       , CC_CD
+		       , PROFIT_DATE
+			   , ITEM_CODE
+			   , CLASS_TYPE
+			   , CONTRACT_PRICE_P
+			   , STRATEGY_RATE
+			   , STRATEGY_PRICE
+			   , PLANNING_RATE
+			   , PLANNING_PRICE
+			   , STATUS
+			   , REMARK
+			   , PROFIT_END
+		       , CREATE_BY
+			   , CREATE_DATE
+		       , UPDATE_BY
+			   , UPDATE_DATE
+		)
+		VALUES
+		(
+		     :centerCode	
+		    , :ccCd
+		    , :profitDate
+		    , :clsCd4	
+            ,<#if classType?has_content> :classType <#else> 'D' </#if>			
+		    ,<#if contractPrice?has_content> :contractPrice <#else> null </#if>	
+		    ,<#if strategyRate?has_content> :strategyRate <#else> null </#if>	
+		    ,<#if strategyPrice?has_content> :strategyPrice <#else> null </#if>	
+		    ,<#if planningRate?has_content> :planningRate <#else> null </#if>	
+		    ,<#if planningPrice?has_content> :planningPrice <#else> null </#if>	
+			, '신규'
+            , <#if remark?has_content> :remark <#else> null </#if>
+            --, DECODE(SUBSTR(:profitDate,7,2),'01',SUBSTR(:profitDate,1,6) || '15',  TO_CHAR(LAST_DAY(TO_DATE(SUBSTR(:profitDate,1,6), 'YYYYMM')),'YYYYMMDD'))
+		    , '20991231'
+		    ,:loginSabun	
+		    ,SYSDATE		
+		    ,:loginSabun	
+		    ,SYSDATE		
+		)
+		]]>
+	</statement>
+
+
+
+	<!-- 전략이익율 등록 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.fm.fms.dao.StrategyProfitDAO.selectList */
+		<![CDATA[
+		SELECT COLUMN_NAME1,
+		       COLUMN_NAME2
+		FROM   TABLE_NAME
+		WHERE  1=1
+		<#if columnName?has_content>
+		AND    COLUMN_NAME = :columnName
+		</#if>
+		ORDER BY COLUMN_NAME ASC
+		]]>
+	</statement>
+	
+		<!-- 전략이익률  자재목록을 등록한다. (MERGE)-->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.fm.fms.dao.StrategyProfitDAO.insert */
+		<![CDATA[
+		MERGE INTO FMS_STRATEGY_PROFIT A
+		USING DUAL
+		ON  (CENTER_CODE = :centerCode
+		AND CC_CD = :ccCd
+		AND PROFIT_DATE = :profitDate
+		AND ITEM_CODE = :itemCode
+		AND CLASS_TYPE = 'M')
+		WHEN MATCHED THEN 
+			UPDATE  SET
+			   		CONTRACT_PRICE_P = <#if contractPrice?has_content> :contractPrice <#else> null </#if>,
+			   		STRATEGY_RATE = <#if strategyRate?has_content> :strategyRate <#else> null </#if>,
+			   		STRATEGY_PRICE = <#if strategyPrice?has_content> :strategyPrice <#else> null </#if>,
+			   		PLANNING_RATE = <#if planningRate?has_content> :planningRate <#else> null </#if>,
+			   		PLANNING_PRICE = <#if planningPrice?has_content> :planningPrice <#else> null </#if>,
+			   		STATUS = '수정',
+			   		REMARK = <#if remark?has_content> :remark <#else> null </#if>,
+			   	    --PROFIT_END =  DECODE(SUBSTR(:profitDate,7,2),'01',SUBSTR(:profitDate,1,6) || '15',  TO_CHAR(LAST_DAY(TO_DATE(SUBSTR(:profitDate,1,6), 'YYYYMM')),'YYYYMMDD')),
+		       		PROFIT_END =  '20991231',
+		       		UPDATE_BY = :loginSabun,
+		       		UPDATE_DATE = SYSDATE
+			WHERE  CENTER_CODE = :centerCode
+			AND     CC_CD = :ccCd
+			AND     PROFIT_DATE   = :profitDate
+			AND     ITEM_CODE     = :itemCode
+			AND     CLASS_TYPE = 'M'
+		
+        WHEN NOT MATCHED THEN
+			INSERT  
+			(
+		         CENTER_CODE
+		       , CC_CD
+		       , PROFIT_DATE
+			   , ITEM_CODE
+			   , CLASS_TYPE
+			   , CONTRACT_PRICE_P
+			   , STRATEGY_RATE
+			   , STRATEGY_PRICE
+			   , PLANNING_RATE
+			   , PLANNING_PRICE
+			   , STATUS
+			   , REMARK
+			   , PROFIT_END
+		       , CREATE_BY
+			   , CREATE_DATE
+		       , UPDATE_BY
+			   , UPDATE_DATE
+			)
+			VALUES
+			(
+		     :centerCode	
+		    , :ccCd
+		    , :profitDate
+		    , :itemCode	
+            ,<#if classType?has_content> :classType <#else> 'M' </#if>			
+		    ,<#if contractPrice?has_content> :contractPrice <#else> null </#if>	
+		    ,<#if strategyRate?has_content> :strategyRate <#else> null </#if>	
+		    ,<#if strategyPrice?has_content> :strategyPrice <#else> null </#if>	
+		    ,<#if planningRate?has_content> :planningRate <#else> null </#if>	
+		    ,<#if planningPrice?has_content> :planningPrice <#else> null </#if>	
+			, '신규'
+            , <#if remark?has_content> :remark <#else> null </#if>
+            --, DECODE(SUBSTR(:profitDate,7,2),'01',SUBSTR(:profitDate,1,6) || '15',  TO_CHAR(LAST_DAY(TO_DATE(SUBSTR(:profitDate,1,6), 'YYYYMM')),'YYYYMMDD'))
+		    , '20991231'
+		    ,:loginSabun	
+		    ,SYSDATE		
+		    ,:loginSabun	
+		    ,SYSDATE		
+			)
+		]]>
+	</statement>
+	
+
+		<!-- 전략이익률  자재목록을 등록한다. -->
+	<statement name="insert2" type="insert">
+		/*+ com.hwfs.fm.fms.dao.StrategyProfitDAO.insert2 */
+		<![CDATA[
+			INSERT  INTO FMS_STRATEGY_PROFIT
+			(
+		         CENTER_CODE
+		       , CC_CD
+		       , PROFIT_DATE
+			   , ITEM_CODE
+			   , CLASS_TYPE
+			   , CONTRACT_PRICE_P
+			   , STRATEGY_RATE
+			   , STRATEGY_PRICE
+			   , PLANNING_RATE
+			   , PLANNING_PRICE
+			   , STATUS
+			   , REMARK
+			   , PROFIT_END
+		       , CREATE_BY
+			   , CREATE_DATE
+		       , UPDATE_BY
+			   , UPDATE_DATE
+			)
+			VALUES
+			(
+		     :centerCode	
+		    , :ccCd
+		    , :profitDate
+		    , :itemCode	
+            ,<#if classType?has_content> :classType <#else> 'M' </#if>			
+		    ,<#if contractPrice?has_content> :contractPrice <#else> null </#if>	
+		    ,<#if strategyRate?has_content> :strategyRate <#else> null </#if>	
+		    ,<#if strategyPrice?has_content> :strategyPrice <#else> null </#if>	
+		    ,<#if planningRate?has_content> :planningRate <#else> null </#if>	
+		    ,<#if planningPrice?has_content> :planningPrice <#else> null </#if>	
+			, '신규'
+            , <#if remark?has_content> :remark <#else> null </#if>
+            --, DECODE(SUBSTR(:profitDate,7,2),'01',SUBSTR(:profitDate,1,6) || '15',  TO_CHAR(LAST_DAY(TO_DATE(SUBSTR(:profitDate,1,6), 'YYYYMM')),'YYYYMMDD'))
+		    , '20991231'
+		    ,:loginSabun	
+		    ,SYSDATE		
+		    ,:loginSabun	
+		    ,SYSDATE		
+			)
+		]]>
+	</statement>
+
+
+	<!-- 전략이익율 등록(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.fm.fms.dao.StrategyProfitDAO.update */
+		<![CDATA[
+		UPDATE TABLE_NAME 
+		SET    COLUMN_NAME1 = :columnName1,
+		       COLUMN_NAME2 = :columnName2,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+	<!-- 전략이익율 등록(을)를 삭제한다. :자재별 -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.fm.fms.dao.StrategyProfitDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   FMS_STRATEGY_PROFIT 
+		WHERE CENTER_CODE = :centerCode
+		AND    CC_CD = :ccCd
+		AND    PROFIT_DATE = :profitDate
+		AND    ITEM_CODE = :itemCode
+		AND   CLASS_TYPE = 'M'
+		]]>
+	</statement>
+
+
+		<!-- 전략이익률 자재 (을)를 일괄 삭제한다. -->
+	<statement name="deleteAll" type="delete">
+		/*+ com.hwfs.fm.fms.dao.StrategyProfitDAO.deleteAll */
+		<![CDATA[
+		DELETE 
+		FROM   FMS_STRATEGY_PROFIT 
+		WHERE CENTER_CODE = :centerCode
+		AND    CC_CD = :ccCd
+		AND    PROFIT_DATE = :profitDate
+		AND    CLASS_TYPE = 'M'
+		]]>
+	</statement>
+
+</hqml>

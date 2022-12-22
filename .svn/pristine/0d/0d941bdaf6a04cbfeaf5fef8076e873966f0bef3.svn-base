@@ -1,0 +1,350 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="fs.fsf.funeralPatronMstRegDAO">
+	<desc>고인 및 상주 등록관리 화면 HQML Query</desc>
+
+	<!-- 고인 및 상주 등록관리 화면 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+	<![CDATA[    
+SELECT A.FUNERAL_HALL_CD  /* 장례식장코드 */
+          ,A.GUEST_NUM       /* 고객번호 */
+          ,MAX(A.FUNERAL_PARLOR) FUNERAL_PARLOR /* 빈소 */
+          ,MAX(A.THE_DEAD_NM) THE_DEAD_NM   /* 고인명 */
+          ,MAX(A.MOURNER) MOURNER            /* 상제-입력형식 김첫째, 김둘째, 김셋째 */
+          ,MAX(A.RELIGION) RELIGION           /* 종교 */
+          ,TO_CHAR(MAX(A.BORNE_OUT_DATE),'YYYYMMDD') BORNE_OUT_DATE   /* 발인일자 년-월-일 시:분:초까지 관리 */
+          ,TO_CHAR(MAX(A.BORNE_OUT_DATE),'HH24MISS') BORNE_OUT_DATE_TIME
+          ,TO_CHAR(MAX(A.ENSHRINE_DATE),'YYYYMMDD') ENSHRINE_DATE        /* 안치일자 년-월-일 시:분:초까지 관리 */
+          ,TO_CHAR(MAX(A.ENSHRINE_DATE),'HH24MISS') ENSHRINE_DATE_TIME
+          ,TO_CHAR(MAX(A.CASKET_DATE),'YYYYMMDD') CASKET_DATE          /* 입관일자 년-월-일 시:분:초까지 관리 */
+          ,TO_CHAR(MAX(A.CASKET_DATE),'HH24MISS') CASKET_DATE_TIME
+          ,MAX(A.MUTUAL_AID_YN) MUTUAL_AID_YN        /* 상조회여부(Y/N) */
+          ,MAX(A.MUTUAL_AID_MEMO) MUTUAL_AID_MEMO /* 상조메모 기술 */
+          ,MAX(A.CUSER) CUSER    /* 생성자 사번 */
+          ,MAX(A.CDATE)    CDATE    /* 생성일시 */
+          ,MAX(A.UUSER)    UUSER    /* 수정자 사번 */
+          ,MAX(A.UDATE)    UDATE    /* 수정일시 */
+          ,A.ADDR_KEY        /* 고인 주소키 */
+          ,SCC_ADDR_FUN(A.ADDR_KEY, NVL(:loginPersMask,'YYYYYYYYYYYYYY'), :maskAuth) AS ADDR_INFO    /* 고인 주소정보 */
+          ,COUNT(C.SALE_DATE) SALE_CNT  /* 고인별 거래내역 count(삭제대상판별) */
+          ,B.CHIEF_MOURNER                 /* 상주 */
+          ,B.RELATION                     /* 입력형식 김첫째, 김둘째, 김셋째 */
+          ,SCC_CRYPTO.MASKAUTH_FUN(B.CHIEF_MOURNER_TELNO_ENC,9 ,:loginPersMask, :maskAuth) AS CHIEF_MOURNER_TELNO_ENC /* 상주연락처 암호화 */
+          ,B.CHIEF_MOURNER_ADDR_KEY ADDR_KEY2        /* 상주 주소키 */
+          ,SCC_ADDR_FUN(B.CHIEF_MOURNER_ADDR_KEY, NVL(:loginPersMask,'YYYYYYYYYYYYYY'), :maskAuth) AS ADDR_INFO2    /* 상주 주소정보 */
+          ,DECODE(B.PERS_INFO_AGREE_YN,'Y','1','0') PERS_INFO_AGREE_YN 		/* 발인일을 기준으로 3개월이 지나면, 고객정보는 자동으로 폐기시킨다. */
+          ,'' ADDR_CLASS       
+          ,'' ZIP_CODE 
+          ,'' BASE_ADDR 
+          ,'' DETAIL_ADDR
+          ,'' ETC_ADDR_TMP
+          ,'' ETC_ADDR
+          ,'' ADDR_CLASS2       
+          ,'' ZIP_CODE2 
+          ,'' BASE_ADDR2 
+          ,'' DETAIL_ADDR2
+          ,'' ETC_ADDR_TMP2
+          ,'' ETC_ADDR2
+          ,B.REMARK     /* 비고 */
+	  FROM FSF_FUNERAL_MASTER A   /* 고인을 관리하는 테이블이다 */
+          ,FSF_FAMILY_MASTER B    /* 고인의 가족을 관리하는 테이블이다 */
+          ,FSF_SALE_ORDER C       /* 장례식장 고인별 판매/반품 관리  */
+     WHERE A.FUNERAL_HALL_CD = B.FUNERAL_HALL_CD(+) /* 장례식장코드 */
+       AND A.GUEST_NUM       = B.GUEST_NUM(+) /* 고객번호 */
+       AND A.FUNERAL_HALL_CD = C.FUNERAL_HALL_CD(+)
+       AND A.GUEST_NUM       = C.GUEST_NUM(+)
+       <#if funeralHallCd?has_content>
+       	AND A.FUNERAL_HALL_CD = :funeralHallCd
+       </#if>
+       <#if deadName?has_content>
+		   AND A.THE_DEAD_NM LIKE '%'||:deadName||'%'     /* 고인명 */
+	   </#if>
+	   <#if resideName?has_content>
+		   AND B.CHIEF_MOURNER LIKE '%'||:resideName||'%'     /* 상제 */
+	   </#if>
+	   <#if borneOutFrom?has_content>   
+		   <#if borneOutTo?has_content>
+		   		AND TO_CHAR(A.BORNE_OUT_DATE,'YYYYMMDD') BETWEEN :borneOutFrom AND :borneOutTo
+		   </#if>
+	   </#if>
+  GROUP BY A.FUNERAL_HALL_CD, A.GUEST_NUM, B.CHIEF_MOURNER, B.RELATION, B.CHIEF_MOURNER_TELNO_ENC, 
+  		   B.CHIEF_MOURNER_ADDR_KEY, B.REMARK, A.ADDR_KEY, B.PERS_INFO_AGREE_YN	   
+  ]]>
+  </statement>
+  
+  <!-- 동일일자, 동일빈소 여부를 조회한다. -->
+	<statement name="selectIsDuplicate" type="select">
+	<![CDATA[
+		/* fs.fsf.funeralPatronMstRegDAO.selectIsDuplicate */    
+		SELECT TO_CHAR(COUNT(*)) DUP_CNT
+		  FROM FSF_FUNERAL_MASTER
+		 WHERE FUNERAL_HALL_CD = :funeralHallCd
+		   AND GUEST_NUM <> :guestNum
+		   AND FUNERAL_PARLOR  = :funeralParlor
+		   AND ((:enshrineDate BETWEEN TO_CHAR(ENSHRINE_DATE, 'YYYYMMDD') AND TO_CHAR(BORNE_OUT_DATE, 'YYYYMMDD'))
+            		OR (:borneOutDate  BETWEEN TO_CHAR(ENSHRINE_DATE, 'YYYYMMDD') AND TO_CHAR(BORNE_OUT_DATE, 'YYYYMMDD')))
+  	]]>
+  </statement>
+
+	<!-- 고인 및 상주 등록관리 화면(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+	<![CDATA[
+	    INSERT INTO FSF_FUNERAL_MASTER
+		(
+			 FUNERAL_HALL_CD /* 장례식장코드 */
+			,GUEST_NUM /* 고객번호 */
+			,FUNERAL_PARLOR /* 빈소 */
+			,THE_DEAD_NM /* 고인명 */
+			,MOURNER /* 상제-입력형식 김첫째, 김둘째, 김셋째 */
+			,RELIGION /* 종교 */
+			,BORNE_OUT_DATE /* 년-월-일 시:분:초까지 관리 */
+			,ENSHRINE_DATE /* 년-월-일 시:분:초까지 관리 */
+			,CASKET_DATE /* 년-월-일 시:분:초까지 관리 */
+			,MUTUAL_AID_YN /* 상조회여부(Y/N) */
+			,MUTUAL_AID_MEMO /* 상조메모 기술 */
+			,ADDR_KEY /* 주소 키 */	
+			,CUSER /* 생성자 사번 */
+			,CDATE /* 생성일시 */
+		)
+		VALUES
+		(
+			 :funeralHallCd /* 장례식장코드 */
+			,:guestNum /* 고객번호 */
+			,:funeralParlor /* 빈소 */
+			,:theDeadNm /* 고인명 */
+			,<#if mourner?has_content>:mourner <#else> null </#if>
+			,<#if religion?has_content>:religion <#else> null </#if>			
+			,TO_DATE(SUBSTR(:borneOutDate||NVL(:borneOutDateTime,'000000'), 0,14),'YYYYMMDD HH24MISS') /* 년-월-일 시:분:초까지 관리 */
+			,TO_DATE(SUBSTR(:enshrineDate||NVL(:enshrineDateTime,'000000'), 0,14),'YYYYMMDD HH24MISS') /* 년-월-일 시:분:초까지 관리 */
+			,TO_DATE(SUBSTR(:casketDate||NVL(:casketDateTime,'000000'), 0,14),'YYYYMMDD HH24MISS')   /* 년-월-일 시:분:초까지 관리 */
+			,<#if mutualAidYn?has_content>:mutualAidYn <#else> null </#if>
+			,<#if mutualAidMemo?has_content>:mutualAidMemo <#else> null </#if>
+			,<#if addrKey?has_content>:addrKey <#else> null </#if> /* 주소 키 */			
+			,:loginSabun /* 생성자 사번 */
+			,SYSDATE /* 생성일시 */
+		)
+		]]>
+	</statement>
+
+	<!-- 고인 및 상주 등록관리 화면(을)를 수정한다. -->
+	<statement name="update" type="update">
+	<![CDATA[
+		UPDATE FSF_FUNERAL_MASTER
+		   SET FUNERAL_PARLOR  =  :funeralParlor  /* 빈소 */
+		      ,THE_DEAD_NM	 = :theDeadNm		/* 고인명 */
+			  ,MOURNER		 = :mourner			/* 상제-입력형식 김첫째, 김둘째, 김셋째 */
+			  ,RELIGION		 = :religion		/* 종교 */
+			  ,BORNE_OUT_DATE= TO_DATE(SUBSTR(:borneOutDate||:borneOutDateTime, 0,14),'YYYYMMDD HH24MISS')	/* 년-월-일 시:분:초까지 관리 */
+			  ,ENSHRINE_DATE = TO_DATE(SUBSTR(:enshrineDate||:enshrineDateTime, 0,14),'YYYYMMDD HH24MISS')	/* 년-월-일 시:분:초까지 관리 */
+			  ,CASKET_DATE	 = TO_DATE(SUBSTR(:casketDate||:casketDateTime, 0,14),'YYYYMMDD HH24MISS')	    /* 년-월-일 시:분:초까지 관리 */
+			  ,MUTUAL_AID_YN = :mutualAidYn   /* 상조회여부(Y/N) */
+			  ,MUTUAL_AID_MEMO = :mutualAidMemo  /* 상조메모 기술 */
+			  ,ADDR_KEY		 =	:addrKey		/* 주소 키 */
+			  ,UUSER		 =	:loginSabun		/* 수정자 사번 */
+			  ,UDATE		 =	SYSDATE			/* 수정일시 */
+		 WHERE FUNERAL_HALL_CD =  :funeralHallCd /* 장례식장코드 */
+		   AND GUEST_NUM	   =  :guestNum       /* 고객번호 */		  
+   ]]>
+   </statement>
+
+	<!-- 고인 및 상주 등록관리 화면(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+	<![CDATA[
+		DELETE 
+		  FROM FSF_FUNERAL_MASTER
+		 WHERE FUNERAL_HALL_CD =  :funeralHallCd /* 장례식장코드 */
+		   AND GUEST_NUM	   =  :guestNum       /* 고객번호 */		   
+   ]]>
+   </statement>
+
+	<statement name="selectDtlList">
+	<![CDATA[
+		/** 고인가족 Detail **/
+		SELECT B.FUNERAL_HALL_CD 			/* 장례식장코드 */
+		      ,B.GUEST_NUM 					/* 고객번호 */
+			  ,B.SEQ 						/* 순번 */
+			  ,B.CHIEF_MOURNER 				/* 상주 */
+			  ,B.RELATION 					/* 입력형식 김첫째, 김둘째, 김셋째 */
+			  ,SCC_CRYPTO.MASKAUTH_FUN(B.CHIEF_MOURNER_TELNO_ENC,9,:loginPersMask, :maskAuth) AS CHIEF_MOURNER_TELNO_ENC /* 상주연락처 암호화 */
+			  ,B.CHIEF_MOURNER_ADDR_KEY ADDR_KEY
+			  ,SCC_ADDR_FUN(B.CHIEF_MOURNER_ADDR_KEY, NVL(:loginPersMask,'YYYYYYYYYYYYYY'), :maskAuth) AS ADDR_INFO
+		      ,'' ADDR_CLASS
+		      ,'' ZIP_CODE 
+		      ,'' BASE_ADDR 
+		      ,'' DETAIL_ADDR 
+		      ,'' ETC_ADDR_TMP
+		      ,'' ETC_ADDR
+		--	  ,B.CHIEF_MOURNER_ZIP_CODE 	/* 상주 우편번호 */
+		--	  ,B.CHIEF_MOURNER_ADDR		 	/* 상주 주소 */
+		--	  ,SCC_CRYPTO.MASKAUTH_FUN(B.CHIEF_MOURNER_ADDR_ENC,10,:loginPersMask, :maskAuth) AS CHIEF_MOURNER_ADDR_ENC  /* 상주 주소 암호화 */
+		      ,B.PERS_INFO_AGREE_YN 		/* 발인일을 기준으로 3개월이 지나면, 고객정보는 자동으로 폐기시킨다. */
+			  ,B.CUSER /* 생성자 사번 */
+			  ,B.CDATE /* 생성일시 */
+			  ,B.UUSER /* 수정자 사번 */
+			  ,B.UDATE /* 수정일시 */
+		  FROM FSF_FUNERAL_MASTER A   /* 고인을 관리하는 테이블이다 */
+			  ,FSF_FAMILY_MASTER B    /* 고인의 가족을 관리하는 테이블이다 */
+		 WHERE A.FUNERAL_HALL_CD = B.FUNERAL_HALL_CD 	/* 장례식장코드 */
+		   AND A.GUEST_NUM       = B.GUEST_NUM 			/* 고객번호 */
+		   AND B.PERS_INFO_AGREE_YN = 'Y'   			/* 개인정보 동의 */
+		   AND B.FUNERAL_HALL_CD =  :funeralHallCd 		/* 장례식장코드 */
+	       AND B.GUEST_NUM	 =  :guestNum       		/* 고객번호 */
+	     <#if funeralHallCd?has_content>
+	       	 AND  A.FUNERAL_HALL_CD = :funeralHallCd
+	     </#if>
+		 <#if deadName?has_content>
+		   AND A.THE_DEAD_NM LIKE '%'||:deadName||'%'     	/* 고인명 */
+		 </#if>
+		 <#if resideName?has_content>
+		   AND B.CHIEF_MOURNER LIKE '%'||:resideName||'%'   /* 상제 */
+		 </#if>
+		 <#if borneOutFrom?has_content>
+		   	<#if borneOutTo?has_content>
+		   		AND TO_CHAR(A.BORNE_OUT_DATE,'YYYYMMDD') BETWEEN :borneOutFrom AND :borneOutTo
+		   	</#if>
+		 </#if> 
+	  ORDER BY B.FUNERAL_HALL_CD, B.GUEST_NUM, B.SEQ
+   ]]>
+   </statement>
+   
+	<statement name="insertDtl">
+	<![CDATA[ 
+		INSERT INTO FSF_FAMILY_MASTER
+		 (
+			 FUNERAL_HALL_CD /* 장례식장코드 */
+			,GUEST_NUM 					/* 고객번호 */
+			,SEQ 						/* 순번 */
+			,CHIEF_MOURNER 				/* 상주 */			
+			,RELATION 					/* 입력형식 김첫째, 김둘째, 김셋째 */			
+			,CHIEF_MOURNER_TELNO_ENC 	/* 상주연락처 암호화 */
+			,CHIEF_MOURNER_ADDR_KEY			
+	--		,CHIEF_MOURNER_ZIP_CODE 	/* 상주 우편번호 */			
+	--		,CHIEF_MOURNER_ADDR 		/* 상주 주소 */			
+	--		,CHIEF_MOURNER_ADDR_ENC 	/* 상세 주소 암호화 */			
+			,PERS_INFO_AGREE_YN 		/* 발인일을 기준으로 3개월이 지나면, 고객정보는 자동으로 폐기시킨다. */
+			,REMARK						/* 비고 */			
+			,CUSER /* 생성자 사번 */
+			,CDATE /* 생성일시 */
+		 )
+		 VALUES
+		 (
+			 :funeralHallCd
+			,:guestNum
+			,<#if seq?has_content>:seq <#else> 1 </#if>
+			,:chiefMourner
+			,<#if relation?has_content>:relation <#else> null </#if>				
+			,<#if chiefMournerTelnoEnc?has_content> SCC_CRYPTO.ENC_FUN(:chiefMournerTelnoEnc) <#else> null </#if>
+			,<#if addrKey2?has_content>:addrKey2 <#else> null </#if>	
+	--		,<#if chiefMournerZipCode?has_content>:chiefMournerZipCode <#else> null </#if>
+	--		,<#if chiefMournerAddr?has_content>:chiefMournerAddr <#else> null </#if>
+	--		,<#if chiefMournerAddrEnc?has_content> SCC_CRYPTO.ENC_FUN(:chiefMournerAddrEnc) <#else> null </#if>
+			,<#if persInfoAgreeYn?has_content> DECODE(:persInfoAgreeYn,1,'Y','N') <#else> null </#if>
+			,<#if remark?has_content> :remark <#else> null </#if>
+			,:loginSabun 	/* 생성자 사번 */
+			,SYSDATE 		/* 생성일시 */
+		 )
+ 	]]>
+ 	</statement>
+ 	
+	<statement name="updateDtl">
+	<![CDATA[
+	 UPDATE FSF_FAMILY_MASTER
+		SET CHIEF_MOURNER			= :chiefMourner /* 상주 */
+			,RELATION				= :relation 	/* 입력형식 김첫째, 김둘째, 김셋째 */
+			,CHIEF_MOURNER_TELNO_ENC = SCC_CRYPTO.ENC_FUN(:chiefMournerTelnoEnc) /* 상주연락처 암호화 */
+			,CHIEF_MOURNER_ADDR_KEY = :addrKey2
+	--		,CHIEF_MOURNER_ZIP_CODE = :chiefMournerZipCode 						/* 상주 우편번호 */
+	--		,CHIEF_MOURNER_ADDR 	= :chiefMournerAddr 	/* 상주 주소 */
+	--		,CHIEF_MOURNER_ADDR_ENC = SCC_CRYPTO.ENC_FUN(:chiefMournerAddrEnc) 	/* 상주 주소 암호화 */
+			,PERS_INFO_AGREE_YN 	= DECODE(:persInfoAgreeYn,1,'Y','N') 	/* 발인일을 기준으로 3개월이 지나면, 고객정보는 자동으로 폐기시킨다. */
+			,REMARK					= :remark	/* 비고 */
+			,UUSER		 =	:loginSabun		/* 수정자 사번 */
+			,UDATE		 =	SYSDATE			/* 수정일시 */
+	  WHERE FUNERAL_HALL_CD =  :funeralHallCd /* 장례식장코드 */
+		AND GUEST_NUM	 =  :guestNum       /* 고객번호 */
+		AND SEQ          = <#if seq?has_content>:seq <#else> 1 </#if> /* 순번 */
+	]]>
+	</statement>
+	
+	<statement name="deleteDtl">
+	<![CDATA[
+	DELETE 
+	  FROM FSF_FAMILY_MASTER
+	 WHERE FUNERAL_HALL_CD =  :funeralHallCd /* 장례식장코드 */
+	   AND GUEST_NUM	 =  :guestNum       /* 고객번호 */
+	   --AND SEQ          = :seq /* 순번 */
+   ]]>
+   </statement>
+   
+	<statement name="selectMaxNum">
+	<![CDATA[
+	SELECT CASE WHEN MAX(GUEST_NUM) IS NULL THEN 0
+	       ELSE MAX(TO_NUMBER(SUBSTR(TO_CHAR(GUEST_NUM), 9, 2)))
+	       END MAX_NUM
+	  FROM FSF_FUNERAL_MASTER
+	 WHERE FUNERAL_HALL_CD = :funeralHallCd
+	   AND SUBSTR(TO_CHAR(GUEST_NUM), 0, 8) = :curDate
+	 ]]>
+	</statement>
+ 
+   <statement name="selectMaxDtlNum">
+	<![CDATA[
+	SELECT NVL(MAX(SEQ),0)+1 MAX_NUM
+	  FROM FSF_FAMILY_MASTER
+	 WHERE FUNERAL_HALL_CD = :funeralHallCd
+	   AND GUEST_NUM = :guestNum
+   ]]>
+   </statement>
+   
+   <!-- 고인 및 상주 상세정보 목록을 조회한다. -->
+	<statement name="selectGuestDtlList" type="select">
+	<![CDATA[    
+	SELECT A.FUNERAL_HALL_CD /* 장례식장코드 */
+		  ,A.GUEST_NUM 		 /* 고객번호 */
+		  ,A.FUNERAL_PARLOR  /* 빈소 */
+		  ,A.THE_DEAD_NM 	 /* 고인명 */
+		  ,A.MOURNER 		 /* 상제-입력형식 김첫째, 김둘째, 김셋째 */
+		  ,A.RELIGION 		 /* 종교 */
+		  ,SUBSTR(TO_CHAR(A.BORNE_OUT_DATE,'YYYYMMDDHH24MISS'), 0, 14) BORNE_OUT_DATE /* 년-월-일 시:분:초까지 관리 */
+		  ,SUBSTR(TO_CHAR(A.ENSHRINE_DATE,'YYYYMMDDHH24MISS'), 0, 14) ENSHRINE_DATE	 /* 년-월-일 시:분:초까지 관리 */
+		  ,SUBSTR(TO_CHAR(A.CASKET_DATE,'YYYYMMDDHH24MISS'), 0, 14) CASKET_DATE	 /* 년-월-일 시:분:초까지 관리 */
+		  ,A.MUTUAL_AID_YN 	 /* 상조회여부(Y/N) */
+		  ,A.MUTUAL_AID_MEMO /* 상조메모 기술 */
+		  ,B.SEQ                	 /* 순번 */
+		  ,B.CHIEF_MOURNER 			 /* 상주 */
+		  ,B.RELATION                /* 입력형식 김첫째, 김둘째, 김셋째 */
+		  ,SCC_CRYPTO.MASKAUTH_FUN(B.CHIEF_MOURNER_TELNO_ENC,9,:loginPersMask, :maskAuth) AS CHIEF_MOURNER_TELNO_ENC /* 상주연락처 암호화 */
+		  ,B.CHIEF_MOURNER_ADDR_KEY ADDR_KEY
+		  ,SCC_ADDR_FUN(B.CHIEF_MOURNER_ADDR_KEY, NVL(:loginPersMask,'YYYYYYYYYYYYYY'), :maskAuth) AS ADDR_INFO
+		  ,'' ADDR_CLASS
+	      ,'' ZIP_CODE 
+	      ,'' BASE_ADDR 
+	      ,'' DETAIL_ADDR
+	      ,'' ETC_ADDR_TMP 
+	      ,'' ETC_ADDR
+	--	  ,B.CHIEF_MOURNER_ZIP_CODE  /* 상주 우편번호 */
+	--	  ,B.CHIEF_MOURNER_ADDR     /* 상주 주소 */
+	--	  ,SCC_CRYPTO.MASKAUTH_FUN(B.CHIEF_MOURNER_ADDR_ENC,11,:loginPersMask, :maskAuth) AS CHIEF_MOURNER_ADDR_ENC /* 상주 주소 암호화 */
+		  ,B.PERS_INFO_AGREE_YN     /* 발인일을 기준으로 3개월이 지나면, 고객정보는 자동으로 폐기시킨다. */              
+	  FROM FSF_FUNERAL_MASTER A   /* 고인을 관리하는 테이블이다 */
+		  ,FSF_FAMILY_MASTER B    /* 고인의 가족을 관리하는 테이블이다 */
+	 WHERE A.FUNERAL_HALL_CD = B.FUNERAL_HALL_CD(+) /* 장례식장코드 */
+	   AND A.GUEST_NUM       = B.GUEST_NUM(+) 		/* 고객번호 */
+       <#if funeralHallCd?has_content>
+       	  AND A.FUNERAL_HALL_CD = :funeralHallCd
+       </#if>
+       <#if deadName?has_content>
+		   AND A.THE_DEAD_NM LIKE '%'||:deadName||'%'     /* 고인명 */
+	   </#if>
+	   <#if resideName?has_content>
+		   AND B.CHIEF_MOURNER LIKE '%'||:resideName||'%'     /* 상제 */
+	   </#if>
+	   <#if borneOutFrom?has_content>
+	   	   <#if borneOutTo?has_content>
+		   		AND TO_CHAR(A.BORNE_OUT_DATE,'YYYYMMDD') BETWEEN :borneOutFrom AND :borneOutTo
+		   </#if>
+	   </#if>
+  ORDER BY A.FUNERAL_HALL_CD, A.GUEST_NUM, B.SEQ
+  ]]>
+  </statement>
+</hqml>

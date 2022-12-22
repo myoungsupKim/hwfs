@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+SELECT DISTINCT C.UPJANG
+     , (SELECT UPJANGNM FROM SCO_UPJANG_MST_V WHERE UPJANG = C.UPJANG) UPJANGNM
+     , B.ITEM_CODE, A.ITEM_NAME, A.BARCODE, A.ITEM_SIZE, A.PO_UOM
+     , A.TAX_CODE
+     , DECODE(A.TAX_CODE,'100','과세','210','면세','220','영세') TAX_CODENM
+     , C.START_DATE
+     , C.END_DATE
+     , C.SALE_PRICE BEFORE_SALE_PRICE
+     , 0 AFTER_SALE_PRICE
+     , C.PRC_DESC
+     , (SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN = C.CUSER) CUSER
+     , C.CDATE
+  FROM HLDC_PO_ITEM_MST A
+     ,(
+     SELECT C.ITEM_CODE
+            , C.ONHAND_QTY         AS TRANS_QTY
+         FROM HLDC_PO_ONHAND_MONTH C
+        WHERE C.ONHAND_YM   = (
+                                SELECT MAX(A.CLS_YM)
+                                  FROM HLDC_PO_CLOSING A
+                                 WHERE A.CLS_YM      BETWEEN '200401' AND  SUBSTR(#START_DATE#,1,6)
+                                   AND EXISTS (SELECT 1
+                                                 FROM HLDC_PO_SUBINVENTORY X
+                                                WHERE X.SUBINV_CODE = A.SUBINV_CODE
+                                                  AND X.UPJANG = #UPJANG#
+                                                  AND X.ORG_CODE = 'A20')
+                                   AND A.CLS_FLAG    = 'Y'
+                              )
+          AND EXISTS (SELECT 1
+                        FROM HLDC_PO_SUBINVENTORY X
+                       WHERE X.SUBINV_CODE = C.SUBINV_CODE
+                         AND X.UPJANG = #UPJANG#
+                         AND X.ORG_CODE = 'A20')
+      UNION ALL
+       SELECT D.ITEM_CODE
+            , SUM(DECODE(SUBSTR(D.TRANS_TYPE,1,1),'I',1,-1) * D.UOM_QTY)       AS TRANS_QTY
+         FROM HLDC_PO_TRANSACTION D
+        WHERE D.TRANS_DATE &lt;= #START_DATE#
+          AND D.TRANS_DATE &gt;=
+                                 (
+                                 SELECT TO_CHAR(ADD_MONTHS(TO_DATE(MAX(A.CLS_YM) || '01','YYYYMMDD'),1),'YYYYMMDD')
+                                   FROM HLDC_PO_CLOSING A
+                                  WHERE A.CLS_YM      BETWEEN '200401' AND  SUBSTR(#START_DATE#,1,6)
+                                    AND EXISTS (SELECT 1
+                                                  FROM HLDC_PO_SUBINVENTORY X
+                                                 WHERE X.SUBINV_CODE = A.SUBINV_CODE
+                                                   AND X.UPJANG = #UPJANG#
+                                                   AND X.ORG_CODE = 'A20')
+                                    AND A.CLS_FLAG    = 'Y'
+                                 )
+          AND EXISTS (SELECT 1
+                        FROM HLDC_PO_SUBINVENTORY X
+                       WHERE X.SUBINV_CODE = D.SUBINV_CODE
+                         AND X.UPJANG = #UPJANG#
+                         AND X.ORG_CODE = 'A20')
+        GROUP BY D.ITEM_CODE
+        ) B
+      , (
+        SELECT C.UPJANG, C.ITEM_CODE, C.START_DATE, C.END_DATE, C.SALE_PRICE, C.PRC_DESC, C.CUSER, C.CDATE
+          FROM MAS_CORNER_PRICE C
+             ,(SELECT E.UPJANG, E.ITEM_CODE, MAX(E.START_DATE) AS START_DATE
+                 FROM MAS_CORNER_PRICE E
+                WHERE E.START_DATE BETWEEN '19000101' AND  #START_DATE#
+                  AND E.UPJANG = #UPJANG#
+                GROUP BY E.UPJANG, E.ITEM_CODE) D
+         WHERE C.UPJANG         = D.UPJANG
+           AND C.ITEM_CODE      = D.ITEM_CODE
+           AND C.START_DATE      = D.START_DATE
+        ) C
+ WHERE A.ITEM_CODE = B.ITEM_CODE
+   AND A.ITEM_CODE = C.ITEM_CODE(+)
+   AND A.USE_YN      = 'Y'
+  <isNotNull col="ZERO_YN">
+   AND NVL(C.SALE_PRICE, 0)  = 0
+  </isNotNull>       
+   
+</statement>
+	<input default-name="ds_cond">
+		<col name="UPJANG" size="6" type="NUMERIC" description="업장코드" /> 
+		<col name="START_DATE" size="255" type="VARCHAR" description="" /> 		
+		<col name="ZERO_YN" size="255" type="VARCHAR" description="" /> 						
+	</input>
+	<output default-name="ds_list">
+<col name="UPJANG" size="" type="NUMERIC" description="" />
+<col name="UPJANGNM" size="255" type="VARCHAR" description="" />
+<col name="ITEM_CODE" size="255" type="VARCHAR" description="" />
+<col name="ITEM_NAME" size="255" type="VARCHAR" description="" />
+<col name="ITEM_SIZE" size="255" type="VARCHAR" description="" />
+<col name="PO_UOM" size="255" type="VARCHAR" description="" />
+<col name="TAX_CODE" size="255" type="VARCHAR" description="" />
+<col name="TAX_CODENM" size="255" type="VARCHAR" description="" />
+<col name="START_DATE" size="255" type="VARCHAR" description="" />
+<col name="END_DATE" size="255" type="VARCHAR" description="" />
+<col name="BEFORE_SALE_PRICE" size="" type="NUMERIC" description="" />
+<col name="AFTER_SALE_PRICE" size="" type="NUMERIC" description="" />
+	</output>
+</query>

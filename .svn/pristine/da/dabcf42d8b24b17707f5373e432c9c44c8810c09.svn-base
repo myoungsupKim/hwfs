@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[영양성분분석표 식단리스트 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.MENU_CD, (C.CODE_NAME || D.CODE_NAME) || DECODE(E.CORNER_DESC, NULL, '', '(' || E.CORNER_DESC || ')') AS MENU_NAME,
+       FMM_RECIPENAME_FUN(A.UPJANG, A.MENU_CD, '1') AS MENU_CONSTRUCT,
+       NVL(A.SALE_PRICE, 0) AS SALE_PRICE, NVL(A.EXPECT_MEAL_QTY, 0) AS EXPECT_MEAL_QTY, '1' AS SEL 
+  FROM FMM_MENU A, FMM_RECIPE B, 
+       (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0023') C, --끼니
+       (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0022') D, --코너
+       FMS_MEAL_CORNER E
+ WHERE A.UPJANG = #UPJANG#
+   AND A.SUBINV_CODE = #SUBINV_CODE#
+   AND A.MENU_DATE = #MENU_DATE#
+   AND A.UPJANG = A.UPJANG
+   AND A.MENU_CD = B.MENU_CD
+   AND A.MEAL = C.CODE(+)
+   AND A.CORNER = D.CODE(+)
+   AND A.SUBINV_CODE = E.SUBINV_CODE(+)
+   AND A.MEAL = E.MEAL(+)
+   AND A.CORNER = E.CORNER(+)
+ GROUP BY A.UPJANG, C.CODE_NAME, D.CODE_NAME, E.CORNER_DESC, A.MENU_CD, A.SALE_PRICE, A.EXPECT_MEAL_QTY	]]></statement>
+	<input default-name="ds_Input">
+	</input>
+	<output default-name="ds_MainList">
+	</output>
+</query>

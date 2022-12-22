@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[식당별 매출내역조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT  UPJANG
+        , OCCUR_DATE
+        , TAX_CODE  -- 과세구분(과세:100/면세:210/영세:220)
+        , SUM(OCCUR_AMT) AS OCCUR_AMT
+        , SUBINV_CODE
+        , '' AS MEAL
+        , CUST_ID
+        , (SELECT CUSTNM FROM FMS_CUSTOM WHERE ACC_OCC.CUST_ID = CUST_ID) AS CUSTNM
+        , SUM(OCCUR_QTY) AS OCCUR_QTY
+        , CASE WHEN TAX_CODE = '100' THEN SUM(ROUND(ACC_OCC.OCCUR_AMT/1.1))  ELSE SUM(OCCUR_AMT) END AS OCCUR_SUPAMT
+        , CASE WHEN TAX_CODE = '100' THEN SUM(ACC_OCC.OCCUR_AMT - ROUND(ACC_OCC.OCCUR_AMT/1.1))  ELSE 0 END AS OCCUR_TAXAMT
+        , DECODE(TAX_CODE,'100','과세','210','면세','220','영세') AS TAX_CODE_NM
+        , (
+                SELECT SUBINV_NAME_DISP
+                FROM   FMS_SUBINVENTORY
+                WHERE  SUBINV_CODE = ACC_OCC.SUBINV_CODE
+          ) AS SUBINV_CODE_NM
+FROM    FMO_ACCT_OCCUR ACC_OCC
+WHERE   USE_YN = 'Y'
+AND     UPJANG        = #UPJANG#
+AND     OCCUR_DATE BETWEEN #OCCUR_F_DATE# AND #OCCUR_T_DATE#
+GROUP BY UPJANG,OCCUR_DATE,TAX_CODE,SUBINV_CODE,CUST_ID
+ORDER BY OCCUR_DATE,SUBINV_CODE,TAX_CODE	]]></statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sm.spm.advanceAdjustDescInquiryDAO">
+	<desc>선수금정산(대체)내역을 조회 HQML Query</desc>
+
+	<!-- 선수금정산(대체)내역을 조회 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sm.spm.dao.AdvanceAdjustDescInquiryDAO.selectList */
+		<![CDATA[
+            SELECT   X.ALT_NUM
+                    ,X.ALT_DATE
+                    ,X.ADVANCE_ALT_OCCUR_CLASS
+                    ,X.ADVANCE_ALT_OCCUR_CLASS_NM
+                    ,X.ALT_TYPE_CD
+                    ,X.ALT_TYPE_CD_NM
+                    ,X.SYS_CLASS
+                    ,X.SYS_CLASS_NM
+                    ,X.MU_CD
+                    ,X.MU_NM
+                    ,X.CC_CD
+                    ,X.CC_NM
+                    ,X.ACCT_CD
+                    ,X.ACCT_NM
+                    ,X.ALT_AMT
+                    ,X.ADJUST_AMT
+                    ,X.EXC_AMT
+                    ,X.PAY_GRP
+                    ,X.PAY_TYPE
+                    ,X.PAY_SCHD_DATE
+                    ,X.REMARK
+                    ,X.BATCH_ID
+                    ,X.UPJANG_CD
+                    ,X.UPJANG_CD_NM
+                    ,X.POS_NUM
+                    ,X.RECEIPT_NUM
+                    ,X.COUPON_NUM
+                    ,X.CUST_CD
+                    ,X.CUST_NM
+                    ,X.RESERV_NUM
+                    ,X.JOURNALZ_YN
+                    ,X.JOURNALZ_YN_NM
+                    ,X.JOURNALZ_NUM
+                    ,X.RESERV_DATE
+                    ,X.INQUERY_START_DATE
+                    ,X.INQUERY_END_DATE
+                    ,X.INQUERY_MU_CD
+                    ,X.INQUERY_TM_CD
+                    ,X.INQUERY_CC_CD
+                    ,X.INQUERY_CUST_CD
+                    ,X.INQUERY_ADVANCE_TYPE_CD
+                    ,X.INQUERY_ADVANCE_NUM
+                    ,X.FISCAL_DATE
+                    ,X.TRANS_TYPE_CD
+                    ,X.TRANS_CUST_CD
+                    ,X.TRANS_CC_CD
+                    ,X.RECD_STATUS
+                    ,(SELECT CUST.CUSTNM FROM ST_CUST CUST WHERE X.TRANS_CUST_CD = CUST.CUSTCD) TRANS_CUST_NM
+                    ,(SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE X.TRANS_CC_CD = CC.CC_CD) TRANS_CC_NM
+            FROM    (
+                    SELECT  M.ALT_NUM                       -- 선수금 대체 번호
+                            ,M.ALT_DATE                     -- 대체일자
+                            ,M.ADVANCE_ALT_OCCUR_CLASS      -- 선수금 대체 발생 구분
+                            ,SCC_COMMON_CODE_NAME_FUN('ADVANCE_ALT_OCCUR_CLASS',M.ADVANCE_ALT_OCCUR_CLASS) ADVANCE_ALT_OCCUR_CLASS_NM
+                            ,M.ALT_TYPE_CD                  -- 선수금 대체 유형 코드
+                            ,CASE WHEN M.ADVANCE_ALT_OCCUR_CLASS = 'TO03' THEN
+                                     (SELECT TP.TYPE_NM FROM SLA_TYPE_CD_MST TP WHERE TP.TYPE_GRP_CD = '008' AND TP.TYPE_CD = M.ALT_TYPE_CD)
+                                ELSE (SELECT TP.TYPE_NM FROM SLA_TYPE_CD_MST TP WHERE TP.TYPE_GRP_CD = '007' AND TP.TYPE_CD = M.ALT_TYPE_CD)
+                                END ALT_TYPE_CD_NM
+                            ,M.SYS_CLASS                    -- 시스템 구분
+                            ,SCC_COMMON_CODE_NAME_FUN('SYS_CLASS',M.SYS_CLASS) SYS_CLASS_NM
+                            ,M.MU_CD                        -- MU 코드
+                            ,(SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE M.MU_CD = MU.MU_CD) MU_NM
+                            ,M.CC_CD                        -- CC 코드
+                            ,(SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE M.CC_CD = CC.CC_CD) CC_NM
+                            ,M.ACCT_CD                      -- 계정 코드
+                            ,(SELECT ACCT.ACCTNM FROM HLDC_ST_ACCOUNT_V ACCT WHERE M.ACCT_CD = ACCT.ACCTCD) ACCT_NM
+                            ,M.ALT_AMT                      -- 대체 금액
+                            ,M.ADJUST_AMT                   -- 정산금액
+                            ,M.EXC_AMT                      -- 제외금액
+                            ,M.PAY_GRP                      -- 지불그룹
+                            ,M.PAY_TYPE                     -- 지불유형
+                            ,M.PAY_SCHD_DATE                -- 지불 예정일
+                            ,M.REMARK                       -- 비고
+                            ,M.BATCH_ID                     -- BATCH ID
+                            ,M.UPJANG_CD                    -- 업장 코드
+                            ,(
+                            SELECT  DISTINCT UP.UPJANGNM
+                            FROM    ST_UPJANG UP
+                            WHERE   TO_CHAR(UP.UPJANG) = M.UPJANG_CD
+                            ) UPJANG_CD_NM
+                            ,M.POS_NUM                      -- POS번호
+                            ,M.RECEIPT_NUM                  -- 영수증 번호
+                            ,M.COUPON_NUM                   -- 쿠폰번호
+                            ,M.CUST_CD                      -- 거래처 코드
+                            ,M.CUST_NM                      -- 거래처 명
+                            ,M.RESERV_NUM                   -- 예약 번호
+                            ,M.JOURNALZ_YN                  -- 분개여부
+                            ,DECODE(M.JOURNALZ_YN,'Y','예','아니오') JOURNALZ_YN_NM
+                            ,M.JOURNALZ_NUM                 -- 분개번호
+                            ,M.RESERV_DATE                  -- 예약 일자
+                            ,M.INQUERY_START_DATE           -- 조회 시작 일자
+                            ,M.INQUERY_END_DATE             -- 조회 종료 일자
+                            ,M.INQUERY_MU_CD                -- 조회 MU 코드
+                            ,M.INQUERY_TM_CD                -- 조회 TM 코드
+                            ,M.INQUERY_CC_CD                -- 조회 CC 코드
+                            ,M.INQUERY_CUST_CD              -- 조회 거래처 코드
+                            ,M.INQUERY_ADVANCE_TYPE_CD      -- 조회 선수금 유형 코드
+                            ,M.INQUERY_ADVANCE_NUM          -- 조회 선수금 번호
+                            ,M.ALT_DATE FISCAL_DATE
+                            ,M.ALT_TYPE_CD TRANS_TYPE_CD
+                            ,(
+                            SELECT  DISTINCT CUST_CD
+                            FROM    SLA_ADVANCE_MST MST
+                            WHERE   MST.RECD_STATUS = 'L'
+                            AND     MST.REF_NUM = M.ALT_NUM
+                            ) TRANS_CUST_CD                 -- 분할거래처코드
+                            ,(
+                            SELECT  DISTINCT CC_CD
+                            FROM    SLA_ADVANCE_MST MST
+                            WHERE   MST.RECD_STATUS = 'L'
+                            AND     MST.REF_NUM = M.ALT_NUM
+                            ) TRANS_CC_CD
+                            ,M.RECD_STATUS                  -- 레코드 상태
+                    FROM    SLA_ADVANCE_ALT_MST M           -- 선수금 대체 마스터
+                    WHERE   M.RECD_STATUS = 'L'
+                    AND     M.ALT_TYPE_CD IN (SELECT TYPE_CD FROM SLA_TYPE_CD_MST WHERE TYPE_GRP_CD = '007' AND USE_YN = 'Y')
+                <#if altDateFrom?has_content>
+                    AND     M.ALT_DATE BETWEEN :altDateFrom AND :altDateTo
+                </#if>
+                <#if altNum?has_content>
+                    AND     M.ALT_NUM LIKE '%'||:altNum||'%'
+                </#if>
+                <#if altTypeCd?has_content>
+                    AND     M.ALT_TYPE_CD = :altTypeCd
+                </#if>
+                <#if custCd?has_content>
+                    AND     TO_CHAR(M.CUST_CD) = :custCd
+                </#if>
+                <#if muCd?has_content>
+                    AND     M.MU_CD = :muCd
+                </#if>
+                <#if tmCd?has_content>
+                    AND     SCC_GET_TM_BY_CC('CODE',M.CC_CD) = :tmCd
+                </#if>
+                <#if ccCd?has_content>
+                    AND     M.CC_CD = :ccCd
+                </#if>
+                <#if upjang?has_content>
+                    AND     M.UPJANG_CD = :upjang
+                </#if>
+                    ORDER BY M.ALT_NUM DESC, M.ALT_DATE DESC
+            ) X
+		]]>
+	</statement>
+
+	<!-- 선수금정산(대체)내역을 조회(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sm.spm.dao.AdvanceAdjustDescInquiryDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 선수금정산(대체)내역을 조회(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sm.spm.dao.AdvanceAdjustDescInquiryDAO.update */
+		<![CDATA[
+		UPDATE TABLE_NAME 
+		SET    COLUMN_NAME1 = :columnName1,
+		       COLUMN_NAME2 = :columnName2,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+	<!-- 선수금정산(대체)내역을 조회(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.sm.spm.dao.AdvanceAdjustDescInquiryDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>

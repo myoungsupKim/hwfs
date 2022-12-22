@@ -1,0 +1,199 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FMM00033P" onload="form_onload" titletext="재료구성" position="absolute 0 0 760 314" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Grid autoenter="select" binddataset="ds_CONSTRUCT" enable="true" id="grd_jajea" useinputpanel="false" onheadclick="grd_jajea_OnHeadClick" taborder="2" tabstop="true" usecontextmenu="true" useselcolor="true" visible="true" wheelscrollrow="1" position="absolute 15 10 745 299" readonly="true" selecttype="row" autofittype="col">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="30"/>
+                <Column size="25"/>
+                <Column size="80"/>
+                <Column size="180"/>
+                <Column size="140"/>
+                <Column size="100"/>
+                <Column size="50"/>
+                <Column size="60"/>
+                <Column size="60"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell rowspan="2" displaytype="text">
+                  <Cell rowspan="2" displaytype="text" class="head_Excel"/>
+                </Cell>
+                <Cell col="1" rowspan="2" displaytype="text">
+                  <Cell rowspan="2" displaytype="text" text="상&#10;태" wordwrap="word"/>
+                </Cell>
+                <Cell col="2" rowspan="2" displaytype="text" text="상품코드"/>
+                <Cell col="3" rowspan="2" displaytype="text" text="상 품 명"/>
+                <Cell col="4" rowspan="2" displaytype="text">
+                  <Cell rowspan="2" displaytype="text" text="규격"/>
+                </Cell>
+                <Cell col="5" rowspan="2" displaytype="text" text="원산지"/>
+                <Cell col="6" rowspan="2" displaytype="text" text="단위"/>
+                <Cell col="7" rowspan="2" displaytype="text">
+                  <Cell displaytype="text" text="1인소요량"/>
+                  <Cell row="1" displaytype="text" text="(g)"/>
+                </Cell>
+                <Cell col="8" rowspan="2" displaytype="text">
+                  <Cell displaytype="text" text="1인원가"/>
+                  <Cell row="1" displaytype="text" text="(원)"/>
+                </Cell>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" style="align:center;" expr="expr:currow+1"/>
+                <Cell col="1" displaytype="image" style="align:center middle;selectbackground: ;" text="expr:iif(ITEM_CODE!=&quot;010708010198&quot;, iif(RESTRICT_YN==&quot;Y&quot;, &quot;URL('theme://convertImages/img_RC.png')&quot;, &quot;&quot;))"/>
+                <Cell col="2" displaytype="text" style="align:center;" text="bind:ITEM_CODE"/>
+                <Cell col="3" displaytype="text" style="align:left;" text="bind:ITEM_NAME"/>
+                <Cell col="4" displaytype="text" style="align:left;" text="bind:ITEM_SIZE"/>
+                <Cell col="5" displaytype="text" style="align:left;" text="bind:ORIGIN_TYPE"/>
+                <Cell col="6" displaytype="text" style="align:left;" text="bind:PO_UOM"/>
+                <Cell col="7" displaytype="number" edittype="text" editfilter="number" style="align:right;" text="bind:NEED_QTY"/>
+                <Cell col="8" displaytype="number" style="align:right;" text="bind:PERSON_PRICE"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 647 10"/>
+        <Static id="Static06" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 309"/>
+        <Static id="Static07" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 745 0 760 309"/>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 15 299 647 314"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_CONSTRUCT"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/*
+ ******************************************************************************************
+ * 시스템구분   : 메뉴관리 > 레시피관리 > 사업장레시피관리
+ * 프로그램명   : FMM00033P.XML
+ * 기      능   : 재료구성 팝업
+ * 작  성  자   : 손창덕
+ * 작성  일자   : 2008-01-24
+ * 비      고   : 
+ *		- 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+include "U_lib::lib_conversionCom.xjs";
+//@@컨버터에서 주석처리 #include "LIB::sc_comon.js";			// 시스템공통 함수
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js";
+//@@컨버터에서 주석처리 #include "LIB::sc_sql_common.js";
+//@@컨버터에서 주석처리 #include "LIB::tit_comm_0001.js";		// X-Framework Lib
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+var f_GUBUN, f_UPJANG, f_RECIPE_CD, f_SUBINV_CLASS;
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	// X-Framework : Action 정보 생성 
+	fsp_init(this);
+	
+	f_GUBUN        = fa_GUBUN;
+	f_UPJANG       = fa_UPJANG;
+	f_RECIPE_CD    = fa_RECIPE_CD;
+	f_SUBINV_CLASS = fa_SUBINV_CLASS;
+	
+	fn_search();
+}
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Search()
+ * 기      능   : [조회버튼] 검색조건에 해당하는 정보를 조회
+ ******************************************************************************************
+ */
+function fn_search()
+{
+	var v_Args = "";
+		v_Args += "GUBUN="+wrapQuote(f_GUBUN);
+		v_Args += " UPJANG="+wrapQuote(f_UPJANG);
+		v_Args += " RECIPE_CD="+wrapQuote(f_RECIPE_CD);
+		v_Args += " SUBINV_CLASS="+wrapQuote(f_SUBINV_CLASS);
+	
+	ds_CONSTRUCT.clearData();
+	
+	jsp_transaction(this, "FMM00033P_S001", "U_svc::" + "fm/fmm/FMM00033P_S001.jsp", "", "ds_CONSTRUCT=ds_CONSTRUCT", v_Args, "fn_CallBackSearch", true, true, false);
+	
+	// jsp로 변경
+	/*switch(fa_GUBUN) {
+		case "한화":
+			tit_addSearchActionInfo(this,"fm/fmm:FMM00030E_S005");
+			tit_CallService(this,"","","","ds_CONSTRUCT=ds_CONSTRUCT","UPJANG="+f_UPJANG+" RECIPE_CD="+f_RECIPE_CD,"fn_CallBackSearch","",true);
+			break;
+		case "본사":
+			tit_addSearchActionInfo(this,"fm/fmm:FMM00030E_S006");
+			tit_CallService(this,"","","","ds_CONSTRUCT=ds_CONSTRUCT","UPJANG="+f_UPJANG+" RECIPE_CD="+f_RECIPE_CD,"fn_CallBackSearch","",true);
+			break;
+		case "업장":
+			tit_addSearchActionInfo(this,"fm/fmm:FMM00030E_S007");
+			tit_CallService(this,"","","","ds_CONSTRUCT=ds_CONSTRUCT","UPJANG="+f_UPJANG+" RECIPE_CD="+f_RECIPE_CD,"fn_CallBackSearch","",true);
+			break;
+		default:
+			break;
+	}*/
+}
+/*------------------------------------------------------------
+	1. Function    : fn_CallBackSearch(errCode, errMsg)
+	2. Description : fn_Search() CallBack Function
+	3. Arguments   : errCode, errMsg
+	4. History     : 2008. 01. 24 - 최초작성
+*------------------------------------------------------------*/
+function fn_CallBackSearch(errCode, errMsg)
+{
+	if( errCode != 0 ) {
+		return;
+	} else {
+	}
+}
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+/*------------------------------------------------------------
+	1. Function    : grd_jajea_OnHeadClick(obj,nCell,nX,nY,nPivotIndex)
+	2. Description : 엑셀출력
+	3. Arguments   : 
+	4. History     : 2008. 04. 21 - 최초작성
+*------------------------------------------------------------*/
+function grd_jajea_OnHeadClick(obj:Grid, e:GridClickEventInfo)
+{
+	if( e.cell == 0 ) {	// Excel Export
+		gfn_exportExcel(obj, "Sheet1");
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

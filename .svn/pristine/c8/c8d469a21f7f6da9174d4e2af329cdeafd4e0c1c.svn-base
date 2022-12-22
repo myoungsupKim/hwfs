@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[전처리계획표 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>	
+SELECT T1.UPJANG, T1.MENU_CD, T1.RECIPE_CD, T1.ITEM_CODE,
+       T6.CLASS_NAME, T2.ITEM_NAME, T1.SUBINV_NAME_DISP, (T3.CODE_NAME || DECODE(T1.CORNER_DESC, NULL, '(' || T4.CODE_NAME || ')', '(' || T1.CORNER_DESC || ')')) AS MENU_NAME,
+       T1.RECIPE_NAME, T1.EXPECT_MEAL_QTY, T2.PO_UOM, ROUND(T1.EXPECT_MEAL_QTY * T1.NEED_QTY / 1000 / T2.KG_CONVERT_RATE, 2) AS TOTAL_QTY, T5.CODE_NAME AS CUT_SPEC,
+       DECODE(T2.OTCUSTCD,'0000',(SELECT Z.TRANS_DATE AS NEED_DATE
+                                    FROM HLDC_PO_TRANSACTION Z
+                                   WHERE Z.TRANS_DATE = T1.NEED_DATE
+                                     AND Z.SUBINV_CODE = T1.SUBINV_CODE
+                                     AND Z.ITEM_CODE = T1.ITEM_CODE
+                                     AND Z.TRANS_TYPE = 'I001'
+                                     AND ROWNUM = 1)
+                                , T1.NEED_DATE) AS NEED_DATE
+  FROM (
+        SELECT A.UPJANG, A.MENU_CD, A.MENU_DATE, A.MEAL, A.CORNER, A.SUBINV_CODE, C.RECIPE_CD, C.RECIPE_NAME, D.ITEM_CODE, NVL(A.EXPECT_MEAL_QTY, 0) AS EXPECT_MEAL_QTY,
+               NVL(D.NEED_QTY, 0) AS NEED_QTY, D.CUT_SPEC, DECODE(D.ORDER_YN, 'Y', D.NEED_DATE, '') AS NEED_DATE, B.CORNER_DESC, E.SUBINV_NAME_DISP2 AS SUBINV_NAME_DISP,
+               NVL(F.SPICE_YN, 'N') AS SPICE_YN, F.ITEM_CLASS2
+          FROM FMM_MENU A, FMS_MEAL_CORNER B, FMM_RECIPE C, FMM_RECIPE_ITEM D, FMS_SUBINVENTORY E, FMS_ITEM_V F
+         WHERE A.UPJANG = #UPJANG# -- 업장코드(필수 검색조건)
+          <isNotNull col="SUBINV_CODE">
+           AND A.SUBINV_CODE = #SUBINV_CODE# -- 창고코드(필수 검색조건)
+          </isNotNull>
+           AND A.MENU_DATE = #MENU_DATE# -- 제공일(필수 검색조건)
+          <isNotEqual col="MEAL" value="000">
+           AND A.MEAL = #MEAL# -- 끼니(선택 검색조건)
+          </isNotEqual>
+          <isNotEqual col="CORNER" value="000">
+           AND A.CORNER = #CORNER# -- 코너(선택 검색조건)
+          </isNotEqual>
+           AND A.SUBINV_CODE = B.SUBINV_CODE
+           AND A.MEAL = B.MEAL
+           AND A.CORNER = B.CORNER
+           AND A.UPJANG = C.UPJANG
+           AND A.MENU_CD = C.MENU_CD
+           AND A.SUBINV_CODE = E.SUBINV_CODE
+           AND C.UPJANG = D.UPJANG
+           AND C.MENU_CD = D.MENU_CD
+           AND C.RECIPE_CD = D.RECIPE_CD
+           AND D.ITEM_CODE = F.ITEM_CODE(+) ) T1,    
+       (
+        SELECT A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.PO_UOM, A.KG_CONVERT_RATE, A.OTCUSTCD, B.DISUSE_RATE
+          FROM FMS_ITEM_V A,
+               (SELECT ITEM_CODE, CAL, WATER, PROT, FAT, CARBO, FIBER, ASH, CA, P, FE, NA, K, VITA_A, RETIN, B_CAROT, THIA, RIBO, NIACIN, VITA_C, CHOLE, DISUSE_RATE
+                  FROM FMP_ITEM_NUT WHERE UPJANG = #UPJANG# -- 업장코드(필수 검색조건)
+                 UNION ALL
+               (SELECT ITEM_CODE, CAL, WATER, PROT, FAT, CARBO, FIBER, ASH, CA, P, FE, NA, K, VITA_A, RETIN, B_CAROT, THIA, RIBO, NIACIN, VITA_C, CHOLE, DISUSE_RATE
+                  FROM FSI_ITEM_NUT
+                 MINUS 
+                SELECT ITEM_CODE, CAL, WATER, PROT, FAT, CARBO, FIBER, ASH, CA, P, FE, NA, K, VITA_A, RETIN, B_CAROT, THIA, RIBO, NIACIN, VITA_C, CHOLE, DISUSE_RATE
+                  FROM FMP_ITEM_NUT WHERE UPJANG = #UPJANG# )) B -- 업장코드(필수 검색조건)
+         WHERE A.ITEM_CODE = B.ITEM_CODE(+) ) T2, -- 자재 리스트
+       (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0023') T3, -- 끼니 공통코드
+       (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0022') T4, -- 코너 공통코드
+       (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0017') T5, -- 커팅규격 공통코드
+       HLDC_PO_ITEM_CLASS T6 -- 대분류 코드
+ WHERE 1 = 1
+  <isEqual col="CHK_SPICE" value="0">
+   AND T1.SPICE_YN = 'N' -- 양념류 구분(Y:양념류, N:미양념류)
+  </isEqual>
+   AND T1.ITEM_CODE = T2.ITEM_CODE(+) 
+   AND T1.MEAL = T3.CODE(+)
+   AND T1.CORNER = T4.CODE(+)
+   AND T1.CUT_SPEC = T5.CODE(+)
+   AND T1.ITEM_CLASS2 = T6.CLASS_CODE(+)
+ ORDER BY T6.CLASS_CODE, T2.ITEM_CODE, T1.SUBINV_CODE, T1.MENU_CD, T1.RECIPE_CD	</statement>
+	<input default-name="ds_Input">
+	</input>
+	<output default-name="ds_List">
+	</output>
+</query>

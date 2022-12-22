@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="fm.fmp.whPackModifyDAO">
+	<desc>창고일괄변경 HQML Query</desc>
+
+	<!-- 창고일괄변경 목록을 조회한다. -->
+	<statement name="selectList" type="select"><![CDATA[
+SELECT '0' AS CHK
+     , C.TM_NM
+     , D.NM_KOR
+     , E.MAIN_UPJANG
+     , F.UPJANGNM_DISP2
+     , E.UPJANG
+     , E.UPJANGNM_DISP2 AS SAUPJANG_NM
+     , A.SUBINV_CODE
+     , A.SUBINV_NAME_DISP
+     , A.D_DAYS
+     , A.D_TIMES
+     , A.PROC_STATUS
+     , DECODE(A.PROC_STATUS,'R','대기','S','완료','E','오류','') AS PROC_STATUS_NM
+     , DECODE(A.USE_YN, 'Y', '사용', '미사용') AS USE_YN
+     , A.UUSER AS UUSER
+     , (SELECT Z.NM_KOR
+        FROM   SCC_USERINFO Z
+        WHERE  Z.SABUN = A.UUSER
+        )  AS UUSER_NM
+     , TO_CHAR(A.UDATE,'YYYY-MM-DD AM HH24:MI:SS') AS UDATE  
+     , G.CENTER_CODE
+     , (SELECT CENTER_NAME FROM HLDC_PO_CENTER WHERE CENTER_CODE = G.CENTER_CODE) AS CENTER_NAME
+     , C.CC_CD
+     , (SELECT X.CC_NM FROM HLDC_SC_CC X WHERE X.CC_CD = C.CC_CD) AS CC_NM
+  FROM FMS_SUBINVENTORY A
+     , ST_UPJANG B
+     , HLDC_SC_DEPT_V C
+     , HLDC_HR_PERSONAL D
+     , FMS_UPJANG E
+     , FMS_UPJANG F
+     , EPROCUSR.VO_CENTER_UPJANG G
+ WHERE A.UPJANG      = B.UPJANG
+   AND B.CC_CD       = C.CC_CD
+   AND B.UPJANG      = E.UPJANG
+   AND E.CS_SABUN    = D.SABUN (+)
+   AND E.MAIN_UPJANG = F.UPJANG
+   AND B.UPJANG      = G.UPJANG
+   --AND G.CENTER_CODE = :schCenter
+  <#if schCode?has_content>AND G.CENTER_CODE IN (${schCode})</#if>
+   /* 관리부서(팀) */
+   <#if schTm?has_content>AND C.TM_CD = :schTm</#if>
+   /* 본사 */
+   <#if schMainUpjang?has_content>AND B.UPJANG IN (SELECT UPJANG FROM FMS_UPJANG WHERE MAIN_UPJANG = :schMainUpjang)</#if>
+   /* CC */
+   <#if schCc?has_content>AND C.CC_CD = :schCc</#if>
+   /* 사업장 */
+   <#if schUpjang?has_content>AND B.UPJANG = :schUpjang</#if>
+   /* CS사원명 */
+   <#if csNm?has_content>AND D.NM_KOR LIKE '%' || :csNm || '%'</#if>
+   /* 창고명 */
+   <#if whNm?has_content>AND A.SUBINV_NAME_DISP LIKE '%' || :whNm || '%'</#if>
+   /* 미사용 창고 여부 */
+   <#if notUseWh?has_content && notUseWh == '1'>AND A.USE_YN = 'Y'</#if>
+ ORDER BY C.TM_NM, D.NM_KOR, F.UPJANGNM_DISP2, E.UPJANGNM_DISP2, A.SUBINV_NAME_DISP, A.D_DAYS, A.D_TIMES
+]]></statement>
+
+	<!-- 창고일괄변경 목록을 저장한다. -->
+	<statement name="modifyList" type="update">
+		/*+ com.hwfs.fm.fmp.dao.WhPackModifyDAO.modifyList */
+		<![CDATA[
+UPDATE FMS_SUBINVENTORY
+   SET D_DAYS   = :dDays
+     , D_TIMES  = :dTimes
+     , PROC_STATUS = 'R'
+     , UUSER = :loginSabun
+     , UDATE = SYSDATE
+ WHERE SUBINV_CODE = :subinvCode
+   --AND PROC_STATUS = 'C'  /* 계속해서 수정가능하단다. */
+   AND PROC_STATUS <> 'R'   /* 대기가 아니면 수정가능 */
+]]>
+	</statement>
+
+	<!-- D_DAY 목록을 조회한다. -->
+	<statement name="selectDdayList" type="select">
+		/*+ com.hwfs.fm.fmp.dao.WhPackModifyDAO.selectDdayList */
+		<![CDATA[
+SELECT DTL_CD AS CODE
+     , DTL_CD_NM AS CODE_NAME
+  FROM EPROCUSR.VO_D_DAYS
+ WHERE GRP_CD = 'C109'
+]]>
+	</statement>
+
+	<!-- D_TIME 목록을 조회한다. -->
+	<statement name="selectDtimesList" type="select">
+		/*+ com.hwfs.fm.fmp.dao.WhPackModifyDAO.selectDtimesList */
+		<![CDATA[
+SELECT DTL_CD AS CODE
+     , DTL_CD_NM AS CODE_NAME
+  FROM EPROCUSR.VO_D_TIMES
+ WHERE GRP_CD = 'C110'
+ ORDER BY SORT_ORD
+]]>
+	</statement>
+
+</hqml>

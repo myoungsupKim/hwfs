@@ -1,0 +1,973 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sm.srm.salesSlipIssueCompareReptDAO">
+	<desc>영업전표발행비교 조회 HQML Query</desc>
+
+	<!-- 영업전표발행비교(매출금액비교) 조회 목록을 조회한다. -->
+	<statement name="selectTab1List" type="select">
+		/*+ com.hwfs.sm.srm.dao.SalesSlipIssueCompareReptDAO.selectTab1List */
+		<![CDATA[
+		SELECT 
+		        MU_CD AS MU_CD
+		       ,(select MU_NM from HLDC_SC_DEPT_V where cc_cd = v.cc_cd ) AS MU_NM
+		       ,CC_CD AS CC_CD
+		       ,CC_NM AS CC_NM
+		       ,SAP_CUST_CD AS SAP_CUST_CD
+		       ,(SELECT CUST_NM FROM SCC_SAP_CUST WHERE SAP_CUST_CD = V.SAP_CUST_CD) AS SAP_CUST_NM
+		       ,SUM(S_TAX) AS S_TAX --영업_세금계산서
+		       ,SUM(S_F1) AS S_F1 --영업_식음료매출_식료
+		       ,SUM(S_F2) AS S_F2 --영업_식음료매출_음료
+		       ,SUM(S_F3) AS S_F3 --영업_식음료매출_FC
+		       ,SUM(S_G1) AS S_G1 --영업_상품매출_일반 
+		       ,SUM(S_G2) AS S_G2 --영업_상품매출_슈퍼매점
+		       ,SUM(S_G3) AS S_G3 --영업_상품매출_유류
+		       ,SUM(S_G4) AS S_G4 --영업_상품매출_휴게소
+		       ,SUM(S_E1) AS S_E1 --영업_기타매출_기타
+		       ,SUM(S_E2) AS S_E2 --영업_용역매출_위탁
+		       ,SUM(S_E3) AS S_E3 --영업_임대매출_사업장
+		       ,SUM(S_E4) AS S_E4 --영업_기타매출_물류대행
+		       ,SUM(G_C_F1) AS G_C_F1 --전표_식음료매출_식료
+		       ,SUM(G_C_F2) AS G_C_F2 --전표_식음료매출_음료
+		       ,SUM(G_C_F3) AS G_C_F3 --전표_식음료매출_FC
+		       ,SUM(G_C_G1) AS G_C_G1 --전표_상품매출_일반
+		       ,SUM(G_C_G2) AS G_C_G2 --전표_상품매출_슈퍼매점
+		       ,SUM(G_C_G3) AS G_C_G3 --전표_상품매출_유류      
+		       ,SUM(G_C_G4) AS G_C_G4 --전표_상품매출_휴게소      
+		       ,SUM(G_C_E1) AS G_C_E1 --전표_기타매출_기타
+		       ,SUM(G_C_E2) AS G_C_E2 --전표_용역매출_위탁
+		       ,SUM(G_C_E3) AS G_C_E3 --전표_임대매출_사업장      
+		       ,SUM(G_C_E4) AS G_C_E4 --전표_기타매출_물류대행  
+		       ,SUM(S_F1)-SUM(G_C_F1) AS S_F1_MINUS_G_C_F1 --차이_식음료매출_식료
+		       ,SUM(S_F2)-SUM(G_C_F2) AS S_F2_MINUS_G_C_F2--차이_식음료매출_음료
+		       ,SUM(S_F3)-SUM(G_C_F3) AS S_F3_MINUS_G_C_F3 --차이_식음료매출_FC
+		       ,SUM(S_G1)-SUM(G_C_G1) AS S_G1_MINUS_G_C_G1 --차이_상품매출_일반 
+		       ,SUM(S_G2)-SUM(G_C_G2) AS S_G2_MINUS_G_C_G2 --차이_상품매출_슈퍼매점
+		       ,SUM(S_G3)-SUM(G_C_G3) AS S_G3_MINUS_G_C_G3 --차이_상품매출_유류
+		       ,SUM(S_G4)-SUM(G_C_G4) AS S_G4_MINUS_G_C_G4 --차이_상품매출_휴게소
+		       ,SUM(S_E1)-SUM(G_C_E1) AS S_E1_MINUS_G_C_E1 --차이_기타매출_기타
+		       ,SUM(S_E2)-SUM(G_C_E2) AS S_E2_MINUS_G_C_E2--차이_용역매출_위탁
+		       ,SUM(S_E3)-SUM(G_C_E3) AS S_E3_MINUS_G_C_E3 --차이_임대매출_사업장
+		       ,SUM(S_E4)-SUM(G_C_e4) AS S_E4_MINUS_G_C_E4 --차이_기타매출_물류대행
+		  FROM (       
+		            SELECT    MU_CD
+		                    , CC_CD
+		                    , CC_NM
+		                    , (SELECT SAP_CUST_CD FROM ST_CUST WHERE CUSTCD = CUST_CD) AS SAP_CUST_CD
+		                    , CUST_NM
+		                    , NVL(SUM(TAX_AMT), 0) AS S_TAX
+		                    , NVL(SUM(DECODE(INTERNAL_USE_CLASS, 'N', DECODE(ACCT_CD,'41201010',NET_AMT))), 0) AS	S_G1
+		                    , NVL(SUM(DECODE(INTERNAL_USE_CLASS, 'N', DECODE(ACCT_CD,'41201020',NET_AMT))), 0) AS	S_G2
+		                    , NVL(SUM(DECODE(INTERNAL_USE_CLASS, 'N', DECODE(ACCT_CD,'41201030',NET_AMT))), 0) AS	S_G3
+		                    , NVL(SUM(DECODE(INTERNAL_USE_CLASS, 'N', DECODE(ACCT_CD,'41201040',NET_AMT))), 0) AS	S_G4
+		                    , NVL(SUM(DECODE(INTERNAL_USE_CLASS, 'N', DECODE(ACCT_CD,'41203010',NET_AMT))), 0) AS	S_F1
+		                    , NVL(SUM(DECODE(INTERNAL_USE_CLASS, 'N', DECODE(ACCT_CD,'41203020',NET_AMT))), 0) AS	S_F2
+		                    , NVL(SUM(DECODE(INTERNAL_USE_CLASS, 'N', DECODE(ACCT_CD,'41203030',NET_AMT))), 0) AS	S_F3
+		                    , NVL(SUM(DECODE(INTERNAL_USE_CLASS, 'N', DECODE(ACCT_CD,'41209040',NET_AMT))), 0) AS	S_E1
+		                    , NVL(SUM(DECODE(INTERNAL_USE_CLASS, 'N', DECODE(ACCT_CD,'41208010',NET_AMT))), 0) AS	S_E2
+		                    , NVL(SUM(DECODE(INTERNAL_USE_CLASS, 'N', DECODE(ACCT_CD,'41206010',NET_AMT))), 0) AS	S_E3
+		                    , NVL(SUM(DECODE(INTERNAL_USE_CLASS, 'N', DECODE(ACCT_CD,'41209060',NET_AMT))), 0) AS	S_E4
+		                    , 0 AS G_P_TOT
+		                    , 0 AS G_P_F1
+		                    , 0 AS G_P_F2
+		                    , 0 AS G_P_F3
+		                    , 0 AS G_P_G1
+		                    , 0 AS G_P_G2
+		                    , 0 AS G_P_G3
+		                    , 0 AS G_P_G4
+		                    , 0 AS G_P_E1
+		                    , 0 AS G_P_E2
+		                    , 0 AS G_P_E3
+		                    , 0 AS G_P_E4
+		                    , 0 AS G_C_TOT
+		                    , 0 AS G_C_F1
+		                    , 0 AS G_C_F2
+		                    , 0 AS G_C_F3
+		                    , 0 AS G_C_G1
+		                    , 0 AS G_C_G2
+		                    , 0 AS G_C_G3
+		                    , 0 AS G_C_G4
+		                    , 0 AS G_C_E1
+		                    , 0 AS G_C_E2
+		                    , 0 AS G_C_E3
+		                    , 0 AS G_C_E4
+		            FROM (
+		              SELECT  H.MU_CD
+		                    , H.CC_CD
+		                    ,(SELECT L.CC_NM FROM SCC_CC L WHERE L.CC_CD = H.CC_CD) CC_NM
+		                    , H.CUST_CD
+		                    , H.CUST_NM
+		                    , H.SYS_CLASS
+		                    , H.SYS_CLASS_NM
+		                    , H.ACCT_CD
+		                    ,(SELECT DISTINCT ACCT.ACCTNM FROM HLDC_ST_ACCOUNT_V ACCT WHERE H.ACCT_CD = ACCT.ACCTCD) AS ACCT_NM
+		                    , H.INTERNAL_USE_CLASS
+		                    , SUM(H.NET_AMT) AS NET_AMT
+		                    , SUM(H.TAX_AMT) AS TAX_AMT
+		             FROM (
+		              SELECT 	   	     A.OCCUR_DATE
+		                               , A.MU_CD
+		                               , A.SYS_CLASS
+		                               , (SELECT K.SET2 FROM SCC_COMMON_CODE K WHERE K.GROUP_CODE = 'SYS_CLASS' AND K.CODE = A.SYS_CLASS AND K.USE_YN = 'Y') SYS_CLASS_NM
+		                               , A.UPJANG_CD
+		                               , (SELECT L.UPJANGNM FROM ST_UPJANG L WHERE L.UPJANG = A.UPJANG_CD) UPJANG_NM
+		                               , A.CC_CD
+		                               , A.CUST_CD
+		                               , (SELECT DISTINCT NM.CUSTNM FROM ST_CUST NM WHERE NM.CUSTCD = A.CUST_CD) AS CUST_NM
+		                               , A.INTERNAL_USE_CLASS
+		                               , B.SALS_CLASS
+		                               , (SELECT X.SALS_TYPE_NM
+		                                      FROM SLA_SALES_SALS_TYPE X
+		                                          ,SLA_TYPE_CD_MST Y
+		                                      WHERE X.TYPE_GRP_CD = Y.TYPE_GRP_CD
+		                                      AND X.TYPE_CD = Y.TYPE_CD
+		                                      AND X.SALS_TYPE = B.SALS_CLASS) SALS_CLASS_NM
+		                               , (SELECT Y.ACCT_CD
+		                                      FROM SLA_SALES_SALS_TYPE X
+		                                          ,SLA_TYPE_CD_MST Y
+		                                      WHERE X.TYPE_GRP_CD = Y.TYPE_GRP_CD
+		                                      AND X.TYPE_CD = Y.TYPE_CD
+		                                      AND X.SALS_TYPE = B.SALS_CLASS) AS ACCT_CD
+		                               , B.NET_AMT
+		                               , NVL((SELECT SUM(SUPPLY_AMT) FROM SLA_TAX_SHET_OCCUR_OBJ X WHERE X.UPJANG_SALS_NUM = B.UPJANG_SALS_NUM AND RECD_STATUS = 'L'),0) AS TAX_AMT
+		                            FROM SLA_IF_UPJANG_SALS_MST A
+		                               , (SELECT OCCUR_DATE, SYS_CLASS, UPJANG_CD, RECEIPT_NUM, SALS_CLASS, UPJANG_SALS_NUM, SUM(NET_AMT) NET_AMT
+		                                    FROM SLA_IF_UPJANG_SALS_DETAIL 
+		                                   WHERE 1=1
+		                                     AND DDDD_CLOSE_YN = 'Y'
+		                                     AND RECD_STATUS = 'L'
+		                                   GROUP BY OCCUR_DATE, SYS_CLASS, UPJANG_CD, RECEIPT_NUM, UPJANG_SALS_NUM, SALS_CLASS
+		                                 ) B
+		                          WHERE (1=1)
+		                                AND A.OCCUR_DATE = B.OCCUR_DATE
+		                                AND A.SYS_CLASS = B.SYS_CLASS
+		                                AND A.UPJANG_CD = B.UPJANG_CD
+		                                AND A.RECEIPT_NUM = B.RECEIPT_NUM
+		                                AND A.DDDD_CLOSE_YN = 'Y'
+		                        AND SUBSTR(A.OCCUR_DATE,0,6) = :meDate
+		                        AND A.RECD_STATUS = 'L'
+		            ) H
+		            GROUP BY
+		                      H.MU_CD									-- MU 구분
+		                    , H.CC_CD									-- CC 구분
+		                    , H.CUST_CD								-- 거래처 구분
+		                    , H.CUST_NM
+		                    , H.SYS_CLASS							-- 시스템 구분
+		                    , H.SYS_CLASS_NM
+		                    , H.ACCT_CD								-- 매출유형 구분
+		                    , H.INTERNAL_USE_CLASS    -- 내부이용 구분
+		            )
+		            GROUP BY MU_CD
+		                    , CC_CD
+		                    , CC_NM
+		                    , CUST_CD
+		                    , CUST_NM
+		            UNION ALL        
+		            SELECT 
+		                   MU_CD      
+		                 , CC_CD      
+		                 , CC_NM 
+		                 , SAP_CUST_CD
+		                 , CUST_NM  
+		                 , 0 AS S_TAX
+		                 , 0 AS	S_G1
+		                 , 0 AS	S_G2
+		                 , 0 AS	S_G3
+		                 , 0 AS	S_G4
+		                 , 0 AS	S_F1
+		                 , 0 AS	S_F2
+		                 , 0 AS	S_F3
+		                 , 0 AS	S_E1
+		                 , 0 AS	S_E2
+		                 , 0 AS	S_E3
+		                 , 0 AS	S_E4
+		                , SUM(P_AMT) AS G_P_TOT
+		                , SUM(FP_AMT1) AS G_P_F1
+		                , SUM(FP_AMT2) AS G_P_F2
+		                , SUM(FP_AMT3) AS G_P_F3
+		                , SUM(GP_AMT1) AS G_P_G1
+		                , SUM(GP_AMT2) AS G_P_G2
+		                , SUM(GP_AMT3) AS G_P_G3
+		                , SUM(GP_AMT4) AS G_P_G4
+		                , SUM(EP_AMT1) AS G_P_E1
+		                , SUM(EP_AMT2) AS G_P_E2
+		                , SUM(EP_AMT3) AS G_P_E3
+		                , SUM(EP_AMT4) AS G_P_E4
+		                , SUM(C_AMT) AS G_C_TOT
+		                , SUM(FC_AMT1) AS G_C_F1
+		                , SUM(FC_AMT2) AS G_C_F2
+		                , SUM(FC_AMT3) AS G_C_F3
+		                , SUM(GC_AMT1) AS G_C_G1
+		                , SUM(GC_AMT2) AS G_C_G2
+		                , SUM(GC_AMT3) AS G_C_G3
+		                , SUM(GC_AMT4) AS G_C_G4
+		                , SUM(EC_AMT1) AS G_C_E1
+		                , SUM(EC_AMT2) AS G_C_E2
+		                , SUM(EC_AMT3) AS G_C_E3
+		                , SUM(EC_AMT4) AS G_C_E4    
+		              FROM (
+		                    SELECT SAP_CUST_CD
+		                             , CUST_NM    
+		                             , BSN_NO     
+		                             , MU_CD      
+		                             , MU_NM      
+		                             , CC_CD      
+		                             , CC_NM 
+		                             , SUM(PRE_AMT) AS P_AMT
+		                             , DECODE(ACCT_CD, '41203010', SUM(PRE_AMT), 0) AS FP_AMT1
+		                             , DECODE(ACCT_CD, '41203020', SUM(PRE_AMT), 0) AS FP_AMT2
+		                             , DECODE(ACCT_CD, '41203030', SUM(PRE_AMT), 0) AS FP_AMT3
+		                             , DECODE(ACCT_CD, '41201010', SUM(PRE_AMT), 0) AS GP_AMT1
+		                             , DECODE(ACCT_CD, '41201020', SUM(PRE_AMT), 0) AS GP_AMT2
+		                             , DECODE(ACCT_CD, '41201030', SUM(PRE_AMT), 0) AS GP_AMT3
+		                             , DECODE(ACCT_CD, '41201040', SUM(PRE_AMT), 0) AS GP_AMT4
+		                             , DECODE(ACCT_CD, '41209040', SUM(PRE_AMT), 0) AS EP_AMT1
+		                             , DECODE(ACCT_CD, '41208010', SUM(PRE_AMT), 0) AS EP_AMT2
+		                             , DECODE(ACCT_CD, '41206010', SUM(PRE_AMT), 0) AS EP_AMT3     
+		                             , DECODE(ACCT_CD, '41209060', SUM(PRE_AMT), 0) AS EP_AMT4  
+		                             , SUM(CUR_AMT) AS C_AMT
+		                             , DECODE(ACCT_CD, '41203010', SUM(CUR_AMT), 0) AS FC_AMT1
+		                             , DECODE(ACCT_CD, '41203020', SUM(CUR_AMT), 0) AS FC_AMT2
+		                             , DECODE(ACCT_CD, '41203030', SUM(CUR_AMT), 0) AS FC_AMT3
+		                             , DECODE(ACCT_CD, '41201010', SUM(CUR_AMT), 0) AS GC_AMT1
+		                             , DECODE(ACCT_CD, '41201020', SUM(CUR_AMT), 0) AS GC_AMT2
+		                             , DECODE(ACCT_CD, '41201030', SUM(CUR_AMT), 0) AS GC_AMT3
+		                             , DECODE(ACCT_CD, '41201040', SUM(CUR_AMT), 0) AS GC_AMT4
+		                             , DECODE(ACCT_CD, '41209040', SUM(CUR_AMT), 0) AS EC_AMT1
+		                             , DECODE(ACCT_CD, '41208010', SUM(CUR_AMT), 0) AS EC_AMT2
+		                             , DECODE(ACCT_CD, '41206010', SUM(CUR_AMT), 0) AS EC_AMT3
+		                             , DECODE(ACCT_CD, '41209060', SUM(CUR_AMT), 0) AS EC_AMT4
+		                          FROM
+		                               (
+		                                SELECT 
+		                                        CO_PA_GUEST AS SAP_CUST_CD
+		                                      , (SELECT CUST_NM FROM SCC_SAP_CUST WHERE SAP_CUST_CD = CO_PA_GUEST) AS CUST_NM
+		                                      , (SELECT BSN_NO FROM SCC_SAP_CUST WHERE SAP_CUST_CD = CO_PA_GUEST) AS BSN_NO
+		                                      , (SELECT BU_CD FROM HLDC_SC_DEPT_V WHERE CC_CD = A.CC_CD) BU_CD
+		                                      , (SELECT BU_NM FROM HLDC_SC_DEPT_V WHERE CC_CD = A.CC_CD) BU_NM
+		                                      , (SELECT MU_CD FROM HLDC_SC_DEPT_V WHERE CC_CD = A.CC_CD) MU_CD
+		                                      , (SELECT MU_NM FROM HLDC_SC_DEPT_V WHERE CC_CD = A.CC_CD) MU_NM        
+		                                      , CC_CD
+		                                      , (SELECT CC_NM FROM SCC_CC WHERE CC_CD = A.CC_CD) AS CC_NM
+		                                      , MASTER_ACCT AS ACCT_CD
+		                                      , (SELECT ACCT_NM1 FROM SAP_IF.SAP_ACCT_MST A WHERE A.BU_CD = '2000' AND A.ACCT_CD = MASTER_ACCT) ACCT_NM
+		                                      , DECODE(SUBSTR(SLIP_PERIOD_DATE, 1, 6), :meDate, 0, SUM(CR_AMT)-SUM(DR_AMT) ) AS PRE_AMT
+		                                      , DECODE(SUBSTR(SLIP_PERIOD_DATE, 1, 6), :meDate, SUM(CR_AMT)-SUM(DR_AMT), 0)  AS CUR_AMT
+		                                  FROM (
+		                                            SELECT  D.CC_CD
+		                                                  , D.CO_PA_GUEST
+		                                                  , D.MASTER_ACCT
+		                                                  , SUBSTR(M.SLIP_PERIOD_DATE, 1, 6) AS SLIP_PERIOD_DATE
+		                                                  , NVL(LCAL_AMT,0) AS DR_AMT
+		                                                  , 0 AS CR_AMT
+		                                              FROM
+		                                                  SLA_SAP_SLIP_MST M,  SLA_SAP_SLIP_DTL D
+		                                              WHERE M.SLIP_NUM = D.SLIP_NUM
+		                                                AND SUBSTR(M.SLIP_PERIOD_DATE, 1, 6) BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(:meDate,'YYYYMM'),-1),'YYYYMM') AND :meDate
+		                                                AND M.SLIP_STATUS IN ('P', 'V')
+		                                                -- 고객별 미결관리 대상 계정
+		                                                AND D.MASTER_ACCT IN ('41201010','41209040','41203010','41201020','41206010','41203030','41201030','41201040','41203020','41208010','41209060')
+		                                                AND D.DR_CR_CLASS = 1
+		                                              UNION ALL
+		                                              SELECT D.CC_CD
+		                                                  , D.CO_PA_GUEST
+		                                                  , D.MASTER_ACCT
+		                                                  , SUBSTR(M.SLIP_PERIOD_DATE, 1, 6) AS SLIP_PERIOD_DATE
+		                                                  , 0 AS DR_AMT
+		                                                  , NVL(LCAL_AMT,0) AS CR_AMT
+		                                              FROM
+		                                                  SLA_SAP_SLIP_MST M,  SLA_SAP_SLIP_DTL D
+		                                              WHERE M.SLIP_NUM = D.SLIP_NUM
+		                                                AND SUBSTR(M.SLIP_PERIOD_DATE, 1, 6) BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(:meDate,'YYYYMM'),-1),'YYYYMM') AND :meDate
+		                                                AND M.SLIP_STATUS IN ('P', 'V')
+		                                                -- 고객별 미결관리 대상 계정
+		                                                AND D.MASTER_ACCT IN ('41201010','41209040','41203010','41201020','41206010','41203030','41201030','41201040','41203020','41208010','41209060')
+		                                                AND D.DR_CR_CLASS = 2
+		                                         ) A
+		                                 GROUP BY CC_CD, CO_PA_GUEST, MASTER_ACCT, SUBSTR(SLIP_PERIOD_DATE, 1, 6)
+		                                )
+		                        GROUP BY SAP_CUST_CD, CUST_NM, BSN_NO, MU_CD, MU_NM, CC_CD, CC_NM, ACCT_CD
+		                    )      
+		            GROUP BY        
+		                   MU_CD      
+		                 , CC_CD      
+		                 , CC_NM         
+		                 , SAP_CUST_CD
+		                 , CUST_NM 
+		) V
+		WHERE 1 = 1
+		<#if muCd?has_content>
+		AND   MU_CD       = :muCd
+		</#if>
+		<#if tmCd?has_content>
+		AND   CC_CD IN (
+							         SELECT  A.CC_CD
+							         FROM    SCC_CC A
+							                ,HLDC_SC_DEPT_V B
+							         WHERE   B.CC_CD = A.CC_CD
+							         AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+							         AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+							         AND    ( B.TM_CD = :tmCd OR B.PT_CD = :tmCd)
+        							 )
+        </#if>							 
+		<#if ccCd?has_content>
+		AND   CC_CD       = :ccCd
+		</#if>
+		<#if custCd?has_content>
+		AND   SAP_CUST_CD = :custCd   
+		</#if>                    
+		GROUP BY
+		        MU_CD
+		       ,CC_CD
+		       ,CC_NM
+		       ,SAP_CUST_CD
+		]]>
+	</statement>
+	
+	<!-- 영업전표발행비교(채권금액비교) 조회 목록을 조회한다. -->
+	<statement name="selectTab2List" type="select">
+		/*+ com.hwfs.sm.srm.dao.SalesSlipIssueCompareReptDAO.selectTab2List */
+		<![CDATA[
+		SELECT
+		        MU_CD AS MU_CD
+		       ,MU_NM AS MU_NM
+		       ,CC_CD AS CC_CD
+		       ,CC_NM AS CC_NM
+		       ,SAP_CUST_CD AS SAP_CUST_CD
+		       ,(SELECT CUST_NM FROM SCC_SAP_CUST X WHERE X.SAP_CUST_CD = V.SAP_CUST_CD) AS CUST_NM
+		       ,SUM(S_INI_AR) AS S_INI_AR --영_초_외상
+		       ,SUM(S_INI_CARD) AS S_INI_CARD --"영_초_카드일반"
+		       ,SUM(S_INI_CRDT) AS S_INI_CRDT --"영_초_카드"
+		       ,SUM(S_INI_GIFT) AS S_INI_GIFT --"영_초_상품" 
+		       ,SUM(S_INI_CPON) AS S_INI_CPON --"영_초_식쿠"
+		       ,SUM(S_DR_AR) AS S_DR_AR --"영_발_외상"
+		       ,SUM(S_DR_CARD) AS S_DR_CARD --"영_발_카드일반"
+		       ,SUM(S_DR_CRDT) AS S_DR_CRDT --"영_발_카드"
+		       ,SUM(S_DR_GIFT) AS S_DR_GIFT --"영_발_상품"
+		       ,SUM(S_DR_CPON) AS S_DR_CPON --"영_발_식쿠"
+		       ,SUM(S_CR_AR) AS S_CR_AR --"영_대_외상"
+		       ,SUM(S_CR_CARD) AS S_CR_CARD --"영_대_카드일반"
+		       ,SUM(S_CR_CRDT) AS S_CR_CRDT --"영_대_카드"
+		       ,SUM(S_CR_GIFT) AS S_CR_GIFT --"영_대_상품"
+		       ,SUM(S_CR_CPON) AS S_CR_CPON --"영_대_식쿠"
+		       ,SUM(S_FIN_AR) AS S_FIN_AR --"영_말_외상"
+		       ,SUM(S_FIN_CARD) AS S_FIN_CARD --"영_말_카드일반"
+		       ,SUM(S_FIN_CRDT) AS S_FIN_CRDT --"영_말_카드"
+		       ,SUM(S_FIN_GIFT) AS S_FIN_GIFT --"영_말_상품"
+		       ,SUM(S_FIN_CPON) AS S_FIN_CPON --"영_말_식쿠"
+		       ,SUM(G_INI_AR) AS G_INI_AR --"전_초_외상"
+		       ,SUM(G_INI_CARD) AS G_INI_CARD --"전_초_카드일반"
+		       ,SUM(G_INI_CRDT) AS G_INI_CRDT --"전_초_카드"
+		       ,SUM(G_INI_GIFT) AS G_INI_GIFT --"전_초_상품"
+		       ,SUM(G_INI_CPON) AS G_INI_CPON --"전_초_식쿠"
+		       ,SUM(G_DR_AR) AS G_DR_AR --"전_발_외상"
+		       ,SUM(G_DR_CARD) AS G_DR_CARD --"전_발_카드일반"
+		       ,SUM(G_DR_CRDT) AS G_DR_CRDT --"전_발_카드"
+		       ,SUM(G_DR_GIFT) AS G_DR_GIFT --"전_발_상품"
+		       ,SUM(G_DR_CPON) AS G_DR_CPON --"전_발_식쿠"
+		       ,SUM(G_CR_AR) AS G_CR_AR --"전_대_외상"
+		       ,SUM(G_CR_CARD) AS G_CR_CARD --"전_대_카드일반"
+		       ,SUM(G_CR_CRDT) AS G_CR_CRDT --"전_대_카드"
+		       ,SUM(G_CR_GIFT) AS G_CR_GIFT --"전_대_상품"
+		       ,SUM(G_CR_CPON) AS G_CR_CPON --"전_대_식쿠" 
+		       ,SUM(G_INI_AR)+SUM(G_DR_AR)-SUM(G_CR_AR) AS AR_INI_GAP --"전_말_외상"
+		       ,SUM(G_INI_CARD)+SUM(G_DR_CARD)-SUM(G_CR_CARD) AS CARD_INI_GAP --"전_말_카드일반"
+		       ,SUM(G_INI_CRDT)+SUM(G_DR_CRDT)-SUM(G_CR_CRDT) AS CRDT_INI_GAP --"전_말_카드"
+		       ,SUM(G_INI_GIFT)+SUM(G_DR_GIFT)-SUM(G_CR_GIFT) AS GIFT_INI_GAP --"전_말_상품"
+		       ,SUM(G_INI_CPON)+SUM(G_DR_CPON)-SUM(G_CR_CPON) AS CPON_INI_GAP --"전_말_식쿠"       
+		       ,SUM(S_FIN_AR) - (SUM(G_INI_AR)+SUM(G_DR_AR)-SUM(G_CR_AR)) AS AR_FIN_GAP --"차이_말_외상"
+		       ,SUM(S_FIN_CARD) - (SUM(G_INI_CARD)+SUM(G_DR_CARD)-SUM(G_CR_CARD)) AS CARD_FIN_GAP --"차이_말_카드일반"
+		       ,SUM(S_FIN_CRDT) - (SUM(G_INI_CRDT)+SUM(G_DR_CRDT)-SUM(G_CR_CRDT)) AS CRDT_FIN_GAP --"차이_말_카드"
+		       ,SUM(S_FIN_GIFT) - (SUM(G_INI_GIFT)+SUM(G_DR_GIFT)-SUM(G_CR_GIFT)) AS GIFT_FIN_GAP --"차이_말_상품"
+		       ,SUM(S_FIN_CPON) - (SUM(G_INI_CPON)+SUM(G_DR_CPON)-SUM(G_CR_CPON)) AS CPON_FIN_GAP --"차이_말_식쿠"
+		FROM (       
+		                  -- 영업 채권 추출
+		                  SELECT  MU_CD
+		                        , MU_NM
+		                        , CC_CD
+		                        , CC_NM
+		                        , (SELECT SAP_CUST_CD FROM ST_CUST X WHERE X.CUSTCD = A.CUST_CD) AS SAP_CUST_CD
+		                        ,  CUST_NM
+		                        ,  ACCT_CD
+		                        ,  ACCTNM
+		                        , 0 AS G_MG_AR
+		                        , 0 AS G_MG_CARD
+		                        , 0 AS G_MG_CRDT
+		                        , 0 AS G_MG_GIFT
+		                        , 0 AS G_MG_CPON
+		                        , 0 AS G_INI_AR
+		                        , 0 AS G_INI_CARD
+		                        , 0 AS G_INI_CRDT
+		                        , 0 AS G_INI_GIFT
+		                        , 0 AS G_INI_CPON
+		                        , 0 AS G_DR_AR
+		                        , 0 AS G_DR_CARD
+		                        , 0 AS G_DR_CRDT
+		                        , 0 AS G_DR_GIFT
+		                        , 0 AS G_DR_CPON
+		                        , 0 AS G_CR_AR
+		                        , 0 AS G_CR_CARD
+		                        , 0 AS G_CR_CRDT
+		                        , 0 AS G_CR_GIFT
+		                        , 0 AS G_CR_CPON                        
+		                        ,  DECODE(ACCT_CD,'11202010',BEFORE_AR_BAL_AMT,0) S_INI_AR
+		                        ,  DECODE(ACCT_CD,'11204011',BEFORE_AR_BAL_AMT,0) S_INI_CARD
+		                        ,  DECODE(ACCT_CD,'11204014',BEFORE_AR_BAL_AMT,0) S_INI_CRDT
+		                        ,  DECODE(ACCT_CD,'11204020',BEFORE_AR_BAL_AMT,0) S_INI_GIFT
+		                        ,  DECODE(ACCT_CD,'11204030',BEFORE_AR_BAL_AMT,0) S_INI_CPON
+		                        ,  DECODE(ACCT_CD,'11202010',AR_AMT2,0) S_DR_AR
+		                        ,  DECODE(ACCT_CD,'11204011',AR_AMT2,0) S_DR_CARD
+		                        ,  DECODE(ACCT_CD,'11204014',AR_AMT2,0) S_DR_CRDT
+		                        ,  DECODE(ACCT_CD,'11204020',AR_AMT2,0) S_DR_GIFT
+		                        ,  DECODE(ACCT_CD,'11204030',AR_AMT2,0) S_DR_CPON
+		                        ,  DECODE(ACCT_CD,'11202010',RECEIVE_AMT,0) S_CR_AR
+		                        ,  DECODE(ACCT_CD,'11204011',RECEIVE_AMT,0) S_CR_CARD
+		                        ,  DECODE(ACCT_CD,'11204014',RECEIVE_AMT,0) S_CR_CRDT
+		                        ,  DECODE(ACCT_CD,'11204020',RECEIVE_AMT,0) S_CR_GIFT
+		                        ,  DECODE(ACCT_CD,'11204030',RECEIVE_AMT,0) S_CR_CPON
+		                        ,  DECODE(ACCT_CD,'11202010',AR_BAL_AMT,0) S_FIN_AR
+		                        ,  DECODE(ACCT_CD,'11204011',AR_BAL_AMT,0) S_FIN_CARD
+		                        ,  DECODE(ACCT_CD,'11204014',AR_BAL_AMT,0) S_FIN_CRDT
+		                        ,  DECODE(ACCT_CD,'11204020',AR_BAL_AMT,0) S_FIN_GIFT
+		                        ,  DECODE(ACCT_CD,'11204030',AR_BAL_AMT,0) S_FIN_CPON
+		                  FROM (
+		                      SELECT A.AR_NUM,
+		                             A.FISCAL_DATE,
+		                             A.AR_OCCUR_CLASS,
+		                             A.AR_TYPE_CD,
+		                             A.ACCT_CD,
+		                             (SELECT ACCTNM FROM HLDC_ST_ACCOUNT_V WHERE ACCTCD = A.ACCT_CD ) ACCTNM,
+		                             A.MU_CD,
+		                             (SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE A.MU_CD = MU.MU_CD) MU_NM,
+		                             A.CC_CD,
+		                             (SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE A.CC_CD = CC.CC_CD) CC_NM,
+		                             A.CUST_CD,
+		                             A.CUST_NM,
+		                             NVL((SELECT NVL(AR_AMT,0) FROM SLA_AR_MST WHERE AR_NUM = A.AR_NUM AND RECD_STATUS = 'L' AND FISCAL_DATE BETWEEN :meDate || '01' AND :meDate || '31'),0) AR_AMT2,
+		                             NVL(A.AR_AMT, 0) AR_AMT,
+		                             NVL((SELECT SUM(RECEIVE_AMT) FROM SLA_AR_RECEIVE_DETAIL RD WHERE RD.AR_NUM=A.AR_NUM AND RD.RECEIVE_DATE BETWEEN :meDate || '01' AND :meDate || '31' AND RD.RECD_STATUS='L'),0) RECEIVE_AMT,
+		                             (NVL(A.AR_AMT,0) - NVL((SELECT NVL(SUM(RECEIVE_AMT),0) FROM SLA_AR_RECEIVE_DETAIL RD WHERE RD.AR_NUM=A.AR_NUM AND RD.RECEIVE_DATE <= :meDate || '31' AND RD.RECD_STATUS='L'),0)) AS AR_BAL_AMT,
+		                             0 AS BEFORE_AR_BAL_AMT
+		                      FROM   SLA_AR_MST A
+		                      WHERE  A.RECD_STATUS = 'L'
+		                      AND    A.FISCAL_DATE <= :meDate || '31'
+		                      UNION ALL
+		                      SELECT A.AR_NUM,
+		                             A.FISCAL_DATE,
+		                             A.AR_OCCUR_CLASS,
+		                             A.AR_TYPE_CD,
+		                             A.ACCT_CD,
+		                             (SELECT ACCTNM FROM HLDC_ST_ACCOUNT_V WHERE ACCTCD = A.ACCT_CD ) ACCTNM,
+		                             A.MU_CD,
+		                             (SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE A.MU_CD = MU.MU_CD) MU_NM,
+		                             A.CC_CD,
+		                             (SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE A.CC_CD = CC.CC_CD) CC_NM,
+		                             A.CUST_CD,
+		                             A.CUST_NM,
+		                             0 AR_AMT2,
+		                             0 AR_AMT,
+		                             0 RECEIVE_AMT,
+		                             0 AS AR_BAL_AMT,
+		                             (NVL(A.AR_AMT,0) - NVL((SELECT NVL(SUM(RECEIVE_AMT),0) FROM SLA_AR_RECEIVE_DETAIL RD WHERE RD.AR_NUM=A.AR_NUM AND RD.RECEIVE_DATE < :meDate || '01' AND RD.RECD_STATUS='L'),0)) AS BEFORE_AR_BAL_AMT
+		                      FROM   SLA_AR_MST A
+		                      WHERE  A.RECD_STATUS = 'L'
+		                      AND    A.FISCAL_DATE < :meDate || '01'
+		                  ) A
+		                  UNION ALL
+		                    -- 전표 자료 추출
+		                    SELECT 
+		                               MU_CD      
+		                             , MU_NM      
+		                             , CC_CD      
+		                             , CC_NM 
+		                             , SAP_CUST_CD
+		                             , CUST_NM     
+		                             , ACCT_CD
+		                             , (SELECT ACCTNM FROM HLDC_ST_ACCOUNT_V X WHERE X.ACCTCD = ACCT_CD ) ACCTNM
+		                             , DECODE(ACCT_CD, '11202010', SUM(MG_AMT), 0) AS G_MG_AR
+		                             , DECODE(ACCT_CD, '11204011', SUM(MG_AMT), 0) AS G_MG_CARD
+		                             , DECODE(ACCT_CD, '11204014', SUM(MG_AMT), 0) AS G_MG_CRDT
+		                             , DECODE(ACCT_CD, '11204020', SUM(MG_AMT), 0) AS G_MG_GIFT
+		                             , DECODE(ACCT_CD, '11204030', SUM(MG_AMT), 0) AS G_MG_CPON
+		                             , DECODE(ACCT_CD, '11202010', SUM(P_AMT), 0) AS G_INI_AR
+		                             , DECODE(ACCT_CD, '11204011', SUM(P_AMT), 0) AS G_INI_CARD
+		                             , DECODE(ACCT_CD, '11204014', SUM(P_AMT), 0) AS G_INI_CRDT
+		                             , DECODE(ACCT_CD, '11204020', SUM(P_AMT), 0) AS G_INI_GIFT
+		                             , DECODE(ACCT_CD, '11204030', SUM(P_AMT), 0) AS G_INI_CPON
+		                             , DECODE(ACCT_CD, '11202010', SUM(DR_AMT), 0) AS G_DR_AR
+		                             , DECODE(ACCT_CD, '11204011', SUM(DR_AMT), 0) AS G_DR_CARD
+		                             , DECODE(ACCT_CD, '11204014', SUM(DR_AMT), 0) AS G_DR_CRDT
+		                             , DECODE(ACCT_CD, '11204020', SUM(DR_AMT), 0) AS G_DR_CPON
+		                             , DECODE(ACCT_CD, '11204030', SUM(DR_AMT), 0) AS G_DR_CPON
+		                             , DECODE(ACCT_CD, '11202010', SUM(CR_AMT), 0) AS G_CR_AR
+		                             , DECODE(ACCT_CD, '11204011', SUM(CR_AMT), 0) AS G_CR_CARD
+		                             , DECODE(ACCT_CD, '11204014', SUM(CR_AMT), 0) AS G_CR_CRDT
+		                             , DECODE(ACCT_CD, '11204020', SUM(CR_AMT), 0) AS G_CR_GIFT
+		                             , DECODE(ACCT_CD, '11204030', SUM(CR_AMT), 0) AS G_CR_CPON
+		                             , 0 AS S_INI_AR
+		                             , 0 AS S_INI_CARD
+		                             , 0 AS S_INI_CRDT
+		                             , 0 AS S_INI_GIFT
+		                             , 0 AS S_INI_CPON
+		                             , 0 AS S_DR_AR
+		                             , 0 AS S_DR_CARD
+		                             , 0 AS S_DR_CRDT
+		                             , 0 AS S_DR_GIFT
+		                             , 0 AS S_DR_CPON
+		                             , 0 AS S_CR_AR
+		                             , 0 AS S_CR_CARD
+		                             , 0 AS S_CR_CRDT
+		                             , 0 AS S_CR_GIFT
+		                             , 0 AS S_CR_CPON
+		                             , 0 AS S_FIN_AR
+		                             , 0 AS S_FIN_CARD
+		                             , 0 AS S_FIN_CRDT
+		                             , 0 AS S_FIN_GIFT
+		                             , 0 AS S_FIN_CPON
+		                       FROM (      
+		                                SELECT 
+		                                        CO_PA_GUEST AS SAP_CUST_CD
+		                                      , (SELECT CUST_NM FROM SCC_SAP_CUST WHERE SAP_CUST_CD = CO_PA_GUEST) AS CUST_NM
+		                                      , (SELECT BSN_NO FROM SCC_SAP_CUST WHERE SAP_CUST_CD = CO_PA_GUEST) AS BSN_NO
+		                                      , (SELECT BU_CD FROM HLDC_SC_DEPT_V WHERE CC_CD = A.CC_CD) BU_CD
+		                                      , (SELECT BU_NM FROM HLDC_SC_DEPT_V WHERE CC_CD = A.CC_CD) BU_NM
+		                                      , (SELECT MU_CD FROM HLDC_SC_DEPT_V WHERE CC_CD = A.CC_CD) MU_CD
+		                                      , (SELECT MU_NM FROM HLDC_SC_DEPT_V WHERE CC_CD = A.CC_CD) MU_NM        
+		                                      , CC_CD
+		                                      , (SELECT CC_NM FROM SCC_CC WHERE CC_CD = A.CC_CD) AS CC_NM
+		                                      , MASTER_ACCT AS ACCT_CD
+		                                      , (SELECT ACCT_NM1 FROM SAP_IF.SAP_ACCT_MST A WHERE A.BU_CD = '2000' AND A.ACCT_CD = MASTER_ACCT) ACCT_NM
+		                                      , DECODE(SLIP_PERIOD_DATE, :meDate, 0, SUM(DR_AMT)-SUM(CR_AMT) ) AS P_AMT
+		                                      , DECODE(SLIP_PERIOD_DATE, :meDate, SUM(DR_AMT), 0)  AS DR_AMT
+		                                      , DECODE(SLIP_PERIOD_DATE, :meDate, SUM(CR_AMT), 0)  AS CR_AMT
+		                                      , SUM(MG_AMT) AS MG_AMT
+		                                  FROM (
+		                                            -- 채권 발생 내역(차변)
+		                                            SELECT  D.CC_CD
+		                                                  , D.CO_PA_GUEST
+		                                                  , D.MASTER_ACCT
+		                                                  , SUBSTR(M.SLIP_PERIOD_DATE, 1, 6) AS SLIP_PERIOD_DATE
+		                                                  , NVL(LCAL_AMT,0) AS DR_AMT
+		                                                  , 0 AS CR_AMT
+		                                                  , 0 AS MG_AMT
+		                                              FROM
+		                                                  SLA_SAP_SLIP_MST M,  SLA_SAP_SLIP_DTL D
+		                                              WHERE M.SLIP_NUM = D.SLIP_NUM
+		                                                AND SUBSTR(M.SLIP_PERIOD_DATE, 1, 6) BETWEEN '201510' AND :meDate
+		                                                AND M.SLIP_STATUS IN ('P', 'V')
+		                                                AND D.MASTER_ACCT IN  ('11202010','11204011','11204014','11204020','11204030')
+		                                                AND D.DR_CR_CLASS = 1
+		                                              UNION ALL
+		                                              -- 채권 대체 내역(대변)
+		                                              SELECT D.CC_CD
+		                                                  , D.CO_PA_GUEST
+		                                                  , D.MASTER_ACCT
+		                                                  , SUBSTR(M.SLIP_PERIOD_DATE, 1, 6) AS SLIP_PERIOD_DATE
+		                                                  , 0 AS DR_AMT
+		                                                  , NVL(LCAL_AMT,0) AS CR_AMT
+		                                                  , 0 AS MG_AMT
+		                                              FROM
+		                                                  SLA_SAP_SLIP_MST M,  SLA_SAP_SLIP_DTL D
+		                                              WHERE M.SLIP_NUM = D.SLIP_NUM
+		                                                AND SUBSTR(M.SLIP_PERIOD_DATE, 1, 6) BETWEEN '201510' AND :meDate
+		                                                AND M.SLIP_STATUS IN ('P', 'V')
+		                                                AND D.MASTER_ACCT IN  ('11202010','11204011','11204014','11204020','11204030')
+		                                                AND D.DR_CR_CLASS = 2
+		                                              UNION ALL
+		                                                --'15년 9월 채권 이관 잔액
+		                                                SELECT CC_CD
+		                                                     , (SELECT SAP_CUST_CD FROM ST_CUST WHERE CUSTCD = A.CUST_CD) AS SAP_CUST_CD
+		                                                     , ACCT_CD
+		                                                     , '201509'
+		                                                     , AR_AMT AS DR_AMT
+		                                                     , 0 AS CR_AMT
+		                                                     , AR_AMT AS MG_AMT
+		                                                 FROM SLA_AR_MST A
+		                                                WHERE FISCAL_DATE <= '20150930'
+		                                                 AND RECD_STATUS = 'L'
+		                                                 AND ACCT_CD IN ('11202010','11204011','11204014','11204020','11204030')                                               
+		                                         ) A
+		                                 GROUP BY CC_CD, CO_PA_GUEST, MASTER_ACCT, SLIP_PERIOD_DATE
+		                                )
+		                        GROUP BY SAP_CUST_CD, CUST_NM, BSN_NO, MU_CD, MU_NM, CC_CD, CC_NM, ACCT_CD
+		                    )  V 
+		            WHERE  1 = 1
+		            <#if muCd?has_content>
+					AND   MU_CD       = :muCd
+					</#if>
+					<#if tmCd?has_content>
+					AND   CC_CD IN (
+										         SELECT  A.CC_CD
+										         FROM    SCC_CC A
+										                ,HLDC_SC_DEPT_V B
+										         WHERE   B.CC_CD = A.CC_CD
+										         AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+										         AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+										         AND    ( B.TM_CD = :tmCd OR B.PT_CD = :tmCd)
+			        							 )
+			        </#if>					
+		            <#if ccCd?has_content>
+					AND   CC_CD       = :ccCd
+					</#if>
+					<#if custCd?has_content>
+					AND   SAP_CUST_CD = :custCd   
+					</#if>                    
+		            GROUP BY        
+		                   MU_CD      
+		                 , MU_NM
+		                 , CC_CD      
+		                 , CC_NM         
+		                 , SAP_CUST_CD
+		]]>
+	</statement>
+	
+	<!-- 영업전표발행비교(선수금금액비교) 조회 목록을 조회한다. -->
+	<statement name="selectTab3List" type="select">
+		/*+ com.hwfs.sm.srm.dao.SalesSlipIssueCompareReptDAO.selectTab3List */
+		<![CDATA[
+		SELECT
+		      MU_CD AS MU_CD
+		     ,MU_NM AS MU_NM
+		     ,CC_CD AS CC_CD
+		     ,CC_NM AS CC_NM 
+		     ,SAP_CUST_CD AS SAP_CUST_CD
+		     ,(SELECT CUST_NM FROM SCC_SAP_CUST X WHERE X.SAP_CUST_CD = V.SAP_CUST_CD) AS CUST_NM
+	         , SUM(영_초_사업장) AS AMT1 --영_초_사업장
+	         , SUM(영_초_계약이행) AS AMT2 --영_초_계약이행
+	         , SUM(영_초_용역상품) AS AMT3 --영_초_용역상품
+	         , SUM(영_초_선매출) AS AMT4 --영_초_선매출
+	         , SUM(영_초_선수식권) AS AMT5 --영_초_선수식권
+	         , SUM(영_초_외상식권) AS AMT6 --영_초_외상식권                 
+	         , SUM(영_발_사업장) AS AMT7 --영_발_사업장
+	         , SUM(영_발_계약이행) AS AMT8 --영_발_계약이행
+	         , SUM(영_발_용역상품) AS AMT9 --영_발_용역상품
+	         , SUM(영_발_선매출) AS AMT10 --영_발_선매출
+	         , SUM(영_발_선수식권) AS AMT11 --영_발_선수식권
+	         , SUM(영_발_외상식권) AS AMT12 --영_발_외상식권
+	         , SUM(영_대_사업장) AS AMT13 --영_대_사업장
+	         , SUM(영_대_계약이행) AS AMT14 --영_대_계약이행
+	         , SUM(영_대_용역상품) AS AMT15 --영_대_용역상품
+	         , SUM(영_대_선매출) AS AMT16 --영_대_선매출
+	         , SUM(영_대_선수식권) AS AMT17 --영_대_선수식권
+	         , SUM(영_대_외상식권) AS AMT18 --영_대_외상식권
+	         , SUM(영_말_사업장) AS AMT19 --영_말_사업장
+	         , SUM(영_말_계약이행) AS AMT20 --영_말_계약이행
+	         , SUM(영_말_용역상품) AS AMT21 --영_말_용역상품
+	         , SUM(영_말_선매출) AS AMT22 --영_말_선매출
+	         , SUM(영_말_선수식권) AS AMT23 --영_말_선수식권
+	         , SUM(영_말_외상식권) AS AMT24 --영_말_외상식권       
+	         , SUM(전_초_사업장) AS AMT25 --전_초_사업장
+	         , SUM(전_초_계약이행) AS AMT26 --전_초_계약이행
+	         , SUM(전_초_용역상품) AS AMT27 --전_초_용역상품
+	         , SUM(전_초_선매출) AS AMT28 --전_초_선매출
+	         , SUM(전_초_선수식권) AS AMT29 --전_초_선수식권
+	         , SUM(전_초_외상식권) AS AMT30 --전_초_외상식권
+	         , SUM(전_발_사업장) AS AMT31 --전_발_사업장
+	         , SUM(전_발_계약이행) AS AMT32 --전_발_계약이행
+	         , SUM(전_발_용역상품) AS AMT33 --전_발_용역상품
+	         , SUM(전_발_선매출) AS AMT34 --전_발_선매출
+	         , SUM(전_발_선수식권) AS AMT35 --전_발_선수식권
+	         , SUM(전_발_외상식권) AS AMT36 --전_발_외상식권
+	         , SUM(전_대_사업장) AS AMT37 --전_대_사업장
+	         , SUM(전_대_계약이행) AS AMT38 --전_대_계약이행
+	         , SUM(전_대_용역상품) AS AMT39 --전_대_용역상품
+	         , SUM(전_대_선매출) AS AMT40 --전_대_선매출
+	         , SUM(전_대_선수식권) AS AMT41 --전_대_선수식권
+	         , SUM(전_대_외상식권) AS AMT42 --전_대_외상식권                  
+	         , SUM(전_초_사업장)+SUM(전_발_사업장)-SUM(전_대_사업장) AS AMT43 --전_말_사업장
+	         , SUM(전_초_계약이행)+SUM(전_발_계약이행)-SUM(전_대_계약이행) AS AMT44 --전_말_계약이행
+	         , SUM(전_초_용역상품)+SUM(전_발_용역상품)-SUM(전_대_용역상품) AS AMT45 --전_말_용역상품
+	         , SUM(전_초_선매출)+SUM(전_발_선매출)-SUM(전_대_선매출) AS AMT46 --전_말_선매출
+	         , SUM(전_초_선수식권)+SUM(전_발_선수식권)-SUM(전_대_선수식권) AS AMT47 --전_말_선수식권
+	         , SUM(전_초_외상식권)+SUM(전_발_외상식권)-SUM(전_대_외상식권) AS AMT48 --전_말_외상식권                  
+	         , SUM(영_말_사업장) - (SUM(전_초_사업장)+SUM(전_발_사업장)-SUM(전_대_사업장)) AS AMT49 --차이_사업장
+	         , SUM(영_말_계약이행) - (SUM(전_초_계약이행)+SUM(전_발_계약이행)-SUM(전_대_계약이행)) AS AMT50 --차이_계약이행
+	         , SUM(영_말_용역상품) - (SUM(전_초_용역상품)+SUM(전_발_용역상품)-SUM(전_대_용역상품)) AS AMT51 --차이_용역상품
+	         , SUM(영_말_선매출) - (SUM(전_초_선매출)+SUM(전_발_선매출)-SUM(전_대_선매출)) AS AMT52 --차이_선매출
+	         , SUM(영_말_선수식권) - (SUM(전_초_선수식권)+SUM(전_발_선수식권)-SUM(전_대_선수식권)) AS AMT53 --차이_선수식권
+	         , SUM(영_말_외상식권) - (SUM(전_초_외상식권)+SUM(전_발_외상식권)-SUM(전_대_외상식권)) AS AMT54 --차이_외상식권              
+	FROM (   
+		         -- 영업 선수금 추출
+		         SELECT   MU_CD
+		                , MU_NM
+		                , CC_CD
+		                , CC_NM
+		                -- 선수식권일때는 기타(거래처) 처리
+		                --, (SELECT SAP_CUST_CD FROM ST_CUST X WHERE X.CUSTCD = DECODE(ACCT_CD, '21401080', '999998', A.CUST_CD)) AS SAP_CUST_CD
+		                -- 선수식권과 외상식권일때 기타(거래처) 처리
+		                , (SELECT SAP_CUST_CD FROM ST_CUST X WHERE X.CUSTCD = DECODE(ACCT_CD, '21401080', '999998', '21401090', '999998', A.CUST_CD)) AS SAP_CUST_CD
+		                , CUSTNM
+		                , ACCT_CD
+		                , ACCT_NM
+		                 , 0 AS 전_이_사업장
+		                 , 0 AS 전_이_계약이행
+		                 , 0 AS 전_이_용역상품
+		                 , 0 AS 전_이_선매출
+		                 , 0 AS 전_이_선수식권
+		                 , 0 AS 전_이_외상식권
+		                 , 0 AS 전_초_사업장
+		                 , 0 AS 전_초_계약이행
+		                 , 0 AS 전_초_용역상품
+		                 , 0 AS 전_초_선매출
+		                 , 0 AS 전_초_선수식권
+		                 , 0 AS 전_초_외상식권
+		                 , 0 AS 전_발_사업장
+		                 , 0 AS 전_발_계약이행
+		                 , 0 AS 전_발_용역상품
+		                 , 0 AS 전_발_선매출
+		                 , 0 AS 전_발_선수식권
+		                 , 0 AS 전_발_외상식권
+		                 , 0 AS 전_대_사업장
+		                 , 0 AS 전_대_계약이행
+		                 , 0 AS 전_대_용역상품
+		                 , 0 AS 전_대_선매출
+		                 , 0 AS 전_대_선수식권
+		                 , 0 AS 전_대_외상식권                  
+		                 , DECODE(ACCT_CD,'21401020',BEFORE_BAL_AMT,0) 영_초_사업장
+		                 , DECODE(ACCT_CD,'21401030',BEFORE_BAL_AMT,0) 영_초_계약이행
+		                 , DECODE(ACCT_CD,'21401050',BEFORE_BAL_AMT,0) 영_초_용역상품
+		                 , DECODE(ACCT_CD,'21401070',BEFORE_BAL_AMT,0) 영_초_선매출
+		                 , DECODE(ACCT_CD,'21401080',BEFORE_BAL_AMT,0) 영_초_선수식권
+		                 , DECODE(ACCT_CD,'21401090',BEFORE_BAL_AMT,0) 영_초_외상식권                 
+		           	     , DECODE(ACCT_CD,'21401020',OCCUR_AMT2,0) 영_발_사업장
+		            	 , DECODE(ACCT_CD,'21401030',OCCUR_AMT2,0) 영_발_계약이행
+		                 , DECODE(ACCT_CD,'21401050',OCCUR_AMT2,0) 영_발_용역상품
+		                 , DECODE(ACCT_CD,'21401070',OCCUR_AMT2,0) 영_발_선매출
+		                 , DECODE(ACCT_CD,'21401080',OCCUR_AMT2,0) 영_발_선수식권
+		                 , DECODE(ACCT_CD,'21401090',OCCUR_AMT2,0) 영_발_외상식권
+		                 , DECODE(ACCT_CD,'21401020',APPLY_AMT,0) 영_대_사업장
+		                 , DECODE(ACCT_CD,'21401030',APPLY_AMT,0) 영_대_계약이행
+		                 , DECODE(ACCT_CD,'21401050',APPLY_AMT,0) 영_대_용역상품
+		                 , DECODE(ACCT_CD,'21401070',APPLY_AMT,0) 영_대_선매출
+		                 , DECODE(ACCT_CD,'21401080',APPLY_AMT,0) 영_대_선수식권
+		                 , DECODE(ACCT_CD,'21401090',APPLY_AMT,0) 영_대_외상식권
+		                 , DECODE(ACCT_CD,'21401020',BAL_AMT,0) 영_말_사업장
+		                 , DECODE(ACCT_CD,'21401030',BAL_AMT,0) 영_말_계약이행
+		                 , DECODE(ACCT_CD,'21401050',BAL_AMT,0) 영_말_용역상품
+		                 , DECODE(ACCT_CD,'21401070',BAL_AMT,0) 영_말_선매출
+		                 , DECODE(ACCT_CD,'21401080',BAL_AMT,0) 영_말_선수식권
+		                 , DECODE(ACCT_CD,'21401090',BAL_AMT,0) 영_말_외상식권
+		           FROM (  
+		                SELECT  M.ADVANCE_NUM                   -- 선수금 번호
+		                        ,M.SEQ                          -- 순번
+		                        ,M.OCCUR_DATE                   -- 발생 일자
+		                        ,M.OCCUR_DATE                  -- 회계일자
+		                        ,M.ADVANCE_OCCUR_CLASS          -- 선수금 발생 구분
+		                        ,M.ADVANCE_TYPE_CD              -- 선수금 유형 코드
+		                        ,M.CUST_CD                      -- 거래처 코드
+		                        ,(SELECT CUSTNM FROM HLDC_ST_CUST WHERE CUSTCD = M.CUST_CD ) CUSTNM
+		                        ,M.SYS_CLASS                    -- 시스템 구분
+		                        ,M.MU_CD MU_CD                       -- MU 코드
+		                        ,M.CC_CD CC_CD                       -- CC 코드
+		                        ,M.ACCT_CD                      -- 계정 코드
+		                        ,M.BATCH_ID                     -- BATCH ID
+		                        ,(SELECT NVL(OCCUR_AMT,0) FROM SLA_ADVANCE_MST WHERE ADVANCE_NUM =  M.ADVANCE_NUM AND RECD_STATUS = 'L' AND OCCUR_DATE BETWEEN :meDate || '01' AND :meDate || '31') OCCUR_AMT2
+		                        ,M.OCCUR_AMT                    -- 발생금액
+		                        ,NVL((
+		                            SELECT  NVL(SUM(DD.APPLY_AMT),0)
+		                            FROM    SLA_ADVANCE_ALT_DETAIL DD
+		                            WHERE   DD.RECD_STATUS = 'L'
+		                            AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+		                            AND		DD.ALT_DATE BETWEEN :meDate || '01' AND :meDate || '31'
+		                        ),0) APPLY_AMT
+		                        ,M.OCCUR_AMT - NVL((
+		                            SELECT  NVL(SUM(DD.APPLY_AMT),0)
+		                            FROM    SLA_ADVANCE_ALT_DETAIL DD
+		                            WHERE   DD.RECD_STATUS = 'L'
+		                            AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+		                            AND		DD.ALT_DATE <= :meDate || '31'
+		                        ),0) BAL_AMT
+		                        ,0 AS BEFORE_BAL_AMT
+		                        ,(SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE M.MU_CD = MU.MU_CD) MU_NM
+		                        ,(SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE M.CC_CD = CC.CC_CD) CC_NM
+		                        ,(SELECT DISTINCT ACCT.ACCTNM FROM HLDC_ST_ACCOUNT_V ACCT WHERE M.ACCT_CD = ACCT.ACCTCD) ACCT_NM
+		                FROM    SLA_ADVANCE_MST M
+		                WHERE   M.RECD_STATUS = 'L'
+		                  AND   M.OCCUR_DATE <= :meDate || '31'
+		               UNION ALL
+		                SELECT  M.ADVANCE_NUM                   -- 선수금 번호
+		                        ,M.SEQ                          -- 순번
+		                        ,M.OCCUR_DATE                   -- 발생 일자
+		                        ,M.OCCUR_DATE                  -- 회계일자
+		                        ,M.ADVANCE_OCCUR_CLASS          -- 선수금 발생 구분
+		                        ,M.ADVANCE_TYPE_CD              -- 선수금 유형 코드
+		                        ,M.CUST_CD                      -- 거래처 코드
+		                        ,(SELECT CUSTNM FROM HLDC_ST_CUST WHERE CUSTCD = M.CUST_CD ) CUSTNM
+		                        ,M.SYS_CLASS                    -- 시스템 구분
+		                        ,M.MU_CD MU_CD                       -- MU 코드
+		                        ,M.CC_CD CC_CD                       -- CC 코드
+		                        ,M.ACCT_CD                      -- 계정 코드
+		                        ,M.BATCH_ID                     -- BATCH ID
+		                        ,0 AS OCCUR_AMT2
+		                        ,0 AS OCCUR_AMT                    -- 발생금액
+		                        ,0 AS APPLY_AMT
+		                        ,0 AS BAL_AMT
+		                        ,M.OCCUR_AMT - NVL((
+		                            SELECT  NVL(SUM(DD.APPLY_AMT),0)
+		                            FROM    SLA_ADVANCE_ALT_DETAIL DD
+		                            WHERE   DD.RECD_STATUS = 'L'
+		                            AND     DD.ADVANCE_NUM = M.ADVANCE_NUM
+		                            AND		DD.ALT_DATE < :meDate || '01'
+		                        ),0) BEFORE_BAL_AMT
+		                        ,(SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE M.MU_CD = MU.MU_CD) MU_NM
+		                        ,(SELECT DISTINCT CC.CC_NM FROM HLDC_SC_DEPT_V CC WHERE M.CC_CD = CC.CC_CD) CC_NM
+		                        ,(SELECT DISTINCT ACCT.ACCTNM FROM HLDC_ST_ACCOUNT_V ACCT WHERE M.ACCT_CD = ACCT.ACCTCD) ACCT_NM
+		                FROM    SLA_ADVANCE_MST M
+		                WHERE   M.RECD_STATUS = 'L'
+		                  AND   M.OCCUR_DATE < :meDate || '01'
+		             ) A 
+		             UNION ALL 
+		                    -- 전표 자료 추출
+		                    SELECT 
+		                               MU_CD      
+		                             , MU_NM      
+		                             , CC_CD      
+		                             , CC_NM 
+		                             , SAP_CUST_CD
+		                             , CUST_NM     
+		                             , ACCT_CD
+		                             , (SELECT ACCTNM FROM HLDC_ST_ACCOUNT_V X WHERE X.ACCTCD = ACCT_CD ) ACCTNM
+		                             , DECODE(ACCT_CD, '21401020', SUM(MG_AMT), 0) AS 전_이_사업장
+		                             , DECODE(ACCT_CD, '21401030', SUM(MG_AMT), 0) AS 전_이_계약이행
+		                             , DECODE(ACCT_CD, '21401050', SUM(MG_AMT), 0) AS 전_이_용역상품
+		                             , DECODE(ACCT_CD, '21401070', SUM(MG_AMT), 0) AS 전_이_선매출
+		                             , DECODE(ACCT_CD, '21401080', SUM(MG_AMT), 0) AS 전_이_선수식권
+		                             , DECODE(ACCT_CD, '21401090', SUM(MG_AMT), 0) AS 전_이_외상식권
+		                             , DECODE(ACCT_CD, '21401020', SUM(P_AMT), 0) AS 전_초_사업장
+		                             , DECODE(ACCT_CD, '21401030', SUM(P_AMT), 0) AS 전_초_계약이행
+		                             , DECODE(ACCT_CD, '21401050', SUM(P_AMT), 0) AS 전_초_용역상품
+		                             , DECODE(ACCT_CD, '21401070', SUM(P_AMT), 0) AS 전_초_선매출
+		                             , DECODE(ACCT_CD, '21401080', SUM(P_AMT), 0) AS 전_초_선수식권
+		                             , DECODE(ACCT_CD, '21401090', SUM(P_AMT), 0) AS 전_초_외상식권
+		                             , DECODE(ACCT_CD, '21401020', SUM(CR_AMT), 0) AS 전_발_사업장
+		                             , DECODE(ACCT_CD, '21401030', SUM(CR_AMT), 0) AS 전_발_계약이행
+		                             , DECODE(ACCT_CD, '21401050', SUM(CR_AMT), 0) AS 전_발_용역상품
+		                             , DECODE(ACCT_CD, '21401070', SUM(CR_AMT), 0) AS 전_발_선매출
+		                             , DECODE(ACCT_CD, '21401080', SUM(CR_AMT), 0) AS 전_발_선수식권
+		                             , DECODE(ACCT_CD, '21401090', SUM(CR_AMT), 0) AS 전_발_외상식권
+		                             , DECODE(ACCT_CD, '21401020', SUM(DR_AMT), 0) AS 전_대_사업장
+		                             , DECODE(ACCT_CD, '21401030', SUM(DR_AMT), 0) AS 전_대_계약이행
+		                             , DECODE(ACCT_CD, '21401050', SUM(DR_AMT), 0) AS 전_대_용역상품
+		                             , DECODE(ACCT_CD, '21401070', SUM(DR_AMT), 0) AS 전_대_선매출
+		                             , DECODE(ACCT_CD, '21401080', SUM(DR_AMT), 0) AS 전_대_선수식권
+		                             , DECODE(ACCT_CD, '21401090', SUM(DR_AMT), 0) AS 전_대_외상식권
+		                             , 0 AS 영_초_사업장
+		                             , 0 AS 영_초_계약이행
+		                             , 0 AS 영_초_용역상품
+		                             , 0 AS 영_초_선매출
+		                             , 0 AS 영_초_선수식권
+		                             , 0 AS 영_초_외상식권                 
+		                             , 0 AS 영_발_사업장
+		                             , 0 AS 영_발_계약이행
+		                             , 0 AS 영_발_용역상품
+		                             , 0 AS 영_발_선매출
+		                             , 0 AS 영_발_선수식권
+		                             , 0 AS 영_발_외상식권
+		                             , 0 AS 영_대_사업장
+		                             , 0 AS 영_대_계약이행
+		                             , 0 AS 영_대_용역상품
+		                             , 0 AS 영_대_선매출
+		                             , 0 AS 영_대_선수식권
+		                             , 0 AS 영_대_외상식권
+		                             , 0 AS 영_말_사업장
+		                             , 0 AS 영_말_계약이행
+		                             , 0 AS 영_말_용역상품
+		                             , 0 AS 영_말_선매출
+		                             , 0 AS 영_말_선수식권
+		                             , 0 AS 영_말_외상식권
+		                       FROM (      
+		                                SELECT 
+		                                        CO_PA_GUEST AS SAP_CUST_CD
+		                                      , (SELECT CUST_NM FROM SCC_SAP_CUST WHERE SAP_CUST_CD = CO_PA_GUEST) AS CUST_NM
+		                                      , (SELECT BSN_NO FROM SCC_SAP_CUST WHERE SAP_CUST_CD = CO_PA_GUEST) AS BSN_NO
+		                                      , (SELECT BU_CD FROM HLDC_SC_DEPT_V WHERE CC_CD = A.CC_CD) BU_CD
+		                                      , (SELECT BU_NM FROM HLDC_SC_DEPT_V WHERE CC_CD = A.CC_CD) BU_NM
+		                                      , (SELECT MU_CD FROM HLDC_SC_DEPT_V WHERE CC_CD = A.CC_CD) MU_CD
+		                                      , (SELECT MU_NM FROM HLDC_SC_DEPT_V WHERE CC_CD = A.CC_CD) MU_NM        
+		                                      , CC_CD
+		                                      , (SELECT CC_NM FROM SCC_CC WHERE CC_CD = A.CC_CD) AS CC_NM
+		                                      , MASTER_ACCT AS ACCT_CD
+		                                      , (SELECT ACCT_NM1 FROM SAP_IF.SAP_ACCT_MST A WHERE A.BU_CD = '2000' AND A.ACCT_CD = MASTER_ACCT) ACCT_NM
+		                                      , DECODE(SLIP_PERIOD_DATE, :meDate, 0, SUM(CR_AMT)-SUM(DR_AMT) ) AS P_AMT
+		                                      , DECODE(SLIP_PERIOD_DATE, :meDate, SUM(DR_AMT), 0)  AS DR_AMT
+		                                      , DECODE(SLIP_PERIOD_DATE, :meDate, SUM(CR_AMT), 0)  AS CR_AMT
+		                                      , SUM(MG_AMT) AS MG_AMT
+		                                  FROM (
+		                                            -- 선수금 대체 내역(차변)
+		                                            SELECT  D.CC_CD
+		                                                  , D.CO_PA_GUEST
+		                                                  , D.MASTER_ACCT
+		                                                  , SUBSTR(M.SLIP_PERIOD_DATE, 1, 6) AS SLIP_PERIOD_DATE
+		                                                  , NVL(LCAL_AMT,0) AS DR_AMT
+		                                                  , 0 AS CR_AMT
+		                                                  , 0 AS MG_AMT
+		                                              FROM
+		                                                  SLA_SAP_SLIP_MST M,  SLA_SAP_SLIP_DTL D
+		                                              WHERE M.SLIP_NUM = D.SLIP_NUM
+		                                                AND SUBSTR(M.SLIP_PERIOD_DATE, 1, 6) BETWEEN '201510' AND :meDate
+		                                                AND M.SLIP_STATUS IN ('P', 'V')
+		                                                AND D.MASTER_ACCT IN  ('21401020','21401030','21401050','21401070','21401080','21401090')
+		                                                AND D.DR_CR_CLASS = 1
+		                                              UNION ALL
+		                                              -- 선수금 발생 내역(대변)
+		                                              SELECT D.CC_CD
+		                                                  , D.CO_PA_GUEST
+		                                                  , D.MASTER_ACCT
+		                                                  , SUBSTR(M.SLIP_PERIOD_DATE, 1, 6) AS SLIP_PERIOD_DATE
+		                                                  , 0 AS DR_AMT
+		                                                  , NVL(LCAL_AMT,0) AS CR_AMT
+		                                                  , 0 AS MG_AMT
+		                                              FROM
+		                                                  SLA_SAP_SLIP_MST M,  SLA_SAP_SLIP_DTL D
+		                                              WHERE M.SLIP_NUM = D.SLIP_NUM
+		                                                AND SUBSTR(M.SLIP_PERIOD_DATE, 1, 6) BETWEEN '201510' AND :meDate
+		                                                AND M.SLIP_STATUS IN ('P', 'V')
+		                                                AND D.MASTER_ACCT IN  ('21401020','21401030','21401050','21401070','21401080','21401090')
+		                                                AND D.DR_CR_CLASS = 2
+		                                              UNION ALL
+		                                            -- 9월 선수금 이관 잔액
+		                                            SELECT CC_CD
+		                                                 , (SELECT SAP_CUST_CD FROM ST_CUST WHERE CUSTCD = DECODE(ACCT_CD, '21401080', '999998', '21401090', '999998', A.CUST_CD)) AS SAP_CUST_CD
+		                                                 , ACCT_CD 
+		                                                 , '201509'
+		                                                 ,  0 AS DR_AMT
+		                                                 , OCCUR_AMT AS CR_AMT
+		                                                 , OCCUR_AMT AS MG_AMT
+		                                             FROM SLA_ADVANCE_MST A
+		                                            WHERE OCCUR_DATE <= '20150930' 
+		                                             AND RECD_STATUS = 'L'
+		                                             AND ACCT_CD IN ('21401020','21401030','21401050','21401070','21401080','21401090')
+		                                         ) A
+		                                 GROUP BY CC_CD, CO_PA_GUEST, MASTER_ACCT, SLIP_PERIOD_DATE
+		                                )
+		                        GROUP BY SAP_CUST_CD, CUST_NM, BSN_NO, MU_CD, MU_NM, CC_CD, CC_NM, ACCT_CD
+		                    )  V  
+		            WHERE  1 = 1
+		            <#if muCd?has_content>
+					AND   MU_CD       = :muCd
+					</#if>
+					<#if tmCd?has_content>
+					AND   CC_CD IN (
+										         SELECT  A.CC_CD
+										         FROM    SCC_CC A
+										                ,HLDC_SC_DEPT_V B
+										         WHERE   B.CC_CD = A.CC_CD
+										         AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+										         AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+										         AND    ( B.TM_CD = :tmCd OR B.PT_CD = :tmCd)
+			        							 )
+			        </#if>					
+		            <#if ccCd?has_content>
+					AND   CC_CD       = :ccCd
+					</#if>
+					<#if custCd?has_content>
+					AND   SAP_CUST_CD = :custCd   
+					</#if>                                   
+		            GROUP BY        
+		                   MU_CD      
+		                 , MU_NM
+		                 , CC_CD      
+		                 , CC_NM         
+		                 , SAP_CUST_CD
+		]]>
+	</statement>	
+
+</hqml>

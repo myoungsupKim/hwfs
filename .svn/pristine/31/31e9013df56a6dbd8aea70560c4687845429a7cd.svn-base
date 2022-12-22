@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="ms.msm.monthlyResultReportDAO">
+	<desc>월간실적조회 HQML Query</desc>
+
+	<!-- 월간실적조회 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.ms.msm.monthlyResultReportDAO.selectList */
+	<![CDATA[
+	SELECT   A.NEED_DATE_ORI
+       , A.NEED_DATE
+       , A.UPJANG
+       , SUM(OP_AMOUNT)  AS OP_AMOUNT
+       , SUM(OP_NOTAX)   AS OP_NOTAX
+       , SUM(OP_TAX)     AS OP_TAX
+       , SUM(OP_VAT)     AS OP_VAT
+       , SUM(OP_TOT)     AS OP_TOT
+       , SUM(OP_AMOUNT1) AS OP_AMOUNT1
+       , SUM(OP_NOTAX1)  AS OP_NOTAX1
+       , SUM(OP_TAX1)    AS OP_TAX1
+       , SUM(OP_VAT1)    AS OP_VAT1
+       , SUM(OP_TOT1)    AS OP_TOT1
+FROM     ( SELECT  T.NEED_DATE_ORI
+                , T.NEED_DATE
+                , T.UPJANG
+                , SUM(DECODE(SUBSTR(T.TRANS_TYPE,1,1),'I'
+                           , 1
+                           , -1) * ROUND(T.TRANS_QTY * T.OP_PRICE)) AS OP_AMOUNT
+                , SUM(DECODE(SUBSTR(T.TRANS_TYPE,1,1),'I'
+                           , 1
+                           , -1) * ROUND(DECODE(T.TAX_CODE,'100'
+                                              , 0
+                                              , T.TRANS_QTY) * T.OP_PRICE)) AS OP_NOTAX
+                , SUM(DECODE(SUBSTR(T.TRANS_TYPE,1,1),'I'
+                           , 1
+                           , -1) * ROUND(DECODE(T.TAX_CODE,'100'
+                                              , T.TRANS_QTY
+                                              , 0) * T.OP_PRICE)) AS OP_TAX
+                , SUM(DECODE(SUBSTR(T.TRANS_TYPE,1,1),'I'
+                           , 1
+                           , -1) * ROUND(DECODE(T.TAX_CODE,'100'
+                                              , 0.1
+                                              , 0) * ROUND(T.TRANS_QTY * T.OP_PRICE))) AS OP_VAT
+                , SUM(DECODE(SUBSTR(T.TRANS_TYPE,1,1),'I'
+                           , 1
+                           , -1) * ROUND(DECODE(T.TAX_CODE,'100'
+                                              , 1.1
+                                              , 1) * ROUND(T.TRANS_QTY * T.OP_PRICE))) AS OP_TOT
+                , SUM(DECODE(SUBSTR(T.TRANS_TYPE,1,1),'I'
+                           , 1
+                           , -1) * T.SALE_AMOUNT) AS OP_AMOUNT1
+                , SUM(DECODE(SUBSTR(T.TRANS_TYPE,1,1),'I'
+                           , 1
+                           , -1) * DECODE(T.TAX_CODE,'100'
+                                        , 0
+                                        , T.SALE_AMOUNT)) AS OP_NOTAX1
+                , SUM(DECODE(SUBSTR(T.TRANS_TYPE,1,1),'I'
+                           , 1
+                           , -1) * DECODE(T.TAX_CODE,'100'
+                                        , T.SALE_AMOUNT
+                                        , 0)) AS OP_TAX1
+                , SUM(DECODE(SUBSTR(T.TRANS_TYPE,1,1),'I'
+                           , 1
+                           , -1) * ROUND(DECODE(T.TAX_CODE,'100'
+                                              , 0.1
+                                              , 0) * T.SALE_AMOUNT)) AS OP_VAT1
+                , SUM(DECODE(SUBSTR(T.TRANS_TYPE,1,1),'I'
+                           , 1
+                           , -1) * ROUND(DECODE(T.TAX_CODE,'100'
+                                              , 1.1
+                                              , 1) * T.SALE_AMOUNT)) AS OP_TOT1
+         FROM     ( SELECT A.TRANS_DATE                                          AS NEED_DATE_ORI
+                        , TO_CHAR(TO_DATE(A.TRANS_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS NEED_DATE
+                        , ''                                                     AS UPJANG
+                        
+                        /* 운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 강대성 20150919 시작
+                        , CASE
+                                  WHEN C.OP_PRICE   IS NOT NULL
+                                  OR      C.OP_RATE IS NOT NULL
+                                  THEN DECODE(SIGN(NVL(C.OP_PRICE,0) ), 0
+                                            , SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL)
+                                            , C.OP_PRICE)
+                                  WHEN D.OP_PRICE   IS NOT NULL
+                                  OR      D.OP_RATE IS NOT NULL
+                                  THEN DECODE(SIGN(NVL(D.OP_PRICE,0) ), 0
+                                            , SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(D.OP_RATE,0) / 100),D.CEIL_VAL)
+                                            , D.OP_PRICE)
+                                  ELSE A.SALE_PRICE
+                          END AS OP_PRICE --운영단가
+                        운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 강대성 20150919 끝 */
+                        
+                        , DECODE(A.SAL_OPER_PRICE, 0, A.SALE_PRICE, A.SAL_OPER_PRICE) AS OP_PRICE --운영단가
+                        , A.TRANS_TYPE
+                        , A.TRANS_QTY
+                        , A.TAX_CODE
+                        , A.SALE_AMOUNT
+                  FROM    (SELECT A.*
+                                , B.ITEM_CLASS4
+                          FROM    FMS_TRANSACTION_V A
+                                , FMS_ITEM_V B
+                          WHERE   A.ITEM_CODE = B.ITEM_CODE
+                          )
+                          A
+                        , FMS_UPJANG B
+                        
+                        /* 운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 강대성 20150919 시작
+                        , ( SELECT ITEM_CODE
+                                , OP_RATE
+                                , OP_PRICE
+                                , CEIL_VAL
+                                , SDATE
+                                , EDATE
+                                , UPJANG
+                          FROM    FMU_OP_RATE
+                          WHERE   USE_YN    = 'Y'
+                          AND     ITEM_TYPE = 'M'
+                          )
+                          C
+                        , ( SELECT ITEM_CODE
+                                , OP_RATE
+                                , OP_PRICE
+                                , CEIL_VAL
+                                , SDATE
+                                , EDATE
+                                , UPJANG
+                          FROM    FMU_OP_RATE
+                          WHERE   USE_YN    = 'Y'
+                          AND     ITEM_TYPE = 'C'
+                          )
+                          D
+                  WHERE   A.TRANS_DATE BETWEEN C.SDATE(+) AND     C.EDATE(+)
+                  AND     A.TRANS_DATE BETWEEN D.SDATE(+) AND     D.EDATE(+)
+                  AND     A.ITEM_CODE    = C.ITEM_CODE(+)
+                  AND     A.ITEM_CLASS4  = D.ITEM_CODE(+)
+                  AND     A.TRANS_UPJANG = C.UPJANG(+)
+                  AND     A.TRANS_UPJANG = D.UPJANG(+)
+                  운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 강대성 20150919 끝 */
+                  
+                  WHERE   1 = 1
+                  AND     A.TRANS_UPJANG = B.UPJANG
+                  AND     A.TRANS_DATE BETWEEN :calDtFrom AND     :calDtTo
+                  AND
+                          (
+                                  A.TRANS_TYPE = 'I001'
+                          OR
+                                  (
+                                          A.TRANS_TYPE LIKE '_002'
+                                  AND     A.SOURCE_TYPE   = 'PO'
+                                  )
+                          )
+                  <#if mainUpjang?has_content>        
+                  AND     B.MAIN_UPJANG = :mainUpjang
+                  </#if>
+                  <#if upjang?has_content>      
+                  AND     A.TRANS_UPJANG = :upjang
+                  </#if>
+                  )
+                  T
+         GROUP BY T.NEED_DATE_ORI
+                , T.NEED_DATE
+                , T.UPJANG
+         
+         UNION ALL
+         
+         SELECT   T.NEED_DATE_ORI
+                , T.NEED_DATE
+                , T.UPJANG
+                , SUM(ROUND(T.PO_QTY * T.OP_PRICE)) AS OP_AMOUNT
+                , SUM(ROUND(DECODE(T.TAX_CODE,'100'
+                                 , 0
+                                 , T.PO_QTY) * T.OP_PRICE)) AS OP_NOTAX
+                , SUM(ROUND(DECODE(T.TAX_CODE,'100'
+                                 , T.PO_QTY
+                                 , 0) * T.OP_PRICE)) AS OP_TAX
+                , SUM(ROUND(DECODE(T.TAX_CODE,'100'
+                                 , 0.1
+                                 , 0) * ROUND(T.PO_QTY * T.OP_PRICE))) AS OP_VAT
+                , SUM(ROUND(DECODE(T.TAX_CODE,'100'
+                                 , 1.1
+                                 , 1) * ROUND(T.PO_QTY * T.OP_PRICE))) AS OP_TOT
+                , SUM(T.SALE_AMOUNT)                                   AS OP_AMOUNT1
+                , SUM(DECODE(T.TAX_CODE,'100'
+                           , 0
+                           , T.SALE_AMOUNT)) AS OP_NOTAX1
+                , SUM(DECODE(T.TAX_CODE,'100'
+                           , T.SALE_AMOUNT
+                           , 0)) AS OP_TAX1
+                , SUM(ROUND(DECODE(T.TAX_CODE,'100'
+                                 , 0.1
+                                 , 0) * T.SALE_AMOUNT)) AS OP_VAT1
+                , SUM(ROUND(DECODE(T.TAX_CODE,'100'
+                                 , 1.1
+                                 , 1) * T.SALE_AMOUNT)) AS OP_TOT1
+         FROM     ( SELECT  A.NEED_DATE                                          AS NEED_DATE_ORI
+                         , TO_CHAR(TO_DATE(A.NEED_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS NEED_DATE
+                         , ''                                                    AS UPJANG        
+                         /* 운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 강대성 20150919 시작
+                         , CASE
+                                    WHEN C.OP_PRICE    IS NOT NULL
+                                    OR       C.OP_RATE IS NOT NULL
+                                    THEN DECODE(SIGN(NVL(C.OP_PRICE,0) ), 0
+                                              , SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL)
+                                              , C.OP_PRICE)
+                                    WHEN D.OP_PRICE    IS NOT NULL
+                                    OR       D.OP_RATE IS NOT NULL
+                                    THEN DECODE(SIGN(NVL(D.OP_PRICE,0) ), 0
+                                              , SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(D.OP_RATE,0) / 100),D.CEIL_VAL)
+                                              , D.OP_PRICE)
+                                    ELSE A.SALE_PRICE
+                           END AS OP_PRICE --운영단가
+                         운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 강대성 20150919 끝 */
+                         
+                         , DECODE(A.OP_PRICE, 0, A.SALE_PRICE, A.OP_PRICE) AS OP_PRICE --운영단가
+                         , A.PO_QTY
+                         , A.TAX_CODE
+                         , A.SALE_AMOUNT
+                  FROM     (SELECT A.*
+                                 , B.ITEM_CLASS4
+                           FROM    FMP_OTCUST_PR A
+                                 , FMS_ITEM_V B
+                           WHERE   A.ITEM_CODE = B.ITEM_CODE
+                           )
+                           A
+                         , FMS_UPJANG B
+                         
+                         /* 운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 강대성 20150919 시작
+                         , ( SELECT ITEM_CODE
+                                 , OP_RATE
+                                 , OP_PRICE
+                                 , CEIL_VAL
+                                 , SDATE
+                                 , EDATE
+                                 , UPJANG
+                           FROM    FMU_OP_RATE
+                           WHERE   USE_YN    = 'Y'
+                           AND     ITEM_TYPE = 'M'
+                           )
+                           C
+                         , ( SELECT ITEM_CODE
+                                 , OP_RATE
+                                 , OP_PRICE
+                                 , CEIL_VAL
+                                 , SDATE
+                                 , EDATE
+                                 , UPJANG
+                           FROM    FMU_OP_RATE
+                           WHERE   USE_YN    = 'Y'
+                           AND     ITEM_TYPE = 'C'
+                           )
+                           D
+                  WHERE    A.NEED_DATE BETWEEN C.SDATE(+) AND      C.EDATE(+)
+                  AND      A.NEED_DATE BETWEEN D.SDATE(+) AND      D.EDATE(+)
+                  AND      A.ITEM_CODE   = C.ITEM_CODE(+)
+                  AND      A.ITEM_CLASS4 = D.ITEM_CODE(+)
+                  AND      A.UPJANG      = C.UPJANG(+)
+                  AND      A.UPJANG      = D.UPJANG(+)
+                  운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 강대성 20150919 끝 */
+                  
+                  WHERE    1 = 1
+                  AND      A.UPJANG      = B.UPJANG
+                  <#if mainUpjang?has_content>
+                  AND      B.MAIN_UPJANG = :mainUpjang
+                  </#if>
+                  <#if upjang?has_content>
+                  AND      A.UPJANG = :upjang
+                  </#if>
+                  AND      A.NEED_DATE BETWEEN :calDtFrom AND     :calDtTo
+                  AND      A.LINE_STATUS <> '003'
+                  GROUP BY A.NEED_DATE
+                         , A.UPJANG
+                         , B.UPJANG
+                         , A.OP_PRICE
+                         
+                         /* 운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 강대성 20150919 시작
+                         , C.OP_PRICE
+                         , C.OP_RATE
+                         운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 강대성 20150919 끝 */
+                         
+                         , A.SALE_PRICE
+                         
+                         /* 운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 강대성 20150919 시작
+                         , C.CEIL_VAL
+                         , D.OP_PRICE
+                         , D.OP_RATE
+                         , D.OP_PRICE
+                         , D.CEIL_VAL
+                         운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 강대성 20150919 끝 */
+                         
+                         , A.PO_QTY
+                         , A.TAX_CODE
+                         , A.SALE_AMOUNT
+                  )
+                  T
+         GROUP BY T.NEED_DATE_ORI
+                , T.NEED_DATE
+                , T.UPJANG
+         )
+         A
+GROUP BY A.NEED_DATE_ORI
+       , A.NEED_DATE
+       , A.UPJANG
+ORDER BY A.NEED_DATE
+	]]></statement>
+</hqml>

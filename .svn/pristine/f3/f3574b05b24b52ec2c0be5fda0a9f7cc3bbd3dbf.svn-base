@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="fs.fse.eventMasterListDAO">
+	<desc>이벤트관리 현황조회 HQML Query</desc>
+
+	<!-- 이벤트관리 현황조회 목록을 조회한다. -->
+	<statement name="selectList01" type="select"><![CDATA[
+ SELECT EVNT_NO
+       ,EVNT_ID
+       , (SELECT SCLASS_NM FROM FS_SCLASS WHERE SCLASS_CD = A.SCLASS_CD ) AS SCLASS_NM
+       , (SELECT UTENSILNM FROM FSM_UTENSIL_MASTER WHERE SCLASS_CD = A.SCLASS_CD AND SEQ = A.SEQ ) AS UTENSIL_NM  
+       , QUANTITY       
+       , EVNT_DATE
+       , (SELECT TM_NM FROM SCO_UPJANG_MST_V WHERE UPJANG = A.UPJANG_CD) AS TM_NM
+       , (SELECT JOB_NAME FROM MAS_JOB WHERE USE_YN = 'Y' AND JOB_CD = (SELECT JOB_CD 
+           FROM SCO_UPJANG_MST_V WHERE UPJANG = A.UPJANG_CD)) AS JOB_NM
+       , SCC_UPJANGNM_FUN(A.UPJANG_CD) AS UPJANG_NM 
+       , EVNT_TITLE
+       , MEAL_QTY
+  FROM FSE_EVENT_MASTER A
+ WHERE 1=1
+   AND    A.EVNT_DATE >= :fromDay
+   AND    A.EVNT_DATE <= :toDay
+<#if searchParamCd?has_content>
+   AND    A.SCLASS_CD = :searchParamCd
+</#if>
+   AND    A.APPR_STATUS = '50'
+   AND    A.USE_YN = 'Y'
+ ORDER BY A.EVNT_DATE, A.SCLASS_CD ASC , A.SEQ DESC 
+
+]]></statement>
+ 
+
+	<!-- 이벤트관리 현황조회(을)를 삭제한다. -->
+	<statement name="selectList02"><![CDATA[
+ SELECT EVNT_NO
+       ,EVNT_ID
+       , (SELECT TM_NM FROM SCO_UPJANG_MST_V WHERE UPJANG = A.UPJANG_CD) AS TM_NM
+       , (SELECT JOB_NAME FROM MAS_JOB WHERE USE_YN = 'Y' AND JOB_CD = (SELECT JOB_CD 
+           FROM SCO_UPJANG_MST_V WHERE UPJANG = A.UPJANG_CD)) AS JOB_NM
+       , SCC_UPJANGNM_FUN(A.UPJANG_CD) AS UPJANG_NM 
+       , (SELECT SCLASS_NM FROM FS_SCLASS WHERE SCLASS_CD = A.SCLASS_CD ) AS SCLASS_NM
+       , (SELECT UTENSILNM FROM FSM_UTENSIL_MASTER WHERE SCLASS_CD = A.SCLASS_CD AND SEQ = A.SEQ ) AS UTENSIL_NM  
+       , QUANTITY
+       , EVNT_DATE
+       , EVNT_TITLE
+       , MEAL_QTY
+  FROM FSE_EVENT_MASTER A
+ WHERE 1=1
+   AND    A.EVNT_DATE >= :fromDay
+   AND    A.EVNT_DATE <= :toDay
+<#if tmCd?has_content>
+   AND    A.UPJANG_CD IN (SELECT UPJANG FROM SCO_UPJANG_MST_V WHERE TM_CD = :tmCd) 
+</#if>
+<#if upjangCd?has_content>
+   AND    A.UPJANG_CD = :upjangCd
+</#if>
+   AND    A.APPR_STATUS = '50'
+   AND    A.USE_YN = 'Y'
+ ORDER BY A.UPJANG_CD, A.EVNT_DATE, A.SCLASS_CD ASC , A.SEQ DESC 
+]]></statement>
+ 
+
+	<!-- 이벤트관리 현황조회(을)를 삭제한다. -->
+	<statement name="selectList03"><![CDATA[
+SELECT EVNT_NO
+       ,EVNT_ID
+       , (SELECT SCLASS_NM FROM FS_SCLASS WHERE SCLASS_CD = A.SCLASS_CD ) AS SCLASS_NM
+       , (SELECT UTENSILNM FROM FSM_UTENSIL_MASTER WHERE SCLASS_CD = A.SCLASS_CD AND SEQ = A.SEQ ) AS UTENSIL_NM  
+       , QUANTITY
+       , EVNT_DATE
+       , SCC_UPJANGNM_FUN(A.UPJANG_CD) AS UPJANG_NM 
+       , SCC_CODE_NM('evnt_custSatifac',CUST_SATISFAC) AS CUST_SATISFAC_NM 
+       , SCC_CODE_NM('evnt_utensilStatus',UTENSIL_STATUS) AS UTENSIL_STATUS_NM 
+  FROM FSE_EVENT_MASTER A
+ WHERE 1=1
+   AND    A.EVNT_DATE >= :fromDay
+   AND    A.EVNT_DATE <= :toDay
+<#if searchParamCd?has_content>
+   AND    A.SCLASS_CD = :searchParamCd
+</#if>
+   AND    A.APPR_STATUS = '50'
+   AND    A.USE_YN = 'Y'
+ ORDER BY A.UPJANG_CD, A.EVNT_DATE, A.SCLASS_CD ASC , A.SEQ DESC
+]]></statement>
+</hqml>

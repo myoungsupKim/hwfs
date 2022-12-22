@@ -1,0 +1,150 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="WebDocAttachPop" classname="FileUpload" position="absolute 0 0 1006 569" titletext="웹문서 첨부" onload="form_onload" onsize="form_onsize">
+    <Layouts>
+      <Layout>
+        <ActiveX id="namo" position="absolute 15 35 990 555" taborder="0" progid="{D53F36BF-F63A-4B2F-8B7C-C40B428C3A5D}" visible="true" windowed="true" popupstyle="true" anchor="all" DefaultCharSet="utf-8" OctetStreamToImage="0" OnLoadCompleted="namo_OnLoadCompleted"/>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 0 0 1000 10"/>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 570"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 991 0 1006 584"/>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 3 555 903 570"/>
+        <Button id="btn_attach" taborder="1" text="첨부" onclick="fn_attach" class="btn_WF_CRUD" position="absolute 899 10 944 35" anchor="top right"/>
+        <Button id="btn_close" taborder="2" text="닫기" onclick="fn_close" class="btn_WF_CRUD" position="absolute 946 10 991 35" anchor="top right"/>
+        <Static id="Static20" text="W102" visible="false" position="absolute 944 10 946 35" anchor="top right" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static05" text="아이콘기준 h08" class="Guide01_AreaRed" visible="false" position="absolute 795 35 995 43"/>
+        <Static id="Static70" text="※ 웹 문서를 작성하여 서버로 첨부합니다. 이미지 삽입은 불가합니다." class="sta_WF_DiscInfoN" position="absolute 15 16 777 31"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_content" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="contents" type="STRING" size="0"/>
+        </ColumnInfo>
+        <Rows>
+          <Row/>
+        </Rows>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : WebDocAttachPop
+  파 일 명 : WebDocAttachPop.xfdl
+  기    능 : Namo Web ActiveX를 이용하여 웹문서를 만들어 첨부하는 팝업
+
+    수정일    수정자                  수정내용
+  ----------   -------  --------------------------------------------------
+  2015.05.12   kksoo    최초 생성
+*/
+ 
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+************************************************************************************************/
+include "lib::lib_com.xjs";
+
+
+/************************************************************************************************
+ * FORM 변수 선언 영역 (필수)
+************************************************************************************************/
+var fv_attachPath = "";		//첨부문서 실제 패스
+
+/************************************************************************************************
+ * FORM EVENT 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Form Load (필수)
+ *---------------------------------------------------------------------------------------------*/
+function form_onload(obj:Form, e:LoadEventInfo)
+{    
+	// Form Load 시 공통 기능 처리
+	gfn_formOnLoad(this);
+
+	// 초기값 셋팅
+	//fn_init();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 초기값 셋팅
+ *---------------------------------------------------------------------------------------------*/
+function fn_init() 
+{	
+	namo.ShowToolbar(0, false);  	// 메뉴 감추기 
+	//namo.ShowToolbar(1, false);  	// 메뉴 감추기 
+	//namo.ShowToolbar(2, false); 	// 메뉴 감추기 
+	//namo.ShowTab(false);  		// tab  보이기
+
+			
+	namo.HeadValue = "<style>p {font-size:10pt; font-family:굴림; margin:0pt;}</style>";
+	namo.TextValue = "";
+	
+	namo.visible = true;
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 화면 닫기
+ *---------------------------------------------------------------------------------------------*/
+function fn_close(obj:Button,  e:ClickEventInfo)
+{
+	this.close();
+}
+
+/************************************************************************************************
+ * 공통기능 FUNCTION 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 웹문서를 서버로 첨부한다.
+ *---------------------------------------------------------------------------------------------*/
+function fn_attach()
+{
+	//첨부 여부 확인
+	if (!gfn_confirm("confirm.webdoc.attach")) return;
+
+	//HTML 내용을 데이터셋에 설정	
+	ds_content.setColumn(0, "contents", namo.Value);	// HTML 전체 내용
+	//trace(ds_content.saveXML());
+ 
+    var strSvcID    = "attach";
+    var strURL      = "sc/cmn/webDocAttach/attachDoc.xdo";
+    var strInDs     = "ds_list=ds_content";
+    var strOutDs    = "";
+    var strArg      = "";
+    var strCallback = "fn_callBack";
+    var bAsync      = true;
+    
+    gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+}
+
+
+/************************************************************************************************
+ * TRANSACTION 및 CallBack 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 트랜잭션 콜백 함수 (필수)
+ *---------------------------------------------------------------------------------------------*/
+function fn_callBack(strSvcID, nErrorCode, strErrorMsg)
+{
+	// 에러시 gfn_callBack에서 메시지 제공, 화면별 특정 에러 발생시에만 사용하세요.
+	if (nErrorCode < 0) 
+	{
+		return;
+	}	
+	
+	switch (strSvcID) 
+	{
+		case "attach" :
+			this.close(fv_attachPath);
+			break;
+	}
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : NOAMO 초기 설정을 변경 (charset을 UTF-8로 변경)
+ *---------------------------------------------------------------------------------------------*/
+function namo_OnLoadCompleted(obj:ActiveX)
+{
+    namo.InitFileURL = application.services.get_item("svc").url + "common/As7Init.xml"; // 초기화 파일의 경로
+    namo.InitFileVer = "-9999"; // 버전 관리 안하고 즉시 반영함
+    namo.LoadInitFile();  //초기화파일 적용
+}
+]]></Script>
+  </Form>
+</FDL>

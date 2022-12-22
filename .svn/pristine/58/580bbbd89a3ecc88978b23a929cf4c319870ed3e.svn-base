@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[본부, 본사, 사업장(사업장 선택 경우) 식단리스트 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT DISTINCT T1.UPJANG, T1.MENU_CD, T1.UPJANGNM_DISP, T1.MENU_DATE, T1.SUBINV_NAME_DISP, T1.MENU_NAME, T1.SALE_PRICE, T1.EXPECT_MEAL_QTY,
+       T1.REAL_MEAL_QTY, T1.MENU_CONSTRUCT
+  FROM (SELECT A.UPJANG, B.MENU_CD, A.UPJANGNM_DISP, B.MENU_DATE, C.SUBINV_NAME_DISP, (D.CODE_NAME || E.CODE_NAME) AS MENU_NAME,
+		       NVL(B.SALE_PRICE, 0) AS SALE_PRICE, NVL(B.EXPECT_MEAL_QTY, 0) AS EXPECT_MEAL_QTY, NVL(F.REAL_MEAL_QTY, 0) AS REAL_MEAL_QTY,
+		       FMM_RECIPENAME_FUN(B.UPJANG, B.MENU_CD, '1') AS MENU_CONSTRUCT
+		  FROM FMS_UPJANG A, FMM_MENU B, FMS_SUBINVENTORY C,
+		       (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0023') D, --끼니
+		       (SELECT CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0022') E, --코너
+			   FMO_OP_MENU F
+		 WHERE A.MAIN_UPJANG = #MAIN_UPJANG# --필수 검색조건(본사)
+          <isNotNull col="UPJANG">
+           AND A.UPJANG = #UPJANG# --검색조건(업장)
+          </isNotNull>
+		   AND B.MENU_DATE BETWEEN #FROM_MENU_DATE# AND #TO_MENU_DATE# --필수 검색조건(제공일 종료일)
+		   AND A.UPJANG = B.UPJANG
+		   AND B.UPJANG = C.UPJANG
+		   AND B.SUBINV_CODE = C.SUBINV_CODE
+		   AND B.MEAL = D.CODE(+)
+		   AND B.CORNER = E.CODE(+)
+		   AND B.UPJANG = F.UPJANG(+)
+		   AND B.MENU_DATE = F.OP_DATE(+)
+		   AND B.SUBINV_CODE = F.SUBINV_CODE(+)
+		   AND B.MEAL = F.MEAL(+)
+		   AND B.CORNER = F.CORNER(+)) T1,
+       FMM_RECIPE T2
+ WHERE T1.UPJANG = T2.UPJANG
+   AND T1.MENU_CD = T2.MENU_CD
+ ORDER BY T1.MENU_CD, T1.UPJANG	</statement>
+	<input default-name="ds_Input">
+	</input>
+	<output default-name="ds_List">
+	</output>
+</query>

@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="sm.sar.receiveDetailInquiryDAO">
+	<desc>입금상세조회 HQML Query</desc>
+
+	<!-- 입금상세조회 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sm.sar.dao.ReceiveDetailInquiryDAO.selectList */
+		<![CDATA[
+		SELECT A.MU_CD,
+		       (SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE MU.MU_CD = A.MU_CD)  AS MU_NM,
+		       A.CC_CD,
+		       (SELECT  CC_NM FROM SCC_CC WHERE CC_CD = A.CC_CD) AS CC_NM,
+		       A.RECEIVE_DATE,
+		       A.RECEIVE_NUM,
+		       A.RECEIVE_TYPE_CD,
+		       (SELECT TYPE_NM FROM SLA_TYPE_CD_MST WHERE TYPE_GRP_CD = '002' AND TYPE_CD = A.RECEIVE_TYPE_CD) AS RECEIVE_TYPE_NM,
+		       TO_CHAR(A.CUST_CD) AS CUST_CD,
+		       B.CUSTNM AS CUST_NM,
+		       A.RECEIVE_AMT,
+		       A.DEDUC_AMT,
+		       A.REMARK
+		FROM   SLA_AR_RECEIVE_MST A,
+		       ST_CUST B
+		WHERE  1=1
+		AND    A.CUST_CD = B.CUSTCD
+		AND    A.RECD_STATUS = 'L'
+		<#if receiveDateFr?has_content>AND    A.RECEIVE_DATE >= :receiveDateFr</#if>
+		<#if receiveDateTo?has_content>AND    A.RECEIVE_DATE <= :receiveDateTo</#if>
+		<#if receiveTypeCd?has_content>AND    A.RECEIVE_TYPE_CD = :receiveTypeCd</#if>
+		<#if muCd?has_content>AND    A.MU_CD = :muCd</#if>
+		<#if ccCd?has_content>AND    A.CC_CD = :ccCd</#if>
+		<#if tmCd?has_content>
+			AND     A.CC_CD IN (
+			                SELECT  A.CC_CD
+			                FROM    SCC_CC A
+			                        ,HLDC_SC_DEPT_V B
+			                WHERE   B.CC_CD = A.CC_CD
+			                AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+			                AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+			                AND     B.TM_CD = :tmCd
+			                )
+        </#if>
+		ORDER BY A.MU_CD, A.CC_CD, A.RECEIVE_DATE ASC
+		]]>
+	</statement>
+
+	<statement name="selectDetail" type="select">
+		/*+ com.hwfs.sm.sar.dao.ReceiveDetailInquiryDAO.selectDetail */
+		<![CDATA[
+		SELECT A.ACCT_CD,
+		       B.ACCTNM   AS ACCT_NM,
+		       A.MU_CD,
+		       (SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE MU.MU_CD = A.MU_CD)  AS MU_NM,
+		       A.CC_CD,
+		       (SELECT  CC_NM FROM SCC_CC WHERE CC_CD = A.CC_CD) AS CC_NM,
+		       A.RECEIVE_AMT,
+		       A.REMARKS
+		FROM   SLA_AR_RECEIVE_DETAIL A,
+		       HLDC_ST_ACCOUNT_V B
+		WHERE  1=1
+		AND    A.ACCT_CD = B.ACCTCD(+)
+		<#if receiveNum?has_content>AND    A.RECEIVE_NUM = :receiveNum</#if>
+		]]>
+	</statement>
+
+	<!-- 입금상세조회(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sm.sar.dao.ReceiveDetailInquiryDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+
+	<!-- 입금상세조회(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.sm.sar.dao.ReceiveDetailInquiryDAO.update */
+		<![CDATA[
+		UPDATE TABLE_NAME 
+		SET    COLUMN_NAME1 = :columnName1,
+		       COLUMN_NAME2 = :columnName2,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+	<!-- 입금상세조회(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.sm.sar.dao.ReceiveDetailInquiryDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.RECIPE_CD
+      ,C.RECIPE_NAME
+      ,NVL2(G.ITEM_CODE,'1','0') AS RESTRICT_YN -- 금지여부
+      ,D.ITEM_CODE
+      ,F.ITEM_NAME
+      ,I.FEATURE_NAME --자재특성
+      ,F.ITEM_SIZE --규격
+      ,F.PO_UOM    --구매단위
+      ,E.MARGIN_PRICE --구매단가
+      --,D.NEED_QTY  --표준1인소요량
+      ,ROUND((D.NEED_QTY * A.ITEM_RATE / 100),2) AS NEED_QTY  --표준1인소요량
+      ,ROUND((D.NEED_QTY * A.ITEM_RATE / 100) * (NVL(E.MARGIN_PRICE,0) / F.KG_CONVERT_RATE / 1000) ) AS UNIT_COST -- 1인원가
+  FROM
+       FSM_SINGLE_MENU_RECIPE A
+      ,FSR_STD_RECIPE_MST C
+      ,FSR_STD_RECIPE_ITEM D
+      ,FSI_STD_PRICE E
+      ,(
+       SELECT ITEM_CODE,
+              ITEM_NAME,
+              ITEM_SIZE,
+              PO_UOM,
+              KG_CONVERT_RATE
+         FROM HLDC_PO_ITEM_MST
+        WHERE ITEM_CLASS1 = 'F'
+       ) F
+      ,(SELECT RESTRICT_SEQ, ITEM_CODE
+          FROM FSI_RESTRICT_MST
+         WHERE TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN RESTRICT_START AND RESTRICT_END
+           AND USE_YN = 'Y'
+       ) G
+      ,FSI_ITEM_NUT H
+      ,(
+            SELECT A.ITEM_CODE,
+                   (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0033' AND CODE = A.ITEM_FEATURE) AS FEATURE_NAME
+              FROM
+                   (
+                    SELECT CENTER_CODE, CUSTCD, ITEM_CODE, ITEM_FEATURE
+                      FROM FSI_ITEM_FEATURE
+                     WHERE (1=1)
+                      AND  (CENTER_CODE, CUSTCD, ITEM_CODE, APPLY_DATE) IN (
+                            SELECT
+                                   CENTER_CODE, CUSTCD, ITEM_CODE, MAX(APPLY_DATE) AS APPLY_DATE
+                              FROM  FSI_ITEM_FEATURE
+                             WHERE  CENTER_CODE = (SELECT CENTER_CODE FROM HLDC_PO_UPJANG_CENTER WHERE UPJANG = (SELECT AP_UNITPRICE_UPJANG FROM HLDC_ST_UPJANG WHERE UPJANG = #fa_UPJANG#))
+                                AND  TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN APPLY_DATE AND TO_CHAR(ADD_MONTHS(TO_DATE(APPLY_DATE,'YYYYMMDD'),1)-1,'YYYYMMDD')
+                             GROUP BY CENTER_CODE, CUSTCD, ITEM_CODE
+                           )
+                    ) A
+       ) I
+ WHERE A.RECIPE_CD = C.RECIPE_CD
+   AND C.RECIPE_CD = D.RECIPE_CD
+   AND D.ITEM_CODE = E.ITEM_CODE(+)
+   AND D.ITEM_CODE = F.ITEM_CODE
+   AND D.ITEM_CODE = G.ITEM_CODE(+)
+   AND D.ITEM_CODE = H.ITEM_CODE(+)
+   AND D.ITEM_CODE = I.ITEM_CODE(+)
+   AND A.SINGLE_MENU_CD = #SINGLE_MENU_CD#
+ ORDER BY A.RECIPE_SEQ, C.RECIPE_TYPE, C.CUISINE_TYPE, A.RECIPE_CD,ITEM_SEQ	]]></statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_Detail">
+	</output>
+</query>

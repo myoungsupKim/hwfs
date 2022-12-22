@@ -1,0 +1,226 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FSM00066P" onload="form_onload" titletext="레시피 사진 보기" position="absolute 0 0 662 418" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Div id="divMain" scrollbars="autoboth" taborder="1" text="Div0" position="absolute 10 10 651 408"/>
+        <Static id="Static64" text="W30" visible="false" position="absolute 652 0 662 418" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static70" text="W10" visible="false" position="absolute 0 0 603 10" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static72" text="W15" visible="false" position="absolute 0 0 10 418" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static00" text="W10" visible="false" position="absolute 0 408 603 418" style="background:#ff000055;align:center middle;"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_List"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 메뉴관리 > 식단관리 > 식단등록 > 레시피 검색 및 등록
+ * 프로그램명   : FSM00066P.XML
+ * 기      능   : 레시피 사진 보기 팝업
+ * 작  성  자   : 손창덕
+ * 작성  일자   : 2008-01-02
+ * 비      고   : 
+ *		- ds_List				: [Main DS] 레시피 정보
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "LIB::sc_comon.js";			// 시스템공통 함수
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js";
+//@@컨버터에서 주석처리 #include "LIB::tit_comm_0001.js";		// X-Framework Lib
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+// 부모창에서 넘겨주는 Args
+var f_upjang    = "";
+var f_menu_date = "";
+var f_hall_cd   = "";
+var f_meal      = "";
+var f_corner    = "";
+// Test Data
+/*var f_upjang    = "100751";
+var f_menu_date = "20071120";
+var f_hall_cd   = "00101";
+var f_meal      = "002";
+var f_corner    = "001";*/
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	// Args Setting
+	f_upjang    = UPJANG;
+	f_menu_date = MENU_DATE;
+	f_hall_cd   = HALL_CD;
+	f_meal      = MEAL;
+	f_corner    = CORNER;
+	
+	// X-Framework : Action 정보 생성 
+	fsp_init(this);
+	
+	// 업장코드 체크
+	if( gfn_length(gfn_trim(f_upjang))== 0 || gfn_trim(f_upjang)== null ) {
+		g_Message("EE", "업장코드가 존재하지 않습니다.\n창을 닫습니다.");
+		this.close();
+	}
+	// 제공일자 체크
+	if( gfn_length(gfn_trim(f_menu_date))== 0 || gfn_trim(f_menu_date)== null ) {
+		g_Message("EE", "제공일자가 존재하지 않습니다.\n창을 닫습니다.");
+		this.close();
+	}
+	// 식당코드 체크
+	if( gfn_length(gfn_trim(f_hall_cd))== 0 || gfn_trim(f_hall_cd)== null ) {
+		g_Message("EE", "식당코드가 존재하지 않습니다.\n창을 닫습니다.");
+		this.close();
+	}
+	// 끼니코드 체크
+	if( gfn_length(gfn_trim(f_meal))== 0 || gfn_trim(f_meal)== null ) {
+		g_Message("EE", "끼니코드가 존재하지 않습니다.\n창을 닫습니다.");
+		this.close();
+	}
+	// 코너코드 체크
+	if( gfn_length(gfn_trim(f_corner))== 0 || gfn_trim(f_corner)== null ) {
+		g_Message("EE", "코너코드가 존재하지 않습니다.\n창을 닫습니다.");
+		this.close();
+	}
+	
+	fn_search();
+}
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Search()
+ * 기      능   : [조회버튼] 검색조건에 해당하는 정보를 조회
+ ******************************************************************************************
+ */
+function fn_search()
+{
+	// DataSet & callBack함수 정의
+	var actionName, cmdName, inData, outData, otherArg, callBackFnc;
+	inData			= "";
+	outData			= "ds_List=ds_List";
+	otherArg		= "UPJANG="+wrapQuote(gfn_trim(f_upjang)) + " MENU_DATE="+wrapQuote(gfn_trim(f_menu_date)) + " HALL_CD="+wrapQuote(gfn_trim(f_hall_cd)) + " MEAL="+wrapQuote(gfn_trim(f_meal)) + " CORNER="+wrapQuote(gfn_trim(f_corner));
+	callBackFnc		= "fn_callBackSearch";
+	
+	fsp_clear(this);
+	fsp_addSearch(this, "fs/fsm:FSM00066P_S001");
+    fsp_callService(this, actionName, cmdName, inData, outData, otherArg, callBackFnc);		// 서비스 호출
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Insert()
+ * 기      능   : [입력버튼] 입력 시 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_insert()
+{
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Save()
+ * 기      능   : [저장버튼] 저장 시 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_save()
+{
+}
+/* 
+ ******************************************************************************************
+ * 함  수  명   : fn_Delete()
+ * 기      능   : [삭제버튼] 삭제 시 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_delete()
+{
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Print()
+ * 기      능   : [출력버튼] 출력 시 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_print()
+{
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Excel()
+ * 기      능   : [엑셀버튼] 엑셀 시 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_Excel()
+{
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Close()
+ * 기      능   : [닫기버튼] 화면을 닫을때 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_Close()
+{
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Help()
+ * 기      능   : [도움말버튼] 도움말
+ ******************************************************************************************
+ */
+function fn_help()
+{
+	// tit_addSearchActionInfo(this, "ma/map:SCC_MENU_SELECT");
+	// tit_callService(this, "", "", "ds_cond=ds_cond", "ds_Menu=ds_List", "", "");	
+}
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_callBackSearch()
+ * 입      력   : errCode 	= 에러코드
+				  errMsg	= 에러메세지
+ * 반      환   : 없음
+ * 기      능   : 리스트 조회 후 콜백 함수
+ * 작  성  자   : 손창덕
+ * 작성  일자   : 2008-01-02
+ ******************************************************************************************
+ */
+function fn_callBackSearch(errCode, errMsg)
+{	
+	if( errCode != 0 ) {
+		return;
+	} else {
+		divMain.url = "U_FSM::FSM00066V.xfdl";
+	//	trace(SaveXML(ds_List,null));
+	}
+}
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+]]></Script>
+  </Form>
+</FDL>

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[미승인 상세내역]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT  GUBUN, GUBUN_DATE, GUBUN_TEXT
+FROM  (
+-- 신규레시피 신청 상세내역
+SELECT '신규레시피신청' GUBUN
+     , SUBMIT_DATE GUBUN_DATE  -- 신청일
+     , RECIPE_NAME GUBUN_TEXT-- 신청레시피명
+  FROM FSR_NEW_RECIPE_MST
+ WHERE UPJANG = #UPJANG#
+   AND APPRV_YN = 'N'
+UNION ALL
+--일마감취소신청-상세내역
+ SELECT '마감해제신청' GUBUN,
+        V.CLOSE_DATEFR GUBUN_DATE, --요청일FR
+        (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0035' AND CODE = V.CLOSE_GUBUN) GUBUN_TEXT --마감구분
+  FROM MAS_CLOSE_MODIFYREQ V
+  WHERE (V.UPJANG = #UPJANG#)
+  AND   (V.TEAM_MST_CONGUBN = 'N' OR V.APPRV_GUBUN = 'N')
+UNION ALL
+--전도금신청-상세내역
+ SELECT '전도금신청' GUBUN,
+        DUE_DATE GUBUN_DATE,   --지급예정일
+        TRIM(TO_CHAR(REQUEST_AMT, '999,999,999,999')) GUBUN_TEXT --청구액
+  FROM MAS_ADV_REQ_MST
+  WHERE (UPJANG = #UPJANG#)
+  AND   (TEAM_MST_CONGUBN = 'N' OR HEAD_MST_CONGUBN = 'N')
+UNION ALL
+--식권폐기신청-상세내역
+ SELECT '식권폐기신청' GUBUN,
+        V.TRANS_DD GUBUN_DATE, --수불일자,
+        (SELECT GUBUN_NAME FROM MAS_TICKET_CODE WHERE TRANS_TYPE = V.TRANS_TYPE AND TRANS_GUBUN = V.TRANS_GUBUN) GUBUN_TEXT
+  FROM  MAS_TICKET_MST V
+  WHERE (V.UPJANG = #UPJANG#)
+  AND   (V.TRANS_TYPE = 'X')
+  AND   ((V.TEAM_MST_CONGUBN = 'N' AND V.APPROV_CONGUBN = 'N') OR V.APPROV_CONGUBN = 'N')
+) A
+ORDER BY GUBUN_DATE	]]></statement>
+	<input default-name="ds_in">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

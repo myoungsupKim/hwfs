@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="ft.fsi.pbResultAmtDAO">
+	<desc>PB실적 조회 HQML Query</desc>
+
+	<statement name="selectList">
+		/*+ com.hwfs.ft.fsi.dao.pbResultAmtDAO.selectList */
+		<![CDATA[
+		WITH TEMP AS (
+			SELECT UPJANG, UPJANGNM, TM_NAME, ORG_LEVEL_NM3, PB_BUY_GOAL,PB_GUBUN, U_EFF_AMT, M_EFF_AMT, U_ALL_AMT, M_ALL_AMT, U_EFF_RATE, M_EFF_RATE
+			FROM (
+				SELECT UPJANG, UPJANGNM, TM_NAME, ORG_LEVEL_NM3, PB_BUY_GOAL
+					--, NVL(PB_GUBUN, '999') AS PB_GUBUN
+					, NVL(PB_GUBUN, NULL) AS PB_GUBUN
+					, SUM(U_EFF_AMT) AS U_EFF_AMT			  --효율화식재 매입액(재무)
+					, SUM(U_ALL_AMT) AS U_ALL_AMT			  --전체 매입액(재무)
+					, SUM(M_EFF_AMT) AS M_EFF_AMT        --효율화식재 매입액(관리)
+					, SUM(M_ALL_AMT) AS M_ALL_AMT        --전체 매입액(관리)
+					, 0 AS U_EFF_RATE
+					, 0 AS M_EFF_RATE
+				FROM (
+					SELECT A.UPJANG, C.UPJANGNM,C.TM_NAME, D.ORG_LEVEL_NM3, /*NVL(F.PB_BUY_GOAL, 0) AS PB_BUY_GOAL*/ NVL(E.PB_BUY_GOAL, 0) AS PB_BUY_GOAL --직군별X 업장별 PB목표율 관리추가 2022.05.18
+						, B.ITEM_CODE
+						, B.PB_GUBUN
+						, CASE WHEN B.ITEM_CODE IS NOT NULL THEN SUM(ROUND(A.TRANS_UAMOUNT)) ELSE 0 END AS U_EFF_AMT
+						, CASE WHEN B.ITEM_CODE IS NOT NULL THEN SUM(ROUND(A.TRANS_MAMOUNT)) ELSE 0 END AS M_EFF_AMT
+						, SUM(ROUND(A.TRANS_UAMOUNT)) AS U_ALL_AMT
+						, SUM(ROUND(A.TRANS_MAMOUNT)) AS M_ALL_AMT
+					FROM FSI_EFF_DAILY_SUM A
+						, FSI_PB_MST B
+						, MAC_UPJANG_V C
+						, SCC_CC D
+						, FSI_PB_UPJANG_GRP E
+						, FSI_PB_GRP_GOAL F 
+					WHERE A.ITEM_CODE = B.ITEM_CODE(+)
+					  AND A.UPJANG = C.UPJANG
+					  AND C.CC_CD = D.CC_CD
+					  AND A.UPJANG = E.UPJANG(+)
+					  AND E.PB_GRP_CD = F.PB_GRP_CD(+)
+					  AND A.TRANS_DATE BETWEEN :startDate AND :endDate
+					  AND B.START_DATE(+) <= :endDate AND B.END_DATE(+) >= :startDate
+					  AND B.USE_YN(+) = 'Y'
+					  AND B.MU_CD(+) = '2002'
+
+					<#if tmCd?has_content>
+					  AND (C.TM_CD LIKE :tmCd || '%' OR C.PT_CD LIKE :tmCd || '%')
+					</#if>
+					<#if upjang?has_content>
+					  AND C.UPJANG = :upjang
+					</#if>
+					<#if closed?has_content>
+					  AND C.CLOSE_DATE IS NULL
+					</#if>
+
+					GROUP BY A.UPJANG, B.ITEM_CODE, B.PB_GUBUN, NVL(B.USE_YN, 'N'), C.UPJANGNM,C.TM_NAME, D.ORG_LEVEL_NM3,  /*F.PB_BUY_GOAL*/ E.PB_BUY_GOAL
+					) A
+				GROUP BY UPJANG, PB_GUBUN,UPJANGNM,TM_NAME,ORG_LEVEL_NM3,PB_BUY_GOAL
+                  
+				UNION ALL
+			                  
+				SELECT UPJANG, UPJANGNM, TM_NAME, ORG_LEVEL_NM3, PB_BUY_GOAL
+					, '999' AS PB_GUBUN
+					, SUM(U_EFF_AMT) AS U_EFF_AMT			  --효율화식재 매입액(재무)
+					, SUM(U_ALL_AMT) AS U_ALL_AMT			  --전체 매입액(재무)
+					, SUM(M_EFF_AMT) AS M_EFF_AMT        --효율화식재 매입액(관리)
+					, SUM(M_ALL_AMT) AS M_ALL_AMT        --전체 매입액(관리)
+					, DECODE(SUM(U_ALL_AMT), 0, 0, ROUND(SUM(U_EFF_AMT) / SUM(U_ALL_AMT) * 100, 2)) AS U_EFF_RATE
+					, DECODE(SUM(M_ALL_AMT), 0, 0, ROUND(SUM(M_EFF_AMT) / SUM(M_ALL_AMT) * 100, 2)) AS M_EFF_RATE
+				FROM (
+					SELECT A.UPJANG, C.UPJANGNM,C.TM_NAME, D.ORG_LEVEL_NM3, /*NVL(F.PB_BUY_GOAL, 0) AS PB_BUY_GOAL*/ NVL(E.PB_BUY_GOAL, 0) AS PB_BUY_GOAL
+						, B.ITEM_CODE
+						, B.PB_GUBUN
+						, CASE WHEN B.ITEM_CODE IS NOT NULL THEN SUM(ROUND(A.TRANS_UAMOUNT)) ELSE 0 END AS U_EFF_AMT
+						, CASE WHEN B.ITEM_CODE IS NOT NULL THEN SUM(ROUND(A.TRANS_MAMOUNT)) ELSE 0 END AS M_EFF_AMT
+						, SUM(ROUND(A.TRANS_UAMOUNT)) AS U_ALL_AMT
+						, SUM(ROUND(A.TRANS_MAMOUNT)) AS M_ALL_AMT
+					FROM FSI_EFF_DAILY_SUM A
+						, FSI_PB_MST B
+						, MAC_UPJANG_V C
+						, SCC_CC D
+						, FSI_PB_UPJANG_GRP E
+						, FSI_PB_GRP_GOAL F 
+					WHERE A.ITEM_CODE = B.ITEM_CODE(+)
+					  AND A.UPJANG = C.UPJANG
+					  AND C.CC_CD = D.CC_CD
+					  AND A.UPJANG = E.UPJANG(+)
+					  AND E.PB_GRP_CD = F.PB_GRP_CD(+)
+					  AND A.TRANS_DATE BETWEEN :startDate AND :endDate
+					  AND B.START_DATE(+) <= :endDate AND B.END_DATE(+) >= :startDate 
+					  AND B.USE_YN(+) = 'Y'
+					  AND B.MU_CD(+) = '2002'
+
+					<#if tmCd?has_content>
+					  AND (C.TM_CD LIKE :tmCd || '%' OR C.PT_CD LIKE :tmCd || '%')
+					</#if>
+					<#if upjang?has_content>
+					  AND C.UPJANG = :upjang
+					</#if>
+					<#if closed?has_content>
+					  AND C.CLOSE_DATE IS NULL
+					</#if>
+
+					GROUP BY A.UPJANG, B.ITEM_CODE, B.PB_GUBUN, NVL(B.USE_YN, 'N'), C.UPJANGNM,C.TM_NAME, D.ORG_LEVEL_NM3,/*F.PB_BUY_GOAL*/ E.PB_BUY_GOAL
+					) A
+				GROUP BY UPJANG,UPJANGNM,TM_NAME,ORG_LEVEL_NM3,PB_BUY_GOAL
+				)
+			WHERE U_EFF_AMT != 0 OR M_EFF_AMT != 0
+		)
+		
+		SELECT * 
+		FROM TEMP 
+		PIVOT (
+			SUM(U_EFF_AMT) AS USUM, SUM(M_EFF_AMT) AS MSUM, SUM(U_ALL_AMT) AS UALLSUM, SUM(M_ALL_AMT) AS MALLSUM , SUM(U_EFF_RATE) AS URATE, SUM(M_EFF_RATE) AS MRATE
+			FOR PB_GUBUN IN (${pbCodeStr})
+		)
+		ORDER BY ORG_LEVEL_NM3, TM_NAME
+		
+		]]>
+	</statement>
+
+	<statement name="selectPbCodeStr">
+		/*+ com.hwfs.ft.fsi.dao.pbResultAmtDAO.selectPbCodeStr */
+		<![CDATA[
+	
+		SELECT '999 AS A999,' || NVL(LISTAGG(CODE||' AS A'||CODE,',')  WITHIN GROUP(ORDER BY CODE),'0') AS PB_CODE_STR
+		FROM SCC_COMMON_CODE 
+		WHERE GROUP_CODE = 'FS9180'
+		AND USE_YN = 'Y'
+		
+		]]>
+	</statement>
+	
+	<statement name="selectPbCode">
+		/*+ com.hwfs.ft.fsi.dao.pbResultAmtDAO.selectPbCode */
+		<![CDATA[
+		
+		SELECT CODE AS CD, CODE_NAME AS NM
+		FROM SCC_COMMON_CODE 
+		WHERE GROUP_CODE = 'FS9180'
+		AND USE_YN = 'Y'
+		
+		]]>
+	</statement>
+</hqml>

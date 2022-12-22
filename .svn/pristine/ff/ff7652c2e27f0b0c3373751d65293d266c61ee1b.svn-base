@@ -1,0 +1,187 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\..\..\default_typedef.xml"/>
+  <Form id="MuCodePop" classname="COMP_GUIDE_13" inheritanceid="" position="absolute 0 0 281 290" titletext="사업부코드 검색" scrollbars="autoboth" onload="form_onload">
+    <Layouts>
+      <Layout>
+        <Button id="btn_cancel" taborder="5" text="취소" class="btn_POP_Default" position="absolute 215 250 265 275" anchor="right bottom" onclick="btn_cancel_onclick"/>
+        <Button id="btn_confirm" taborder="4" text="확인" class="btn_POP_Default" position="absolute 163 250 213 275" anchor="right bottom" onclick="btn_confirm_onclick"/>
+        <Static id="sta_title" text="사업부코드 검색" class="sta_WF_Title" position="absolute 15 16 231 40"/>
+        <Grid id="grd_list" taborder="3" binddataset="ds_muSearchList" autoenter="select" useinputpanel="false" cellsizingtype="col" position="absolute 15 46 265 242" anchor="all" oncelldblclick="grd_list_oncelldblclick" onkeydown="grd_list_onkeydown" scrollbars="autoboth" autofittype="col" autosizingtype="none">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="65" band="left"/>
+                <Column size="121" band="left"/>
+                <Column size="56" band="left"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="코드"/>
+                <Cell col="1" text="사업부명"/>
+                <Cell col="2" displaytype="text" text="선택" taborder="undefined"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" style="align:center middle;" text="bind:muCd"/>
+                <Cell col="1" displaytype="number" style="align:left middle;" text="bind:muNm"/>
+                <Cell col="2" displaytype="checkbox" edittype="checkbox" style="align:center middle;" text="bind:chk"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+      </Layout>
+    </Layouts>
+    <Bind/>
+    <Objects>
+      <Dataset id="ds_search" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="schCode" type="STRING" size="256"/>
+          <Column id="schMuCd" type="STRING" size="256"/>
+        </ColumnInfo>
+        <Rows>
+          <Row/>
+        </Rows>
+      </Dataset>
+      <Dataset id="ds_muSearchList" firefirstcount="0" firenextcount="0" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false" oncolumnchanged="ds_list_oncolumnchanged">
+        <ColumnInfo>
+          <Column id="muCd" type="STRING" size="255"/>
+          <Column id="muNm" type="STRING" size="255"/>
+          <Column id="chk" type="STRING" size="255"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_return" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false" oncolumnchanged="ds_list_oncolumnchanged">
+        <ColumnInfo>
+          <Column id="muCd" type="STRING" size="256"/>
+          <Column id="muNm" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : TeamCodePop
+  파 일 명 : TeamCodePop.xfdl
+  기    능 : 팀코드 검색 -  다중 선택용 팝업
+
+    수정일    수정자                  수정내용
+  ----------   -------  --------------------------------------------------
+  2017.12.15   kihoon   최초 생성 
+*/
+
+include "lib::lib_com.xjs";
+
+function form_onload(obj:Form, e:LoadEventInfo) {	
+	gfn_formOnLoad(this);
+	
+	var muCd = P_DATASET.getColumn(0, "schMuCd");
+	ds_search.setColumn(0, "schMuCd", muCd);
+	
+	fn_searchMu();
+}
+
+function fn_close() {	
+}
+
+function fn_callBack(strSvcID, nErrorCode, strErrorMsg) {
+    switch( strSvcID )     {
+		// 조회
+        case "searchMu" :
+			if ( gfn_isNull(P_DATASET.getColumn(0, "schMuCd")) ) {
+				return;
+			}
+			var muList = (P_DATASET.getColumn(0, "schMuCd")).split(",");
+			var nRow = -1;
+			if ( muList.length > 0 ) {
+				for (var i=0; i<ds_muSearchList.rowcount; i++ ) {
+					for ( var u=0; u<muList.length; u++ ) {
+						if (  ds_muSearchList.getColumn(i, "muCd") == muList[u] ) {
+							ds_muSearchList.setColumn(i, "chk", 1);
+							nRow = (nRow == -1 ? i : nRow);							
+						} else {
+							ds_muSearchList.setColumn(i, "chk", ((ds_muSearchList.getColumn(i, "chk") == "1") ? "1" : "0"));
+						}
+					}
+				}
+			}
+			//trace(tmList);
+			ds_muSearchList.rowposition = nRow;
+            break;
+    }
+}
+
+function fn_searchMu() {
+    var strSvcID    = "searchMu";
+    var strURL      = "sc/cmn/muSearch/selectList.xdo";
+    var strInDs     = "ds_search=ds_search";
+    var strOutDs    = "ds_muSearchList=ds_muSearchList";
+    var strArg		= "";
+    var strCallback = "fn_callBack";
+    var bAsync      = false;
+    
+    gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Return할 Array 생성 및 창 닫기
+ *---------------------------------------------------------------------------------------------*/
+function fn_return()
+{
+//	trace("nRow : " + nRow);
+	var nRowCnt = ds_muSearchList.getRowCount();	// DataSet Count
+	var muCode = "";
+	var muName = "";
+	var iRow = 0;
+	var iCnt = 0;
+	
+	ds_return.clearData();
+	// 체크 대상 개수 
+	for (var i = 0 ; i < nRowCnt ; i++)
+	{
+		// Dataset이 선택된 것만 적용
+		if (ds_muSearchList.getColumn(i, "chk")==1) {
+			iCnt++;
+			if (iCnt==1) muCode = ds_muSearchList.getColumn(i, "muCd");
+			else muCode = muCode+ "," + ds_muSearchList.getColumn(i, "muCd");
+			if (iCnt==1) muName = ds_muSearchList.getColumn(i, "muNm");
+			else muName = muName + "," + ds_muSearchList.getColumn(i, "muNm");
+		}
+	}
+	
+	if (iCnt > 0) {
+		ds_return.addRow();
+		iRow = ds_return.rowposition;
+		
+		ds_return.setColumn(iRow, "muCd", muCode);
+		ds_return.setColumn(iRow, "muNm", muName);
+	
+	} else {
+		gfn_alert("선택한 데이터가 없습니다.");
+		return;
+	}
+	
+	var arrRtn = gfn_setPopupArray(ds_return);
+	this.close(arrRtn);	
+}
+
+function btn_confirm_onclick(obj:Button,  e:ClickEventInfo) {
+	fn_return();
+}
+
+function grd_list_oncelldblclick(obj:Grid, e:GridClickEventInfo) {
+	fn_return();
+}
+
+function grd_list_onkeydown(obj:Grid, e:KeyEventInfo) {
+	if(e.keycode == 13) {		
+		fn_return();
+	}
+}
+
+function btn_cancel_onclick(obj:Button,  e:ClickEventInfo) {
+	this.close();
+}
+
+]]></Script>
+  </Form>
+</FDL>

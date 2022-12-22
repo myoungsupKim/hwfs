@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[자랑레시피 목록 조회 ]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT
+SUM(ROUND(B.NEED_QTY * (NVL(C.MARGIN_PRICE,0) / D.KG_CONVERT_RATE / 1000) ) ) RECIPE_COST
+, E.NM_KOR
+, A.PRIDE_RECIPE_SEQ 	 
+, A.SUBMIT_DATE  
+, A.SUBMIT_SABUN 			
+, A.UPJANG 	
+, A.RECIPE_CD 
+, A.RECIPE_NAME 
+, A.RECIPE_CLASS 
+, A.RECIPE_TYPE 
+, A.CUISINE_TYPE 
+, A.MAN_STD 
+, A.PWD 
+, A.INQUERY_CNT 
+, A.DISH_QTY 
+, A.RATION_METHOD 
+, F.UPJANGNM
+, G.CODE_NAME AS RECIPE_TYPE_NM
+, H.CODE_NAME AS CUISINE_TYPE_NM
+FROM 
+FSR_PRIDE_RECIPE_MST A
+, FSR_PRIDE_RECIPE_ITEM B
+, FSI_STD_PRICE C
+, (
+	SELECT	ITEM_CODE,
+		KG_CONVERT_RATE
+	FROM	HLDC_PO_ITEM_MST
+	WHERE	ITEM_CLASS1 = 'F'
+) D
+, HLDC_HR_PERSONAL E
+, HLDC_ST_UPJANG F
+, SCC_COMMON_CODE G 
+, SCC_COMMON_CODE H
+ WHERE	A.PRIDE_RECIPE_SEQ = B.PRIDE_RECIPE_SEQ
+ AND B.ITEM_CODE = C.ITEM_CODE(+)
+ AND B.ITEM_CODE = D.ITEM_CODE
+ AND A.SUBMIT_SABUN= E.SABUN(+)	
+ AND G.GROUP_CODE = 'FS0002' 
+AND G.CODE = A.RECIPE_TYPE --레시피유형
+AND H.GROUP_CODE = 'FS0003' 
+AND H.CODE = A.CUISINE_TYPE 	--조리법유형	
+AND F.UPJANG = A.UPJANG
+<isNotNull col="UPJANG">
+ AND A.UPJANG = #UPJANG#
+</isNotNull>
+<isNotNull col="RECIPE_TYPE">
+  AND A.RECIPE_TYPE = #RECIPE_TYPE#
+</isNotNull>
+<isNotNull col="CUISINE_TYPE">
+  AND A.CUISINE_TYPE =  #CUISINE_TYPE#
+</isNotNull>
+<isNotNull col="RECIPE_NAME">
+  AND A.RECIPE_NAME LIKE '%' || #RECIPE_NAME# || '%'
+</isNotNull>
+<isNotNull col="RECIPE_SEQ">
+ AND A.RECIPE_CD =  #RECIPE_SEQ#
+</isNotNull>
+<isNotNull col="FROM_DT">
+ AND A.SUBMIT_DATE &gt;=  #FROM_DT#
+</isNotNull>
+<isNotNull col="TO_DT">
+ AND A.SUBMIT_DATE &lt;=  #TO_DT#
+</isNotNull>
+ GROUP BY E.NM_KOR
+, A.PRIDE_RECIPE_SEQ 	 
+, A.SUBMIT_DATE  
+, A.SUBMIT_SABUN 			
+, A.UPJANG 	
+, A.RECIPE_CD 
+, A.RECIPE_NAME 
+, A.RECIPE_CLASS 
+, A.RECIPE_TYPE 
+, A.CUISINE_TYPE 
+, A.MAN_STD 
+, A.PWD 
+, A.INQUERY_CNT 
+, A.DISH_QTY 
+, A.RATION_METHOD
+, F.UPJANGNM	
+, G.CODE_NAME
+, H.CODE_NAME
+</statement>
+	<input default-name="ds_cond">
+		<col name="UPJANG" size="6" type="NUMERIC" description="" /> 
+		<col name="RECIPE_TYPE" size="255" type="VARCHAR" description="" /> 
+		<col name="CUISINE_TYPE" size="255" type="VARCHAR" description="" /> 
+		<col name="RECIPE_NAME" size="255" type="VARCHAR" description="" /> 
+		<col name="RECIPE_SEQ" size="255" type="VARCHAR" description="" /> 
+		<col name="FROM_DT" size="255" type="VARCHAR" description="" /> 
+		<col name="TO_DT" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="CUISINE_TYPE" size="20" type="VARCHAR" description="" /> 
+		<col name="DISH_QTY" size="20" type="VARCHAR" description="" /> 
+		<col name="INQUERY_CNT" size="22" type="NUMERIC" description="" /> 
+		<col name="MAN_STD" size="20" type="VARCHAR" description="" /> 
+		<col name="NM_KOR" size="20" type="VARCHAR" description="" /> 
+		<col name="PRIDE_RECIPE_SEQ" size="20" type="VARCHAR" description="" /> 
+		<col name="PWD" size="20" type="VARCHAR" description="" /> 
+		<col name="RATION_METHOD" size="20" type="VARCHAR" description="" /> 
+		<col name="RECIPE_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="RECIPE_CLASS" size="20" type="VARCHAR" description="" /> 
+		<col name="RECIPE_COST" size="22" type="NUMERIC" description="" /> 
+		<col name="RECIPE_NAME" size="50" type="VARCHAR" description="" /> 
+		<col name="RECIPE_TYPE" size="20" type="VARCHAR" description="" /> 
+		<col name="SUBMIT_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="SUBMIT_SABUN" size="9" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+	</output>
+</query>

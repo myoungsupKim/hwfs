@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.bms.basOrderplceGoodsDAO">
+	<desc>외부업체 발주 가능 상품 등록</desc>
+
+	<!--DATA를 조회한다. -->
+	<statement name="selectOrderplceGoodsList" type="select">
+		<![CDATA[
+			SELECT 
+				   0 AS CHK_YN,
+			       MST.OUTLET_CD, OUTLET.OUTLET_NM AS OUTLET_NM ,
+			       MST.VENDOR_CD, VENDOR.VENDOR_NM AS VENDOR_NM,
+			       MST.MENU_CD,
+				   MST.MENU_NM,
+			       MST.MENU_CLASS,
+			       MST.USE_AMT,
+			       MST.REMARK,
+			       DECODE(MST.USE_YN, 'Y', 1, 0) AS USE_YN,
+			       MST.CDATE,
+			       MST.CUSER,
+			       MST.UDATE,
+			       MST.UUSER
+			       
+			FROM   BMS_ORDERPLCE_GOODS MST
+			INNER JOIN ( SELECT MST.OUTLET_CD, MST.OUTLET_NM 
+		                           FROM SLE_OUTLET_MST MST
+		                         INNER JOIN  SCO_UPJANG_V   UPJANG ON  UPJANG.UPJANG = TO_NUMBER(MST.OUTLET_CD) 
+		                                         <#if muCd?has_content> AND  UPJANG.MU_CD = :muCd </#if>
+		                                         <#if tmCd?has_content> AND  UPJANG.TM_CD = :tmCd </#if>
+		              			 ) OUTLET ON OUTLET.OUTLET_CD = MST.OUTLET_CD 
+		    INNER JOIN BMS_ORDERPLCE_MST VENDOR ON VENDOR.OUTLET_CD = MST.OUTLET_CD AND VENDOR.VENDOR_CD = MST.VENDOR_CD
+			WHERE MST.OUTLET_CD = :outletCd
+			AND   MST.VENDOR_CD = :vendorCd
+			
+		]]>
+	</statement>
+	
+	<!-- AM DATA를 저장한다. -->
+	<statement name="insertOrderplceGoods" type="insert">
+		<![CDATA[
+		 INSERT INTO BMS_ORDERPLCE_GOODS
+				(
+			       OUTLET_CD,
+			       VENDOR_CD,
+			       MENU_CD,
+				   MENU_NM,
+			       MENU_CLASS,
+			       USE_AMT,
+			       REMARK,
+			       USE_YN,
+			       CDATE,
+			       CUSER,
+			       UDATE,
+			       UUSER
+				) VALUES (
+				
+				:outletCd,
+				:vendorCd,
+				:menuCd,
+		
+				<#if menuNm?exists> :menuNm, <#else> null, </#if>
+				<#if menuClass?exists> :menuClass, <#else> null, </#if>
+				<#if useAmt?exists> :useAmt, <#else> null, </#if>
+				<#if remark?exists> :remark, <#else> null, </#if>
+		
+		 		'Y',
+				SYSDATE,
+				:loginSabun,
+				SYSDATE,
+				:loginSabun
+				)
+ 
+		]]>
+	</statement>
+	
+	<!-- AM DATA를 수정한다. -->
+	<statement name="updateOrderplceGoods" type="update">
+		<![CDATA[
+		 UPDATE BMS_ORDERPLCE_GOODS SET
+				
+			<#if menuNm?exists>    MENU_NM    = :menuNm,    </#if>
+			<#if menuClass?exists> MENU_CLASS = :menuClass, </#if>
+			<#if useAmt?exists>    USE_AMT    = :useAmt,    </#if>
+			<#if remark?exists>    REMARK     = :remark,    </#if>
+			
+			<#if useYn?exists>      USE_YN      = DECODE(:useYn, '1', 'Y', 'N'), </#if>
+			
+			UDATE = SYSDATE,
+			UUSER = :loginSabun
+			
+			WHERE OUTLET_CD = :outletCd
+			AND   VENDOR_CD = :vendorCd
+			AND   MENU_CD   = :menuCd
+			
+		]]>
+	</statement>
+	
+	<!-- AM 코드를 생성한다. -->
+	<statement name="maxOrderplceGoodsCreate" type="select">
+		<![CDATA[
+ 		  
+		SELECT  LPAD(NVL(MAX(TO_NUMBER(MENU_CD)),'0') + 1,4,'0')  AS MAX_MENU_CD 
+ 		FROM BMS_ORDERPLCE_GOODS
+ 		WHERE OUTLET_CD = :outletCd
+		  AND VENDOR_CD = :vendorCd
+ 		
+		]]>
+	</statement>
+	
+	
+</hqml>	

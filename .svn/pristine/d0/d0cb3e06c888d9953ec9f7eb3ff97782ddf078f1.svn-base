@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.scp.persReadStatisticsDAO">
+	<desc>개인정보 열람이력 통계 HQML Query</desc>
+
+	<!-- 사용자 시간대별 개인정보 열람이력 통계 목록을 조회한다. -->
+	<statement name="selectListPerUserHour" type="select">
+		/*+ com.hwfs.sc.scp.dao.PersReadStatisticsDAO.selectListPerUserHour */
+		<![CDATA[
+		SELECT  SS.*,
+       			H00+H01+H02+H03+H04+H05+H06+H07+H08+H09+H10+H11+H12+H13+H14+H15+H16+H17+H18+H19+H20+H21+H22+H23 AS H_SUM
+		FROM   (
+				SELECT S.ACES_USER,
+					   S.ACES_USER_NM,
+				       S.ACES_USER_TYPE,
+				       S.ACES_USER_CC_NM,
+				       SUM(CASE ACES_HOUR WHEN '00' THEN ACES_HOUR_CNT ELSE 0 END) AS H00, 
+				       SUM(CASE ACES_HOUR WHEN '01' THEN ACES_HOUR_CNT ELSE 0 END) AS H01,
+				       SUM(CASE ACES_HOUR WHEN '02' THEN ACES_HOUR_CNT ELSE 0 END) AS H02,
+				       SUM(CASE ACES_HOUR WHEN '03' THEN ACES_HOUR_CNT ELSE 0 END) AS H03,
+				       SUM(CASE ACES_HOUR WHEN '04' THEN ACES_HOUR_CNT ELSE 0 END) AS H04,
+				       SUM(CASE ACES_HOUR WHEN '05' THEN ACES_HOUR_CNT ELSE 0 END) AS H05,
+				       SUM(CASE ACES_HOUR WHEN '06' THEN ACES_HOUR_CNT ELSE 0 END) AS H06,
+				       SUM(CASE ACES_HOUR WHEN '07' THEN ACES_HOUR_CNT ELSE 0 END) AS H07,
+				       SUM(CASE ACES_HOUR WHEN '08' THEN ACES_HOUR_CNT ELSE 0 END) AS H08,
+				       SUM(CASE ACES_HOUR WHEN '09' THEN ACES_HOUR_CNT ELSE 0 END) AS H09,
+				       SUM(CASE ACES_HOUR WHEN '10' THEN ACES_HOUR_CNT ELSE 0 END) AS H10,
+				       SUM(CASE ACES_HOUR WHEN '11' THEN ACES_HOUR_CNT ELSE 0 END) AS H11,
+				       SUM(CASE ACES_HOUR WHEN '12' THEN ACES_HOUR_CNT ELSE 0 END) AS H12,
+				       SUM(CASE ACES_HOUR WHEN '13' THEN ACES_HOUR_CNT ELSE 0 END) AS H13,
+				       SUM(CASE ACES_HOUR WHEN '14' THEN ACES_HOUR_CNT ELSE 0 END) AS H14,
+				       SUM(CASE ACES_HOUR WHEN '15' THEN ACES_HOUR_CNT ELSE 0 END) AS H15,
+				       SUM(CASE ACES_HOUR WHEN '16' THEN ACES_HOUR_CNT ELSE 0 END) AS H16,
+				       SUM(CASE ACES_HOUR WHEN '17' THEN ACES_HOUR_CNT ELSE 0 END) AS H17,
+				       SUM(CASE ACES_HOUR WHEN '18' THEN ACES_HOUR_CNT ELSE 0 END) AS H18,
+				       SUM(CASE ACES_HOUR WHEN '19' THEN ACES_HOUR_CNT ELSE 0 END) AS H19,
+				       SUM(CASE ACES_HOUR WHEN '20' THEN ACES_HOUR_CNT ELSE 0 END) AS H20,
+				       SUM(CASE ACES_HOUR WHEN '21' THEN ACES_HOUR_CNT ELSE 0 END) AS H21,
+				       SUM(CASE ACES_HOUR WHEN '22' THEN ACES_HOUR_CNT ELSE 0 END) AS H22,
+				       SUM(CASE ACES_HOUR WHEN '23' THEN ACES_HOUR_CNT ELSE 0 END) AS H23
+				FROM (
+				      SELECT O.ACES_USER,
+				      		 A.NM_KOR AS ACES_USER_NM,
+				             A.USER_TYPE AS ACES_USER_TYPE,
+				             Y.CC_NM AS ACES_USER_CC_NM,
+				             TO_CHAR (O.ACES_DTM, 'HH24') AS ACES_HOUR,
+				             COUNT(1) AS ACES_HOUR_CNT
+				      FROM   SCC_ACES_LOG O,
+				             SCC_USERINFO A,
+				             ST_UPJANG X,
+				             HLDC_SC_DEPT_V Y
+				      WHERE  1=1
+				      AND    O.ACES_DTM >= TO_DATE(:fromDate,'yyyymmdd')
+				      AND    O.ACES_DTM <  TO_DATE(:toDate, 'yyyymmdd') + 1
+				      AND    O.SYS_TYPE = :sysType
+				      AND    O.ACES_USER = A.SABUN
+					  AND    X.UPJANG = A.UPJANG
+    				  AND    Y.CC_CD  = X.CC_CD
+				      AND    O.LOG_CLASS IN (SELECT CODE FROM   SCC_COMMON_CODE WHERE  GROUP_CODE = 'ACES_LOG_CLASS' AND SET1='A')
+					  <#if userType?has_content>
+					  AND    A.USER_TYPE = :userType
+					  </#if>
+					  <#if ccCd?has_content>
+					  AND    Y.CC_CD = :ccCd
+					  </#if>
+					  <#if acesUser?has_content>
+					  AND    O.ACES_USER = :acesUser
+					  </#if>
+				      GROUP BY O.ACES_USER, A.NM_KOR, A.USER_TYPE, Y.CC_NM, TO_CHAR(O.ACES_DTM, 'HH24')
+				      ORDER BY O.ACES_USER, TO_CHAR(O.ACES_DTM, 'HH24') ASC
+				      ) S
+				GROUP BY S.ACES_USER, S.ACES_USER_NM, S.ACES_USER_TYPE, S.ACES_USER_CC_NM
+				) SS
+		]]>
+	</statement>
+
+	<!-- 일자별 개인정보 열람이력 통계 목록을 조회한다. -->
+	<statement name="selectListPerDay" type="select">
+		/*+ com.hwfs.sc.scp.dao.PersReadStatisticsDAO.selectListPerDay */
+		<![CDATA[
+        SELECT TO_CHAR (O.ACES_DTM, 'yyyy-mm-dd') AS ACES_DTM,
+               COUNT(1) AS READ_CNT,
+               COUNT(O.APPROV_DATE) AS APPROV_CNT
+		FROM   SCC_ACES_LOG O,
+		       SCC_USERINFO A,
+		       ST_UPJANG X,
+               HLDC_SC_DEPT_V Y
+		WHERE  1=1
+		AND    O.ACES_DTM >= TO_DATE(:fromDate,'yyyymmdd')
+		AND    O.ACES_DTM <  TO_DATE(:toDate, 'yyyymmdd') + 1
+		AND    O.SYS_TYPE = :sysType
+		AND    O.ACES_USER = A.SABUN
+		AND    X.UPJANG = A.UPJANG
+    	AND    Y.CC_CD  = X.CC_CD
+		AND    O.LOG_CLASS IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'ACES_LOG_CLASS' AND SET1='A') /* 열람승인 로그 리스트 */
+		<#if userType?has_content>
+		AND    A.USER_TYPE = :userType
+		</#if>
+		<#if ccCd?has_content>
+		AND    Y.CC_CD = :ccCd
+		</#if>
+		<#if acesUser?has_content>
+		AND    O.ACES_USER = :acesUser
+		</#if>
+		GROUP BY TO_CHAR(O.ACES_DTM, 'yyyy-mm-dd')
+		ORDER BY TO_CHAR(O.ACES_DTM, 'yyyy-mm-dd') ASC
+		]]>
+	</statement>
+
+</hqml>

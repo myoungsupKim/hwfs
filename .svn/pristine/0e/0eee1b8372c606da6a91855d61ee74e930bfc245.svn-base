@@ -1,0 +1,595 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="SCCPOPUP2" onkeydown="form_onkeydown" onload="form_onload" titletext="공통Sql POPUP" userdata="UPJANG_POP" position="absolute 0 0 434 474" scrollbars="none" visible="false">
+    <Layouts>
+      <Layout>
+        <Grid id="grd_List" taborder="9" binddataset="gds_Csqlout" wheelscrollrow="1" readonly="true" useinputpanel="false" cellsizingtype="both" autofittype="col" autosizingtype="col" position="absolute 15 96 420 459" onheadclick="grd_List_onheadclick" oncelldblclick="grd_List_oncelldblclick" onenterdown="grd_List_onenterdown" onkeydown="grd_List_onkeydown">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="95"/>
+                <Column size="87"/>
+              </Columns>
+              <Rows>
+                <Row size="22" band="head"/>
+                <Row size="20"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="text" text="타이틀1"/>
+                <Cell col="1" displaytype="text" text="타이틀2"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" style="align:left;"/>
+                <Cell col="1" displaytype="text" style="align:left;"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 434 10"/>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 460"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 419 0 434 460"/>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 15 459 434 474"/>
+        <Static id="st_bg" class="sta_WFSA_Labelbg" position="absolute 15 40 420 81"/>
+        <Static id="Static21" text="W10" visible="false" position="absolute 30 40 275 50" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static23" text="W10" visible="false" position="absolute 30 71 275 81" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static24" text="W15" visible="false" position="absolute 15 50 30 71" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static10" text="W15" visible="false" position="absolute 404 50 419 71" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static11" text="h15" visible="false" position="absolute 15 81 434 96" style="background:#ff000055;align:center middle;"/>
+        <Button id="btn_search" taborder="12" text="조회" class="btn_WF_searchCm" position="absolute 313 10 372 35" onclick="btn_search_onclick" anchor="top right"/>
+        <Button id="btn_close" taborder="17" text="닫기" class="btn_WF_CRUD" position="absolute 374 10 419 35" onclick="btn_close_onclick" anchor="top right"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_Cin"/>
+      <Dataset id="ds_Cout"/>
+      <Dataset id="ds_in"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/*
+ ******************************************************************************************
+ * 시스템구분   : FS시스템/시스템공통/Sql Pop-Up Window
+ * 프로그램명   : SCCPOPUP2.XML
+ * 기      능   : 서비스로 작성된 결과를 POPUP WINDOW로 표현한다.
+ * 작  성  자   : 구종화
+ * 작성  일자   : 2007-11-22
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+include "U_lib::lib_conversionCom.xjs";
+//@@컨버터에서 주석처리 #include "lib::sc_comon.js"
+//@@컨버터에서 주석처리 #include "lib::tit_comm_0001.js"
+
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+//var fa_popup_code	="UPJANG_POP"; // SCC_POPUP_MST의 POPUP_CODE
+//var fa_target_table	="SCZ_UPJANG_SEARCH_01"; // SCC_POPUP_MST의 TARGET_TABLE 
+//var fa_pre_query_yn	="Y"; // SCC_POPUP_MST의 PRE_QUERY_YN
+//var fa_wintitle		="XXX"; // SCC_POPUP_MST의 DESCRIPTIONIN
+//var fa_w_w			="XXX"; // SCC_POPUP_MST의 WIN_W
+//var fa_w_h			="XXX"; // SCC_POPUP_MST의 WIN_H
+//var fa_add_where		="XXX"; // 추가조건 (서비스 input 변수 및 값 x-framework의 argument)
+//var fa_field_id		="XXX"; // popup 조건 input dstaset field ID
+//var fa_field_val		="XXX"; // popup 조건 input field value
+//var fa_search_yn		="XXX"; // 초기 검색 유무
+
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	var obj_id;
+	var v_date;
+	
+	// 창 기본넓이 = (전체 window size) - (우측공백) - (basic space)
+	f_base_w = parseInt(fa_w_w) - 4 - 4;
+	// popup window title Setting...
+	obj.titletext = fa_wintitle;
+	// X-FrameWork 서비스를 위한 초기화
+    fsp_init(null);
+	
+	// 구성될 화면의 input 변수 object와 output될 object를 구성한다.
+	fn_form_init();
+	
+	for(var ii = 0; ii < ds_Cin.getRowCount(); ii++)
+	{
+		if (ds_Cin.getColumn(ii, "COND_TYPE") == "cal") {
+			obj_id = ds_Cin.getColumn(ii, "FIELD");
+			v_date = fn_CurrDateWeek("YMD");
+			ds_in.setColumn(0, obj_id, v_date);
+		}
+	}
+	
+	if (gfn_length(gfn_trim(fa_field_id))> 0) {
+		ds_in.setColumn(0, fa_field_id, fa_field_val);
+	}
+// g_debug("ds_in");
+	
+	if (fa_search_yn == "Y") {
+		fn_search();
+	}
+	
+	obj.visible = true;
+	
+ 	obj_id = ds_Cin.getColumn(0, "COND_TYPE")+"_"+ds_Cin.getColumn(0, "FIELD");
+ 	obj_id = eval(obj_id);
+ 	obj_id.setFocus();
+}
+
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Search
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : 
+ * 작  성  자   : 구종화
+ * 작성  일자   : 2007-11-23
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+
+function fn_search()
+{
+	//XML방식과 JSP방식 선택
+	if (fa_CallType == "JSP")
+	{
+//trace("fa_target_table==="+fa_target_table);
+		var strSvcID, strURL;
+		//strSvcID = gfn_subStr(fa_target_table,7); 
+		strSvcID = gfn_subStr(fa_target_table,14); 
+		strURL = fa_target_table + ".jsp";
+// trace("strSvcID==="+strSvcID+"|||||||strURL===="+strURL);
+// trace("fa_add_where==="+fa_add_where);
+// trace(ds_in.saveXML());
+		jsp_transaction(this, strSvcID, strURL, "ds_in1=ds_in", "gds_Csqlout=gds_Csqlout", fa_add_where, "_fn_searchCode", false, false, false);
+	}
+	else
+	{
+		//g_debug("ds_in");
+		//--------------- X - Framework ------------------
+		fsp_clear(null);
+		//// 조회 
+		fsp_addSearch(null, fa_target_table);
+		//// 서버 호출 
+		//g_debug("ds_in");
+		//http.Sync		= true;
+		fsp_callService(this, "", "", "ds_in1=ds_in", "gds_Csqlout=gds_Csqlout", fa_add_where, "_fn_searchCode");
+		//http.Sync		= false;
+	}	
+
+	//if (ds_in.rowcount > 0) grd_List.SetFocus();
+	if (gds_Csqlout.rowcount > 0) grd_List.setFocus();
+	//--------------- X - Framework ------------------
+	//g_debug("ds_in");
+}
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_form_init
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : 화면 Form을 작성한다.
+ * 작  성  자   : 구종화
+ * 작성  일자   : 2007-11-23
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function fn_form_init()
+{
+// trace("fa_popup_code==="+fa_popup_code);
+// trace("fa_target_table==="+fa_target_table);
+// trace("fa_pre_query_yn==="+fa_pre_query_yn);
+// trace("fa_wintitle==="+fa_wintitle);
+// trace("fa_w_w==="+fa_w_w);
+// trace("fa_w_h==="+fa_w_h);
+// trace("fa_CallType==="+fa_CallType);
+// trace("fa_add_where==="+fa_add_where);
+// trace("fa_field_id==="+fa_field_id);
+// trace("fa_field_val==="+fa_field_val);
+// trace("fa_search_yn==="+fa_search_yn);
+	
+	
+	ds_Cin.clear();
+	ds_Cout.clear();
+	
+	// Pop-Up Window 구성 정보를 획득
+	//--------------- X - Framework ------------------
+	fsp_clear(null);
+    //// 조회 
+    fsp_addSearch(null, "sc/scz:SCZ_WIN_IN_SEARCH");
+    //// 서버 호출 
+	http.Sync		= true;
+    fsp_callService(this, "", "", "", "ds_Cin=ds_Cin", "POPUP_CODE=" + wrapQuote(fa_popup_code), "_fn_searchCode");
+	http.Sync		= false;
+	//--------------- X - Framework ------------------
+	//g_debug("ds_Cin");
+	 
+	//--------------- X - Framework ------------------
+	fsp_clear(null);
+    //// 조회 
+    fsp_addSearch(null, "sc/scz:SCZ_WIN_OUT_SEARCH");
+    //// 서버 호출 
+	http.Sync		= true;
+    fsp_callService(this, "", "", "", "ds_Cout=ds_Cout", "POPUP_CODE=" + wrapQuote(fa_popup_code), "_fn_searchCode");
+	http.Sync		= false;
+	//--------------- X - Framework ------------------
+	//g_debug("ds_Cout");
+//trace(ds_Cin.saveXML());
+//trace(ds_Cout.saveXML());
+	
+	fn_ds_in_design();
+	fn_comp_position();
+ 	fn_grd_List_design();
+ 	fn_input_design();
+}
+
+function _fn_searchCode(errCode, errMsg) 
+{
+	//trace("errCode==="+errCode+":::errMsg==="+errMsg);
+	//trace(ds_Cout.saveXML());
+	//trace( gds_Csqlout.saveXML());
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_ds_in_design
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : 화면 Form을 작성한다.
+ * 작  성  자   : 구종화
+ * 작성  일자   : 2007-11-23
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function fn_ds_in_design()
+{
+	ds_in.enableevent = false;
+	ds_in.clear();
+	for(var ii = 0; ii < ds_Cin.getRowCount(); ii++)
+	{
+		ds_in.addColumn(ds_Cin.getColumn(ii, "FIELD"), "string", 256 );
+	}
+	ds_in.addRow();
+	ds_in.enableevent = true;
+	
+// 	for (i=0; i<ds_in.colcount; i++) {
+// 		ds_in.setColumn(0, ds_in.getColID(i), "");
+// 	}
+	
+	//trace(ds_in.saveXML());
+	
+	
+	
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_comp_position
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : 화면 Form을 작성한다.
+ * 작  성  자   : 구종화
+ * 작성  일자   : 2007-11-23
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function fn_comp_position()
+{
+	var nInCnt    = ds_Cin.getRowCount();
+	var nOutCnt   = ds_Cout.getRowCount();
+	
+	var objFrame = this.getOwnerFrame();
+	var nWinWidth  = objFrame.position.width;
+	var nWinHeigth = objFrame.position.height;
+	
+// 	for ( i = 0; i<nOutCnt; i++ ) {
+// 		if ( ds_Cout.getColumn(i,"DISPLAY_YN") == "Y" ) {
+// 			nWinWidth = nWinWidth + ds_Cout.getColumn(i,"DISPLAY_SIZE");
+// 		}		
+// 	}
+//	if ( nGridWidth > 1000 ) nGridWidth = 1000;	//Max 1000
+	
+	//st_bg position
+	st_bg.position.left 	= 15;
+	st_bg.position.top 		= 40;
+	st_bg.position.right	= nWinWidth - 17;
+	st_bg.position.bottom	= st_bg.position.top + 15 + (26 * nInCnt);
+	//trace("nWinWidth==="+nWinWidth+":::st_bg.position==="+st_bg.position);
+	//Grid position
+	grd_List.position.left 	 = st_bg.position.left;
+	grd_List.position.top 	 = st_bg.position.bottom + 15;
+	grd_List.position.right	 = st_bg.position.right;
+	grd_List.position.bottom = nWinHeigth - ( 15 + 31) ;	//간격+타이틀바+border
+	//trace("nWinHeigth==="+nWinHeigth+":::grd_List.position==="+grd_List.position);
+//  	//Form position
+//  	this.position.right	 = nWinWidth;
+//  	this.position.bottom = nWinHeigth;
+	
+//trace("objFrame.position==="+objFrame.position);
+}
+
+function fn_grd_List_design()
+{
+	// GRID 작성
+	var Contents_grd_lst	= "";
+	var Contents_grd_column = "";
+	var Contents_grd_rows   = "";
+	var Contents_grd_head   = "";
+	var Contents_grd_body   = "";
+	// 
+	// Grid를 작성합니다.
+	//
+	Contents_grd_lst	+= '<Formats>' + '\n';
+	Contents_grd_lst    += '<Format id="Default">' + '\n';
+
+	// Grid columns를 작성합니다.
+	Contents_grd_column = '  <Columns>' + '\n';
+	for(var ii = 0; ii < ds_Cout.getRowCount(); ii++) 
+	{
+		Contents_grd_column	+= '    <Column size="'+ds_Cout.getColumn(ii, "DISPLAY_SIZE")+'"/>' + '\n';
+	}
+	Contents_grd_column += '  </Columns>' + '\n'; 
+	
+	// Grid rows를 작성합니다.
+	Contents_grd_rows  = '  <Rows>' + '\n';
+	Contents_grd_rows += '    <Row size="26" band="head" />' + '\n';
+	Contents_grd_rows += '    <Row size="24" />' + '\n';
+	Contents_grd_rows += '  </Rows>' + '\n';
+
+	// Grid head를 작성합니다.
+	Contents_grd_head	= '  <Band id="head">' + '\n';
+	for(var ii = 0; ii < ds_Cout.getRowCount(); ii++) 
+	{
+		Contents_grd_head	+= '    <Cell col="'+ii+'" displaytype="text" text="'+ds_Cout.getColumn(ii, "HEADER_NAME")+'"/>' + '\n';
+	}
+	Contents_grd_head	+= '  </Band>' + '\n';
+
+	// Grid body를 작성합니다.
+	Contents_grd_body	= '  <Band id="body">' + '\n';
+	for(var ii = 0; ii < ds_Cout.getRowCount(); ii++) 
+	{
+		Contents_grd_body	+= '    <Cell col="'+ii+'" displaytype="text" style="align:'+ds_Cout.getColumn(ii, "DISPLAY_ALIGN")+';" text="bind:'+ds_Cout.getColumn(ii, "FIELD")+'"/>' + '\n';
+	}
+	Contents_grd_body	+= '  </Band>' + '\n';
+	
+	Contents_grd_lst	+= Contents_grd_column + Contents_grd_rows + Contents_grd_head + Contents_grd_body + '</Format>' + '\n' + '</Formats>';
+	
+//trace(Contents_grd_lst);
+ 	grd_List.formats = Contents_grd_lst;
+ 	grd_List.formatid = "Default";
+ 	
+	// no Data 이미지 셋팅
+	grd_List.nodataimage = gv_noData;
+}
+
+function fn_input_design()
+{
+	// ----------------------
+	// input component 작성
+	// ----------------------
+	// 검색조건 Text
+	var nBasicHeight = 21;
+	var nBasicCalWidth = 95;
+	var nBasicWidth  = 100;
+	
+	var nColWidth = 0;
+	
+	var sCondType,sCompType,sCompID,sAlign,sBindDs,sBindCol,sBindColNm;
+	var nLeft = nTop = nRight = nBottom = 0;
+	var nCalRow = 0;
+	var objFirstComp;
+	var bNameFlag = false;
+//trace(	ds_Cin.saveXML());
+	ds_Cin.keystring  = "S:+" + "COND_ORDER";
+	for(var i = 0; i < ds_Cin.getRowCount(); i++)
+	{
+		sCondType  = ds_Cin.getColumn(i, "COND_TYPE");
+		sAlign     = ds_Cin.getColumn(i, "DISPLAY_ALIGN");
+		sBindDs    = "ds_in";
+		sBindCol   = ds_Cin.getColumn(i, "FIELD");
+		sBindColNm = ds_Cin.getColumn(i, "HEADER_NAME");
+		
+		nColWidth  = parseInt(ds_Cin.getColumn(i, "DISPLAY_SIZE") * 1.2);
+		
+		if (sCondType == "cal") { // Calendar 
+			if (nCalRow == 0) {
+				nCalRow++;
+				
+				// 검색조건 static 생성
+				sCompType 	= "Static";
+				sCompID 	= "st_" + sBindCol;
+				nLeft 		= st_bg.position.left + 15;
+				if ( nTop == 0 ) {
+					nTop 		= st_bg.position.top + 10;
+				} else {
+					nTop		= nBottom + 5;
+				}
+				nRight 		= nLeft + nBasicWidth;
+				nBottom 	= nTop + nBasicHeight;
+				var objComp = createComponent(sCompType,sCompID,nLeft,nTop,nRight,nBottom,"left",sBindDs,sBindCol,sBindColNm);
+			}
+			else {
+				// [ ∼ ] Static 생성
+				sCompType 	= "Static";
+				sCompID 	= "st_" + i;				
+				nLeft 		= nLeft + 3;
+				nTop 		= nTop;
+				nRight 		= nLeft + 15;
+				nBottom 	= nTop + nBasicHeight;
+				var objComp = createComponent(sCompType,sCompID,nLeft,nTop,nRight,nBottom,"center","","","~");
+			}
+								  
+			// 검색조건 input 생성
+			sCompType 	= "Calendar";
+			sCompID 	= sCondType + "_" + sBindCol;				
+			nLeft 		= nRight + 3;
+			nTop 		= nTop;
+			nRight 		= nLeft + nBasicCalWidth;
+			nBottom 	= nTop + nBasicHeight;
+			var objComp = createComponent(sCompType,sCompID,nLeft,nTop,nRight,nBottom,sAlign,sBindDs,sBindCol,sBindColNm);
+			
+			if ( i == 0 ) objFirstComp = objComp;
+		}
+		else {	// Edit 
+			// 검색조건 static 생성
+			sCompType 	= "Static";
+			sCompID 	= "st_" + sBindCol;				
+			nLeft 		= st_bg.position.left + 15;
+			if ( nTop == 0 ) {
+				nTop 		= st_bg.position.top + 10;
+			} else {
+				nTop		= nBottom + 5;
+			}
+			nRight 		= nLeft + nBasicWidth;
+			nBottom 	= nTop + nBasicHeight;
+			var objComp = createComponent(sCompType,sCompID,nLeft,nTop,nRight,nBottom,"left",sBindDs,sBindCol,sBindColNm);
+
+			if ( objComp.text.indexOf("명") > 0 ) {
+				bNameFlag = true;
+			} else {
+				bNameFlag = false;
+			}
+
+			// 검색조건 input 생성
+			sCompType 	= "Edit";
+			sCompID 	= sCondType + "_" + sBindCol;
+			nLeft 		= nRight + 3;
+			nTop 		= nTop;
+			nRight 		= nLeft + nColWidth;
+			nBottom 	= nTop + nBasicHeight;
+			var objComp = createComponent(sCompType,sCompID,nLeft,nTop,nRight,nBottom,sAlign,sBindDs,sBindCol,sBindColNm);
+			
+			if ( bNameFlag ) {
+				objComp.imemode = "hangul";
+			} else {
+				objComp.imemode = "none";
+			}
+			if ( i == 0 ) objFirstComp = objComp;
+		}
+	}
+	objFirstComp.setFocus();
+}
+
+function createComponent(sCompType,sCompID,nLeft,nTop,nRight,nBottom,sAlign,sBindDs,sBindCol,sBindColNm)
+{
+	var objComp;
+	switch(sCompType){
+		case "Static":
+			objComp = new Static();
+			break;
+		case "Edit":
+			objComp = new Edit();
+			break;
+		case "Calendar":
+			objComp = new Calendar();
+			break;
+		case "Button":
+			objComp = new Button();
+			break;
+	}
+	objComp.init(sCompID, nLeft, nTop, nRight, nBottom);
+	this.addChild(sCompID,objComp);
+	if ( sCompType == "Static") {
+		objComp.class = "sta_WFSA_label";
+		
+		objComp.text  = sBindColNm;
+	} else {
+		objComp.class = "";
+		
+		if ( !gfn_isNull(sBindDs) && !gfn_isNull(sBindCol)) {
+			var objBindItem = new BindItem();
+			objBindItem.init("bind_"+sCompID, sCompID, "value", sBindDs, sBindCol);
+			this.addChild(objBindItem.name, objBindItem);
+			objBindItem.bind();
+		}
+	}
+	objComp.align = sAlign + " middle";
+	
+	objComp.show();
+	
+	return objComp;
+}
+
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+//조회
+function btn_search_onclick(obj:Button,  e:ClickEventInfo)
+{
+	fn_search();
+}
+
+function form_onkeydown(obj:Form, e:KeyEventInfo)
+{
+	if ( e.keycode == 27 ) {	//ESC Key
+		close("");
+	} else if ( e.keycode == 13 ) {	//Enter Key
+		if ( e.fromobject instanceof Edit || e.fromobject instanceof Calendar ) {
+			btn_search.setFocus();
+			fn_search();
+		}
+	}
+}
+
+function grd_List_oncelldblclick(obj:Grid, e:GridClickEventInfo)
+{
+	if ( e.row < 0 ) 
+	{
+		close("");
+	}
+	else
+	{
+		close(e.row);
+	}	
+}
+
+function grd_List_onheadclick(obj:Grid, e:GridClickEventInfo)
+{
+	gfn_gridSort(obj, e); //(eval(obj.binddataset), obj, e.cell);
+}
+
+function grd_List_onenterdown(obj:Grid, e:GridEditEventInfo)
+{
+	close(gds_Csqlout.rowposition);
+}
+
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	close("");
+}
+function grd_List_onkeydown(obj:Grid, e:KeyEventInfo)
+{
+	if (e.keycode == 13) {
+		close(gds_Csqlout.rowposition);
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

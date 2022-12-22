@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[월별 음식물쓰레기현황 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT #UPJANG_NM# AS UPJANG_NM, TO_CHAR(TO_DATE(T1.MENU_MONTH || '01', 'RRRR-MM-DD'), 'Q') AS MENU_QUARTER,
+       (T1.MENU_MON || '월') AS MENU_MON,
+       NVL(T4.FOOD_WASTE,0) AS FOOD_WASTE, NVL(T2.REAL_MEAL_QTY,0) AS REAL_MEAL_QTY, NVL(T3.AMT,0) AS AMT
+  FROM (SELECT A.UPJANG, B.MENU_MONTH, B.MENU_MON
+          FROM (SELECT #UPJANG# AS UPJANG FROM DUAL) A,
+               (SELECT #YEAR# || DECODE(LENGTH(LEVEL), 1, '0' || LEVEL, LEVEL) AS MENU_MONTH, LEVEL AS MENU_MON FROM DUAL CONNECT BY LEVEL <= 12) B) T1,
+       (SELECT UPJANG, SUBSTR(MENU_DATE,0,6) AS MENU_MONTH, SUM(REAL_MEAL_QTY) AS REAL_MEAL_QTY 
+          FROM (SELECT A.UPJANG, A.MENU_CD, A.MENU_DATE, AVG(NVL(A.REAL_MEAL_QTY, 0)) AS REAL_MEAL_QTY 
+                  FROM FSM_REAL_MENU_MST A, -- KEY : UPJANG, MENU_CD 
+                       FSM_REAL_RECIPE_MST B, -- KEY : UPJANG, MENU_CD, RECIPE_CD 
+	                   FSM_REAL_RECIPE_ITEM C -- KEY : UPJANG, MENU_CD, RECIPE_CD, ITEM_CODE 
+                 WHERE A.UPJANG = #UPJANG#
+                   AND A.MENU_DATE LIKE #YEAR# || '%'
+                   AND A.UPJANG = B.UPJANG 
+                   AND A.MENU_CD = B.MENU_CD 
+                   AND B.UPJANG = C.UPJANG 
+                   AND B.MENU_CD = C.MENU_CD 
+                   AND B.RECIPE_CD = C.RECIPE_CD 
+                 GROUP BY A.UPJANG, A.MENU_CD, A.MENU_DATE) 
+         GROUP BY UPJANG, SUBSTR(MENU_DATE,0,6)) T2, -- 실식수
+        (SELECT UPJANG, SUBSTR(BASIS_DATE,1,6) AS MENU_MONTH, NVL(SUM(AMT), 0) AMT
+          FROM MAP_PREPAY_ADJUST A
+             , SCO_UPJANG_MST_V B
+         WHERE B.UPJANG = #UPJANG#
+           AND B.DEPT_ID = A.CC_CD
+           AND A.ACCT_CD = '43211050'
+           AND A.BASIS_DATE LIKE #YEAR# || '%'
+         GROUP BY UPJANG, SUBSTR(BASIS_DATE,1,6)) T3, -- 잔반처리비용
+        (SELECT UPJANG, SUBSTR(MENU_DATE, 0, 6) AS MENU_MONTH, (SUM(LEAVING_QTY) + SUM(LEFTOVER_QTY) + SUM(BEFORE_PROC_QTY)) AS FOOD_WASTE
+           FROM FSM_DAILY_OP_DIARY
+          WHERE UPJANG = #UPJANG#
+            AND MENU_DATE LIKE #YEAR# || '%'
+          GROUP BY UPJANG, SUBSTR(MENU_DATE, 0, 6)) T4 -- 음식물 쓰레기
+ WHERE T1.UPJANG = T2.UPJANG(+)
+   AND T1.MENU_MONTH = T2.MENU_MONTH(+)
+   AND T1.UPJANG = T3.UPJANG(+)
+   AND T1.MENU_MONTH = T3.MENU_MONTH(+)
+   AND T1.UPJANG = T4.UPJANG(+)
+   AND T1.MENU_MONTH = T4.MENU_MONTH(+)
+ ORDER BY T1.MENU_MONTH	]]></statement>
+	<input default-name="ds_Input">
+	</input>
+	<output default-name="ds_List2">
+	</output>
+</query>

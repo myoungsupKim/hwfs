@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[식단공유 대상사업장 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT #JOINT_YYMM# AS JOINT_YYMM
+     , CASE WHEN B.UPJANG IS NULL THEN 'N' ELSE 'Y' END AS REG_YN
+     , A.UPJANG
+     , A.UPJANGNM
+     , A.MU_CD
+     , A.MU_NM
+     , A.CC_CD
+     , A.CC_NM
+     , A.JOB_CD
+     , (SELECT JOB_NAME FROM MAS_JOB WHERE JOB_CD = A.JOB_CD) AS JOB_NM
+     , A.SUB_JOB_CD
+     , (SELECT SUB_JOB_NAME FROM MAS_JOB_SUB WHERE JOB_CD = A.JOB_CD AND SUB_JOB_CD = A.SUB_JOB_CD) AS SUB_JOB_NM
+     , A.LEADER_SABUN
+     , (SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN =  A.LEADER_SABUN) AS LEADER_SABUN_NM
+     , A.TEAM_MST_SABUN
+     , (SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN =  A.TEAM_MST_SABUN) AS TEAM_MST_SABUN_NM
+     , A.SUBTEAM_MST_SABUN
+     , (SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN =  A.SUBTEAM_MST_SABUN) AS SUBTEAM_MST_SABUN_NM
+     , A.CHARGE_SABUN
+     , (SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN =  A.CHARGE_SABUN) AS CHARGE_SABUN_NM
+     , SC_CRYPTO_FUN('DEC', A.UPJANG_TEL_ENC, '4') AS UPJANG_TEL
+     , A.OVEN_DUTY_YN
+     , A.DIST_TYPE
+     , A.LIVE_NO_MAN
+     , A.COOKS_B_PSN
+     , A.OPEN_DATE
+     , NVL(C.JOINT_NUM1, 0) AS JOINT_NUM1
+     , NVL(C.JOINT_NUM2, 0) AS JOINT_NUM2
+     , NVL(C.JOINT_NUM3, 0) AS JOINT_NUM3
+     , NVL(C.JOINT_NUM4, 0) AS JOINT_NUM4
+     , NVL(C.JOINT_NUM1, 0) + NVL(C.JOINT_NUM2, 0) + NVL(C.JOINT_NUM3, 0) + NVL(C.JOINT_NUM4, 0) AS TOT_JOINT_NUM
+     , NVL(C.INQUERY_CNT, 0) AS INQUERY_CNT
+     , NVL(C.RECOMMEND_CNT, 0) AS RECOMMEND_CNT
+     , B.JOINT_CLASS
+     , B.JOINT_WEEKSEQ
+     , B.REMARK
+     , B.CDATE
+     , (SELECT COUNT(1)
+          FROM FSM_MENU_JOINT
+         WHERE UPJANG = A.UPJANG
+           AND JOINT_YN = 'Y') AS TOT_CNT
+  FROM SCO_UPJANG_MST_V A
+     , FSM_MENU_JOINT B
+     , (SELECT UPJANG
+             , SUM(JOINT_NUM1) AS JOINT_NUM1
+             , SUM(JOINT_NUM2) AS JOINT_NUM2
+             , SUM(JOINT_NUM3) AS JOINT_NUM3
+             , SUM(JOINT_NUM4) AS JOINT_NUM4
+             , SUM(INQUERY_CNT) AS INQUERY_CNT
+             , SUM(RECOMMEND_CNT) AS RECOMMEND_CNT
+          FROM (SELECT UPJANG
+                     , CASE WHEN JOINT_CLASS = '01' AND JOINT_YN = 'Y' THEN SUM(1) ELSE SUM(0) END AS JOINT_NUM1
+                     , CASE WHEN JOINT_CLASS = '02' AND JOINT_YN = 'Y' THEN SUM(1) ELSE SUM(0) END AS JOINT_NUM2
+                     , CASE WHEN JOINT_CLASS = '03' AND JOINT_YN = 'Y' THEN SUM(1) ELSE SUM(0) END AS JOINT_NUM3
+                     , CASE WHEN JOINT_CLASS = '04' THEN SUM(1) ELSE SUM(0) END AS JOINT_NUM4
+                     , SUM(INQUERY_CNT) AS INQUERY_CNT
+                     , SUM(RECOMMEND_CNT) AS RECOMMEND_CNT
+                  FROM FSM_MENU_JOINT
+                 WHERE JOINT_YYMM LIKE LPAD(#JOINT_YYMM#, 4) || '%'
+                 GROUP BY UPJANG, JOINT_CLASS, JOINT_YN)
+        GROUP BY UPJANG) C
+ WHERE A.UPJANG = B.UPJANG(+)
+   AND B.JOINT_YYMM(+) = #JOINT_YYMM#
+   AND A.UPJANG = C.UPJANG(+)
+<isEqual col="CLOSED" value="1">
+   AND A.CLOSE_DATE IS NULL
+</isEqual>
+<isNotNull col="UPJANG">
+   AND A.UPJANG = #UPJANG#
+</isNotNull>
+<isNotNull col="OVEN_YN">
+   AND NVL(A.OVEN_DUTY_YN, 'N') = #OVEN_YN#
+</isNotNull>
+<isNotNull col="MU_CD">
+   AND A.MU_CD = #MU_CD#
+</isNotNull>
+<isNotNull col="TM_CD">
+   AND A.TM_CD = #TM_CD#
+</isNotNull>
+ ORDER BY A.UPJANGNM ASC
+</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_upjangList">
+	</output>
+</query>

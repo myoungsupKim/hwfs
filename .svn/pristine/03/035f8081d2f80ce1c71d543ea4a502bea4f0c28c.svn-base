@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[레시피 자재정보 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.RECIPE_CD, A.ITEM_SEQ, A.ITEM_CODE, C.ITEM_NAME, C.ITEM_SIZE, C.PO_UOM, D.FEATURE_NAME, B.MARGIN_PRICE, C.KG_CONVERT_RATE,
+       A.NEED_QTY, ROUND(A.NEED_QTY * (NVL(B.MARGIN_PRICE,0) / C.KG_CONVERT_RATE / 1000) ) PERSON_PRICE, --1인원가
+	   ROUND(NVL(B.MARGIN_PRICE,0) / C.KG_CONVERT_RATE / 1000,2) AS GRAM_PRICE, --g단가
+       DECODE(NVL(E.RESTRICT_SEQ,0),0,'N','Y') AS RESTRICT_YN, --금지
+       RESTRICT_START, RESTRICT_END, RESTRICT_REASON, --금지자재 시작일, 종료일, 사유
+       A.ATTR01 AS REMARK --HMR용비고
+  FROM FSR_STD_RECIPE_ITEM A, -- KEY : RECIPE_CD, ITEM_CODE
+       FSI_STD_PRICE B,       -- KEY : ITEM_CODE
+       (SELECT ITEM_CODE, ITEM_NAME, ITEM_SIZE, PO_UOM, KG_CONVERT_RATE
+          FROM HLDC_PO_ITEM_MST
+         WHERE ITEM_CODE BETWEEN '010100000001' AND '019999999999') C,
+       (SELECT ITEM_CODE,
+               (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0033' AND CODE = ITEM_FEATURE) AS FEATURE_NAME
+          FROM FSI_ITEM_FEATURE
+         WHERE (ITEM_CODE, CDATE) IN
+               (SELECT ITEM_CODE, MAX(CDATE) AS CDATE
+                  FROM FSI_ITEM_FEATURE
+                 WHERE 1 = 1
+                   AND (CENTER_CODE, CUSTCD, ITEM_CODE, APPLY_DATE) IN (
+                        SELECT CENTER_CODE, CUSTCD, ITEM_CODE, MAX(APPLY_DATE) AS APPLY_DATE
+                          FROM FSI_ITEM_FEATURE
+                         WHERE CENTER_CODE  = '300001'
+						   AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN APPLY_DATE AND TO_CHAR(ADD_MONTHS(TO_DATE(APPLY_DATE,'YYYYMMDD'),1)-1,'YYYYMMDD')
+                         GROUP BY CENTER_CODE, CUSTCD, ITEM_CODE)
+                 GROUP BY ITEM_CODE)) D,
+       (SELECT RESTRICT_SEQ, ITEM_CODE,RESTRICT_START,RESTRICT_END,RESTRICT_REASON
+          FROM FSI_RESTRICT_MST
+         WHERE TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN RESTRICT_START AND RESTRICT_END
+           AND USE_YN = 'Y') E
+ WHERE A.RECIPE_CD = #RECIPE_CD#
+   AND A.ITEM_CODE = B.ITEM_CODE(+)
+   AND A.ITEM_CODE = C.ITEM_CODE(+)
+   AND A.ITEM_CODE = D.ITEM_CODE(+)
+   AND A.ITEM_CODE = E.ITEM_CODE(+)
+ ORDER BY A.ITEM_SEQ	]]></statement>
+	<input default-name="ds_ItemList">
+	</input>
+	<output default-name="ds_ItemList">
+	</output>
+</query>

@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.roa.partTimeDAO">
+    <desc>용역 발생 등록 HQML Query</desc>
+    <!-- 용역 발생 등록 목록을 조회한다. -->
+    <statement name="selectPartTimeEmpSabun" type="select">
+        /*+ com.hwfs.rc.roa.dao.PartTimeDAO.selectPartTimeEmpSabun */
+        <![CDATA[
+            SELECT RSS_PART_TIME_EMP_SABUN_FUN(:upjang) PART_TIME_EMP_SABUN FROM DUAL
+        ]]>
+    </statement>
+    
+    <!-- 용역 발생 등록 목록을 조회한다. -->
+    <statement name="selectList" type="select">
+        /*+ com.hwfs.rc.roa.dao.PartTimeDAO.selectList */
+        <![CDATA[
+            SELECT  A.OCCUR_DATE
+                    ,A.OCCUR_NUM_OF_TIMES
+                    ,A.PART_TIME_EMP_SABUN
+                    ,B.PART_TIME_EMP_NM
+                    ,A.UPJANG
+                    ,SCO_UPJANGNM_FUN(A.UPJANG) UPJANGNM
+                    ,B.CUST_CD
+                    ,SCC_COMMON_CODE_NAME_FUN('PART_TIME_CUST_CD',B.CUST_CD) CUST_NM
+                    ,A.DUTY_START_DATE
+                    ,A.DUTY_START_TIME
+                    ,A.DUTY_END_DATE
+                    ,A.DUTY_END_TIME
+                    ,A.OCCUR_DATE_SALARY_CD
+                    ,C.PART_TIME_SALARY_CD_NM
+                    ,C.WEEKLY_DUTY_AMT
+                    ,C.NGHT_DUTY_AMT
+                    ,C.EXTENSION_DUTY_AMT
+                    ,A.TOTAL_DUTY_TIME
+                    ,A.DEDUC_TIME
+                    ,A.DUTY_TIME
+                    ,A.NGHT_DUTY_TIME
+                    ,A.EXTENSION_DUTY_TIME
+                    ,A.DUTY_AMT
+                    ,A.NGHT_ADD_AMT
+                    ,A.EXTENSION_ADD_AMT
+                    ,NVL(A.DUTY_AMT,0) + NVL(A.NGHT_ADD_AMT,0) + NVL(A.EXTENSION_ADD_AMT,0) TOTAL_DUTY_AMT
+                    ,A.CUSER
+                    ,A.CDATE
+                    ,A.UUSER
+                    ,A.UDATE
+                    ,'N' INSERT_YN
+                    ,A.DUTY_PLACE
+                    ,A.DUTY_DETAIL
+            FROM    RSS_PART_TIME_INFO A
+                    ,RSS_PART_TIME_TRGLST_INFO B
+                    ,RSS_PART_TIME_SALARY_INFO C
+            WHERE   A.PART_TIME_EMP_SABUN = B.PART_TIME_EMP_SABUN (+)
+            AND     A.OCCUR_DATE_SALARY_CD = C.PART_TIME_SALARY_CD (+)
+        <#if upjang?has_content>
+            AND     A.UPJANG = :upjang
+        </#if>
+        <#if occurDate?has_content>
+            AND     A.OCCUR_DATE = :occurDate
+        </#if>
+        <#if occurNumOfTimes?has_content>
+            AND     A.OCCUR_NUM_OF_TIMES = :occurNumOfTimes
+        </#if>
+            ORDER BY A.PART_TIME_EMP_SABUN, A.OCCUR_DATE, A.OCCUR_NUM_OF_TIMES
+        ]]>
+    </statement>
+
+    <!-- 용역 발생 차수를 조회한다. -->
+    <statement name="getOccurNumOfTimes" type="select">
+        /*+ com.hwfs.rc.roa.dao.PartTimeDAO.getOccurNumOfTimes */
+        <![CDATA[
+            SELECT  ' ' CODE
+                    ,'전체' CODE_NAME
+            FROM    DUAL
+            UNION ALL
+            SELECT  DISTINCT TO_CHAR(OCCUR_NUM_OF_TIMES) CODE
+                    ,OCCUR_NUM_OF_TIMES||'차' CODE_NAME
+            FROM    RSS_PART_TIME_INFO
+            WHERE   OCCUR_DATE = :occurDate
+        <#if upjang?has_content>
+            AND     UPJANG = :upjang
+        </#if>
+            ORDER BY CODE
+        ]]>
+    </statement>
+
+    <!-- 공제시간을 조회한다. -->
+    <statement name="getDeducTime" type="select">
+        /*+ com.hwfs.rc.roa.dao.PartTimeDAO.getDeducTime */
+        <![CDATA[
+            SELECT  DEDUC_BASIS_CD
+                    ,DEDUC_START_TIME
+                    ,DEDUC_END_TIME
+                    ,DEDUC_TIME
+            FROM    RSS_PART_TIME_DEDUCTIME
+            WHERE   :totalDutyTime BETWEEN DEDUC_START_TIME AND DEDUC_END_TIME
+        ]]>
+    </statement>
+    
+    <!-- 용역 발생 등록(을)를 등록한다. -->
+    <statement name="insert" type="insert">
+        /*+ com.hwfs.rc.roa.dao.PartTimeDAO.insert */
+        <![CDATA[
+            INSERT INTO RSS_PART_TIME_INFO (
+                OCCUR_DATE
+                ,OCCUR_NUM_OF_TIMES
+                ,PART_TIME_EMP_SABUN
+                ,UPJANG
+                ,DUTY_START_DATE
+                ,DUTY_START_TIME
+                ,DUTY_END_DATE
+                ,DUTY_END_TIME
+                ,OCCUR_DATE_SALARY_CD
+                ,TOTAL_DUTY_TIME
+                ,DEDUC_TIME
+                ,DUTY_TIME
+                ,NGHT_DUTY_TIME
+                ,EXTENSION_DUTY_TIME
+                ,DUTY_AMT
+                ,NGHT_ADD_AMT
+                ,EXTENSION_ADD_AMT
+                ,CUSER
+                ,CDATE
+                ,DUTY_PLACE
+                ,DUTY_DETAIL
+            ) VALUES (
+                :occurDate
+                ,(
+                SELECT  NVL(MAX(OCCUR_NUM_OF_TIMES), 0) + 1
+                FROM    RSS_PART_TIME_INFO
+                WHERE   OCCUR_DATE = :occurDate
+                AND     PART_TIME_EMP_SABUN = :partTimeEmpSabun
+                AND     UPJANG = :upjang
+                )
+                ,:partTimeEmpSabun
+                ,:upjang
+                ,<#if dutyStartDate?exists> :dutyStartDate <#else> null </#if>
+                ,<#if dutyStartTime?exists> :dutyStartTime <#else> null </#if>
+                ,<#if dutyEndDate?exists> :dutyEndDate <#else> null </#if>
+                ,<#if dutyEndTime?exists> :dutyEndTime <#else> null </#if>
+                ,<#if occurDateSalaryCd?exists> :occurDateSalaryCd <#else> null </#if>
+                ,<#if totalDutyTime?exists> :totalDutyTime <#else> null </#if>
+                ,<#if deducTime?exists> :deducTime <#else> null </#if>
+                ,<#if dutyTime?exists> :dutyTime <#else> null </#if>
+                ,<#if nghtDutyTime?exists> :nghtDutyTime <#else> null </#if>
+                ,<#if extensionDutyTime?exists> :extensionDutyTime <#else> null </#if>
+                ,<#if dutyAmt?exists> :dutyAmt <#else> null </#if>
+                ,<#if nghtAddAmt?exists> :nghtAddAmt <#else> null </#if>
+                ,<#if extensionAddAmt?exists> :extensionAddAmt <#else> null </#if>
+                ,:loginSabun
+                ,SYSDATE
+                ,<#if dutyPlace?exists> :dutyPlace <#else> null </#if>
+                ,<#if dutyDetail?exists> :dutyDetail <#else> null </#if>
+            )
+        ]]>
+    </statement>
+    
+    <!-- 용역 발생 등록(을)를 수정한다. -->
+    <statement name="update" type="update">
+        /*+ com.hwfs.rc.roa.dao.PartTimeDAO.update */
+        <![CDATA[
+            UPDATE  RSS_PART_TIME_INFO
+            SET     <#if dutyStartDate?exists> DUTY_START_DATE = :dutyStartDate </#if>
+                    <#if dutyStartTime?exists> ,DUTY_START_TIME = :dutyStartTime </#if>
+                    <#if dutyEndDate?exists> ,DUTY_END_DATE = :dutyEndDate </#if>
+                    <#if dutyEndTime?exists> ,DUTY_END_TIME = :dutyEndTime </#if>
+                    <#if occurDateSalaryCd?exists> ,OCCUR_DATE_SALARY_CD = :occurDateSalaryCd </#if>
+                    <#if totalDutyTime?exists> ,TOTAL_DUTY_TIME = :totalDutyTime </#if>
+                    <#if deducTime?exists> ,DEDUC_TIME = :deducTime </#if>
+                    <#if dutyTime?exists> ,DUTY_TIME = :dutyTime </#if>
+                    <#if nghtDutyTime?exists> ,NGHT_DUTY_TIME = :nghtDutyTime </#if>
+                    <#if extensionDutyTime?exists> ,EXTENSION_DUTY_TIME = :extensionDutyTime </#if>
+                    <#if dutyAmt?exists> ,DUTY_AMT = :dutyAmt </#if>
+                    <#if nghtAddAmt?exists> ,NGHT_ADD_AMT = :nghtAddAmt </#if>
+                    <#if extensionAddAmt?exists> ,EXTENSION_ADD_AMT = :extensionAddAmt </#if>
+                    ,UUSER = :loginSabun
+                    ,UDATE = SYSDATE
+                    <#if dutyPlace?exists> ,DUTY_PLACE = :dutyPlace </#if>
+                    <#if dutyDetail?exists> ,DUTY_DETAIL = :dutyDetail </#if>
+            WHERE   OCCUR_DATE = :occurDate
+            AND     OCCUR_NUM_OF_TIMES = :occurNumOfTimes
+            AND     PART_TIME_EMP_SABUN = :partTimeEmpSabun
+            AND     UPJANG = :upjang
+        ]]>
+    </statement>
+
+    <!-- 용역 발생 등록(을)를 삭제한다. -->
+    <statement name="delete" type="delete">
+        /*+ com.hwfs.rc.roa.dao.PartTimeDAO.delete */
+        <![CDATA[
+            DELETE
+            FROM    RSS_PART_TIME_INFO
+            WHERE   OCCUR_DATE = :occurDate
+            AND     OCCUR_NUM_OF_TIMES = :occurNumOfTimes
+            AND     PART_TIME_EMP_SABUN = :partTimeEmpSabun
+            AND     UPJANG = :upjang
+        ]]>
+    </statement>
+
+    <!-- 용역 대상자 관리(을)를 등록한다. -->
+    <statement name="insert1" type="insert">
+        /*+ com.hwfs.rc.roa.dao.PartTimerMgntDAO.insert1 */
+        <![CDATA[
+            INSERT INTO RSS_PART_TIME_TRGLST_INFO (
+                PART_TIME_EMP_SABUN
+                ,UPJANG
+                ,PART_TIME_EMP_NM
+                ,PART_TIME_SALARY_CD
+                ,DUTY_YN
+                ,CUST_CD
+                ,SORT_ORDER
+                ,CUSER
+                ,CDATE
+            ) VALUES (
+                :partTimeEmpSabun
+                ,:upjang
+                ,<#if partTimeEmpNm?exists>:partTimeEmpNm<#else>null</#if>
+                ,<#if partTimeSalaryCd?exists>:partTimeSalaryCd<#else>null</#if>
+                ,<#if dutyYn?exists>:dutyYn<#else>null</#if>
+                ,<#if custCd?exists>:custCd<#else>null</#if>
+                ,(
+                SELECT  NVL(MAX(SORT_ORDER), 0) + 1
+                FROM    RSS_PART_TIME_TRGLST_INFO
+                WHERE   UPJANG = :upjang
+                )
+                ,:loginSabun
+                ,SYSDATE
+            )
+        ]]>
+    </statement>
+    
+</hqml>

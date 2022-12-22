@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.HALL_CD || A.MEAL || A.CORNER AS KEY
+      ,A.UPJANG
+-- 업장별 주간 식수현황
+      ,A.MENU_CD
+      ,DECODE(LENGTH(NVL(B.MENU_NAME,'')), 0, A.MENU_NAME, B.MENU_NAME) MENU_NAME
+      ,A.MENU_DATE AS FDAY --제공일
+      ,A.HALL_CD
+      ,A.MEAL AS SGBN
+      ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0023' AND CODE = A.MEAL) SGBN_NM
+      ,A.CORNER AS CGBN_CD
+      ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0022' AND CODE = A.CORNER) CGBN
+      ,A.CORNER_DESC AS CGBN_NM
+      ,A.SUBINV_CODE
+      ,A.SALE_PRICE
+      ,DECODE(NVL(B.EXPECT_MEAL_QTY,0), 0, A.EXPECT_MEAL_QTY, B.EXPECT_MEAL_QTY) EXPECT_MEAL_QTY --식수예측 값 등록
+      ,DECODE(NVL(B.GOAL_COST_RATE,0), 0, A.GOAL_COST_RATE, B.GOAL_COST_RATE) GOAL_COST_RATE
+      ,DECODE(NVL(B.REAL_MEAL_QTY,0), 0, A.REAL_MEAL_QTY, B.REAL_MEAL_QTY) REAL_MEAL_QTY
+      ,DECODE(LENGTH(NVL(B.MENU_FEATURE,'')), 0, A.MENU_FEATURE, B.MENU_FEATURE) MENU_FEATURE
+      ,DECODE(LENGTH(NVL(B.TASTER_DESC,'')), 0, A.TASTER_DESC, B.TASTER_DESC) TASTER_DESC
+      ,DECODE(LENGTH(NVL(B.MENU_PREFER,'')), 0, A.MENU_PREFER, B.MENU_PREFER) MENU_PREFER
+      ,DECODE(LENGTH(NVL(B.ALT_DIET,'')), 0, A.ALT_DIET, B.ALT_DIET) ALT_DIET
+      ,DECODE(LENGTH(NVL(B.MEAL_PUBLISH_YN,'')), 0, A.MEAL_PUBLISH_YN, B.MEAL_PUBLISH_YN) MEAL_PUBLISH_YN
+      ,DECODE(B.RECIPE_YN,'Y','Y','N') RECIPE_YN
+      ,DECODE(B.ORDER_YN,'Y','Y','N') ORDER_YN
+      ,ROW_NUMBER() OVER(PARTITION BY A.MENU_DATE, A.MEAL, A.CORNER ORDER BY A.MEAL, A.CORNER ASC) SSEQ
+      ,#CURR_DATE# CURR_DATE
+      ,NVL(C.GOAL_COST_RATE,0) AS GOAL_COST_RATE2
+      ,TO_CHAR(TO_DATE(A.MENU_DATE), 'd') AS WEEK
+      ,CASE WHEN (TO_CHAR(SYSDATE, 'YYYYMMDD') > A.MENU_DATE) OR (NVL(B.ORDER_YN, 'N') = 'Y') OR (DECODE(NVL(B.REAL_MEAL_QTY,0), 0, A.REAL_MEAL_QTY, B.REAL_MEAL_QTY) > 0) THEN 0 ELSE 1 END AS LK        
+FROM
+(
+SELECT A.UPJANG
+      ,C.MENU_DATE || '-' || A.HALL_CD || B.MEAL || B.CORNER AS MENU_CD
+      ,'' MENU_NAME
+      ,C.MENU_DATE
+      ,A.HALL_CD
+      ,B.MEAL
+      ,B.CORNER
+      ,B.CORNER_DESC
+      ,A.SUBINV_CODE
+      ,B.MEAL_UPRICE AS SALE_PRICE
+      ,0 EXPECT_MEAL_QTY --식수예측 값 등록
+      ,0 GOAL_COST_RATE
+      ,0 REAL_MEAL_QTY
+      ,'' MENU_FEATURE
+      ,'' TASTER_DESC
+      ,'' MENU_PREFER
+      ,'' ALT_DIET
+      ,'N' MEAL_PUBLISH_YN
+  FROM FSA_HALL_MST A
+      ,FSA_HALL_DTL B
+      ,(
+        SELECT TO_CHAR(TO_DATE(BB.DAY, 'YYYYMMDD') + NUM-1, 'YYYYMMDD') AS MENU_DATE,
+               TO_CHAR(TO_DATE(BB.DAY, 'YYYYMMDD') + NUM-1, 'DY','NLS_DATE_LANGUAGE=KOREAN') WEEK_NAME
+        FROM (
+        SELECT ROWNUM AS NUM
+        FROM DICTIONARY A,(
+          SELECT B.DAY AS BDAY, C.DAY AS CDAY
+          FROM
+           ( SELECT TO_CHAR(TO_DATE(#MENU_SDATE#,'YYYYMMDD') - TO_NUMBER(TO_CHAR(TO_DATE(#MENU_SDATE#,'YYYYMMDD'),'D')) + 2,'YYYYMMDD') AS DAY FROM DUAL ) B,
+           ( SELECT TO_CHAR(TO_DATE(#MENU_SDATE#,'YYYYMMDD') - TO_NUMBER(TO_CHAR(TO_DATE(#MENU_SDATE#,'YYYYMMDD'),'D')) + 7,'YYYYMMDD') AS DAY FROM DUAL ) C
+          ) B
+        WHERE ROWNUM <= TO_DATE(B.CDAY, 'YYYYMMDD') - TO_DATE(B.BDAY, 'YYYYMMDD')  + 2) AA,
+        ( SELECT TO_CHAR(TO_DATE(#MENU_SDATE#,'YYYYMMDD') - TO_NUMBER(TO_CHAR(TO_DATE(#MENU_SDATE#,'YYYYMMDD'),'D')) + 2,'YYYYMMDD') AS DAY FROM DUAL ) BB
+        ) C
+ WHERE A.UPJANG = B.UPJANG
+   AND A.HALL_CD = B.HALL_CD
+   AND A.UPJANG = #UPJANG#
+   AND A.HALL_CD = #HALL_CD#
+   AND A.USE_YN = 'Y'
+   AND B.USE_YN = 'Y'
+) A,
+(
+SELECT UPJANG
+      ,MENU_CD
+      ,MENU_NAME
+      ,MENU_DATE --제공일
+      ,HALL_CD
+      ,MEAL
+      ,CORNER
+      ,SUBINV_CODE
+      ,SALE_PRICE
+      ,EXPECT_MEAL_QTY --식수예측 값 등록
+      ,GOAL_COST_RATE
+      ,REAL_MEAL_QTY
+      ,MENU_FEATURE
+      ,TASTER_DESC
+      ,MENU_PREFER
+      ,ALT_DIET
+      ,MEAL_PUBLISH_YN
+      ,(SELECT 'Y' FROM FSM_REAL_RECIPE_MST B WHERE B.UPJANG = A.UPJANG AND B.MENU_CD = A.MENU_CD AND ROWNUM <= 1) RECIPE_YN
+      ,(SELECT 'Y' FROM FSM_REAL_RECIPE_ITEM C WHERE C.UPJANG = A.UPJANG AND C.MENU_CD = A.MENU_CD AND C.ORDER_YN = 'Y' AND ROWNUM <= 1) ORDER_YN
+  FROM FSM_REAL_MENU_MST A
+ WHERE UPJANG = #UPJANG#
+   AND HALL_CD = #HALL_CD#
+   AND MENU_DATE BETWEEN #MENU_SDATE# AND TO_CHAR(TO_DATE(#MENU_SDATE#,'YYYYMMDD')+6,'YYYYMMDD')
+) B
+, FSM_GOAL_COST_RATE C
+WHERE A.UPJANG = B.UPJANG (+)
+AND   A.MENU_CD = B.MENU_CD (+)
+AND   A.UPJANG = C.UPJANG (+)
+AND   A.HALL_CD = C.HALL_CD (+)
+AND   A.MENU_DATE = C.MENU_DATE (+)
+]]></statement>
+	<input default-name="ds_input">
+		<col name="CURR_DATE" size="4000" type="VARCHAR" description="" /> 
+		<col name="MENU_SDATE" size="255" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="255" type="VARCHAR" description="" /> 
+		<col name="HALL_CD" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="DS_body1">
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="MENU_CD" size="69" type="VARCHAR" description="" /> 
+		<col name="MENU_NAME" size="50" type="VARCHAR" description="" /> 
+		<col name="FDAY" size="8" type="VARCHAR" description="" /> 
+		<col name="HALL_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="SGBN" size="20" type="VARCHAR" description="" /> 
+		<col name="SGBN_NM" size="100" type="VARCHAR" description="" /> 
+		<col name="CGBN_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="CGBN" size="100" type="VARCHAR" description="" /> 
+		<col name="CGBN_NM" size="50" type="VARCHAR" description="" /> 
+		<col name="SUBINV_CODE" size="8" type="VARCHAR" description="" /> 
+		<col name="SALE_PRICE" size="22" type="NUMERIC" description="" /> 
+		<col name="EXPECT_MEAL_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="GOAL_COST_RATE" size="22" type="NUMERIC" description="" /> 
+		<col name="REAL_MEAL_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="MENU_FEATURE" size="200" type="VARCHAR" description="" /> 
+		<col name="TASTER_DESC" size="200" type="VARCHAR" description="" /> 
+		<col name="MENU_PREFER" size="200" type="VARCHAR" description="" /> 
+		<col name="ALT_DIET" size="200" type="VARCHAR" description="" /> 
+		<col name="MEAL_PUBLISH_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="RECIPE_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="ORDER_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="SSEQ" size="22" type="NUMERIC" description="" /> 
+		<col name="CURR_DATE" size="4000" type="VARCHAR" description="" /> 
+	</output>
+</query>

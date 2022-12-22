@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xmlns:p="http://www.springframework.org/schema/p"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+       	http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+       	http://www.springframework.org/schema/mvc
+		http://www.springframework.org/schema/mvc/spring-mvc-4.0.xsd
+		http://www.springframework.org/schema/websocket
+		http://www.springframework.org/schema/websocket/spring-websocket-4.0.xsd">
+
+	<description>
+	<![CDATA[
+		Spring MVC의 Handler 관련 설정이 포함되어 있는 파일입니다.
+	]]>
+	</description>
+	
+	<!--
+	 	###############################################
+		HandlerMapping Configuration 
+		###############################################
+	-->
+	<!-- Login여부를 검사하는 Interceptor START by kksoo -->
+	<mvc:interceptors>
+		<mvc:interceptor>
+			<!-- interceptor 대상 URL 등록 -->
+			<mvc:mapping path="/**/*.xdo"/>
+			<mvc:mapping path="/sc/cmn/uploadFile.do"/>
+			<mvc:mapping path="/sc/cmn/downloadFileDB.do"/>
+			<mvc:mapping path="/sc/cmn/downloadFile.do"/>
+			<mvc:mapping path="/sc/cmn/downloadTempFile.do"/>
+			<mvc:mapping path="/sc/cmn/report/reportViewer.do"/>
+			
+			<!-- test -->
+			<mvc:mapping path="/guide/**/*.do"/>
+									
+			<!-- 제외되는 URL 등록 : 복수 등록 가능 -->
+			<mvc:exclude-mapping path="/sc/cmn/login.xdo"/>
+			<mvc:exclude-mapping path="/sc/cmn/ownCert/requestCernNum.xdo"/>
+			<mvc:exclude-mapping path="/sc/cmn/ownCert/confirmCernNum.xdo"/>
+			<mvc:exclude-mapping path="/sc/cmn/pwdChg/saveReset.xdo"/>
+			<mvc:exclude-mapping path="/**/makeGwDraftContent*.do"/>			
+			<mvc:exclude-mapping path="/sc/cmn/sysIf/*.do"/>
+						
+			<!-- test -->
+			<mvc:exclude-mapping path="/guide/test/*.do"/>
+			
+			<ref bean="loginCheckInterceptor"/>
+	    </mvc:interceptor>
+	</mvc:interceptors>  	 
+
+  	<bean id="loginCheckInterceptor" class="com.hwfs.cmn.interceptor.security.LoginCheckInterceptor" />
+	<!-- Login여부를 검사하는 Interceptor END by kksoo -->
+
+	<!-- 유효한 JSON요청 여부를 검사하는 Interceptor START by kksoo -->
+	<mvc:interceptors>
+		<mvc:interceptor>
+			<!-- interceptor 대상 URL 등록 -->
+			<mvc:mapping path="/**/*.jDo"/>
+			
+			<!-- 제외되는 URL 등록 : 복수 등록 가능 -->
+
+			<ref bean="JsonCheckInterceptor"/>
+	    </mvc:interceptor>
+	</mvc:interceptors>  	 
+
+  	<bean id="JsonCheckInterceptor" class="com.hwfs.sc.cmn.interceptor.security.JsonCheckInterceptor" />
+	<!-- 유효한 JSON요청 여부를 검사하는 Interceptor END by kksoo -->
+
+	<bean class="org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping">
+		<property name="order" value="1" />
+		<property name="interceptors"> 
+			<list> 
+            	<ref bean="xplatformInterceptor"/> 
+			</list> 
+		</property>
+  	</bean>
+
+	<!-- 버그 추적용 추가 2015.12.28 
+	<bean id="xplatformInterceptor" class="hone.online.xplatform.mvc.PlatformDataInterceptor" >
+	    <property name="encoding" value="UTF-8"/>
+	</bean>
+	-->
+	
+	<!-- 버그 추적용 추가 2015.12.28 -->
+	<bean id="xplatformInterceptor" class="com.hwfs.sc.cmn.interceptor.HoneHandlerInterceptor" >
+	    <property name="encoding" value="UTF-8"/>
+	</bean>
+	  
+	<bean class="org.springframework.web.servlet.handler.BeanNameUrlHandlerMapping">
+		<property name="order" value="2" />
+	</bean>
+	<bean class="org.springframework.web.servlet.handler.SimpleUrlHandlerMapping">
+		<property name="order" value="3" />
+		<property name="mappings">
+			<props>
+				<prop key="**/*.xdo">hone.web.mvc.SimpleForwardController</prop>
+			</props>
+		</property>
+	</bean>
+		
+	<!--
+	 	###############################################
+		HandlerAdaptor Configuration 
+		###############################################
+	-->
+	<bean class="hone.online.web.mvc.handler.HoneRequestMappingHandlerAdapter">
+			<property name="order" value="1" />
+			<property name="messageConverters">
+        		<list>
+            		<!-- Jackson converter for HTTP messages -->
+        			<bean class="org.springframework.http.converter.json.MappingJacksonHttpMessageConverter">
+            			<property name="objectMapper" ref="jacksonObjectMapper" />
+        			</bean>
+        		</list>
+			</property>
+		<!--
+		hone.hanwha.JSonSimpleAdaptor.resolver 등록 by 이상준 
+		-->
+			<property name="customArgumentResolvers">
+				<list>
+					<bean class="hone.online.web.mvc.resolver.SearchParameterArgumentResolver"/>
+					<bean class="hone.online.web.mvc.resolver.ClientInfoArgumentResolver"/>
+					<bean class="hone.online.xplatform.mvc.resolver.XplatformBindArgumentResolver" />
+					<bean class="hone.hanwha.JSonSimpleAdaptor.resolver.CustomWqArgumentResolver">
+						<property name="jSa">
+					    	<ref bean="jsonAdapter"/>
+		  				</property>
+					</bean>
+				</list>
+			</property>
+	</bean>
+	<bean class="org.springframework.web.servlet.mvc.SimpleControllerHandlerAdapter"/>
+	<bean class="org.springframework.web.servlet.mvc.HttpRequestHandlerAdapter"/>
+	
+	<!--
+	 	###############################################
+		Controller Configuration
+		###############################################
+	-->	
+	<bean id="hone.web.mvc.SimpleForwardController" class="hone.online.web.mvc.SimpleForwardController">
+		<property name="urlPostfix" value=".xdo" />
+	</bean>
+	
+	<!--
+	 	###############################################
+		Exception Resolver Configuration 
+		###############################################
+	-->	
+	<bean class="org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExceptionResolver">
+		<property name="order" value="1"/>
+		<property name="customArgumentResolvers">
+			<list>
+				<bean class="hone.online.web.mvc.resolver.SearchParameterArgumentResolver"/>
+			</list>
+		</property>
+	</bean>
+
+	<bean class="hone.online.web.exception.resolver.WebHandlerExceptionResolver">
+		<property name="order" value="2"/>
+	</bean>
+	
+	<!--
+	 	###############################################
+		Added Component Configuration 
+		###############################################
+	-->		
+	<!-- Jackson Mapper -->
+	<bean id="jacksonObjectMapper" class="org.codehaus.jackson.map.ObjectMapper" />
+	<bean class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
+	    <property name="targetObject" ref="jacksonObjectMapper" />
+	    <property name="targetMethod" value="configure" />
+	    <property name="arguments">
+	        <list>
+	            <value type="org.codehaus.jackson.map.DeserializationConfig.Feature">FAIL_ON_UNKNOWN_PROPERTIES</value>
+	            <value>false</value>
+	        </list>
+	    </property>
+	</bean>
+	
+	
+<!--
+###############################################
+HandlerAdaptor Configuration
+###############################################
+
+	<bean class="hone.online.web.mvc.handler.HoneRequestMappingHandlerAdapter">
+		<property name="order" value="1" />
+		<property name="messageConverters">
+			<list>
+				<bean
+					class="org.springframework.http.converter.json.MappingJacksonHttpMessageConverter">
+					<property name="objectMapper" ref="jacksonObjectMapper" />
+				</bean>
+			</list>
+		</property>
+		<property name="customArgumentResolvers">
+			<list>
+				<bean class="hone.online.web.mvc.resolver.SearchParameterArgumentResolver" />
+				<bean class="hone.online.web.mvc.resolver.ClientInfoArgumentResolver" />
+				<bean class="hone.online.xplatform.mvc.resolver.XplatformBindArgumentResolver" />
+			</list>
+		</property>
+	</bean>
+	<bean class="org.springframework.web.servlet.mvc.SimpleControllerHandlerAdapter" />
+	<bean class="org.springframework.web.servlet.mvc.HttpRequestHandlerAdapter" />
+-->
+
+</beans>

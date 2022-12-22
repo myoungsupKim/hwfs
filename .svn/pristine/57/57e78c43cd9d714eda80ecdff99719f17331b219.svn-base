@@ -1,0 +1,835 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.sle.dcEventMgmtDAO">
+	<desc>제휴 이벤트 등록</desc>
+ 
+	
+<!-- 1. 프로모션 기본 정보 -->
+	
+	<!--  프로모션 기본 정보 DATA를 조회한다. -->
+	<statement name="selectListPrmt" type="select">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.selectListPrmt */
+	<![CDATA[
+		SELECT 
+			   MST.PRMT_CD,         MST.PRMT_NM,				--프로모션코드, 프로모션명
+--		       MST.BC_CD,			CBCL.BC_NM  AS BC_NM,		--지점코드, 지점명
+			   MST.BC_CD,			DECODE(MST.BC_CD, NULL, '전체', CBCL.CODE_NAME)  AS BC_NM,	--지점코드, 지점명
+
+		       MST.DISCNT_VALUE,	MST.PRMT_EXPL,				--할인값, 프로모션 설명
+		       
+		       MST.PRMT_CLSF,		CLSF.CODE_NAME  AS PRMT_CLSF_NM,	--프로모션분류, 명
+		       MST.PRMT_DIV,		CDIV.CODE_NAME  AS PRMT_DIV_NM,	--프로모션구분,명
+		       MST.APPLY_OBJ,		COBJ.CODE_NAME  AS APPLY_OBJ_NM,	--프로모션적용대상,명
+		       
+		       MST.START_DD,MST.END_DD,			--시작일자,종료일자
+		       MST.START_TIME, MST.END_TIME,	--시작시간,종료시간
+		       
+		       MST.SESN_CLASS,		  SESN.CODE_NAME  AS SESN_CLASS_NM,			--시즌구분 leftouter join 
+		       MST.WEND_CLASS,		  WEND.CODE_NAME  AS WEND_CLASS_NM,			--주중주말
+		       MST.PATRON_GR_CLASS,	PATRON.CODE_NAME  AS PATRON_GR_CLASS_NM,	--고객연동구분
+		       
+		       MST.PATRON_CLASS,
+		       
+		       DECODE(MST.DUP_YN, 'Y', 1, 0)      			AS DUP_YN,				DUPYN.CODE_NAME    AS DUP_YN_NM, --중복여부
+		       DECODE(MST.SESNMGMT_YN, 'Y', 1, 0) 		  	AS SESNMGMT_YN,   		SESNMGMT.CODE_NAME AS SESNMGMT_YN_NM, --시즌관리여부
+		       DECODE(MST.CPNYAFTER_ADJUST_YN, 'Y', 1, 0) 	AS CPNYAFTER_ADJUST_YN,	ADJUST.CODE_NAME   AS CPNYAFTER_ADJUST_YN_NM,	--사후정산여부
+		       DECODE(MST.CREDITCARD_GR_YN, 'Y', 1, 0)    	AS CREDITCARD_GR_YN,	GRYN.CODE_NAME     AS CREDITCARD_GR_YN_NM,	--신용카드연동여부
+		       
+		       MST.CPNYAFTER_ADJUST_RATE,	--사후정산비율
+		       MST.CPNYAFTER_ADJUST_ACCT,	--사후정산계정
+		       MST.LIMIT_LIMI,				--한도제한
+		       MST.LIMI_BASIS,				--제한기준
+	
+		       DECODE(MST.USE_YN, 'Y', 1, 0) AS USE_YN,		--사용유무
+		       MST.CUSER,
+		       MST.CDATE,
+		       MST.UUSER,
+		       MST.UDATE,
+		       MST.CPNYAFTER_ADJUST_CUST
+		       
+		FROM   SLE_PRMT MST
+		
+--		INNER JOIN (SELECT BC_CD, BC_NM 
+--						FROM ( 	SELECT '' AS BC_CD, '전체' AS BC_NM FROM DUAL
+--								UNION ALL					
+--								SELECT CODE AS BC_CD , CODE_NAME AS BC_NM 
+--								FROM SCC_COMMON_CODE WHERE GROUP_CODE  = 'SLE_0026' 
+--							)  
+--                     ) CBCL ON CBCL.BC_CD  = MST.BC_CD
+		
+		LEFT OUTER JOIN SCC_COMMON_CODE CBCL ON CBCL.GROUP_CODE  = 'SLE_0026'  AND CBCL.CODE  = MST.BC_CD
+		
+		INNER JOIN SCC_COMMON_CODE CLSF   ON CLSF.GROUP_CODE  = 'SLE_0030' AND CLSF.CODE  = MST.PRMT_CLSF
+		INNER JOIN SCC_COMMON_CODE CDIV   ON CDIV.GROUP_CODE  = 'SLE_0031' AND CDIV.CODE  = MST.PRMT_DIV
+		INNER JOIN SCC_COMMON_CODE COBJ   ON COBJ.GROUP_CODE  = 'SLE_0032' AND COBJ.CODE  = MST.APPLY_OBJ	
+		
+		LEFT OUTER JOIN SCC_COMMON_CODE SESN   ON   SESN.GROUP_CODE  = 'SLE_0040' AND   SESN.CODE  = MST.SESN_CLASS			--시즌구분 leftouter join 
+		INNER JOIN SCC_COMMON_CODE 		WEND   ON   WEND.GROUP_CODE  = 'SLE_0041' AND   WEND.CODE  = MST.WEND_CLASS			--주중주말
+		INNER JOIN SCC_COMMON_CODE 		PATRON ON PATRON.GROUP_CODE  = 'SLE_0051' AND PATRON.CODE  = MST.PATRON_GR_CLASS	--고객연동구분
+		
+		INNER JOIN SCC_COMMON_CODE DUPYN    ON    DUPYN.GROUP_CODE  = 'SLE_0003' AND    DUPYN.CODE  = DECODE(MST.DUP_YN, 'Y', 1, 0)					--중복여부
+		INNER JOIN SCC_COMMON_CODE SESNMGMT ON SESNMGMT.GROUP_CODE  = 'SLE_0003' AND SESNMGMT.CODE  = DECODE(MST.SESNMGMT_YN, 'Y', 1, 0)			--시즌관리여부
+		INNER JOIN SCC_COMMON_CODE ADJUST 	ON   ADJUST.GROUP_CODE  = 'SLE_0003' AND   ADJUST.CODE  = DECODE(MST.CPNYAFTER_ADJUST_YN, 'Y', 1, 0)	--사후정산여부
+		INNER JOIN SCC_COMMON_CODE GRYN   	ON     GRYN.GROUP_CODE  = 'SLE_0003' AND     GRYN.CODE  = DECODE(MST.CREDITCARD_GR_YN, 'Y', 1, 0) 		--신용카드연동여부
+
+		WHERE  1 = 1
+	
+			<#if bcCd?has_content>  	AND   MST.BC_CD     = :bcCd  </#if>
+			<#if startDd?has_content>  	AND   MST.START_DD  BETWEEN :startDd AND :endDd </#if>
+			--<#if endDd?has_content>  	AND   MST.END_DD    <= :endDd  </#if>
+			<#if prmtNm?has_content>  	AND   MST.PRMT_NM LIKE :prmtNm || '%'  </#if>
+			ORDER BY MST.PRMT_CD DESC
+
+	]]>
+	</statement>
+	
+	
+ 	<!--  프로모션 조건설정 정보 DATA를 저장한다. -->
+	<statement name="insertDataPrmt" type="insert">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.insertDataPrmt */
+	<![CDATA[
+		INSERT INTO SLE_PRMT
+				(
+				 PRMT_CD,
+				 BC_CD,
+				 DISCNT_VALUE,
+				 PRMT_NM,
+				 PRMT_EXPL,
+				 PRMT_CLSF,
+				 PRMT_DIV,
+				 APPLY_OBJ,
+				 DUP_YN,
+				 START_DD,
+				 START_TIME,
+				 END_DD,
+				 END_TIME,
+				 SESNMGMT_YN,
+				 SESN_CLASS,
+				 WEND_CLASS,
+				 PATRON_GR_CLASS,
+				 PATRON_CLASS,
+				 CPNYAFTER_ADJUST_YN,
+				 CPNYAFTER_ADJUST_RATE,
+				 --시작 : 2017.03.02 현대카드M포인트 제휴로 사후정산계정(미사용)->사후정산거래처로 변경 처리자:김호석 CH201702_00668
+				 /* CPNYAFTER_ADJUST_ACCT, */
+				 CPNYAFTER_ADJUST_CUST,
+				 -- 종료 : CH201702_00668
+				 LIMIT_LIMI,
+				 LIMI_BASIS,
+				 CREDITCARD_GR_YN,
+				 USE_YN,
+				 CUSER,
+				 CDATE,
+				 UUSER,
+				 UDATE				 
+				) VALUES (
+				 :prmtCd,
+				<#if bcCd?exists> :bcCd, <#else> null, </#if>
+				<#if discntValue?exists> :discntValue, <#else> null, </#if>
+				<#if prmtNm?exists> :prmtNm, <#else> null, </#if>
+				<#if prmtExpl?exists> :prmtExpl, <#else> null, </#if>
+				<#if prmtClsf?exists> :prmtClsf, <#else> null, </#if>
+				<#if prmtDiv?exists> :prmtDiv, <#else> null, </#if>
+				<#if applyObj?exists> :applyObj, <#else> null, </#if>
+				<#if dupYn?exists> DECODE(:dupYn, '1', 'Y', 'N'), <#else> null, </#if>
+				<#if startDd?exists> :startDd, <#else> null, </#if>
+				<#if startTime?exists> :startTime, <#else> null, </#if>
+				<#if endDd?exists> :endDd, <#else> null, </#if>
+				<#if endTime?exists> :endTime, <#else> null, </#if>
+				<#if sesnmgmtYn?exists> DECODE(:sesnmgmtYn, '1', 'Y', 'N'), <#else> null, </#if>
+				<#if sesnClass?exists> :sesnClass, <#else> null, </#if>
+				<#if wendClass?exists> :wendClass, <#else> null, </#if>
+				<#if patronGrClass?exists> :patronGrClass, <#else> null, </#if>
+				<#if patronClass?exists> :patronClass, <#else> null, </#if>
+				<#if cpnyafterAdjustYn?exists> DECODE(:cpnyafterAdjustYn, '1', 'Y', 'N'), <#else> null, </#if>
+				<#if cpnyafterAdjustRate?exists> :cpnyafterAdjustRate, <#else> null, </#if>
+				--시작 : 2017.03.02 현대카드M포인트 제휴로 사후정산계정(미사용)->사후정산거래처로 변경 처리자:김호석 CH201702_00668
+				/* <#if cpnyafterAdjustAcct?exists> :cpnyafterAdjustAcct, <#else> null, </#if> */
+				<#if cpnyafterAdjustCust?exists> :cpnyafterAdjustCust, <#else> null, </#if>
+				-- 종료 : CH201702_00668
+				<#if limitLimi?exists> :limitLimi, <#else> null, </#if>
+				<#if limiBasis?exists> :limiBasis, <#else> null, </#if>
+				<#if creditcardGrYn?exists> DECODE(:creditcardGrYn, '1', 'Y', 'N'), <#else> null, </#if>
+				<#if useYn?exists> DECODE(:useYn, '1', 'Y', 'N'), <#else> null, </#if>
+				 :loginSabun,
+				 SYSDATE,
+				 :loginSabun,
+				 SYSDATE
+				)
+
+	]]>
+	</statement>
+	
+ 	<!--  프로모션 조건설정 정보 DATA를 수정한다. -->
+	<statement name="updateDataPrmt" type="update">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.updateDataPrmt */
+	<![CDATA[
+		UPDATE SLE_PRMT SET
+			<#if bcCd?exists> BC_CD = :bcCd, </#if>
+			<#if discntValue?exists> DISCNT_VALUE = :discntValue, </#if>
+			<#if prmtNm?exists> PRMT_NM = :prmtNm, </#if>
+			<#if prmtExpl?exists> PRMT_EXPL = :prmtExpl, </#if>
+			<#if prmtClsf?exists> PRMT_CLSF = :prmtClsf, </#if>
+			<#if prmtDiv?exists> PRMT_DIV = :prmtDiv, </#if>
+			<#if applyObj?exists> APPLY_OBJ = :applyObj, </#if>
+			<#if dupYn?exists> DUP_YN = DECODE(:dupYn, '1', 'Y', 'N'), </#if>
+			<#if startDd?exists> START_DD = :startDd, </#if>
+			<#if startTime?exists> START_TIME = :startTime, </#if>
+			<#if endDd?exists> END_DD = :endDd, </#if>
+			<#if endTime?exists> END_TIME = :endTime, </#if>
+			<#if sesnmgmtYn?exists> SESNMGMT_YN = DECODE(:sesnmgmtYn, '1', 'Y', 'N'), </#if>
+			<#if sesnClass?exists> SESN_CLASS = :sesnClass, </#if>
+			<#if wendClass?exists> WEND_CLASS = :wendClass, </#if>
+			<#if patronGrClass?exists> PATRON_GR_CLASS = :patronGrClass, </#if>
+			<#if patronClass?exists> PATRON_CLASS = :patronClass, </#if>
+			<#if cpnyafterAdjustYn?exists> CPNYAFTER_ADJUST_YN = DECODE(:cpnyafterAdjustYn, '1', 'Y', 'N'), </#if>
+			<#if cpnyafterAdjustRate?exists> CPNYAFTER_ADJUST_RATE = :cpnyafterAdjustRate, </#if>
+			<#if cpnyafterAdjustAcct?exists> CPNYAFTER_ADJUST_ACCT = :cpnyafterAdjustAcct, </#if>
+			<#if limitLimi?exists> LIMIT_LIMI = :limitLimi, </#if>
+			<#if limiBasis?exists> LIMI_BASIS = :limiBasis, </#if>
+			<#if creditcardGrYn?exists> CREDITCARD_GR_YN = DECODE(:creditcardGrYn, '1', 'Y', 'N'), </#if>
+			<#if useYn?exists> USE_YN = DECODE(:useYn, '1', 'Y', 'N'), </#if>
+			<#if cpnyafterAdjustCust?exists> CPNYAFTER_ADJUST_CUST = :cpnyafterAdjustCust, </#if>
+			       UUSER = :loginSabun,
+			       UDATE = SYSDATE
+			
+			WHERE  PRMT_CD = :prmtCd
+
+
+	]]>
+	</statement>
+	
+	<!--  코드를 생성한다.  -->
+	<statement name="maxCodeCreatePrmt" type="select">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.maxCodeCreatePrmt */
+	<![CDATA[
+		 
+		SELECT  'ZZZ' ||  LPAD(NVL(MAX(SUBSTR(PRMT_CD,4,10)),'0') + 1,'10','0') AS MAX_CODE
+ 		FROM SLE_PRMT
+		
+		]]>
+	</statement>	
+	
+	 
+<!-- 2. 프로모션 조건  -->	
+
+ 	<!--  프로모션 조건설정 정보 DATA를 조회한다. -->
+	<statement name="selectListCond" type="select">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.selectListCond */
+	<![CDATA[
+		SELECT MST.PRMT_CD,
+		       MST.SEQ,
+		       MST.OUTLET_CD, SHOP.OUTLET_NM AS OUTLET_NM,
+		       MST.MENU_CLASS,
+		       MST.MENU_CLSFI,
+		       MST.MENU_SCLASS,
+		       
+		       SCLAS.MENU_CLSFI_NM AS MENU_SCLASS_NM,
+		       CLSFI.MENU_CLSFI_NM AS MENU_CLSFI_NM,
+		       CLASS.MENU_CLSFI_NM AS MENU_CLASS_NM,
+		        
+		       MST.MENU_CD,
+		       MST.APPLY_OBJ_NM,
+		       MST.APPLY_OBJ_CLASS,
+		       MST.APPLY_OBJ,
+		       MST.MIN_QUANTITY,
+		       MST.MAX_QUANTITY,
+		       MST.MIN_AMT,
+		       MST.MAX_AMT,
+		       MST.CHOICE_CHECK,
+		       MST.DISCNT_VALUE,
+		       DECODE(MST.USE_YN, 'Y', 1, 0) AS USE_YN,
+		       MST.CUSER,
+		       MST.CDATE,
+		       MST.UUSER,
+		       MST.UDATE
+		FROM   SLE_PRMT_COND		    MST
+		
+		INNER JOIN (SELECT OUTLET_CD, OUTLET_NM
+						FROM (  SELECT '0000' AS OUTLET_CD, '전체' AS OUTLET_NM FROM DUAL
+								UNION ALL
+								SELECT OUTLET_CD, OUTLET_NM FROM SLE_OUTLET_MST
+							 )
+					) SHOP  ON SHOP.OUTLET_CD = MST.OUTLET_CD
+
+		LEFT OUTER JOIN SLE_MENU_CLSFI CLASS  ON CLASS.MENU_CLASS  = MST.MENU_CLASS
+		                                     AND CLASS.MENU_CLSFI  = '00'
+		                                     AND CLASS.MENU_SCLASS = '00'
+		                                     
+		LEFT OUTER JOIN SLE_MENU_CLSFI CLSFI  ON CLSFI.MENU_CLASS  = MST.MENU_CLASS
+		                                     AND CLSFI.MENU_CLSFI  = MST.MENU_CLSFI
+		                                     AND CLSFI.MENU_SCLASS = '00'
+		                                     
+		LEFT OUTER JOIN SLE_MENU_CLSFI SCLAS  ON SCLAS.MENU_CLASS  = MST.MENU_CLASS
+		                                     AND SCLAS.MENU_CLSFI  = MST.MENU_CLSFI
+		                                     AND SCLAS.MENU_SCLASS = MST.MENU_SCLASS
+		
+		
+		WHERE  MST.PRMT_CD     = :prmtCd
+		ORDER BY MST.PRMT_CD,  MST.SEQ 
+
+	]]>
+	</statement>
+	
+	
+	
+ 	<!--  프로모션 조건설정 정보 DATA를 저장한다. -->
+	<statement name="insertDataCond" type="insert">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.insertDataCond */
+	<![CDATA[
+		INSERT INTO SLE_PRMT_COND
+				(
+					 PRMT_CD,
+					 SEQ,
+					 OUTLET_CD,
+					 MENU_CLASS,
+					 MENU_CLSFI,
+					 MENU_SCLASS,
+					 MENU_CD,
+					 APPLY_OBJ_NM,
+					 APPLY_OBJ_CLASS,
+					 APPLY_OBJ,
+					 MIN_QUANTITY,
+					 MAX_QUANTITY,
+					 MIN_AMT,
+					 MAX_AMT,
+					 CHOICE_CHECK,
+					 DISCNT_VALUE,
+					 USE_YN,
+					 CUSER,
+					 CDATE,
+					 UUSER,
+					 UDATE
+				) VALUES (
+					 :prmtCd,
+					 :seq,
+					<#if outletCd?exists> 		:outletCd, <#else> null, </#if>
+					<#if menuClass?exists> 		:menuClass, <#else> null, </#if>
+					<#if menuClsfi?exists> 		:menuClsfi, <#else> null, </#if>
+					<#if menuSclass?exists> 	:menuSclass, <#else> null, </#if>
+					<#if menuCd?exists> 		:menuCd, <#else> null, </#if>
+					<#if applyObjNm?exists> 	:applyObjNm, <#else> null, </#if>
+					<#if applyObjClass?exists> 	:applyObjClass, <#else> null, </#if>
+					<#if applyObj?exists> 		:applyObj, <#else> null, </#if>
+					<#if minQuantity?exists> 	:minQuantity, <#else> null, </#if>
+					<#if maxQuantity?exists> 	:maxQuantity, <#else> null, </#if>
+					<#if minAmt?exists> 		:minAmt, <#else> null, </#if>
+					<#if maxAmt?exists> 		:maxAmt, <#else> null, </#if>
+					<#if choiceCheck?exists> 	:choiceCheck, <#else> null, </#if>
+					<#if discntValue?exists> 	:discntValue, <#else> null, </#if>
+					<#if useYn?exists>   DECODE(:useYn, '1', 'Y', 'N'), <#else> null, </#if>
+					 :loginSabun,
+					 SYSDATE,
+					 :loginSabun,
+					 SYSDATE
+					)
+
+	]]>
+	</statement>
+ 	<!--  프로모션 조건설정 정보 DATA를 저장한다. -->
+	<statement name="updateDataCond" type="update">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.updateDataCond */
+	<![CDATA[
+		UPDATE SLE_PRMT_COND SET
+			<#if outletCd?exists> 	OUTLET_CD = :outletCd, </#if>
+			<#if menuClass?exists> 	MENU_CLASS = :menuClass, </#if>
+			<#if menuClsfi?exists> 	MENU_CLSFI = :menuClsfi, </#if>
+			<#if menuSclass?exists> MENU_SCLASS = :menuSclass, </#if>
+			<#if menuCd?exists> 	MENU_CD = :menuCd, </#if>
+			<#if applyObjNm?exists> APPLY_OBJ_NM = :applyObjNm, </#if>
+			<#if applyObjClass?exists> APPLY_OBJ_CLASS = :applyObjClass, </#if>
+			<#if applyObj?exists> 	 APPLY_OBJ = :applyObj, </#if>
+			<#if minQuantity?exists> MIN_QUANTITY = :minQuantity, </#if>
+			<#if maxQuantity?exists> MAX_QUANTITY = :maxQuantity, </#if>
+			<#if minAmt?exists> 	 MIN_AMT = :minAmt, </#if>
+			<#if maxAmt?exists> 	 MAX_AMT = :maxAmt, </#if>
+			<#if choiceCheck?exists> CHOICE_CHECK = :choiceCheck, </#if>
+			<#if discntValue?exists> DISCNT_VALUE = :discntValue, </#if>
+			<#if useYn?exists> USE_YN = DECODE(:useYn, '1', 'Y', 'N'), </#if>
+			       UUSER = :loginSabun,
+			       UDATE = SYSDATE
+		WHERE  PRMT_CD = :prmtCd
+		AND    SEQ = :seq
+
+
+	]]>
+	</statement>
+	
+	<!--  코드를 생성한다. -->
+	<statement name="maxCodeCreateCond" type="select">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.maxCodeCreateCond */
+		<![CDATA[
+		 
+		SELECT NVL(MAX(SEQ),'0') + 1 AS MAX_SEQ
+ 		FROM SLE_PRMT_COND
+ 		WHERE  PRMT_CD = :prmtCd
+		
+		]]>
+	</statement>	
+	
+	
+<!-- 3. 프로모션 업장  -->
+
+
+ 	<!--  프로모션 업장설정 정보 DATA를 조회한다. -->
+	<statement name="selectListOutlet" type="select">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.selectListOutlet */
+	<![CDATA[
+		 SELECT
+		 	   MST.PRMT_CD,
+		 	   MST.SEQ,
+		      -- MST.BC_CD,
+		       MST.OUTLET_CD, OUTL.OUTLET_NM AS OUTLET_NM,
+		       DECODE(MST.USE_YN, 'Y', 1, 0) AS USE_YN,
+		       MST.CUSER,
+		       MST.CDATE,
+		       MST.UUSER,
+		       MST.UDATE
+		       
+		FROM   SLE_PRMT_OUTLET MST
+		INNER JOIN (SELECT OUTLET_CD, OUTLET_NM
+						FROM (  SELECT '0000' AS OUTLET_CD, '전체' AS OUTLET_NM FROM DUAL
+								UNION ALL
+								SELECT OUTLET_CD, OUTLET_NM FROM SLE_OUTLET_MST
+							 )
+					) OUTL  ON OUTL.OUTLET_CD = MST.OUTLET_CD
+		WHERE  MST.PRMT_CD = :prmtCd
+		--  AND  MST.USE_YN = 'Y'
+		ORDER BY MST.SEQ
+				 
+
+	]]>
+	</statement>
+	
+	
+	
+ 	<!--  프로모션 업장설정 정보 DATA를 저장한다. -->
+	<statement name="insertDataOutlet" type="insert">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.insertDataOutlet */
+	<![CDATA[
+		INSERT INTO SLE_PRMT_OUTLET
+			(
+				 PRMT_CD,
+				 SEQ,
+			--	 BC_CD,
+				 OUTLET_CD,
+				 USE_YN,
+				 CUSER,
+				 CDATE,
+				 UUSER,
+				 UDATE
+				 
+			) VALUES (
+				:prmtCd,
+				:seq,
+				 
+				-- <#if bcCd?exists>     :bcCd,     <#else> null, </#if>
+				<#if outletCd?exists> :outletCd, <#else> null, </#if>
+				<#if useYn?exists> DECODE(:useYn, '1', 'Y', 'N'), <#else> null, </#if>
+				 :loginSabun,
+				 SYSDATE,
+				 :loginSabun,
+				 SYSDATE
+				 
+			)
+
+
+	]]>
+	</statement>
+ 	<!--  프로모션 업장설정 정보 DATA를 저장한다. -->
+	<statement name="updateDataOutlet" type="update">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.updateDataOutlet */
+	<![CDATA[
+		 UPDATE SLE_PRMT_OUTLET SET
+			-- <#if bcCd?exists> 		BC_CD 		= :bcCd, </#if>
+			<#if outletCd?exists> 	OUTLET_CD 	= :outletCd, </#if>
+			<#if useYn?exists> 		USE_YN 		= DECODE(:useYn, '1', 'Y', 'N'), </#if>
+			       UUSER = :loginSabun,
+			       UDATE = SYSDATE
+			WHERE  PRMT_CD = :prmtCd
+			AND    SEQ = :seq	
+	]]>
+	</statement>
+	
+	 <!--  코드를 생성한다. -->
+	<statement name="maxCodeCreateOutlet" type="select">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.maxCodeCreateOutlet */
+		<![CDATA[
+		 
+		SELECT NVL(MAX(SEQ),'0') + 1 AS MAX_SEQ
+ 		FROM SLE_PRMT_OUTLET
+ 		WHERE  PRMT_CD = :prmtCd
+		
+		]]>
+	</statement>	
+	
+ 
+<!-- 4. 프로모션 믹스 -->
+
+
+ 	<!--  프로모션 믹스설정 정보 DATA를 조회한다. -->
+	<statement name="selectListMixs" type="select">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.selectListMixs */
+	<![CDATA[
+		 SELECT MST.PRMT_CD,
+			    MST.SEQ,
+			    
+			    MST.OUTLET_CD, SHOP.OUTLET_NM AS OUTLET_NM,
+		        MST.MENU_CLASS,
+		        MST.MENU_CLSFI,
+		        MST.MENU_SCLASS,
+		       
+		        SCLAS.MENU_CLSFI_NM AS MENU_SCLASS_NM,
+		        CLSFI.MENU_CLSFI_NM AS MENU_CLSFI_NM,
+		        CLASS.MENU_CLSFI_NM AS MENU_CLASS_NM,
+		        
+			    MST.MENU_CD,
+			    MST.COND_NM,
+			    MST.COND_CHECK,
+			    DECODE(MST.USE_YN, 'Y', 1, 0) AS USE_YN,
+			    MST.CUSER,
+			    MST.CDATE,
+			    MST.UUSER,
+			    MST.UDATE
+			    
+		FROM   SLE_PRMT_MIXS MST
+		INNER      JOIN SLE_OUTLET_MST  SHOP  ON SHOP.OUTLET_CD    = MST.OUTLET_CD  	-- 업장 코드
+		
+		LEFT OUTER JOIN SLE_OUTLET_MENU_GRP CLASS  ON CLASS.OUTLET_CD   = MST.OUTLET_CD		--대그룹
+		                                     AND CLASS.MENU_CLASS  = MST.MENU_CLASS
+		                                     AND CLASS.MENU_CLSFI  = '00'
+		                                     AND CLASS.MENU_SCLASS = '00'
+		                                     
+		LEFT OUTER JOIN SLE_OUTLET_MENU_GRP CLSFI  ON CLSFI.OUTLET_CD   = MST.OUTLET_CD		--중그룹
+		                                     AND CLSFI.MENU_CLASS  = MST.MENU_CLASS
+		                                     AND CLSFI.MENU_CLSFI  = MST.MENU_CLSFI
+		                                     AND CLSFI.MENU_SCLASS = '00'
+		                                     
+		LEFT OUTER JOIN SLE_OUTLET_MENU_GRP SCLAS  ON SCLAS.OUTLET_CD   = MST.OUTLET_CD		--소그룹
+		                                     AND SCLAS.MENU_CLASS  = MST.MENU_CLASS
+		                                     AND SCLAS.MENU_CLSFI  = MST.MENU_CLSFI
+		                                     AND SCLAS.MENU_SCLASS = MST.MENU_SCLASS
+		
+		WHERE MST.PRMT_CD = :prmtCd   
+		--AND   MST.USE_YN  = 'Y'
+		ORDER BY MST.PRMT_CD,  MST.SEQ 
+		
+	]]>
+	</statement>
+	
+	
+	
+ 	<!--  프로모션 믹스설정 정보 DATA를 저장한다. -->
+	<statement name="insertDataMixs" type="insert">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.insertDataMixs */
+	<![CDATA[
+		INSERT INTO SLE_PRMT_MIXS
+		(
+			 PRMT_CD,
+			 SEQ,
+			 OUTLET_CD,
+			 MENU_CLASS,
+			 MENU_CLSFI,
+			 MENU_SCLASS,
+			 MENU_CD,
+			 COND_NM,
+			 COND_CHECK,
+			 USE_YN,
+			 CUSER,
+			 CDATE,
+			 UUSER,
+			 UDATE
+		) VALUES (
+			 :prmtCd,
+			 :seq,
+			<#if outletCd?exists> :outletCd, <#else> null, </#if>
+			<#if menuClass?exists> :menuClass, <#else> null, </#if>
+			<#if menuClsfi?exists> :menuClsfi, <#else> null, </#if>
+			<#if menuSclass?exists> :menuSclass, <#else> null, </#if>
+			<#if menuCd?exists> :menuCd, <#else> null, </#if>
+			<#if condNm?exists> :condNm, <#else> null, </#if>
+			<#if condCheck?exists> :condCheck, <#else> null, </#if>
+			<#if useYn?exists> DECODE(:useYn, '1', 'Y', 'N'), <#else> null, </#if>
+			 :loginSabun,
+			 SYSDATE,
+			 :loginSabun,
+			 SYSDATE
+		)
+
+
+
+	]]>
+	</statement>
+ 	<!--  프로모션 믹스설정 정보 DATA를 저장한다. -->
+	<statement name="updateDataMixs" type="update">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.updateDataMixs */
+	<![CDATA[
+		 UPDATE SLE_PRMT_MIXS SET
+			<#if outletCd?exists> OUTLET_CD = :outletCd, </#if>
+			<#if menuClass?exists> MENU_CLASS = :menuClass, </#if>
+			<#if menuClsfi?exists> MENU_CLSFI = :menuClsfi, </#if>
+			<#if menuSclass?exists> MENU_SCLASS = :menuSclass, </#if>
+			<#if menuCd?exists> MENU_CD = :menuCd, </#if>
+			<#if condNm?exists> COND_NM = :condNm, </#if>
+			<#if condCheck?exists> COND_CHECK = :condCheck, </#if>
+			<#if useYn?exists> USE_YN = DECODE(:useYn, '1', 'Y', 'N'), </#if>
+			       UUSER = :loginSabun,
+			       UDATE = SYSDATE
+			WHERE  PRMT_CD = :prmtCd
+			AND    SEQ = :seq
+
+	]]>
+	</statement>
+	
+	 <!--  코드를 생성한다. -->
+	<statement name="maxCodeCreateMixs" type="select">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.maxCodeCreateMixs */
+		<![CDATA[
+		 
+		SELECT NVL(MAX(SEQ),'0') + 1 AS MAX_SEQ
+ 		FROM SLE_PRMT_MIXS
+ 		WHERE  PRMT_CD = :prmtCd
+		
+		]]>
+	</statement>	
+	
+	
+<!-- 5.프로모션 영수증 -->
+
+ 	<!--  프로모션 영수증설정 정보 DATA를 조회한다. -->
+	<statement name="selectListRcpt" type="select">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.selectListRcpt */
+	<![CDATA[
+		SELECT MST.PRMT_CD,
+		       MST.SEQ,
+		       MST.APPL_PRMT_CD, PRMT.PRMT_NM AS APPL_PRMT_CD_NM,
+		       DECODE(MST.BAR_CD_YN, 'Y', 1, 0) AS BAR_CD_YN,
+		       DECODE(MST.CUT_YN, 'Y', 1, 0) AS CUT_YN,
+		       MST.MSG,
+		       DECODE(MST.USE_YN, 'Y', 1, 0) AS USE_YN,
+		       MST.CUSER,
+		       MST.CDATE,
+		       MST.UUSER,
+		       MST.UDATE
+		FROM   SLE_PRMT_RCPT MST
+		INNER JOIN SLE_PRMT PRMT ON PRMT.PRMT_CD = MST.APPL_PRMT_CD
+		WHERE  MST.PRMT_CD = :prmtCd
+		  --AND  MST.USE_YN = 'Y'
+		ORDER BY MST.SEQ
+				 
+
+	]]>
+	</statement>
+	
+ 
+ 	<!--  프로모션 영수증설정 정보 DATA를 저장한다. -->
+	<statement name="insertDataRcpt" type="insert">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.insertDataRcpt */
+	<![CDATA[
+		INSERT INTO SLE_PRMT_RCPT
+			(
+				 PRMT_CD,
+				 SEQ,
+				 APPL_PRMT_CD,
+				 BAR_CD_YN,
+				 CUT_YN,
+				 MSG,
+				 USE_YN,
+				 CUSER,
+				 CDATE,
+				 UUSER,
+				 UDATE
+			) VALUES (
+				 :prmtCd,
+				 :seq,
+				<#if applPrmtCd?exists> :applPrmtCd, <#else> null, </#if>
+				<#if barCdYn?exists> DECODE(:barCdYn, '1', 'Y', 'N'), <#else> null, </#if>
+				<#if cutYn?exists> DECODE(:cutYn, '1', 'Y', 'N'), <#else> null, </#if>
+				<#if msg?exists> :msg, <#else> null, </#if>
+				<#if useYn?exists> DECODE(:useYn, '1', 'Y', 'N'), <#else> null, </#if>
+				 :loginSabun,
+				 SYSDATE,
+				 :loginSabun,
+				 SYSDATE
+			)
+
+
+
+	]]>
+	</statement>
+ 	<!--  프로모션 영수증설정 정보 DATA를 저장한다. -->
+	<statement name="updateDataRcpt" type="update">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.updateDataRcpt */
+	<![CDATA[
+		 UPDATE SLE_PRMT_RCPT SET
+			<#if applPrmtCd?exists> APPL_PRMT_CD = :applPrmtCd, </#if>
+			<#if barCdYn?exists> BAR_CD_YN = DECODE(:barCdYn, '1', 'Y', 'N'), </#if>
+			<#if cutYn?exists> CUT_YN = DECODE(:cutYn, '1', 'Y', 'N'), </#if>
+			<#if msg?exists> MSG = :msg, </#if>
+			<#if useYn?exists> USE_YN = DECODE(:useYn, '1', 'Y', 'N'), </#if>
+			       UUSER = :loginSabun,
+			       UDATE = SYSDATE
+			WHERE  PRMT_CD = :prmtCd
+			AND    SEQ = :seq
+
+	]]>
+	</statement>
+	
+	 <!--  코드를 생성한다. -->
+	<statement name="maxCodeCreateRcpt" type="select">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.maxCodeCreateRcpt */
+		<![CDATA[
+		 
+		SELECT NVL(MAX(SEQ),'0') + 1 AS MAX_SEQ
+ 		FROM SLE_PRMT_RCPT
+ 		WHERE  PRMT_CD = :prmtCd
+		
+		]]>
+	</statement>	
+	
+
+<!-- 6.프로모션 카드 -->	
+	<!--  프로모션 카드프리픽스설정 정보 DATA를 조회한다. -->
+	<statement name="selectListCard" type="select">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.selectListCard */
+	<![CDATA[
+		SELECT PRMT_CD,
+		       SEQ,
+		       FROM_CARD,
+		       TO_CARD,
+		       DECODE(USE_YN, 'Y', 1, 0) AS USE_YN,
+		       CUSER,
+		       CDATE,
+		       UUSER,
+		       UDATE
+		FROM   SLE_PRMT_CARD
+		WHERE  PRMT_CD = :prmtCd
+		 -- AND  USE_YN = 'Y'
+		ORDER BY SEQ
+				 
+
+	]]>
+	</statement>
+	
+	
+	
+ 	<!--  프로모션 카드프리픽스설정 정보 DATA를 저장한다. -->
+	<statement name="insertDataCard" type="insert">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.insertDataCard */
+	<![CDATA[
+		INSERT INTO SLE_PRMT_CARD
+			(
+				 PRMT_CD,
+				 SEQ,
+				 FROM_CARD,
+				 TO_CARD,
+				 USE_YN,
+				 CUSER,
+				 CDATE,
+				 UUSER,
+				 UDATE
+			) VALUES (
+				 :prmtCd,
+				 :seq,
+				<#if fromCard?exists> :fromCard, <#else> null, </#if>
+				<#if toCard?exists> :toCard, <#else> null, </#if>
+				<#if useYn?exists> DECODE(:useYn, '1', 'Y', 'N'), <#else> null, </#if>
+				 :loginSabun,
+				 SYSDATE,
+				 :loginSabun,
+				 SYSDATE
+			)
+
+	]]>
+	</statement>
+ 	<!--  프로모션 카드프리픽스설정 정보 DATA를 저장한다. -->
+	<statement name="updateDataCard" type="update">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.updateDataCard */
+	<![CDATA[
+		 UPDATE SLE_PRMT_CARD SET
+			<#if fromCard?exists> FROM_CARD = :fromCard, </#if>
+			<#if toCard?exists> TO_CARD = :toCard, </#if>
+			<#if useYn?exists> USE_YN = DECODE(:useYn, '1', 'Y', 'N'), </#if>
+			       UUSER = :loginSabun,
+			       UDATE = SYSDATE
+			WHERE  PRMT_CD = :prmtCd
+			AND    SEQ = :seq
+
+
+	]]>
+	</statement>
+	
+	 <!--  코드를 생성한다. -->
+	<statement name="maxCodeCreateCard" type="select">
+	/*+ com.hwfs.rc.sle.dao.dcEventMgmtDAO.maxCodeCreateCard */
+		<![CDATA[
+		 
+		SELECT NVL(MAX(SEQ),'0') + 1 AS MAX_SEQ
+ 		FROM SLE_PRMT_CARD
+ 		WHERE  PRMT_CD = :prmtCd
+		
+		]]>
+	</statement>	
+	
+
+	
+<!-- 상위 코드가(프로모션 기본정보에서 사용안함으로 하는 경우) 수정 되는 경우 하위코드를 모두 수정한다. -->
+	<statement name="updateDataUseAllCond" type="update">
+		<![CDATA[
+		
+		--프로모션조건
+		UPDATE SLE_PRMT_COND
+		SET    USE_YN = DECODE(:useYn, '1', 'Y', 'N'),
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		       
+		WHERE  PRMT_CD = :prmtCd
+		]]>
+	</statement>
+	<statement name="updateDataUseAllOutlet" type="update">
+		<![CDATA[	
+		--프로모션업장
+		UPDATE SLE_PRMT_OUTLET
+		SET    USE_YN = DECODE(:useYn, '1', 'Y', 'N'),
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		       
+		WHERE  PRMT_CD = :prmtCd
+		]]>
+	</statement>
+	<statement name="updateDataUseAllMixs" type="update">
+		<![CDATA[	 
+	 	--프로모션믹스
+		UPDATE SLE_PRMT_MIXS
+		SET    USE_YN = DECODE(:useYn, '1', 'Y', 'N'),
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		       
+		WHERE  PRMT_CD = :prmtCd
+		]]>
+	</statement>
+	<statement name="updateDataUseAllRcpt" type="update">
+		<![CDATA[	
+		--프로모션영수증
+		UPDATE SLE_PRMT_RCPT
+		SET    USE_YN = DECODE(:useYn, '1', 'Y', 'N'),
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		       
+		WHERE  PRMT_CD = :prmtCd
+		]]>
+	</statement>
+	<statement name="updateDataUseAllCard" type="update">
+		<![CDATA[	
+		--프로모션카드프리픽스
+		UPDATE SLE_PRMT_CARD
+		SET    USE_YN = DECODE(:useYn, '1', 'Y', 'N'),
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		       
+		WHERE  PRMT_CD = :prmtCd
+
+		]]>
+	</statement>
+	
+	
+</hqml>		

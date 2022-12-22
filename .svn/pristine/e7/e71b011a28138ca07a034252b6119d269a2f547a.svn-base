@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[실제식단기본템플릿원가포함]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT /*+ USE_HASH(B A) */ A.MENU_CD,
+       A.MENU_DATE,
+       A.UPJANG,
+       A.HALL_CD,
+       A.MEAL ,
+       C.CODE_NAME AS MEAL_NAME,
+       A.CORNER ,
+       D.CODE_NAME AS CORNER_NAME,
+       A.MAJOR_DISH_INFO,
+       A.MAJOR_DISH_INFO_NAME,
+       A.EXPECT_MEAL_QTY,
+       B.RECIPE_CD,
+       B.RECIPE_NAME,
+       NVL(B.RECIPE_COST_PRICE,0) AS RECIPE_COST_PRICE
+       ,NVL(B.RECIPE_ORDER_YN,'N')  AS RECIPE_ORDER_YN
+  FROM
+       (
+       SELECT (C.YMD||'-'||A.HALL_CD||A.MEAL||A.CORNER) AS MENU_CD,
+              C.YMD AS MENU_DATE,
+              A.UPJANG AS UPJANG,
+              A.HALL_CD AS HALL_CD,
+              A.MEAL AS MEAL,
+              A.CORNER AS CORNER,
+              B.CODE AS MAJOR_DISH_INFO,
+              B.CODE_NAME AS MAJOR_DISH_INFO_NAME,
+              NVL(D.EXPECT_MEAL_QTY,0) AS EXPECT_MEAL_QTY
+         FROM FSA_HALL_DTL A,
+              SCC_COMMON_CODE B,
+              SCC_COPY_YMD C,
+              FSM_REAL_MENU_MST D
+        WHERE A.UPJANG = #UPJANG#
+          AND A.HALL_CD = #HALL_CD#
+        <isNotNull col="CORNER">
+          AND A.CORNER = #CORNER#
+        </isNotNull>
+        <isNotNull col="MEAL">
+          AND A.MEAL = #MEAL#
+        </isNotNull>
+          AND B.GROUP_CODE = 'FS0032'
+          AND C.YMD BETWEEN #START_DATE# AND #END_DATE#
+          AND A.UPJANG  = D.UPJANG
+          AND A.HALL_CD = D.HALL_CD
+          AND A.MEAL    = D.MEAL
+          AND A.CORNER  = D.CORNER
+          AND C.YMD     = D.MENU_DATE
+          AND A.USE_YN  = 'Y'
+       ) A,
+       (
+	       SELECT /*+ USE_HASH(B A) */ A.MENU_CD ,
+	              A.UPJANG ,
+	              A.MAJOR_DISH_INFO ,
+	              A.RECIPE_CD,
+	              A.RECIPE_NAME,
+	              B.RECIPE_COST_PRICE
+	              ,A.RECIPE_ORDER_YN
+	       FROM
+			    ( SELECT  MENU_CD ,
+			              UPJANG ,
+			              MAJOR_DISH_INFO ,
+			              RECIPE_CD,
+			              RECIPE_NAME
+			              ,( SELECT   ORDER_YN AS RECIPE_ORDER_YN
+					           FROM   FSM_REAL_RECIPE_ITEM
+					          WHERE  MENU_CD=FSM_REAL_RECIPE_MST.MENU_CD
+					            AND  RECIPE_CD=FSM_REAL_RECIPE_MST.RECIPE_CD
+					            AND  UPJANG = #UPJANG# 
+					            AND  ROWNUM &lt;=1) AS RECIPE_ORDER_YN
+			         FROM FSM_REAL_RECIPE_MST
+			        WHERE UPJANG = #UPJANG#
+			          AND MENU_CD BETWEEN #START_DATE# AND #END_DATE# ||'9'
+			     ) A,
+			    (
+                    SELECT
+                               A.MENU_DATE,
+                               A.UPJANG,
+                               A.MENU_CD,
+                               A.RECIPE_CD,
+                               FLOOR( SUM(A.NEED_QTY * A.G_ITEM_PRICE)) AS RECIPE_COST_PRICE
+                      FROM
+                            (
+                                SELECT #UPJANG# AS UPJANG,
+                                       A.MENU_DATE, 
+                                       A.MENU_CD, 
+                                       C.RECIPE_CD, 
+                                       C.ITEM_CODE, 
+                                       C.NEED_QTY, 
+                                       ROUND(C.MARGIN_PRICE/F.KG_CONVERT_RATE/1000, 2) AS G_ITEM_PRICE 
+                               FROM FSM_REAL_MENU_MST A ,                                                                                                                                                                                                                                                                                 
+                                    FSM_REAL_RECIPE_MST B ,                                                                                                                                                                                                                                                                               
+                                    FSM_REAL_RECIPE_ITEM C ,                                                                                                                                                                                                                                                                              
+                                    FSA_HALL_DTL D ,                                                                                                                                                                                                                                                                                      
+                                    FSA_HALL_MST E ,                                                                                                                                                                                                                                                                                       
+                                    HLDC_PO_ITEM_MST F                                                                                                                                                                                                                                                                                    
+                              WHERE A.UPJANG = B.UPJANG                                                                                                                                                                                                                                                                                   
+                                AND A.MENU_CD = B.MENU_CD                                                                                                                                                                                                                                                                                 
+                                AND B.UPJANG = C.UPJANG                                                                                                                                                                                                                                                                                   
+                                AND B.MENU_CD = C.MENU_CD                                                                                                                                                                                                                                                                                 
+                                AND B.RECIPE_CD = C.RECIPE_CD                                                                                                                                                                                                                                                                             
+                                AND A.UPJANG = E.UPJANG                                                                                                                                                                                                                                                                                   
+                                AND A.HALL_CD = E.HALL_CD                                                                                                                                                                                                                                                                                 
+                                AND A.UPJANG = D.UPJANG                                                                                                                                                                                                                                                                                   
+                                AND A.HALL_CD = D.HALL_CD                                                                                                                                                                                                                                                                                 
+                                AND A.MEAL = D.MEAL                                                                                                                                                                                                                                                                                       
+                                AND A.CORNER = D.CORNER                                                                                                                                                                                                                                                                                   
+                                AND C.ITEM_CODE = F.ITEM_CODE                                                                                                                                                                                                                                                                                   
+                                AND A.MEAL IS NOT NULL                                                                                                                                                                                                                                                                                    
+                                AND A.CORNER IS NOT NULL                                                                                                                                                                                                                                                                                  
+                                AND A.UPJANG = #UPJANG#                                                                                                                                                                                                                                                                                
+                                AND A.HALL_CD     = #HALL_CD#                                                                                                                                                                                                                                                                          
+                                AND A.MENU_DATE  BETWEEN #START_DATE# AND #END_DATE#                
+                           
+                           ) A
+                     GROUP BY A.MENU_DATE, A.UPJANG, A.MENU_CD, A.RECIPE_CD
+                 ) B
+		     WHERE A.UPJANG    = B.UPJANG(+)
+               AND A.MENU_CD   = B.MENU_CD(+)
+               AND A.RECIPE_CD = B.RECIPE_CD(+)
+       ) B,
+       SCC_COMMON_CODE C,
+       SCC_COMMON_CODE D
+ WHERE A.UPJANG = B.UPJANG(+)
+   AND A.MENU_CD = B.MENU_CD(+)
+   AND A.MAJOR_DISH_INFO = B.MAJOR_DISH_INFO(+)
+   AND A.MEAL = C.CODE
+   AND A.CORNER = D.CODE
+   AND C.GROUP_CODE = 'FS0023'
+   AND D.GROUP_CODE = 'FS0022'
+ORDER BY A.MENU_DATE, A.MEAL, A.CORNER, A.MAJOR_DISH_INFO
+	</statement>
+	<input default-name="ds_in">
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="HALL_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="CORNER" size="20" type="VARCHAR" description="" /> 
+		<col name="START_DATE" size="10" type="VARCHAR" description="" /> 
+		<col name="END_DATE" size="8" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_FSH_REAL_MENU">
+		<col name="MENU_DATE" size="10" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="HALL_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="MEAL" size="20" type="VARCHAR" description="" /> 
+		<col name="MEAL_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="CORNER" size="20" type="VARCHAR" description="" /> 
+		<col name="CORNER_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="CORNER_DESC" size="50" type="VARCHAR" description="" /> 
+		<col name="MAJOR_DISH_INFO" size="50" type="VARCHAR" description="" /> 
+		<col name="MAJOR_DISH_INFO_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="RECIPE_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="RECIPE_NAME" size="50" type="VARCHAR" description="" /> 
+	</output>
+</query>

@@ -1,0 +1,212 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FSP00111P" onkeydown="frm_OnKeyDown" onload="form_onload" titletext="검수창고/부서 조회" position="absolute 0 0 475 416" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Grid autoenter="select" binddataset="ds_List" cellmovingtype="col" cellsizingtype="both" readonly="false" enable="true" id="grd_List" useinputpanel="false" oncelldblclick="grd_List_OnCellDblClick" onheadclick="grd_List_OnHeadClick" onkeydown="grd_List_OnKeyDown" taborder="7" tabstop="true" usecontextmenu="true" useselcolor="true" visible="true" wheelscrollrow="1" position="absolute 15 66 445 401" selecttype="row">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="100"/>
+                <Column size="297"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="text" text="코드"/>
+                <Cell col="1" displaytype="text" text="코드명"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" style="align:left;" text="bind:CODE"/>
+                <Cell col="1" displaytype="text" style="align:left;" text="bind:CODE_NAME"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="Static03" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 460 0 475 413"/>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 405"/>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 427 10"/>
+        <Static id="Static04" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 15 401 419 416"/>
+        <Static id="Static07" class="sta_WFSA_Labelbg" position="absolute 15 10 460 51" anchor="left top right"/>
+        <Static id="Static12" text="W10" visible="false" position="absolute 75 20 85 41" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static13" text="W30" visible="false" position="absolute 321 52 351 73" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static21" text="W10" visible="false" position="absolute 30 10 381 20" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static23" text="W10" visible="false" position="absolute 30 41 275 51" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static24" text="W15" visible="false" position="absolute 15 20 30 41" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static11" text="h15" visible="false" position="absolute 15 51 381 66" style="background:#ff000055;align:center middle;"/>
+        <Edit id="ed_Code" onkeydown="ed_Code_OnKeyDown" taborder="3" position="absolute 30 20 130 41"/>
+        <Edit id="ed_CodeName" imemode="native" onkeydown="ed_CodeName_OnKeyDown" taborder="4" position="absolute 131 20 339 41"/>
+        <Button id="btn_search" onclick="btn_search_OnClick" taborder="1" text="검색" position="absolute 341 20 392 42" class="btn_WF_Find" image="" style="align:left;"/>
+        <Button id="btn_close" onclick="btn_close_OnClick" taborder="2" text="닫기" position="absolute 393 20 444 42" class="btn_WF_Close" image="" style="align:left;"/>
+        <Static id="Static00" text="W15" visible="false" position="absolute 444 20 459 41" style="background:#ff000055;align:center middle;"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_Input">
+        <ColumnInfo>
+          <Column id="TYPE" size="256" type="STRING"/>
+          <Column id="CODE" size="256" type="STRING"/>
+          <Column id="CODE_NAME" size="256" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_List"/>
+    </Objects>
+    <Bind>
+      <BindItem id="ed_Code_value" compid="ed_Code" propid="value" datasetid="ds_Input" columnid="CODE"/>
+      <BindItem id="ed_CodeName_value" compid="ed_CodeName" propid="value" datasetid="ds_Input" columnid="CODE_NAME"/>
+    </Bind>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 구매관리 > 입고관리 > 입고예정현황조회
+ * 프로그램명   : FMP00111P.XML
+ * 기      능   : 검수창고/부서 조회
+ * 작  성  자   : 손 창 덕
+ * 작성  일자   : 2008-03-17
+ * 비      고   : 
+ *		- 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+
+// //@@컨버터에서 주석처리 #include "LIB::sc_comon.js";			// 시스템공통 함수
+// //@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js";
+// //@@컨버터에서 주석처리 #include "LIB::sc_sql_common.js";
+//@@컨버터에서 주석처리 #include "LIB::tit_comm_0001.js";		// X-Framework Lib
+// //@@컨버터에서 주석처리 #include "LIB::po_common.js";
+
+var fa_retcode;
+var fa_retname;
+
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	this.titletext = fa_Caption;
+	
+	// Grid 헤더 타이틀 변경 
+	grd_List.setCellProperty("head", 0, "text", fa_CodeDisp);
+	grd_List.setCellProperty("head", 1, "text", fa_NameDisp);
+	
+	ds_Input.addRow();
+	ds_Input.setColumn(0, "TYPE", fa_Type);
+	
+	ed_CodeName.setFocus();
+}
+/*------------------------------------------------------------
+	1. Function    : btn_search_OnClick(obj)
+	2. Description : 검색버튼 클릭 이벤트
+	3. Arguments   : 
+	4. History     : 2008. 03. 17 - 최초작성
+*------------------------------------------------------------*/
+function btn_search_OnClick(obj:Button, e:ClickEventInfo)
+{
+	fn_search();
+}
+/*------------------------------------------------------------
+	1. Function    : fn_Search()
+	2. Description : 조회
+	3. Arguments   : 
+	4. History     : 2008. 03. 17 - 최초작성
+*------------------------------------------------------------*/
+function fn_search()
+{
+	ds_List.clearData();
+	ds_Input.setColumn(0, "CODE",      gfn_nvl(ed_Code.value,""));
+	ds_Input.setColumn(0, "CODE_NAME", gfn_nvl(ed_CodeName.value,""));
+	jsp_transaction(this, "FSP00111P_S001", "U_svc::" + "fs/fsp/FSP00111P_S001.jsp", "ds_Input=ds_Input", "ds_List=ds_List", "", "fn_CallBackSearch", true, true, false);
+}
+/*------------------------------------------------------------
+	1. Function    : fn_CallBackSearch(errCode, errMsg)
+	2. Description : fn_Search() CallBack Function
+	3. Arguments   : 
+	4. History     : 2008. 03. 17 - 최초작성
+*------------------------------------------------------------*/
+function fn_CallBackSearch(errCode, errMsg)
+{	
+	if( errCode != 0 ) {
+		return;
+	} else {
+		grd_List.setFocus();
+	}
+}
+/*------------------------------------------------------------
+	1. Function    : btn_close_OnClick(obj)
+	2. Description : 닫기
+	3. Arguments   : 
+	4. History     : 2008. 03. 17 - 최초작성
+*------------------------------------------------------------*/
+function btn_close_OnClick(obj:Button, e:ClickEventInfo)
+{
+	this.close();
+}
+/*------------------------------------------------------------
+	1. Function    : 
+	2. Description : 검색조건 입력 후 엔터키 이벤트
+	3. Arguments   : 
+	4. History     : 2008. 03. 17 - 최초작성
+*------------------------------------------------------------*/
+function ed_Code_OnKeyDown(obj:Edit, e:KeyEventInfo)
+{
+	if( e.keycode == 13 ) fn_search();
+}
+function ed_CodeName_OnKeyDown(obj:Edit, e:KeyEventInfo)
+{
+	if( e.keycode == 13 ) fn_search();
+}
+/*------------------------------------------------------------
+	1. Function    : frm_OnKeyDown(obj,objSenderObj,nChar,bShift,bControl,bAlt,nLLParam,nHLParam)
+	2. Description : ESC 키 입력 이벤트
+	3. Arguments   : 
+	4. History     : 2008. 03. 17 - 최초작성
+*------------------------------------------------------------*/
+function frm_OnKeyDown(obj:Form, e:KeyEventInfo)
+{
+	if( e.keycode == 27 ) {
+		gds_sql_common.setColumn(0, "ret_code", "");
+		gds_sql_common.setColumn(0, "ret_name", "");
+		this.close();
+	}
+}
+/*------------------------------------------------------------
+	1. Function    : grd_List_OnHeadClick(obj,nCell,nX,nY,nPivotIndex)
+	2. Description : Grid Header Sort
+	3. Arguments   : 
+	4. History     : 2008. 03. 17 - 최초작성
+*------------------------------------------------------------*/
+function grd_List_OnHeadClick(obj:Grid, e:GridClickEventInfo)
+{
+	gfn_gridSort(obj, e); //(eval(obj.binddataset), obj, e.cell);
+}
+/*------------------------------------------------------------
+	1. Function    : grd_List_OnCellDblClick(obj,nRow,nCell,nX,nY,nPivotIndex)
+	2. Description : Grid Cell Double Click Event
+	3. Arguments   : 
+	4. History     : 2008. 03. 17 - 최초작성
+*------------------------------------------------------------*/
+function grd_List_OnCellDblClick(obj:Grid, e:GridClickEventInfo)
+{
+	gds_sql_common.setColumn(0, "ret_code", ds_List.getColumn(e.row, "CODE")     );
+	gds_sql_common.setColumn(0, "ret_name", ds_List.getColumn(e.row, "CODE_NAME"));
+	
+	this.close();
+}
+/*------------------------------------------------------------
+	1. Function    : grd_List_OnKeyDown(obj,nChar,bShift,bCtrl,bAlt,nLLParam,nHLParam)
+	2. Description : Grid KeyDown Event
+	3. Arguments   : 
+	4. History     : 2008. 03. 17 - 최초작성
+*------------------------------------------------------------*/
+function grd_List_OnKeyDown(obj:Grid, e:KeyEventInfo)
+{
+	if( e.keycode == 13 ) {		
+		grd_List_OnCellDblClick(grd_List, ds_List.rowposition, 0, -1, -1, 0);
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

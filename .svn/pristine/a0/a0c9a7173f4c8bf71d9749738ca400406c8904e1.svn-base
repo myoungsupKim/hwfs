@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT 
+       A.DUTY_SEQ,
+       A.CDATE,
+       A.CENTER_CODE,
+       E.CENTER_NAME,
+       A.CUSTCD,
+       D.CUSTNM,
+       C.ITEM_CODE,
+       C.ITEM_NAME,
+       C.ITEM_SIZE,
+       C.PO_UOM,
+       C.KG_CONVERT_RATE,
+       TO_CHAR(TO_DATE(A.START_DATE,'YYYYMMDD'),'YYYY.MM.DD') || '~' || TO_CHAR(TO_DATE(A.END_DATE,'YYYYMMDD'),'YYYY.MM.DD') AS PERIOD,
+       A.START_DATE,
+       A.END_DATE,
+       A.TOT_DUTY_QTY,
+       NVL(SUM(DUTY_QTY),0) DUTY_QTY,
+       (CASE WHEN TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN A.START_DATE AND A.END_DATE THEN '1'
+             ELSE '0' END) ACTIVE_YN,
+       A.REASON,
+       A.CUSER,
+       A.UUSER
+  FROM FSI_DUTY_MST A ,
+       FSI_DUTY_SET B ,
+       HLDC_PO_ITEM_MST C,
+       HLDC_ST_CUST D,
+       HLDC_PO_CENTER E
+ WHERE A.DUTY_SEQ    = B.DUTY_SEQ(+)
+   AND A.ITEM_CODE   = C.ITEM_CODE
+   AND A.CUSTCD      = D.CUSTCD
+   AND A.CENTER_CODE = E.CENTER_CODE
+   AND ( (A.START_DATE BETWEEN #START_DATE# AND #END_DATE#)
+          OR (A.END_DATE BETWEEN #START_DATE# AND #END_DATE#)
+          OR (A.START_DATE &lt;= #START_DATE# AND A.END_DATE &gt;= #END_DATE#)
+          OR (A.START_DATE &gt;= #START_DATE#)
+           )
+<isNotNull col="ITEM_NAME">
+   AND C.ITEM_NAME  LIKE '%' || #ITEM_NAME# || '%'
+</isNotNull>
+ GROUP BY 
+       A.DUTY_SEQ,
+       A.CDATE,
+       A.CENTER_CODE,
+       E.CENTER_NAME,
+       A.CUSTCD,
+       D.CUSTNM,
+       C.ITEM_CODE,
+       C.ITEM_NAME,
+       C.ITEM_SIZE,
+       C.PO_UOM,
+       C. KG_CONVERT_RATE,
+       A.START_DATE,
+       A.END_DATE,
+       A.TOT_DUTY_QTY,
+       A.REASON,
+       A.CUSER,
+       A.UUSER	</statement>
+	<input default-name="ds_in">
+		<col name="START_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="END_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAME" size="256" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_out">
+		<col name="DUTY_SEQ" size="22" type="NUMERIC" description="" /> 
+		<col name="CDATE" size="7" type="DATE" description="" /> 
+		<col name="CENTER_CODE" size="22" type="NUMERIC" description="" /> 
+		<col name="CENTER_NAME" size="200" type="VARCHAR" description="" /> 
+		<col name="CUSTCD" size="22" type="NUMERIC" description="" /> 
+		<col name="CUSTNM" size="50" type="VARCHAR" description="" /> 
+		<col name="ITEM_CODE" size="12" type="VARCHAR" description="" /> 
+		<col name="ITEM_NAME" size="200" type="VARCHAR" description="" /> 
+		<col name="ITEM_SIZE" size="100" type="VARCHAR" description="" /> 
+		<col name="PO_UOM" size="10" type="VARCHAR" description="" /> 
+		<col name="PERIOD" size="21" type="VARCHAR" description="" /> 
+		<col name="START_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="END_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="TOT_DUTY_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="DUTY_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="ACTIVE_YN" size="1" type="CHAR" description="" /> 
+		<col name="CUSER" size="9" type="VARCHAR" description="" /> 
+		<col name="UUSER" size="9" type="VARCHAR" description="" /> 
+		<col name="REASON" size="200" type="VARCHAR" description="" /> 
+		<col name="KG_CONVERT_RATE" size="255" type="NUMERIC" description="" /> 
+	</output>
+</query>

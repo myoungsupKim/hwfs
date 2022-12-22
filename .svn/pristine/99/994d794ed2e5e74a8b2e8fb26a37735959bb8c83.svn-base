@@ -1,0 +1,331 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="ma.mas.ticketTradeDAO">
+	<desc>식권교환 HQML Query</desc>
+
+	<!-- 식권교환 목록을 조회한다. -->
+	<statement name="ticketQty" type="select"><![CDATA[
+ 			SELECT  QTY - V.OO_QTY AS I_QTY      --( 총수량 - 판매수량  = 판매 가능 수량)
+		  FROM (
+		        SELECT V.UPJANG,
+		               V.ITEM_TYPE,
+		               V.ITEM_CODE,
+		               V.TAX_SHET_PUBLISH_YN,
+		               V.UPRICE,
+                       NVL(X.QTY, 0) AS QTY,
+                       NVL(Y.OO_QTY, 0) AS OO_QTY,
+                       NVL(Z.ALT_QTY, 0) AS ALT_QTY,
+                       NVL(XX.XC_QTY, 0) AS XC_QTY,
+                       NVL(XX.XL_QTY, 0) AS XL_QTY,
+                       NVL(XX.WR_QTY, 0) AS WR_QTY,                          
+                       Y.TICKET_ENDNUM AS TICKET_ENDNUM,
+                       X.TICKET_SEQ
+		          FROM MAS_TICKET_STD V
+                  , (SELECT A.ITEM_CODE, NVL(SUM(QTY), 0) AS QTY  , MAX(A.TICKET_SEQ) TICKET_SEQ 
+		                    FROM MAS_TICKET_MST A,
+		                         MAS_TICKET_CODE B
+		                WHERE A.TRANS_TYPE  = B.TRANS_TYPE
+		                AND   A.TRANS_GUBUN = B.TRANS_GUBUN
+		                AND   A.UPJANG      = :UPJANG
+		                AND   B.SET1        = 'I'
+		                AND   A.SUBUL_YN    = 'Y'
+                     GROUP BY A.ITEM_CODE) X
+                  , (SELECT A.ITEM_CODE, NVL(SUM(QTY), 0) AS OO_QTY , MAX(A.TICKET_ENDNUM) AS TICKET_ENDNUM
+		                    FROM MAS_TICKET_MST A,
+		                         MAS_TICKET_CODE B
+		                WHERE A.TRANS_TYPE  = B.TRANS_TYPE
+		                AND   A.TRANS_GUBUN = B.TRANS_GUBUN
+		                AND   A.UPJANG      = :UPJANG
+		                AND   B.TRANS_GUBUN = 'OO'
+		                AND   A.SUBUL_YN    = 'Y'
+                     GROUP BY A.ITEM_CODE) Y 
+                  , (SELECT A.ITEM_CODE, NVL(SUM(QTY), 0) AS ALT_QTY
+		                    FROM MAS_TICKET_MST A,
+		                         MAS_TICKET_CODE B
+		                WHERE A.TRANS_TYPE  = B.TRANS_TYPE
+		                AND   A.TRANS_GUBUN = B.TRANS_GUBUN
+		                AND   A.UPJANG      = :UPJANG
+		                AND   B.TRANS_GUBUN = 'WW'  
+		                AND   A.SUBUL_YN    = 'Y'
+                     GROUP BY A.ITEM_CODE ) Z     
+                 , (SELECT A.ITEM_CODE,
+                           NVL(SUM(DECODE(B.TRANS_GUBUN,'XC',QTY,0)), 0) AS XC_QTY, -- 교환
+                           NVL(SUM(DECODE(B.TRANS_GUBUN,'XL',QTY,0)), 0) AS XL_QTY, -- 로스
+                           NVL(SUM(DECODE(B.TRANS_GUBUN,'WR',QTY,0)), 0) AS WR_QTY --환불
+		                    FROM MAS_TICKET_MST A,
+		                         MAS_TICKET_CODE B
+		                WHERE A.TRANS_TYPE  = B.TRANS_TYPE
+		                AND   A.TRANS_GUBUN = B.TRANS_GUBUN
+		                AND   A.UPJANG      = :UPJANG
+		                AND   B.TRANS_GUBUN IN ('XC','XL','WR')  
+		                AND   A.SUBUL_YN    = 'Y'
+                     GROUP BY A.ITEM_CODE ) XX                        
+		        WHERE V.UPJANG      = :UPJANG
+					 AND  V.ITEM_TYPE   = '001' 
+ 			         AND  V.USE_YN      = 'Y'
+ 			         AND  V.ITEM_CODE IS NOT NULL
+                AND  V.ITEM_CODE = X.ITEM_CODE (+)
+                AND  V.ITEM_CODE = Y.ITEM_CODE (+)
+                AND  V.ITEM_CODE = Z.ITEM_CODE (+)
+                AND  V.ITEM_CODE = XX.ITEM_CODE (+)
+		       ) V
+		   WHERE  V.OO_QTY <> 0  		
+		   --식권 수량 체크는 교환되어지는 식권으로 변경  20160321 맹수영
+		   --AND V.ITEM_CODE = :E_ITEM_CODE
+		    AND V.ITEM_CODE = :S_ITEM_CODE
+		ORDER BY V.UPJANG, V.ITEM_TYPE, V.ITEM_CODE
+		]]></statement>
+
+	<!-- 식권 그룹 순번을 조회한다. -->
+	<statement name="masTicketMstS" type="select">
+		/*+ com.hwfs.ma.mas.dao.TicketTradeDAO.masTicketMstS */
+		<![CDATA[
+			SELECT MAS_TICKET_MST_GROUP_S.NEXTVAL FROM DUAL
+		]]>
+	</statement>
+
+	<!-- 식권교환 순번을 조회한다. -->
+	<statement name="ticketSeq" type="select">
+		/*+ com.hwfs.ma.mas.dao.TicketTradeDAO.ticketSeq */
+		<![CDATA[
+			SELECT TICKET_STARTNUM , TICKET_ENDNUM , :E_TICKET_ENDNUM , TICKET_ENDNUM - :E_TICKET_ENDNUM AS IN_QTY,TICKET_SEQ FROM MAS_TICKET_MST
+			WHERE ITEM_CODE = :E_ITEM_CODE
+			AND TRANS_GUBUN = 'II'
+			AND (:E_TICKET_ENDNUM BETWEEN TICKET_STARTNUM AND TICKET_ENDNUM OR :E_TICKET_ENDNUM < TICKET_ENDNUM)
+			AND UPJANG = :UPJANG
+			AND (TICKET_ENDNUM - :E_TICKET_ENDNUM) <> 0
+			GROUP BY TICKET_SEQ , TICKET_STARTNUM , TICKET_ENDNUM
+			ORDER BY TICKET_SEQ
+		]]>
+	</statement>
+
+	<!-- 식권교환(을)를 등록한다. -->
+	<statement name="insertS" type="insert">
+		/*+ com.hwfs.ma.mas.dao.TicketTradeDAO.insertS */
+		<![CDATA[
+		INSERT 
+		    INTO MAS_TICKET_MST 
+		         ( 
+		             TICKET_SEQ
+		           ,TICKET_GROUP_SEQ
+		           ,UPJANG
+		           ,ITEM_TYPE
+		           ,ITEM_CODE
+		           ,TRANS_DD
+		           ,TRANS_TYPE
+		           ,TRANS_GUBUN
+		           ,UPRICE
+		           ,QTY
+		           ,REMARK_DESC
+		           ,AUTO_GUBUN
+		           ,TEAM_MST_CONGUBN
+		           ,APPROV_CONGUBN
+		           ,CUSER
+		           ,CDATE
+		           ,UUSER
+		           ,UDATE
+		           ,SUBUL_YN
+		           ,CONGUBN
+		           ,RECEIPT_NUM
+		         )
+		        VALUES (  
+		          MAS_TICKET_MST_S.NEXTVAL
+		       , :TICKET_GROUP
+		       , :UPJANG
+		       , :S_ITEM_TYPE
+		       , :S_ITEM_CODE
+		       , :TRANS_DD
+		       , 'X'
+		       , 'XC'
+		       , :S_UPRICE
+		       , :S_QTY
+		       , '교환폐기'
+		       , 'N'
+		       , 'N'
+		       , 'N'
+		       , :loginSabun
+		       , SYSDATE
+		       , :loginSabun
+		       , SYSDATE
+		       , 'Y'
+		       , 'Y'
+		       , (SELECT 'E' || '-' || :SYSCLASS || '-' || :TRANS_DD || '-' || :UPJANG || '-' || 
+					       LPAD(NVL(TO_NUMBER(MAX(SUBSTR(A.RECEIPT_NUM, INSTR(A.RECEIPT_NUM,'-',1,4)+1,4))), 0)+1, '4', 0)
+					  FROM MAS_TICKET_MST A
+					 WHERE 1=1
+					   AND A.TRANS_DD = :TRANS_DD
+					   AND A.UPJANG = :UPJANG)
+		       )
+		       
+		]]>
+	</statement>
+
+	<!-- 식권교환(을)를 등록한다. -->
+	<statement name="insertE" type="insert">
+		/*+ com.hwfs.ma.mas.dao.TicketTradeDAO.insertE */
+		<![CDATA[
+		INSERT 
+		    INTO MAS_TICKET_MST 
+		         ( 
+		             TICKET_SEQ
+		           ,TICKET_GROUP_SEQ
+		           ,UPJANG
+		           ,ITEM_TYPE
+		           ,ITEM_CODE
+		           ,TRANS_DD
+		           ,TRANS_TYPE
+		           ,TRANS_GUBUN
+		           ,UPRICE
+		           ,QTY
+		           ,TICKET_STARTNUM
+                   ,TICKET_ENDNUM
+		           ,REMARK_DESC
+		           ,AUTO_GUBUN
+		           ,SOURCE_ID
+		           ,TEAM_MST_CONGUBN
+		           ,APPROV_CONGUBN
+		           ,CUSER
+		           ,CDATE
+		           ,UUSER
+		           ,UDATE
+		           ,SUBUL_YN
+		           ,CONGUBN
+		           ,RECEIPT_NUM
+		         )
+		        VALUES (  
+		          MAS_TICKET_MST_S.NEXTVAL
+		       , :TICKET_GROUP
+		       , :UPJANG
+		       , :E_ITEM_TYPE
+		       , :E_ITEM_CODE
+		       , :TRANS_DD
+		       , 'O'
+		       , 'OO'
+		       , :E_UPRICE
+		       , :ticketQty
+		       , (:E_TICKET_ENDNUM +1)
+               , ((TO_NUMBER(:E_TICKET_ENDNUM)+1) + TO_NUMBER(:ticketQty)) -1		       
+		       , '교환'
+		       , 'N'
+		       , :SOURCE_ID
+		       , 'N'
+		       , 'N'
+		       , :loginSabun
+		       , SYSDATE
+		       , :loginSabun
+		       , SYSDATE
+		       , 'Y'
+		       , 'Y'
+		       , (SELECT 'E' || '-' || :SYSCLASS || '-' || :TRANS_DD || '-' || :UPJANG || '-' || 
+					       LPAD(NVL(TO_NUMBER(MAX(SUBSTR(A.RECEIPT_NUM, INSTR(A.RECEIPT_NUM,'-',1,4)+1,4))), 0)+1, '4', 0)
+					  FROM MAS_TICKET_MST A
+					 WHERE 1=1
+					   AND A.TRANS_DD = :TRANS_DD
+					   AND A.UPJANG = :UPJANG)
+		       )
+		       
+		]]>
+	</statement>
+
+	<!-- 식권교환(을)를 HIS 등록한다. -->
+	<statement name="insertHis" type="insert">
+		/*+ com.hwfs.ma.mas.dao.TicketTradeDAO.insertHis */
+		<![CDATA[
+		INSERT 
+		  INTO MAS_TICKET_CHG
+		       ( 
+		           UPJANG
+		         ,CHG_DD
+		         ,SEQ
+		         ,ITEM_CODE_FR
+		         ,UPRICE_FR
+		         ,QTY_FR
+		         ,ITEM_CODE_TO
+		         ,UPRICE_TO
+		         ,QTY_TO
+		         ,AMT
+		         ,DIFF_AMT
+		         ,REMARK
+		         ,TICKET_GROUP
+		         ,CUSER
+		         ,CDATE
+		         ,UUSER
+		         ,UDATE 
+		       ) 
+		       VALUES
+		       ( :UPJANG
+		         , :TRANS_DD
+		         , MAS_TICKET_CHG_S.NEXTVAL
+		         , :S_ITEM_CODE
+		         , :S_UPRICE
+		         , :S_QTY
+		         , :E_ITEM_CODE
+		         , :E_UPRICE
+		         , :E_QTY
+		         , (:E_UPRICE * :E_QTY)
+		         , (:E_UPRICE * :E_QTY) - (:S_UPRICE * :S_QTY)
+		         , :REMARK
+		         , :TICKET_GROUP
+		         , :loginSabun
+		         , SYSDATE
+		         , :loginSabun
+		         , SYSDATE
+		       )  
+		]]>
+	</statement>
+
+	<!-- 식권교환(을)를 삭제한다. -->
+	<statement name="deleteChg" type="update">
+		/*+ com.hwfs.ma.mas.dao.TicketTradeDAO.deleteChg */
+		<![CDATA[
+		 UPDATE MAS_TICKET_CHG
+		 SET STATUS = 'D'
+		 WHERE UPJANG = :UPJANG
+		 AND CHG_DD = :TRANS_DD
+		 AND SEQ  = :SEQ
+		]]>
+	</statement>
+
+	<!-- 식권교환(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.ma.mas.dao.TicketTradeDAO.delete */
+		<![CDATA[
+		 DELETE MAS_TICKET_MST
+		 WHERE TICKET_GROUP_SEQ = :TICKET_GROUP
+		]]>
+	</statement>
+
+	<!-- 식권교환(을)를 교환 이후 등록된 식권을 확인한다. -->
+	<statement name="delYn" type="select">
+		/*+ com.hwfs.ma.mas.dao.TicketTradeDAO.delYn */
+		<![CDATA[
+		SELECT CASE WHEN A = NULL OR B = NULL THEN 'N'
+		           WHEN B > A THEN 'Y'
+		           ELSE 'N' END AS DEL_YN 
+		  FROM(SELECT (SELECT MAX(TICKET_ENDNUM) FROM MAS_TICKET_MST WHERE TICKET_GROUP_SEQ = TICKET_GROUP AND TRANS_GUBUN = 'OO' AND ITEM_CODE = V.ITEM_CODE_TO AND UPJANG = V.UPJANG AND ITEM_TYPE = '001') AS A  
+				     ,(SELECT MAX(TICKET_ENDNUM) FROM MAS_TICKET_MST WHERE ITEM_CODE = V.ITEM_CODE_TO AND TRANS_GUBUN = 'OO' AND UPJANG = V.UPJANG AND ITEM_TYPE = '001') AS B
+				  FROM MAS_TICKET_CHG V
+				  WHERE 1=1
+		          AND UPJANG = :UPJANG
+		          AND SEQ = :SEQ
+		          AND CHG_DD = :TRANS_DD
+		          AND STATUS = 'L' 
+		)
+		]]>
+	</statement>
+
+	<!-- 식권교환(을)를 선수금 등록 여부를 확인한다. -->
+	<statement name="selectReceiptNum" type="select">
+		/*+ com.hwfs.ma.mas.dao.TicketTradeDAO.selectReceiptNum */
+		<![CDATA[
+		SELECT RECEIPT_NUM  FROM MAS_TICKET_CHG V
+				  WHERE 1=1
+		          AND UPJANG = :UPJANG
+		          AND SEQ = :SEQ
+		          AND CHG_DD = :TRANS_DD
+		          AND STATUS = 'L' 
+		]]>
+	</statement>
+
+
+</hqml>

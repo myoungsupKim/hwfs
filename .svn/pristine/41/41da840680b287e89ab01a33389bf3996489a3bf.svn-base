@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.scc.noPermissionUserMgmtDAO">
+	<desc>무단사용자 관리 HQML Query</desc>
+
+	<!-- 무단사용자 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sc.scc.dao.NoPermissionUserMgmtDAO.selectList */
+		<![CDATA[
+		SELECT O.SABUN,
+		       SCC_CRYPTO.MASK_FUN ((SELECT NM_KOR FROM SCC_USERINFO WHERE SABUN = O.SABUN),12,:loginPersMask) AS USER_NM,
+		       A.USER_TYPE,
+		       Y.CC_NM AS USER_CC_NM,
+		       SCC_CRYPTO.MASK_FUN (O.CONN_IP,14,:loginPersMask) AS CONN_IP,
+		       DECODE(O.ITCT_YN, 'Y', 1, 0) AS ITCT_YN,
+		       TO_CHAR (O.ITCT_DDTT, 'yyyy-mm-dd HH24:MI:SS') AS ITCT_DDTT,
+		       TO_CHAR (O.TERMIN_DDTT, 'yyyy-mm-dd HH24:MI:SS') AS TERMIN_DDTT,
+		       O.ITCT_REASON,
+		       O.TERMIN_REASON,
+		       CASE WHEN O.CUSER IS NULL THEN ''
+               		ELSE SCC_CRYPTO.MASK_FUN ((SELECT NM_KOR FROM SCC_USERINFO WHERE SABUN = O.CUSER),12,:loginPersMask)
+			   END  AS CUSER,
+		       TO_CHAR(O.CDATE, 'yyyy-mm-dd HH24:MI:SS') AS CDATE,
+		       CASE WHEN O.UUSER IS NULL THEN ''
+               		ELSE SCC_CRYPTO.MASK_FUN ((SELECT NM_KOR FROM SCC_USERINFO WHERE SABUN = O.UUSER),12,:loginPersMask)
+			   END  AS UUSER,		       
+		       TO_CHAR(O.UDATE, 'yyyy-mm-dd HH24:MI:SS') AS UDATE
+		FROM   SCC_NO_PRMI_USER O,
+		       SCC_USERINFO A,
+		       ST_UPJANG X,
+	   		   HLDC_SC_DEPT_V Y
+		WHERE  1=1
+		<#if sabun?has_content>
+		AND    O.SABUN = :sabun
+		</#if>
+		<#if itctYn?has_content && itctYn == '1'>
+		AND    O.ITCT_YN = 'Y'
+		<#elseif itctYn?has_content && itctYn == '0'>
+		AND    O.ITCT_YN = 'N'
+		</#if>
+		AND    O.SABUN = A.SABUN
+		AND    X.UPJANG = A.UPJANG
+		AND    Y.CC_CD  = X.CC_CD
+		<#if userType?has_content>
+		AND    A.USER_TYPE = :userType
+		</#if>
+		ORDER BY USER_NM ASC
+		]]>
+	</statement>
+
+	<!-- 무단사용자(을)를 접속차단/해지하기 위해 등록한다. (insert or update 처리) -->
+	<statement name="saveNoPermissionUser" type="update">
+		/*+ com.hwfs.sc.scc.dao.NoPermissionUserMgmtDAO.saveNoPermissionUser */
+		<![CDATA[
+		MERGE INTO SCC_NO_PRMI_USER
+        USING DUAL
+        ON   (SABUN = :sabun
+        AND   CONN_IP  = :connIp)
+        WHEN  MATCHED THEN
+              UPDATE
+              SET
+					ITCT_YN = DECODE(:itctYn, '1', 'Y', 'N'),
+				<#if itctYn == '1'> 
+				    ITCT_DDTT = SYSDATE,
+				    TERMIN_DDTT = NULL,
+				<#else>
+				    TERMIN_DDTT = SYSDATE,
+				</#if>
+				<#if itctReason?exists> ITCT_REASON = :itctReason, </#if>
+				<#if terminReason?exists> TERMIN_REASON = :terminReason, </#if>
+					UUSER = :loginSabun,
+					UDATE = SYSDATE
+        WHEN NOT MATCHED THEN
+              INSERT (
+		  			SABUN,
+					CONN_IP,
+					ITCT_YN,
+					ITCT_DDTT,
+					TERMIN_DDTT,
+					ITCT_REASON,
+					TERMIN_REASON,
+					CUSER,
+					CDATE
+              )
+              VALUES (
+					:sabun,
+					:connIp,
+					DECODE(:itctYn, '1', 'Y', 'N'),
+				<#if itctYn == '1'> 
+				    SYSDATE,
+				    NULL,
+				<#else>
+				    SYSDATE,
+				    SYSDATE,
+				</#if>
+				<#if itctReason?exists> :itctReason, <#else> null, </#if>
+				<#if terminReason?exists> :terminReason, <#else> null, </#if>
+					:loginSabun,
+					SYSDATE
+              )
+		]]>
+	</statement>
+	
+	<!-- 무단사용자(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.sc.scc.dao.NoPermissionUserMgmtDAO.delete */
+		<![CDATA[
+		DELETE
+		FROM   SCC_NO_PRMI_USER
+		WHERE  SABUN = :sabun
+		AND    CONN_IP = :connIp
+		]]>
+	</statement>
+
+</hqml>

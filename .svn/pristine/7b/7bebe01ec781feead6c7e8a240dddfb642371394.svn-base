@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[구매신청/승인번호(최초생성) - 박은규]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT NVL((SELECT PR_NUM
+              FROM (SELECT PR_NUM FROM HLDC_PO_PR WHERE NEED_DATE = #NEED_DATE# AND SUBINV_CODE = #SUBINV_CODE# AND ROWNUM <= 1
+                     UNION ALL
+                    SELECT PR_NUM FROM FMP_OTCUST_PR WHERE NEED_DATE = #NEED_DATE# AND SUBINV_CODE = #SUBINV_CODE# AND ROWNUM <= 1)
+             WHERE ROWNUM <= 1)
+          ,TO_CHAR(SYSDATE,'YYYYMMDD')||'-'||LPAD(HLDC_PO_PR_NUM_S.NEXTVAL,5,'0')) AS PRNUM
+     , NVL((SELECT APPROVE_NUM FROM HLDC_PO_PR WHERE NEED_DATE = #NEED_DATE# AND SUBINV_CODE = #SUBINV_CODE# AND ROWNUM <= 1)
+          , '자동'||TO_CHAR(SYSDATE,'YYYYMMDD')||'-'||LPAD(HLDC_PO_PR_APV_NUM_S.NEXTVAL,4,'0')) AS PRAPPRNUM
+  FROM DUAL	]]></statement>
+	<input default-name="ds_Cond">
+	</input>
+	<output default-name="ds_PrNum">
+	</output>
+</query>

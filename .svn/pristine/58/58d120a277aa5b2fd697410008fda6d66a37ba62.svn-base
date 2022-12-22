@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="ma.mag.localPurchaseDAO">
+	<desc>현지구매내역HQML Query</desc>
+
+	<!-- 정산유형코드 조회 -->
+	<statement name="selectDltCdList" type="select">
+		/*+ com.hwfs.ma.mag.dao.LocalPurchaseDAO.selectDltCdList */
+		<![CDATA[
+			SELECT :grpCd AS GRP_CD, '' AS DTL_CD, '전체' AS DTL_CD_NM
+					FROM DUAL
+			UNION ALL
+			SELECT GRP_CD, DTL_CD, DTL_CD_NM
+				    FROM   EPROCUSR.ESACDDL
+				    WHERE  1 = 1
+				        AND    SYS_ID  = '100'
+				        AND    LANG_CD = 'ko_KR'
+				        AND    STS     = 'U'
+				        AND    GRP_CD  = :grpCd
+		]]>
+	</statement>
+	
+	
+	<!-- 현지구매내역조회 -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.ma.mag.dao.LocalPurchaseDAO.selectList */
+		<![CDATA[
+			   SELECT SALP.CUST_GR_DATE -- 일자
+				     , POHD.PO_DTL_CD -- 발주유형코드
+				     , CD.DTL_CD_NM -- 발주유형명
+				     , SALP.CC_CD -- 관리부서코드
+				     , UP.CC_NM -- 관리부서명
+				     , (SELECT Z.UPJANG FROM FCUS.FMS_UPJANG Z, FCUS.FMS_UPJANG Y WHERE Z.UPJANG = Y.MAIN_UPJANG AND Y.UPJANG = SALP.SHOP_CD AND ROWNUM <= 1) AS MAIN_UPJANG --본사
+				     , (SELECT Z.UPJANGNM_DISP FROM FCUS.FMS_UPJANG Z, FCUS.FMS_UPJANG Y WHERE Z.UPJANG = Y.MAIN_UPJANG AND Y.UPJANG = SALP.SHOP_CD AND ROWNUM <= 1) AS UPJANGNM_DISP --본사명
+				     , SALP.SHOP_CD -- 업장코드
+				     , UP.UPJANGNM -- 업장명
+				     , SALP.CUST_WH_CD -- 창고코드
+				     , WH.WH_NM -- 창고명
+				     , PODT.VD_SN -- 업체코드
+				     , VDGL.VD_NM_LOC -- 업체명
+				     , DECODE(PODT.DUTY_FREE_YN, '1', '과세', '면세') AS DUTY_FREE_YN-- 과/면
+				     , MGDT.ITEM_CD -- 품목코드
+				     , MTGL.ITEM_NM -- 품목명
+				     , MTGL.SPEC -- 규격
+             		 , MGDT.UNIT_CD -- 단위
+				     , CASE
+				         WHEN MOD(TO_NUMBER(MGDT.MOVEMENT_TYP),2)=1 THEN DECODE(MGDT.GR_QTY,NULL,MGDT.GI_PURC_QTY,MGDT.GR_PURC_QTY)
+				         WHEN MOD(TO_NUMBER(MGDT.MOVEMENT_TYP),2)=0 THEN DECODE(MGDT.GR_QTY,NULL,MGDT.GI_PURC_QTY*-1,MGDT.GR_PURC_QTY*-1)
+				       END AS GR_PURC_QTY -- 수량
+				     , DECODE(MGDT.GR_QTY,NULL,MGDT.GI_BUY_AMT,MGDT.GR_BUY_PRICE) AS GR_BUY_PRICE -- 매입단가
+				     , CASE
+				         WHEN MOD(TO_NUMBER(MGDT.MOVEMENT_TYP),2)=1 THEN DECODE(MGDT.GR_QTY,NULL,MGDT.GI_BUY_AMT,MGDT.GR_BUY_AMT)
+				         WHEN MOD(TO_NUMBER(MGDT.MOVEMENT_TYP),2)=0 THEN DECODE(MGDT.GR_QTY,NULL,MGDT.GI_BUY_AMT*-1,MGDT.GR_BUY_AMT*-1)
+				       END AS GR_BUY_AMT -- 매입금액
+				     , ROUND(DECODE(PODT.DUTY_FREE_YN,'1', CASE
+				                                             WHEN MOD(TO_NUMBER(MGDT.MOVEMENT_TYP),2)=1 THEN DECODE(MGDT.GR_QTY,NULL,MGDT.GI_BUY_AMT,MGDT.GR_BUY_AMT)
+				                                             WHEN MOD(TO_NUMBER(MGDT.MOVEMENT_TYP),2)=0 THEN DECODE(MGDT.GR_QTY,NULL,MGDT.GI_BUY_AMT*-1,MGDT.GR_BUY_AMT*-1)
+				                                           END * 0.1
+				                                     , 0)) AS GR_BUY_AMT_VAT -- 매입부가세
+				     , CASE
+				         WHEN MOD(TO_NUMBER(MGDT.MOVEMENT_TYP),2)=1 THEN DECODE(MGDT.GR_QTY,NULL,MGDT.GI_BUY_AMT,MGDT.GR_BUY_AMT)
+				         WHEN MOD(TO_NUMBER(MGDT.MOVEMENT_TYP),2)=0 THEN DECODE(MGDT.GR_QTY,NULL,MGDT.GI_BUY_AMT*-1,MGDT.GR_BUY_AMT*-1)
+				       END +
+				       ROUND(DECODE(PODT.DUTY_FREE_YN,'1', CASE
+				                                             WHEN MOD(TO_NUMBER(MGDT.MOVEMENT_TYP),2)=1 THEN DECODE(MGDT.GR_QTY,NULL,MGDT.GI_BUY_AMT,MGDT.GR_BUY_AMT)
+				                                             WHEN MOD(TO_NUMBER(MGDT.MOVEMENT_TYP),2)=0 THEN DECODE(MGDT.GR_QTY,NULL,MGDT.GI_BUY_AMT*-1,MGDT.GR_BUY_AMT*-1)
+				                                           END * 0.1
+				                                     , 0)) AS GR_BUY_AMT_TOT -- 매입합계
+				     , NVL(SALP.SAL_PRICE,0) AS SAL_PRICE -- 매출단가
+				     , CASE
+				         WHEN MOD(TO_NUMBER(MGDT.MOVEMENT_TYP),2)=0 THEN NVL(SALP.SAL_PRICE_AMT,0)*-1
+				         ELSE NVL(SALP.SAL_PRICE_AMT,0)
+				       END AS SAL_PRICE_AMT -- 매출금액
+				     , ROUND(DECODE(PODT.DUTY_FREE_YN,'1', CASE
+				                                             WHEN MOD(TO_NUMBER(MGDT.MOVEMENT_TYP),2)=0 THEN NVL(SALP.SAL_PRICE_AMT,0)*-1
+				                                             ELSE NVL(SALP.SAL_PRICE_AMT,0)
+				                                           END * 0.1
+				                                     , 0)) AS SAL_PRICE_AMT_VAT -- 매출부가세
+				     , CASE
+				         WHEN MOD(TO_NUMBER(MGDT.MOVEMENT_TYP),2)=0 THEN NVL(SALP.SAL_PRICE_AMT,0)*-1
+				         ELSE NVL(SALP.SAL_PRICE_AMT,0)
+				       END +
+				       ROUND(DECODE(PODT.DUTY_FREE_YN,'1', CASE
+				                                             WHEN MOD(TO_NUMBER(MGDT.MOVEMENT_TYP),2)=0 THEN NVL(SALP.SAL_PRICE_AMT,0)*-1
+				                                             ELSE NVL(SALP.SAL_PRICE_AMT,0)
+				                                           END * 0.1
+				                                     , 0)) AS SAL_PRICE_AMT_TOT -- 매출합계
+				     , PODT.REG_DT -- 등록시간
+				     , (SELECT UR.USR_NM||'('||PODT.REG_ID||')' FROM EPROCUSR.ESAUSER UR WHERE UR.SYS_ID = '100' AND UR.COMP_CD = 'HFC' AND UR.USR_ID = PODT.REG_ID AND ROWNUM <= 1) AS USR_NM -- 등록자
+				     , (SELECT Z.NM_KOR||'('||Y.PART_SALES_SABUN||')' FROM FCUS.SCC_USERINFO Z, FCUS.FMS_UPJANG Y WHERE Z.SABUN = Y.PART_SALES_SABUN AND Y.UPJANG = SALP.SHOP_CD AND ROWNUM <= 1) AS NM_KOR -- 영업사원
+				     , (SELECT FIHD.SLIP_DOC_NO FROM EPROCUSR.ESIFIHD FIHD WHERE FIHD.SYS_ID = MGDT.SYS_ID AND FIHD.COMP_CD = MGDT.COMP_CD AND FIHD.MG_NO = MGDT.MG_NO AND FIHD.PO_NO = PODT.PO_NO AND FIHD.PO_LNO = PODT.PO_LNO AND FIHD.DR_CR = '1' AND NVL(FIHD.MG_CLS_CD,'GR') = 'GR') AS SLIP_DOC_NO -- (구매)전표번호
+				     , POHD.PO_REM -- 발주비고
+				     , PODT.PO_NO
+				     , PODT.PO_LNO
+				     , MGDT.MG_NO
+				     , SILP.APPR_DATE -- 승인일자
+				     , SILP.MERCH_NAME -- 가맹점명
+				     , SILP.APPR_TOT -- 승인총금액
+				     , SILP.APPR_AMT -- 공급가액
+				     , SILP.VAT -- 부가세
+				  FROM EPROCUSR.ESIMGDT MGDT, EPROCUSR.ESPPODT PODT, EPROCUSR.ESISALP SALP
+				     , EPROCUSR.ESPPOHD POHD, EPROCUSR.ESMVDGL_V VDGL,EPROCUSR.ESACDDL CD, EPROCUSR.ESMMTGL MTGL
+				     , EPROCUSR.V_ESPSSHP UP, EPROCUSR.ESPSWHU WH
+				     , SAP_IF.SAP_IFC_LOCAL_PURCH SILP
+				     , FMS_UPJANG FU1
+				     , FMS_UPJANG FU2
+				 WHERE MGDT.SYS_ID = PODT.SYS_ID
+				   AND MGDT.COMP_CD = PODT.COMP_CD
+				   AND MGDT.PO_NO = PODT.PO_NO
+				   AND MGDT.PO_LNO = PODT.PO_LNO
+				   AND MGDT.CUST_WH_CD = PODT.WH_CD
+				   AND MGDT.SYS_ID = SALP.SYS_ID
+				   AND MGDT.COMP_CD = SALP.COMP_CD
+				   AND MGDT.MG_NO = SALP.MG_NO
+				   AND MGDT.SYS_ID = MTGL.SYS_ID
+				   AND MGDT.ITEM_CD = MTGL.ITEM_CD
+				   AND PODT.SYS_ID = POHD.SYS_ID
+				   AND PODT.COMP_CD = POHD.COMP_CD
+				   AND PODT.PO_NO = POHD.PO_NO
+				   AND PODT.SYS_ID = VDGL.SYS_ID
+				   AND PODT.VD_SN = VDGL.VD_SN
+				   AND POHD.SYS_ID = CD.SYS_ID
+				   AND POHD.PO_DTL_CD = CD.DTL_CD
+				   AND SALP.SHOP_CD = UP.UPJANG
+				   AND SALP.SYS_ID = WH.SYS_ID
+				   AND SALP.COMP_CD = WH.COMP_CD
+				   AND SALP.CUST_WH_CD = WH.WH_CD
+				   AND POHD.FS_CARD_KEY1 = SILP.TRNX_ID(+)
+				   AND POHD.FS_CARD_KEY2 = SILP.IF_KEY(+)
+				   --AND SILP.USE_STAT = '80'
+				   AND NVL(SILP.USE_STAT, 'XX') = CASE WHEN SILP.USE_STAT = '80' THEN '80' ELSE NVL(SILP.USE_STAT, 'XX') END
+				   AND CD.COMP_CD = 'N'
+				   AND CD.LANG_CD = 'ko_KR'
+				   --AND CD.GRP_CD = 'P114'
+				   AND CD.GRP_CD = 'P135'
+				   AND MGDT.SYS_ID = '100'
+				   AND MGDT.COMP_CD = 'HFC'
+				   AND MGDT.MOVEMENT_TYP IN ('115','132','147','148','651','652')
+				   AND POHD.APRV_STS IN ('B', 'C', 'K')
+				   AND POHD.STS <> 'D'
+				   AND PODT.STS <> 'D'
+				   AND MGDT.STS <> 'D'
+				   AND SALP.STS <> 'D'
+				   AND POHD.PO_TYP = 'BP'
+				   AND PODT.SHOP_TYP_CD = '02'
+				   --AND MGDT.MG_DATE BETWEEN :schRdate1 AND :schRdate2
+				   AND PODT.REG_DT BETWEEN :schRdate1 AND :schRdate2
+				   AND SALP.CUST_GR_DATE BETWEEN :schRdate1 AND :schRdate2
+				   
+				   <#if poDtlCd?has_content>
+				   		AND POHD.PO_DTL_CD = :poDtlCd
+				   </#if>
+				   
+				   <#if partSalId?has_content>
+				   		AND FU1.UPJANG IN (SELECT UPJANG FROM FMS_UPJANG WHERE PART_SALES_SABUN = :partSalId)
+				   </#if>
+				   
+				   <#if regId?has_content>
+				   		AND PODT.REG_ID = :regId
+				   </#if>
+				   
+				   <#if ccCd?has_content>
+				   		AND SALP.CC_CD = :ccCd
+				   </#if>
+				   
+				   <#if mainUpjang?has_content>
+				   		AND FU1.MAIN_UPJANG = :mainUpjang
+				   </#if>
+				   
+				   <#if upjang?has_content>
+				   		AND SALP.SHOP_CD = :upjang
+				   </#if>
+				   
+				   AND FU1.UPJANG = FU2.UPJANG
+				   --AND FU1.UPJANG = FU2.MAIN_UPJANG
+				   AND FU1.UPJANG = SALP.SHOP_CD
+				   --AND FU1.UPJANG = UP.UPJANG
+		]]>
+	</statement>
+	
+</hqml>

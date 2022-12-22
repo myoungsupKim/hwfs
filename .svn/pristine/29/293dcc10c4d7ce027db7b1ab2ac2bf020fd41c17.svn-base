@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[4-2-1 거래실적(가맹점/외식 사업장) 사업장별 운영단가별]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT X.RNAME AS RNAME
+     , NVL(SUM(ROUND(DECODE(A.TAX_CODE,'100',1.1,1) * ROUND((A.CENTER_DELI_QTY + A.DIRECT_DELI_QTY) * A.OP_PRICE))),0) AS DELI_AMT
+     , NVL(SUM(ROUND(DECODE(A.TAX_CODE,'100',1.1,1) * ROUND((A.CENTER_UNDELI_QTY + A.UNDELIVERED_QTY + A.RETURNED_QTY) * A.OP_PRICE))),0) AS UNDELI_AMT
+     , NVL(SUM(ROUND(DECODE(A.TAX_CODE,'100',1.1,1) * ROUND(A.DELIVERED_QTY * A.OP_PRICE))),0) AS DELIVERED_AMT
+  FROM (SELECT A.*
+             , DECODE(C.OP_PRICE, 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE) AS OP_PRICE
+          FROM HLDC_PO_PO A, FMU_OP_RATE C
+         WHERE A.RC_UPJANG = C.UPJANG(+)
+           AND A.NEED_DATE BETWEEN C.SDATE(+) AND C.EDATE(+)
+           AND A.ITEM_CODE BETWEEN C.ITEM_CODE(+) AND C.ITEM_CODE(+)||'9999'
+           AND C.USE_YN(+) = 'Y'
+           AND A.NEED_DATE BETWEEN TO_CHAR(SYSDATE,'YYYYMM"01"') AND TO_CHAR(SYSDATE,'YYYYMMDD')
+           AND A.RC_UPJANG = #UPJANG# ) A
+     , (SELECT ROWNUM AS RSEQ
+             , DECODE(ROWNUM, 1, '전일누계'
+                            , 2, '당    일'
+                            , 3, '당월누계')                    AS RNAME
+             , DECODE(ROWNUM, 1, TO_CHAR(SYSDATE,'YYYYMM"01"')
+                            , 2, TO_CHAR(SYSDATE,'YYYYMMDD')
+                            , 3, TO_CHAR(SYSDATE,'YYYYMM"01"')) AS FDATE
+             , DECODE(ROWNUM, 1, TO_CHAR(SYSDATE-1,'YYYYMMDD')
+                            , 2, TO_CHAR(SYSDATE,'YYYYMMDD')
+                            , 3, TO_CHAR(SYSDATE,'YYYYMMDD'))   AS TDATE
+          FROM SCC_COMMON_CODE
+         WHERE GROUP_CODE = 'DUMMYCNT'
+           AND ROWNUM <= 3) X
+ WHERE A.NEED_DATE(+) BETWEEN X.FDATE AND X.TDATE
+ GROUP BY X.RSEQ, X.RNAME	]]></statement>
+	<input default-name="ds_in">
+	</input>
+	<output default-name="ds_saleamt">
+	</output>
+</query>

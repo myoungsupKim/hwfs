@@ -1,0 +1,150 @@
+package com.hwfs.sc.scb.service;
+
+import hone.core.util.record.RecordSet;
+import hone.online.xplatform.XplatformConstants;
+import hone.online.xplatform.map.DataSetMap;
+
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.springframework.stereotype.Service;
+
+import com.hwfs.cmn.defaults.DefaultServiceImpl;
+import com.hwfs.sc.scb.dao.BatchExecRsltMngtDAO;
+import com.tobesoft.xplatform.data.DataSet;
+
+ /**
+ * 배치 Job 실행 결과를 관리하는 BatchExecRsltMngt Service Implementation
+ * - Job실행결과 조회/삭제
+ * - Job실행상세결과 조회
+ * 
+ * @ClassName BatchExecRsltMngtServiceImpl.java
+ * @Description BatchExecRsltMngtServiceImpl Class
+ * @Modification-Information
+ * <pre>
+ *    수정일       수정자              수정내용
+ *  ----------   ----------   -------------------------------
+ *  2015.04.09    kksoo        최초생성
+ * </pre>
+ * @author FC종합전산구축 : AA kksoo
+ * @since 2015.04.09
+ * @version 1.0
+ * @see 
+ * <pre>
+ *  Copyright (C) 2014 by HANWHA S&C CO.,LTD. All right reserved.
+ * </pre>
+ */
+@Service("/sc/scb/batchExecRsltMngtService")
+public class BatchExecRsltMngtServiceImpl extends DefaultServiceImpl implements BatchExecRsltMngtService {
+	
+	/** BatchExecRsltMngtDAO Bean 생성 */
+	@Resource(name = "/sc/scb/batchExecRsltMngtDAO")
+	private BatchExecRsltMngtDAO batchExecRsltMngtDAO;
+	
+
+	/**
+	 * 이미 처리된(정지,종료,실패된) JOB 실행 결과 목록을 조회한다
+	 * 
+	 * @param mapParam
+	 *            조회조건 Map
+	 * @return RecordSet 
+	 *            조회결과
+	 * @throws Exception
+	 */
+	public RecordSet selectJobResultList(Map<String, Object> mapParam) throws Exception {
+		return batchExecRsltMngtDAO.selectJobResultList(mapParam);
+	}
+
+	/**
+	 * 현재 실행 중인 배치 Job 목록을 조회한다.
+	 * 
+	 * @param mapParam
+	 *            조회조건 Map
+	 * @return RecordSet 
+	 *            조회결과
+	 * @throws Exception
+	*/
+	public RecordSet selectJobRunningList(Map<String, Object> mapParam) throws Exception {
+		return batchExecRsltMngtDAO.selectJobRunningList(mapParam);
+	}
+
+	/**
+	 * Job 실행결과 상세정보 목록을 조회한다.
+	 * 
+	 * @param mapParam
+	 *            조회조건 Map
+	 * @return RecordSet 
+	 *            조회결과
+	 * @throws Exception
+	*/
+	public RecordSet selectJobResultDetailList(Map<String, Object> mapParam) throws Exception {
+		return batchExecRsltMngtDAO.selectJobResultDetailList(mapParam);
+	}
+
+	/**
+	 * Step 실행결과 상세정보 목록을 조회한다.
+	 * 
+	 * @param mapParam
+	 *            조회조건 Map
+	 * @return RecordSet 
+	 *            조회결과
+	 * @throws Exception
+	*/
+	public RecordSet selectStepResultDetailList(Map<String, Object> mapParam) throws Exception {
+		return batchExecRsltMngtDAO.selectStepResultDetailList(mapParam);
+	}
+
+	/**
+	 * 자기가 실행시킨 현재 실행 중인 배치 Job의 상태값을 얻는다.
+	 * 
+	 * @param mapParam
+	 *            조회조건 Map
+	 * @return RecordSet 
+	 *            조회결과
+	 * @throws Exception
+	*/
+	public RecordSet selectAsyncRunningBatchStatus(Map<String, Object> mapParam) throws Exception {
+		return batchExecRsltMngtDAO.selectAsyncRunningBatchStatus(mapParam);
+	}
+
+	/**
+	 * Step 실행 로그 목록을 조회한다.
+	 * 
+	 * @param mapParam
+	 *            조회조건 Map
+	 * @return RecordSet 
+	 *            조회결과
+	 * @throws Exception
+	*/
+	public RecordSet selectJobResultStepLogList(Map<String, Object> mapParam) throws Exception {
+		return batchExecRsltMngtDAO.selectJobResultStepLogList(mapParam);
+	}
+	/**
+	 * 배치 Job 실행 결과 DataSetMap의 데이터를 rowType에 따라 Insert/Update/Delete 처리한다.
+	 * <pre>
+	 * - Delete만 존재한다.
+	 * </pre>
+	 *
+	 * @param list
+	 *            DataSetMap XPLATFORM에서 전달된 Dataset 데이터
+	 * @return 처리건수
+	 * @throws Exception
+	*/
+	@SuppressWarnings("unchecked")
+	public int saveJobResultList(DataSetMap list) throws Exception {
+		int delRowCnt = 0;
+		
+		for (int i = 0 ; i < list.size() ; i++) {
+			Map<String, Object> rowData = list.get(i);
+			int rowType = ((Integer)rowData.get(XplatformConstants.DATASET_ROW_TYPE)).intValue();
+			
+			//Delete 처리.
+			if (rowType == DataSet.ROW_TYPE_DELETED) {
+				delRowCnt += batchExecRsltMngtDAO.deleteJobResult(rowData);
+			}
+		}
+				
+		return delRowCnt;
+	}
+}

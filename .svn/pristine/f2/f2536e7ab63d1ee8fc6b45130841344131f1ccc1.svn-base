@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT  A_CNT, A_NM, C_CNT, C_NM
+FROM
+      -- 미승인내역
+      (
+      SELECT SUM(CNT) A_CNT, '미승인' A_NM
+        FROM
+             (
+              --일마감취소신청
+               SELECT COUNT(*) CNT
+                FROM MAS_CLOSE_MODIFYREQ
+                WHERE (TEAM_MST_SABUN = #EMP_NO#)
+                AND   (TEAM_MST_CONGUBN = 'N' OR APPRV_GUBUN = 'N')
+              UNION ALL
+              --전도금신청
+               SELECT COUNT(*) CNT
+                FROM MAS_ADV_REQ_MST
+                WHERE (DECODE(#AUTH#, '14', TEAM_MST_SABUN, '16', HEAD_MST_SABUN, HEAD_MST_SABUN)  = #EMP_NO#)
+                AND   (TEAM_MST_CONGUBN = 'N' OR HEAD_MST_CONGUBN = 'N')
+              UNION ALL
+              --식권폐기신청
+               SELECT COUNT(*) CNT
+                FROM  MAS_TICKET_MST
+                WHERE (TEAM_MST_SABUN = #EMP_NO#)
+                AND   (TRANS_TYPE = 'X')
+                AND   ((TEAM_MST_CONGUBN = 'N' AND APPROV_CONGUBN = 'N') OR APPROV_CONGUBN = 'N')
+             )
+      ) A,       
+      -- 도래채권 건수
+      (
+      SELECT COUNT(*) C_CNT, '도래채권' C_NM
+        FROM MAS_DD_BOND V
+      WHERE (V.BOND_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'))
+      AND   ((NVL(V.DO_BOND_AMT, 0) + NVL(V.AK_BOND_AMT, 0)) <> 0)
+      AND   (EXISTS (SELECT 'X' FROM SCO_UPJANG_MST_V WHERE UPJANG = V.UPJANG AND TM_CD = #TM_CD#)) --점장   
+      ) C
+      	]]></statement>
+	<input default-name="ds_in">
+	</input>
+	<output default-name="ds_mydesk">
+	</output>
+</query>

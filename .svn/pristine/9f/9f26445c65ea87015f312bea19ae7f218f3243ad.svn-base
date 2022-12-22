@@ -1,0 +1,907 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fs.fso.upjangInfoCycleReptDAO">
+	<desc>업장 정보 활용장표 HQML Query</desc>
+
+	<!-- 업장 정보 활용장표 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.fs.fso.dao.UpjangInfoCycleReptDAO.selectList */
+		<![CDATA[
+		  SELECT 
+		  		 A.MU_CD						/* 사업부 코드 */
+		  		,(SELECT MU_NM FROM SCC_MU WHERE MU_CD = A.MU_CD) AS MU_NM
+				,A.TM_CD						/* 팀 코드 */
+				,(SELECT MAX(TM_NM) FROM SCO_UPJANG_MST_V WHERE TM_CD = A.TM_CD) TM_NM
+				,B.UPJANG_CD					/* 업장	*/
+                ,(SELECT UPJANGNM FROM HLDC_ST_UPJANG WHERE UPJANG = B.UPJANG_CD) AS UPJANG_NM 	/* 업장명 */
+                ,(SELECT CC_CD FROM ST_UPJANG WHERE UPJANG = B.UPJANG_CD) CC_CD               
+            FROM FSO_ACC_OBJECT_CARD A,			/* 물건관리카드 */
+            	 FSO_ACC_OBJECT_UPJANG B
+           WHERE A.OBJECT_CD = B.OBJECT_CD
+		     AND A.MU_CD = :muCd
+		  <#if tmCd?has_content>
+		     AND A.TM_CD = :tmCd
+		  </#if>
+		  <#if upjangCd?has_content>
+		     AND B.UPJANG_CD = :upjangCd
+		  </#if>
+		   	ORDER BY A.MU_CD, A.TM_CD, A.BIZ_NO, A.OBJECT_CD
+		]]>
+	</statement>
+	
+	<!-- 업장 정보 활용장표 목록(급식)을 조회한다. -->
+	<statement name="selectUpjangList" type="select">
+		/*+ com.hwfs.fs.fso.dao.UpjangInfoCycleReptDAO.selectUpjangList */
+		<![CDATA[
+		  	 SELECT 
+		  	 		MU_CD
+		  	 	   ,MU_NM
+	               ,TM_CD
+	               ,TM_NM
+	               ,UPJANG UPJANG_CD
+	               ,UPJANGNM UPJANG_NM            
+	               ,CC_CD
+	          FROM SCO_UPJANG_MST_V
+	         WHERE MU_CD  = :muCd
+		  	<#if tmCd?has_content>
+	           AND TM_CD  = :tmCd
+		  	</#if>
+	       	<#if upjangCd?has_content>
+		       AND UPJANG = :upjangCd
+		   	</#if>
+	      ORDER BY UPJANG
+		]]>
+	</statement>
+
+	<!-- 업장 정보 활용장표 목록(급식)을 조회한다. : 2015-09-08 FS-->
+	<statement name="selectUpjangList2" type="select">
+		/*+ com.hwfs.fs.fso.dao.UpjangInfoCycleReptDAO.selectUpjangList */
+		<![CDATA[
+		  	 SELECT 
+		  	 		 MU_CD
+	               , MU_NM
+	               , TM_CD
+	               , TM_NM
+	               , UPJANG UPJANG_CD
+	               , UPJANGNM UPJANG_NM            
+	               , CC_CD
+	          FROM SCO_UPJANG_MST_V A
+	          WHERE A.MU_CD  = :muCd
+	       <#if tmCd?has_content>
+	           AND   A.TM_CD  = :tmCd
+		   </#if>
+	       <#if upjangCd?has_content>
+		       	AND  A.UPJANG = :upjangCd
+		   </#if>
+	       <#if schOpDdType?has_content>	
+		       	AND  A.OP_DD_TYPE = :schOpDdType			/* 조건 : 운영일수 */
+		   </#if>
+	       <#if schCtrtEndDt1?has_content>	
+	       		AND A.END_CTRT_DATE BETWEEN :schCtrtEndDt1 AND NVL(:schCtrtEndDt2, '99999999')	/* 조건 : 계약만료일 */
+		   </#if>
+	       <#if schRecontractDt1?has_content>
+	       		AND A.RECONTRACTDT BETWEEN :schRecontractDt1 AND NVL(:schRecontractDt2, '99999999')	/* 조건 : 재계약사작일 */
+		   </#if>
+	       <#if schArea1?has_content>
+	       		AND A.AREA >=  :schArea1	/* 조건 : 면적_FROM */
+		   </#if>
+	       <#if schArea2?has_content>
+	       		AND A.AREA <=  :schArea2	/* 조건 : 면적_TO */
+		   </#if>
+	       <#if schStoreYn?has_content>
+				AND A.STORE_YN = :schStoreYn		/* 조건 : 매점운영여부 */
+		   </#if>
+	       <#if schCafeYn?has_content>
+				AND A.CAFE_OP_YN = :schCafeYn		/* 조건 : 카페운영여부 */
+		   </#if>
+	       <#if schCtrtType?has_content>
+				AND A.CTRT_TYPE = :schCtrtType		/* 조건 : 계약방식 */
+		   </#if>
+	       <#if schExpenseType?has_content>
+				AND A.EXPENSE_TYPE = :schExpenseType		/* 조건 : 경비부담주체 */
+		   </#if>
+	       <#if schSaleAmt1?has_content>
+				AND A.SALE_AMT >= :schSaleAmt1		/* 조건 : 예상매출액_FROM */
+		   </#if>
+	       <#if schSaleAmt2?has_content>
+				AND A.SALE_AMT <= :schSaleAmt2		/* 조건 : 예상매출액_TO */
+		   </#if>
+	       <#if schHrA1?has_content>
+				AND A.COOKS_A_PSN >= :schHrA1		/* 조건 : 조리사_인원(급식)_FROM */
+		   </#if>
+	       <#if schHrA2?has_content>
+				AND A.COOKS_A_PSN <= :schHrA2		/* 조건 : 조리사_인원(급식)_TO */
+		   </#if>
+	       <#if schHrB1?has_content>
+				AND A.COOKS_C_PSN >= :schHrB1		/* 조건 : 찬모_인원(급식)_FROM */
+		   </#if>
+	       <#if schHrB2?has_content>
+				AND A.COOKS_C_PSN <= :schHrB2		/* 조건 : 찬모_인원(급식)_TO */
+		   </#if>
+	       <#if schHrC1?has_content>
+				AND A.COOKS_B_PSN >= :schHrC1		/* 조건 : 조리원_인원(급식)_FROM */
+		   </#if>
+	       <#if schHrC2?has_content>
+				AND A.COOKS_B_PSN <= :schHrC2		/* 조건 : 조리원_인원(급식)_TO */
+		   </#if>
+	       <#if schUtilityType?has_content>
+				AND A.UTILITY_TYPE = :schUtilityType		/* 조건 : 수도광열비 */
+		   </#if>
+	       <#if schChk01?has_content>
+	       		<#if schChk01=="Y">
+				AND A.WTR_YN = :schChk01		/* 조건 : 수도여부 */
+		   		</#if>
+		   </#if>
+	       <#if schChk02?has_content>
+	       		<#if schChk02=="Y">
+				AND A.GS_YN = :schChk02		/* 조건 : 가스여부 */
+		   		</#if>
+		   </#if>
+	       <#if schChk03?has_content>
+	       		<#if schChk03=="Y">
+				AND A.PERIOD_YN = :schChk03		/* 조건 : 전기여부 */
+		   		</#if>
+		   </#if>
+	       <#if schChk04?has_content>
+	       		<#if schChk04=="Y">
+				AND A.COOLING_HTNG_YN = :schChk04		/* 조건 : 냉난방여부 */
+		   		</#if>
+		   </#if>
+	       <#if schMealRate1?has_content>
+				AND A.MEAL_RATE >= :schMealRate1		/* 조건 : 식재료율_FROM */
+		   </#if>
+	       <#if schMealRate2?has_content>
+				AND A.MEAL_RATE <= :schMealRate2		/* 조건 : 식재료율_TO */
+		   </#if>
+	       <#if schRoomLeaseType?has_content>
+				AND A.ROOM_LEASE_STD = :schRoomLeaseType		/* 조건 : 임대료납부기준 */
+		   </#if>
+	       <#if schRoomLeaseAmt1?has_content>
+				AND A.ROOM_LEASE_AMT >= :schRoomLeaseAmt1		/* 조건 : 임대료_FROM */
+		   </#if>
+	       <#if schRoomLeaseAmt2?has_content>
+				AND A.ROOM_LEASE_AMT <= :schRoomLeaseAmt2		/* 조건 : 임대료_TO */
+		   </#if>
+		   <#if jobCd?has_content>
+				AND A.JOB_CD = :jobCd		/* 조건 : 직군 */
+		   </#if>
+		   <#if subJobCd?has_content>
+				AND A.SUB_JOB_CD = :subJobCd		/* 조건 : 상세직군 */
+		   </#if>
+		   <#if schCtrtEndDt1c?has_content>	
+	       		AND A.END_CTRT_DATE BETWEEN :schCtrtEndDt1c AND NVL(:schCtrtEndDt2c, '99999999')	/* 조건 : 계약만료일 */
+		   </#if>
+		   <#if contractArea1?has_content>
+				AND A.CONTRACT_AREA >= :contractArea1		/* 조건 : 면적(외식)_FROM */
+		   </#if>
+	       <#if contractArea2?has_content>
+				AND A.CONTRACT_AREA <= :contractArea2		/* 조건 : 면적(외식)_TO */
+		   </#if>
+		   <#if setQty1?has_content>
+				AND A.SET_QTY >= :setQty1		/* 조건 : 좌석수(외식)_FROM */
+		   </#if>
+	       <#if setQty2?has_content>
+				AND A.SET_QTY <= :setQty2		/* 조건 : 좌석수(외식)_TO */
+		   </#if>
+		   <#if cooksAPsn1?has_content>
+				AND A.COOKS_A_PSN >= :cooksAPsn1		/* 조건 : 홀(외식)_FROM */
+		   </#if>
+	       <#if cooksAPsn2?has_content>
+				AND A.COOKS_A_PSN <= :cooksAPsn2		/* 조건 : 홀(외식)_TO */
+		   </#if>
+	       <#if cooksCPsn1?has_content>
+				AND A.COOKS_C_PSN >= :cooksCPsn1		/* 조건 : 주방(외식)_FROM */
+		   </#if>
+	       <#if cooksCPsn2?has_content>
+				AND A.COOKS_C_PSN <= :cooksCPsn2		/* 조건 : 주방(외식)_TO */
+		   </#if>
+		   <#if schSaleAmt1c?has_content>
+				AND A.SALE_AMT >= :schSaleAmt1c		/* 조건 : 예상매출액(외식)_FROM */
+		   </#if>
+	       <#if schSaleAmt2c?has_content>
+				AND A.SALE_AMT <= :schSaleAmt2c		/* 조건 : 예상매출액(외식)_TO */
+		   </#if>
+		   <#if schRoomLeaseAmt1c?has_content>
+				AND A.ROOM_LEASE_AMT >= :schRoomLeaseAmt1c		/* 조건 : 임대료(외식)_FROM */
+		   </#if>
+	       <#if schRoomLeaseAmt2c?has_content>
+				AND A.ROOM_LEASE_AMT <= :schRoomLeaseAmt2c		/* 조건 : 임대료(외식)_TO */
+		   </#if>
+		   <#if rentRate1?has_content>
+				AND A.RENT_RATE >= :rentRate1		/* 조건 : 임대료율(외식)_FROM */
+		   </#if>
+	       <#if rentRate2?has_content>
+				AND A.RENT_RATE <= :rentRate2		/* 조건 : 임대료율(외식)_TO */
+		   </#if>
+	      ORDER BY A.UPJANG
+		]]>
+	</statement>
+
+
+
+	<!-- 업장 정보를 조회한다. : 2015-09-10 -->
+	<statement name="selectUpjangInfo" type="select">
+		/*+ com.hwfs.fs.fso.dao.UpjangInfoCycleReptDAO.selectList */
+		<![CDATA[
+		 SELECT 
+		 		 V2.UPJANG
+			   , V2.UPJANGNM
+			   , V2.CHARGE_SABUN
+			   , (SELECT NM_KOR FROM SCO_FS_HR_PERSONAL_V WHERE SABUN = V2.CHARGE_SABUN) CHARGE_SABUNNM		/* 점장명 */
+			   , V2.OP_DD_TYPE /*연간운영일수*/
+               , V2.OPEN_DATE			/* 오픈일 */
+               , V2.END_CTRT_DATE		/* 계약만료일 */
+               , V2.RECONTRACTDT      	/* 재계약일자 */
+               , V2.CONTRACT_AREA	/*계약면적(외식)*/
+               , V2.USE_AREA	/*전용면적(외식)*/
+               , V2.RENT_RATE	/*임대료율(외식)*/
+               , V2.MGMT_AMT	/*관리비(외식)*/ 
+               , V2.GUARANTEE_AMT	/*보증금(외식)*/
+               , V2.GIVE_TYPE	/*지급형태(외식) - 공통코드 : GIVE_TYPE*/
+               , (SELECT CODE_NAME 
+                  FROM   SCC_COMMON_CODE
+                  WHERE  GROUP_CODE IN ('GIVE_TYPE')
+                  AND    CODE = V2.GIVE_TYPE
+                  AND    USE_YN = 'Y') GIVE_TYPE_NM
+               , V2.ETC	/*기타(외식)*/ 
+               , V2.CTRT_TYPE				/* 계약방식(MA0006) */
+               , (SELECT CODE_NAME 
+                  FROM   SCC_COMMON_CODE
+                  WHERE  GROUP_CODE IN ('MA0006')
+                  AND    CODE = V2.CTRT_TYPE
+                  AND    USE_YN = 'Y') CTRT_TYPE_NM
+               , V2.EXTENSION_TERMS	/*연장조건(외식)*/
+               , V2.FIR_INVEST_AMT	/*초기투자비(외식)*/
+               , V2.FIR_INVEST_DAY	/*초기투자시기(외식)*/
+               , V2.EXPENSE_TYPE			/* 경비부담 주체(MA0007) */
+               , (SELECT CODE_NAME 
+                  FROM   SCC_COMMON_CODE
+                  WHERE  GROUP_CODE IN ('MA0007')
+                  AND    CODE = V2.EXPENSE_TYPE
+                  AND    USE_YN = 'Y') EXPENSE_TYPE_NM
+			   , V2.UTILITY_TYPE				/* 수도광열비(MA0008) */
+               , (SELECT CODE_NAME 
+                  FROM   SCC_COMMON_CODE
+                  WHERE  GROUP_CODE IN ('MA0008')
+                  AND    CODE = V2.UTILITY_TYPE
+                  AND    USE_YN = 'Y') UTILITY_TYPE_NM
+               , V2.WTR_YN            		/* 수도 여부 */
+			   , V2.GS_YN             			/* 가스 여부 */
+			   , V2.PERIOD_YN         		/* 전기 여부 */
+			   , V2.COOLING_HTNG_YN   /* 냉난방 여부 */ 
+			   , V2.JOB_CD
+               , V2.SUB_JOB_CD
+               -------------------------------------------------------   
+                , V2.YY_SALS	/*년매출규모(외식)*/
+                , V2.SET_QTY	/*좌석수(외식)*/
+                , V2.OP_RANGE	/*운영범위(외식)*/
+                , V2.MENU	/*주메뉴(외식)*/
+                , V2.SERVICE_TYPE	/*서비스형태(외식 - 공통코드 : SERVICE_TYPE*/
+                , V2.SUBLEASE_YN	/*전대조건(외식)*/
+                , V2.FIR_INVEST_ETC	/*초기투자내용(외식)*/
+                , V2.SEC_INVEST_AMT	/*추가투자(외식)*/
+                , V2.SEC_INVEST_DAY	/*추가투자시기(외식)*/
+                , V2.SEC_INVEST_ETC	/*추가투자내용(외식)*/
+                , V2.SPCL_FACT	/*계약특이사항(외식)*/
+			    , V2.CLOSE_DATE			/* 폐점일 */
+			    , V2.FIRST_CTRT_DATE	/* 최초계약일 */
+			    , V2.ROOM_LEASE_AMT	/* 임대료(식당) */
+			    , V2.ROOM_LEASE_STD	/* 임대료 납부기준	*/
+			    , V2.STORE_YN				/* 매점운영여부 */
+			    , V2.CORNER_LEASE_AMT	/* 매점임대료 */
+			    , V2.CAFE_OP_YN        		/* 카페운영여부 */
+			    , V2.CAFE_OP_AMT       	/* 카페운영임대료 */
+			    , V2.OP_TYPE           		/* 운영형태(O 오픈형, C 폐쇄형) */
+			    , V2.COOKS_A_PSN       	/* 조리사_인원(급식) */
+			    , V2.COOKS_C_PSN       	/* 찬모_인원(급식) */
+			    , V2.COOKS_B_PSN       	/* 조리원_인원(급식) */
+			    , V2.HALL_SET_QTY			/* 구내식당 좌석수	 */
+			    , V2.CHIER_MOURNER_NO_MAN	/* 건물내 상주인원	 */
+			    , V2.AREA						/* 면적 */
+			    , V2.SALE_AMT					/* 예상매출액 */
+			    , V2.MEAL_RATE				/* 식재료율 */
+		  FROM SCO_UPJANG_MST_V V2
+		 WHERE V2.UPJANG = :srchUpjangCd
+		]]>
+	</statement>
+			
+	<!-- 업장 메뉴, 식단가 정보를 조회한다. -->
+	<statement name="selectUpjangMenu" type="select">
+		/*+ com.hwfs.fs.fso.dao.UpjangInfoCycleReptDAO.selectList */
+		<![CDATA[
+		  SELECT A.UPJANG,
+			       A.HALL_CD,
+			       B.HALL_NAME,
+			       A.MEAL,
+			       A.CORNER,
+			       A.CORNER_DESC,
+			       A.RATION_METHOD,
+			       A.MEAL_UPRICE,
+			       A.AVG_MEAL_QTY,
+			       A.D_DAY,
+			       A.FIRST_START_TIME,
+			       A.FIRST_END_TIME,
+			       A.NUT_TYPE,
+			       A.NUT_YN,
+			       DECODE(A.USE_YN,'Y',1,0) AS USE_YN,
+			       A.UDATE,
+			       DECODE(A.SAT_YN,'Y',1,0) AS SAT_YN,
+			       DECODE(A.SUN_YN,'Y',1,0) AS SUN_YN,
+			       A.NEED_RATE,
+			       B.NUT_MGMT_TYPE,  
+			       B.CORNER_TYPE
+			FROM   FSA_HALL_DTL A,
+			       FSA_HALL_MST B
+			WHERE  A.UPJANG=B.UPJANG
+			AND    A.HALL_CD=B.HALL_CD
+			AND    A.UPJANG =:srchUpjangCd
+		]]>
+	</statement>
+	
+	<!-- 임대/보증금 현황 목록을 조회한다. -->
+	<statement name="selectGuarantyAmtInfo" type="select">
+		/*+ com.hwfs.fs.fso.dao.UpjangInfoCycleReptDAO.selectGuarantyAmtInfo */
+		<![CDATA[
+			  SELECT  A.MU_CD			/* 사업영역 */
+				     ,A.CC_CD			/* 귀속부서 */
+					 ,A.GB_TYPE		/* 구분(1.보증금 / 2.임대보증금) */
+					 ,A.SLIP_NUM		/* 전표번호 */
+					 ,A.SEQ			/* 순번 */
+					 ,A.PUBLISH_DATE	/* 발행일자 */
+					 ,(SELECT CC_NM FROM SCC_CC WHERE CC_CD = A.CC_CD) CUST_NM /* 거래처명 */
+					 ,CASE WHEN (A.TERM_FROM ||' ~ '|| A.TERM_TO) = ' ~ ' THEN '' 
+			               ELSE (A.TERM_FROM ||' ~ '|| A.TERM_TO) 
+			          END TERM  /* 기간 From~To */
+					 ,CASE WHEN A.DR_CR_TYPE='1' THEN SUM(A.SLIP_AMT) END DR_SLIP_AMT    /* 차변 금액 */
+         			 ,CASE WHEN A.DR_CR_TYPE='2' THEN SUM(A.SLIP_AMT) END CR_SLIP_AMT    /* 대변 금액 */
+					 ,A.ACCT_NM		/* 계정명 */
+					 ,A.REMARK		/* 적요 */
+					 ,A.SEND_DATE		/* 전송일자 */
+			    FROM  FSB_IF_DEPOSIT A
+			   WHERE  A.MU_CD   = :srchMuCd
+			<#if ccCd?has_content>
+	     		 AND  A.CC_CD   = :ccCd
+	    	</#if>
+	    	<#if gbType?has_content>
+				 AND  A.GB_TYPE = :gbType
+			</#if>
+			GROUP BY  A.MU_CD, A.CC_CD, A.GB_TYPE, A.SLIP_NUM, A.SEQ, A.PUBLISH_DATE, A.CUST_NM,
+					  A.TERM_FROM, A.TERM_TO, A.DR_CR_TYPE, A.ACCT_NM, A.REMARK, A.SEND_DATE
+			ORDER BY  A.CC_CD, A.GB_TYPE, A.PUBLISH_DATE DESC, A.DR_CR_TYPE
+		]]>
+	</statement>
+	
+	<!-- P/L 정보를 조회한다. 재무확정-->
+	<statement name="selectPlinfoListA" type="select">
+		/*+ com.hwfs.fs.fso.dao.UpjangInfoCycleReptDAO.selectPlinfoListA */
+		<![CDATA[
+ 			SELECT B.ACCT_CLASS
+			       ,B.ACCT_NM
+				   ,B.ACCT_CD
+				   ,A.FISCAL_YEAR AS YY
+				   <#if amtUnit=="001">	
+				   ,SUM(NVL(ROUND(NVL(A.MM_AMT_01, 0) / 1000), 0)) MM_AMT_01    
+			       ,SUM(NVL(ROUND(NVL(A.MM_AMT_02, 0) / 1000), 0)) MM_AMT_02    
+			       ,SUM(NVL(ROUND(NVL(A.MM_AMT_03, 0) / 1000), 0)) MM_AMT_03    
+			       ,SUM(NVL(ROUND(NVL(A.MM_AMT_04, 0) / 1000), 0)) MM_AMT_04    
+			       ,SUM(NVL(ROUND(NVL(A.MM_AMT_05, 0) / 1000), 0)) MM_AMT_05    
+			       ,SUM(NVL(ROUND(NVL(A.MM_AMT_06, 0) / 1000), 0)) MM_AMT_06    
+			       ,SUM(NVL(ROUND(NVL(A.MM_AMT_07, 0) / 1000), 0)) MM_AMT_07    
+			       ,SUM(NVL(ROUND(NVL(A.MM_AMT_08, 0) / 1000), 0)) MM_AMT_08    
+			       ,SUM(NVL(ROUND(NVL(A.MM_AMT_09, 0) / 1000), 0)) MM_AMT_09    
+			       ,SUM(NVL(ROUND(NVL(A.MM_AMT_10, 0) / 1000), 0)) MM_AMT_10    
+			       ,SUM(NVL(ROUND(NVL(A.MM_AMT_11, 0) / 1000), 0)) MM_AMT_11    
+			       ,SUM(NVL(ROUND(NVL(A.MM_AMT_12, 0) / 1000), 0)) MM_AMT_12    
+			       ,SUM(NVL(ROUND(( NVL(A.MM_AMT_01, 0)+NVL(A.MM_AMT_02, 0)+NVL(A.MM_AMT_03, 0)+NVL(A.MM_AMT_04, 0)+NVL(A.MM_AMT_05, 0)+NVL(A.MM_AMT_06, 0)                                                                                                                                                                      
+			        +NVL(A.MM_AMT_07, 0)+NVL(A.MM_AMT_08, 0)+NVL(A.MM_AMT_09, 0)+NVL(A.MM_AMT_10, 0)+NVL(A.MM_AMT_11, 0)+NVL(A.MM_AMT_12, 0)) / 1000 ), 0)) SUM_AMT
+					
+					</#if>
+					<#if amtUnit=="002">			        
+			        
+				   ,SUM(NVL(ROUND(NVL(A.MM_AMT_01, 0) / 1000000), 0)) MM_AMT_01    
+			       ,SUM(NVL(ROUND(NVL(A.MM_AMT_02, 0) / 1000000), 0)) MM_AMT_02    
+			       ,SUM(NVL(ROUND(NVL(A.MM_AMT_03, 0) / 1000000), 0)) MM_AMT_03    
+			       ,SUM(NVL(ROUND(NVL(A.MM_AMT_04, 0) / 1000000), 0)) MM_AMT_04    
+			       ,SUM(NVL(ROUND(NVL(A.MM_AMT_05, 0) / 1000000), 0)) MM_AMT_05    
+			       ,SUM(NVL(ROUND(NVL(A.MM_AMT_06, 0) / 1000000), 0)) MM_AMT_06    
+			       ,SUM(NVL(ROUND(NVL(A.MM_AMT_07, 0) / 1000000), 0)) MM_AMT_07    
+			       ,SUM(NVL(ROUND(NVL(A.MM_AMT_08, 0) / 1000000), 0)) MM_AMT_08    
+			       ,SUM(NVL(ROUND(NVL(A.MM_AMT_09, 0) / 1000000), 0)) MM_AMT_09    
+			       ,SUM(NVL(ROUND(NVL(A.MM_AMT_10, 0) / 1000000), 0)) MM_AMT_10    
+			       ,SUM(NVL(ROUND(NVL(A.MM_AMT_11, 0) / 1000000), 0)) MM_AMT_11    
+			       ,SUM(NVL(ROUND(NVL(A.MM_AMT_12, 0) / 1000000), 0)) MM_AMT_12    
+			       ,SUM(NVL(ROUND(( NVL(A.MM_AMT_01, 0)+NVL(A.MM_AMT_02, 0)+NVL(A.MM_AMT_03, 0)+NVL(A.MM_AMT_04, 0)+NVL(A.MM_AMT_05, 0)+NVL(A.MM_AMT_06, 0)                                                                                                                                                                      
+			        +NVL(A.MM_AMT_07, 0)+NVL(A.MM_AMT_08, 0)+NVL(A.MM_AMT_09, 0)+NVL(A.MM_AMT_10, 0)+NVL(A.MM_AMT_11, 0)+NVL(A.MM_AMT_12, 0)) / 1000000 ), 0)) SUM_AMT
+			        
+			        </#if>  
+			  FROM (                                                                              
+			           SELECT B.UPJANG, A.ACCT_CD, A.FISCAL_YEAR                                                    
+			                 ,A.MM_AMT_01, A.MM_AMT_02, A.MM_AMT_03, A.MM_AMT_04, A.MM_AMT_05, A.MM_AMT_06        
+			                 ,A.MM_AMT_07, A.MM_AMT_08, A.MM_AMT_09, A.MM_AMT_10, A.MM_AMT_11, A.MM_AMT_12        
+			                 ,'0' AS SUM_AMT                                                 
+			             FROM MAP_UPJANG_PL A
+			                 ,MAC_UPJANG_V B                                                     
+			            WHERE A.CC_CD    = B.CC_CD
+			              AND A.PL_CLASS = 'KS'   
+			              AND A.FISCAL_YEAR = SUBSTR(:year, 0, 4)
+         			      <#if srchMuCd?has_content>   
+				              AND B.MU_CD  = :srchMuCd
+						  </#if>
+						  <#if srchTmCd?has_content>
+				              AND B.TM_CD  = :srchTmCd
+						  </#if>
+						  <#if srchUpjangCd?has_content>
+				              AND B.UPJANG = :srchUpjangCd
+						  </#if>
+			       ) A                                                                                
+			      ,(                                                                                                            
+			            SELECT ACCT_CD                                                                                            
+			                  ,ACCT_NM                                                                                            
+			                  ,ACCT_CLASS                                                                                         
+			              FROM (                                                                                                  
+			                        SELECT CONTENTS ACCT_CLASS
+								          ,CODE ACCT_CD
+								          ,CODE_NAME ACCT_NM
+								      FROM SCC_COMMON_CODE
+								     WHERE GROUP_CODE = 'ACCT_CD'
+								     <#if saupType=="C">
+								     AND SET1  = 'Y' 		/* 급식용 */
+									<#else>
+										<#if saupType=="E">
+										    AND SET3  = 'Y' 	/* 식재용 */
+										<#else>
+										    <#if saupType=="A">	
+										        AND SET2  = 'Y' /* 외식용 */
+										    <#else>
+										    	AND 1=2
+											</#if>
+										</#if>
+									</#if>
+			                   )                                                                                        
+			          ORDER BY ACCT_CD                                                                                     
+			       ) B			      
+			   WHERE B.ACCT_CD = A.ACCT_CD
+			GROUP BY B.ACCT_CLASS, B.ACCT_NM, B.ACCT_CD, A.FISCAL_YEAR
+			ORDER BY B.ACCT_CD
+		]]>
+	</statement>
+	
+	<!-- P/L 정보를 조회한다. 관리확정-->
+	<statement name="selectPlinfoListB" type="select">
+		/*+ com.hwfs.fs.fso.dao.UpjangInfoCycleReptDAO.selectPlinfoListB */
+		<![CDATA[
+			SELECT B.ACCT_CLASS, B.ACCT_NM, B.ACCT_CD, A.FISCAL_YEAR AS YY 
+					 <#if amtUnit=="001">	 
+			        ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_01, 0) * NVL(MM_MARGIN_RATE_01, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_01, 0) / 1000), 0)
+			        END
+			       )MM_AMT_01
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_02, 0) * NVL(MM_MARGIN_RATE_02, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_02, 0) / 1000), 0)
+			        END
+			       )MM_AMT_02
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_03, 0) * NVL(MM_MARGIN_RATE_03, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_03, 0) / 1000), 0)
+			        END
+			       )MM_AMT_03
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_04, 0) * NVL(MM_MARGIN_RATE_04, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_04, 0) / 1000), 0)
+			        END
+			       )MM_AMT_04
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_05, 0) * NVL(MM_MARGIN_RATE_05, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_05, 0) / 1000), 0)
+			        END
+			       )MM_AMT_05
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_06, 0) * NVL(MM_MARGIN_RATE_06, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_06, 0) / 1000), 0)
+			        END
+			       )MM_AMT_06
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_07, 0) * NVL(MM_MARGIN_RATE_07, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_07, 0) / 1000), 0)
+			        END
+			       )MM_AMT_07
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_08, 0) * NVL(MM_MARGIN_RATE_08, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_08, 0) / 1000), 0)
+			        END
+			       )MM_AMT_08
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_09, 0) * NVL(MM_MARGIN_RATE_09, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_09, 0) / 1000), 0)
+			        END
+			       )MM_AMT_09
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_10, 0) * NVL(MM_MARGIN_RATE_10, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_10, 0) / 1000), 0)
+			        END
+			       )MM_AMT_10
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_11, 0) * NVL(MM_MARGIN_RATE_11, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_11, 0) / 1000), 0)
+			        END
+			       )MM_AMT_11
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_12, 0) * NVL(MM_MARGIN_RATE_12, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_12, 0) / 1000), 0)
+			        END
+			       )MM_AMT_12
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN
+			                  NVL(ROUND((
+			                   NVL(A.MM_AMT_01 * NVL(MM_MARGIN_RATE_01, 100), 0)
+			                  +NVL(A.MM_AMT_02 * NVL(MM_MARGIN_RATE_02, 100), 0)
+			                  +NVL(A.MM_AMT_03 * NVL(MM_MARGIN_RATE_03, 100), 0)
+			                  +NVL(A.MM_AMT_04 * NVL(MM_MARGIN_RATE_04, 100), 0)
+			                  +NVL(A.MM_AMT_05 * NVL(MM_MARGIN_RATE_05, 100), 0)
+			                  +NVL(A.MM_AMT_06 * NVL(MM_MARGIN_RATE_06, 100), 0)
+			                  +NVL(A.MM_AMT_07 * NVL(MM_MARGIN_RATE_07, 100), 0)
+			                  +NVL(A.MM_AMT_08 * NVL(MM_MARGIN_RATE_08, 100), 0)
+			                  +NVL(A.MM_AMT_09 * NVL(MM_MARGIN_RATE_09, 100), 0)
+			                  +NVL(A.MM_AMT_10 * NVL(MM_MARGIN_RATE_10, 100), 0)
+			                  +NVL(A.MM_AMT_11 * NVL(MM_MARGIN_RATE_11, 100), 0)
+			                  +NVL(A.MM_AMT_12 * NVL(MM_MARGIN_RATE_12, 100), 0)
+			                  ) / 100000 ), 0)
+			            ELSE
+			                  NVL(ROUND((
+			                   NVL(A.MM_AMT_01, 0)
+			                  +NVL(A.MM_AMT_02, 0)
+			                  +NVL(A.MM_AMT_03, 0)
+			                  +NVL(A.MM_AMT_04, 0)
+			                  +NVL(A.MM_AMT_05, 0)
+			                  +NVL(A.MM_AMT_06, 0)
+			                  +NVL(A.MM_AMT_07, 0)
+			                  +NVL(A.MM_AMT_08, 0)
+			                  +NVL(A.MM_AMT_09, 0)
+			                  +NVL(A.MM_AMT_10, 0)
+			                  +NVL(A.MM_AMT_11, 0)
+			                  +NVL(A.MM_AMT_12, 0)
+			                  ) / 1000), 0)
+			            END
+			        ) AS SUM_AMT
+			        
+					</#if>
+					<#if amtUnit=="002">		
+								        
+			        ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_01, 0) * NVL(MM_MARGIN_RATE_01, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_01, 0) / 1000000), 0)
+			        END
+			       )MM_AMT_01
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_02, 0) * NVL(MM_MARGIN_RATE_02, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_02, 0) / 1000000), 0)
+			        END
+			       )MM_AMT_02
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_03, 0) * NVL(MM_MARGIN_RATE_03, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_03, 0) / 1000000), 0)
+			        END
+			       )MM_AMT_03
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_04, 0) * NVL(MM_MARGIN_RATE_04, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_04, 0) / 1000000), 0)
+			        END
+			       )MM_AMT_04
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_05, 0) * NVL(MM_MARGIN_RATE_05, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_05, 0) / 1000000), 0)
+			        END
+			       )MM_AMT_05
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_06, 0) * NVL(MM_MARGIN_RATE_06, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_06, 0) / 1000000), 0)
+			        END
+			       )MM_AMT_06
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_07, 0) * NVL(MM_MARGIN_RATE_07, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_07, 0) / 1000000), 0)
+			        END
+			       )MM_AMT_07
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_08, 0) * NVL(MM_MARGIN_RATE_08, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_08, 0) / 1000000), 0)
+			        END
+			       )MM_AMT_08
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_09, 0) * NVL(MM_MARGIN_RATE_09, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_09, 0) / 1000000), 0)
+			        END
+			       )MM_AMT_09
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_10, 0) * NVL(MM_MARGIN_RATE_10, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_10, 0) / 1000000), 0)
+			        END
+			       )MM_AMT_10
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_11, 0) * NVL(MM_MARGIN_RATE_11, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_11, 0) / 1000000), 0)
+			        END
+			       )MM_AMT_11
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN NVL(ROUND(NVL(A.MM_AMT_12, 0) * NVL(MM_MARGIN_RATE_12, 100) / 100000), 0)
+			        ELSE NVL(ROUND(NVL(A.MM_AMT_12, 0) / 1000000), 0)
+			        END
+			       )MM_AMT_12
+			      ,SUM(CASE WHEN SUBSTR(B.ACCT_CD,1,5) = '42203' THEN
+			                  NVL(ROUND((
+			                   NVL(A.MM_AMT_01 * NVL(MM_MARGIN_RATE_01, 100), 0)
+			                  +NVL(A.MM_AMT_02 * NVL(MM_MARGIN_RATE_02, 100), 0)
+			                  +NVL(A.MM_AMT_03 * NVL(MM_MARGIN_RATE_03, 100), 0)
+			                  +NVL(A.MM_AMT_04 * NVL(MM_MARGIN_RATE_04, 100), 0)
+			                  +NVL(A.MM_AMT_05 * NVL(MM_MARGIN_RATE_05, 100), 0)
+			                  +NVL(A.MM_AMT_06 * NVL(MM_MARGIN_RATE_06, 100), 0)
+			                  +NVL(A.MM_AMT_07 * NVL(MM_MARGIN_RATE_07, 100), 0)
+			                  +NVL(A.MM_AMT_08 * NVL(MM_MARGIN_RATE_08, 100), 0)
+			                  +NVL(A.MM_AMT_09 * NVL(MM_MARGIN_RATE_09, 100), 0)
+			                  +NVL(A.MM_AMT_10 * NVL(MM_MARGIN_RATE_10, 100), 0)
+			                  +NVL(A.MM_AMT_11 * NVL(MM_MARGIN_RATE_11, 100), 0)
+			                  +NVL(A.MM_AMT_12 * NVL(MM_MARGIN_RATE_12, 100), 0)
+			                  ) / 100000 ), 0)
+			            ELSE
+			                  NVL(ROUND((
+			                   NVL(A.MM_AMT_01, 0)
+			                  +NVL(A.MM_AMT_02, 0)
+			                  +NVL(A.MM_AMT_03, 0)
+			                  +NVL(A.MM_AMT_04, 0)
+			                  +NVL(A.MM_AMT_05, 0)
+			                  +NVL(A.MM_AMT_06, 0)
+			                  +NVL(A.MM_AMT_07, 0)
+			                  +NVL(A.MM_AMT_08, 0)
+			                  +NVL(A.MM_AMT_09, 0)
+			                  +NVL(A.MM_AMT_10, 0)
+			                  +NVL(A.MM_AMT_11, 0)
+			                  +NVL(A.MM_AMT_12, 0)
+			                  ) / 1000000), 0)
+			            END
+			        ) AS SUM_AMT
+					</#if>
+			      , DECODE(B.ACCT_CLASS, '매출액', '1', '재료비', '2', '노무비', '3', '경비', '4') AS SKEY
+			  FROM (
+			          SELECT B.UPJANG, A.ACCT_CD, A.FISCAL_YEAR
+			                ,A.MM_AMT_01, A.MM_AMT_02, A.MM_AMT_03, A.MM_AMT_04, A.MM_AMT_05, A.MM_AMT_06
+			                ,A.MM_AMT_07, A.MM_AMT_08, A.MM_AMT_09, A.MM_AMT_10, A.MM_AMT_11, A.MM_AMT_12
+			                ,'0' AS SUM_AMT
+			            FROM MAP_UPJANG_PL A
+			                ,MAC_UPJANG_V B
+			           WHERE 1=1
+			             AND A.CC_CD = B.CC_CD
+			             AND A.PL_CLASS = 'KS'
+			             AND A.FISCAL_YEAR = SUBSTR(:year, 0, 4)
+						          <#if srchMuCd?has_content>   
+						              AND B.MU_CD  = :srchMuCd
+								  </#if>
+								  <#if srchTmCd?has_content>
+						              AND B.TM_CD  = :srchTmCd
+								  </#if>
+								  <#if srchUpjangCd?has_content>
+						              AND B.UPJANG = :srchUpjangCd
+								  </#if>
+			                        ) A
+			       ,(
+						            SELECT ACCT_CD                                                                                            
+						                  ,ACCT_NM                                                                                            
+						                  ,ACCT_CLASS                                                                                         
+						              FROM (                                                                                                  
+						                        SELECT CONTENTS ACCT_CLASS
+											          ,CODE ACCT_CD
+											          ,CODE_NAME ACCT_NM
+											      FROM SCC_COMMON_CODE
+											     WHERE GROUP_CODE = 'ACCT_CD'
+			     								<#if saupType=="C">
+												     AND SET1  = 'Y' 		/* 급식용 */
+												<#else>
+													<#if saupType=="E">
+													    AND SET3  = 'Y' 	/* 식재용 */
+													<#else>
+													    <#if saupType=="A">	
+													        AND SET2  = 'Y' /* 외식용 */
+													    <#else>
+													    	AND 1=2
+														</#if>
+													</#if>
+												</#if>
+						                   )                                                                                        
+						          ORDER BY ACCT_CD    
+			        ) B
+			      ,(SELECT A.*
+			          FROM MAP_MARGIN_RATE_MGMT A
+			              ,MAC_UPJANG_V B
+			         WHERE A.UPJANG(+) = B.UPJANG
+			           AND A.YY = :year
+			           AND A.CLASS = 'R'
+					          <#if srchMuCd?has_content>   
+					              AND B.MU_CD  = :srchMuCd
+							  </#if>
+							  <#if srchTmCd?has_content>
+					              AND B.TM_CD  = :srchTmCd
+							  </#if>
+							  <#if srchUpjangCd?has_content>
+					              AND B.UPJANG = :srchUpjangCd
+							  </#if>
+			                   ) C
+			 WHERE B.ACCT_CD = A.ACCT_CD
+			   AND A.UPJANG = C.UPJANG
+			 GROUP BY B.ACCT_CLASS, B.ACCT_NM, B.ACCT_CD, A.FISCAL_YEAR  ,A.UPJANG  ORDER BY ACCT_CD		
+		]]>
+	</statement>
+	
+	
+	
+	<!-- P/L 정보 열람 가능여부를 조회한다. -->
+	<statement name="selectPlviewCheck" type="select">
+		/*+ com.hwfs.fs.fso.dao.UpjangInfoCycleReptDAO.selectPlviewCheck */
+		<![CDATA[
+			SELECT
+		      	CASE WHEN COUNT(A.UPJANG) > 0 THEN 'Y' ELSE 'N' END VIEW_CHK 
+			FROM MAS_CLOSE_MODIFYREQ A
+			WHERE A.UPJANG = :srchUpjangCd
+			AND    A.REQUEST_SABUN = :loginSabun
+			AND    TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.CLOSE_DATEFR AND A.CLOSE_DATETO
+			AND    A.TEAM_MST_CONGUBN = 'Y'
+		]]>
+	</statement>
+	
+	<!-- 아이템을 조회한다. -->
+	<statement name="selectItem" type="select">
+		/*+ com.hwfs.fs.fso.dao.UpjangInfoCycleReptDAO.selectItem */
+		<![CDATA[
+			SELECT  MENU.MENU_NM,
+					CLASS.MENU_CLSFI_NM AS MENU_CLASS_NM,
+			        SCLAS.MENU_CLSFI_NM AS MENU_SCLASS_NM,
+			        CLSFI.MENU_CLSFI_NM AS MENU_CLSFI_NM,
+				    NVL(MENU.APPLY_PRICE,0) AS APPLY_PRICE	    
+				FROM SLE_OUTLET_MENU MENU
+				INNER      JOIN SLE_OUTLET_MST  SHOP  ON SHOP.OUTLET_CD    = MENU.OUTLET_CD  -- 업장 코드
+				LEFT OUTER JOIN SLE_OUTLET_MENU_GRP SCLAS  ON SCLAS.OUTLET_CD   = MENU.OUTLET_CD
+				                                     AND SCLAS.MENU_CLASS  = MENU.MENU_CLASS
+				                                     AND SCLAS.MENU_CLSFI  = MENU.MENU_CLSFI
+				                                     AND SCLAS.MENU_SCLASS = MENU.MENU_SCLASS
+				                                     AND SCLAS.MENU_SCLASS <> '00'
+				INNER JOIN SLE_OUTLET_MENU_GRP CLSFI  ON CLSFI.OUTLET_CD   = MENU.OUTLET_CD
+				                                     AND CLSFI.MENU_CLASS  = MENU.MENU_CLASS
+				                                     AND CLSFI.MENU_CLSFI  = MENU.MENU_CLSFI
+				                                     AND CLSFI.MENU_SCLASS = '00'
+				INNER JOIN SLE_OUTLET_MENU_GRP CLASS  ON CLASS.OUTLET_CD   = MENU.OUTLET_CD
+				                                     AND CLASS.MENU_CLASS  = MENU.MENU_CLASS
+				                                     AND CLASS.MENU_CLSFI  = '00'
+				                                     AND CLASS.MENU_SCLASS = '00'
+				                                     
+				INNER JOIN SCC_COMMON_CODE USECLASS   ON USECLASS.GROUP_CODE  = 'SLE_0003' AND USECLASS.CODE  = DECODE(MENU.USE_CLASS, 'Y', 1, 0)
+				INNER JOIN SCC_COMMON_CODE MENUTYPE   ON MENUTYPE.GROUP_CODE  = 'SLE_0005' AND MENUTYPE.CODE  = MENU.MENU_TYPE
+				INNER JOIN SCC_COMMON_CODE SESNYN     ON SESNYN.GROUP_CODE    = 'SLE_0008' AND SESNYN.CODE    = MENU.SESN_APPLY_YN
+				INNER JOIN SCC_COMMON_CODE TAXYN      ON TAXYN.GROUP_CODE     = 'SLE_0006' AND TAXYN.CODE     = MENU.TAX_YN
+				INNER JOIN SCC_COMMON_CODE CALMETHOD  ON CALMETHOD.GROUP_CODE = 'SLE_0002' AND CALMETHOD.CODE = MENU.CAL_METHOD
+				INNER JOIN SCC_COMMON_CODE DISPOSYN   ON DISPOSYN.GROUP_CODE  = 'SLE_0008' AND DISPOSYN.CODE  = MENU.DISCNT_POSS_YN
+				INNER JOIN SCC_COMMON_CODE PRIPOSYN   ON PRIPOSYN.GROUP_CODE  = 'SLE_0003' AND PRIPOSYN.CODE  = DECODE(MENU.UPRICE_CHG_POSS_YN, 'Y', 1, 0) 
+				INNER JOIN SCC_COMMON_CODE KTCNYN1    ON KTCNYN1.GROUP_CODE   = 'SLE_0004' AND KTCNYN1.CODE   = MENU.KTCN_PRINT_YN1
+				INNER JOIN SCC_COMMON_CODE KTCNYN2    ON KTCNYN2.GROUP_CODE   = 'SLE_0004' AND KTCNYN2.CODE   = MENU.KTCN_PRINT_YN2
+				INNER JOIN SCC_COMMON_CODE KTCNYN3    ON KTCNYN3.GROUP_CODE   = 'SLE_0004' AND KTCNYN3.CODE   = MENU.KTCN_PRINT_YN3
+				INNER JOIN SCC_COMMON_CODE KTCNYN4    ON KTCNYN4.GROUP_CODE   = 'SLE_0004' AND KTCNYN4.CODE   = MENU.KTCN_PRINT_YN4
+				INNER JOIN SCC_COMMON_CODE TICKER     ON TICKER.GROUP_CODE    = 'SLE_0004' AND TICKER.CODE    = MENU.TICKET_PRINT_YN
+				INNER JOIN SCC_COMMON_CODE USEYN      ON USEYN.GROUP_CODE     = 'SLE_0003' AND USEYN.CODE     = DECODE(MENU.USE_YN, 'Y', 1, 0)  
+				
+				LEFT OUTER JOIN SCC_COMMON_CODE UNIT  ON UNIT.GROUP_CODE      = 'SLE_0007' AND UNIT.CODE      = MENU.UNIT
+				
+				LEFT OUTER JOIN (SELECT OUTLET_CD,  KTCN_PRTR_CD,  MAX(KTCN_PRTR_NM) AS KTCN_PRTR_NM   
+									FROM            SLE_KTCN_PRTR GROUP BY OUTLET_CD,  KTCN_PRTR_CD
+								) KTCN1 ON KTCN1.OUTLET_CD = MENU.OUTLET_CD AND KTCN1.KTCN_PRTR_CD = MENU.KTCN_PRTR_CD1
+								
+				LEFT OUTER JOIN (SELECT OUTLET_CD,  KTCN_PRTR_CD,  MAX(KTCN_PRTR_NM) AS KTCN_PRTR_NM   
+									FROM            SLE_KTCN_PRTR GROUP BY OUTLET_CD,  KTCN_PRTR_CD
+								) KTCN2 ON KTCN2.OUTLET_CD = MENU.OUTLET_CD AND KTCN2.KTCN_PRTR_CD = MENU.KTCN_PRTR_CD2
+								
+				LEFT OUTER JOIN (SELECT OUTLET_CD,  KTCN_PRTR_CD,  MAX(KTCN_PRTR_NM) AS KTCN_PRTR_NM   
+									FROM            SLE_KTCN_PRTR GROUP BY OUTLET_CD,  KTCN_PRTR_CD
+								) KTCN3 ON KTCN3.OUTLET_CD = MENU.OUTLET_CD AND KTCN3.KTCN_PRTR_CD = MENU.KTCN_PRTR_CD3
+								
+				LEFT OUTER JOIN (SELECT OUTLET_CD,  KTCN_PRTR_CD,  MAX(KTCN_PRTR_NM) AS KTCN_PRTR_NM   
+									FROM            SLE_KTCN_PRTR GROUP BY OUTLET_CD,  KTCN_PRTR_CD
+								) KTCN4 ON KTCN4.OUTLET_CD = MENU.OUTLET_CD AND KTCN4.KTCN_PRTR_CD = MENU.KTCN_PRTR_CD4
+								
+				LEFT OUTER JOIN  HLDC_PO_ITEM_MST MATERIAL ON MATERIAL.ITEM_CLASS1= 'G' AND MATERIAL.ITEM_CODE = MENU.MATERIAL_CD 
+				
+				LEFT OUTER JOIN 	 eprocusr.VO_SUBINVENTORY INV ON INV.subinv_code = MENU.WH_CD
+				
+				WHERE MENU.USE_YN = 'Y'  
+				    AND  MENU.OUTLET_CD      = :srchUpjangCd
+				ORDER BY  MENU.OUTLET_CD, MENU.MENU_NM
+		]]>
+	</statement>
+	
+	
+	<!-- P/L 정보 열람관리를 조회한다. -->
+	<statement name="selectPlviewSignList" type="select">
+		/*+ com.hwfs.fs.fso.dao.UpjangInfoCycleReptDAO.selectPlviewSignList */
+		<![CDATA[
+			SELECT 
+					 C.MU_CD								/* 사업부 코드 */
+				   , C.MU_NM								/* 사업부명 */
+				   , A.UPJANG AS UPJANG_CD		/* 업장 */
+				   , B.UPJANGNM AS UPJANG_NM	/* 업장명 */
+				   , A.REQUEST_SABUN					/* 신청자사번 */
+				   , (SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN = A.REQUEST_SABUN) AS REQUEST_SABUN_NM	/* 신청자 */
+				   , A.REQ_ID								/* MAS_CLOSE_MODIFYREQ.REQ_ID */
+				   , C.TM_CD								/* 팀코드 */
+				   , C.TM_NM								/* 팀명 */
+				   , A.REQUEST_DATE					/* 요청일자 */
+				   , A.CLOSE_DATEFR					/* 열람시작일 */
+				   , A.CLOSE_DATETO					/* 열람종료일 */
+				   , A.TEAM_MST_SABUN				/* 팀장_사번 */
+				   , (SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN = A.TEAM_MST_SABUN) AS TEAM_MST_SABUN_NM	/* 팀장_승인자 */
+				   , NVL(A.TEAM_MST_CONGUBN, 'N') AS TEAM_MST_CONGUBN  											/* 팀장승인구분 */
+				   , CASE WHEN A.REQUEST_SABUN = :loginSabun THEN 
+				   			(CASE WHEN  NVL(A.TEAM_MST_CONGUBN, 'N') = 'N' THEN 'Y' ELSE 'N' END) 
+				   	 ELSE 'N' END AS MOD_YN	/* 수정여부(Y/N) */ 	
+			FROM MAS_CLOSE_MODIFYREQ A INNER JOIN SCO_UPJANG_MST_V B ON A.UPJANG = B.UPJANG
+																	INNER JOIN HLDC_SC_DEPT_V C ON  C.MU_CD = :muCd
+																												AND C.TM_CD = :tmCd 
+																												AND B.DEPT_ID = C.DEPT_ID
+			WHERE A.CLOSE_GUBUN = '010'		/* 조건 : PL정보열람(010) */
+			<#if upjangCd?has_content>
+			AND     A.UPJANG = :upjangCd
+			</#if>
+			ORDER BY  C.MU_CD, C.TM_CD, A.UPJANG,  A.REQ_ID DESC 
+		]]>
+	</statement>
+	
+	<!-- P/L 정보 열람관리 중복대상을 조회한다. : 사용 X -->
+	<statement name="selectPlviewDupCheck" type="select">
+		/*+ com.hwfs.fs.fso.dao.UpjangInfoCycleReptDAO.selectPlviewDupCheck */
+		<![CDATA[
+		      SELECT  CASE WHEN COUNT(A.MU_CD) >0 THEN 'Y' ELSE 'N' END DUP_CHK 
+			    FROM  FSO_PL_VIEW_SIGN A	/* FSO_수주_손익 열람 결재관리 */
+			   WHERE  A.MU_CD = :muCd
+			     AND  A.TM_CD = :tmCd
+				 AND  A.UPJANG_CD = :upjangCd
+				 AND  A.REQUESTER_SABUN	= :loginSabun
+				 AND  ((:viewSdate BETWEEN A.VIEW_SDATE AND A.VIEW_EDATE) 
+				 	  OR (:viewEdate BETWEEN A.VIEW_SDATE AND A.VIEW_EDATE))				
+		]]>
+	</statement>
+	
+	<!-- P/L 정보 열람관리(을)를 등록한다. -->
+	<statement name="insertPlviewSign" type="insert">
+		/*+ com.hwfs.fs.fso.dao.UpjangInfoCycleReptDAO.insertPlviewSign */
+		<![CDATA[
+			INSERT INTO MAS_CLOSE_MODIFYREQ 
+			(
+	  			  REQ_ID						/* 신청번호 */
+				, UPJANG					/* 업장 */
+				, CLOSE_GUBUN			/* 마감구분 */
+				, CLOSE_DATEFR			/* 열람시작일 */
+				, CLOSE_DATETO			/* 열람종료일 */
+				, REQUEST_SABUN		/* 신청자 사번 */
+				, REQUEST_DATE			/* 신청일자 */
+				, TEAM_MST_SABUN		/* 승인자 사번 */
+				, TEAM_MST_CONGUBN	/* 승인상태 */
+				, CUSER
+				, CDATE
+				, UUSER
+				, UDATE
+			)		
+			VALUES
+			(
+				  MAS_CLOSE_MODIFYREQ_S.NEXTVAL	/* REQ_ID */
+				, :upjangCd		/* UPJANG */
+				, '010'			/* CLOSE_GUBUN */
+				, :closeDatefr	/* CLOSE_DATEFR */
+				, :closeDateto	/* CLOSE_DATETO */
+				, <#if requestSabun?has_content> :requestSabun <#else> :loginSabun </#if>	/* REQUEST_SABUN */
+				, TO_CHAR(SYSDATE,'YYYYMMDD')	/*  REQUEST_DATE */
+				, :teamMstSabun								/* TEAM_MST_SABUN */
+				, <#if teamMstCongubn?has_content> :teamMstCongubn <#else> 'N' </#if>	/* TEAM_MST_CONGUBN */
+				, :loginSabun
+				, SYSDATE
+				, :loginSabun
+				, SYSDATE
+			)
+		]]>
+	</statement>
+	
+	<!-- P/L 정보 열람관리(을)를 수정한다. -->
+	<statement name="updatePlviewSign" type="update">
+		/*+ com.hwfs.fs.fso.dao.UpjangInfoCycleReptDAO.updatePlviewSign */
+		<![CDATA[
+		  UPDATE  MAS_CLOSE_MODIFYREQ 
+		  SET    CLOSE_DATEFR		 =	:closeDatefr 				/* 열람시작일 */
+				 , CLOSE_DATETO	 =	:closeDateto 				/* 열람종료일 */
+				 , REQUEST_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')	/*  신청일자 */
+				 , TEAM_MST_SABUN	 =	:teamMstSabun 		/* 승인자 사번 */
+				 , UUSER					=   :loginSabun
+				 , UDATE				=   SYSDATE
+				 <#if upjangCd?has_content> , UPJANG = :upjangCd</#if>
+		   WHERE  REQ_ID		= :reqId		/* 신청번호 */
+		]]>
+	</statement>
+
+	<!-- P/L 정보 열람관리(을)를 삭제한다. -->
+	<statement name="deletePlviewSign" type="delete">
+		/*+ com.hwfs.fs.fso.dao.UpjangInfoCycleReptDAO.deletePlviewSign */
+		<![CDATA[
+		  DELETE 
+		    FROM  MAS_CLOSE_MODIFYREQ
+		   WHERE  REQ_ID		= :reqId		/* 신청번호 */
+		]]>
+	</statement>
+</hqml>

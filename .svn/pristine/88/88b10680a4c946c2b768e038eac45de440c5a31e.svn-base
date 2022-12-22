@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="am.ams.equipmentRequestDAO">
+	<desc>전산장비 요청 관리 HQML Query</desc>
+
+	<statement name="selectAdminList" type="select">
+		<![CDATA[
+	/* 전산장비 관리자 조회 */
+SELECT CODE AS SABUN,
+       CODE_NAME AS NAME
+  FROM SCC_COMMON_CODE
+ WHERE GROUP_CODE = 'AMS_MAN_SABUN'
+   AND USE_YN = 'Y'
+ORDER BY SORT_SEQ
+]]>
+	</statement>
+	<statement name="selectList"><![CDATA[/* 전산장비 요청 조회 */
+SELECT
+  REQ_DT     ,
+  SEQ        ,
+  REQ_TYPE   ,
+  COMEQ_TYPE ,
+  REQ_UPJANG ,
+  (SELECT UPJANGNM FROM SCO_UPJANG_MST_V WHERE UPJANG = REQ_UPJANG AND ROWNUM = 1) AS REQ_UPJANG_NM,
+  REQ_SABUN  ,
+  REQ_REASON ,
+  SRC_EQ_NO  ,
+  MV_UPJANG  ,
+  (SELECT UPJANGNM FROM SCO_UPJANG_MST_V WHERE UPJANG = MV_UPJANG AND ROWNUM = 1) AS MV_UPJANG_NM,
+  MV_SABUN   ,
+  (SELECT NM_KOR FROM SCC_USERINFO WHERE SABUN = MV_SABUN AND ROWNUM = 1) AS MV_SABUN_NM,
+  RES_DT     ,
+  RES_CD     ,
+  RES_RESULT ,
+  DES_EQ_NO  ,
+  (SELECT NM_KOR FROM SCC_USERINFO WHERE SABUN = AMS_EQ_REQ.UUSER AND ROWNUM = 1) AS UUSER,
+  UDATE      ,
+  (CASE WHEN RES_CD IS NOT NULL THEN 'Y' ELSE 'N' END) AS MODIFY_YN
+  FROM AMS_EQ_REQ
+ WHERE REQ_DT BETWEEN :START_DATE AND :END_DATE
+<#if reqType?has_content>
+   AND REQ_TYPE = :reqType
+</#if>
+<#if resCd?has_content>
+   AND RES_CD = :resCd
+</#if>
+   AND DEL_YN = 'N'
+<#if adminYn != "Y">
+   AND REQ_SABUN = :loginSabun
+</#if>
+ORDER BY REQ_DT DESC, SEQ DESC]]></statement>
+	<statement name="insert"><![CDATA[INSERT INTO AMS_EQ_REQ
+(
+REQ_DT,
+SEQ,
+REQ_TYPE,
+COMEQ_TYPE,
+REQ_UPJANG,
+REQ_SABUN,
+REQ_REASON,
+SRC_EQ_NO,
+MV_UPJANG,
+MV_SABUN,
+RES_DT,
+RES_CD,
+RES_RESULT,
+DES_EQ_NO,
+CUSER,
+CDATE,
+UUSER,
+UDATE
+)
+VALUES
+(
+:reqDt,
+(SELECT NVL(MAX(SEQ)+1,1) FROM AMS_EQ_REQ WHERE REQ_DT = :reqDt),
+:reqType,
+<#if comeqType?has_content> :comeqType, <#else> null, </#if>
+<#if reqUpjang?has_content> :reqUpjang, <#else> null, </#if>
+<#if reqSabun?has_content> :reqSabun, <#else> null, </#if>
+<#if reqReason?has_content> :reqReason, <#else> null, </#if>
+<#if srcEqNo?has_content> :srcEqNo, <#else> null, </#if>
+<#if mvUpjang?has_content> :mvUpjang, <#else> null, </#if>
+<#if mvSabun?has_content> :mvSabun, <#else> null, </#if>
+<#if resDt?has_content> :resDt, <#else> null, </#if>
+<#if resCd?has_content> :resCd, <#else> null, </#if>
+<#if resResult?has_content> :resResult, <#else> null, </#if>
+<#if desEqNo?has_content> :desEqNo, <#else> null, </#if>
+:loginSabun,
+SYSDATE,
+:loginSabun,
+SYSDATE
+)]]></statement>
+	<statement name="update"><![CDATA[UPDATE AMS_EQ_REQ
+   SET REQ_TYPE = <#if reqType?has_content> :reqType, <#else> null, </#if>
+       COMEQ_TYPE = <#if comeqType?has_content> :comeqType, <#else> null, </#if>
+       REQ_UPJANG = <#if reqUpjang?has_content> :reqUpjang, <#else> null, </#if>
+       REQ_SABUN = <#if reqSabun?has_content> :reqSabun, <#else> null, </#if>
+       REQ_REASON = <#if reqReason?has_content> :reqReason, <#else> null, </#if>
+       SRC_EQ_NO = <#if srcEqNo?has_content> :srcEqNo, <#else> null, </#if>
+       MV_UPJANG = <#if mvUpjang?has_content> :mvUpjang, <#else> null, </#if>
+       MV_SABUN  = <#if mvSabun?has_content> :mvSabun, <#else> null, </#if>
+       RES_DT = <#if resDt?has_content> :resDt, <#else> null, </#if>
+       RES_CD = <#if resCd?has_content> :resCd, <#else> null, </#if>
+       RES_RESULT = <#if resResult?has_content> :resResult, <#else> null, </#if>
+       DES_EQ_NO = <#if desEqNo?has_content> :desEqNo, <#else> null, </#if>
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+ WHERE REQ_DT = :reqDt
+   AND SEQ    = :seq]]></statement>
+	<statement name="delete"><![CDATA[UPDATE AMS_EQ_REQ
+   SET DEL_YN = 'Y',
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+ WHERE REQ_DT = :reqDt
+   AND SEQ    = :seq]]></statement>
+	<statement name="selectEqList"><![CDATA[SELECT EQ_NO,
+   	   SCC_CODE_NM('AMS_STAT_CD',STAT_CD) AS STAT_CD,
+   	   SCC_CODE_NM('AMS_COMEQ_TYPE',COMEQ_TYPE) AS COMEQ_TYPE,
+   	   SERIAL_NO,
+   	   PURCHASE_DT,
+       (SELECT UPJANGNM FROM SCO_UPJANG_MST_V WHERE UPJANG = ATTR_UPJANG AND ROWNUM = 1) AS ATTR_UPJANG,
+       (SELECT NM_KOR FROM SCC_USERINFO WHERE SABUN = ATTR_SABUN AND ROWNUM = 1) AS ATTR_SABUN
+  FROM AMS_EQ_MST
+ WHERE 1=1
+<#if eqNo?has_content>
+   AND EQ_NO = :eqNo
+</#if>
+<#if comeqType?has_content>
+   AND COMEQ_TYPE = :comeqType
+</#if>
+<#if statCd?has_content>
+   AND STAT_CD = :statCd
+</#if>
+<#if attrUpjang?has_content>
+   AND ATTR_UPJANG = :attrUpjang
+</#if>
+<#if attrSabun?has_content>
+   AND ATTR_SABUN = :attrSabun
+</#if>
+]]></statement>
+	<statement name="updateMstA"><![CDATA[UPDATE AMS_EQ_MST
+   SET STAT_CD = 'P',             --지급
+       ATTR_UPJANG = :reqUpjang,  --귀속업장
+       ATTR_SABUN = :reqSabun,    --귀속사용자
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+ WHERE EQ_NO = :desEqNo]]></statement>
+	<statement name="updateMstB"><![CDATA[UPDATE AMS_EQ_MST
+   SET STAT_CD = 'I',             --재고
+       ATTR_UPJANG = '',          --귀속업장
+       ATTR_SABUN = '',           --귀속사용자
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+ WHERE EQ_NO = :srcEqNo]]></statement>
+	<statement name="updateMstC"><![CDATA[UPDATE AMS_EQ_MST
+   SET ATTR_UPJANG = :reqUpjang, --귀속업장
+       ATTR_SABUN = :reqSabun,   --귀속사용자
+       UUSER = :loginSabun,
+       UDATE = SYSDATE
+ WHERE EQ_NO = :srcEqNo]]></statement>
+</hqml>

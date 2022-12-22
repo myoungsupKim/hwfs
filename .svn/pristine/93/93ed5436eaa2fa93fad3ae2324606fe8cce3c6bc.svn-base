@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+ YY, MM, OP_DATE, TM_CD, UPJANG
+, MAX(NVL(OP_YN,'N')) OP_YN
+, MAX(NVL(OP_MANS,0)) OP_MANS
+, MAX(NVL(FCT_SCHEDULE,'')) FCT_SCHEDULE
+, MAX(NVL(ACT_MANS,0)) ACT_MANS
+, MAX(NVL(ACT_SCHEDULE,'')) ACT_SCHEDULE
+, MAX(NVL(ATTR01,'')) ATTR01
+, MAX(NVL(ATTR02,'')) ATTR02
+, MAX(NVL(ATTR03,'')) ATTR03
+, MAX(NVL(ATTR04,'')) ATTR04
+, MAX(NVL(ATTR05,'')) ATTR05
+, MAX(NVL(ATTR06,0))  ATTR06
+, MAX(NVL(ATTR07,0))  ATTR07
+, MAX(NVL(ATTR08,0))  ATTR08
+, MAX(NVL(ATTR09,0))  ATTR09
+, MAX(NVL(ATTR10,0))  ATTR10
+FROM
+    (
+    SELECT 
+     YY, MM, OP_DATE, TM_CD, UPJANG
+    , OP_YN, OP_MANS, FCT_SCHEDULE
+    , ACT_MANS, ACT_SCHEDULE
+    , ATTR01, ATTR02, ATTR03, ATTR04, ATTR05
+    , ATTR06, ATTR07, ATTR08, ATTR09, ATTR10
+    FROM    MAF_OP_CALENDAR
+    WHERE   YY        = #YY#
+    AND     MM        = #MM#
+    AND     TM_CD     = #TM_CD#
+    AND     UPJANG    = #UPJANG#
+    UNION ALL
+    SELECT  
+     #YY# YY,#MM# MM,A.MM||B.DD OP_DATE
+    ,#TM_CD# TM_CD,#UPJANG# UPJANG
+    ,'N' OP_YN
+    ,0 OP_MANS,'' FCT_SCHEDULE
+    ,0 ACT_MANS,'' ACT_SCHEDULE
+    ,'' ATTR01,'' ATTR02,'' ATTR03,'' ATTR04,'' ATTR05
+    ,0 ATTR06,0 ATTR07,0 ATTR08,0 ATTR09,0 ATTR10
+    FROM
+            (SELECT #YY#||#MM# MM FROM DUAL) A,
+            (SELECT LPAD(ROWNUM,2,'0') DD
+             FROM   DICT
+             WHERE  ROWNUM <= 31) B
+    WHERE   TO_CHAR(LAST_DAY(TO_DATE(A.MM||'01','YYYYMMDD')),'DD') >= B.DD
+    ) AA
+GROUP BY AA.YY, AA.MM, AA.OP_DATE, AA.TM_CD, AA.UPJANG	]]></statement>
+	<input default-name="ds_input">
+		<col name="YY" size="255" type="VARCHAR" description="" /> 
+		<col name="MM" size="255" type="VARCHAR" description="" /> 
+		<col name="TM_CD" size="255" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

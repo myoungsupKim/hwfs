@@ -1,0 +1,1601 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fm.fms.salePriceAutoCreateDAO">
+	<desc>식자재영업 표준단가 HQML Query</desc>
+
+	<!-- 식자재영업 표준단가 목록을 조회한다.(이전 조회) : 사용 X -->
+	<statement name="selectList_old" type="select">
+		/*+ com.hwfs.fm.fms.dao.SalePriceAutoCreateDAO.selectList_old */
+		<![CDATA[
+			SELECT
+		        A.AP_UNITPRICE_UPJANG AS STD_UPJANG,		/* 단가업장코드 */
+		        NVL(B.UPJANGNM,'') AS STD_UPJANG_NM,		/* 단가업장명 */
+    			'' AS CHK_INS,					/* 생성구분 */
+    			C.SALE_PRICE_AUTO_JEN_MSG AS RET_MSG,		/* 처리결과 : 최근생성결과 표시 */
+    			'' AS START_TM,					/* 시작시간 */
+    			'' AS END_TM,						/* 종료시간 */
+    			HR.NM_KOR AS CS_SABUN_NM,	/* 담당자(CS) */
+    			:schCenter AS CENTER_CODE,		/* 센터 */
+		       NVL(C.ATTR09, 'N') AS ATTR09,		/* 전략이익제외 */
+		       NVL(C.ATTR10, 'N') AS ATTR10,		/* 기획이익제외 */
+    			(CASE WHEN (SELECT COUNT(*) FROM FMS_MARGIN_V M 
+    			                    WHERE M.AP_UNITPRICE_UPJANG = A.AP_UNITPRICE_UPJANG) > 0 THEN 'Y' ELSE '' END) AS MARGIN_YN1, 		/* 이익율자료여부 */
+    			'' AS FLAG,							/* 처리 FLAG */			
+    			'' AS ERROR						/* 에러메시지 */	    
+		 	FROM ST_UPJANG A    INNER JOIN ST_UPJANG B ON A.AP_UNITPRICE_UPJANG = B.UPJANG
+		 							 		INNER JOIN FMS_UPJANG C ON  C.USE_YN = 'Y'
+                                   											     AND  A.AP_UNITPRICE_UPJANG = C.UPJANG
+                 					 		INNER JOIN VO_CENTER_UPJANG D ON D.CENTER_CODE = :schCenter			/* 조건 : 센터 */
+                                        									                AND A.AP_UNITPRICE_UPJANG = D.UPJANG    
+                							LEFT JOIN HLDC_HR_PERSONAL HR ON C.CS_SABUN = HR.SABUN
+			WHERE  1 = 1
+			<#if schCust?has_content>
+   			AND A.CUSTCD = :schCust
+   			<#else>
+			AND A.CUSTCD > 0
+			</#if>
+			<#if schChk1?has_content>
+   			AND C.CS_SABUN = :loginSabun
+			</#if>
+ 			ORDER BY A.UPJANG ASC	
+		]]>
+	</statement>
+
+
+	<!-- 식자재영업 표준단가 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.fm.fms.dao.SalePriceAutoCreateDAO.selectList */
+		<![CDATA[
+			SELECT
+	  		  	  M.STD_UPJANG
+				, M.STD_UPJANG_NM
+				, C.UPJANG
+				, '' AS CHK_INS										/* 생성구분 */
+				, C.SALE_PRICE_AUTO_JEN_MSG AS RET_MSG		/* 처리결과 : 최근생성결과 표시 */
+				, C.SALE_PRICE_AUTO_JEN_DATE AS LAST_JEN_DATE
+				, '' AS START_TM										/* 시작시간 */
+				, '' AS END_TM										/* 종료시간 */
+    			, HR.NM_KOR AS CS_SABUN_NM				/* 담당자(CS) */
+    			, :schCenter AS CENTER_CODE					/* 센터 */
+				, NVL(C.ATTR09, 'N') AS ATTR09				/* 전략이익제외 */
+				, NVL(C.ATTR10, 'N') AS ATTR10				/* 기획이익제외 */
+				, (CASE WHEN (SELECT COUNT(*) FROM FMS_MARGIN_V 
+			       WHERE AP_UNITPRICE_UPJANG = C.UPJANG) > 0 THEN 'Y' ELSE '' END) AS MARGIN_YN1 		/* 이익율자료여부 */
+                , (SELECT 
+                        MAX(CONTRACT_START) 
+                   FROM PO_CONTRACT_FSALE
+                   WHERE CENTER_CODE = :schCenter			/* 조건 : 센터 */
+                   AND    UPJANG = C.UPJANG
+                   ) AS CONTRACT_DATE
+    			, '' AS FLAG											/* 처리 FLAG */			
+    			, '' AS ERROR											/* 에러메시지 */	    
+			FROM FMS_UPJANG C INNER JOIN (
+																SELECT 
+							  										DISTINCT
+							  											A.AP_UNITPRICE_UPJANG AS STD_UPJANG
+																	  , NVL(B.UPJANGNM,'') AS STD_UPJANG_NM
+																FROM ST_UPJANG A INNER JOIN ST_UPJANG B ON A.AP_UNITPRICE_UPJANG = B.UPJANG
+									     													INNER JOIN VO_CENTER_UPJANG D ON D.CENTER_CODE = :schCenter		/* 조건 : 센터 */
+															    																			AND A.AP_UNITPRICE_UPJANG = D.UPJANG    
+																WHERE  1 = 1
+															) M ON C.UPJANG = M.STD_UPJANG
+															AND C.USE_YN = 'Y'
+											LEFT JOIN HLDC_HR_PERSONAL HR ON C.CS_SABUN = HR.SABUN
+			WHERE 1 = 1
+			<#if schChk1?has_content>
+   			AND C.CS_SABUN = :loginSabun
+			</#if>
+			ORDER BY C.UPJANG ASC	  
+		]]>
+	</statement>
+
+
+
+	<!-- 식자재영업 납품업체 거래처를 조회한다. -->
+	<statement name="selectCust" type="select">
+		/*+ com.hwfs.fm.fms.dao.SalePriceAutoCreateDAO.selectCust */
+		<![CDATA[
+			SELECT DISTINCT
+				A.CUSTCD AS CUST_CD, 
+				B.VD_NM||'('||B.BIZ_REG_NO||')' AS CUST_NM
+  			FROM   VO_CENTER_CUSTOM A INNER JOIN VO_FC_VENDOR B ON A.CUSTCD = B.VD_CD
+  			WHERE A.USE_TYPE = '01'  
+  			<#if schCenter?has_content>
+  				<#if schCenter != '*'>
+  				AND A.CENTER_UPJANG = :schCenter
+  				</#if>
+			</#if>
+			<#if schCode?has_content>
+			AND A.CUSTCD LIKE '%' || :schCode || '%'
+			</#if>
+			<#if schName?has_content>
+			 AND   (B.VD_NM||'('||B.BIZ_REG_NO||')' LIKE  '%' || :schName || '%')			
+			</#if>
+			ORDER BY 2 ASC
+		]]>
+	</statement>
+
+
+	<!-- 단가생성 업장에 대한 구매정보 여부를 조회한다. -->
+	<statement name="selectPriceCnt" type="select">
+		/*+ com.hwfs.fm.fms.dao.SalePriceAutoCreateDAO.selectPriceCnt */
+		<![CDATA[
+		SELECT 
+			COUNT(*) AS CNT
+		FROM PO_CONTRACT_F 
+		WHERE CENTER_CODE  = :centerCode    /* 조건 : 센터코드 */
+		AND    UPJANG        	 = :upjang    		/* 조건 : 업장 */        
+		AND    CUSTCD          > 0       				/* 거래처코드 존재 */
+		AND    SUBSTR(ITEM_CODE, 1, 1)  = 'F'	/* 조건 : 식자재 */
+		--AND    CONTRACT_START <= :stdDate    /* 조건 : 판매단가개시일 */
+		AND    :stdDate BETWEEN CONTRACT_START AND CONTRACT_END	/* 조건 : 판매단가개시일 */
+		AND    USE_YN         = 'Y'					
+		]]>
+	</statement>
+
+
+	<!-- 식자재영업 표준단가(을)를 생성한다. : 사용 X -->
+	<statement name="insert_old" type="insert">
+		/*+ com.hwfs.fm.fms.dao.SalePriceAutoCreateDAO.insert_old */
+		<![CDATA[
+		INSERT INTO PO_CONTRACT_FSALE 
+		(
+	 		 CENTER_CODE
+			, UPJANG
+			, ITEM_CODE
+			, CONTRACT_START
+			, CONTRACT_ID
+			, CUSTCD
+			, AP_UNITPRICE_UPJANG
+			, PO_CONTRACT_ID
+			, SALE_PRICE_START
+			, SALE_PRICE_END
+			, REMARK
+			, CENTER_FLAG
+			, CONTRACT_PRICE
+			, ORI_CONTRACT_PRICE
+			, CONTRACT_PRICE_S
+			, MARGIN_RATE
+			, SALE_PRICE
+			, ORI_SALE_PRICE
+			, CONTRACT_END
+			, USE_YN
+			, PO_PRICE				/* PO_CONTRACT_F */
+			, ADD_RATE			/* PO_CONTRACT_F */
+			, ADD_PRICE			/* PO_CONTRACT_F */
+			, STRATEGY_RATE		/*  FM_CONTRACT_PROFIT */ 
+			, STRATEGY_PRICE	/*  FM_CONTRACT_PROFIT*/
+			, PLANNING_RATE	/*  FM_CONTRACT_PROFIT*/
+			, PLANNING_PRICE  /*  FM_CONTRACT_PROFIT */
+			--, STD_SALE_RATE	/* 삭제 */
+			--, STD_SALE_PRICE	/* 삭제 */
+			, VD_SN					/* PO_CONTRACT_F.VD_SN */
+			, APPLY_SD				/* PO_CONTRACT_F.APPLY_SD */
+			, UPJANG_GRP			/* PO_CONTRACT_F.UPJANG_GRP */
+			, CREATE_DATE
+			, CREATE_BY
+			, UPDATE_DATE
+			, UPDATE_BY 
+		)
+			SELECT 
+	 		  	  :centerCode AS CENTER_CODE
+        		, :upjang AS UPJANG
+        		, M.ITEM_CODE
+        		, :stdDate AS CONTRACT_START
+				, :stdDate || '-' || :upjang || '-' || '001' AS CONTRACT_ID		/* 단가계약번호 SET */
+        		, M.CUSTCD
+				, :stdUpjang AS AP_UNITPRICE_UPJANG
+				, M.PO_CONTRACT_ID
+				, M.SALE_PRICE_START
+				, M.SALE_PRICE_END
+        		, :stdDate || '판매단가 자동생성' AS REMARK
+        		--, DECODE(C.PO_CENTER_YN,'Y','Y','N') AS CENTER_FLAG
+        		, M.CENTER_FLAG
+        		, M.CONTRACT_PRICE
+        		, M.CONTRACT_PRICE AS ORI_CONTRACT_PRICE
+        		, M.CONTRACT_PRICE_S
+        		, DECODE(M.FIXED_PRICE, 0, (M.MARGIN_RATE + M.ADD_MARGIN), 100 * (1 - (M.CONTRACT_PRICE_S / M.FIXED_PRICE))) AS MARGIN_RATE
+        		, DECODE(M.FIXED_PRICE, 0, 10 * CEIL(M.CONTRACT_PRICE_S / (1 - ((M.MARGIN_RATE + M.ADD_MARGIN) / 100)) / 10), M.FIXED_PRICE) AS SALE_PRICE
+        		, DECODE(M.FIXED_PRICE, 0, 10 * CEIL(M.CONTRACT_PRICE_S / (1 - ((M.MARGIN_RATE + M.ADD_MARGIN) / 100)) / 10), M.FIXED_PRICE) AS ORI_SALE_PRICE
+        		, (SELECT /*+ INDEX_ASC(Z PO_CONTRACT_FSALE_PK) */
+              	    TO_CHAR(TO_DATE(Z.CONTRACT_START,'YYYYMMDD')-1,'YYYYMMDD')
+           			FROM PO_CONTRACT_FSALE Z
+          			WHERE Z.CENTER_CODE = :centerCode		/* 조건 : 센터코드 */
+           			AND    Z.UPJANG          = :upjang				/* 조건 : 업장 */
+           			AND    Z.ITEM_CODE     = M.ITEM_CODE
+           			AND    Z.CONTRACT_START > :stdDate		/* 조건 : 판매단가개시일 */
+           			AND    ROWNUM <= 1) AS CONTRACT_END
+        		, 'Y' AS USE_YN
+				, M.PO_PRICE
+				, M.ADD_RATE
+				, M.ADD_PRICE
+				/* 전략율  : 0이면 MARGIN_RATE 적용 */
+				, CASE WHEN NVL(X.STRATEGY_RATE, 0) = 0 THEN DECODE(M.FIXED_PRICE, 0, (M.MARGIN_RATE + M.ADD_MARGIN), 100 * (1 - (M.CONTRACT_PRICE_S / M.FIXED_PRICE))) 
+					ELSE NVL(X.STRATEGY_RATE, 0) 
+					END AS STRATEGY_RATE
+				/* 전략단가 : 0이면 SALE_PRICE 적용 */
+				, CASE WHEN NVL(X.STRATEGY_PRICE, 0) = 0 THEN DECODE(M.FIXED_PRICE, 0, 10 * CEIL(M.CONTRACT_PRICE_S / (1 - ((M.MARGIN_RATE + M.ADD_MARGIN) / 100)) / 10), M.FIXED_PRICE)
+					ELSE NVL(X.STRATEGY_PRICE, 0)
+					END AS STRATEGY_PRICE
+				/* 기획율  : 0이면 MARGIN_RATE 적용 */
+				, CASE WHEN NVL(X.PLANNING_RATE, 0) = 0 THEN DECODE(M.FIXED_PRICE, 0, (M.MARGIN_RATE + M.ADD_MARGIN), 100 * (1 - (M.CONTRACT_PRICE_S / M.FIXED_PRICE)))
+					ELSE NVL(X.PLANNING_RATE, 0)
+					END AS PLANNING_RATE
+				/* 기획단가 0이면 SALE_PRICE 적용 */
+				, CASE WHEN NVL(X.PLANNING_PRICE, 0) = 0 THEN DECODE(M.FIXED_PRICE, 0, 10 * CEIL(M.CONTRACT_PRICE_S / (1 - ((M.MARGIN_RATE + M.ADD_MARGIN) / 100)) / 10), M.FIXED_PRICE)
+					ELSE NVL(X.PLANNING_PRICE, 0)
+					END AS PLANNING_PRICE
+				--, X.SALE_RATE AS STD_SALE_RATE
+				--, X.SALE_PRICE AS STD_SALE_PRICE
+				, M.VD_SN					/* PO_CONTRACT_F.VD_SN */
+				, M.APPLY_SD				/* PO_CONTRACT_F.APPLY_SD */
+				, M.UPJANG_GRP			/* PO_CONTRACT_F.UPJANG_GRP */
+        		, SYSDATE AS CREATE_DATE
+        		, :loginSabun AS CREATE_BY
+        		, SYSDATE AS UPDATE_DATE
+        		, :loginSabun AS UPDATE_BY
+ 			FROM 
+     			(	
+        			SELECT 
+						A.CENTER_CODE,
+						B.UPJANG_GRP,
+						A.UPJANG,
+						A.ITEM_CODE, 
+						B.CENTER_FLAG,		
+						A.CUSTCD,
+						B.PO_CONTRACT_ID,
+						B.SALE_PRICE_START,
+						B.SALE_PRICE_END,
+						NVL(B.CONTRACT_PRICE,0) AS CONTRACT_PRICE,
+						NVL(B.CONTRACT_PRICE_S,0) AS CONTRACT_PRICE_S,
+						NVL(B.PO_PRICE,0) AS PO_PRICE,
+						NVL(B.ADD_RATE,0) AS ADD_RATE,
+						NVL(B.ADD_PRICE,0) AS ADD_PRICE,
+						B.VD_SN,
+						B.APPLY_SD,
+						/* 이익율...(단가업장, 자재코드) */
+						FMS_GETMARGINRATE_FUN(:stdUpjang, A.ITEM_CODE) AS MARGIN_RATE,
+						/* 추가이익율 */
+						0 AS ADD_MARGIN,
+						/* 고정단가 */
+						NVL((SELECT Z.FIXED_PRICE
+                  				FROM FMS_MARGIN_V Z
+		  						WHERE  Z.AP_UNITPRICE_UPJANG  = :stdUpjang			/* 조건 : 단가업장 */
+                  				AND     Z.ITEM_CODE   = A.ITEM_CODE), 0) AS FIXED_PRICE
+        			FROM PO_TREAT_UPJANG_V A INNER JOIN 
+		    			(
+						SELECT 
+								D.CENTER_CODE, 
+								D.UPJANG_GRP,
+								D.UPJANG,
+								D.CUSTCD, 
+								D.ITEM_CODE, 
+								D.CONTRACT_ID AS PO_CONTRACT_ID,				/* 계약번호 - PO */
+								D.CONTRACT_START AS SALE_PRICE_START,		/* 판매단가시작일 - PO */
+								D.CONTRACT_END AS SALE_PRICE_END,				/* 판매단가종료일 - PO */	
+								D.CONTRACT_PRICE_M AS CONTRACT_PRICE,		/* 구매단가 => 매입가 */
+								D.CONTRACT_PRICE_M AS CONTRACT_PRICE_S, 	/* 식재출하단가 X(PO_CONTRACT_D) => 구매단가를 SET */
+								D.CONTRACT_PRICE AS PO_PRICE,						/* 	구매단가 SET */
+								D.MARGIN_RATE AS ADD_RATE,							/* 	구매추가율 SET */
+								D.CONTRACT_PRICE_M AS ADD_PRICE,				/* 	구매추가단가 SET */
+								D.VD_SN,														/* 구매_계약 업체 일련번호 */
+								D.APPLY_SD,													/* 구매_계약 적용 시작일자 */
+								--DECODE(D.PROC_TYP_CD, 'VC', 'N', 'Y') AS CENTER_FLAG		/* 구매_센터경유 */
+								D.PROC_TYP_CD AS CENTER_FLAG						/* 구매_센터경유 */
+						FROM 
+									(	/* PO_CONTRACT_F 기준 센터,업장,거래처,자재별 최근 단가시작일 SET */
+									SELECT 
+											F.CENTER_CODE, 
+											F.UPJANG,
+											F.CUSTCD, 
+											F.ITEM_CODE, 
+											MAX(F.CONTRACT_START) AS CONTRACT_START
+									FROM PO_CONTRACT_F F
+									WHERE F.CENTER_CODE  = :centerCode	/* 조건 : 센터코드 */
+									AND    F.UPJANG	           = :upjang		/* 조건 : 업장 */		
+									AND    F.CUSTCD          > 0					/* 거래처코드 존재 */
+									AND    F.ITEM_CODE      > ' '				/* 자재코드 존재 */		
+									AND    F.CONTRACT_START <= :stdDate	/* 조건 : 판매단가개시일 */
+									AND    F.USE_YN          = 'Y'
+									GROUP BY F.CENTER_CODE, F.UPJANG, F.CUSTCD, F.ITEM_CODE
+					  				) E INNER JOIN  PO_CONTRACT_F D ON E.CENTER_CODE = D.CENTER_CODE
+																	  				AND E.UPJANG      	= D.UPJANG
+																	  				AND  E.CUSTCD     	= D.CUSTCD
+																	  				AND  E.ITEM_CODE 	= D.ITEM_CODE
+																	  				AND  E.CONTRACT_START = D.CONTRACT_START
+										INNER JOIN HLDC_PO_ITEM_MST P ON P.USE_YN = 'Y'		/* 사용불가 자재 제외 */
+															 			 	  AND E.ITEM_CODE = P.ITEM_CODE
+					) B ON   A.CENTER_CODE = B.CENTER_CODE
+			   	  		AND  A.UPJANG         = B.UPJANG
+			      		AND  A.CUSTCD         = B.CUSTCD
+			      		AND  A.ITEM_CODE     = B.ITEM_CODE
+        		/* 기존단가존재여부(있으면 패스...) */
+        		WHERE NOT EXISTS
+        				   (SELECT 1
+         					FROM PO_CONTRACT_FSALE Z
+        				     WHERE Z.CENTER_CODE = :centerCode		/* 조건 : 센터코드 */
+        					 AND    Z.UPJANG 		   = :upjang			/* 조건 : 업장 */
+         					 AND    Z.ITEM_CODE 	   = A.ITEM_CODE
+         					 AND    Z.CONTRACT_START = :stdDate)		/* 조건 : 판대단가개시일 */
+  				) M 
+				  /* 전략이익율 부가정보 SET */
+				  LEFT JOIN FM_CONTRACT_PROFIT X ON X.CENTER_CODE = :centerCode			/* 조건 : 센터코드 */
+				 			 									  AND X.PROFIT_DATE  = :stdPDate				/* 조건 : 전략이익율 기준일자 */ 
+				  			 									  AND M.ITEM_CODE = X.ITEM_CODE	
+ 			WHERE M.MARGIN_RATE IS NOT NULL /* 이익율이 없으면 패스(MARGIN_RATE IS NULL) */
+		]]>
+	</statement>
+
+
+	<!-- 식자재영업 표준단가(을)를 생성한다. : 시용 X-->
+	<statement name="insert_old2" type="insert">
+		/*+ com.hwfs.fm.fms.dao.SalePriceAutoCreateDAO.insert_old2 */
+		<![CDATA[
+		INSERT INTO PO_CONTRACT_FSALE 
+		(
+	 		 CENTER_CODE
+			, UPJANG
+			, ITEM_CODE
+			, CONTRACT_START
+			, CONTRACT_ID
+			, CUSTCD
+			, AP_UNITPRICE_UPJANG
+			, PO_CONTRACT_ID
+			, SALE_PRICE_START
+			, SALE_PRICE_END
+			, REMARK
+			, CENTER_FLAG
+			, CONTRACT_PRICE
+			, ORI_CONTRACT_PRICE
+			, CONTRACT_PRICE_S
+			, MARGIN_RATE
+			, SALE_PRICE
+			, ORI_SALE_PRICE
+			, CONTRACT_END
+			, USE_YN
+			, PO_PRICE				/* PO_CONTRACT_F */
+			, ADD_RATE			/* PO_CONTRACT_F */
+			, ADD_PRICE			/* PO_CONTRACT_F */
+			, STRATEGY_RATE		/*  FM_CONTRACT_PROFIT */ 
+			, STRATEGY_PRICE	/*  FM_CONTRACT_PROFIT*/
+			, PLANNING_RATE	/*  FM_CONTRACT_PROFIT*/
+			, PLANNING_PRICE  /*  FM_CONTRACT_PROFIT */
+			, SUBSIDY_RATE		/* 장려율 : SUBINV_CODE 매핑 X, SO_PR에만 적용 */
+			, SUBSIDY_PRICE		/* 장려단가 : SUBINV_CODE 매핑 X, SO_PR에만 적용 */
+			, OP_RATE				/* 운영율 */
+			, OP_PRICE				/* 운영단가 */
+			, VD_SN					/* PO_CONTRACT_F.VD_SN */
+			, APPLY_SD				/* PO_CONTRACT_F.APPLY_SD */
+			, CREATE_DATE
+			, CREATE_BY
+			, UPDATE_DATE
+			, UPDATE_BY 
+		)
+		SELECT
+		  	  S.CENTER_CODE
+			, S.UPJANG
+			, S.ITEM_CODE
+			, S.CONTRACT_START
+			, S.CONTRACT_ID
+			, S.CUSTCD
+			, S.AP_UNITPRICE_UPJANG
+			, S.PO_CONTRACT_ID
+			, S.SALE_PRICE_START
+			, S.SALE_PRICE_END
+			, S.REMARK
+			, S.CENTER_FLAG
+			, S.CONTRACT_PRICE
+			, S.ORI_CONTRACT_PRICE
+			, S.CONTRACT_PRICE_S
+			, S.MARGIN_RATE
+			, S.SALE_PRICE
+			, S.SALE_PRICE AS ORI_SALE_PRICE
+			, S.CONTRACT_END
+			, S.USE_YN
+			, S.PO_PRICE
+			, S.ADD_RATE
+			, S.ADD_PRICE
+			<#if attr09 == 'Y'>
+				, 0 AS STRATEGY_RATE			/* FMS_UPJANG.ATTR09 : 전략이익제외 */
+				, 0 AS STRATEGY_PRICE		/* FMS_UPJANG.ATTR09 : 전략이익제외 */
+			<#else>
+				, (CASE WHEN S.STRATEGY_RATE = 0 THEN S.MARGIN_RATE ELSE S.STRATEGY_RATE  END) AS STRATEGY_RATE	/* 전략율  : 0이면 MARGIN_RATE 적용 */
+				, (CASE WHEN S.STRATEGY_PRICE = 0 THEN S.SALE_PRICE ELSE S.STRATEGY_PRICE  END) AS STRATEGY_PRICE	/* 전략단가  : 0이면 SALE_PRICE 적용 */
+			</#if>
+			<#if attr10 == 'Y'>
+				, 0 AS PLANNING_RATE		/* FMS_UPJANG.ATTR10 : 기획이익제외 */
+				, 0 AS PLANNING_PRICE		/* FMS_UPJANG.ATTR10 : 기획이익제외 */
+			<#else>
+				, (CASE WHEN S.PLANNING_RATE = 0 THEN S.MARGIN_RATE ELSE S.PLANNING_RATE  END) AS PLANNING_RATE/* 기획율  : 0이면 MARGIN_RATE 적용 */
+				, (CASE WHEN S.PLANNING_PRICE = 0 THEN S.SALE_PRICE ELSE S.PLANNING_PRICE  END) AS PLANNING_PRICE	 /* 기획단가  : 0이면 SALE_PRICE 적용 */
+			</#if>
+			, 0 AS SUBSIDY_RATE		/* 장려율 : SUBINV_CODE 매핑 X, SO_PR에만 적용 */
+			, 0 AS SUBSIDY_PRICE		/* 장려단가 : SUBINV_CODE 매핑 X, SO_PR에만 적용 */
+			, FMU_OP_RATE_FUN(:upjang, S.ITEM_CODE, :stdDate) AS OP_RATE					/* 운영율 */
+			, FMU_OP_PRICE_FUN(:upjang, S.ITEM_CODE, S.SALE_PRICE, :stdDate) AS OP_PRICE		/* 운영단가 */
+			, S.VD_SN							/* PO_CONTRACT_F.VD_SN */
+			, S.APPLY_SD						/* PO_CONTRACT_F.APPLY_SD */		
+			, SYSDATE AS CREATE_DATE
+			, :loginSabun AS CREATE_BY
+			, SYSDATE AS UPDATE_DATE
+			, :loginSabun AS UPDATE_BY
+		FROM
+			(
+				SELECT 
+	 		 	  	  :centerCode AS CENTER_CODE
+        			, :upjang AS UPJANG
+        			, M.ITEM_CODE
+        			, :stdDate AS CONTRACT_START
+					, :stdDate || '-' || :upjang || '-' || '001' AS CONTRACT_ID		/* 단가계약번호 SET */
+        			, M.CUSTCD
+					, :stdUpjang AS AP_UNITPRICE_UPJANG
+					, M.PO_CONTRACT_ID
+					, M.SALE_PRICE_START
+					, M.SALE_PRICE_END
+        			, :stdDate || '판매단가 자동생성' AS REMARK
+        			--, DECODE(C.PO_CENTER_YN,'Y','Y','N') AS CENTER_FLAG
+        			, 'N' AS CENTER_FLAG
+        			, M.CONTRACT_PRICE
+        			, M.CONTRACT_PRICE AS ORI_CONTRACT_PRICE
+        			, M.CONTRACT_PRICE_S
+        			, DECODE(M.FIXED_PRICE, 0, (M.MARGIN_RATE + M.ADD_MARGIN), 100 * (1 - (M.CONTRACT_PRICE_S / M.FIXED_PRICE))) AS MARGIN_RATE
+        			, DECODE(M.FIXED_PRICE, 0, 10 * CEIL(M.CONTRACT_PRICE_S / (1 - ((M.MARGIN_RATE + M.ADD_MARGIN) / 100)) / 10), M.FIXED_PRICE) AS SALE_PRICE
+        			, (SELECT /*+ INDEX_ASC(Z PO_CONTRACT_FSALE_PK) */
+              				TO_CHAR(TO_DATE(Z.CONTRACT_START,'YYYYMMDD')-1,'YYYYMMDD')
+           		  	   FROM PO_CONTRACT_FSALE Z
+          		  	   WHERE Z.CENTER_CODE = :centerCode		/* 조건 : 센터코드 */
+           		  	   AND    Z.UPJANG          = :upjang				/* 조건 : 업장 */
+           		  	   AND    Z.ITEM_CODE     = M.ITEM_CODE
+           		  	   AND    Z.CONTRACT_START > :stdDate		/* 조건 : 판매단가개시일 */
+           		  	   AND    ROWNUM <= 1) AS CONTRACT_END
+        			, 'Y' AS USE_YN
+					, M.PO_PRICE
+					, M.ADD_RATE
+					, M.ADD_PRICE
+					, NVL(X.STRATEGY_RATE, 0) AS STRATEGY_RATE		/* 전략단가 */
+					, NVL(X.STRATEGY_PRICE, 0) AS STRATEGY_PRICE		/* 전략율 */
+					, NVL(X.PLANNING_RATE, 0) AS PLANNING_RATE		/* 기획단가 */
+					, NVL(X.PLANNING_PRICE, 0) AS PLANNING_PRICE		/* 기획율 */
+					, M.VD_SN							/* PO_CONTRACT_F.VD_SN */
+					, M.APPLY_SD						/* PO_CONTRACT_F.APPLY_SD */
+					, M.TAX_CODE						/* HLDC_PO_ITEM_MST.TAX_CODE */
+ 				FROM 
+     				(
+        				SELECT 
+							A.CENTER_CODE,
+							A.UPJANG,
+							A.ITEM_CODE, 
+							--B.CENTER_FLAG,		/* 사용 X */
+							A.CUSTCD,
+							B.PO_CONTRACT_ID,
+							B.SALE_PRICE_START,
+							B.SALE_PRICE_END,
+							NVL(B.CONTRACT_PRICE,0) AS CONTRACT_PRICE,
+							NVL(B.CONTRACT_PRICE_S,0) AS CONTRACT_PRICE_S,
+							NVL(B.PO_PRICE,0) AS PO_PRICE,
+							NVL(B.ADD_RATE,0) AS ADD_RATE,
+							NVL(B.ADD_PRICE,0) AS ADD_PRICE,
+							B.TAX_CODE,
+							B.VD_SN,
+							B.APPLY_SD,
+							/* 이익율...(단가업장, 자재코드) */
+							FMS_GETMARGINRATE_FUN(:stdUpjang, A.ITEM_CODE) AS MARGIN_RATE,
+							/* 추가이익율 */
+							0 AS ADD_MARGIN,
+							/* 고정단가 */
+							NVL((SELECT Z.FIXED_PRICE
+                  					FROM FMS_MARGIN_V Z
+		  							WHERE  Z.AP_UNITPRICE_UPJANG  = :stdUpjang			/* 조건 : 단가업장 */
+                  					AND     Z.ITEM_CODE   = A.ITEM_CODE), 0) AS FIXED_PRICE
+        				FROM PO_TREAT_UPJANG_V A INNER JOIN 
+		    																		(
+																						SELECT 
+																								D.CENTER_CODE, 
+																								D.UPJANG,
+																								D.CUSTCD, 
+																								D.ITEM_CODE, 
+																								--P.CENTER_FLAG,	/* 사용 X */
+																								P.TAX_CODE,
+																								D.CONTRACT_ID AS PO_CONTRACT_ID,				/* 계약번호 - PO */
+																								D.CONTRACT_START AS SALE_PRICE_START,		/* 판매단가시작일 - PO */
+																								D.CONTRACT_END AS SALE_PRICE_END,				/* 판매단가종료일 - PO */	
+																								D.CONTRACT_PRICE_M AS CONTRACT_PRICE,		/* 구매단가 => 매입가 */
+																								D.CONTRACT_PRICE_M AS CONTRACT_PRICE_S, 	/* 식재출하단가 X(PO_CONTRACT_D) => 구매단가를 SET */
+																								D.CONTRACT_PRICE AS PO_PRICE,						/* 	구매단가 SET */
+																								D.MARGIN_RATE AS ADD_RATE,							/* 	구매추가율 SET */
+																								D.CONTRACT_PRICE_M AS ADD_PRICE,				/* 	구매추가단가 SET */
+																								D.VD_SN,														/* 구매_계약 업체 일련번호 */
+																								D.APPLY_SD													/* 구매_계약 적용 시작일자 */
+																						FROM 
+																								(	/* PO_CONTRACT_F 기준 센터,업장,거래처,자재별 최근 단가시작일 SET */
+																									SELECT 
+																											F.CENTER_CODE, 
+																											F.UPJANG,
+																											F.CUSTCD, 
+																											F.ITEM_CODE, 
+																											MAX(F.CONTRACT_START) AS CONTRACT_START
+																									FROM PO_CONTRACT_F F
+																									WHERE F.CENTER_CODE  = :centerCode		/* 조건 : 센터코드 */
+																									AND    F.UPJANG	           = :upjang			/* 조건 : 업장 */		
+																									AND    F.CUSTCD          > 0						/* 거래처코드 존재 */
+																									AND    F.ITEM_CODE      > ' '					/* 자재코드 존재 */		
+																									AND    F.CONTRACT_START <= :stdDate		/* 조건 : 판매단가개시일 */
+																									AND    F.USE_YN          = 'Y'
+																									GROUP BY F.CENTER_CODE, F.UPJANG, F.CUSTCD, F.ITEM_CODE
+																								) E INNER JOIN  PO_CONTRACT_F D ON E.CENTER_CODE = D.CENTER_CODE
+																	 																			AND E.UPJANG      	= D.UPJANG
+																	 																			AND E.CUSTCD     	= D.CUSTCD
+																	 																			AND E.ITEM_CODE 	= D.ITEM_CODE
+																	 																			AND E.CONTRACT_START = D.CONTRACT_START
+											    													INNER JOIN HLDC_PO_ITEM_MST P ON P.USE_YN = 'Y'		/* 사용불가 자재 제외 */
+																  																		  AND E.ITEM_CODE = P.ITEM_CODE
+																						) B ON  A.CENTER_CODE = B.CENTER_CODE
+			   							   													AND A.UPJANG         = B.UPJANG
+										   													AND A.CUSTCD         = B.CUSTCD
+										   													AND A.ITEM_CODE     = B.ITEM_CODE
+        				/* 기존단가존재여부(있으면 패스...) */
+        				WHERE NOT EXISTS
+        				   			(SELECT 1
+         				    		 FROM PO_CONTRACT_FSALE Z
+        				    		 WHERE Z.CENTER_CODE = :centerCode		/* 조건 : 센터코드 */
+        				    		 AND    Z.UPJANG 		   = :upjang			/* 조건 : 업장 */
+         				    		 AND    Z.ITEM_CODE 	   = A.ITEM_CODE
+         				    		 AND    Z.CONTRACT_START = :stdDate)		/* 조건 : 판대단가개시일 */
+						/* 예외설정 자재처리 :  FMS_ITEM_EXCEPTION (2015-07-15) */
+						AND    A.ITEM_CODE NOT IN (
+													/* 해당 업장에 예외설정 삭제 품목 */
+                                       				SELECT 
+                                           				ITEM_CODE
+                                     				FROM FMS_ITEM_EXCEPTION
+                                                    WHERE UPJANG = :upjang
+                                                    AND    EXCEPTION_TYPE = '-'
+                									UNION 
+													/* 다른 업장에 예외설정 추가 품목 */
+                                                    SELECT 
+                                                    	DISTINCT ITEM_CODE
+                                                    FROM FMS_ITEM_EXCEPTION
+                                                    WHERE UPJANG NOT IN (:upjang)
+                                                    AND    EXCEPTION_TYPE = '+'
+													)
+  				) M 
+			  			/* 전략이익율 부가정보 SET */
+			  			LEFT JOIN FM_CONTRACT_PROFIT X ON X.CENTER_CODE = :centerCode			/* 조건 : 센터코드 */
+				 			 		  									AND X.PROFIT_DATE  = :stdPDate				/* 조건 : 전략이익율 기준일자 */ 
+				  			 		  									AND M.ITEM_CODE = X.ITEM_CODE	
+ 				WHERE M.MARGIN_RATE IS NOT NULL /* 이익율이 없으면 패스(MARGIN_RATE IS NULL) */
+		)  S
+		]]>
+	</statement>
+
+
+
+	<!-- 식자재영업 표준단가(을)를 생성한다. -->
+	<!-- 전략율, 기획율을 판매단가 생성시에 적용 : 사용 X-->
+	<statement name="insert_old3" type="insert">
+		/*+ com.hwfs.fm.fms.dao.SalePriceAutoCreateDAO.insert_old3 */
+		<![CDATA[
+		INSERT INTO PO_CONTRACT_FSALE 
+		(
+	 		 CENTER_CODE
+			, UPJANG
+			, ITEM_CODE
+			, CONTRACT_START
+			, CONTRACT_ID
+			, CUSTCD
+			, AP_UNITPRICE_UPJANG
+			, PO_CONTRACT_ID
+			, SALE_PRICE_START
+			, SALE_PRICE_END
+			, REMARK
+			, CENTER_FLAG
+			, CONTRACT_PRICE
+			, ORI_CONTRACT_PRICE
+			, CONTRACT_PRICE_S
+			, MARGIN_RATE
+			, SALE_PRICE
+			, ORI_SALE_PRICE
+			, CONTRACT_END
+			, USE_YN
+			, PO_PRICE				/* PO_CONTRACT_F */
+			, ADD_RATE			/* PO_CONTRACT_F */
+			, ADD_PRICE			/* PO_CONTRACT_F */
+			, STRATEGY_RATE		/*  FM_CONTRACT_PROFIT */ 
+			, STRATEGY_PRICE	/*  FM_CONTRACT_PROFIT*/
+			, PLANNING_RATE	/*  FM_CONTRACT_PROFIT*/
+			, PLANNING_PRICE  /*  FM_CONTRACT_PROFIT */
+			, SUBSIDY_RATE		/* 장려율 : SUBINV_CODE 매핑 X, SO_PR에만 적용 */
+			, SUBSIDY_PRICE		/* 장려단가 : SUBINV_CODE 매핑 X, SO_PR에만 적용 */
+			, OP_RATE				/* 운영율 */
+			, OP_PRICE				/* 운영단가 */
+			, VD_SN					/* PO_CONTRACT_F.VD_SN */
+			, APPLY_SD				/* PO_CONTRACT_F.APPLY_SD */
+			, UPJANG_GRP			/* PO_CONTRACT_F.UPJANG_GRP */
+			, CREATE_DATE
+			, CREATE_BY
+			, UPDATE_DATE
+			, UPDATE_BY 
+		)
+		SELECT
+		  	  S.CENTER_CODE
+			, S.UPJANG
+			, S.ITEM_CODE
+			, S.CONTRACT_START
+			, S.CONTRACT_ID
+			, S.CUSTCD
+			, S.AP_UNITPRICE_UPJANG
+			, S.PO_CONTRACT_ID
+			, S.SALE_PRICE_START
+			, S.SALE_PRICE_END
+			, S.REMARK
+			, S.CENTER_FLAG
+			, S.CONTRACT_PRICE
+			, S.ORI_CONTRACT_PRICE
+			, S.CONTRACT_PRICE_S
+			--, DECODE(S.FIXED_PRICE, 0, S.MARGIN_RATE, ((S.FIXED_PRICE / S.CONTRACT_PRICE_S)-1) * 100) AS MARGIN_RATE								/* 적용_마진 */
+            , DECODE(S.CONTRACT_PRICE_S, 0, 0, ROUND(((S.SALE_PRICE / S.CONTRACT_PRICE_S)-1) * 100, 1)) AS MARGIN_RATE								/* 적용_마진 : 매입금액 대비 판매단가 */
+			, CEIL(S.SALE_PRICE / 10) * 10 AS SALE_PRICE			/* 판매단가 : 10원단위 올림 적용 */ 
+			, CEIL(S.SALE_PRICE / 10) * 10 AS ORI_SALE_PRICE   /* 판매단가 : 10원단위 올림 적용 */
+			, CASE WHEN NVL(S.CONTRACT_END,'1') = '1' THEN <#if stdDate2?has_content> :stdDate2 <#else> '' </#if>
+			 ELSE S.CONTRACT_END END AS CONTRACT_END					/* CONTRACT_END */
+			, S.USE_YN
+			, S.PO_PRICE
+			, S.ADD_RATE
+			, S.ADD_PRICE
+			, S.STRATEGY_RATE
+			, (CASE WHEN S.STRATEGY_PRICE = 0 THEN S.CONTRACT_PRICE_S ELSE S.STRATEGY_PRICE END) AS STRATEGY_PRICE
+			, S.PLANNING_RATE
+			, (CASE WHEN S.PLANNING_PRICE = 0 THEN
+					(CASE WHEN  S.STRATEGY_PRICE = 0 THEN S.CONTRACT_PRICE_S 
+						     ELSE S.STRATEGY_PRICE END) 
+				ELSE S.PLANNING_PRICE END) AS PLANNING_PRICE
+			, 0 AS SUBSIDY_RATE		/* 장려율 : SUBINV_CODE 매핑 X, SO_PR에만 적용 */
+			, 0 AS SUBSIDY_PRICE		/* 장려단가 : SUBINV_CODE 매핑 X, SO_PR에만 적용 */
+			--, FMU_OP_RATE_FUN(:upjang, S.ITEM_CODE, :stdDate) AS OP_RATE							/* 운영율 */
+			--, FMU_OP_PRICE_FUN(:upjang, S.ITEM_CODE, S.SALE_PRICE, :stdDate) AS OP_PRICE		/* 운영단가 */
+			, S.OP_RATE					/* 운영율 */
+			, (CASE WHEN NVL(S.OP_PRICE,0) = 0 THEN 
+						SCC_CEIL(S.SALE_PRICE + (S.SALE_PRICE * NVL(S.OP_RATE,0) / 100), S.CEIL_VAL)
+			  ELSE S.OP_PRICE
+			  END) AS OP_PRICE			/* 운영단가 */
+			, S.VD_SN							/* PO_CONTRACT_F.VD_SN */
+			, S.APPLY_SD						/* PO_CONTRACT_F.APPLY_SD */		
+			, S.UPJANG_GRP				/* PO_CONTRACT_F.UPJANG_GRP */
+			, SYSDATE AS CREATE_DATE
+			, :loginSabun AS CREATE_BY
+			, SYSDATE AS UPDATE_DATE
+			, :loginSabun AS UPDATE_BY
+		FROM
+			(
+				SELECT 
+	 		 	  	  :centerCode AS CENTER_CODE
+        			, :upjang AS UPJANG
+        			, M.ITEM_CODE
+        			, :stdDate AS CONTRACT_START
+					, :stdDate || '-' || :upjang || '-' || '001' AS CONTRACT_ID		/* 단가계약번호 SET */
+        			, M.CUSTCD
+					, :stdUpjang AS AP_UNITPRICE_UPJANG
+					, M.PO_CONTRACT_ID
+					, M.SALE_PRICE_START
+					, M.SALE_PRICE_END
+        			, :stdDate || '판매단가 자동생성' AS REMARK
+        			--, DECODE(C.PO_CENTER_YN,'Y','Y','N') AS CENTER_FLAG
+        			, M.CENTER_FLAG
+        			, M.CONTRACT_PRICE
+        			, M.CONTRACT_PRICE AS ORI_CONTRACT_PRICE
+        			, M.CONTRACT_PRICE_S
+        			--, DECODE(M.FIXED_PRICE, 0, (M.MARGIN_RATE + M.ADD_MARGIN), 100 * (1 - (M.CONTRACT_PRICE_S / M.FIXED_PRICE))) AS MARGIN_RATE
+        			--, DECODE(M.FIXED_PRICE, 0, 10 * CEIL(M.CONTRACT_PRICE_S / (1 - ((M.MARGIN_RATE + M.ADD_MARGIN) / 100)) / 10), M.FIXED_PRICE) AS SALE_PRICE
+     				, M.STRATEGY_RATE
+     				, M.PLANNING_RATE
+     				, FMS_GETPRICE_TYPE_FUN('S', M.CONTRACT_PRICE_S, M.STRATEGY_RATE, M.PLANNING_RATE, M.MARGIN_RATE, M.FIXED_PRICE) AS STRATEGY_PRICE
+     				, FMS_GETPRICE_TYPE_FUN('P', M.CONTRACT_PRICE_S, M.STRATEGY_RATE, M.PLANNING_RATE, M.MARGIN_RATE, M.FIXED_PRICE) AS PLANNING_PRICE
+     				, FMS_GETPRICE_TYPE_FUN('M', M.CONTRACT_PRICE_S, M.STRATEGY_RATE, M.PLANNING_RATE, M.MARGIN_RATE, M.FIXED_PRICE) AS SALE_PRICE
+     				, M.FIXED_PRICE
+     				, (M.MARGIN_RATE + M.ADD_MARGIN) AS MARGIN_RATE
+        			, (SELECT /*+ INDEX_ASC(Z PO_CONTRACT_FSALE_PK) */
+              				TO_CHAR(TO_DATE(Z.CONTRACT_START,'YYYYMMDD')-1,'YYYYMMDD')
+           		  	   FROM PO_CONTRACT_FSALE Z
+          		  	   WHERE Z.CENTER_CODE = :centerCode		/* 조건 : 센터코드 */
+           		  	   AND    Z.UPJANG          = :upjang				/* 조건 : 업장 */
+           		  	   AND    Z.ITEM_CODE     = M.ITEM_CODE
+           		  	   AND    Z.CONTRACT_START > :stdDate		/* 조건 : 판매단가개시일 */
+           		  	   AND    ROWNUM <= 1) AS CONTRACT_END
+        			, 'Y' AS USE_YN
+					, M.PO_PRICE
+					, M.ADD_RATE
+					, M.ADD_PRICE
+					, M.VD_SN							/* PO_CONTRACT_F.VD_SN */
+					, M.APPLY_SD						/* PO_CONTRACT_F.APPLY_SD */
+					, M.TAX_CODE						/* HLDC_PO_ITEM_MST.TAX_CODE */
+					, M.UPJANG_GRP					/* PO_CONTRACT_F.UPJANG_GRP */
+		    		, M.OP_RATE
+		    		, M.OP_PRICE
+		    		, M.CEIL_VAL
+ 				FROM 
+     				(
+        				SELECT 
+							B.CENTER_CODE,
+							B.UPJANG_GRP,
+							B.UPJANG,
+							B.ITEM_CODE, 
+							B.CENTER_FLAG,	
+							B.CUSTCD,
+							B.PO_CONTRACT_ID,
+							B.SALE_PRICE_START,
+							B.SALE_PRICE_END,
+							NVL(B.CONTRACT_PRICE,0) AS CONTRACT_PRICE,
+							NVL(B.CONTRACT_PRICE_S,0) AS CONTRACT_PRICE_S,
+							NVL(B.PO_PRICE,0) AS PO_PRICE,
+							NVL(B.ADD_RATE,0) AS ADD_RATE,
+							NVL(B.ADD_PRICE,0) AS ADD_PRICE,
+							B.TAX_CODE,
+							B.VD_SN,
+							B.APPLY_SD,
+							/* 이익율...(단가업장, 자재코드) */
+							--FMS_GETMARGINRATE_FUN(:stdUpjang, B.ITEM_CODE) AS MARGIN_RATE,
+                            DECODE(B.RATE1, 0, NVL(M2.MARGIN_RATE,0),  B.RATE1) AS MARGIN_RATE,			/* 이익율 GET */
+							/* 추가이익율 */
+							0 AS ADD_MARGIN,
+							/* 고정단가 */
+							NVL((SELECT Z.FIXED_PRICE
+                  					FROM FMS_MARGIN_V Z
+		  							WHERE  Z.AP_UNITPRICE_UPJANG  = :stdUpjang			/* 조건 : 단가업장 */
+                  					AND     Z.ITEM_CODE   = B.ITEM_CODE), 0) AS FIXED_PRICE,
+						    NVL(B.STRATEGY_RATE, 0) AS STRATEGY_RATE,				/* 전략율 */
+					        NVL(B.PLANNING_RATE, 0) AS PLANNING_RATE,				/* 기획율 */
+			    			DECODE(NVL(O1.OP_RATE,0), 0, NVL(O2.OP_RATE,0), NVL(O1.OP_RATE,0)) AS OP_RATE,			/* 운영율 */
+			    			DECODE(NVL(O1.OP_PRICE,0), 0, NVL(O2.OP_PRICE,0), NVL(O1.OP_PRICE,0)) AS OP_PRICE,		/* 운영단가 */
+			    			DECODE(NVL(O1.CEIL_VAL,0), 0, NVL(O2.CEIL_VAL,0), NVL(O1.CEIL_VAL,0)) AS CEIL_VAL			/* 운영율 올림자리수 */
+        				FROM
+									(
+										SELECT 
+													D.CENTER_CODE, 
+													D.UPJANG_GRP,
+													D.UPJANG,
+													D.CUSTCD, 
+													D.ITEM_CODE, 
+													--DECODE(D.PROC_TYP_CD, 'VC', 'N', 'Y') AS CENTER_FLAG,		/* 구매_센터경유 */
+													D.PROC_TYP_CD AS CENTER_FLAG,						/* 구매_센터경유 */
+												    P.TAX_CODE,
+						    						P.ITEM_CLASS4,
+													D.CONTRACT_ID AS PO_CONTRACT_ID,				/* 계약번호 - PO */
+													D.CONTRACT_START AS SALE_PRICE_START,		/* 판매단가시작일 - PO */
+													D.CONTRACT_END AS SALE_PRICE_END,				/* 판매단가종료일 - PO */	
+													D.CONTRACT_PRICE_M AS CONTRACT_PRICE,		/* 구매단가 => 매입가 */
+													D.CONTRACT_PRICE_M AS CONTRACT_PRICE_S, 	/* 식재출하단가 X(PO_CONTRACT_D) => 구매단가를 SET */
+													D.CONTRACT_PRICE AS PO_PRICE,						/* 	구매단가 SET */
+													D.MARGIN_RATE AS ADD_RATE,							/* 	구매추가율 SET */
+													D.CONTRACT_PRICE_M AS ADD_PRICE,				/* 	구매추가단가 SET */
+													D.VD_SN,														/* 구매_계약 업체 일련번호 */
+													D.APPLY_SD,													/* 구매_계약 적용 시작일자 */
+													DECODE(U.ATTR09, 'Y', 0, FM.STRATEGY_RATE) AS STRATEGY_RATE,		/* 전략율 : 전략이익 제외일 경우 0 */
+													DECODE(U.ATTR10, 'Y', 0, FM.PLANNING_RATE) AS PLANNING_RATE,		/* 기획율 : 관리이익 제외일 경우 0*/
+                                                    NVL(M1.MARGIN_RATE, 0) AS RATE1,					/* 자재 : 이익율 */
+						 							ROW_NUMBER() OVER (PARTITION BY D.CENTER_CODE, D.UPJANG, D.ITEM_CODE  ORDER BY D.CONTRACT_START DESC)  AS SEQ      -- 순서(자재코드 기준으로 부여) : 동일아이템이 2개이상 거래처에 존재 시 필터
+										FROM 
+													(	/* PO_CONTRACT_F 기준 센터,업장,거래처,자재별 최근 단가시작일 SET */
+														SELECT 
+																F.CENTER_CODE, 
+																F.UPJANG,
+																F.CUSTCD, 
+																F.ITEM_CODE, 
+																MAX(F.CONTRACT_START) AS CONTRACT_START
+														FROM PO_CONTRACT_F F
+														WHERE F.CENTER_CODE  = :centerCode		/* 조건 : 센터코드 */
+														AND    F.UPJANG	           = :upjang			/* 조건 : 업장 */		
+														AND    F.CUSTCD          > 0						/* 거래처코드 존재 */
+														AND    SUBSTR(F.ITEM_CODE, 1, 1)  = 'F'	/* 조건 : 식자재 */
+														--AND    F.CONTRACT_START <= :stdDate		/* 조건 : 판매단가개시일 */
+														AND    :stdDate BETWEEN F.CONTRACT_START AND F.CONTRACT_END		/* 조건 : 판매단가개시일 */
+														AND    F.USE_YN          = 'Y'
+														GROUP BY F.CENTER_CODE, F.UPJANG, F.CUSTCD, F.ITEM_CODE
+													) E INNER JOIN  PO_CONTRACT_F D ON D.CENTER_CODE = :centerCode		/* 조건 : 센터코드 */
+																								    AND D.UPJANG = :upjang						/* 조건 : 업장 */	
+																									AND E.CENTER_CODE = D.CENTER_CODE
+																									AND E.UPJANG      	= D.UPJANG
+																	 								AND E.CUSTCD     	= D.CUSTCD
+																	 								AND E.ITEM_CODE 	= D.ITEM_CODE
+																	 								AND E.CONTRACT_START = D.CONTRACT_START
+											    		INNER JOIN HLDC_PO_ITEM_MST P ON P.USE_YN = 'Y'		/* 사용불가 자재 제외 */
+											 				    							 AND P.ITEM_CLASS3 NOT IN ('F2612','F2720','F2910')			/* 조건 : 식재사업부(CK) 분류 제외 */
+																						  	 AND E.ITEM_CODE = P.ITEM_CODE
+														/* 전략이익율 정보 FM_CONTRACT_PROFIT	*/
+														LEFT JOIN FM_CONTRACT_PROFIT FM ON FM.CENTER_CODE = :centerCode		/* 조건 : 센터코드 */
+ 				 																						  AND FM.PROFIT_DATE  = :stdPDate			/* 조건 : 전략이익율 기준일자 */
+    				 																					  AND E.ITEM_CODE = FM.ITEM_CODE		/* 조건 : 자재코드 		*/
+																										/* 전략이익, 기획이익제외 여부 */
+														INNER JOIN FMS_UPJANG U ON E.UPJANG = U.UPJANG  
+														/* 이익율 : 자재 */
+                                                        LEFT JOIN FMS_MARGIN_V M1 ON M1.AP_UNITPRICE_UPJANG = :stdUpjang	/* 조건 : 단가계약업장 */
+                                                                                   					AND E.ITEM_CODE = M1.ITEM_CODE 
+										 /* 이익율 : 소분류 */																						  	 
+                                    ) B  LEFT JOIN FMS_MARGIN_V M2 ON M2.AP_UNITPRICE_UPJANG = :stdUpjang	/* 조건 : 단가계약업장 */
+                                                                 					  AND M2.CLASS_TYPE = 'D' 
+                                                                 					  AND B.ITEM_CLASS4 = M2.ITEM_CODE 
+                                        /* 운영율,운영단가 : 자재코드 기준 */                         					  
+					 					LEFT JOIN FMU_OP_RATE O1 ON  O1.USE_YN = 'Y'
+																			  AND O1.UPJANG = :upjang										/* 조건 : 업장 */	
+									       									  AND :stdDate BETWEEN O1.SDATE AND O1.EDATE		/* 조건 : 판매단가개시일 */
+									       									  AND O1.ITEM_TYPE = 'M'
+									       									  AND B.ITEM_CODE = O1.ITEM_CODE
+                                        /* 운영율,운영단가 : 소분류 기준 */                        					  
+					 					LEFT JOIN FMU_OP_RATE O2 ON  O2.USE_YN = 'Y'
+																			 AND O2.UPJANG = :upjang										/* 조건 : 업장 */
+									       									 AND :stdDate BETWEEN O2.SDATE AND O2.EDATE		/* 조건 : 판매단가개시일 */
+									       									 AND O2.ITEM_TYPE = 'C'
+									       									 AND B.ITEM_CLASS4 = O2.ITEM_CODE
+        				/* 기존단가존재여부(있으면 패스...) */
+        				WHERE NOT EXISTS
+        				   			(SELECT 1
+         				    		 FROM PO_CONTRACT_FSALE Z
+        				    		 WHERE Z.CENTER_CODE = :centerCode		/* 조건 : 센터코드 */
+        				    		 AND    Z.UPJANG 		   = :upjang			/* 조건 : 업장 */
+         				    		 AND    Z.ITEM_CODE 	   = B.ITEM_CODE
+         				    		 AND    Z.CONTRACT_START = :stdDate)		/* 조건 : 판대단가개시일 */
+						/* 구매계약정보 : 동일자재에 대한 필터링 */
+						AND   B.SEQ = 1         				    		 
+						/* 예외설정 자재처리 :  FMS_ITEM_EXCEPTION (2015-07-15) */
+						AND    B.ITEM_CODE NOT IN (
+													/* 해당 업장에 예외설정 삭제 품목 */
+                                       				SELECT 
+                                           				ITEM_CODE
+                                     				FROM FMS_ITEM_EXCEPTION
+                                                    WHERE UPJANG = :upjang
+                                                    AND    EXCEPTION_TYPE = '-'
+                									UNION 
+													/* 다른 업장에 예외설정 추가 품목 */
+                                                    SELECT 
+                                                    	DISTINCT ITEM_CODE
+                                                    FROM FMS_ITEM_EXCEPTION
+                                                    WHERE UPJANG NOT IN (:upjang)
+                                                    AND    EXCEPTION_TYPE = '+'
+													)
+  				) M 
+ 				WHERE M.MARGIN_RATE IS NOT NULL /* 이익율이 없으면 패스(MARGIN_RATE IS NULL) */
+		)  S
+		]]>
+	</statement>
+
+
+	<!-- 식자재영업 표준단가(을)를 생성한다. -->
+	<!--  전략단가, 기획단가 적용 : 비율이 아닌 금액으로 SET -->
+	<statement name="insert_old4" type="insert">
+		/*+ com.hwfs.fm.fms.dao.SalePriceAutoCreateDAO.insert_old4 */
+		<![CDATA[
+		INSERT INTO PO_CONTRACT_FSALE
+		(
+	 		 CENTER_CODE
+			, UPJANG
+			, ITEM_CODE
+			, CONTRACT_START
+			, CONTRACT_ID
+			, CUSTCD
+			, AP_UNITPRICE_UPJANG
+			, PO_CONTRACT_ID
+			, SALE_PRICE_START
+			, SALE_PRICE_END
+			, REMARK
+			, CENTER_FLAG
+			, CONTRACT_PRICE
+			, ORI_CONTRACT_PRICE
+			, CONTRACT_PRICE_S
+			, STD_MARGIN_RATE
+			, MARGIN_RATE
+			, SALE_PRICE
+			, ORI_SALE_PRICE
+			, CONTRACT_END
+			, USE_YN
+			, PO_PRICE				/* PO_CONTRACT_F */
+			, ADD_RATE			/* PO_CONTRACT_F */
+			, ADD_PRICE			/* PO_CONTRACT_F */
+			, STRATEGY_RATE		/*  FM_CONTRACT_PROFIT */ 
+			, STRATEGY_PRICE	/*  FM_CONTRACT_PROFIT*/
+			, PLANNING_RATE	/*  FM_CONTRACT_PROFIT*/
+			, PLANNING_PRICE  /*  FM_CONTRACT_PROFIT */
+			, SUBSIDY_RATE		/* 장려율 : SUBINV_CODE 매핑 X, SO_PR에만 적용 */
+			, SUBSIDY_PRICE		/* 장려단가 : SUBINV_CODE 매핑 X, SO_PR에만 적용 */
+			, OP_RATE				/* 운영율 */
+			, OP_PRICE				/* 운영단가 */
+			, VD_SN					/* PO_CONTRACT_F.VD_SN */
+			, APPLY_SD				/* PO_CONTRACT_F.APPLY_SD */
+			, UPJANG_GRP			/* PO_CONTRACT_F.UPJANG_GRP */
+			, CREATE_DATE
+			, CREATE_BY
+			, UPDATE_DATE
+			, UPDATE_BY 
+		)
+		SELECT
+		  	  S.CENTER_CODE
+			, S.UPJANG
+			, S.ITEM_CODE
+			, S.CONTRACT_START
+			, S.CONTRACT_ID
+			, S.CUSTCD
+			, S.AP_UNITPRICE_UPJANG
+			, S.PO_CONTRACT_ID
+			, S.SALE_PRICE_START
+			, S.SALE_PRICE_END
+			, S.REMARK
+			, S.CENTER_FLAG
+			, S.CONTRACT_PRICE
+			, S.ORI_CONTRACT_PRICE
+			, S.CONTRACT_PRICE_S
+			, S.STD_MARGIN_RATE		/* 적용_이익율 */
+			--, DECODE(S.FIXED_PRICE, 0, S.MARGIN_RATE, ((S.FIXED_PRICE / S.CONTRACT_PRICE_S)-1) * 100) AS MARGIN_RATE								/* 적용_마진 */
+            , DECODE(S.CONTRACT_PRICE_S, 0, 0, ROUND(((S.SALE_PRICE / S.CONTRACT_PRICE_S)-1) * 100, 1)) AS MARGIN_RATE							/* 적용_마진 : 매입금액 대비 판매단가 */
+            , CASE WHEN S.FIXED_PRICE > 0 THEN S.SALE_PRICE
+            	     ELSE  CEIL(S.SALE_PRICE / 10) * 10 								/* 판매단가 : 10원단위 올림 적용 */
+             END AS  SALE_PRICE
+            , CASE WHEN S.FIXED_PRICE > 0 THEN S.SALE_PRICE
+            	     ELSE  CEIL(S.SALE_PRICE / 10) * 10 								/* 판매단가 : 10원단위 올림 적용 */
+             END AS  ORI_SALE_PRICE
+			, CASE WHEN NVL(S.CONTRACT_END,'1') = '1' THEN <#if stdDate2?has_content> :stdDate2 <#else> '' </#if>
+			 ELSE S.CONTRACT_END END AS CONTRACT_END					/* CONTRACT_END */
+			, S.USE_YN
+			, S.PO_PRICE
+			, S.ADD_RATE
+			, S.ADD_PRICE
+			, S.STRATEGY_RATE
+			, (CASE WHEN S.STRATEGY_PRICE = 0 THEN S.CONTRACT_PRICE_S ELSE S.STRATEGY_PRICE END) AS STRATEGY_PRICE
+			, S.PLANNING_RATE
+			, (CASE WHEN S.PLANNING_PRICE = 0 THEN
+					(CASE WHEN  S.STRATEGY_PRICE = 0 THEN S.CONTRACT_PRICE_S 
+						     ELSE S.STRATEGY_PRICE END) 
+				ELSE S.PLANNING_PRICE END) AS PLANNING_PRICE
+			, 0 AS SUBSIDY_RATE		/* 장려율 : SUBINV_CODE 매핑 X, SO_PR에만 적용 */
+			, 0 AS SUBSIDY_PRICE		/* 장려단가 : SUBINV_CODE 매핑 X, SO_PR에만 적용 */
+			--, FMU_OP_RATE_FUN(:upjang, S.ITEM_CODE, :stdDate) AS OP_RATE							/* 운영율 */
+			--, FMU_OP_PRICE_FUN(:upjang, S.ITEM_CODE, S.SALE_PRICE, :stdDate) AS OP_PRICE		/* 운영단가 */
+			, S.OP_RATE					/* 운영율 */
+			--, (CASE WHEN NVL(S.OP_PRICE,0) = 0 THEN 
+			--			SCC_CEIL(S.SALE_PRICE + (S.SALE_PRICE * NVL(S.OP_RATE,0) / 100), S.CEIL_VAL)
+			--  ELSE S.OP_PRICE
+			--  END) AS OP_PRICE			/* 운영단가 */
+			, (CASE WHEN NVL(S.OP_PRICE,0) = 0 THEN 
+						SCC_CEIL((CEIL(S.SALE_PRICE / 10) * 10) + ((CEIL(S.SALE_PRICE / 10) * 10) * NVL(S.OP_RATE,0) / 100), S.CEIL_VAL)
+			  ELSE S.OP_PRICE
+			  END) AS OP_PRICE			/* 운영단가 */
+			, S.VD_SN							/* PO_CONTRACT_F.VD_SN */
+			, S.APPLY_SD						/* PO_CONTRACT_F.APPLY_SD */		
+			, S.UPJANG_GRP				/* PO_CONTRACT_F.UPJANG_GRP */
+			, SYSDATE AS CREATE_DATE
+			, :loginSabun AS CREATE_BY
+			, SYSDATE AS UPDATE_DATE
+			, :loginSabun AS UPDATE_BY
+		FROM
+			(
+				SELECT 
+	 		 	  	  :centerCode AS CENTER_CODE
+        			, :upjang AS UPJANG
+        			, M.ITEM_CODE
+        			, :stdDate AS CONTRACT_START
+					, :stdDate || '-' || :upjang || '-' || '001' AS CONTRACT_ID		/* 단가계약번호 SET */
+        			, M.CUSTCD
+					, :stdUpjang AS AP_UNITPRICE_UPJANG
+					, M.PO_CONTRACT_ID
+					, M.SALE_PRICE_START
+					, M.SALE_PRICE_END
+        			, :stdDate || '판매단가 자동생성' AS REMARK
+        			, M.CENTER_FLAG
+        			, M.CONTRACT_PRICE
+        			, M.CONTRACT_PRICE AS ORI_CONTRACT_PRICE
+        			, M.CONTRACT_PRICE_S
+     				, M.STRATEGY_RATE
+     				, M.PLANNING_RATE
+     				-- 종전방식 : 비율
+     				--, FMS_GETPRICE_TYPE_FUN('S', M.CONTRACT_PRICE_S, M.STRATEGY_RATE, M.PLANNING_RATE, M.MARGIN_RATE, M.FIXED_PRICE) AS STRATEGY_PRICE
+     				--, FMS_GETPRICE_TYPE_FUN('P', M.CONTRACT_PRICE_S, M.STRATEGY_RATE, M.PLANNING_RATE, M.MARGIN_RATE, M.FIXED_PRICE) AS PLANNING_PRICE
+     				--, FMS_GETPRICE_TYPE_FUN('M', M.CONTRACT_PRICE_S, M.STRATEGY_RATE, M.PLANNING_RATE, M.MARGIN_RATE, M.FIXED_PRICE) AS SALE_PRICE
+					-- 변경 : 단가기준 재계산
+					, FMS_GETPRICE_TYPE2_FUN('S', M.CONTRACT_PRICE_S, M.STRATEGY_PRICE, M.PLANNING_PRICE, M.MARGIN_RATE, M.FIXED_PRICE) AS STRATEGY_PRICE			/* 전략단가  적용 */
+					, FMS_GETPRICE_TYPE2_FUN('P', M.CONTRACT_PRICE_S, M.STRATEGY_PRICE, M.PLANNING_PRICE, M.MARGIN_RATE, M.FIXED_PRICE) AS PLANNING_PRICE			/* 기획단가 적용 */
+					, FMS_GETPRICE_TYPE2_FUN('M', M.CONTRACT_PRICE_S, M.STRATEGY_PRICE, M.PLANNING_PRICE, M.MARGIN_RATE, M.FIXED_PRICE) AS SALE_PRICE					/* 판매단가 적용 */
+     				, NVL(M.FIXED_PRICE, 0) AS FIXED_PRICE
+     				, (M.MARGIN_RATE + M.ADD_MARGIN) AS STD_MARGIN_RATE	/* 적용_이익율 */
+        			, (SELECT /*+ INDEX_ASC(Z PO_CONTRACT_FSALE_PK) */
+              				TO_CHAR(TO_DATE(Z.CONTRACT_START,'YYYYMMDD')-1,'YYYYMMDD')
+           		  	   FROM PO_CONTRACT_FSALE Z
+          		  	   WHERE Z.CENTER_CODE = :centerCode		/* 조건 : 센터코드 */
+           		  	   AND    Z.UPJANG          = :upjang				/* 조건 : 업장 */
+           		  	   AND    Z.ITEM_CODE     = M.ITEM_CODE
+           		  	   AND    Z.CONTRACT_START > :stdDate		/* 조건 : 판매단가개시일 */
+           		  	   AND    ROWNUM <= 1) AS CONTRACT_END
+        			, 'Y' AS USE_YN
+					, M.PO_PRICE
+					, M.ADD_RATE
+					, M.ADD_PRICE
+					, M.VD_SN							/* PO_CONTRACT_F.VD_SN */
+					, M.APPLY_SD						/* PO_CONTRACT_F.APPLY_SD */
+					, M.TAX_CODE						/* HLDC_PO_ITEM_MST.TAX_CODE */
+					, M.UPJANG_GRP					/* PO_CONTRACT_F.UPJANG_GRP */
+		    		, M.OP_RATE
+		    		, M.OP_PRICE
+		    		, M.CEIL_VAL
+ 				FROM 
+     				(
+        				SELECT 
+							B.CENTER_CODE,
+							B.UPJANG_GRP,
+							B.UPJANG,
+							B.ITEM_CODE, 
+							B.CENTER_FLAG,	
+							B.CUSTCD,
+							B.PO_CONTRACT_ID,
+							B.SALE_PRICE_START,
+							B.SALE_PRICE_END,
+							NVL(B.CONTRACT_PRICE,0) AS CONTRACT_PRICE,
+							NVL(B.CONTRACT_PRICE_S,0) AS CONTRACT_PRICE_S,
+							NVL(B.PO_PRICE,0) AS PO_PRICE,
+							NVL(B.ADD_RATE,0) AS ADD_RATE,
+							NVL(B.ADD_PRICE,0) AS ADD_PRICE,
+							B.TAX_CODE,
+							B.VD_SN,
+							B.APPLY_SD,
+							/* 이익율...(단가업장, 자재코드) */
+							--FMS_GETMARGINRATE_FUN(:stdUpjang, B.ITEM_CODE) AS MARGIN_RATE,
+                            DECODE(B.RATE1, 0, NVL(M2.MARGIN_RATE,0),  B.RATE1) AS MARGIN_RATE,			/* 이익율 GET */
+							/* 추가이익율 */
+							0 AS ADD_MARGIN,
+							/* 고정단가 */
+							NVL((SELECT Z.FIXED_PRICE
+                  					FROM FMS_MARGIN_V Z
+		  							WHERE  Z.AP_UNITPRICE_UPJANG  = :stdUpjang			/* 조건 : 단가업장 */
+                  					AND     Z.ITEM_CODE   = B.ITEM_CODE), 0) AS FIXED_PRICE,
+						    NVL(B.STRATEGY_RATE, 0) AS STRATEGY_RATE,				/* 전략율 */
+					        NVL(B.PLANNING_RATE, 0) AS PLANNING_RATE,				/* 기획율 */
+						    NVL(B.STRATEGY_PRICE, 0) AS STRATEGY_PRICE,				/* 전략단가 */
+					        NVL(B.PLANNING_PRICE, 0) AS PLANNING_PRICE,				/* 기획단가 */
+			    			DECODE(NVL(O1.OP_RATE,0), 0, NVL(O2.OP_RATE,0), NVL(O1.OP_RATE,0)) AS OP_RATE,			/* 운영율 */
+			    			DECODE(NVL(O1.OP_PRICE,0), 0, NVL(O2.OP_PRICE,0), NVL(O1.OP_PRICE,0)) AS OP_PRICE,		/* 운영단가 */
+			    			DECODE(NVL(O1.CEIL_VAL,0), 0, NVL(O2.CEIL_VAL,0), NVL(O1.CEIL_VAL,0)) AS CEIL_VAL			/* 운영율 올림자리수 */
+        				FROM
+									(
+										SELECT 
+													D.CENTER_CODE, 
+													D.UPJANG_GRP,
+													D.UPJANG,
+													D.CUSTCD, 
+													D.ITEM_CODE, 
+													--DECODE(D.PROC_TYP_CD, 'VC', 'N', 'Y') AS CENTER_FLAG,		/* 구매_센터경유 */
+													D.PROC_TYP_CD AS CENTER_FLAG,						/* 구매_센터경유 */
+												    P.TAX_CODE,
+						    						P.ITEM_CLASS4,
+													D.CONTRACT_ID AS PO_CONTRACT_ID,				/* 계약번호 - PO */
+													D.CONTRACT_START AS SALE_PRICE_START,		/* 판매단가시작일 - PO */
+													D.CONTRACT_END AS SALE_PRICE_END,				/* 판매단가종료일 - PO */	
+													D.CONTRACT_PRICE_M AS CONTRACT_PRICE,		/* 구매단가 => 매입가 */
+													D.CONTRACT_PRICE_M AS CONTRACT_PRICE_S, 	/* 식재출하단가 X(PO_CONTRACT_D) => 구매단가를 SET */
+													D.CONTRACT_PRICE AS PO_PRICE,						/* 	구매단가 SET */
+													D.MARGIN_RATE AS ADD_RATE,							/* 	구매추가율 SET */
+													D.CONTRACT_PRICE_M AS ADD_PRICE,				/* 	구매추가단가 SET */
+													D.VD_SN,														/* 구매_계약 업체 일련번호 */
+													D.APPLY_SD,													/* 구매_계약 적용 시작일자 */
+													DECODE(U.ATTR09, 'Y', 0, FM.STRATEGY_RATE) AS STRATEGY_RATE,		/* 전략율 : 전략이익 제외일 경우 0 */
+													DECODE(U.ATTR10, 'Y', 0, FM.PLANNING_RATE) AS PLANNING_RATE,		/* 기획율 : 관리이익 제외일 경우 0*/
+													DECODE(U.ATTR09, 'Y', 0, FM.STRATEGY_PRICE) AS STRATEGY_PRICE,      /* 전략단가 : 전략이익 제외일 경우 0 */
+												    DECODE(U.ATTR10, 'Y', 0, FM.PLANNING_PRICE) AS PLANNING_PRICE,    /* 기획단가 : 관리이익 제외일 경우 0*/
+                                                    NVL(M1.MARGIN_RATE, 0) AS RATE1,					/* 자재 : 이익율 */
+						 							ROW_NUMBER() OVER (PARTITION BY D.CENTER_CODE, D.UPJANG, D.ITEM_CODE  ORDER BY D.CONTRACT_START DESC)  AS SEQ      -- 순서(자재코드 기준으로 부여) : 동일아이템이 2개이상 거래처에 존재 시 필터
+										FROM 
+													(	/* PO_CONTRACT_F 기준 센터,업장,거래처,자재별 최근 단가시작일 SET */
+														SELECT 
+																F.CENTER_CODE, 
+																F.UPJANG,
+																F.CUSTCD, 
+																F.ITEM_CODE, 
+																MAX(F.CONTRACT_START) AS CONTRACT_START
+														FROM PO_CONTRACT_F F
+														WHERE F.CENTER_CODE  = :centerCode		/* 조건 : 센터코드 */
+														AND    F.UPJANG	           = :upjang			/* 조건 : 업장 */	
+														<#if schCust?has_content>
+   														AND   F.CUSTCD = :schCust
+   													  <#else>
+														AND    F.CUSTCD          > 0						/* 거래처코드 존재 */
+													   </#if>
+														AND    SUBSTR(F.ITEM_CODE, 1, 1)  = 'F'	/* 조건 : 식자재 */
+														AND    :stdDate BETWEEN F.CONTRACT_START AND F.CONTRACT_END		/* 조건 : 판매단가개시일 */
+														AND    F.USE_YN          = 'Y'
+														GROUP BY F.CENTER_CODE, F.UPJANG, F.CUSTCD, F.ITEM_CODE
+													) E INNER JOIN  PO_CONTRACT_F D ON D.CENTER_CODE = :centerCode		/* 조건 : 센터코드 */
+																								    AND D.UPJANG = :upjang						/* 조건 : 업장 */	
+																									AND E.CENTER_CODE = D.CENTER_CODE
+																									AND E.UPJANG      	= D.UPJANG
+																	 								AND E.CUSTCD     	= D.CUSTCD
+																	 								AND E.ITEM_CODE 	= D.ITEM_CODE
+																	 								AND E.CONTRACT_START = D.CONTRACT_START
+                                            			/* 조건 : 예외설정에 + 품목 추가 : CK 분류 대상 (2015-09-30) */
+											 			INNER JOIN HLDC_PO_ITEM_MST P ON P.USE_YN = 'Y'
+																				   						AND (P.ITEM_CLASS3 NOT IN ('F2612','F2720','F2910') OR 
+																				   		   					    P.ITEM_CODE IN (SELECT ITEM_CODE
+																				   		   												FROM   FMS_ITEM_EXCEPTION
+																																		WHERE UPJANG = :upjang
+																																		AND    EXCEPTION_TYPE = '+'
+																				   		   												)
+																				   		  						)
+																						  	 			AND E.ITEM_CODE = P.ITEM_CODE
+														/* 전략이익율 정보 FM_CONTRACT_PROFIT	*/
+														LEFT JOIN FM_CONTRACT_PROFIT FM ON FM.CENTER_CODE = :centerCode		/* 조건 : 센터코드 */
+ 				 																						  AND FM.PROFIT_DATE  = :stdPDate			/* 조건 : 전략이익율 기준일자 */
+    				 																					  AND E.ITEM_CODE = FM.ITEM_CODE		/* 조건 : 자재코드 		*/
+																										/* 전략이익, 기획이익제외 여부 */
+														INNER JOIN FMS_UPJANG U ON E.UPJANG = U.UPJANG  
+														/* 이익율 : 자재 */
+                                                        LEFT JOIN FMS_MARGIN_V M1 ON M1.AP_UNITPRICE_UPJANG = :stdUpjang	/* 조건 : 단가계약업장 */
+                                                                                   					AND E.ITEM_CODE = M1.ITEM_CODE 
+										 /* 이익율 : 소분류 */																						  	 
+                                    ) B  LEFT JOIN FMS_MARGIN_V M2 ON M2.AP_UNITPRICE_UPJANG = :stdUpjang	/* 조건 : 단가계약업장 */
+                                                                 					  AND M2.CLASS_TYPE = 'D' 
+                                                                 					  AND B.ITEM_CLASS4 = M2.ITEM_CODE 
+                                        /* 운영율,운영단가 : 자재코드 기준 */                         					  
+					 					LEFT JOIN FMU_OP_RATE O1 ON  O1.USE_YN = 'Y'
+																			  AND O1.UPJANG = :upjang										/* 조건 : 업장 */	
+									       									  AND :stdDate BETWEEN O1.SDATE AND O1.EDATE		/* 조건 : 판매단가개시일 */
+									       									  AND O1.ITEM_TYPE = 'M'
+									       									  AND B.ITEM_CODE = O1.ITEM_CODE
+                                        /* 운영율,운영단가 : 소분류 기준 */                        					  
+					 					LEFT JOIN FMU_OP_RATE O2 ON  O2.USE_YN = 'Y'
+																			 AND O2.UPJANG = :upjang										/* 조건 : 업장 */
+									       									 AND :stdDate BETWEEN O2.SDATE AND O2.EDATE		/* 조건 : 판매단가개시일 */
+									       									 AND O2.ITEM_TYPE = 'C'
+									       									 AND B.ITEM_CLASS4 = O2.ITEM_CODE
+        				/* 기존단가존재여부(있으면 패스...) */
+        				WHERE NOT EXISTS
+        				   			(SELECT 1
+         				    		 FROM PO_CONTRACT_FSALE Z
+        				    		 WHERE Z.CENTER_CODE = :centerCode		/* 조건 : 센터코드 */
+        				    		 AND    Z.UPJANG 		   = :upjang			/* 조건 : 업장 */
+         				    		 AND    Z.ITEM_CODE 	   = B.ITEM_CODE
+         				    		 AND    Z.CONTRACT_START = :stdDate)		/* 조건 : 판대단가개시일 */
+						/* 구매계약정보 : 동일자재에 대한 필터링 */
+						AND   B.SEQ = 1         				    		 
+						/* 예외설정 자재처리 :  FMS_ITEM_EXCEPTION ((2015-09-30)) */
+						AND    B.ITEM_CODE NOT IN (
+													/* 해당 업장에 예외설정 삭제 품목 */
+                                       				SELECT 
+                                           				ITEM_CODE
+                                     				FROM FMS_ITEM_EXCEPTION
+                                                    WHERE UPJANG = :upjang
+                                                    AND    EXCEPTION_TYPE = '-'
+													)
+  				) M 
+ 				WHERE M.MARGIN_RATE IS NOT NULL /* 이익율이 없으면 패스(MARGIN_RATE IS NULL) */
+		)  S
+		]]>
+	</statement>
+
+
+
+	<!-- 식자재영업 표준단가(을)를 생성한다. 2015-11-17 -->
+	<!--  전략단가, 기획단가 신규 프로세스 적용 : 비율 재적용 SET -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.fm.fms.dao.SalePriceAutoCreateDAO.insert */
+		<![CDATA[
+		INSERT INTO PO_CONTRACT_FSALE
+		(
+	 		 CENTER_CODE
+			, UPJANG
+			, ITEM_CODE
+			, CONTRACT_START
+			, CONTRACT_ID
+			, CUSTCD
+			, AP_UNITPRICE_UPJANG
+			, PO_CONTRACT_ID
+			, SALE_PRICE_START
+			, SALE_PRICE_END
+			, REMARK
+			, CENTER_FLAG
+			, CONTRACT_PRICE
+			, ORI_CONTRACT_PRICE
+			, CONTRACT_PRICE_S
+			, STD_MARGIN_RATE
+			, MARGIN_RATE
+			, SALE_PRICE
+			, ORI_SALE_PRICE
+			, CONTRACT_END
+			, USE_YN
+			, PO_PRICE				/* PO_CONTRACT_F */
+			, ADD_RATE			/* PO_CONTRACT_F */
+			, ADD_PRICE			/* PO_CONTRACT_F */
+			, STRATEGY_RATE		/*  FM_CONTRACT_PROFIT */ 
+			, STRATEGY_PRICE	/*  FM_CONTRACT_PROFIT*/
+			, PLANNING_RATE	/*  FM_CONTRACT_PROFIT*/
+			, PLANNING_PRICE  /*  FM_CONTRACT_PROFIT */
+			, SUBSIDY_RATE		/* 장려율 : SUBINV_CODE 매핑 X, SO_PR에만 적용 */
+			, SUBSIDY_PRICE		/* 장려단가 : SUBINV_CODE 매핑 X, SO_PR에만 적용 */
+			, OP_RATE				/* 운영율 */
+			, OP_PRICE				/* 운영단가 */
+			, VD_SN					/* PO_CONTRACT_F.VD_SN */
+			, APPLY_SD				/* PO_CONTRACT_F.APPLY_SD */
+			, UPJANG_GRP			/* PO_CONTRACT_F.UPJANG_GRP */
+			, CREATE_DATE
+			, CREATE_BY
+			, UPDATE_DATE
+			, UPDATE_BY 
+		)
+		SELECT
+		  	  S.CENTER_CODE
+			, S.UPJANG
+			, S.ITEM_CODE
+			, S.CONTRACT_START
+			, S.CONTRACT_ID
+			, S.CUSTCD
+			, S.AP_UNITPRICE_UPJANG
+			, S.PO_CONTRACT_ID
+			, S.SALE_PRICE_START
+			, S.SALE_PRICE_END
+			, S.REMARK
+			, S.CENTER_FLAG
+			, S.CONTRACT_PRICE
+			, S.ORI_CONTRACT_PRICE
+			, S.CONTRACT_PRICE_S
+			, S.STD_MARGIN_RATE		/* 적용_이익율 */
+			--, DECODE(S.FIXED_PRICE, 0, S.MARGIN_RATE, ((S.FIXED_PRICE / S.CONTRACT_PRICE_S)-1) * 100) AS MARGIN_RATE								/* 적용_마진 */
+            , DECODE(S.CONTRACT_PRICE_S, 0, 0, ROUND(((S.SALE_PRICE / S.CONTRACT_PRICE_S)-1) * 100, 1)) AS MARGIN_RATE							/* 적용_마진 : 매입금액 대비 판매단가 */
+            , CASE WHEN S.FIXED_PRICE > 0 THEN S.SALE_PRICE
+            	     ELSE  CEIL(S.SALE_PRICE / 10) * 10 								/* 판매단가 : 10원단위 올림 적용 */
+             END AS  SALE_PRICE
+            , CASE WHEN S.FIXED_PRICE > 0 THEN S.SALE_PRICE
+            	     ELSE  CEIL(S.SALE_PRICE / 10) * 10 								/* 판매단가 : 10원단위 올림 적용 */
+             END AS  ORI_SALE_PRICE
+			, CASE WHEN NVL(S.CONTRACT_END,'1') = '1' THEN <#if stdDate2?has_content> :stdDate2 <#else> '' </#if>
+			 ELSE S.CONTRACT_END END AS CONTRACT_END					/* CONTRACT_END */
+			, S.USE_YN
+			, S.PO_PRICE
+			, S.ADD_RATE
+			, S.ADD_PRICE
+			, S.STRATEGY_RATE
+			, (CASE WHEN S.STRATEGY_PRICE = 0 THEN S.CONTRACT_PRICE_S ELSE S.STRATEGY_PRICE END) AS STRATEGY_PRICE
+			, S.PLANNING_RATE
+			, (CASE WHEN S.PLANNING_PRICE = 0 THEN
+					(CASE WHEN  S.STRATEGY_PRICE = 0 THEN S.CONTRACT_PRICE_S 
+						     ELSE S.STRATEGY_PRICE END) 
+				ELSE S.PLANNING_PRICE END) AS PLANNING_PRICE
+			, 0 AS SUBSIDY_RATE		/* 장려율 : SUBINV_CODE 매핑 X, SO_PR에만 적용 */
+			, 0 AS SUBSIDY_PRICE		/* 장려단가 : SUBINV_CODE 매핑 X, SO_PR에만 적용 */
+			--, FMU_OP_RATE_FUN(:upjang, S.ITEM_CODE, :stdDate) AS OP_RATE							/* 운영율 */
+			--, FMU_OP_PRICE_FUN(:upjang, S.ITEM_CODE, S.SALE_PRICE, :stdDate) AS OP_PRICE		/* 운영단가 */
+			, S.OP_RATE					/* 운영율 */
+			--, (CASE WHEN NVL(S.OP_PRICE,0) = 0 THEN 
+			--			SCC_CEIL(S.SALE_PRICE + (S.SALE_PRICE * NVL(S.OP_RATE,0) / 100), S.CEIL_VAL)
+			--  ELSE S.OP_PRICE
+			--  END) AS OP_PRICE			/* 운영단가 */
+			, (CASE WHEN NVL(S.OP_PRICE,0) = 0 THEN 
+						SCC_CEIL((CEIL(S.SALE_PRICE / 10) * 10) + ((CEIL(S.SALE_PRICE / 10) * 10) * NVL(S.OP_RATE,0) / 100), S.CEIL_VAL)
+			  ELSE S.OP_PRICE
+			  END) AS OP_PRICE			/* 운영단가 */
+			, S.VD_SN							/* PO_CONTRACT_F.VD_SN */
+			, S.APPLY_SD						/* PO_CONTRACT_F.APPLY_SD */		
+			, S.UPJANG_GRP				/* PO_CONTRACT_F.UPJANG_GRP */
+			, SYSDATE AS CREATE_DATE
+			, :loginSabun AS CREATE_BY
+			, SYSDATE AS UPDATE_DATE
+			, :loginSabun AS UPDATE_BY
+		FROM
+			(
+				SELECT 
+	 		 	  	  :centerCode AS CENTER_CODE
+        			, :upjang AS UPJANG
+        			, M.ITEM_CODE
+        			, :stdDate AS CONTRACT_START
+					, :stdDate || '-' || :centerCode || '-' || :upjang || '-' || '001' AS CONTRACT_ID		/* 단가계약번호 SET */
+        			, M.CUSTCD
+					, :stdUpjang AS AP_UNITPRICE_UPJANG
+					, M.PO_CONTRACT_ID
+					, M.SALE_PRICE_START
+					, M.SALE_PRICE_END
+        			, :stdDate || '판매단가 자동생성' AS REMARK
+        			, M.CENTER_FLAG
+        			, M.CONTRACT_PRICE
+        			, M.CONTRACT_PRICE AS ORI_CONTRACT_PRICE
+        			, M.CONTRACT_PRICE_S
+     				, M.STRATEGY_RATE
+     				, M.PLANNING_RATE
+     				-- 종전방식 : 비율
+     				, FMS_GETPRICE_TYPE_FUN('S', M.CONTRACT_PRICE_S, M.STRATEGY_RATE, M.PLANNING_RATE, M.MARGIN_RATE, M.FIXED_PRICE) AS STRATEGY_PRICE
+     				, FMS_GETPRICE_TYPE_FUN('P', M.CONTRACT_PRICE_S, M.STRATEGY_RATE, M.PLANNING_RATE, M.MARGIN_RATE, M.FIXED_PRICE) AS PLANNING_PRICE
+     				, FMS_GETPRICE_TYPE_FUN('M', M.CONTRACT_PRICE_S, M.STRATEGY_RATE, M.PLANNING_RATE, M.MARGIN_RATE, M.FIXED_PRICE) AS SALE_PRICE
+					-- 변경 : 단가기준 재계산
+					--, FMS_GETPRICE_TYPE2_FUN('S', M.CONTRACT_PRICE_S, M.STRATEGY_PRICE, M.PLANNING_PRICE, M.MARGIN_RATE, M.FIXED_PRICE) AS STRATEGY_PRICE			/* 전략단가  적용 */
+					--, FMS_GETPRICE_TYPE2_FUN('P', M.CONTRACT_PRICE_S, M.STRATEGY_PRICE, M.PLANNING_PRICE, M.MARGIN_RATE, M.FIXED_PRICE) AS PLANNING_PRICE			/* 기획단가 적용 */
+					--, FMS_GETPRICE_TYPE2_FUN('M', M.CONTRACT_PRICE_S, M.STRATEGY_PRICE, M.PLANNING_PRICE, M.MARGIN_RATE, M.FIXED_PRICE) AS SALE_PRICE					/* 판매단가 적용 */
+     				, NVL(M.FIXED_PRICE, 0) AS FIXED_PRICE
+     				, (M.MARGIN_RATE + M.ADD_MARGIN) AS STD_MARGIN_RATE	/* 적용_이익율 */
+        			, (SELECT /*+ INDEX_ASC(Z PO_CONTRACT_FSALE_PK) */
+              				TO_CHAR(TO_DATE(Z.CONTRACT_START,'YYYYMMDD')-1,'YYYYMMDD')
+           		  	   FROM PO_CONTRACT_FSALE Z
+          		  	   WHERE Z.CENTER_CODE = :centerCode		/* 조건 : 센터코드 */
+           		  	   AND    Z.UPJANG          = :upjang				/* 조건 : 업장 */
+           		  	   AND    Z.ITEM_CODE     = M.ITEM_CODE
+           		  	   AND    Z.CONTRACT_START > :stdDate		/* 조건 : 판매단가개시일 */
+           		  	   AND    ROWNUM <= 1) AS CONTRACT_END
+        			, 'Y' AS USE_YN
+					, M.PO_PRICE
+					, M.ADD_RATE
+					, M.ADD_PRICE
+					, M.VD_SN							/* PO_CONTRACT_F.VD_SN */
+					, M.APPLY_SD						/* PO_CONTRACT_F.APPLY_SD */
+					, M.TAX_CODE						/* HLDC_PO_ITEM_MST.TAX_CODE */
+					, M.UPJANG_GRP					/* PO_CONTRACT_F.UPJANG_GRP */
+		    		, M.OP_RATE
+		    		, M.OP_PRICE
+		    		, M.CEIL_VAL
+ 				FROM 
+     				(
+        				SELECT 
+							B.CENTER_CODE,
+							B.UPJANG_GRP,
+							B.UPJANG,
+							B.ITEM_CODE, 
+							B.CENTER_FLAG,	
+							B.CUSTCD,
+							B.PO_CONTRACT_ID,
+							B.SALE_PRICE_START,
+							B.SALE_PRICE_END,
+							NVL(B.CONTRACT_PRICE,0) AS CONTRACT_PRICE,
+							NVL(B.CONTRACT_PRICE_S,0) AS CONTRACT_PRICE_S,
+							NVL(B.PO_PRICE,0) AS PO_PRICE,
+							NVL(B.ADD_RATE,0) AS ADD_RATE,
+							NVL(B.ADD_PRICE,0) AS ADD_PRICE,
+							B.TAX_CODE,
+							B.VD_SN,
+							B.APPLY_SD,
+							/* 이익율...(단가업장, 자재코드) */
+							--FMS_GETMARGINRATE_FUN(:stdUpjang, B.ITEM_CODE) AS MARGIN_RATE,
+                            DECODE(B.RATE1, 0, NVL(M2.MARGIN_RATE,0),  B.RATE1) AS MARGIN_RATE,			/* 이익율 GET */
+							/* 추가이익율 */
+							0 AS ADD_MARGIN,
+							/* 고정단가 */
+							NVL((SELECT Z.FIXED_PRICE
+                  					FROM FMS_MARGIN_V Z
+		  							WHERE  Z.CLASS_TYPE = 'M'	/* 조건 : 자재 */ 
+		  							AND     Z.AP_UNITPRICE_UPJANG  = :stdUpjang			/* 조건 : 단가업장 */
+                  					AND     Z.ITEM_CODE   = B.ITEM_CODE), 0) AS FIXED_PRICE,
+						   CASE WHEN B.ATTR09 = 'Y' THEN 0
+								  ELSE (CASE WHEN NVL(FM.STRATEGY_RATE,0) = 0 THEN NVL(FM1.STRATEGY_RATE,0)
+								  		  ELSE NVL(FM.STRATEGY_RATE,0) END)
+								  END AS STRATEGY_RATE,		/* 전략율 */
+						   CASE WHEN B.ATTR10 = 'Y' THEN 0
+								  ELSE (CASE WHEN NVL(FM.PLANNING_RATE,0) = 0 THEN NVL(FM1.PLANNING_RATE,0)
+								  		  ELSE NVL(FM.PLANNING_RATE,0) END)
+								  END AS PLANNING_RATE,	/* 기획율 */
+			    			DECODE(NVL(O1.OP_RATE,0), 0, NVL(O2.OP_RATE,0), NVL(O1.OP_RATE,0)) AS OP_RATE,			/* 운영율 */
+			    			DECODE(NVL(O1.OP_PRICE,0), 0, NVL(O2.OP_PRICE,0), NVL(O1.OP_PRICE,0)) AS OP_PRICE,		/* 운영단가 */
+			    			DECODE(NVL(O1.CEIL_VAL,0), 0, NVL(O2.CEIL_VAL,0), NVL(O1.CEIL_VAL,0)) AS CEIL_VAL			/* 운영율 올림자리수 */
+        				FROM
+									(
+										SELECT 
+													D.CENTER_CODE, 
+													D.UPJANG_GRP,
+													D.UPJANG,
+													D.CUSTCD, 
+													D.ITEM_CODE, 
+													--DECODE(D.PROC_TYP_CD, 'VC', 'N', 'Y') AS CENTER_FLAG,		/* 구매_센터경유 */
+													D.PROC_TYP_CD AS CENTER_FLAG,						/* 구매_센터경유 */
+												    P.TAX_CODE,
+						    						P.ITEM_CLASS4,
+													D.CONTRACT_ID AS PO_CONTRACT_ID,				/* 계약번호 - PO */
+													D.CONTRACT_START AS SALE_PRICE_START,		/* 판매단가시작일 - PO */
+													D.CONTRACT_END AS SALE_PRICE_END,				/* 판매단가종료일 - PO */	
+													D.CONTRACT_PRICE_M AS CONTRACT_PRICE,		/* 구매단가 => 매입가 */
+													D.CONTRACT_PRICE_M AS CONTRACT_PRICE_S, 	/* 식재출하단가 X(PO_CONTRACT_D) => 구매단가를 SET */
+													D.CONTRACT_PRICE AS PO_PRICE,						/* 	구매단가 SET */
+													D.MARGIN_RATE AS ADD_RATE,							/* 	구매추가율 SET */
+													D.CONTRACT_PRICE_M AS ADD_PRICE,				/* 	구매추가단가 SET */
+													D.VD_SN,														/* 구매_계약 업체 일련번호 */
+													D.APPLY_SD,													/* 구매_계약 적용 시작일자 */
+													U.ATTR09,														/* 전략이익 제외여부 */
+													U.ATTR10,														/* 기획이익 제외여부 */
+                                                    NVL(M1.MARGIN_RATE, 0) AS RATE1,					/* 자재 : 이익율 */
+						 							ROW_NUMBER() OVER (PARTITION BY D.CENTER_CODE, D.UPJANG, D.ITEM_CODE  ORDER BY D.CONTRACT_START DESC)  AS SEQ      -- 순서(자재코드 기준으로 부여) : 동일아이템이 2개이상 거래처에 존재 시 필터
+										FROM 
+													(	/* PO_CONTRACT_F 기준 센터,업장,거래처,자재별 최근 단가시작일 SET */
+														SELECT 
+																F.CENTER_CODE, 
+																F.UPJANG,
+																F.CUSTCD, 
+																F.ITEM_CODE, 
+																MAX(F.CONTRACT_START) AS CONTRACT_START
+														FROM PO_CONTRACT_F F
+														WHERE F.CENTER_CODE  = :centerCode		/* 조건 : 센터코드 */
+														AND    F.UPJANG	           = :upjang			/* 조건 : 업장 */	
+														<#if schCust?has_content>
+   														AND   F.CUSTCD = :schCust
+   													  <#else>
+														AND    F.CUSTCD          > 0						/* 거래처코드 존재 */
+													   </#if>
+														AND    SUBSTR(F.ITEM_CODE, 1, 1)  = 'F'	/* 조건 : 식자재 */
+														AND    :stdDate BETWEEN F.CONTRACT_START AND F.CONTRACT_END		/* 조건 : 판매단가개시일 */
+														AND    F.USE_YN          = 'Y'
+														GROUP BY F.CENTER_CODE, F.UPJANG, F.CUSTCD, F.ITEM_CODE
+													) E INNER JOIN  PO_CONTRACT_F D ON D.CENTER_CODE = :centerCode		/* 조건 : 센터코드 */
+																								    AND D.UPJANG = :upjang						/* 조건 : 업장 */	
+																									AND E.CENTER_CODE = D.CENTER_CODE
+																									AND E.UPJANG      	= D.UPJANG
+																	 								AND E.CUSTCD     	= D.CUSTCD
+																	 								AND E.ITEM_CODE 	= D.ITEM_CODE
+																	 								AND E.CONTRACT_START = D.CONTRACT_START
+                                            			/* 조건 : 예외설정에 + 품목 추가 : CK 분류 대상 (2015-09-30) */
+											 			INNER JOIN HLDC_PO_ITEM_MST P ON P.USE_YN = 'Y'
+																				   						AND (P.ITEM_CLASS3 NOT IN ('F2612','F2720','F2910') OR 
+																				   		   					    P.ITEM_CODE IN (SELECT ITEM_CODE
+																				   		   												FROM   FMS_ITEM_EXCEPTION
+																																		WHERE UPJANG = :upjang
+																																		AND    EXCEPTION_TYPE = '+'
+																				   		   												)
+																				   		  						)
+																						  	 			AND E.ITEM_CODE = P.ITEM_CODE
+														/* 전략이익, 기획이익제외 여부 */
+														INNER JOIN FMS_UPJANG U ON E.UPJANG = U.UPJANG  
+														/* 이익율 : 자재 */
+                                                        LEFT JOIN FMS_MARGIN_V M1 ON M1.AP_UNITPRICE_UPJANG = :stdUpjang	/* 조건 : 단가계약업장 */
+                                                        											AND M1.CLASS_TYPE = 'M'	/* 조건 : 자재 */ 
+                                                                                   					AND E.ITEM_CODE = M1.ITEM_CODE 
+										 /* 이익율 : 소분류 */																						  	 
+                                    ) B  LEFT JOIN FMS_MARGIN_V M2 ON M2.AP_UNITPRICE_UPJANG = :stdUpjang	/* 조건 : 단가계약업장 */
+                                                                 					  AND M2.CLASS_TYPE = 'D' 
+                                                                 					  AND B.ITEM_CLASS4 = M2.ITEM_CODE 
+                                    	/* 전략이익율 연계 : 2015-11-17 */                             					  
+										LEFT JOIN FMS_STRATEGY_PROFIT FM ON FM.CENTER_CODE = :centerCode        /* 조건 : 센터코드 */
+													  								  AND FM.CC_CD IN (SELECT CC_CD FROM ST_UPJANG WHERE UPJANG = :upjang)		/* 조건 : 업장코드 */
+													  								  AND FM.PROFIT_DATE = :stdPDate			/* 조건 : 전략이익율 기준일자 */
+													  								  AND FM.CLASS_TYPE = 'M'						/* 조건 : 자재 기준 */
+													  								  AND B.ITEM_CODE = FM.ITEM_CODE		 														    							  
+
+										LEFT JOIN FMS_STRATEGY_PROFIT FM1 ON FM1.CENTER_CODE = :centerCode        /* 조건 : 센터코드 */
+													  								  AND FM1.CC_CD IN (SELECT CC_CD FROM ST_UPJANG WHERE UPJANG = :upjang)		/* 조건 : 업장코드 */
+													  								  AND FM1.PROFIT_DATE = :stdPDate			/* 조건 : 전략이익율 기준일자 */
+													  								  AND FM1.CLASS_TYPE = 'D'					/* 조건 : 세분류 기준 */
+													  								  AND B.ITEM_CLASS4 = FM1.ITEM_CODE		 														    							  
+                                                                 					  
+                                        /* 운영율,운영단가 : 자재코드 기준 */                         					  
+					 					LEFT JOIN FMU_OP_RATE O1 ON  O1.USE_YN = 'Y'
+																			  AND O1.UPJANG = :upjang										/* 조건 : 업장 */	
+									       									  AND :stdDate BETWEEN O1.SDATE AND O1.EDATE		/* 조건 : 판매단가개시일 */
+									       									  AND O1.ITEM_TYPE = 'M'
+									       									  AND B.ITEM_CODE = O1.ITEM_CODE
+                                        /* 운영율,운영단가 : 소분류 기준 */                        					  
+					 					LEFT JOIN FMU_OP_RATE O2 ON  O2.USE_YN = 'Y'
+																			 AND O2.UPJANG = :upjang										/* 조건 : 업장 */
+									       									 AND :stdDate BETWEEN O2.SDATE AND O2.EDATE		/* 조건 : 판매단가개시일 */
+									       									 AND O2.ITEM_TYPE = 'C'
+									       									 AND B.ITEM_CLASS4 = O2.ITEM_CODE
+        				/* 기존단가존재여부(있으면 패스...) */
+        				WHERE NOT EXISTS
+        				   			(SELECT 1
+         				    		 FROM PO_CONTRACT_FSALE Z
+        				    		 WHERE Z.CENTER_CODE = :centerCode		/* 조건 : 센터코드 */
+        				    		 AND    Z.UPJANG 		   = :upjang			/* 조건 : 업장 */
+         				    		 AND    Z.ITEM_CODE 	   = B.ITEM_CODE
+         				    		 AND    Z.CONTRACT_START = :stdDate)		/* 조건 : 판대단가개시일 */
+						/* 구매계약정보 : 동일자재에 대한 필터링 */
+						AND   B.SEQ = 1         				    		 
+						/* 예외설정 자재처리 :  FMS_ITEM_EXCEPTION ((2015-09-30)) */
+						AND    B.ITEM_CODE NOT IN (
+													/* 해당 업장에 예외설정 삭제 품목 */
+                                       				SELECT 
+                                           				ITEM_CODE
+                                     				FROM FMS_ITEM_EXCEPTION
+                                                    WHERE UPJANG = :upjang
+                                                    AND    EXCEPTION_TYPE = '-'
+													)
+  				) M 
+ 				WHERE M.MARGIN_RATE IS NOT NULL /* 이익율이 없으면 패스(MARGIN_RATE IS NULL) */
+		)  S
+		]]>
+	</statement>
+
+
+
+	
+	<!--  이전일자 존재(최근자료) 시 CONTRACT_END 는 생성한 시작일자의 전날을 UPDATE 한다 -->
+	<!-- 생성한 CONTRACT_ID를 제외한 모든 아이템(종료일자가 없는)에 대해서 COINTRACT_END 를 UPDATE  한다 -->
+	<statement name="updateDateNon" type="update">
+		/*+ com.hwfs.fm.fms.dao.SalePriceAutoCreateDAO.updateDateNon */
+		<![CDATA[
+		UPDATE PO_CONTRACT_FSALE A
+        SET 		A.CONTRACT_END = TO_CHAR(TO_DATE(:stdDate,'YYYYMMDD')-1,'YYYYMMDD')
+ 		WHERE  A.CENTER_CODE  = :centerCode
+   		AND     A.UPJANG 			= :upjang
+   		AND     A.CONTRACT_START < :stdDate
+   		AND     A.CONTRACT_ID NOT IN (:stdDate || '-' || :upjang || '-' || '001')		/* 생성한 계약번호를 제외한 모든 판매단가 정보 */
+   		AND     A.CONTRACT_END IS NULL	/* 조건 : 계약종료일자가 없는 정보 */
+		]]>
+	</statement>
+
+
+	<!--  이전일자 존재(최근자료) 시 CONTRACT_END 는 생성한 시작일자의 전날을 UPDATE 한다 : 종전-->
+	<statement name="updateDate" type="update">
+		/*+ com.hwfs.fm.fms.dao.SalePriceAutoCreateDAO.updateDated */
+		<![CDATA[
+		UPDATE PO_CONTRACT_FSALE A
+        SET 		A.CONTRACT_END = TO_CHAR(TO_DATE(:stdDate,'YYYYMMDD')-1,'YYYYMMDD')
+ 		WHERE  A.CENTER_CODE  = :centerCode
+   		AND     A.UPJANG 			= :upjang
+   		AND     A.CONTRACT_START < :stdDate
+   		AND  	EXISTS (SELECT 1 FROM PO_CONTRACT_FSALE Z 
+   							   WHERE Z.CENTER_CODE  = :centerCode 
+                               AND    Z.UPJANG = :upjang
+   							   AND    Z.ITEM_CODE = A.ITEM_CODE 
+   							   AND    Z.CONTRACT_ID = :stdDate || '-' || :upjang || '-' || '001')			/* 계약번호 SET */
+   		AND   	A.CONTRACT_START = (
+   														SELECT /*+ INDEX_DESC(Z PO_CONTRACT_FSALE_PK) */
+															Z.CONTRACT_START
+	    												FROM PO_CONTRACT_FSALE Z
+	    												WHERE Z.CENTER_CODE = :centerCode
+            											AND 	   Z.UPJANG = :upjang
+            											AND 	   Z.ITEM_CODE = A.ITEM_CODE
+            											AND 	   Z.CONTRACT_START < :stdDate
+            											AND 	   ROWNUM <= 1
+            										)
+		]]>
+	</statement>
+
+
+	<!-- 식자재영업 판매단가 생성(을)를 수정한다. : 최종한번 실행 -->
+	<!-- 이전 CONTRACT_ID 기준으로 모든 자료에 대해서 종료일자를 SET한다(.0805) -->
+	<statement name="updateDate3" type="update">
+		/*+ com.hwfs.fm.fms.dao.SalePriceAutoCreateDAO.updateDate3 */
+		<![CDATA[
+		UPDATE PO_CONTRACT_FSALE A
+        SET 		A.CONTRACT_END = TO_CHAR(TO_DATE(:stdDate,'YYYYMMDD')-1,'YYYYMMDD')
+ 		WHERE  A.CENTER_CODE  = :centerCode
+   		AND     A.UPJANG 			= :upjang
+		AND		A.CONTRACT_ID = :contractId
+		]]>
+	</statement>
+
+
+
+	<!--  단가생성 작업 결과를 업장정보에 반영한다. (생성이 된 경우에만) -->
+	<statement name="updateMsg" type="update">
+		/*+ com.hwfs.fm.fms.dao.SalePriceAutoCreateDAO.updateMsg */
+		<![CDATA[
+		UPDATE FMS_UPJANG
+        SET 	  SALE_PRICE_AUTO_JEN_ID = :loginSabun
+        		, SALE_PRICE_AUTO_JEN_DATE = SYSDATE
+        		, SALE_PRICE_AUTO_JEN_MSG  = :msg
+ 		WHERE  UPJANG 	= :upjang
+		]]>
+	</statement>
+
+
+	<!-- 선택한 업장에 대한 판매단가 목록을 조회한다.(단가이력조회) -->
+	<statement name="selectHist" type="select">
+		/*+ com.hwfs.fm.fms.dao.SalePriceAutoCreateDAO.selectHist */
+		<![CDATA[
+ 		SELECT 
+			  A.CUSTCD AS CUST_CD			/* 업체코드 */
+			, C.VD_NM AS CUST_NM		/* 업체명 */
+			, A.ITEM_CODE						/* 자재코드 */	
+			, B.ITEM_NAME						/* 자재명 */
+			, DECODE(B.TAX_CODE,'100','과)','면)')||B.ITEM_SIZE	AS ITEM_SIZE	/* 규격 */
+			, B.PO_UOM AS ITEM_UNIT			/* 단위 */
+			, TO_CHAR(TO_DATE(A.CONTRACT_START,'YYYYMMDD'),'YYYY-MM-DD') AS CONTRACT_START2	/* 적용_단가개시일 */
+			, TO_CHAR(TO_DATE(A.CONTRACT_END,'YYYYMMDD'),'YYYY-MM-DD') AS CONTRACT_END2		/* 적용_단가종료일 */
+			, NVL(A.CONTRACT_PRICE_S,0) AS CONTRACT_PRICE_S2	/* 적용_매입단가 */
+			, NVL(A.NEGO_PRICE,0) AS NEGO_PRICE2				/* 적용_네고단가 */
+			, NVL(A.SALE_PRICE,0) AS SALE_PRICE2					/* 적용_판매단가 */
+			, NVL(A.MARGIN_RATE,0) AS MARGIN_RATE2			/* 적용_마진 */
+			, A.CENTER_FLAG AS CENTER_FLAG2	/* 적용_센터경유 */
+       		, A.PO_CONTRACT_ID			/* 구매 : 계약번호 */
+       		, A.CENTER_CODE				/* 센터코드 */
+       		, A.UPJANG							/* 업장 */
+   			, A.CONTRACT_ID									/* 계약번호 */
+   			, A.REMARK AS CONTRACT_NM					/* 계약명 */
+  		FROM PO_CONTRACT_FSALE A INNER JOIN HLDC_PO_ITEM_MST B ON A.ITEM_CODE = B.ITEM_CODE
+					     							INNER JOIN VO_FC_VENDOR C ON  A.CUSTCD = C.VD_CD
+ 		WHERE A.CONTRACT_ID = :schContractId			/* 조건 : 계약번호 */	
+ 		AND    A.CENTER_CODE = :schCenter					/* 조건 : 센터코드 */
+   		AND    A.USE_YN      = 'Y'
+ 		ORDER BY A.ITEM_CODE, A.CUSTCD
+		]]>
+	</statement>
+
+	<!-- 판매단가자동생성시 contract id 조회 -->
+	<statement name="selectContractId" type="select">
+		/*+ com.hwfs.fm.fms.dao.SalePriceAutoCreateDAO.selectContractId */
+		<![CDATA[
+ 			 SELECT FN_PO_CONTRACT_FSALE_LAST_CID(:centerCode, :upjang, :stdDate) AS CONTRACT_ID FROM DUAL
+		]]>
+	</statement>
+
+</hqml>

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[개별 표준 식단 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT /*+ ORDERED USE_HASH(A B D E F G) */ A.SINGLE_MENU_CD
+      ,A.MENU_NAME
+      ,A.MENU_CLASS
+      ,SUM(ROUND( (E.NEED_QTY * B.ITEM_RATE / 100) * (NVL(F.MARGIN_PRICE,0) / G.KG_CONVERT_RATE / 1000) ) ) AS MENU_COST  -- 가식부량 적용 여부 결정
+      /*
+       , SUM(CASE WHEN NVL(G.KG_CONVERT_RATE,0) = 0 THEN 0 
+       ELSE  
+       ROUND( (E.NEED_QTY * B.ITEM_RATE / 100) * (NVL(F.MARGIN_PRICE,0) / G.KG_CONVERT_RATE / 1000) )  END) AS MENU_COST  -- 가식부량 적용 여부 결정
+      */
+      ,FMM_SINGLE_RECIPE_NAME_FUN(A.SINGLE_MENU_CD) AS RECIPE_INFO --레시피구성
+      ,PHOTO_TITLE_1
+      ,PHOTO_PATH_1
+      ,SPHOTO_PATH_1
+      ,#FILEURL# AS PHOTO_URL_1
+      ,PHOTO_TITLE_2
+      ,PHOTO_PATH_2
+      ,SPHOTO_PATH_2
+      ,#FILEURL# AS PHOTO_URL_2
+      ,G.ORIGIN_NAT
+  FROM FMM_SINGLE_MENU_MST A
+      ,FMM_SINGLE_MENU_RECIPE B
+      ,FMR_STD_RECIPE_MST D
+      ,FMR_STD_RECIPE_ITEM E
+      ,FMI_STD_PRICE F
+	  ,HLDC_PO_ITEM_MST G
+ WHERE G.ITEM_CLASS1 = 'F'
+   AND A.SINGLE_MENU_CD = B.SINGLE_MENU_CD
+   AND B.RECIPE_CD = D.RECIPE_CD
+   AND D.RECIPE_CD = E.RECIPE_CD
+   AND E.ITEM_CODE = F.ITEM_CODE(+)
+   AND E.ITEM_CODE = G.ITEM_CODE
+<isNotNull col="MENU_CLASS">   
+   AND A.MENU_CLASS= #MENU_CLASS#
+</isNotNull>
+<isNotNull col="MENU_NAME">   
+   AND A.MENU_NAME LIKE '%' || #MENU_NAME# || '%'
+</isNotNull>
+<isNotNull col="RECIPE_NAME">
+   AND FMM_SINGLE_RECIPE_NAME_FUN(A.SINGLE_MENU_CD) LIKE '%' || #RECIPE_NAME# || '%'
+</isNotNull>
+ GROUP BY A.SINGLE_MENU_CD
+        ,A.MENU_NAME
+        ,A.MENU_CLASS
+        ,PHOTO_TITLE_1
+        ,PHOTO_PATH_1
+        ,SPHOTO_PATH_1
+        ,PHOTO_TITLE_2
+        ,PHOTO_PATH_2
+        ,SPHOTO_PATH_2	
+        ,G.ORIGIN_NAT
+        </statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

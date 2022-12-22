@@ -1,0 +1,425 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FMS00030E" onkeydown="fn_FormKeyDown" onload="form_onload" titletext="본사권한설정" position="absolute 0 0 1252 725" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Static id="Static08" class="sta_WFSA_Labelbg" position="absolute 0 30 1237 71" anchor="left top right"/>
+        <Div id="div_cmnBtn" taborder="3" text="Div0" url="cmn::CmnBtn.xfdl" position="absolute 0 0 1237 30" anchor="left top right" scrollbars="none"/>
+        <Grid autoenter="select" binddataset="ds_list" cellmovingtype="col" cellsizingtype="both" readonly="false" enable="true" id="grd_list" useinputpanel="false" onheadclick="grd_list_OnHeadClick" taborder="3" tabstop="true" usecontextmenu="true" useselcolor="true" visible="true" wheelscrollrow="1" position="absolute 0 102 1237 710" selecttype="row" autofittype="col" anchor="all">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="35"/>
+                <Column size="91"/>
+                <Column size="191"/>
+                <Column size="825"/>
+                <Column size="75"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="text" class="head_Excel"/>
+                <Cell col="1" displaytype="text" text="권한코드"/>
+                <Cell col="2" displaytype="text" text="권한코드명"/>
+                <Cell col="3" displaytype="text" text="내                   용"/>
+                <Cell col="4" displaytype="text" text="사용여부"/>
+              </Band>
+              <Band id="body">
+                <Cell celltype="body" displaytype="text" style="align:center middle;" expr="expr:currow + 1 + ' '"/>
+                <Cell col="1" displaytype="text" style="align:center;" text="bind:ROLE" combodataset="ds_Gbn" combocodecol="CD" combodatacol="NM"/>
+                <Cell col="2" displaytype="text" edittype="normal" style="align:left;" text="bind:ROLE_NAME" editimemode="native"/>
+                <Cell col="3" displaytype="text" edittype="normal" style="align:left;" text="bind:CONTENTS" editimemode="native"/>
+                <Cell col="4" displaytype="checkbox" edittype="checkbox" style="align:center;" text="bind:USE_YN"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Button id="btn_MainUpjang" onclick="fn_edBtn_OnClick" taborder="2" tabstop="false" text="" position="absolute 197 40 218 61" class="btn_WF_popSearch" image=""/>
+        <Edit autoselect="true" id="ed_MainUpjang" imemode="native" onkeydown="fn_edBtn_OnKeyDown" readonly="true" taborder="1" position="absolute 58 40 198 61"/>
+        <Static id="st_MainUpjang" text="본사" userdata="strQuery_FMMainUpjang" position="absolute 15 40 59 61" class="sta_WFSA_label"/>
+        <Static id="Static2" text="본사권한그룹" position="absolute 0 84 103 102" class="sta_WF_Title01"/>
+        <Static id="Static05" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 1237 0 1252 710" anchor="top right"/>
+        <Static id="Static71" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 0 710 1252 725" anchor="left bottom"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_cond">
+        <ColumnInfo>
+          <Column id="SYS_TYPE" size="50" type="STRING"/>
+          <Column id="UPJANG" size="22" type="INT"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_list">
+        <ColumnInfo>
+          <Column id="CONTENTS" size="300" type="STRING"/>
+          <Column id="ROLE" size="50" type="STRING"/>
+          <Column id="ROLE_NAME" size="100" type="STRING"/>
+          <Column id="ROLE_TYPE" size="20" type="STRING"/>
+          <Column id="SYS_TYPE" size="50" type="STRING"/>
+          <Column id="UPJANG" size="22" type="BIGDECIMAL"/>
+          <Column id="USE_YN" size="1" type="STRING"/>
+          <Column id="CUSER" size="9" type="STRING"/>
+          <Column id="UUSER" size="9" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 식재영업/사용자관리/본사권한그룹등록
+ * 프로그램명   : FMS00030E.XML
+ * 기      능   : 본사 권한그룹 등록
+ * 작  성  자   : 박은규
+ * 작성  일자   : 2007-11-21
+ * 수정  일자   : 2015-04-27. 
+				   [고도화]_쿼리 및 조회조건 수정__김태윤.  
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+*/
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "lib::sc_comon.js"				// 시스템 공통
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js"		//JAVA 코딩시
+//@@컨버터에서 주석처리 #include "LIB::tit_comm_0001.js"		// X-Framework Lib
+//@@컨버터에서 주석처리 #include "lib::sc_sql_common.js"		// 공통팝업
+//@@컨버터에서 주석처리 #include "lib::fm_common.js"			// FM공통
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+var g_systype  = "FICS";
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	//초기화
+	fsp_init(this);
+	v_ds_check = "ds_list";
+
+	//본부직원은 모든 본사가능
+	btn_MainUpjang.enable  = (application.g_UserKind == '본부');
+	ed_MainUpjang.enable   = btn_MainUpjang.enable;
+	ed_MainUpjang.userdata = application.g_Main_Upjang;
+	ed_MainUpjang.value     = application.g_Main_UpjangNm;
+
+	if (ed_MainUpjang.enable) ed_MainUpjang.setFocus();
+	//기본조회상태
+	fn_search();
+}
+
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+/*------------------------------------------------------------(60)
+	1. Function ID : fn_Search()
+	2. 개       요 : 업무프로세스에 따른 조회작업
+	3. 기       능 : 검색조건에 해당하는 정보를 조회
+	4. 인 수 설 명 : 
+*/
+function fn_search()
+{
+	// 변경여부 확인
+	if (gfn_dsIsUpdated(ds_list))
+		if (! g_Confirm("02", '작업중입니다. 무시하고 재조회하시겠습니까?!')) return;
+
+	// 초기화
+	ds_list.clearData();
+	ds_cond.clearData();
+	ds_cond.addRow();
+	
+	// 조회
+	var actionName, cmdName, inData, outData, otherArg, callBackFnc;
+	
+	inData			= "ds_input=ds_cond";
+	outData			= "ds_list=ds_list";
+	// 콜백함수 지정
+	callBackFnc     = "fn_CallBack_Search";
+	
+	// 파라미터셋팅
+	ds_cond.setColumn(0, "SYS_TYPE", g_systype);			// 시스템구분
+	ds_cond.setColumn(0, "UPJANG",   ed_MainUpjang.userdata);
+	
+	//action 정보 초기화 
+	fsp_clear(this); 
+    // 서버에서 조회할 정보 추가
+	fsp_addSearch(this, "fm/fms:FMS00030E_S001");
+	// 서버 호출 
+    fsp_callService(this, actionName, cmdName, inData, outData, otherArg, callBackFnc);		// 서비스 호출 
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Insert()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_insert()
+{
+	var nRow = ds_list.addRow();
+	
+	// 초기값 셋팅
+	ds_list.setColumn(nRow, "SYS_TYPE",  g_systype);
+	ds_list.setColumn(nRow, "ROLE_TYPE","본사");
+	ds_list.setColumn(nRow, "ROLE",     "--신규권한--");
+	ds_list.setColumn(nRow, "UPJANG",    ed_MainUpjang.userdata);
+    ds_list.setColumn(nRow, "USE_YN",   "1");
+    ds_list.setColumn(nRow, "CUSER",     application.g_EmpNo);
+    ds_list.setColumn(nRow, "UUSER",     application.g_EmpNo);
+    
+    grd_list.setFocus();
+    grd_list.setCellPos(2);
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Delete()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_delete()
+{
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Save()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_save()
+{
+	//데이타 이상유무 점검
+	var sRtn = fn_ChkData();
+	if (sRtn != null)
+	{
+		g_Message("EE",sRtn);
+		return;
+	}
+	if (! g_Confirm("02", '권한설정을 저장하시겠습니까?!')) return;
+	
+	// 초기화
+	ds_cond.clearData();
+	ds_cond.addRow();
+    
+    // 서비스셋팅
+    var actionName, cmdName, inData, outData, otherArg, callBackFnc;
+    var insertSql, updateSql, deleteSql, saveFlagColumn, keySqlName, keyIncrement, callbackSql;
+    inData		= "ds_input=ds_cond ds_update=ds_list:U ds_insert=ds_list:U ds_inputKey=ds_cond";
+    outData		= "ds_list=ds_list";
+    callBackFnc	= "fn_CallBack_Save";
+	// 파라미터셋팅
+	// 파라미터셋팅
+	ds_cond.setColumn(0, "SYS_TYPE", g_systype);			// 시스템구분
+	ds_cond.setColumn(0, "UPJANG",   ed_MainUpjang.userdata);
+	//
+    insertSql	= "fm/fms:FMS00030E_I001";
+    updateSql	= "fm/fms:FMS00030E_U001";
+    deleteSql	= "";
+    keySqlName   = "fm/fms:FMS00030E_S002";
+    keyIncrement = 1;
+    callbackSql	 = "fm/fms:FMS00030E_S001";
+    
+   	// action 정보 초기화 
+    fsp_clear(this);
+    fsp_addSave(this, insertSql, updateSql, deleteSql,saveFlagColumn, keySqlName, keyIncrement, callbackSql);
+    fsp_callService(this, actionName, cmdName, inData, outData, otherArg, callBackFnc);		// 서비스 호출 
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Print()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_print()
+{
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Close()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_Close()
+{
+	This.close();
+}
+
+/*------------------------------------------------------------
+	1. Function ID : fn_Help()
+	2. 개       요 : 업무프로세스에 따른 입력작업
+	3. 기       능 : 입력버튼 입력 시 처리되는 작업
+	4. 인 수 설 명 : 
+*/
+function fn_help()
+{
+}
+
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+/*------------------------------------------------------------
+	1. Function ID : fn_AlertMsg(cd)
+	2. 개       요 : 메세지 처리
+	3. 기       능 : 화면에 나타나는 메시지 코드및 텍스트 리턴
+	4. 인 수 설 명 : cd : 원하는 메시지 코드
+*/
+function fn_AlertMsg(cd)
+{
+	var v_Msg="";
+	switch(cd)
+	{
+		case "001":
+			v_Msg= "버튼이 정의 되어 있지않습니다.";
+			break;
+		case "002":
+			v_Msg="서비스 오류:시스템 관리자에게 문의하십시오";
+			break;
+		case "003":
+			v_Msg="시스템구분이 없습니다.\n\n시스템 관리자에게 문의하십시오.";
+			break;	
+		case "004":
+			v_Msg="시스템ID가 선택되지 않았습니다.\n\n선택할 항목이 없으면 시스템 관리자에게 문의하십시오.";
+			break;
+		case "005":
+			v_Msg="을(를) 입력하세요";
+			break;
+		case "006":
+			v_Msg="삭제할 데이터가 없습니다.";
+			break;
+		case "007":
+			v_Msg="변경된 데이터가 없습니다.";
+			break;
+		case "008":
+			v_Msg="시스템ID가 없습니다.";
+			break;			
+		case "010":
+			v_Msg="을(를) 입력해주십시오.";
+			break;
+		default:
+			break;			
+	}
+	return v_Msg;
+}
+
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+function fn_ChkData()
+{
+	// 변경여부 확인
+	if(! gfn_dsIsUpdated(ds_list)) return fn_AlertMsg("007");
+	
+	// 필수 입력 사항 확인 
+	var nFRow = ds_list.findRowExpr("gfn_length(gfn_trim(ROLE_NAME))==0");
+	if( nFRow !=-1 )
+	{
+		ds_list.rowposition = nFRow;
+		grd_list.setFocus();
+		grd_list.setCellPos(2);
+		return "권한그룹명" + fn_AlertMsg("010");
+	}
+/*	
+    var dsArr = ["ROLE_NAME"];
+    if ( gfn_isGridNull(grd_list, dsArr, null) ) 	// 그리드필수체크
+    {
+        return;
+    }
+*/    
+}
+
+//콜백
+function fn_CallBack_Search(errCode, errMsg)
+{
+	if (errCode == 0)
+	{
+		if (ds_list.rowcount < 1)
+			g_Message("EE","등록된 권한그룹이 없습니다.");
+		else
+			grd_list.setFocus();
+	}
+	else
+		g_Message("EE",fn_AlertMsg("002"));
+}
+
+function fn_CallBack_Save(errCode, errMsg)
+{
+	if (errCode == 0)
+		g_Message("02",'권한그룹 설정이 완료되었습니다.');
+	else
+		g_Message("EE",'권한그룹 설정 시 오류가 발생하였습니다.(' + errMsg + ')');
+		
+}
+
+function grd_list_OnHeadClick(obj:Grid, e:GridClickEventInfo)
+{
+	if (obj.getCellProperty("head",e.cell,"backgroundimage") == "ico_Excel") gfn_exportExcel(obj, this.titletext);
+	else gfn_gridSort(obj, e); //(eval(obj.binddataset), obj, e.cell);
+}
+
+function fn_FormKeyDown(obj:Form, e:KeyEventInfo)
+{
+	gfn_formKeyDown(obj, e); //(obj,e.fromreferenceobject,e.keycode,e.shiftKey,e.ctrlKey,e.altKey,-1,-1);
+	if ( (e.keycode == 13) && (e.fromreferenceobject == ed_MainUpjang) ) fn_search();
+}
+
+function fn_edBtn_OnKeyDown(obj:Edit, e:KeyEventInfo)
+{
+	ffn_ed_OnKeyDown(obj,e.keycode);
+	//Del의 경우 뒷처리
+	if (e.keycode == 46) fn_Trigger_edBtn(obj);
+}
+
+function fn_edBtn_OnClick(obj:Button, e:ClickEventInfo)
+{
+	var sAddWhere = "";
+	
+	switch(obj.name)
+	{
+		case "btn_MainUpjang":
+			sAddWhere = " AND A.MAIN_UPJANG = A.UPJANG ";
+			break;
+		default:
+			break;
+	}
+	//fm공통 팝업클릭 호출
+	if (ffn_btn_OnClick(obj, sAddWhere)) fn_Trigger_edBtn(eval("ed_" + gfn_subStr(obj.name, 4)));
+}
+
+function fn_Trigger_edBtn(obj)
+{
+	switch(obj)
+	{
+		case ed_MainUpjang:
+			ds_list.clearData();
+
+			break;
+			
+		default:
+
+			break;
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

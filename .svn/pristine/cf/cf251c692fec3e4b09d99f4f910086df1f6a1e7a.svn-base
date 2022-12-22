@@ -1,0 +1,717 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="sc.app.consumableDAO">
+	<desc>FC POS 마스터 외부 인터페이스 HQML</desc>
+
+
+
+
+
+
+
+
+
+	<statement name="selectTest"><![CDATA[SELECT '1' AS CHECK_NUM
+  FROM DUAL]]></statement>
+	<statement name="logInsert"><![CDATA[INSERT INTO APP_INTERFACE_LOG(
+INSDT,
+TXID,
+TXDIV,
+TXHEADER,
+TXDATA,
+TXRESULT)
+VALUES(
+TO_CHAR(SYSDATE,'YYYY-MM-DD HH24:MI:SS'),
+<#if txId?has_content >:txId,<#else>null,</#if> 
+<#if txDiv?has_content >:txDiv,<#else>null,</#if> 
+<#if tHeader?has_content >:tHeader,<#else>null,</#if> 
+<#if tData?has_content >:tData,<#else>null,</#if> 
+<#if tResult?has_content >:tResult<#else>null</#if> 
+)]]></statement>
+
+	<statement name="selectSubinv"><![CDATA[SELECT UPJANG_CD,
+       UPJANG_NM,
+       SPLITDATA_FUN(EPROC_INFO,0) AS CENTER_CODE,
+       SPLITDATA_FUN(EPROC_INFO,1) AS OPER_ORG_SN_PURC,
+       SPLITDATA_FUN(EPROC_INFO,2) AS SHOP_GRP_CD,
+       SUBINV_CODE,
+       SUBINV_NAME,
+       D_DAYS,
+       D_TIMES,
+       BUDCC_CD,
+       BUDCC_NM,
+       CC_CD,
+       CC_NM,
+       SHIP_ID,
+       SHIP_NM
+  FROM (
+SELECT T1.UPJANG AS UPJANG_CD
+     , T3.UPJANGNM AS UPJANG_NM
+     , NVL((SELECT A.CENTER_CODE||'#'||B.OPER_ORG_SN_PURC||'#'||C.SHOP_GRP_CD
+	          FROM HLDC_PO_UPJANG_CENTER A, HLDC_PO_CENTER B, EPROCUSR.ESPSSHPORG C
+	         WHERE A.UPJANG = T3.AP_UNITPRICE_UPJANG
+	           AND A.CENTER_CODE = B.CENTER_CODE
+	           AND C.SYS_ID = '100'
+	           AND C.COMP_CD = 'HFC'
+	           AND C.OPER_ORG_SN = B.OPER_ORG_SN_PURC
+	           AND C.SHOP_CD = T3.AP_UNITPRICE_UPJANG
+	           AND C.STS <> 'D'),'##') AS EPROC_INFO
+     , T1.SUBINV_CODE
+     , T1.SUBINV_NAME
+     , T1.D_DAYS
+     , T1.D_TIMES
+     , T1.BUDCC_CD  --예산CC코드
+     , T4.CC_NM AS BUDCC_NM
+     , T1.CC_CD     --관리CC코드
+     , T5.CC_NM
+     , T1.SHIP_ID   --배송처코드
+     , (SELECT TRANS_NM FROM EPROCUSR.ESPSTRN WHERE TRANS_CD = T1.SHIP_ID) AS SHIP_NM --배송처명
+  FROM HLDC_PO_SUBINVENTORY T1, ST_UPJANG T3, SCC_CC T4, SCC_CC T5
+ WHERE T1.UPJANG = :upjangCd
+   AND T1.WH_CLS_CD = 'E0' --소모품창고
+   AND T1.USE_YN = 'Y'
+   AND T3.USE_YN = 'Y'
+   AND T1.UPJANG = T3.UPJANG
+   AND T1.BUDCC_CD = T4.CC_CD(+)
+   AND T1.CC_CD = T5.CC_CD(+)
+ ORDER BY T1.SUBINV_CODE)]]></statement>
+	<statement name="selectAccinfo"><![CDATA[SELECT T1.SUBINV_CODE
+     , T3.ACC_CD
+     , (SELECT DISTINCT ACCT_NM1 FROM FCUS.EPROC_ACCT_MST_V WHERE ACCT_CD = T3.ACC_CD) ACC_NM
+     , T3.JRNL_TYP_CD
+  FROM HLDC_PO_SUBINVENTORY T1, EPROCUSR.ESPSWHUAC T3
+ WHERE T1.UPJANG = :upjangCd
+   AND T1.WH_CLS_CD = 'E0' --소모품창고
+   AND T1.USE_YN = 'Y'
+   AND T3.SYS_ID = '100'
+   AND T3.COMP_CD = 'HFC'
+   AND T1.SUBINV_CODE = T3.WH_CD
+   AND T3.IO_TYP_CD = 'I'
+   AND T3.STS <> 'D'
+ ORDER BY 1,2]]></statement>
+
+
+
+
+
+
+	<statement name="selectItem"><![CDATA[SELECT RSTL.RNUM AS LISTNUM, --리스트번호
+       RSTL.ROW_COUNT AS ROWCNT,  --총건수
+       RSTL.ITEM_CD, --자재코드
+       RSTL.ITEM_NM, --자재명
+       RSTL.SPEC,    --규격
+       CD01.DTL_CD_NM AS UNIT_NM, --단위
+       RSTL.ITEM_MGT_PRICE, --관리단가
+       RSTL.ITEM_BUY_PRICE, --매입단가(예산체크시)
+       CD02.DTL_CD_NM AS PROC_TYP_NM, --조달유형
+       JBMC.PURC_GRP_CD, --구매담당그룹코드
+       JBMA.PURC_GRP_NM, --구매담당그룹명
+       DECODE(RSTL.EVENT_ITEM_YN, 'N', '', RSTL.EVENT_ITEM_YN) AS EVENT_ITEM_YN, --기획자재
+       DECODE(RSTL.SPOT_ITEM_YN, 'N', '', RSTL.SPOT_ITEM_YN) AS SPOT_ITEM_YN, --특판자재
+       NVL(RSTL.D_DAYS, 0) AS D_DAYS,
+       NVL(RSTL.D_TIMES, 0) AS D_TIMES,
+       RSTL.PURC_MIN_CNT, --최소주문량
+       RSTL.PURC_MULT_CNT, --주문승수
+       RSTL.PURC_MAX_CNT, --최대주문량
+       '2000' AS BU_CD,
+       RSTL.CUR AS CUR_CD, --통화
+       RSTL.PURC_OPER_ORG_SN AS OPER_ORG_SN, --구매운영조직일련번호
+       'BT' AS PURC_TYP, --일반자재(소모품)
+       'N' AS ORGN_RPT_YN, --품의여부
+       '01' AS SHOP_TYP_CD, --직영
+       RSTL.UNIT_CD,
+       RSTL.VD_SN AS INFO_VD_SN,
+       RSTL.SP_VD_SN,
+       RSTL.CNTR_NO,
+       RSTL.CNTR_REV,
+       RSTL.CNTR_LNO,
+       INFO_APPLY_SD AS INFO_APPLY_SD,
+       INFO_APPLY_ED AS INFO_APPLY_ED,
+       RSTL.PURC_OPER_ORG_SN AS SUPY_OPER_ORG_SN, --구매운영조직일련번호
+       RSTL.PROC_TYP_CD,
+       RSTL.SHOP_GRP_CD,
+       RSTL.WHG_ITEM_YN,
+       RSTL.PURC_INC_RATE,
+       RSTL.ITEM_OPER_ORG_SN,
+       RSTL.ITEM_TYP_CD,
+       'I' AS EDIT_STATUS
+FROM (
+    SELECT
+        PAG.RNUM
+        , PAG.ROW_COUNT
+        , PAG.SYS_ID
+        , PAG.COMP_CD
+        , PAG.PURC_OPER_ORG_SN
+        , PAG.SHOP_GRP_CD
+        , PAG.ITEM_OPER_ORG_SN
+        , PAG.ITEM_CD
+        , PAG.OLD_ITEM_CD
+        , PAG.ITEM_NM
+        , PAG.IMG_ATT_NO
+        , PAG.ACC_TAX_CD
+        , PAG.SP_VD_SN
+        , PAG.VD_SN
+        , PAG.SP_VD_CD
+        , PAG.VD_NM_LOC
+        , PAG.INFO_VD_SN
+        , PAG.INFO_VD_CD
+        , PAG.INFO_APPLY_SD
+        , PAG.INFO_APPLY_ED
+        , PAG.PURC_APLLY_SD
+        , PAG.PURC_APLLY_ED
+        , PAG.APPLY_REMAIN_DAY
+        , PAG.ITEM_TYP_CD
+        , PAG.CNTR_TYP_CD
+        , PAG.UNIT_CD
+        , PAG.PROC_TYP_CD
+        , PAG.EVENT_ITEM_YN
+        , PAG.EVENT_RES_QTY
+        , PAG.SPOT_ITEM_YN
+        , PAG.SPOT_RES_QTY
+        , PAG.D_DAYS
+        , PAG.D_TIMES
+        , PAG.CUR
+        --, PAG.ITEM_QTY
+        , PAG.ITEM_PRICE
+        , PAG.DELY_AMT
+        , PAG.ITEM_BUY_PRICE
+        , PAG.ITEM_MGT_PRICE
+        , PAG.PURC_INC_RATE
+        , PAG.PURC_MIN_CNT
+        , PAG.PURC_MULT_CNT
+        , PAG.PURC_MAX_CNT
+        , PAG.CATE1_CD
+        , PAG.CATE1_NM
+        , PAG.CATE2_CD
+        , PAG.CATE2_NM
+        , PAG.CATE3_CD
+        , PAG.CATE3_NM
+        , PAG.CATE4_CD
+        , PAG.CATE4_NM
+        , PAG.CNTR_NO
+        , PAG.CNTR_REV
+        , PAG.CNTR_LNO
+        , PAG.CHECK_MY
+        , PAG.MY_ITEM_DT
+        , PAG.CD_CHK
+        , PAG.SPEC
+        , PAG.MAKER_NM
+        , PAG.WHG_ITEM_YN
+    FROM (
+        SELECT
+            ROWNUM AS RNUM
+            , TRW.*
+        FROM (
+            SELECT
+                COUNT(1) OVER() AS ROW_COUNT
+                , DIVC.SYS_ID
+                , DIVC.COMP_CD
+                , DIVC.PURC_OPER_ORG_SN
+                , DIVC.SHOP_GRP_CD
+                , DIVC.ITEM_OPER_ORG_SN
+                , DIVC.ITEM_CD
+                , DIVC.OLD_ITEM_CD
+                , DIVC.ITEM_NM
+                , DIVC.IMG_ATT_NO
+                , DIVC.ACC_TAX_CD
+                , DIVC.SP_VD_SN
+                , DIVC.VD_SN
+                , DIVC.SP_VD_CD
+                , DIVC.VD_NM_LOC
+                , DIVC.INFO_VD_SN
+                , DIVC.INFO_VD_CD
+                , DIVC.INFO_APPLY_SD
+                , DIVC.INFO_APPLY_ED
+                , DIVC.PURC_APLLY_SD
+                , DIVC.PURC_APLLY_ED
+                , DIVC.APPLY_REMAIN_DAY
+                , DIVC.ITEM_TYP_CD
+                , DIVC.CNTR_TYP_CD
+                , DIVC.UNIT_CD
+                , DIVC.PROC_TYP_CD
+                , DIVC.EVENT_ITEM_YN
+                , DIVC.EVENT_RES_QTY
+                , DIVC.SPOT_ITEM_YN
+                , DIVC.SPOT_RES_QTY
+                , DIVC.D_DAYS
+                , DIVC.D_TIMES
+                , DIVC.CUR
+                --, DIVC.ITEM_QTY
+                , DIVC.ITEM_PRICE
+                , DIVC.DELY_AMT
+                , DIVC.ITEM_BUY_PRICE
+                , DIVC.ITEM_MGT_PRICE
+                , DIVC.PURC_INC_RATE
+                , DIVC.PURC_MIN_CNT
+                , DIVC.PURC_MULT_CNT
+                , DIVC.PURC_MAX_CNT
+                , DIVC.CATE1_CD
+                , DIVC.CATE1_NM
+                , DIVC.CATE2_CD
+                , DIVC.CATE2_NM
+                , DIVC.CATE3_CD
+                , DIVC.CATE3_NM
+                , DIVC.CATE4_CD
+                , DIVC.CATE4_NM
+                , DIVC.CNTR_NO
+                , DIVC.CNTR_REV
+                , DIVC.CNTR_LNO
+                , DIVC.CHECK_MY
+                , DIVC.MY_ITEM_DT -- 추가
+                , DIVC.FS_CHK
+                , DIVC.CD_CHK
+                , DIVC.SPEC
+                , DIVC.MAKER_NM
+                , DIVC.WHG_ITEM_YN
+            FROM (
+                SELECT
+                    PGPV.SYS_ID
+                    , PGPV.COMP_CD
+                    , PGPV.PURC_OPER_ORG_SN
+                    , PGPV.SHOP_GRP_CD
+                    , PGPV.ITEM_OPER_ORG_SN
+                    , PGPV.ITEM_CD
+                    , PGPV.OLD_ITEM_CD
+                    , PGPV.ITEM_NM
+                    , PGPV.IMG_ATT_NO
+                    , PGPV.ACC_TAX_CD
+                    , PGPV.SP_VD_SN
+                    , PGPV.VD_SN
+                    , PGPV.INFO_VD_SN
+                    , PGPV.SP_VD_CD
+                    , PGPV.VD_NM_LOC
+                    , PGPV.INFO_VD_CD
+                    , PGPV.INFO_APPLY_SD
+                    , PGPV.INFO_APPLY_ED
+                    , PGPV.APPLY_SD AS PURC_APLLY_SD
+                    , PGPV.APPLY_ED AS PURC_APLLY_ED
+                    , PGPV.INFO_APPLY_ED_DAY AS APPLY_REMAIN_DAY
+                    , PGPV.ITEM_TYP_CD
+                    , PGPV.CNTR_TYP_CD
+                    , PGPV.UNIT_CD
+                    , PGPV.PROC_TYP_CD
+                    , PGPV.EVENT_ITEM_YN
+                    , PGPV.EVENT_RES_QTY
+                    , PGPV.SPOT_ITEM_YN
+                    , PGPV.SPOT_RES_QTY
+                    , PGPV.D_DAYS
+                    , PGPV.D_TIMES
+                    , PGPV.CUR
+                    --, PGPV.ITEM_QTY
+                    , PGPV.ITEM_PRICE
+                    , PGPV.DELY_AMT
+                    , PGPV.ITEM_BUY_PRICE
+                    , PGPV.ITEM_MGT_PRICE
+                    , PGPV.INC_RATE AS PURC_INC_RATE
+                    , PGPV.PURC_MIN_CNT
+                    , PGPV.PURC_MULT_CNT
+                    , PGPV.PURC_MAX_CNT
+                    , PGPV.CATE1_CD
+                    , PGPV.CATE1_NM
+                    , PGPV.CATE2_CD
+                    , PGPV.CATE2_NM
+                    , PGPV.CATE3_CD
+                    , PGPV.CATE3_NM
+                    , PGPV.CATE4_CD
+                    , PGPV.CATE4_NM
+                    , PGPV.CNTR_NO
+                    , PGPV.CNTR_REV
+                    , PGPV.CNTR_LNO
+                    , DECODE(PGPV.USE_YN, 'N', 'N', NULL, 'N', 'Y') AS CHECK_MY
+                    , PGPV.MY_ITEM_DT -- 추가
+                    , DECODE(PGPV.ITEM_STS, 'AB', 
+                        DECODE(PGPV.VAL_UNS_YN, 'UK', PGPV.VAL_UNS_YN,
+                            DECODE(PGPV.VAL_STP_YN, 'TK', PGPV.VAL_STP_YN,
+                                DECODE(PGPV.VAL_REQ_YN, 'XE', PGPV.VAL_REQ_YN, 'NN', 'XE',
+                                    DECODE(PGPV.VAL_SCH_YN, 'HE', PGPV.VAL_SCH_YN, 'NN', 'HE', 'SS')
+                                )
+                            )
+                        )
+                        , 'UA', 'CE'
+                    ) AS CD_CHK
+                    , DECODE(PGPV.ITEM_STS, 'AB', 
+                        DECODE(PGPV.VAL_UNS_YN, 'UK', 'N',
+                            DECODE(PGPV.VAL_STP_YN, 'TK', 'N',
+                                DECODE(PGPV.VAL_REQ_YN, 'XE', 'N', 'NN', 'N',
+                                    DECODE(PGPV.VAL_SCH_YN, 'HK', 'Y', 'N')
+                                )
+                            )
+                        )
+                        , 'UA', 'N'
+                    ) AS FS_CHK
+                    , PGPV.SPEC
+                    , PGPV.MAKER_NM
+                    , PGPV.WHG_ITEM_YN
+                FROM (
+                    SELECT
+                        ABLI.SYS_ID
+                        , ABLI.COMP_CD
+                        , ABLI.PURC_OPER_ORG_SN
+                        , ABLI.ITEM_CD
+                        , ABLI.INFO_VD_SN
+                        , ABLI.INFO_APPLY_SD
+                        , ABLI.SHOP_GRP_CD
+                        , ABLI.APPLY_SD
+                        , ABLI.APPLY_ED
+                        , ABLI.ITEM_OPER_ORG_SN
+                        , ABLI.INC_RATE
+                        , ABLI.ITEM_STS
+                        , INFO.SP_VD_SN
+                        , INFO.VD_SN
+                        , INFO.VD_CD AS INFO_VD_CD
+                        , INFO.APPLY_ED AS INFO_APPLY_ED
+                        --입고예정일
+                        , TRUNC(TO_DATE(INFO.APPLY_ED, 'YYYYMMDD') - TO_DATE(:needDate, 'YYYYMMDD')) AS INFO_APPLY_ED_DAY
+                        , INFO.ITEM_TYP_CD
+                        , INFO.CNTR_TYP_CD
+                        , INFO.UNIT_CD
+                        , INFO.PROC_TYP_CD
+                        , INFO.EVENT_ITEM_YN
+                        , CASE NVL(INFO.EVENT_ITEM_YN, 'N')
+                            WHEN 'N' THEN
+                                NULL
+                            ELSE
+                                NVL(INFO.EVENT_RES_QTY, 0)
+                        END AS EVENT_RES_QTY
+                        , CASE INFO.CNTR_TYP_CD
+                            WHEN 'P' THEN
+                                'Y'
+                            ELSE
+                                'N'
+                        END AS SPOT_ITEM_YN
+                        , INFO.PO_CNT AS SPOT_RES_QTY
+                        , INFO.CUR
+                        , INFO.ITEM_QTY
+                        , INFO.ITEM_PRICE
+                        , INFO.DELY_AMT
+                        , ABLI.ITEM_BUY_PRICE
+                        , CASE
+                            WHEN ABLI.INC_RATE IS NULL OR ABLI.INC_RATE = 0 THEN
+                                TRUNC(ABLI.ITEM_BUY_PRICE, 2)
+                            ELSE
+                                TRUNC(ABLI.ITEM_BUY_PRICE * (1 + (ABLI.INC_RATE / 100)), 2)
+                        END AS ITEM_MGT_PRICE 
+                        , INFO.CNTR_NO
+                        , INFO.CNTR_REV
+                        , INFO.CNTR_LNO
+                        , MTGL.ITEM_NM
+                        , MTGL.IMG_ATT_NO
+                        , MTGL.ACC_TAX_CD
+                        , DECODE(MTGL.MOD_NO, '', '', '모델명:' || MTGL.MOD_NO || '') || DECODE(MTGL.MAKER_NM, '', '', '제조사:' || MTGL.MAKER_NM || '') || MTGL.SPEC AS SPEC                                    
+                        /* , DECODE(MTGL.PURC_MIN_CNT, 0, 1, NULL, 1, TRUNC(MTGL.PURC_MIN_CNT, 2)) AS PURC_MIN_CNT */
+                        /* 2016.03.16 최학진 최수 신청량이 NULL 또는 0일경우  최소 승수량이 0 또는 1일 경우 1 최소 승수량이 1보다 작을때는 최소 승수량 값으로 처리 선처리*/
+                        , CASE WHEN NVL(MTGL.PURC_MIN_CNT, 0) = 0 THEN CASE WHEN NVL(MTGL.PURC_MULT_CNT, 0) = 0 THEN 1
+                                                                                                         WHEN MTGL.PURC_MULT_CNT < 1 THEN TRUNC(MTGL.PURC_MULT_CNT, 2) END
+                               ELSE TRUNC(MTGL.PURC_MIN_CNT, 2) END AS PURC_MIN_CNT
+                        , DECODE(MTGL.PURC_MULT_CNT, 0, 1, NULL, 1, TRUNC(MTGL.PURC_MULT_CNT, 2)) AS PURC_MULT_CNT
+                        , DECODE(MTGL.PURC_MAX_CNT, 0, NULL, TRUNC(MTGL.PURC_MAX_CNT, 2)) AS PURC_MAX_CNT
+                        , MTGL.CATE1_CD
+                        , MTGL.CATE1_NM
+                        , MTGL.CATE2_CD
+                        , MTGL.CATE2_NM
+                        , MTGL.CATE3_CD
+                        , MTGL.CATE3_NM
+                        , MTGL.CATE4_CD
+                        , MTGL.CATE4_NM
+                        , MTGL.OLD_ITEM_CD
+                        , MTOP.D_DAYS
+                        , MTOP.D_TIMES
+                        , MYMT.USE_YN
+                        , TO_CHAR(TO_DATE(NVL(MYMT.MOD_DT, MYMT.REG_DT),'YYYYMMDDHH24MISS'),'YYYY/MM/DD') AS MY_ITEM_DT -- 추가 
+                        , VDGL.VD_CD AS SP_VD_CD
+                        , VDGL.VD_NM_LOC
+                        , CASE NVL(MTGL.UNUSE_YN, 'N')
+                            WHEN 'Y' THEN
+                                'UK'
+                            WHEN 'N' THEN
+                                'UP'
+                        END AS VAL_UNS_YN
+                        , CASE
+                            WHEN MSTP.ITEM_CD IS NULL THEN
+                                'TP'
+                            ELSE
+                                DECODE(MSTP.STS, 'D', 'TP', 'TK')
+                        END AS VAL_STP_YN
+                        --입고예정일
+                        , (SELECT EPROCUSR.FN_ITEM_PROCURE_REQ_WKD(ABLI.SYS_ID, ABLI.COMP_CD, ABLI.PURC_OPER_ORG_SN, ABLI.ITEM_CD, ABLI.INFO_VD_SN, '01', :needDate) FROM DUAL) AS VAL_REQ_YN
+                        , DECODE(ABLI.ITEM_STS, 'AB', (SELECT EPROCUSR.FN_ITEM_PROCURE_SCH(ABLI.SYS_ID, ABLI.COMP_CD, ABLI.PURC_OPER_ORG_SN, ABLI.ITEM_CD, ABLI.INFO_VD_SN, '01', NVL(MTOP.D_DAYS, 0), NVL(MTOP.D_TIMES, 0), TO_CHAR(SYSDATE,'YYYYMMDD'), :needDate) FROM DUAL), NULL) AS VAL_SCH_YN
+                        , MTGL.MAKER_NM
+                        , MTGL.WHG_ITEM_YN
+                    FROM (
+                        -- 계약도 존재하고 해당업장군에 맵핑된 자재목록
+                        SELECT
+                            ITM.SYS_ID
+                            , ITM.COMP_CD
+                            , ITM.PURC_OPER_ORG_SN
+                            , ITM.ITEM_CD
+                            , ITM.INFO_VD_SN
+                            , ITM.INFO_APPLY_SD
+                            , ITM.SHOP_GRP_CD
+                            , ITM.APPLY_SD
+                            , ITM.APPLY_ED
+                            , ITM.ITEM_OPER_ORG_SN
+                            , ITM.INC_RATE
+                            , ITM.ITEM_BUY_PRICE
+                            , 'AB' AS ITEM_STS
+                        FROM (
+                            SELECT
+                                SYS_ID
+                                , COMP_CD
+                                , PURC_OPER_ORG_SN
+                                , SHOP_GRP_CD
+                            FROM EPROCUSR.ESPSSGPORG
+                            WHERE 1 = 1
+                            AND SYS_ID = '100'
+                            AND COMP_CD = 'HFC'
+                            AND PURC_OPER_ORG_SN IN (:operOrgSnPurc)
+                            AND SHOP_GRP_CD = :shopGrpCd
+                        ) IPO
+                        INNER JOIN (
+                            SELECT
+                                SYS_ID
+                                , COMP_CD
+                                , PURC_OPER_ORG_SN
+                                , SHOP_GRP_CD
+                                , ITEM_CD
+                                , APPLY_SD
+                                , APPLY_ED
+                                , INFO_VD_SN
+                                , INFO_APPLY_SD
+                                , ITEM_OPER_ORG_SN
+                                , INC_RATE
+                                , ITEM_BUY_PRICE
+                            FROM EPROCUSR.ESPSSGPITM ITM
+                            WHERE 1 = 1
+                            AND SYS_ID = '100'
+                            AND COMP_CD = 'HFC'
+                            AND PURC_OPER_ORG_SN IN (:operOrgSnPurc)
+                            AND SHOP_GRP_CD = :shopGrpCd
+<#if searchGubun == '1'>
+                            --자재코드검색
+                            AND UPPER(ITEM_CD) LIKE '%' || UPPER(:searchText) || '%'
+</#if>
+                            AND STS <> 'D'
+                            --입고예정일
+                            AND :needDate BETWEEN APPLY_SD AND APPLY_ED
+                        ) ITM ON IPO.SYS_ID = ITM.SYS_ID AND IPO.COMP_CD = ITM.COMP_CD AND IPO.PURC_OPER_ORG_SN = ITM.PURC_OPER_ORG_SN AND IPO.SHOP_GRP_CD = ITM.SHOP_GRP_CD
+                        
+                        UNION ALL
+                        
+                        -- 계약은 존재하지만 업장군에 맵핑되지 않은 자재목록
+                        SELECT DISTINCT
+                            INF.SYS_ID
+                            , INF.COMP_CD
+                            , INF.PURC_OPER_ORG_SN
+                            , INF.ITEM_CD
+                            , NULL AS INFO_VD_SN
+                            , NULL AS INFO_APPLY_SD
+                            , NULL AS SHOP_GRP_CD
+                            , NULL AS APPLY_SD
+                            , NULL AS APPLY_ED
+                            , NULL AS ITEM_OPER_ORG_SN
+                            , NULL AS INC_RATE
+                            , CNF.ITEM_BUY_PRICE
+                            , 'UA' AS ITEM_STS
+                        FROM (
+                            SELECT
+                                SYS_ID
+                                , COMP_CD
+                                , PURC_OPER_ORG_SN
+                                , ITEM_CD
+                             FROM EPROCUSR.ESPINFO
+                            WHERE 1 = 1
+                            AND SYS_ID = '100'
+                            AND COMP_CD = 'HFC'
+                            AND PURC_OPER_ORG_SN IN (:operOrgSnPurc)
+<#if searchGubun == '1'>
+                            --자재코드검색
+                            AND UPPER(ITEM_CD) LIKE '%' || UPPER(:searchText) || '%'
+</#if>
+                            --입고예정일
+                            AND :needDate BETWEEN APPLY_SD AND APPLY_ED
+                            AND STS <> 'D'
+                            GROUP BY SYS_ID, COMP_CD, PURC_OPER_ORG_SN, ITEM_CD
+                        ) INF
+                        LEFT OUTER JOIN (
+                            SELECT DISTINCT
+                                ITM.SYS_ID
+                                , ITM.COMP_CD
+                                , ITM.PURC_OPER_ORG_SN
+                                , ITM.ITEM_CD
+                                , ITEM_BUY_PRICE
+                            FROM (
+                                SELECT
+                                    SYS_ID
+                                    , COMP_CD
+                                    , PURC_OPER_ORG_SN
+                                    , SHOP_GRP_CD
+                                FROM EPROCUSR.ESPSSGPORG
+                                WHERE 1 = 1
+                                AND SYS_ID = '100'
+                                AND COMP_CD = 'HFC'
+                                AND PURC_OPER_ORG_SN IN (:operOrgSnPurc)
+                                AND SHOP_GRP_CD = :shopGrpCd
+                            ) IPO
+                            INNER JOIN (
+                                SELECT
+                                    SYS_ID
+                                    , COMP_CD
+                                    , PURC_OPER_ORG_SN
+                                    , SHOP_GRP_CD
+                                    , ITEM_CD
+                                    , ITEM_BUY_PRICE
+                                FROM EPROCUSR.ESPSSGPITM ITM
+                                WHERE 1 = 1
+                                AND SYS_ID = '100'
+                                AND COMP_CD = 'HFC'
+                                AND PURC_OPER_ORG_SN IN (:operOrgSnPurc)
+                                AND SHOP_GRP_CD = :shopGrpCd
+                                AND STS <> 'D'
+<#if searchGubun == '1'>
+                                --자재코드검색
+                                AND UPPER(ITEM_CD) LIKE '%' || UPPER(:searchText) || '%'
+</#if>
+                                --입고예정일
+                                AND :needDate BETWEEN APPLY_SD AND APPLY_ED
+                            ) ITM ON IPO.SYS_ID = ITM.SYS_ID AND IPO.COMP_CD = ITM.COMP_CD AND IPO.PURC_OPER_ORG_SN = ITM.PURC_OPER_ORG_SN AND IPO.SHOP_GRP_CD = ITM.SHOP_GRP_CD
+                        ) CNF ON INF.SYS_ID = CNF.SYS_ID AND INF.COMP_CD = CNF.COMP_CD AND INF.PURC_OPER_ORG_SN = CNF.PURC_OPER_ORG_SN AND INF.ITEM_CD = CNF.ITEM_CD
+                        WHERE 1 = 1
+                        AND CNF.SYS_ID IS NULL
+                    ) ABLI
+                    INNER JOIN EPROCUSR.ESMMTGL MTGL ON ABLI.SYS_ID = MTGL.SYS_ID AND ABLI.ITEM_CD = MTGL.ITEM_CD AND MTGL.SYS_ID = '100' AND MTGL.USE_YN = 'Y' AND MTGL.STS <> 'D' AND MTGL.ITEM_TYP_CD = '004' AND NVL(MTGL.SALES_SSALE_YN,'N') = 'N'
+                    LEFT OUTER JOIN EPROCUSR.ESMMSTP MSTP ON MTGL.SYS_ID = MSTP.SYS_ID AND MTGL.ITEM_CD = MSTP.ITEM_CD AND MSTP.SHOP_TYP_CD = '01' AND MSTP.SYS_ID = '100'
+                    LEFT OUTER JOIN EPROCUSR.ESMMTOP MTOP ON MTGL.SYS_ID = MTOP.SYS_ID AND MTGL.ITEM_CD = MTOP.ITEM_CD AND MTOP.SYS_ID = '100' AND ABLI.COMP_CD = MTOP.COMP_CD AND ABLI.ITEM_OPER_ORG_SN = MTOP.OPER_ORG_SN AND MTOP.COMP_CD = 'HFC'
+                    LEFT OUTER JOIN EPROCUSR.ESMMYMT MYMT ON MTOP.SYS_ID = MYMT.SYS_ID AND MTOP.COMP_CD = MYMT.COMP_CD AND MTOP.OPER_ORG_SN = MYMT.OPER_ORG_SN AND MTOP.ITEM_CD = MYMT.ITEM_CD AND MYMT.SYS_ID = '100' AND MYMT.COMP_CD = 'HFC' AND MYMT.USR_ID = 'Z3357257'
+                    LEFT OUTER JOIN EPROCUSR.ESPINFO INFO ON ABLI.SYS_ID = INFO.SYS_ID AND ABLI.COMP_CD = INFO.COMP_CD AND ABLI.PURC_OPER_ORG_SN = INFO.PURC_OPER_ORG_SN AND ABLI.ITEM_CD = INFO.ITEM_CD AND ABLI.INFO_VD_SN = INFO.VD_SN AND ABLI.INFO_APPLY_SD = INFO.APPLY_SD AND INFO.SYS_ID = '100' AND INFO.COMP_CD = 'HFC'
+                    LEFT OUTER JOIN EPROCUSR.ESMVDGL VDGL ON INFO.SYS_ID = VDGL.SYS_ID AND INFO.SP_VD_SN = VDGL.VD_SN AND VDGL.SYS_ID = '100'
+                    WHERE 1 = 1
+<#if searchGubun == '2'>
+                    --자재명검색
+                    AND ( UPPER(MTGL.ITEM_NM) LIKE '%' || UPPER(:searchText) || '%'  )
+</#if>
+                ) PGPV
+                WHERE 1 = 1
+            ) DIVC
+            WHERE 1 = 1
+            AND DIVC.FS_CHK = 'Y'
+            AND DIVC.CD_CHK = 'SS' --신청가능자재만
+        ) TRW
+        WHERE 1 = 1
+    ) PAG
+    WHERE 1 = 1
+) RSTL
+INNER JOIN EPROCUSR.ESAOOMG OOMG ON RSTL.SYS_ID = OOMG.SYS_ID AND RSTL.COMP_CD = OOMG.COMP_CD AND RSTL.PURC_OPER_ORG_SN = OOMG.OPER_ORG_SN AND OOMG.SYS_ID = '100' AND OOMG.COMP_CD = 'HFC'
+INNER JOIN EPROCUSR.ESAOGMG OGMG ON OOMG.SYS_ID = OGMG.SYS_ID AND OOMG.COMP_CD = OGMG.COMP_CD AND OOMG.ORG_TYP_CD = OGMG.ORG_TYP_CD AND OOMG.ORG_CD = OGMG.ORG_CD AND OGMG.SYS_ID = '100' AND OGMG.COMP_CD = 'HFC'
+LEFT OUTER JOIN EPROCUSR.ESACDDL CD01 ON RSTL.SYS_ID = CD01.SYS_ID AND CD01.COMP_CD = 'N' AND RSTL.UNIT_CD = CD01.DTL_CD AND CD01.SYS_ID = '100' AND CD01.LANG_CD = 'ko_KR' AND CD01.GRP_CD = 'C103' 
+LEFT OUTER JOIN EPROCUSR.ESACDDL CD02 ON RSTL.SYS_ID = CD02.SYS_ID AND CD02.COMP_CD = 'N' AND RSTL.PROC_TYP_CD = CD02.DTL_CD AND CD02.SYS_ID = '100' AND CD02.LANG_CD = 'ko_KR' AND CD02.GRP_CD = 'C102'
+LEFT OUTER JOIN EPROCUSR.ESMJBMC JBMC ON RSTL.SYS_ID = JBMC.SYS_ID AND RSTL.COMP_CD = JBMC.COMP_CD AND RSTL.ITEM_OPER_ORG_SN = JBMC.ITEM_OPER_ORG_SN AND RSTL.CATE4_CD = JBMC.CATE_CD AND JBMC.SYS_ID = '100' AND JBMC.COMP_CD = 'HFC' AND JBMC.USE_YN = 'Y' AND JBMC.STS <> 'D'
+LEFT OUTER JOIN EPROCUSR.ESMJBMA JBMA ON JBMC.SYS_ID = JBMA.SYS_ID AND JBMC.COMP_CD = JBMA.COMP_CD AND JBMC.PURC_GRP_CD = JBMA.PURC_GRP_CD AND JBMA.SYS_ID = '100' AND JBMA.COMP_CD = 'HFC' AND JBMA.USE_YN = 'Y' AND JBMA.STS <> 'D'
+ WHERE 1=1
+   AND RNUM BETWEEN :listCnt * ( :pageNum - 1 ) + 1 AND :listCnt * :pageNum]]></statement>
+	<statement name="selectInfo"><![CDATA[SELECT LISTNUM,
+       ROWCNT,
+       PR_NO,
+       (SELECT /*+ INDEX(ESPPRDT ESPPRDT_PK) */ ITEM_CD FROM EPROCUSR.ESPPRDT WHERE SYS_ID = '100' AND COMP_CD = 'HFC' AND PR_NO = T1.PR_NO AND WH_CD = :subinvCode AND STS <> 'D' AND ROWNUM = 1) AS ITEM_CD,
+       CASE WHEN DTCNT > 1 THEN ' 외 ' || TO_CHAR(DTCNT-1,'FM999,999') || '건' ELSE '' END AS ITEM_DT,
+       PR_TIT,
+       PURC_REQ_TYP,
+       PR_REQ_DATE,
+       GR_EXPT_DATE,
+       TRUNC(MGT_PRICE_AMT,2) AS MGT_PRICE_AMT,
+       PR_REM
+  FROM (
+SELECT LISTNUM,
+       ROWCNT,
+       PR_NO,
+       (SELECT COUNT(*)
+          FROM EPROCUSR.ESPPRDT
+         WHERE SYS_ID = '100'
+           AND COMP_CD = 'HFC'
+           AND PR_NO = T1.PR_NO
+           AND WH_CD = :subinvCode
+           AND STS <> 'D') DTCNT,
+       PR_TIT,
+       PURC_REQ_TYP,
+       PR_REQ_DATE,
+       GR_EXPT_DATE,
+       MGT_PRICE_AMT,
+       PR_REM
+  FROM (
+SELECT COUNT(1) OVER() AS ROWCNT,
+       ROW_NUMBER() OVER(ORDER BY PR_NO) AS LISTNUM,
+       PR_NO,   --요청번호
+       PR_TIT,  --제목
+       EPROCUSR.FC_GET_NAME('100','ko_KR','HFC','CODE','P049',PURC_REQ_TYP,'','','','') AS PURC_REQ_TYP, --구매요청유형
+       PR_REQ_DATE,   --요청일
+       GR_EXPT_DATE,  --입고예정일
+       MGT_PRICE_AMT, --합계금액
+       PR_REM  --헤더비고내용
+  FROM EPROCUSR.ESPPRHD HD
+ WHERE HD.SYS_ID = '100'
+   AND HD.COMP_CD = 'HFC'
+   AND HD.SHOP_CD = :upjangCd --업장코드(condition)
+   AND HD.GR_EXPT_DATE BETWEEN :needSdate AND :needEdate --입고예정일(condition)
+   AND HD.PURC_TYP = 'BT'  --구매유형(일반자재_소모품)
+   AND HD.STS <> 'D'
+   AND EXISTS (SELECT 'x'
+                 FROM EPROCUSR.ESPPRDT
+                WHERE SYS_ID = HD.SYS_ID
+                  AND COMP_CD = HD.COMP_CD
+                  AND PR_NO = HD.PR_NO
+                  AND WH_CD = :subinvCode --창고코드(condition)
+                  AND STS <> 'D')
+) T1
+ WHERE 1=1
+   AND LISTNUM BETWEEN :listCnt * ( :pageNum - 1 ) + 1 AND :listCnt * :pageNum
+) T1
+ WHERE 1=1]]></statement>
+	<statement name="selectDetail"><![CDATA[SELECT DT.PR_NO,     --요청번호
+       DT.PR_LNO,    --요청항번
+       DT.ITEM_CD,   --자재코드
+       ITM.ITEM_NM,  --자재명
+       DT.UNIT_CD,   --단위
+       DT.ITEM_QTY,  --신청수량
+       TRUNC(DT.MGT_PRICE_AMT,2) AS MGT_PRICE_AMT --금액합계
+       ITEM_REQ_REM, --상세비고내용
+       EPROCUSR.FC_GET_NAME('100','ko_KR','HFC','CODE','P012',DT.PR_RECV_STS_CD,'','','','') AS PR_RECV_STS_CD, --구매요청접수상태
+       EPROCUSR.FC_GET_NAME('100','ko_KR','HFC','CODE','P044',DT.PR_PROG_STS,'','','','') AS PR_PROG_STS --구매요청진행상태
+  FROM EPROCUSR.ESPPRHD HD, EPROCUSR.ESPPRDT DT, EPROCUSR.ESMMTGL ITM
+ WHERE HD.SYS_ID = '100'
+   AND HD.COMP_CD = 'HFC'
+   AND HD.PR_NO IN (
+                SELECT PR_NO
+                  FROM (
+                SELECT ROW_NUMBER() OVER(ORDER BY PR_NO) AS LISTNUM,
+                       PR_NO,   --요청번호
+                       PR_TIT,  --제목
+                       EPROCUSR.FC_GET_NAME('100','ko_KR','HFC','CODE','P049',PURC_REQ_TYP,'','','','') AS PURC_REQ_TYP, --구매요청유형
+                       PR_REQ_DATE,   --요청일
+                       GR_EXPT_DATE,  --입고예정일
+                       MGT_PRICE_AMT, --합계금액
+                       PR_REM  --헤더비고내용
+                  FROM EPROCUSR.ESPPRHD HD
+                 WHERE HD.SYS_ID = '100'
+                   AND HD.COMP_CD = 'HFC'
+                   AND HD.SHOP_CD = :upjangCd --업장코드(condition)
+                   AND HD.GR_EXPT_DATE BETWEEN :needSdate AND :needEdate --입고예정일(condition)
+                   AND HD.PURC_TYP = 'BT'  --구매유형(일반자재_소모품)
+                   AND HD.STS <> 'D'
+                   AND EXISTS (SELECT 'x'
+                                 FROM EPROCUSR.ESPPRDT
+                                WHERE SYS_ID = HD.SYS_ID
+                                  AND COMP_CD = HD.COMP_CD
+                                  AND PR_NO = HD.PR_NO
+                                  AND WH_CD = :subinvCode --창고코드(condition)
+                                  AND STS <> 'D')
+                ) T1
+                 WHERE 1=1
+                   AND LISTNUM BETWEEN :listCnt * ( :pageNum - 1 ) + 1 AND :listCnt * :pageNum  
+   )
+   AND HD.SYS_ID = DT.SYS_ID
+   AND HD.COMP_CD = DT.COMP_CD
+   AND HD.PR_NO = DT.PR_NO
+   AND DT.WH_CD = :subinvCode --창고코드(condition)
+   AND DT.STS <> 'D'
+   AND DT.SYS_ID = ITM.SYS_ID(+)
+   AND DT.ITEM_CD = ITM.ITEM_CD(+)]]></statement>
+</hqml>

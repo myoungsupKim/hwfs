@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT NVL(B.CHK,'0') AS CHK
+     , A.ROLE, A.ROLE_NAME, A.CONTENTS
+     , #SABUN# AS SABUN
+  FROM SCC_ROLE A
+     ,(SELECT '1' AS CHK, A.ROLE FROM SCC_USER_ROLE A, SCC_ROLE B
+        WHERE A.SYS_TYPE =  B.SYS_TYPE
+          AND A.ROLE =  B.ROLE
+          AND A.SYS_TYPE = 'FICS'
+          AND B.ROLE_TYPE= '본사'
+          AND A.SABUN = #SABUN# AND A.USE_YN = 'Y') B
+ WHERE A.SYS_TYPE = 'FICS'
+   AND A.ROLE     = B.ROLE(+)
+   AND A.ROLE_TYPE= '본사'
+   AND A.UPJANG   = (SELECT MAIN_UPJANG FROM FMS_UPJANG WHERE UPJANG = NVL(#UPJANG#,(SELECT UPJANG FROM SCC_USERINFO WHERE SABUN = #SABUN#)))
+   AND A.USE_YN   = 'Y'
+ ORDER BY A.ROLE	]]></statement>
+	<input default-name="ds_RoleI">
+		<col name="SABUN" size="9" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+	</input>
+	<output default-name="ds_RoleO">
+		<col name="CHK" size="1" type="VARCHAR" description="" /> 
+		<col name="ROLE" size="50" type="VARCHAR" description="" /> 
+		<col name="ROLE_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="CONTENTS" size="300" type="VARCHAR" description="" /> 
+		<col name="SABUN" size="50" type="VARCHAR" description="" /> 
+	</output>
+</query>

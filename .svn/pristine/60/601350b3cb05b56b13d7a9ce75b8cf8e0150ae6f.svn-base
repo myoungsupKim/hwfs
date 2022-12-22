@@ -1,0 +1,97 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Script type="xscript4.0"><![CDATA[/**
+ * Radio를 처리하기 위한 공통 스크립트
+ * @ClassName SCRadio.xjs
+ * @Description SCRadio Javascript
+ * @Modification-Information
+ *    수정일      수정자         수정내용
+ *  ----------   ----------   -------------------------------
+ *  2015.02.26    김재섭       최초 생성
+ *
+ * @author FC종합전산구축 : COM 김재섭
+ * @since 2015.02.26.
+ * @version 1.0
+ * @see 
+ * 
+ *  Copyright (C) 2014 by HANWHA S&C CO.,LTD. All right reserved.
+ */
+var SCRadio = {
+	form : null,
+	
+	/**
+	 * @class 주어진 조건에 의해 Combo에 Data를 Binding한다.
+	 * @param thisForm - 현재 Form Object
+	 * @param qid - 조회하고자 하는 대상의 고유 KEY
+	 * @param radioId - Combo ID (문자열)
+	 * @param outDs - 조회된 결과를 Binding할 Dataset Object로 null인 경우에는 내부적으로 생성한다.
+	 * @param option - qid를 조회할 시 필요한 조건(JSON 형태)
+	 * @return 
+	 */
+	bind : function(thisForm, qid, radioId, outDs, option) {
+		SCRadio.form = thisForm;
+		var newVariableName = "gs_hwfsBindingRadio_"+radioId.split(".").join("_");
+
+		//Output Dataset이 없는경우에는 내부적으로 Dataset을 생성한다.
+		if (outDs == null || outDs == "") {
+			var outDsId = "ds_hwfsBindingRadio_"+radioId.split(".").join("_");
+			thisForm.removeChild(outDsId);
+			outDs = new Dataset();
+			outDs.id = outDsId;
+			outDs.name = outDsId;
+			thisForm.addChild(outDsId, outDs);
+		}
+		
+		//옵션에 대하여 선언되지 않는 경우에는 초기화 한다.
+		if (option == undefined || option == null || option == "") option = {};
+		
+		//Controller로 전송할 Parameter를 설정한다.
+		var parameter = {
+			qid : qid,
+			radioId : radioId,
+			outDs : outDs.name,
+			option : option,
+			triggerEvent : "NVL"
+		};
+
+		
+		//전역변수를 생성한다.
+		setVariable(newVariableName, gfn_jsonObjectToString(parameter));
+		
+  		var strSvcID    = "hwfsBindingRadio,"+newVariableName;
+  		var strURL      = "/sc/cmn/binding/select.xdo";
+  		var strInDs     = "";
+  		var strOutDs    = outDs.name+"=output";
+  		var strArg      = "input="+wrapQuote(gfn_jsonObjectToString(parameter));
+  		var strCallback = "SCRadio.callback";
+		var bAsync = true;
+  
+  		gfn_transaction(thisForm, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+	},
+	
+	/**
+	 * @class 내부 CALLBACK Function으로 실제 Transaction에 대한 Callback 함수이다.
+	 */
+	callback : function(svcId, errCode, errMsg) {
+		var tmp = svcId.split(",");
+		var newVariableName = eval(tmp[1]);
+		var json = gfn_jsonStringToObject(newVariableName);
+		var dataset = SCRadio.form.objects[json.outDs];
+		
+		if (dataset == null) {
+			dataset = SCRadio.form.parent.objects[json.outDs];
+		}
+
+		var radio = eval(json.radioId);
+
+		radio.codecolumn = "code";
+		radio.datacolumn = "codeName";
+		radio.innerdataset = dataset.name;
+
+		if (json.option.defVal != undefined) radio.value = json.option.defVal;
+		
+		//생성한 전역변수를 제거한다.
+		removeVariable(tmp[1]);
+	}
+};
+
+]]></Script>

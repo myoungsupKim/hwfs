@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="rc.bms.basAmMgmtDAO">
+	<desc>연회 예약에서 사용되는 AM를 관리한다.</desc>
+	<!-- AM DATA를 조회한다. -->
+	<statement name="selectAmList" type="select">
+		/*+ com.hwfs.rc.sle.basAmMgmtDAO.selectAmList test*/
+		<![CDATA[
+				SELECT
+					AM_CD,
+					AM_NM,
+					AM_TM_CD,		
+					AM_TM_NM ,
+					AUTH_CD,
+					AUTH_NM ,
+					 
+					--핸드폰번호 - 넣기
+					CASE  LENGTH(LTRIM(RTRIM(HAND_PHONE))) 
+                    WHEN  9 THEN SUBSTR(HAND_PHONE,1,2) || '-' || SUBSTR(HAND_PHONE,3,3) || '-' || SUBSTR(HAND_PHONE,6,4)
+                    WHEN 10 THEN SUBSTR(HAND_PHONE,1,2) || '-' || SUBSTR(HAND_PHONE,3,4) || '-' || SUBSTR(HAND_PHONE,7,4)
+                    WHEN 11 THEN SUBSTR(HAND_PHONE,1,3) || '-' || SUBSTR(HAND_PHONE,4,4) || '-' || SUBSTR(HAND_PHONE,8,4)
+                    ELSE '' END    AS HAND_PHONE,  
+								 
+					SCC_TELNO_SPLIT_FUN(HAND_PHONE,1)     AS HAND_PHONE1,
+					SCC_TELNO_SPLIT_FUN(HAND_PHONE,2)     AS HAND_PHONE2,
+					SCC_TELNO_SPLIT_FUN(HAND_PHONE,3)     AS HAND_PHONE3,
+					
+					--전화번호 - 넣기		   
+					CASE  LENGTH(LTRIM(RTRIM(TEL_NUM))) 
+                    WHEN  9 THEN SUBSTR(TEL_NUM,1,2) || '-' || SUBSTR(TEL_NUM,3,3) || '-' || SUBSTR(TEL_NUM,6,4)
+                    WHEN 10 THEN SUBSTR(TEL_NUM,1,2) || '-' || SUBSTR(TEL_NUM,3,4) || '-' || SUBSTR(TEL_NUM,7,4)
+                    WHEN 11 THEN SUBSTR(TEL_NUM,1,3) || '-' || SUBSTR(TEL_NUM,4,4) || '-' || SUBSTR(TEL_NUM,8,4)
+                    ELSE '' END    AS TEL_NUM,  
+								 
+					SCC_TELNO_SPLIT_FUN(TEL_NUM,1)     AS TEL_NUM1,
+					SCC_TELNO_SPLIT_FUN(TEL_NUM,2)     AS TEL_NUM2,
+					SCC_TELNO_SPLIT_FUN(TEL_NUM,3)     AS TEL_NUM3,
+					
+				
+					EMAIL_ADDR,
+				
+					MU_CD,     MU_NM, 
+					TM_CD,     TM_NM, 
+					UPJANG_CD, UPJANG_NM,
+						 		
+					EMP_NUM,   EMP_NM,
+					RMRK_FACT,
+					USE_YN,
+					CDATE,
+					CUSER,
+					UDATE,
+					UUSER
+				FROM (		
+						SELECT 	AMMST.AM_CD,
+								SCC_CRYPTO.MASKAUTH_FUN(AMMST.AM_NM,12,:loginPersMask,:maskAuth) AS AM_NM,
+						 		AMMST.AM_TM_CD,		
+						 		TEAM.CODE_NAME AS AM_TM_NM ,
+						 		AMMST.AUTH_CD,
+						        AUTH.CODE_NAME AS AUTH_NM ,
+						 		 
+						 		SCC_CRYPTO.MASKAUTH_FUN(AMMST.TEL_NUM,9,:loginPersMask,:maskAuth)    AS TEL_NUM,
+						 		SCC_CRYPTO.MASKAUTH_FUN(AMMST.HAND_PHONE,8,:loginPersMask,:maskAuth) AS HAND_PHONE,
+						 		SCC_CRYPTO.MASKAUTH_FUN(AMMST.EMAIL_ADDR,7,:loginPersMask,:maskAuth) AS EMAIL_ADDR,
+						 		
+						 		AMMST.EMP_NUM,
+						 		SCC_CRYPTO.MASKAUTH_FUN(PERS.NM_KOR,12,:loginPersMask,:maskAuth)  AS EMP_NM,
+						 		
+						 		AMMST.RMRK_FACT,
+						 		
+						 		AMMST.MU_CD,     (SELECT DISTINCT MU_NM    FROM HLDC_SC_DEPT_V A WHERE A.MU_CD  = AMMST.MU_CD) AS MU_NM, 
+						 		AMMST.TM_CD,     (SELECT DISTINCT TM_NM    FROM HLDC_SC_DEPT_V A WHERE A.MU_CD  = AMMST.MU_CD AND A.TM_CD = AMMST.TM_CD) AS TM_NM, 
+						 		AMMST.UPJANG_CD, (SELECT DISTINCT UPJANGNM FROM SCO_UPJANG_V   A WHERE A.UPJANG = AMMST.UPJANG_CD) AS UPJANG_NM,
+						 		
+						       	DECODE(NVL(AMMST.USE_YN, '0'), 'Y', '1', '0') AS USE_YN,
+						       	AMMST.CDATE,
+						       	AMMST.CUSER,
+						       	AMMST.UDATE,
+						       	AMMST.UUSER
+						FROM   	BMS_AM_MST AMMST
+						INNER JOIN (SELECT MST.OUTLET_CD, MST.OUTLET_NM
+		                           FROM   SLE_OUTLET_MST      MST
+		                           INNER JOIN  SCO_UPJANG_V   UPJANG ON  UPJANG.UPJANG = TO_NUMBER(MST.OUTLET_CD) 
+		                                         					<#if muCd?has_content> AND  UPJANG.MU_CD = :muCd </#if>
+		                                         					<#if tmCd?has_content> AND  UPJANG.TM_CD = :tmCd </#if>
+		                           <#if outletCd?has_content > WHERE MST.OUTLET_CD   = :upjangCd </#if>
+		              			 ) OUTLET ON OUTLET.OUTLET_CD =  AMMST.UPJANG_CD
+						
+						INNER JOIN SCC_COMMON_CODE  TEAM ON TEAM.GROUP_CODE ='BMS_0003'  AND TEAM.CODE = AMMST.AM_TM_CD
+						INNER JOIN SCC_COMMON_CODE  AUTH ON AUTH.GROUP_CODE ='BMS_0007'  AND AUTH.CODE = AMMST.AUTH_CD
+						LEFT OUTER JOIN HR_PERSONAL PERS ON PERS.SABUN = AMMST.EMP_NUM 
+						
+						WHERE  	AMMST.USE_YN = AMMST.USE_YN
+						
+						<#if amNm?has_content> AND AMMST.AM_NM LIKE :amNm || '%'  </#if>
+						<#if bcCd?has_content> AND AMMST.BC_CD = :bcCd  </#if>
+						--<#if muCd?has_content> AND AMMST.MU_CD = :muCd  </#if>
+						--<#if tmCd?has_content> AND AMMST.TM_CD = :tmCd  </#if>
+						<#if amTmCd?has_content> AND AMMST.AM_TM_CD = :amTmCd </#if>
+						<#if upjangCd?has_content > AND AMMST.UPJANG_CD   = :upjangCd </#if>
+				)
+				ORDER BY AM_CD, AM_NM
+		]]>
+	</statement>
+
+	<!-- AM DATA를 저장한다. -->
+	<statement name="insertAmMgmt" type="insert"><![CDATA[
+ INSERT INTO BMS_AM_MST
+				(
+				 AM_CD,
+				 AM_NM,
+				 AM_TM_CD,
+				 AUTH_CD,
+				  
+				 HAND_PHONE,
+				 TEL_NUM,
+				 EMP_NUM,
+				 EMAIL_ADDR,
+				 RMRK_FACT,
+				 
+				 MU_CD,     
+				 TM_CD,     
+				 UPJANG_CD, 
+				 
+				 USE_YN,
+				 CDATE,
+				 CUSER,
+				 UDATE,
+				 UUSER
+				) VALUES (
+		 		:amCd,
+				<#if amNm?exists> :amNm, <#else> '', </#if>
+				<#if amTmCd?exists> :amTmCd, <#else> '', </#if>
+				<#if authCd?exists> :authCd, <#else> '', </#if>
+				 
+				<#if handPhone?exists> SCC_CRYPTO.ENC_FUN(REPLACE(:handPhone,'-','')), <#else> '', </#if>		
+				<#if telNum?exists> SCC_CRYPTO.ENC_FUN(REPLACE(:telNum,'-','')) , <#else> '', </#if>	
+				<#if empNum?exists> :empNum, <#else> '', </#if>
+				<#if emailAddr?exists> SCC_CRYPTO.ENC_FUN(:emailAddr), <#else> '', </#if>
+				<#if rmrkFact?exists> :rmrkFact, <#else> '', </#if>
+				
+				<#if muCd?exists> :muCd, <#else> '', </#if>
+				<#if tmCd?exists> :tmCd, <#else> '', </#if>
+				<#if upjangCd?exists> :upjangCd, <#else> '', </#if>
+				 
+				
+		 		'Y',
+				SYSDATE,
+				:loginSabun,
+				SYSDATE,
+				:loginSabun
+				)
+ 
+		]]></statement>
+
+	<!-- AM DATA를 수정한다. -->
+	<statement name="updateAmMgmt" type="update">
+		/*+ com.hwfs.rc.sle.basAmMgmtDAO.updateAmMgmt */
+		<![CDATA[
+ 		UPDATE BMS_AM_MST SET
+			<#if amNm?exists>       AM_NM       = :amNm, </#if>
+			<#if tmCd?exists>       AM_TM_CD    = :amTmCd, </#if>
+			<#if authCd?exists>     AUTH_CD     = :authCd, </#if>
+			
+			<#if muCd?exists>       MU_CD       = :muCd,     </#if>
+			<#if tmCd?exists>       TM_CD       = :tmCd,     </#if>
+			<#if upjangCd?exists>   UPJANG_CD   = :upjangCd, </#if>
+			 
+			<#if empNum?exists>     EMP_NUM     = :empNum,   </#if>
+			
+			<#if handPhone?exists>  HAND_PHONE  = SCC_CRYPTO.ENC_FUN(REPLACE(:handPhone,'-','')), </#if>
+			<#if telNum?exists>     TEL_NUM     = SCC_CRYPTO.ENC_FUN(REPLACE(:telNum,'-','')), </#if>
+			<#if emailAddr?exists> EMAIL_ADDR = SCC_CRYPTO.ENC_FUN(:emailAddr), </#if>
+			<#if rmrkFact?exists>   RMRK_FACT   = :rmrkFact, </#if>
+			<#if useYn?exists>      USE_YN      = DECODE(:useYn, '1', 'Y', 'N'), </#if>
+			UDATE = SYSDATE,
+			UUSER = :loginSabun
+		WHERE  AM_CD = :amCd
+		]]>
+	</statement>
+
+	<!-- AM 코드를 생성한다. -->
+	<statement name="maxAmCodeCreate" type="select">
+		/*+ com.hwfs.rc.sle.basAmMgmtDAO.maxAmCodeCreate */
+		<![CDATA[
+		
+ 		SELECT  TO_CHAR(SYSDATE,'YYYY') || LPAD(NVL(MAX(TO_NUMBER(SUBSTR(AM_CD,5,4))),'0') + 1,4,'0')  AS MAX_AMCD 
+ 		FROM BMS_AM_MST
+ 		WHERE SUBSTR(AM_CD,1,4) = TO_CHAR(SYSDATE,'YYYY')
+        
+		]]>
+	</statement>
+
+	<!-- AM 코드를 생성한다. -->
+	<statement name="amEmpNoSearch" type="select">
+		/*+ com.hwfs.rc.sle.basAmMgmtDAO.amEmpNoSearch */
+		<![CDATA[
+		
+ 		SELECT  AM_CD, AM_NM
+ 		FROM BMS_AM_MST
+ 		WHERE EMP_NUM  = :empNum
+        
+		]]>
+	</statement>
+</hqml>

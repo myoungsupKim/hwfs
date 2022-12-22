@@ -1,0 +1,2165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="fs.fsb.upjangPackMgntDAO">
+	<desc>업장관리 HQML Query</desc>
+
+	<!-- 직군 코드목록을 조회한다. -->
+	<statement name="selectJobCode" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectJobCode */
+		<![CDATA[
+		  SELECT JOB_CD
+		        ,JOB_NAME
+		    FROM MAS_JOB
+		   WHERE USE_YN <> 'L'
+		ORDER BY JOB_CD
+		]]>
+	</statement>
+
+	<!-- 상세직군 코드목록을 조회한다. -->
+	<statement name="selectSubJobCode" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectSubJobCode */
+		<![CDATA[
+		  <#if mag?has_content>
+			  SELECT '' AS JOB_CD
+				  ,'전체' AS JOB_NAME
+				  ,'' AS SUB_JOB_CD
+				  ,'전체' AS SUB_JOB_NAME
+			  FROM DUAL
+			  UNION ALL
+			  SELECT A.JOB_CD
+					,A.JOB_NAME
+					,B.SUB_JOB_CD
+					,B.SUB_JOB_NAME
+				FROM MAS_JOB A
+					,MAS_JOB_SUB B
+			   WHERE A.JOB_CD = B.JOB_CD
+				 AND A.USE_YN <> 'L'
+		  <#else>  
+			  SELECT A.JOB_CD
+					,A.JOB_NAME
+					,B.SUB_JOB_CD
+					,B.SUB_JOB_NAME
+				FROM MAS_JOB A
+					,MAS_JOB_SUB B
+			   WHERE A.JOB_CD = B.JOB_CD
+				 AND A.USE_YN <> 'L'
+			ORDER BY A.JOB_CD, B.SUB_JOB_CD
+		  </#if> 
+		]]>
+	</statement>
+
+	<!-- 지역1 코드목록을 조회한다. -->
+	<statement name="selectLocCode" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectLocCode */
+		<![CDATA[
+		  <#if mag?has_content>
+			  SELECT '' AS LOC_CD
+				  ,'전체' AS LOC_NAME
+			  FROM DUAL
+			  UNION ALL
+			  SELECT CODE LOC_CD
+					,CODE_NAME LOC_NAME
+				FROM SCC_COMMON_CODE
+			   WHERE GROUP_CODE = 'MA0040'    /* 지역1 */
+		  <#else>
+			  SELECT CODE LOC_CD
+					,CODE_NAME LOC_NAME
+				FROM SCC_COMMON_CODE
+			   WHERE GROUP_CODE = 'MA0040'    /* 지역1 */
+		    ORDER BY CODE
+		  </#if>
+		]]>
+	</statement>
+
+	<!-- 지역2 코드목록을 조회한다. -->
+	<statement name="selectSubLocCode" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectSubLocCode */
+		<![CDATA[
+		    SELECT A.CODE LOC_CD
+		          ,A.CODE_NAME LOC_NAME
+		          ,B.CODE SUB_LOC_CD
+		          ,B.CODE_NAME SUB_LOC_NAME
+		      FROM (
+		                SELECT CODE
+		                      ,CODE_NAME          
+		                  FROM SCC_COMMON_CODE 
+		                 WHERE GROUP_CODE = 'MA0040'    /* 지역1 */
+		           ) A
+		           ,(
+		                SELECT CODE
+		                      ,CODE_NAME
+		                      ,SET1         
+		                  FROM SCC_COMMON_CODE 
+		                 WHERE GROUP_CODE = 'MA0041'    /* 지역2 */
+		           ) B
+		     WHERE A.CODE = B.SET1
+		  ORDER BY A.CODE, B.CODE
+		]]>
+	</statement>
+
+	<!-- 메뉴구분 코드목록을 조회한다. -->
+	<statement name="selectFilterGubunCd2" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectFilterGubunCd2
+		*/
+		<![CDATA[
+		SELECT B.CODE, B.CODE_NAME
+		  FROM SCC_COMMON_GROUP A,
+		       SCC_COMMON_CODE  B
+		 WHERE (A.GROUP_CODE = B.GROUP_CODE)
+		   AND (A.GROUP_CODE BETWEEN 'MA0010' AND 'MA0014')
+		  <#if jobGubun?has_content>
+		   AND (A.SET1||DECODE(A.SET2, '%', SUBSTR(:jobGubun, 7, 3), A.SET2) = SUBSTR(:jobGubun, 4, 6))
+		  </#if>	     
+		  ORDER BY B.GROUP_CODE, B.CODE  
+		]]>
+	</statement>
+
+	<!-- 인허가형태 코드목록을 조회한다. -->
+	<statement name="selectPermissionType" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectPermissionType
+		*/
+		<![CDATA[
+		  SELECT '' CHK ,CODE, CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0004'
+		]]>
+	</statement>
+
+	<!-- 회계정보(Tab1)를 조회한다. -->
+	<statement name="selectAccountingInfo" type="select"><![CDATA[
+		 SELECT V.UPJANG
+               ,V.UPJANGNM
+               ,V.SAUPNO
+               ,V.DRNAME
+          --     ,V.POST_NO
+          --     ,V.ADDR
+          --     ,SCC_CRYPTO.DEC_FUN(V.ADDR_ENC) AS ADDR_ENC
+               , CASE WHEN V.ADDR_KEY = null 
+               		THEN S.ADDR_KEY 
+               		ELSE V.ADDR_KEY 
+               	 END  ADDR_KEY  
+               , CASE WHEN V.ADDR_KEY = null 
+                  THEN SCC_ADDR_FUN(S.ADDR_KEY, NVL(:loginPersMask,'YYYYYYYYYYYYYY'), :maskAuth)
+                  ELSE SCC_ADDR_FUN(V.ADDR_KEY, NVL(:loginPersMask,'YYYYYYYYYYYYYY'), :maskAuth) 
+                 END  ADDR_INFO 
+               ,V.UP_TAE
+               ,V.UP_JONG
+               ,(
+                    SELECT FRNC_STOR_NO
+                      FROM SCO_UPJANG_MST
+                     WHERE UPJANG = V.UPJANG
+                ) FRNC_STOR_NO
+               ,(SELECT UPJANGNM FROM SCO_UPJANG_MST_V WHERE UPJANG = V.VAT_UPJANG) VAT_UPJANG
+               ,(SELECT BANKNM FROM HLDC_ST_BANK WHERE BANKCD = V.ADVANCE_BANKCD) ADVANCE_BANKCD
+          --     ,V.ADVANCE_ACNTCD_ENC
+          --     ,TRIM(SC_CRYPTO_FUN@FCUS_TO_HLDC('DEC', V.ADVANCE_ACNTCD_ENC, 3)) AS ADVANCE_ACNTCD
+               ,V.ACC_OPENDATE
+               ,V.ACC_CLOSEDATE
+               ,V.DEPT_ID
+               ,(SELECT MU_NM||'>'||SC_NM||'>'||TM_NM||'>'||PT_NM||'>'||CC_NM FROM HLDC_SC_DEPT_V WHERE DEPT_ID = V.DEPT_ID) DEPTNM
+               ,V.CC_CD
+               ,(SELECT CC_NM FROM HLDC_SC_CC WHERE CC_CD = V.CC_CD) CC_NM
+               ,V.SAUP_TYPE
+               ,V.JOB_CD
+               ,V.SUB_JOB_CD
+               ,V.RELATED_YN
+         --      ,SCC_CRYPTO.DEC_FUN(V.UPJANG_TEL_ENC) AS UPJANG_TEL		
+         --    ,SCC_CRYPTO.MASKAUTH_FUN(V.UPJANG_TEL,9,:loginPersMask, :maskAuth) UPJANG_TEL        /* 전화번호 */
+               ,SCC_CRYPTO.MASKAUTH_FUN(V.UPJANG_TEL_ENC,9,:loginPersMask, :maskAuth) UPJANG_TEL_ENC  /* 전화번호 */
+               ,V.CHARGE_SABUN
+               ,(SELECT NM_KOR FROM SCO_FS_HR_PERSONAL_V WHERE SABUN = V.CHARGE_SABUN) CHARGE_SABUNNM	/* 점장명 */
+               ,V.FIRST_JUMJANG_YN
+         --    ,SCC_CRYPTO.MASKAUTH_FUN(V.CHARGE_SABUNHP, 8, :loginPersMask, :maskAuth) CHARGE_SABUNHP   /* 휴대폰번호 */
+               ,SCC_CRYPTO.MASKAUTH_FUN(V.CHARGE_SABUNHP_ENC, 8, :loginPersMask, :maskAuth) AS CHARGE_SABUNHP_ENC	/* 휴대폰번호 */
+               ,V.OPEN_DATE		/* 오픈일 */
+               ,V.CLOSE_DATE	/* 폐점일 */
+               ,V.AVG_EAT_CNT	/* 운영평균일식수 */
+               ,V.LIVE_NO_MAN	/* 입주총인원 */
+               ,V.PERMISSION_TYPE	/* 인허가형태(MA0004) */
+               ,V.DIST_TYPE		/* 배식형태(MA0005) */
+               ,V.FIRST_CTRT_DATE	/* 최초계약일 */
+        --       ,V.CURR_CTRT_DATE
+               ,V.END_CTRT_DATE		/* 계약만료일 */
+               ,V.CTRT_TYPE			/* 계약방식(MA0006) */
+               ,V.SPECIAL_AGREE		/* 특약사항 */
+               ,V.GUARANTY_DESC		/* 보증금담보 */
+               ,V.CONTRIB_NOPAY_YN	/* 기부체납 */
+               ,V.ROOM_LEASE_AMT	/* 임대료(식당) */
+               ,V.CORNER_LEASE_AMT	/* 매점임대료 */
+               ,NVL(V.TOT_INVEST_AMT, 0) TOT_INVEST_AMT	/* 총투자실적 */
+               ,NVL(V.GUARANTY_AMT, 0) GUARANTY_AMT		/* 보증금잔액 */
+               ,NVL(V.DEPRN_RESERVE_AMT, 0) DEPRN_RESERVE_AMT	/*미상각잔액*/
+               ,V.STORE_YN			/* 매점운영 여부 */
+               ,V.VENDING_YN		/* 자판기보유 여부*/
+               ,V.GIVE_AMT			/* 기부금 */
+               ,V.EXPENSE_TYPE		/* 경비부담 주체(MA0007) */
+               ,V.UTILITY_TYPE		/* 수도광열비(MA0008) */
+               ,V.WATER_GUBUN		/* 용수구분(001 지하수, 002 상수도) */
+               ,V.LEADER_SABUN        
+               ,(SELECT NM_KOR FROM SCO_FS_HR_PERSONAL_V WHERE SABUN = V.LEADER_SABUN) LEADER_SABUNNM			/* 리더명 */
+               ,V.SUBTEAM_MST_SABUN
+               ,(SELECT NM_KOR FROM SCO_FS_HR_PERSONAL_V WHERE SABUN = V.SUBTEAM_MST_SABUN) SUBTEAM_MST_SABUNNM	/* 소팀장명 */
+               ,V.TEAM_MST_SABUN
+               ,(SELECT NM_KOR FROM SCO_FS_HR_PERSONAL_V WHERE SABUN = V.TEAM_MST_SABUN) TEAM_MST_SABUNNM		/* 대팀장명 */
+               ,V.IMG_PATH		/* 사업장약도 */
+               ,V.LOC_CD
+               ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0040' AND CODE = V.LOC_CD) LOC_CDNM	/* 지역1 */
+               ,V.SUB_LOC_CD
+               ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0041' AND SET1 = V.LOC_CD AND CODE = V.SUB_LOC_CD) SUB_LOC_CDNM	/* 지역2 */
+        --       ,V.IMG_PATH_CHARGE_SABUN
+        --       ,(SELECT REPLACE(TRIM(DELIVERY_POSTNO), '-', '') FROM SCO_UPJANG_MST WHERE UPJANG = V.UPJANG) DELIVERY_POSTNO	/* 배송 우편번호 */
+        --       ,(SELECT TRIM(SCC_CRYPTO.DEC_FUN(DELIVERY_ADDR_ENC)) FROM SCO_UPJANG_MST WHERE UPJANG = V.UPJANG) DELIVERY_ADDR	/* 배송주소 */
+        --       ,SCC_CRYPTO.DEC_FUN(V.DELIVERY_ADDR_ENC) DELIVERY_ADDR_ENC	/* 배송주소 상세 */
+               ,V.DELIVERY_ADDR_KEY
+               ,SCC_ADDR_FUN(V.DELIVERY_ADDR_KEY, NVL(:loginPersMask,'YYYYYYYYYYYYYY'), :maskAuth) AS DELIVERY_ADDR_INFO
+               ,(SELECT TRIM(DELIVERY_DETAIL) FROM SCO_UPJANG_MST WHERE UPJANG = V.UPJANG) DELIVERY_DETAIL	/* 배송특이사항 */
+               ,V.EXCEPT_FLAG
+               ,V.ICE_MACHINE_YN
+               ,V.VENDING_MACHINE_YN
+               ,V.NO_DISASTER_DATE	
+               ,V.UNDERWATER_PUR_YN		/* 지하정수처리시설 여부*/
+               ,V.UNDERWATER_PUR_TYPE	/* 지하정수처리시설 방식 */
+	           ,V.REP_MEAL_PRICE1 	/* 대표식단가1 */
+	           ,V.REP_MEAL_PRICE2 	/* 대표식단가2 */
+	           ,V.REP_MEAL_QTY1 	/* 대표식수1 */
+	           ,V.REP_MEAL_QTY2 	/* 대표식수2 */
+	    --       ,V.OPER_GUBUN
+	           ,DC_OIL_PROC        /*폐식용유처리*/
+               ,DC_OIL_PROC_REASON /*자가처리사유*/
+               ,MENU_SUNHO         /*메뉴선호세대*/
+               ,MENU_SUNHO_M       /*성별비율(남)*/
+               ,MENU_SUNHO_W       /*성별비율(여)*/
+               ,CAFE_OP_YN         /*카페운영여부*/
+               ,CAFE_OP_AMT        /*카페운영임대료*/
+               ,WTR_YN             /*수도 여부*/
+               ,GS_YN              /*가스 여부*/
+               ,PERIOD_YN          /*전기 여부*/
+               ,COOLING_HTNG_YN    /*냉난방 여부*/
+               ,RECONTRACT_PLAN_YN /*재계약계획*/
+               ,RECONTRACT_ACT_YN  /*재계약실적*/
+               ,RECONTRACTDT       /*재계약일자*/
+           --    ,RESP_MEAL_UPRICE    /*대표식단가*/
+           --    ,RESP_MEAL_QTY      /*대표식수1*/
+               ,OP_TYPE             /*운영형태(O 오픈형, C 폐쇄형)*/
+               ,(SELECT GRIL_KEEP_YN FROM SCO_UPJANG_MST WHERE UPJANG = V.UPJANG) GRIL_KEEP_YN	/* 그릴보유여부 */
+               ,(SELECT OVEN_DUTY_YN FROM SCO_UPJANG_MST WHERE UPJANG = V.UPJANG) OVEN_DUTY_YN	/* 오븐보유여부 */
+               ,(SELECT EMAIL_ENC FROM SCO_UPJANG_MST WHERE UPJANG = V.UPJANG) EMAIL_ENC
+               ,A.MGMT_CD           /* 잔반비용처리 */
+               ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0037' AND CODE = A.MGMT_CD) MGMT_CDNM
+               ,A.MGMT_CD1          /* 계약관리주체 */
+               ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0042' AND CODE = A.MGMT_CD1) MGMT_CD1NM
+               ,A.REMAIN_COMPANY    /* 잔반업체명 */
+               ,A.VENDOR_USERNAME   /* 담당자명 */
+               ,SCC_CRYPTO.DEC_FUN(A.VENDOR_USERTEL1_ENC) AS VENDOR_USERTEL1  /* 연락처 */
+               ,SCC_CRYPTO.DEC_FUN(A.VENDOR_USERTEL2_ENC) AS VENDOR_USERTEL2
+               ,A.FEE_CD    /* 요금체계 */
+               ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0039' AND CODE = A.FEE_CD) FEE_CDNM
+               ,A.UPRICE    /* 단가/월 */
+               ,A.ATTR01    /* 무상수거사유 */
+               ,V.CSGM_YN            /* 자판기-위탁여부 */
+               ,V.CSGM_CMIS_RATE     /* 자판기-위탁수수료율 */
+               ,V.VNDG_MACHINE_QTY   /* 자판기-총자판기대수 */
+               ,V.SAL_ITEM           /* 자판기-판매품목(음료,커피,유제품,기타) */
+               ,V.SAL_ITEM_ETC		 /* 자판기_기타 내용 */
+               ,V.EDU_CMPL_YN        /* 자판기-교육이수여부 */
+               ,V.OP_DD_TYPE         /* 운영일수 */
+               ,V.COOKS_A_PSN        /* 조리사_인원(급식) */
+               ,V.COOKS_C_PSN        /* 찬모_인원(급식) */
+               ,V.COOKS_B_PSN        /* 조리원_인원(급식) */
+               ,V.ROOM_LEASE_STD	/* 임대료 납부기준	*/
+               ,V.HALL_SET_QTY			/* 구내식당 좌석수		*/
+               ,V.CHIER_MOURNER_NO_MAN			/* 건물내 상주인원	*/
+               ,V.AREA					/* 면적	*/
+               ,V.SALE_AMT			/* 예상매출액 */
+               ,V.MEAL_RATE			/* 식재료율 */
+               ,YY_SALS				/* 연매출규모 */
+               ,SET_QTY				/* 좌석수 	*/
+               ,OP_RANGE				/* 운영범위	*/
+               ,MENU				AS MENU_ITEM		/* 주메뉴		*/
+               ,SERVICE_TYPE			/* 서비스형태	*/
+               ,SUBLEASE_YN				/* 전대조건	      */
+               ,CONTRACT_AREA			/* 계약면적	      */
+               ,USE_AREA				/* 전용면적		  */
+               ,RENT_RATE				/* 임대율	       */
+               ,MGMT_AMT				/* 관리비	       */
+               ,GUARANTEE_AMT			/* 보증금	       */
+               ,GIVE_TYPE				/* 지급형태		  */
+               ,ETC						/* 기타	    	*/
+               ,FIR_INVEST_AMT			/* 초기투자비	 */
+               ,FIR_INVEST_DAY			/* 초기투자시기	*/
+               ,FIR_INVEST_ETC			/* 초기투자내용	*/
+               ,SEC_INVEST_AMT			/* 추가투자비	 */
+               ,SEC_INVEST_DAY			/* 추가투자시기	*/
+               ,SEC_INVEST_ETC			/* 추가투자내용	*/
+               ,SPCL_FACT				/* 계약특이사항	*/
+               ,EXTENSION_TERMS			/* 연장조건		  */
+               ,JOB_CD2                 /*직군2*/
+	      FROM SCO_UPJANG_MST_V V
+	      	  ,(SELECT UPJANG, ADDR_KEY FROM SCO_UPJANG_MST) S
+	          ,SCO_UPJANG_REMAINMEAL A
+         WHERE V.UPJANG = A.UPJANG(+)
+           AND V.UPJANG = S.UPJANG(+)
+	       AND V.UPJANG = :upjangCd
+    	]]></statement>
+
+	<!-- 은행정보 목록을 조회한다. -->
+	<statement name="selectBankList" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectBankList */
+		<![CDATA[
+ SELECT CASE A.BANK_ACCT_TYPE WHEN 'V' THEN '가상계좌'
+                            WHEN 'A' THEN '수익금계좌'
+                            ELSE ''
+             	 END ACCT_TYPE_NM
+                ,NVL((SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FM0005' AND CODE = 
+                (SELECT BANK_CD FROM SLA_SAP_SUSPENSE_INFO WHERE BANK_ACCT_NO = A.BANK_ACCT_NO AND ROWNUM = 1)),'우리은행') AS BANK_NM,
+                 (SELECT BANK_CD FROM SLA_SAP_SUSPENSE_INFO WHERE BANK_ACCT_NO = A.BANK_ACCT_NO AND ROWNUM = 1) AS BANK_CD 
+                ,SCC_CRYPTO.DEC_FUN(A.BANK_ACCT_NO) ACCT_NO
+                ,A.CC_CD, B.UPJANG, B.upjangnm
+            FROM SLA_SAP_BANK_ACCT_NO   A,
+                 SCO_UPJANG_MST_V       B
+          WHERE A.CC_CD = B.CC_CD
+           AND B.UPJANG = :upjangCd
+		]]>
+	</statement>
+
+	<!-- 회계정보(Tab1)_부서History 목록을 조회한다. -->
+	<statement name="selectDeptHistory" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectDeptHistory */
+		<![CDATA[
+		SELECT A.UPJANG
+		      ,V.MU_CD
+			  ,V.MU_NM
+			  ,V.SC_CD
+	          ,V.SC_NM
+	          ,V.TM_CD
+	          ,V.TM_NM
+	          ,V.PT_CD
+	          ,V.PT_NM
+	          ,V.DEPT_ID
+	          ,V.CC_CD
+	          ,V.CC_NM
+	          ,(
+	            SELECT TO_CHAR(A.CDATE, 'YYYYMMDD') 
+	              FROM SCC_CC A
+	                  ,SCC_ORG B
+	             WHERE B.ORG_MGMT_CD = A.HLEVEL_ORG_MGMT_CD  
+	               AND A.CC_CD  = V.CC_CD
+	               AND A.BU_CD  = V.BU_CD
+	               AND A.MU_CD  = V.MU_CD
+		      ) CREATE_DATE
+	      FROM HLDC_SC_DEPT_V V
+              ,SCO_UPJANG_MST A
+              ,HLDC_ST_UPJANG B
+	    WHERE A.UPJANG  = B.UPJANG
+          AND B.DEPT_ID = V.DEPT_ID
+	    <#if muCd?has_content>
+	      AND V.MU_CD = :muCd
+	    </#if>
+	    <#if tmCd?has_content>
+	      AND V.TM_CD = :tmCd
+	    </#if>
+	      AND A.UPJANG = :upjangCd
+	    ORDER BY V.DEPT_ID DESC
+    	]]>
+	</statement>
+
+	<!-- 운영현황(TAB2)_업체구비허가증 목록을 조회한다. -->
+	<statement name="selectRemainmealdtl" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectRemainmealdtl */
+		<![CDATA[
+	     SELECT A.UPJANG
+		       ,A.CODE
+		       ,A.CODE_NAME CODENM
+		       ,DECODE(V.UPJANG, NULL, 0, 1) CHK
+		  FROM SCO_UPJANG_REMAINMEALDTL V
+		      ,(SELECT :upjangCd UPJANG, B.CODE, B.CODE_NAME FROM DUAL A, (SELECT * FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0038') B ) A
+		 WHERE (V.VENDOR_PERMIT(+) = A.CODE)
+		   AND (V.UPJANG(+)        = A.UPJANG)
+	  ORDER BY A.CODE
+	]]>
+	</statement>
+
+	<!-- 운영현황(TAB2)_대외비문서 목록을 조회한다. -->
+	<statement name="selectDocList" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectDocList */
+		<![CDATA[
+	       SELECT DOC_NUM
+	             ,(SELECT A.CODE_NAME FROM SCC_COMMON_CODE A WHERE A.CODE = DOC_KIND_CD AND A.GROUP_CODE = 'FS0100') DOC_KIND
+		     FROM MAS_DOC_MGMT
+		    WHERE UPJANG = :upjangCd
+		 ORDER BY DOC_NUM
+	]]>
+	</statement>
+
+	<!-- 운영현황(TAB2)_기기보유현황 목록을 조회한다. -->
+	<statement name="selectUtensilList" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectUtensilList */
+		<![CDATA[
+		  SELECT UPJANG_CD			/* 업장_코드 */
+		        ,UTENSIL_CLASS		/* 기기_구분(001-정수기/002-제빙기) */
+				,MGMTVENDOR			/* 관리업체 */
+				,FILTER_MGMTVENDOR	/* 필터_관리업체 */
+				,RETAL_YN			/* 렌탈_여부 */
+				,MGMTMNBD			/* 관리주체 */
+				,QUANTITY			/* 수량 */
+				,CONTRACT_OPENDD	/* 계약_개시일 */
+				,CONTRACT_EDATE		/* 계약_종료일 */
+				,ATTR01				/* 여분01 */
+				,ATTR02				/* 여분02 */
+				,ATTR03				/* 여분03 */
+				,ATTR04				/* 여분04 */
+				,ATTR05				/* 여분05 */
+				,'Y'    REG_YN 		/* 수정처리 구분자 */
+		    FROM SCO_UPJANG_UTENSIL		/* 업장별 기기(정수기/제빙기) 관리 테이블 */
+		   WHERE UPJANG_CD = :upjangCd
+		ORDER BY UPJANG_CD, UTENSIL_CLASS, MGMTVENDOR		  
+		]]>
+	</statement>
+
+	<!-- 계약정보(TAB3)_총투자실적,보증금잔액,미상각잔액을 조회한다. -->
+	<statement name="selectInvAmt" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectInvAmt */
+		<![CDATA[
+		SELECT NVL((SELECT SUM(DRAMT)
+		              FROM GA_DEPT_ACCTCD_MONTH@FCUS_TO_HLDC V,
+		                   HLDC_ST_ACCOUNT_V A
+		              WHERE (V.ACCTCD = A.ACCTCD)
+		              AND   (A.ACCTCD_GUBUN = '세세절')
+		              AND   (A.BALDIV       = '1')
+		              AND   (V.ACCYEAR_MONTH BETWEEN '200400' AND TO_CHAR(SYSDATE, 'YYYYMM'))
+		              AND   (SUBSTR(V.ACCYEAR_MONTH, 5, 2) > '00')
+		              AND   (V.CC_CD = :ccCd)
+		              AND   (V.ACCTCD BETWEEN '1220000' AND '1229999')), 0) TOT_INVEST_AMT, --총투자실적(유형자산차변합계)
+		       NVL((SELECT NVL(SUM(DRAMT), 0) - NVL(SUM(CRAMT), 0)
+		              FROM GA_DEPT_ACCTCD_MONTH@FCUS_TO_HLDC V
+		              WHERE (V.ACCYEAR_MONTH BETWEEN TO_CHAR(SYSDATE, 'YYYY')||'00' AND TO_CHAR(SYSDATE, 'YYYYMM'))
+		              AND   (V.CC_CD = :ccCd)
+		              AND   (V.ACCTCD = '1240421')), 0) GUARANTY_AMT,--보증금잔액(임차보증금(자산)잔액)
+		       NVL((SELECT NVL(SUM(DRAMT), 0) - NVL(SUM(CRAMT), 0)
+		              FROM GA_DEPT_ACCTCD_MONTH@FCUS_TO_HLDC V
+		              WHERE (V.ACCYEAR_MONTH BETWEEN TO_CHAR(SYSDATE, 'YYYY')||'00' AND TO_CHAR(SYSDATE, 'YYYYMM'))
+		              AND   (V.CC_CD = :ccCd)
+		              AND   (V.ACCTCD = '1220000')), 0) DEPRN_RESERVE_AMT--미상각잔액(유형자산잔액)
+		  FROM DUAL
+		]]>
+	</statement>
+
+	<!-- (TAB3) 업장 대표식단가,식수 목록을 조회한다. -->
+	<statement name="selectRespMealList" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectRespMealList */
+		<![CDATA[
+	    	SELECT UPJANG				/* 업장코드 */
+				  ,SEQ					/* 순번 */
+				  ,RESP_MEAL_UPRICE		/* 업장대표식단가1 */
+				  ,RESP_MEAL_QTY		/* 업장대표식수1 */
+			  FROM SCO_UPJANG_MST_RESP_MEAL  /* SCO_업장_MST_대표식단가 */
+			 WHERE UPJANG = :upjangCd
+		]]>
+	</statement>
+
+
+	<!-- (TAB4)_고객사현황 목록을 조회한다. -->
+	<statement name="selectCustList" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectCustList */
+		<![CDATA[
+		     SELECT A.UPJANG            /* 업장코드 */
+		           ,A.CUSTCD            /* 고객사코드 */
+		           ,A.RELEASE_PRIORITY  /* 우선순위 */
+		           ,A.MAIN_MENU_PRICE   /* 대표식단가 */
+		           ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0015' AND CODE = A.PAY_GUBUN_CD) ||' ' || A.PAY_DATE||'일' AS PAY_GUBUN_CD_DATE     /* 식대지급구분코드(MA0015) */
+		           ,A.PAY_GUBUN_CD
+		           ,A.PAY_DATE          /* 식대지급일 */
+		           ,A.USE_YN            /* 사용 여부 */
+		           ,A.ATTR01 /* 여분01 */
+		           ,A.ATTR02 /* 여분02 */
+		           ,A.ATTR03 /* 여분03 */
+		           ,A.ATTR04 /* 여분04 */
+		           ,A.ATTR05 /* 여분05 */
+		     --      ,B.CUSTNM
+		          , decode(B.CUSTNM, '', '장기 미거래 거래처',B.CUSTNM) as CUSTNM
+		           ,B.SAUPNO  AS SAUPNO      /* 사업자등록번호 */
+		           ,B.BUBINNO  AS BUBINNO    /* 법인등록번호 */
+		           ,B.UP_TAE
+		           ,B.UP_JONG
+		           ,B.DRNAME1
+		           ,B.ADDR
+		     --      ,SCC_ADDR_FUN(B.ADDR_KEY, NVL(:loginPersMask,'YYYYYYYYYYYYYY'), :maskAuth) AS ADDR_INFO
+		    --	   ,'' ADDR_CLASS
+			--       ,'' ZIP_CODE 
+			--       ,'' BASE_ADDR 
+			--       ,'' DETAIL_ADDR 
+			--       ,'' ETC_ADDR_TMP
+			--       ,'' ETC_ADDR
+		           ,SCC_CRYPTO.MASK_FUN (B.TEL_NO_ENC,9,:loginPersMask) TEL_NO_ENC /* 전화번호 암호화 */
+		           ,'0' AUTH_LEVEL
+		           ,'Y' REG_YN
+		       FROM SCO_UPJANG_CUST A /* SCO_업장_고객사 */
+		           ,HLDC_ST_CUST B
+		      WHERE A.CUSTCD = B.CUSTCD(+)
+		        AND A.UPJANG = :upjangCd
+		   ORDER BY A.UPJANG, A.RELEASE_PRIORITY
+		]]>
+	</statement>
+
+	<!-- 인원현황_재직현황(TAB5)을 조회한다. -->
+	<statement name="selectMemberCount" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectMemberCount */
+		<![CDATA[
+		    SELECT NVL(TOT,0) HR_TOT
+		--          ,NVL(HR01, 0) HR01
+		          ,NVL(HR02, 0) HR02
+		          ,NVL(HR03, 0) HR03
+		          ,NVL(HR04, 0) HR04
+		          ,NVL(HR05, 0) HR05
+		          ,NVL(HR06, 0) HR06
+		          ,NVL(HR07, 0) HR07
+		          ,NVL(HR08, 0) HR08
+		          ,NVL(HR09, 0) HR09
+		          ,NVL(HR10, 0) HR10
+		          ,NVL(HR11, 0) HR11
+		          ,NVL(HR12, 0) HR12
+		          ,NVL(HR13, 0) HR13
+		          ,NVL(HR14, 0) HR14
+		          ,NVL(TOT,0)-(NVL(HR02, 0)+NVL(HR03, 0)+NVL(HR04, 0)+NVL(HR05, 0)+NVL(HR06, 0)+NVL(HR07, 0)+NVL(HR08, 0)
+		          						   +NVL(HR09, 0)+NVL(HR10, 0)+NVL(HR11, 0)+NVL(HR12, 0)+NVL(HR13, 0)+NVL(HR14, 0)) HR15
+		      FROM (
+		               SELECT MAX(DECODE(JIK_KUP, '촉탁직', SUM(CNT))) HR06
+		                     ,MAX(DECODE(JIK_KUP, '인턴', SUM(CNT))) HR08
+		                     ,MAX(DECODE(JIK_KUP, '상용직', SUM(CNT))) HR09
+		                     ,MAX(DECODE(JIK_KUP, '일용직', SUM(CNT))) HR10
+		                     ,MAX(DECODE(JIK_KUP, '용역직', SUM(CNT))) HR12
+		                     ,SUM(SUM(CNT)) TOT
+                             
+                            -- , MAX(CASE WHEN JIK_KUP IN('임원') THEN SUM(CNT) ELSE 0 END) AS HR01 /* 임원(주석처리) */
+                             , SUM(CASE WHEN JIK_KUP IN('11','12','21','22','31','33','41','51','A01','A02','A03','A04','A05') THEN SUM(CNT) ELSE 0 END) AS HR02 /* 일반직 */
+                             , SUM(CASE WHEN JIK_KUP IN('60','55','A32') THEN SUM(CNT) ELSE 0 END) AS HR03 /* 사무직 */
+                             , SUM(CASE WHEN JIK_KUP IN('D11','D12','D13','D14','D15','D17','D18','D19','21','D23','FS-486','FS-487','FS-488','FS-494','FS-489','FS-495','FS-490','FS-496','FS-491','FS-497','R21','R31','R41','R51','R61','R62','R66','R65','R71','R72','R73','R74','R75','R76','RE-1451','RE-2486','RE-2485','375') THEN SUM(CNT) ELSE 0 END) AS HR04 /* 전문직 */
+                             , SUM(CASE WHEN JIK_KUP IN('FS-410',	'FS-A19',	'FS-420',	'FS-430',	'FS-A21',	'FS-440',	'FS-A22',	'FS-441') THEN SUM(CNT) ELSE 0 END) AS HR05 /* 전임직 */
+                             , SUM(CASE WHEN JIK_KUP IN('FS-3120','FS-1486','FS-1485') THEN SUM(CNT) ELSE 0 END) AS HR14 /* 조리직 */
+                             , SUM(CASE WHEN JIK_KUP IN('FS-2510','FS-2520','FS-2530','FS-2540','FS-2550','FS-2560','FS-A30') THEN SUM(CNT) ELSE 0 END) AS HR13 /* 전외직 */
+                             , SUM(CASE WHEN JIK_KUP IN('HT-Q1','FC-100','FC-110','CT-F3') THEN SUM(CNT) ELSE 0 END) AS HR07 /* 계약직 */
+                             , SUM(CASE WHEN JIK_KUP IN('998','CT-T3') THEN SUM(CNT) ELSE 0 END) AS HR11 /* 시급제 */
+		                 FROM (
+		                          SELECT V.NM_KOR
+		                                ,V.SABUN
+		                                ,V.JIK_KUP    /* 직급 */
+		                             --   ,(SELECT CODE_NAME FROM SCC_COMMON_CODE A WHERE A.CODE=V.JIK_KUN AND A.GROUP_CODE = 'MA0027') JIK_KUP_NAME
+		                           	    ,V.JIK_KUP_NM AS JIK_KUP_NAME
+		                                ,V.JIK_KUN    /* 직군 */
+		                              --  ,(SELECT CODE_NAME FROM SCC_COMMON_CODE A WHERE A.CODE=V.JIK_KUN AND A.GROUP_CODE = 'MA0028') JIK_KUN_NAME
+		                                ,V.JIK_KUN_NM AS JIK_KUN_NAME
+		                                ,V.PER_DTA    /* 그룹입사일 */
+		                                ,V.PER_DTD    /* 퇴사일 */
+		                                ,1 CNT                            
+		                            FROM SCO_FS_HR_PERSONAL_V V
+		                                ,HLDC_ST_UPJANG B
+		                           WHERE B.DEPT_ID = V.DEPT_ID
+		                           AND PER_DTA IS NOT NULL
+                                   AND PER_DTD IS NULL
+		                             AND B.UPJANG = :upjangCd
+		                      )
+		              WHERE 1=1
+		            GROUP BY JIK_KUP
+		          )
+		]]>
+	</statement>
+	<!-- 인원현황_재직현황(TAB5)을(외식) 조회한다. -->
+	<statement name="selectMemberCount2" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectMemberCount2 */
+		<![CDATA[
+		   SELECT *
+  FROM ( 
+          SELECT B.CODE_NAME AS CODE_NAME, A.JIK_KUP AS CNT
+            FROM HR_PERSONAL  A,
+                 SCC_COMMON_CODE  B
+               , SCO_UPJANG_MST_V C
+           WHERE A.GB_JAEJIK = 'AA'
+             AND A.CC_CD     = C.CC_CD 
+             AND A.JIK_KUP = B.CODE 
+             AND B.GROUP_CODE = 'JIKKUP_CD'
+             AND C.MU_CD = '2003' 					/* 외식전용 2003으로 고정 */
+             AND C.UPJANG = :upjangCd
+        ) 
+        PIVOT
+        (
+          COUNT(CNT)
+          FOR CODE_NAME IN ('전문D' AS HR01,'전문D(계)' AS HR02,'전외직' AS HR03,'전외직(계)' AS HR04,'전임직' AS HR05
+          ,'전임직(계)' AS HR06,'외식기능직' AS HR07,'외식기능(계)' AS HR08,'전문F' AS HR09,'전문F(계)' AS HR10
+          ,'조리계약(月)' AS HR11,'조리계약(日)' AS HR12,'조리계약(時)' AS HR13,'촉탁직' AS HR14,'총인원수' AS HR_TOT)
+        )
+		]]>
+	</statement>
+
+	<!-- 인원현황(TAB5)_목록을 조회한다. -->
+	<statement name="selectMemberInfoList" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectMemberInfoList
+		*/
+		<![CDATA[
+	      SELECT V.NM_KOR
+		        ,V.SABUN
+		        ,V.JIK_KUP    /* 직급 */
+		        ,V.JIK_KUP_NM JIK_KUP_NAME
+		        ,V.JIK_KUN    /* 직군 */
+		        ,V.JIK_KUN_NM JIK_KUN_NAME
+		        ,V.PER_DTA    /* 그룹입사일 */
+		        ,V.PER_DTD    /* 퇴사일 */
+		    FROM SCO_FS_HR_PERSONAL_V V
+		        ,HLDC_ST_UPJANG B
+		   WHERE B.DEPT_ID = V.DEPT_ID
+		     AND B.UPJANG = :upjangCd
+		     AND V.EMP_TYPE_CD NOT LIKE 'Z%'
+		ORDER BY V.SABUN
+		]]>
+	</statement>
+
+	<!-- 인원현황(TAB5)_발령History 목록을 조회한다. -->
+	<statement name="selectMemberHistory" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectMemberHistory */
+		<![CDATA[
+		    SELECT A.SABUN
+	              ,A.SDATE        	/* 시작일자 */
+	              ,A.EDATE        	/* 종료일자 */
+	              ,A.STATUS_NM    	/* 재직상태 */
+	              ,A.PAY_TYPE_NM    /* 급여유형 */
+	              ,A.JIKWEE2_NM     /* 직위 */
+	              ,A.JIKCHAK_NM     /* 직책 */
+	              ,A.PAY_GROUP_NM   /* 급여그룹 */
+	              ,A.COST_NM        /* 소속 */
+	          FROM HLDC_THRM151 A
+	          WHERE TRIM(A.STATUS_NM) <> '휴직'
+	            AND A.SABUN = :sabun
+	        --    AND A.COST_NM LIKE '%'||:upjangNm
+	        ORDER BY A.SDATE DESC
+		]]>
+	</statement>
+
+	<!-- 인원현황(TAB5)_점장History 목록을 조회한다. -->
+	<statement name="selectJikchakHistory" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectJikchakHistory
+		*/
+		<![CDATA[
+			  SELECT DISTINCT  B.UPJANG
+		            ,REPLACE(B.UPJANGNM, '단체급식 ', '')||DECODE(C.CLOSE_DATE, NULL, '', '(폐점:'||SUBSTR(C.CLOSE_DATE, 1, 4)||'년'||SUBSTR(C.CLOSE_DATE, 5, 2)||'월'||SUBSTR(C.CLOSE_DATE, 7, 2)||'일)') UPJANGNM
+		            ,V.NM_KOR
+		            ,V.SABUN
+		            ,D.SDATE AS SDATE_1     /* 발령일 */
+		            ,D.SDATE||' ~ '||DECODE(D.EDATE,'' ,'현재','00000000','현재',D.EDATE) AS SDATE   /* 발령일 */
+		        FROM SCO_FS_HR_PERSONAL_V V
+		            ,HLDC_ST_UPJANG B
+		            ,SCO_UPJANG_MST C
+		            ,HLDC_THRM151 D            
+		       WHERE V.DEPT_ID = B.DEPT_ID
+		         AND V.SABUN = D.SABUN
+		         AND B.UPJANG = C.UPJANG
+		         AND B.UPJANG = :upjangCd
+		         AND D.JIKCHAK_NM LIKE '점장%' 
+		         AND D.COST_CD = V.CC_CD
+		    ORDER BY SDATE DESC
+		]]>
+	</statement>
+
+	<!-- 식단가현황(TAB6) 목록을 조회한다. -->
+	<statement name="selectMpriceInfo" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectMpriceInfo */
+		<![CDATA[
+		SELECT A.JOB_CD ST_JOBCD
+	          ,(SELECT JOB_NAME FROM MAS_JOB WHERE JOB_CD = A.JOB_CD)  ST_JOBNM
+	          ,A.SUB_JOB_CD ST_SUB_JOBCD
+	          ,(SELECT SUB_JOB_NAME FROM MAS_JOB_SUB WHERE SUB_JOB_CD = A.SUB_JOB_CD)  ST_SUB_JOBNM
+	          ,V.UPJANG
+	          ,V.GUBUN_CD1
+	          ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0009' AND CODE = V.GUBUN_CD1) GUBUN_CD1NM
+	          ,V.GUBUN_CD2
+	          ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE BETWEEN 'MA0010' AND 'MA0014' AND CODE = V.GUBUN_CD2) GUBUN_CD2NM
+	          ,V.MPRICE_OPENDD
+	          ,V.MEAL_UPRICE
+	          ,V.USE_YN
+	          ,'Y' REG_YN		/* 수정가능 구분자 */
+		  FROM SCO_UPJANG_MPRICE V
+              ,SCO_UPJANG_MST A
+         WHERE V.UPJANG = A.UPJANG
+		   AND V.UPJANG = :upjangCd
+		<#if chk=="1">
+			AND V.USE_YN = 'Y'
+		</#if>			
+		ORDER BY V.UPJANG, V.GUBUN_CD1, V.GUBUN_CD2, V.MPRICE_OPENDD
+		]]>
+	</statement>
+
+	<!-- 식단가현황(TAB6)_History 목록을 조회한다. -->
+	<statement name="selectMpriceHistory" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectMpriceHistory */
+		<![CDATA[
+		  SELECT CHG_DATE		/* 변경일 */
+				,SEQ			/* 순번 */
+				,UPJANG			/* 업장코드 */
+				,GUBUN_CD1		/* 식구분 */
+				,(SELECT A.CODE_NAME FROM SCC_COMMON_CODE A WHERE A.GROUP_CODE = 'MA0009' AND A.CODE = GUBUN_CD1) GUBUN_CD1NM
+				,GUBUN_CD2		/* 메뉴구분 */
+				,(SELECT A.CODE_NAME FROM SCC_COMMON_CODE A WHERE A.GROUP_CODE BETWEEN 'MA0010' AND 'MA0014' AND A.CODE = GUBUN_CD2) GUBUN_CD2NM
+				,MPRICE_OPENDD	/* 단가개시일 */
+				,MEAL_UPRICE	/* 식단가 */
+				,USE_YN			/* 사용 여부 */
+				,ATTR01			/* 여분01 */
+				,ATTR02			/* 여분02 */
+				,ATTR03			/* 여분03 */
+				,ATTR04			/* 여분04 */
+				,ATTR05			/* 여분05 */
+				,(SELECT V.NM_KOR FROM SCO_FS_HR_PERSONAL_V V WHERE V.SABUN = CUSER) NM_KOR
+				,(SELECT V.TM_NM FROM SCO_FS_HR_PERSONAL_V V WHERE V.SABUN = CUSER) TM_NM
+		    FROM SCO_UPJANG_MPRICE_HIS
+		   WHERE UPJANG = :upjangCd
+		ORDER BY UPJANG, CHG_DATE DESC
+		]]>
+	</statement>
+
+	<!-- 예산현황(TAB7) 목록을 조회한다. -->
+	<statement name="selectBudgetInfo" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectBudgetInfo */
+		<![CDATA[
+		   SELECT  '2014' BDGT_Y,
+		           A.MM,
+		           A.ACCTNM6,
+		           A.PROJECT_NM,
+		           A.BUDCLS_NM,
+		           DECODE(A.YAESAN_CHK, '1',
+		                                    '월통제',
+		                                '2',
+		                                    '분기통제',
+		                                '3',
+		                                    '반기통제',
+		                                '4',
+		                                    '년통제') YAESAN_CHK,
+		           B.DEPT_ID,
+		           A.ACCTCD,
+		           B.PROJECT_ID,
+		           B.BUD_CLS,
+		           NVL(B.BUDAMT, 0) BUDAMT,
+		           NVL(B.CHGAMT, 0) CHGAMT,
+		           NVL(B.USEAMT, 0) USEAMT,
+		           NVL(B.EXEAMT, 0) EXEAMT,
+		           (NVL(B.BUDAMT, 0) + NVL(B.CHGAMT, 0) - NVL(B.USEAMT, 0)) JANAMT
+		     FROM  (
+		               SELECT ACCTNM6,
+		                      PROJECT_NM,
+		                      BUDCLS_NM,
+		                      ACCTCD,
+		                      PROJECT_ID,
+		                      BUD_CLS,
+		                      YAESAN_CHK,
+		                      GUBUN,
+		                      MM
+		                 FROM (
+		                        SELECT ACCTNM6,
+		                               PROJECT_NM,
+		                               BUDCLS_NM,
+		                               ACCTCD,
+		                               PROJECT_ID,
+		                               BUD_CLS,
+		                               YAESAN_CHK,
+		                               GUBUN
+		                          FROM (
+		                                    SELECT ACCTNM6,
+		                                           '' PROJECT_NM,
+		                                           '' BUDCLS_NM,
+		                                           ACCTCD,
+		                                           ' ' PROJECT_ID,
+		                                           ' ' BUD_CLS,
+		                                           YAESAN_CHK,
+		                                           '1' GUBUN
+		                                    FROM HLDC_ST_ACCOUNT
+		                                    WHERE (YAESAN = '1')
+		                                    AND   (YAESAN_TYPE = '1' OR YAESAN_TYPE = '2')
+		                                    AND   (TRIM(PROJECT) IS NULL OR PROJECT = '3')
+		                                    AND   (BUNGAE = '1')
+		                                    UNION ALL
+		                                    SELECT A.ACCTNM6,
+		                                           C.PROJECT_NM,
+		                                           B.BUDCLS_NM,
+		                                           A.ACCTCD,
+		                                           NVL(C.PROJECT_ID, ' ') PROJECT_ID,
+		                                           NVL(B.BUD_CLS, ' ')    BUD_CLS,
+		                                           B.YAESAN_CHK,
+		                                           '2' GUBUN
+		                                    FROM ST_ACCOUNT@FCUS_TO_HLDC A,
+		                                         PL_BUDCLS@FCUS_TO_HLDC B,
+		                                         PL_PROJECT@FCUS_TO_HLDC C
+		                                    WHERE (A.YAESAN = '2')
+		                                    AND   (A.ACCTCD = B.ACCTCD)
+		                                    AND   (B.ACCTCD = C.ACCTCD(+))
+		                                    AND   (B.YAESAN_TYPE = '1' OR B.YAESAN_TYPE = '2')
+		                                    AND   (A.BUNGAE = '1')
+		                               )
+		                        WHERE  ((ACCTCD, NVL(TRIM(PROJECT_ID), ' '), NVL(TRIM(BUD_CLS), ' ')) IN
+			                                          (SELECT ACCTCD, NVL(TRIM(PROJECT_ID), ' ') PROJECT_ID, NVL(TRIM(BUD_CLS), ' ') BUD_CLS
+			                                           FROM PL_BUDGET@FCUS_TO_HLDC
+			                                           WHERE (BDGT_Y      = :bdgtY)
+			                                           AND   (DEPT_ID     = :deptId)
+			                                           GROUP BY ACCTCD, NVL(TRIM(PROJECT_ID), ' '), NVL(TRIM(BUD_CLS), ' ')
+			                                           HAVING NVL(SUM(BUDAMT), 0) > 0 OR
+			                                                  NVL(SUM(CHGAMT), 0) > 0 OR
+			                                                  NVL(SUM(USEAMT), 0) > 0 OR
+			                                                  NVL(SUM(EXEAMT), 0) > 0  ))
+		                     ) A,
+		                    (
+		                         SELECT LPAD(ROWNUM,2,'0') MM
+		                         FROM DICT
+		                         WHERE ROWNUM >= 12
+		                    ) B
+		        ) A,
+		        (SELECT * FROM PL_BUDGET@FCUS_TO_HLDC WHERE BDGT_Y = :bdgtY AND BDGT_M BETWEEN '01' AND '12' AND DEPT_ID = :deptId)  B
+		  WHERE (A.ACCTCD       = B.ACCTCD(+))
+		  AND   (A.PROJECT_ID   = B.PROJECT_ID(+))
+		  AND   (A.BUD_CLS      = B.BUD_CLS(+))
+		  AND   (A.MM           = B.BDGT_M(+))
+		  ORDER BY A.GUBUN, A.ACCTCD, A.PROJECT_ID, A.BUD_CLS, A.MM
+		]]>
+	</statement>
+
+	<!-- 임대/보증금 현황(TAB8) 목록을 조회한다. -->
+	<statement name="selectGuarantyAmtInfo" type="select">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectGuarantyAmtInfo
+		*/
+		<![CDATA[
+			  SELECT  MU_CD			/* 사업영역 */
+				     ,CC_CD			/* 귀속부서 */
+					 ,GB_TYPE		/* 구분(1.보증금 / 2.임대보증금) */
+					 ,SLIP_NUM		/* 전표번호 */
+					 ,SEQ			/* 순번 */
+					 ,PUBLISH_DATE	/* 발행일자 */
+					 ,CUST_NM		/* 거래처명 */
+					 ,CASE WHEN (TERM_FROM ||' ~ '|| TERM_TO) = ' ~ ' THEN '' 
+			               ELSE (TERM_FROM ||' ~ '|| TERM_TO) 
+			          END TERM  /* 기간 From~To */
+					 ,CASE WHEN DR_CR_TYPE='1' THEN SUM(SLIP_AMT) END DR_SLIP_AMT    /* 차변 금액 */
+         			 ,CASE WHEN DR_CR_TYPE='2' THEN SUM(SLIP_AMT) END CR_SLIP_AMT    /* 대변 금액 */
+					 ,ACCT_NM		/* 계정명 */
+					 ,REMARK		/* 적요 */
+					 ,SEND_DATE		/* 전송일자 */
+			    FROM  FSB_IF_DEPOSIT
+			    WHERE 1=1
+			    <#if muCd?has_content>
+			   AND  MU_CD   = :muCd
+			    </#if>
+			<#if ccCd?has_content>
+	     		 AND  CC_CD   = :ccCd
+	    	</#if>   
+		--		 AND  GB_TYPE = :gbType
+			GROUP BY MU_CD,CC_CD, GB_TYPE, SLIP_NUM, SEQ, PUBLISH_DATE, CUST_NM,
+					 TERM_FROM, TERM_TO, DR_CR_TYPE, ACCT_NM, REMARK, SEND_DATE
+			ORDER BY  PUBLISH_DATE DESC, DR_CR_TYPE
+		]]>
+	</statement>
+
+	<!-- 업장관리 약도파일(을)를 수정한다. -->
+	<statement name="updateImgfile" type="update">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.updateImgfile */
+		<![CDATA[
+		UPDATE SCO_UPJANG_MST
+		   SET IMG_PATH = :imgPath
+	          ,UUSER    = :loginSabun,
+			  ,UDATE    = SYSDATE
+	     WHERE UPJANG = :upjang
+     ]]>
+	</statement>
+
+	<!-- ST_UPJANG  수정한다. -->
+	<statement name="updateStupjang" type="update">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.updateStupjang */
+		<![CDATA[
+		UPDATE ST_UPJANG
+	       SET ACC_OPENDATE  = :openDate
+	          ,ACC_CLOSEDATE = :closeDate
+	          ,UPDATE_BY     = :loginSabun
+	          ,UPDATE_DATE   = SYSDATE
+	     WHERE UPJANG = :upjang
+     ]]>
+	</statement>
+
+	<!-- 업장관리(을)를 수정한다. -->
+	<statement name="updateAccountingInfo" type="update"><![CDATA[
+		UPDATE SCO_UPJANG_MST
+		   SET SAUP_TYPE		=   <#if saupType?has_content> :saupType <#else> null </#if>
+			  ,RELATED_YN		=   <#if relatedYn?has_content> :relatedYn <#else> null </#if>
+			  ,FICS_YN			=   DECODE(:saupType, '004', 'Y', '006', 'Y', 'N')
+			  ,JOB_CD			=	<#if jobCd?has_content> :jobCd <#else> null </#if>
+			  ,SUB_JOB_CD		=	<#if subJobCd?has_content> :subJobCd <#else> null </#if>
+			  ,CHARGE_SABUN		=	<#if chargeSabun?has_content> :chargeSabun <#else> null </#if>
+		--	  ,UPJANG_TEL		=	<#if upjangTel?has_content> :upjangTel <#else> null </#if>
+			  ,UPJANG_TEL_ENC   =   <#if upjangTelEnc?has_content> SCC_CRYPTO.ENC_FUN(:upjangTelEnc) <#else> null </#if>
+		--	  ,CHARGE_SABUNHP	=	<#if chargeSabunhp?has_content> :chargeSabunhp <#else> null </#if>
+			  ,CHARGE_SABUNHP_ENC = <#if chargeSabunhpEnc?has_content> SCC_CRYPTO.ENC_FUN(:chargeSabunhpEnc) <#else> null </#if>
+			  ,PERMISSION_TYPE	=	<#if permissionType?has_content> :permissionType <#else> null </#if>
+			  ,OPEN_DATE		=	<#if openDate?has_content> :openDate <#else> null </#if>
+			  ,CLOSE_DATE		=	<#if closeDate?has_content> :closeDate <#else> null </#if>
+			  ,LIVE_NO_MAN		=	<#if liveNoMan?has_content> :liveNoMan  <#else> null </#if>
+			  ,FIRST_JUMJANG_YN	=	<#if firstJumjangYn?has_content> :firstJumjangYn  <#else> null </#if>
+			  ,DIST_TYPE		=	<#if distType?has_content> :distType  <#else> null </#if>
+			  ,FIRST_CTRT_DATE	=	<#if firstCtrtDate?has_content> :firstCtrtDate  <#else> null </#if>
+			  ,END_CTRT_DATE	=	<#if endCtrtDate?has_content> :endCtrtDate  <#else> null </#if>
+			  ,CTRT_TYPE		=	<#if ctrtType?has_content> :ctrtType  <#else> null </#if>
+			  ,SPECIAL_AGREE	=	<#if specialAgree?has_content> :specialAgree  <#else> null </#if>
+			  ,CONTRIB_NOPAY_YN	=	<#if contribNopayYn?has_content> :contribNopayYn  <#else> null </#if>
+			  ,GUARANTY_DESC    =   <#if guarantyDesc?has_content> :guarantyDesc  <#else> null </#if>
+			  ,ROOM_LEASE_AMT	=	<#if roomLeaseAmt?has_content> :roomLeaseAmt  <#else> null </#if>
+			  ,CORNER_LEASE_AMT	=	<#if cornerLeaseAmt?has_content> :cornerLeaseAmt  <#else> null </#if>
+			  ,STORE_YN			=	<#if storeYn?has_content> :storeYn  <#else> null </#if>
+			  ,VENDING_YN		=	<#if vendingYn?has_content> :vendingYn  <#else> null </#if>
+			  ,GIVE_AMT			=	<#if giveAmt?has_content> :giveAmt  <#else> null </#if>
+			  ,EXPENSE_TYPE		=	<#if expenseType?has_content> :expenseType  <#else> null </#if>
+			  ,UTILITY_TYPE		=	<#if utilityType?has_content> :utilityType  <#else> null </#if>
+			  ,DC_OIL_PROC 	    =   <#if dcOilProc?has_content> :dcOilProc  <#else> null </#if>
+			  ,DC_OIL_PROC_REASON = <#if dcOilProcReason?has_content> :dcOilProcReason  <#else> null </#if>
+			  ,CAFE_OP_YN 		= 	<#if cafeOpYn?has_content> :cafeOpYn  <#else> null </#if>
+			  ,CAFE_OP_AMT	 	= 	<#if cafeOpAmt?has_content> :cafeOpAmt  <#else> null </#if>
+			  ,WTR_YN 			= 	<#if wtrYn?has_content> :wtrYn  <#else> null </#if>
+			  ,GS_YN			= 	<#if gsYn?has_content> :gsYn  <#else> null </#if>
+			  ,PERIOD_YN 		= 	<#if periodYn?has_content> :periodYn  <#else> null </#if>
+			  ,COOLING_HTNG_YN  = 	<#if coolingHtngYn?has_content> :coolingHtngYn  <#else> null </#if>
+			  ,RECONTRACT_PLAN_YN = <#if recontractPlanYn?has_content> :recontractPlanYn  <#else> null </#if>
+			  ,RECONTRACT_ACT_YN = 	<#if recontractActYn?has_content> :recontractActYn  <#else> null </#if>
+			  ,RECONTRACTDT     =   <#if recontractdt?has_content> :recontractdt <#else> null </#if>
+	--		  ,RESP_MEAL_UPRICE =  	<#if respMealUprice?has_content> :respMealUprice  <#else> null </#if>
+	--		  ,RESP_MEAL_QTY    =  	<#if respMealQty?has_content> :respMealQty  <#else> null </#if>
+			  ,REP_MEAL_PRICE1  =   <#if repMealPrice1?has_content> :repMealPrice1 <#else> null </#if>
+			  ,REP_MEAL_PRICE2  =   <#if repMealPrice2?has_content> :repMealPrice2 <#else> null </#if>
+			  ,REP_MEAL_QTY1    =   <#if repMealQty1?has_content> :repMealQty1 <#else> null </#if>
+			  ,REP_MEAL_QTY2    =   <#if repMealQty2?has_content> :repMealQty2 <#else> null </#if>
+		      ,OP_TYPE 		    =  	<#if opType?has_content> :opType  <#else> null </#if>
+		      ,TOT_INVEST_AMT   =  	<#if totInvestAmt?has_content> :totInvestAmt  <#else> null </#if>
+		      ,GUARANTY_AMT     =  	<#if guarantyAmt?has_content> :guarantyAmt  <#else> null </#if>
+		      ,DEPRN_RESERVE_AMT = 	<#if deprnReserveAmt?has_content> :deprnReserveAmt  <#else> null </#if>
+		      ,AVG_EAT_CNT 		=   <#if avgEatCnt?has_content> :avgEatCnt  <#else> null </#if>
+		      ,GRIL_KEEP_YN		=  	<#if grilKeepYn?has_content> :grilKeepYn  <#else> null </#if>
+			  ,OVEN_DUTY_YN 	=  	<#if ovenDutyYn?has_content> :ovenDutyYn  <#else> null </#if>
+			  ,WATER_GUBUN		=   <#if waterGubun?has_content> :waterGubun  <#else> null </#if>
+			  ,LEADER_SABUN		=	<#if leaderSabun?has_content> :leaderSabun  <#else> null </#if>
+			  ,SUBTEAM_MST_SABUN=	<#if subteamMstSabun?has_content> :subteamMstSabun  <#else> null </#if>
+			  ,TEAM_MST_SABUN	=	<#if teamMstSabun?has_content> :teamMstSabun  <#else> null </#if>
+			  ,LOC_CD			=   <#if locCd?has_content> :locCd  <#else> null </#if>
+			  ,SUB_LOC_CD		=   <#if subLocCd?has_content> :subLocCd  <#else> null </#if>
+	--		  ,DELIVERY_POSTNO  =   DECODE(LENGTH(TRIM(:deliveryPostno)), 6, SUBSTR(TRIM(:deliveryPostno), 1, 3)||'-'||SUBSTR(TRIM(:deliveryPostno), 4, 3), '') 
+	--		  ,DELIVERY_ADDR    =   <#if deliveryAddr?has_content> TRIM(:deliveryAddr) <#else> null </#if>
+	          ,ADDR_KEY 		=   <#if deliveryAddrKey?has_content> :deliveryAddrKey <#else> null </#if>
+			  ,DELIVERY_DETAIL  =   <#if deliveryDetail?has_content> TRIM(:deliveryDetail)  <#else> null </#if>	  
+			  ,EXCEPT_FLAG			= <#if exceptFlag?has_content> :exceptFlag  <#else> null </#if>	  
+			  ,ICE_MACHINE_YN		= <#if iceMachineYn?has_content> :iceMachineYn  <#else> null </#if>	  
+			  ,VENDING_MACHINE_YN	= <#if vendingMachineYn?has_content> :vendingMachineYn  <#else> null </#if>	  
+			  ,NO_DISASTER_DATE		= <#if noDisasterDate?has_content> :noDisasterDate  <#else> null </#if>	  
+			  ,UNDERWATER_PUR_YN	= <#if underwaterPurYn?has_content> :underwaterPurYn  <#else> null </#if>
+			  ,UNDERWATER_PUR_TYPE	= <#if underwaterPurType?has_content> :underwaterPurType  <#else> null </#if>
+			  ,IMG_PATH  		= <#if imgPath?has_content> :imgPath  <#else> null </#if>
+			  ,MENU_SUNHO 		= <#if menuSunho?has_content> :menuSunho  <#else> null </#if>
+			  ,MENU_SUNHO_M		= <#if menuSunhoM?has_content> :menuSunhoM  <#else> null </#if>
+			  ,MENU_SUNHO_W		= <#if menuSunhoW?has_content> :menuSunhoW  <#else> null </#if>
+			  ,FRNC_STOR_NO     = <#if frncStorNo?has_content> :frncStorNo  <#else> null </#if>
+			  ,EMAIL_ENC        = <#if emailEnc?has_content> :emailEnc  <#else> null </#if>
+			  ,UUSER  = :loginSabun
+		      ,UDATE  = SYSDATE
+		      ,CSGM_YN			= <#if csgmYn?has_content> :csgmYn  <#else> null </#if>	
+			  ,CSGM_CMIS_RATE	= <#if csgmCmisRate?has_content> :csgmCmisRate  <#else> null </#if>	
+			  ,VNDG_MACHINE_QTY	= <#if vndgMachineQty?has_content> :vndgMachineQty  <#else> null </#if>
+			  ,SAL_ITEM			= <#if salItem?has_content> :salItem  <#else> null </#if>		
+			  ,SAL_ITEM_ETC		= <#if salItemEtc?has_content> :salItemEtc  <#else> null </#if>	
+			  ,EDU_CMPL_YN		= <#if eduCmplYn?has_content> :eduCmplYn  <#else> null </#if>	
+			  ,OP_DD_TYPE		= <#if opDdType?has_content> :opDdType  <#else> null </#if>		
+			  ,COOKS_A_PSN		= <#if cooksAPsn?has_content> :cooksAPsn  <#else> null </#if>	
+			  ,COOKS_C_PSN		= <#if cooksCPsn?has_content> :cooksCPsn  <#else> null </#if>	
+			  ,COOKS_B_PSN		= <#if cooksBPsn?has_content> :cooksBPsn  <#else> null </#if>
+			  ,ROOM_LEASE_STD   = <#if roomLeaseStd?has_content> :roomLeaseStd  <#else> null </#if>
+			  ,HALL_SET_QTY        = <#if hallSetQty?has_content> :hallSetQty  <#else> null </#if>
+			  ,CHIER_MOURNER_NO_MAN   = <#if chierMournerNoMan?has_content> :chierMournerNoMan  <#else> null </#if>	
+			  ,AREA   				= <#if area?has_content> :area  <#else> null </#if>	
+			  ,SALE_AMT   		= <#if saleAmt?has_content> :saleAmt  <#else> null </#if>	
+			  ,MEAL_RATE   		= <#if mealRate?has_content> :mealRate  <#else> null </#if>
+			  ,YY_SALS             = <#if yySals?has_content> :yySals  <#else> null </#if>
+			  ,SET_QTY				= <#if setQty?has_content> :setQty  <#else> null </#if>
+			  ,OP_RANGE			= <#if opRange?has_content> :opRange  <#else> null </#if>
+			  ,MENU					= <#if menuItem?has_content> :menuItem  <#else> null </#if>
+			  ,SERVICE_TYPE		= <#if serviceType?has_content> :serviceType  <#else> null </#if>
+			  ,SUBLEASE_YN		= <#if subleaseYn?has_content> :subleaseYn  <#else> null </#if>
+			  ,CONTRACT_AREA		= <#if contractArea?has_content> :contractArea  <#else> null </#if>
+			  ,USE_AREA		= <#if useArea?has_content> :useArea  <#else> null </#if>
+			  ,RENT_RATE		= <#if rentRate?has_content> :rentRate  <#else> null </#if>
+			  ,MGMT_AMT		= <#if mgmtAmt?has_content> :mgmtAmt  <#else> null </#if>
+			  ,GUARANTEE_AMT		= <#if guaranteeAmt?has_content> :guaranteeAmt  <#else> null </#if>
+			  ,GIVE_TYPE		= <#if giveType?has_content> :giveType  <#else> null </#if>
+			  ,ETC		= <#if etc?has_content> :etc  <#else> null </#if>
+			  ,FIR_INVEST_AMT		= <#if firInvestAmt?has_content> :firInvestAmt  <#else> null </#if>
+			  ,FIR_INVEST_DAY		= <#if firInvestDay?has_content> :firInvestDay  <#else> null </#if>
+			  ,FIR_INVEST_ETC		= <#if firInvestEtc?has_content> :firInvestEtc  <#else> null </#if>
+			  ,SEC_INVEST_AMT		= <#if secInvestAmt?has_content> :secInvestAmt  <#else> null </#if>
+			  ,SEC_INVEST_DAY		= <#if secInvestDay?has_content> :secInvestDay  <#else> null </#if>
+			  ,SEC_INVEST_ETC		= <#if secInvestEtc?has_content> :secInvestEtc  <#else> null </#if>
+			  ,SPCL_FACT		= <#if spclFact?has_content> :spclFact  <#else> null </#if>
+			  ,EXTENSION_TERMS		= <#if extensionTerms?has_content> :extensionTerms  <#else> null </#if>
+			  ,JOB_CD2 		= <#if jobCd2?has_content> :jobCd2  <#else> null </#if>
+		WHERE  UPJANG = :upjang
+	]]></statement>
+
+	<!-- 잔반관리 master(을)를 등록한다. -->
+	<statement name="insertUpjangCnangeHistory" type="insert">
+		/*+
+		com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.insertUpjangCnangeHistory
+		*/
+		<![CDATA[
+		INSERT INTO SCO_UPJANG_MST_HIS
+		(
+			 UPJANG
+			,CHG_DATE
+		    ,SEQ
+		    ,SAUP_TYPE
+		    ,JOB_CD
+		    ,SUB_JOB_CD
+		    ,RELATED_YN
+		    ,FIRST_CTRT_DATE
+		    ,END_CTRT_DATE
+		    ,CTRT_TYPE
+		    ,SPECIAL_AGREE
+		    ,OPEN_DATE
+		    ,CLOSE_DATE
+		    ,CURR_CTRT_STJ
+		    ,CURR_CTRT_SABUN
+		    ,TEAM_MST_SABUN
+		    ,SUBTEAM_MST_SABUN
+		    ,LEADER_SABUN
+		    ,CHARGE_SABUN
+		    ,CHARGE_SABUNHP
+		    ,FIRST_JUMJANG_YN
+		    ,EXPENSE_TYPE
+		    ,UTILITY_TYPE
+		    ,STORE_YN
+		    ,VENDING_YN
+		    ,GUARANTY_AMT
+		    ,GUARANTY_DESC
+		    ,ROOM_LEASE_AMT
+		    ,CORNER_LEASE_AMT
+		    ,TOT_INVEST_AMT
+		    ,DEPRN_RESERVE_AMT
+		    ,CONTRIB_NOPAY_YN
+		    ,DIST_TYPE
+		    ,ADJUST_METHOD
+		    ,GIVE_AMT
+		    ,PERMISSION_TYPE
+		    ,AVG_EAT_CNT
+		    ,LIVE_NO_MAN
+		    ,PARENT_UPJANG
+		    ,UPJANG_TEL
+		    ,FICS_YN
+		    ,IMG_PATH
+		    ,SIMG_PATH
+		    ,LOC_CD
+		    ,SUB_LOC_CD
+		    ,WATER_GUBUN
+	--	    ,DELIVERY_POSTNO
+	--	    ,DELIVERY_ADDR
+	        ,ADDR_KEY
+	        ,DELIVERY_ADDR_KEY
+		    ,DELIVERY_DETAIL
+		    ,EXCEPT_FLAG
+		    ,ICE_MACHINE_YN
+		    ,VENDING_MACHINE_YN
+		    ,NO_DISASTER_DATE
+		    ,UNDERWATER_PUR_YN
+		    ,UNDERWATER_PUR_TYPE
+		    ,CHARGE_SABUNHP_ENC
+		    ,UPJANG_TEL_ENC
+	--	    ,DELIVERY_ADDR_ENC
+		    ,ADDR_GUBUN
+		    ,DELIVERY_ADDR_BAK
+		    ,DC_OIL_PROC
+		    ,DC_OIL_PROC_REASON
+		    ,MENU_SUNHO
+		    ,MENU_SUNHO_M
+		    ,MENU_SUNHO_W
+		    ,CAFE_OP_YN
+		    ,CAFE_OP_AMT
+		    ,WTR_YN
+		    ,GS_YN
+		    ,PERIOD_YN
+		    ,COOLING_HTNG_YN
+		    ,RECONTRACT_PLAN_YN
+		    ,RECONTRACT_ACT_YN
+		    ,RECONTRACTDT
+	--	    ,RESP_MEAL_UPRICE
+	--	    ,RESP_MEAL_QTY
+		    ,OP_TYPE
+		    ,GRIL_KEEP_YN
+		    ,OVEN_DUTY_YN
+		    ,FLEXIBLE_DUTY_YN
+		    ,ADVANCE_CUST_INFO
+		    ,AR_PAY_CUST_INFO
+		    ,COLLECT_OCCUR_UNIT
+		    ,AR_PAY_OCCUR_UNIT
+		    ,RECIPE_REQUEST_MTOD
+		    ,FRNC_STOR_NO
+		    ,EMAIL_ENC
+		    ,AREA
+		    ,HALL_SET_QTY
+		    ,CHIER_MOURNER_NO_MAN
+		    ,ATTR01
+		    ,ATTR02
+		    ,ATTR03
+		    ,ATTR04
+		    ,ATTR05
+		    ,ATTR06
+		    ,ATTR07
+		    ,ATTR08
+		    ,ATTR09
+		    ,ATTR10   
+			,CUSER
+			,CDATE
+			,UUSER
+			,UDATE
+		)VALUES
+		(
+			 :upjang
+			,TO_CHAR(SYSDATE,'YYYYMMDD')
+			,(SELECT NVL(MAX(SEQ),0)+1 FROM SCO_UPJANG_MST_HIS WHERE UPJANG = :upjang AND CHG_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'))
+			,<#if saupType?has_content> :saupType <#else> null </#if>
+			,<#if jobCd?has_content> :jobCd <#else> null </#if>
+			,<#if subJobCd?has_content> :subJobCd <#else> null </#if>
+			,<#if relatedYn?has_content> :relatedYn <#else> null </#if>
+			,<#if firstCtrtDate?has_content> :firstCtrtDate <#else> null </#if>
+			,<#if endCtrtDate?has_content> :endCtrtDate <#else> null </#if>
+			,<#if ctrtType?has_content> :ctrtType <#else> null </#if>
+			,<#if specialAgree?has_content> :specialAgree <#else> null </#if>
+			,<#if openDate?has_content> :openDate <#else> null </#if>
+			,<#if closeDate?has_content> :closeDate <#else> null </#if>
+			,<#if currCtrtStj?has_content> :currCtrtStj <#else> null </#if>
+			,<#if currCtrtSabun?has_content> :currCtrtSabun <#else> null </#if>
+			,<#if teamMstSabun?has_content> :teamMstSabun <#else> null </#if>
+			,<#if subteamMstSabun?has_content> :subteamMstSabun <#else> null </#if>
+			,<#if leaderSabun?has_content> :leaderSabun <#else> null </#if>
+			,<#if chargeSabun?has_content> :chargeSabun <#else> null </#if>
+			,<#if chargeSabunhp?has_content> :chargeSabunhp <#else> null </#if>
+			,<#if firstJumjangYn?has_content> :firstJumjangYn <#else> null </#if>
+			,<#if expenseType?has_content> :expenseType <#else> null </#if>
+			,<#if utilityType?has_content> :utilityType <#else> null </#if>
+			,<#if storeYn?has_content> :storeYn <#else> null </#if>
+			,<#if vendingYn?has_content> :vendingYn <#else> null </#if>
+			,<#if guarantyAmt?has_content> :guarantyAmt <#else> null </#if>
+			,<#if guarantyDesc?has_content> :guarantyDesc <#else> null </#if>
+			,<#if roomLeaseAmt?has_content> :roomLeaseAmt <#else> null </#if>
+			,<#if cornerLeaseAmt?has_content> :cornerLeaseAmt <#else> null </#if>
+			,<#if totInvestAmt?has_content> :totInvestAmt <#else> null </#if>
+			,<#if deprnReserveAmt?has_content> :deprnReserveAmt <#else> null </#if>
+			,<#if contribNopayYn?has_content> :contribNopayYn <#else> null </#if>
+			,<#if distType?has_content> :distType <#else> null </#if>
+			,<#if adjustMethod?has_content> :adjustMethod <#else> null </#if>
+			,<#if giveAmt?has_content> :giveAmt <#else> null </#if>
+			,<#if permissionType?has_content> :permissionType <#else> null </#if>
+			,<#if avgEatCnt?has_content> :avgEatCnt <#else> null </#if>
+			,<#if liveNoMan?has_content> :liveNoMan <#else> null </#if>
+			,<#if parentUpjang?has_content> :parentUpjang <#else> null </#if>
+			,<#if upjangTel?has_content> :upjangTel <#else> null </#if>
+			,<#if ficsYn?has_content> :ficsYn <#else> null </#if>
+			,<#if imgPath?has_content> :imgPath <#else> null </#if>
+			,<#if simgPath?has_content> :simgPath <#else> null </#if>
+			,<#if locCd?has_content> :locCd <#else> null </#if>
+			,<#if subLocCd?has_content> :subLocCd <#else> null </#if>
+			,<#if waterGubun?has_content> :waterGubun <#else> null </#if>
+	--		,<#if deliveryPostno?has_content> :deliveryPostno <#else> null </#if>
+	--		,<#if deliveryAddr?has_content> :deliveryAddr <#else> null </#if>
+	        ,<#if addrKey?has_content> :addrKey <#else> null </#if>
+	        ,<#if deliveryAddrKey?has_content> :deliveryAddrKey <#else> null </#if>
+			,<#if deliveryDetail?has_content> :deliveryDetail <#else> null </#if>
+			,<#if exceptFlag?has_content> :exceptFlag <#else> null </#if>
+			,<#if iceMachineYn?has_content> :iceMachineYn <#else> null </#if>
+			,<#if vendingMachineYn?has_content> :vendingMachineYn <#else> null </#if>
+			,<#if noDisasterDate?has_content> :noDisasterDate <#else> null </#if>
+			,<#if underwaterPurYn?has_content> :underwaterPurYn <#else> null </#if>
+			,<#if underwaterPurType?has_content> :underwaterPurType <#else> null </#if>
+			,<#if chargeSabunhp?has_content> SCC_CRYPTO.ENC_FUN(:chargeSabunhp) <#else> null </#if>
+			,<#if upjangTel?has_content> SCC_CRYPTO.ENC_FUN(:upjangTel) <#else> null </#if>
+	--		,<#if deliveryAddrEnc?has_content> SCC_CRYPTO.ENC_FUN(:deliveryAddr) <#else> null </#if>
+			,<#if addrGubun?has_content> :addrGubun <#else> null </#if>
+			,<#if deliveryAddrBak?has_content> :deliveryAddrBak <#else> null </#if>
+			,<#if dcOilProc?has_content> :dcOilProc <#else> null </#if>
+			,<#if dcOilProcReason?has_content> :dcOilProcReason <#else> null </#if>
+			,<#if menuSunho?has_content> :menuSunho <#else> null </#if>
+			,<#if menuSunhoM?has_content> :menuSunhoM <#else> null </#if>
+			,<#if menuSunhoW?has_content> :menuSunhoW <#else> null </#if>
+			,<#if cafeOpYn?has_content> :cafeOpYn <#else> null </#if>
+			,<#if cafeOpAmt?has_content> :cafeOpAmt <#else> null </#if>
+			,<#if wtrYn?has_content> :wtrYn <#else> null </#if>
+			,<#if gsYn?has_content> :gsYn <#else> null </#if>
+			,<#if periodYn?has_content> :periodYn <#else> null </#if>
+			,<#if coolingHtngYn?has_content> :coolingHtngYn <#else> null </#if>
+			,<#if recontractPlanYn?has_content> :recontractPlanYn <#else> null </#if>
+			,<#if recontractActYn?has_content> :recontractActYn <#else> null </#if>
+			,<#if recontractdt?has_content> :recontractdt <#else> null </#if>
+	--		,<#if respMealUprice?has_content> :respMealUprice <#else> null </#if>
+	--		,<#if respMealQty?has_content> :respMealQty <#else> null </#if>
+			,<#if opType?has_content> :opType <#else> null </#if>
+			,<#if grilKeepYn?has_content> :grilKeepYn <#else> null </#if>
+			,<#if ovenDutyYn?has_content> :ovenDutyYn <#else> null </#if>
+			,<#if flexibleDutyYn?has_content> :flexibleDutyYn <#else> null </#if>
+			,<#if advanceCustInfo?has_content> :advanceCustInfo <#else> null </#if>
+			,<#if arPayCustInfo?has_content> :arPayCustInfo <#else> null </#if>
+			,<#if collectOccurUnit?has_content> :collectOccurUnit <#else> null </#if>
+			,<#if arPayOccurUnit?has_content> :arPayOccurUnit <#else> null </#if>
+			,<#if recipeRequestMtod?has_content> :recipeRequestMtod <#else> null </#if>
+			,<#if frncStorNo?has_content> :frncStorNo <#else> null </#if>
+			,<#if emailEnc?has_content> :emailEnc <#else> null </#if>
+			,<#if area?has_content> :area <#else> null </#if>
+			,<#if hallSetQty?has_content> :hallSetQty <#else> null </#if>
+			,<#if chierMournerNoMan?has_content> :chierMournerNoMan <#else> null </#if>
+			,<#if attr01?has_content> :attr01 <#else> null </#if>
+		    ,<#if attr02?has_content> :attr02 <#else> null </#if>
+		    ,<#if attr03?has_content> :attr03 <#else> null </#if>
+		    ,<#if attr04?has_content> :attr04 <#else> null </#if>
+		    ,<#if attr05?has_content> :attr05 <#else> null </#if>
+			,<#if attr06?has_content> :attr06 <#else> null </#if>
+			,<#if attr07?has_content> :attr07 <#else> null </#if>
+			,<#if attr08?has_content> :attr08 <#else> null </#if>
+			,<#if attr09?has_content> :attr09 <#else> null </#if>
+			,<#if attr10?has_content> :attr10 <#else> null </#if>
+			,:loginSabun
+			,SYSDATE
+			,:loginSabun
+			,SYSDATE
+		)
+	]]>
+	</statement>
+
+	<!-- 잔반관리 master 재등록하기 위해 삭제한다. -->
+	<statement name="deleteRemainmeal" type="delete">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.deleteRemainmeal */
+		<![CDATA[
+		   DELETE
+			 FROM SCO_UPJANG_REMAINMEAL
+			WHERE UPJANG = :upjang
+	]]>
+	</statement>
+
+	<!-- 잔반관리 master(을)를 등록한다. -->
+	<statement name="insertRemainmeal" type="insert">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.insertRemainmeal */
+		<![CDATA[
+		INSERT INTO SCO_UPJANG_REMAINMEAL
+		( 
+		    UPJANG
+           ,MGMT_CD
+           ,MGMT_CD1
+           ,REMAIN_COMPANY
+           ,VENDOR_USERNAME
+           ,VENDOR_USERTEL1
+           ,VENDOR_USERTEL2
+           ,FEE_CD
+           ,UPRICE
+           ,VENDOR_USERTEL1_ENC
+           ,VENDOR_USERTEL2_ENC
+           ,ATTR01
+           ,CUSER
+           ,CDATE
+        ) 
+        VALUES 
+        ( 
+            :upjang
+		   ,<#if mgmtCd?has_content> :mgmtCd  <#else> null </#if>
+		   ,<#if mgmtCd1?has_content> :mgmtCd1 <#else> null </#if> 
+		   ,<#if remainCompany?has_content> :remainCompany <#else> null </#if>
+		   ,<#if vendorUsername?has_content> :vendorUsername <#else> null </#if>
+		   ,<#if vendorUsertel1?has_content> :vendorUsertel1 <#else> null </#if>
+		   ,<#if vendorUsertel2?has_content> :vendorUsertel2 <#else> null </#if>
+		   ,<#if feeCd?has_content> :feeCd <#else> null </#if>
+		   ,<#if uprice?has_content> :uprice <#else> null </#if>
+		   ,<#if vendorUsertel1?has_content>SCC_CRYPTO.ENC_FUN(:vendorUsertel1) <#else> null </#if>
+		   ,<#if vendorUsertel2?has_content> SCC_CRYPTO.ENC_FUN(:vendorUsertel2) <#else> null </#if>
+		   ,<#if attr01?has_content> :attr01 <#else> null </#if>
+           ,:loginSabun
+		   ,SYSDATE
+ 		)
+ 	]]>
+	</statement>
+
+	<!-- 잔반관리 detail 재등록하기 위해 삭제한다. -->
+	<statement name="deleteRemainmealDtl" type="delete">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.deleteRemainmealDtl */
+		<![CDATA[
+		DELETE 
+		  FROM SCO_UPJANG_REMAINMEALDTL 
+		 WHERE UPJANG = :upjang
+	]]>
+	</statement>
+
+	<!-- 잔반관리 detail(을)를 등록한다. -->
+	<statement name="insertRemainmealDtl" type="insert">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.insertRemainmealDtl */
+		<![CDATA[
+		INSERT INTO SCO_UPJANG_REMAINMEALDTL
+		(  
+			UPJANG
+           ,VENDOR_PERMIT
+           ,CUSER
+           ,CDATE
+        ) 
+        VALUES 
+        ( 
+            :upjang
+		   ,:code
+           ,:loginSabun
+		   ,SYSDATE
+ 		)
+	]]>
+	</statement>
+
+	<!-- 잔반관리 master 이력정보(을)를 등록한다. -->
+	<statement name="insertRemainmealHistory" type="insert">
+		/*+
+		com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.insertRemainmealHistory */
+		<![CDATA[
+		INSERT INTO SCO_UPJANG_REMAINMEAL_HIS
+		(
+			 UPJANG /* 업장코드 */
+			,CHG_DATE
+			,SEQ
+			,MGMT_CD /* 잔반처리부담주체 */
+			,MGMT_CD1 /* 계약관리주체 */
+			,REMAIN_COMPANY /* 잔반업체명 */
+			,VENDOR_USERNAME /* 업체담당자성명 */
+			,VENDOR_USERTEL1 /* 업체담당자연락처1 */
+			,VENDOR_USERTEL2 /* 업체담당자연락처2 */
+			,FEE_CD /* 요금체계 */
+			,UPRICE /* 단가 */
+			,VENDOR_USERTEL1_ENC /* 업체담당자연락처1 암호화 */
+			,VENDOR_USERTEL2_ENC /* 업체담당자연락처2 암호화 */
+			,ATTR01 /* 무상수거사유 */
+			,ATTR02 /* 여분02 */
+			,ATTR03 /* 여분03 */
+			,ATTR04 /* 여분04 */
+			,ATTR05 /* 여분05 */
+			,CUSER
+		    ,CDATE
+		    ,UUSER
+			,UDATE
+		)VALUES
+		(
+			 :upjang
+			,TO_CHAR(SYSDATE,'YYYYMMDD')
+			,(SELECT NVL(MAX(SEQ),0)+1 FROM SCO_UPJANG_REMAINMEAL_HIS WHERE UPJANG = :upjang AND CHG_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'))
+			,<#if mgmtCd?has_content> :mgmtCd  <#else> null </#if>
+		    ,<#if mgmtCd1?has_content> :mgmtCd1 <#else> null </#if> 
+		    ,<#if remainCompany?has_content> :remainCompany <#else> null </#if>
+		    ,<#if vendorUsername?has_content> :vendorUsername <#else> null </#if>
+		    ,<#if vendorUsertel1?has_content> :vendorUsertel1 <#else> null </#if>
+		    ,<#if vendorUsertel2?has_content> :vendorUsertel2 <#else> null </#if>
+		    ,<#if feeCd?has_content> :feeCd <#else> null </#if>
+		    ,<#if uprice?has_content> :uprice <#else> null </#if>
+		    ,<#if vendorUsertel1?has_content>SCC_CRYPTO.ENC_FUN(:vendorUsertel1) <#else> null </#if>
+		    ,<#if vendorUsertel2?has_content> SCC_CRYPTO.ENC_FUN(:vendorUsertel2) <#else> null </#if>
+		    ,<#if attr01?has_content> :attr01 <#else> null </#if>
+		    ,<#if attr02?has_content> :attr02 <#else> null </#if>
+		    ,<#if attr03?has_content> :attr03 <#else> null </#if>
+		    ,<#if attr04?has_content> :attr04 <#else> null </#if>
+		    ,<#if attr05?has_content> :attr05 <#else> null </#if>
+			,:loginSabun
+			,SYSDATE
+			,:loginSabun
+			,SYSDATE
+		)
+	]]>
+	</statement>
+
+	<!-- 잔반관리 detail 이력정보(을)를 등록한다. -->
+	<statement name="insertRemainmealDtlHistory" type="insert">
+		/*+
+		com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.insertRemainmealDtlHistory
+		*/
+		<![CDATA[
+		INSERT INTO SCO_UPJANG_REMAINMEALDTL_HIS
+		(  
+			UPJANG
+		   ,CHG_DATE
+		   ,SEQ
+		   ,VENDOR_PERMIT
+		   ,ATTR01
+		   ,ATTR02
+		   ,ATTR03
+		   ,ATTR04
+		   ,ATTR05
+		   ,CUSER
+		   ,CDATE
+		   ,UUSER
+		   ,UDATE
+		) 
+		VALUES 
+		( 
+			:upjang
+		   ,TO_CHAR(SYSDATE,'YYYYMMDD')
+		   ,(SELECT NVL(MAX(SEQ),0)+1 FROM SCO_UPJANG_REMAINMEALDTL_HIS 
+		      WHERE UPJANG = :upjang AND VENDOR_PERMIT = :code AND CHG_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'))
+		   ,:code
+		   ,<#if attr01?has_content> :attr01 <#else> null </#if>
+		   ,<#if attr02?has_content> :attr02 <#else> null </#if>
+		   ,<#if attr03?has_content> :attr03 <#else> null </#if>
+		   ,<#if attr04?has_content> :attr04 <#else> null </#if>
+		   ,<#if attr05?has_content> :attr05 <#else> null </#if>
+		   ,:loginSabun
+		   ,SYSDATE
+		   ,:loginSabun
+		   ,SYSDATE
+		)
+	]]>
+	</statement>
+
+	<!-- 기기보유현황(TAB2) 현황목록(을)를 등록한다. -->
+	<statement name="insertUtensil" type="insert">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.insertUtensil */
+		<![CDATA[
+		INSERT INTO SCO_UPJANG_UTENSIL
+		(
+			 UPJANG_CD			/* 업장_코드 */
+			,UTENSIL_CLASS		/* 기기_구분(001-정수기/002-제빙기) */
+			,MGMTVENDOR			/* 관리업체 */
+			,FILTER_MGMTVENDOR	/* 필터_관리업체 */
+			,RETAL_YN			/* 렌탈_여부 */
+			,MGMTMNBD			/* 관리주체 */
+			,QUANTITY			/* 수량 */
+			,CONTRACT_OPENDD	/* 계약_개시일 */
+			,CONTRACT_EDATE		/* 계약_종료일 */
+			,ATTR01				/* 여분01 */
+			,ATTR02				/* 여분02 */
+			,ATTR03				/* 여분03 */
+			,ATTR04				/* 여분04 */
+			,ATTR05				/* 여분05 */
+			,CUSER
+		    ,CDATE
+		)
+		VALUES
+		(
+			 :upjangCd
+			,:utensilClass
+			,:mgmtvendor
+			,<#if filterMgmtvendor?has_content> :filterMgmtvendor <#else> null </#if>
+			,<#if retalYn?has_content> :retalYn <#else> null </#if>
+			,<#if mgmtmnbd?has_content> :mgmtmnbd <#else> null </#if>
+			,<#if quantity?has_content> :quantity <#else> null </#if>
+			,<#if contractOpendd?has_content> :contractOpendd <#else> null </#if>
+			,<#if contractEdate?has_content> :contractEdate <#else> null </#if>
+			,<#if attr01?has_content> :attr01 <#else> null </#if>
+		    ,<#if attr02?has_content> :attr02 <#else> null </#if>
+		    ,<#if attr03?has_content> :attr03 <#else> null </#if>
+		    ,<#if attr04?has_content> :attr04 <#else> null </#if>
+		    ,<#if attr05?has_content> :attr05 <#else> null </#if>
+			,:loginSabun
+		    ,SYSDATE
+		)
+	]]>
+	</statement>
+
+	<!-- 기기보유현황(TAB2) 현황목록(을)를 수정한다. -->
+	<statement name="updateUtensil" type="update">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.updateUtensil */
+		<![CDATA[
+		UPDATE SCO_UPJANG_UTENSIL
+		   SET FILTER_MGMTVENDOR= :filterMgmtvendor
+			  ,RETAL_YN			= :retalYn
+			  ,MGMTMNBD			= :mgmtmnbd
+			  ,QUANTITY			= :quantity
+			  ,CONTRACT_OPENDD  = :contractOpendd
+			  ,CONTRACT_EDATE   = :contractEdate
+			  ,ATTR01			= :attr01
+			  ,ATTR02			= :attr02
+			  ,ATTR03			= :attr03
+			  ,ATTR04			= :attr04
+			  ,ATTR05			= :attr05
+			  ,UUSER  = :loginSabun
+		      ,UDATE  = SYSDATE
+		 WHERE UPJANG_CD		= :upjangCd
+		   AND UTENSIL_CLASS	= :utensilClass
+		   AND MGMTVENDOR		= :mgmtvendor
+     ]]>
+	</statement>
+
+	<!-- 기기보유현황(TAB2) 현황목록(을)를 삭제한다. -->
+	<statement name="deleteUtensil" type="delete">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.deleteUtensil */
+		<![CDATA[
+		 DELETE 
+		   FROM SCO_UPJANG_UTENSIL
+		  WHERE UPJANG_CD		= :upjangCd
+		    AND UTENSIL_CLASS	= :utensilClass
+		    AND MGMTVENDOR		= :mgmtvendor
+	]]>
+	</statement>
+
+	<!-- 기기보유현황(TAB2) 이력정보(을)를 등록한다. -->
+	<statement name="insertUtensilHistory" type="insert">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.insertUtensilHistory
+		*/
+		<![CDATA[
+		INSERT INTO SCO_UPJANG_UTENSIL_HIS
+		(
+			 UPJANG_CD			/* 업장_코드 */
+			,CHG_DATE
+		    ,SEQ
+			,UTENSIL_CLASS		/* 기기_구분(001-정수기/002-제빙기) */
+			,MGMTVENDOR			/* 관리업체 */
+			,FILTER_MGMTVENDOR	/* 필터_관리업체 */
+			,RETAL_YN			/* 렌탈_여부 */
+			,MGMTMNBD			/* 관리주체 */
+			,QUANTITY			/* 수량 */
+			,CONTRACT_OPENDD	/* 계약_개시일 */
+			,CONTRACT_EDATE		/* 계약_종료일 */
+			,ATTR01				/* 여분01 */
+			,ATTR02				/* 여분02 */
+			,ATTR03				/* 여분03 */
+			,ATTR04				/* 여분04 */
+			,ATTR05				/* 여분05 */
+			,CUSER
+		    ,CDATE
+		    ,UUSER
+		    ,UDATE
+		)
+		VALUES
+		(
+			 :upjangCd
+			,TO_CHAR(SYSDATE,'YYYYMMDD')
+			,(SELECT NVL(MAX(SEQ),0)+1 FROM SCO_UPJANG_UTENSIL_HIS 
+			   WHERE UPJANG_CD = :upjangCd AND UTENSIL_CLASS = :utensilClass AND MGMTVENDOR = :mgmtvendor AND CHG_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'))
+			,:utensilClass
+			,:mgmtvendor
+			,<#if filterMgmtvendor?has_content> :filterMgmtvendor <#else> null </#if>
+			,<#if retalYn?has_content> :retalYn <#else> null </#if>
+			,<#if mgmtmnbd?has_content> :mgmtmnbd <#else> null </#if>
+			,<#if quantity?has_content> :quantity <#else> null </#if>
+			,<#if contractOpendd?has_content> :contractOpendd <#else> null </#if>
+			,<#if contractEdate?has_content> :contractEdate <#else> null </#if>
+			,<#if attr01?has_content> :attr01 <#else> null </#if>
+		    ,<#if attr02?has_content> :attr02 <#else> null </#if>
+		    ,<#if attr03?has_content> :attr03 <#else> null </#if>
+		    ,<#if attr04?has_content> :attr04 <#else> null </#if>
+		    ,<#if attr05?has_content> :attr05 <#else> null </#if>
+			,:loginSabun
+		    ,SYSDATE
+		    ,:loginSabun
+		    ,SYSDATE
+		)
+	]]>
+	</statement>
+
+	<!-- 계약정보(TAB3) 대표식단가,식수 목록(을)를 등록한다. -->
+	<statement name="insertRespMeal" type="insert">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.insertRespMeal */
+		<![CDATA[
+		INSERT INTO SCO_UPJANG_MST_RESP_MEAL
+		(
+			UPJANG				/* 업장코드 */
+		   ,SEQ					/* 순번 */
+		   ,RESP_MEAL_UPRICE	/* 업장대표식단가1 */
+		   ,RESP_MEAL_QTY		/* 업장대표식수1 */
+		   ,CUSER
+		   ,CDATE
+		   ,UUSER
+		   ,UDATE
+		)
+		VALUES
+		(
+			:upjang				
+		   ,(SELECT NVL(MAX(SEQ),0)+1 FROM SCO_UPJANG_MST_RESP_MEAL A WHERE A.UPJANG = :upjang)
+		   ,<#if respMealUprice?has_content> :respMealUprice <#else> null </#if>
+		   ,<#if respMealQty?has_content> :respMealQty <#else> null </#if>
+		   ,:loginSabun
+		   ,SYSDATE
+		   ,:loginSabun
+		   ,SYSDATE
+		)
+	]]>
+	</statement>
+
+	<!-- 계약정보(TAB3) 대표식단가,식수 목록(을)를 수정한다. -->
+	<statement name="updateRespMeal" type="update">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.updateRespMeal */
+		<![CDATA[
+		UPDATE  SCO_UPJANG_MST_RESP_MEAL
+		   SET  RESP_MEAL_UPRICE = :respMealUprice 
+		       ,RESP_MEAL_QTY	 = :respMealQty
+			   ,UUSER            = :loginSabun
+		       ,UDATE            = SYSDATE
+		 WHERE  UPJANG = :upjang
+		   AND  SEQ    = :seq
+     ]]>
+	</statement>
+
+	<!-- 계약정보(TAB3) 대표식단가,식수 목록(을)를 삭제한다. -->
+	<statement name="deleteRespMeal" type="delete">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.deleteRespMeal */
+		<![CDATA[
+		DELETE FROM SCO_UPJANG_MST_RESP_MEAL
+		 WHERE  UPJANG = :upjang
+		   AND  SEQ    = :seq
+	]]>
+	</statement>
+
+	<!-- 고객사현황(TAB4) 현황목록(을)를 등록한다. -->
+	<statement name="insertCustInfo" type="insert">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.insertCustInfo */
+		<![CDATA[
+		INSERT INTO SCO_UPJANG_CUST
+	    (
+	    	UPJANG
+           ,CUSTCD 
+           ,RELEASE_PRIORITY
+           ,MAIN_MENU_PRICE
+           ,PAY_GUBUN_CD
+           ,PAY_DATE
+           ,USE_YN
+           ,CUSER
+           ,CDATE
+        ) 
+        VALUES 
+        ( 
+          	 :upjang 
+			,:custcd 
+			,<#if releasePriority?has_content> :releasePriority <#else> null </#if> 
+			,<#if mainMenuPrice?has_content> :mainMenuPrice <#else> null </#if> 			
+			,<#if payGubunCd?has_content> :payGubunCd <#else> null </#if> 	
+			,<#if payDate?has_content> :payDate <#else> null </#if> 	                     		
+			,<#if useYn?has_content> :useYn <#else> null </#if>			
+            ,:loginSabun
+		    ,SYSDATE
+ 		)
+	]]>
+	</statement>
+
+	<!-- 고객사현황(TAB4) 현황목록(을)를 수정한다. -->
+	<statement name="updateCustInfo" type="update">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.updateCustInfo */
+		<![CDATA[
+		UPDATE SCO_UPJANG_CUST
+		   SET RELEASE_PRIORITY   = :releasePriority
+			  ,MAIN_MENU_PRICE    = :mainMenuPrice
+		      --,PAY_GUBUN_CD       = DECODE(:authLevel, '99', :payGubunCd, PAY_GUBUN_CD)
+		      --,PAY_DATE           = DECODE(:authLevel, '99', :payDate,  PAY_DATE)
+		      --공통코드에 등록된 사용자만 저장가능하도록 수정 20190515 김호석(정재호과장 요청)
+		      ,PAY_GUBUN_CD       = DECODE(NVL((SELECT MAX(USE_YN) FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0053' AND CODE = :loginSabun),'N'), 'Y', :payGubunCd, PAY_GUBUN_CD)
+		      ,PAY_DATE           = DECODE(NVL((SELECT MAX(USE_YN) FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0053' AND CODE = :loginSabun),'N'), 'Y', :payDate,  PAY_DATE)		      
+			  ,USE_YN	          = :useYn
+			  ,UUSER  = :loginSabun
+		      ,UDATE  = SYSDATE
+		 WHERE UPJANG  = :upjang
+		   AND CUSTCD  = :custcd
+     ]]>
+	</statement>
+
+	<!-- 고객사현황(TAB4) 현황목록(을)를 삭제한다. -->
+	<statement name="deleteCustInfo" type="delete">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.deleteCustInfo */
+		<![CDATA[
+		 
+	]]>
+	</statement>
+
+	<!-- 고객사현황(TAB4) 이력정보(을)를 등록한다. -->
+	<statement name="insertCustInfoHistory" type="insert">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.insertCustInfoHistory
+		*/
+		<![CDATA[
+		INSERT INTO SCO_UPJANG_CUST_HIS
+	    (
+	    	UPJANG
+           ,CUSTCD
+           ,CHG_DATE
+		   ,SEQ
+           ,RELEASE_PRIORITY
+           ,MAIN_MENU_PRICE
+           ,PAY_GUBUN_CD
+           ,PAY_DATE
+           ,USE_YN
+           ,CUSER
+           ,CDATE
+           ,UUSER
+		   ,UDATE
+        ) 
+        VALUES 
+        ( 
+          	 :upjang 
+			,:custcd
+			,TO_CHAR(SYSDATE,'YYYYMMDD')
+			,(SELECT NVL(MAX(SEQ),0)+1 FROM SCO_UPJANG_CUST_HIS WHERE UPJANG = :upjang AND CUSTCD = :custcd AND CHG_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'))
+			,<#if releasePriority?has_content> :releasePriority <#else> null </#if> 
+			,<#if mainMenuPrice?has_content> :mainMenuPrice <#else> null </#if> 			
+			,<#if payGubunCd?has_content> :payGubunCd <#else> null </#if> 	
+			,<#if payDate?has_content> :payDate <#else> null </#if> 	                     		
+			,<#if useYn?has_content> :useYn <#else> null </#if>			
+            ,:loginSabun
+		    ,SYSDATE
+		    ,:loginSabun
+		    ,SYSDATE
+ 		)
+	]]>
+	</statement>
+
+	<!-- 고객사현황(TAB4)_상세 현황목록(을)를 등록한다. -->
+	<statement name="insertCustChgInfo" type="insert">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.insertCustChgInfo */
+		<![CDATA[
+		INSERT INTO SCO_UPJANG_CUSTCHG
+		(
+			 UPJANG, 
+	         CUSTCD, 
+	         USER_GUBUN, 
+	         NAME, 
+	         DEPTNM, 
+	         JOB_GRADE, 
+	         HP_TEL,
+	         HP_TEL_ENC, 
+	         E_MAIL,
+	         E_MAIL_ENC, 
+	         SEX_TYPE, 
+	         COM_TEL,
+	         COM_TEL_ENC, 
+	         BIR_YMD, 
+	         HOME_ADDR,
+	         HOME_ADDR_ENC, 
+	         REL_CD, 
+	         AMITY_GRADE, 
+	         BORN_CITY, 
+	         HIGH_SCHOOL, 
+	         UNIV, 
+	         GRAD_SCHOOL, 
+	         P_CHARACTER, 
+	         HOBBY, 
+	         PREF_FOOD, 
+	         SMOKING_YN, 
+	         DRINK_QTY, 
+	         WED_GUBUN, 
+	         WED_YMD, 
+	         SPOUSE_YMD, 
+	         ETC_SPECIALFACT, 
+	         USE_YN,
+	         CUSER, 
+	         CDATE,
+	         UUSER,
+	         UDATE
+	     ) 
+	     VALUES
+	     ( 
+	         :upjang 
+			,:custcd 
+			,'001'	/* 담당자구분_대표자 */
+			,<#if name?has_content> :drname1 <#else> null </#if>
+			,<#if deptnm?has_content> :deptnm <#else> null </#if>
+			,<#if jobGrade?has_content> :jobGrade <#else> null </#if>
+			,<#if hpTel?has_content> :hpTel <#else> null </#if>
+			,<#if hpTel?has_content> SCC_CRYPTO.ENC_FUN(:hpTel) <#else> null </#if>
+			,<#if eMail?has_content> :eMail <#else> null </#if>
+			,<#if eMail?has_content> SCC_CRYPTO.ENC_FUN(:eMail) <#else> null </#if>
+			,<#if sexType?has_content> :sexType <#else> null </#if>
+			,<#if comTel?has_content> :comTel <#else> null </#if>
+			,<#if comTel?has_content> SCC_CRYPTO.ENC_FUN(:comTel) <#else> null </#if>
+			,<#if birYmd?has_content> :birYmd <#else> null </#if>
+			,<#if homeAddr?has_content> :homeAddr <#else> null </#if>
+			,<#if homeAddrEnc?has_content> SCC_CRYPTO.ENC_FUN(:homeAddrEnc) <#else> null </#if> 
+			,<#if relCd?has_content> :relCd <#else> null </#if>
+			,<#if amityGrade?has_content> :amityGrade <#else> null </#if>
+			,<#if bornCity?has_content> :bornCity <#else> null </#if>
+			,<#if highSchool?has_content> :highSchool <#else> null </#if>
+			,<#if univ?has_content> :univ <#else> null </#if>
+			,<#if gradSchool?has_content> :gradSchool <#else> null </#if>
+			,<#if pCharacter?has_content> :pCharacter <#else> null </#if>
+			,<#if hobby?has_content> :hobby <#else> null </#if>
+			,<#if prefFood?has_content> :prefFood <#else> null </#if>
+			,<#if smokingYn?has_content> :smokingYn <#else> null </#if>
+			,<#if drinkQty?has_content> :drinkQty <#else> null </#if>
+			,<#if wedGubun?has_content> :wedGubun <#else> null </#if>
+			,<#if wedYmd?has_content> :wedYmd <#else> null </#if>
+			,<#if spouseYmd?has_content> :spouseYmd <#else> null </#if>
+			,<#if etcSpecialfact?has_content> :etcSpecialfact <#else> null </#if>
+			,<#if useYn?has_content> :useYn <#else> null </#if>
+	        ,:loginSabun
+		    ,SYSDATE
+		    ,:loginSabun
+		    ,SYSDATE
+	 	)
+	]]>
+	</statement>
+
+	<!-- 고객사현황(TAB4)_상세 현황목록(을)를 수정한다. -->
+	<statement name="updateCustChgInfo" type="update">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.updateCustChgInfo */
+		<![CDATA[
+	 UPDATE SCO_UPJANG_CUSTCHG
+		SET NAME 		= :name,
+	--		DEPTNM 		= :deptnm,
+	--		JOB_GRADE 	= :jobGrade,
+	--		HP_TEL 		= :hpTel,
+	--		HP_TEL_ENC  = :hpTelEnc,
+	--		E_MAIL 		= :eMail,
+	--		E_MAIL_ENC  = :eMailEnc,
+	--		SEX_TYPE 	= :sexType,
+			COM_TEL 	= :comTel,
+			COM_TEL_ENC = SCC_CRYPTO.ENC_FUN(:comTelEnc),
+	--		BIR_YMD 	= :birYmd,
+	--		HOME_ADDR 	= :homeAddr,
+	--		HOME_ADDR_ENC = :homeAddrEnc,
+	--		REL_CD 		= :relCd,
+	--		AMITY_GRADE = :amityGrade,
+	--		BORN_CITY 	= :bornCity,
+	--		HIGH_SCHOOL = :highSchool,
+	--		UNIV 		= :univ,
+	--		GRAD_SCHOOL = :gradSchool,
+	--		P_CHARACTER = :pCharacter,
+	--		HOBBY 		= :hobby,
+	--		PREF_FOOD 	= :prefFood,
+	--		SMOKING_YN 	= :smokingYn,
+	--		DRINK_QTY 	= :drinkQty,
+	--		WED_GUBUN 	= :wedGubun,
+	--		WED_YMD 	= :wedYmd,
+	--		SPOUSE_YMD 	= :spouseYmd,
+	--		ETC_SPECIALFACt = :etcSpecialfact,
+			USE_YN	    = :useYn,
+		    UUSER  		= :loginSabun,
+		    UDATE  		= SYSDATE
+	 WHERE  UPJANG        = :upjang
+	   AND  CUSTCD        = :custcd
+	   AND  USER_GUBUN    = '001'
+	]]>
+	</statement>
+
+	<!-- 고객사현황(TAB4)_상세 이력정보(을)를 등록한다. -->
+	<statement name="insertCustChgInfoHistory" type="insert">
+		/*+
+		com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.insertCustChgInfoHistory
+		*/
+		<![CDATA[
+		INSERT INTO SCO_UPJANG_CUSTCHG_HIS
+		(
+			 UPJANG, 
+	         CUSTCD,
+	         CHG_DATE,
+		     SEQ,
+	         USER_GUBUN, 
+	         NAME, 
+	         DEPTNM, 
+	         JOB_GRADE, 
+	         HP_TEL,
+	         HP_TEL_ENC, 
+	         E_MAIL,
+	         E_MAIL_ENC,
+	         SEX_TYPE, 
+	         COM_TEL,
+	         COM_TEL_ENC,
+	         BIR_YMD, 
+	         HOME_ADDR,
+	         HOME_ADDR_ENC,
+	         REL_CD, 
+	         AMITY_GRADE, 
+	         BORN_CITY, 
+	         HIGH_SCHOOL, 
+	         UNIV, 
+	         GRAD_SCHOOL, 
+	         P_CHARACTER, 
+	         HOBBY, 
+	         PREF_FOOD, 
+	         SMOKING_YN, 
+	         DRINK_QTY, 
+	         WED_GUBUN, 
+	         WED_YMD, 
+	         SPOUSE_YMD, 
+	         ETC_SPECIALFACT, 
+	         USE_YN,
+	         CUSER, 
+	         CDATE,
+	         UUSER,
+		     UDATE
+	     ) 
+	     VALUES
+	     ( 
+	         :upjang 
+			,:custcd
+			,TO_CHAR(SYSDATE,'YYYYMMDD')
+			,(SELECT NVL(MAX(SEQ),0)+1 FROM SCO_UPJANG_CUSTCHG_HIS 
+			   WHERE UPJANG = :upjang AND CUSTCD = :custcd AND USER_GUBUN = '001' AND CHG_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'))
+			,'001'	/* 담당자구분_대표자 */
+			,<#if name?has_content> :drname1 <#else> null </#if>
+			,<#if deptnm?has_content> :deptnm <#else> null </#if>
+			,<#if jobGrade?has_content> :jobGrade <#else> null </#if>
+			,<#if hpTel?has_content> :hpTel <#else> null </#if>
+			,<#if hpTel?has_content> SCC_CRYPTO.ENC_FUN(:hpTel) <#else> null </#if>
+			,<#if eMail?has_content> :eMail <#else> null </#if>
+			,<#if eMail?has_content> SCC_CRYPTO.ENC_FUN(:eMail) <#else> null </#if>
+			,<#if sexType?has_content> :sexType <#else> null </#if>
+			,<#if comTel?has_content> :comTel <#else> null </#if>
+			,<#if comTel?has_content> SCC_CRYPTO.ENC_FUN(:comTel) <#else> null </#if>
+			,<#if birYmd?has_content> :birYmd <#else> null </#if>
+			,<#if homeAddr?has_content> :homeAddr <#else> null </#if>
+			,<#if homeAddrEnc?has_content> SCC_CRYPTO.ENC_FUN(:homeAddrEnc) <#else> null </#if> 
+			,<#if relCd?has_content> :relCd <#else> null </#if>
+			,<#if amityGrade?has_content> :amityGrade <#else> null </#if>
+			,<#if bornCity?has_content> :bornCity <#else> null </#if>
+			,<#if highSchool?has_content> :highSchool <#else> null </#if>
+			,<#if univ?has_content> :univ <#else> null </#if>
+			,<#if gradSchool?has_content> :gradSchool <#else> null </#if>
+			,<#if pCharacter?has_content> :pCharacter <#else> null </#if>
+			,<#if hobby?has_content> :hobby <#else> null </#if>
+			,<#if prefFood?has_content> :prefFood <#else> null </#if>
+			,<#if smokingYn?has_content> :smokingYn <#else> null </#if>
+			,<#if drinkQty?has_content> :drinkQty <#else> null </#if>
+			,<#if wedGubun?has_content> :wedGubun <#else> null </#if>
+			,<#if wedYmd?has_content> :wedYmd <#else> null </#if>
+			,<#if spouseYmd?has_content> :spouseYmd <#else> null </#if>
+			,<#if etcSpecialfact?has_content> :etcSpecialfact <#else> null </#if>
+			,<#if useYn?has_content> :useYn <#else> null </#if>
+	        ,:loginSabun
+		    ,SYSDATE
+		    ,:loginSabun
+		    ,SYSDATE
+	 	)
+	]]>
+	</statement>
+
+	<!-- 식단가현황(TAB6) 현황목록(을)를 등록한다. -->
+	<statement name="insertMpriceInfo" type="insert">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.insertMpriceInfo */
+		<![CDATA[
+		INSERT INTO SCO_UPJANG_MPRICE
+		(
+			 UPJANG
+		    ,GUBUN_CD1
+		    ,GUBUN_CD2
+		    ,MPRICE_OPENDD
+			,MEAL_UPRICE
+			,USE_YN
+			,ATTR01
+			,ATTR02
+			,ATTR03
+			,ATTR04
+			,ATTR05
+		    ,CUSER
+		    ,CDATE
+		)VALUES
+		(
+			:upjang
+		   ,:gubunCd1
+		   ,:gubunCd2
+		   ,:mpriceOpendd
+		   ,<#if mealUprice?has_content> :mealUprice <#else> null </#if>
+		   ,<#if useYn?has_content> :useYn <#else> null </#if>
+		   ,<#if attr01?has_content> :attr01 <#else> null </#if>
+		   ,<#if attr02?has_content> :attr02 <#else> null </#if>
+		   ,<#if attr03?has_content> :attr03 <#else> null </#if>
+		   ,<#if attr04?has_content> :attr04 <#else> null </#if>
+		   ,<#if attr05?has_content> :attr05 <#else> null </#if>
+		   ,:loginSabun
+		   ,SYSDATE
+		)
+	]]>
+	</statement>
+
+	<!-- 식단가현황(TAB6) 현황목록(을)를 수정한다. -->
+	<statement name="updateMpriceInfo" type="update">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.updateMpriceInfo */
+		<![CDATA[
+		UPDATE SCO_UPJANG_MPRICE
+		   SET MEAL_UPRICE = :mealUprice
+			  ,USE_YN = :useYn
+		--	  ,ATTR01 = :attr01
+		--	  ,ATTR02 = :attr02
+		--	  ,ATTR03 = :attr03
+		--	  ,ATTR04 = :attr04
+		--	  ,ATTR05 = :attr05
+			  ,UUSER  = :loginSabun
+		      ,UDATE  = SYSDATE
+		 WHERE UPJANG = :upjang
+		   AND GUBUN_CD1 = :gubunCd1
+		   AND GUBUN_CD2 = :gubunCd2
+		   AND MPRICE_OPENDD = :mpriceOpendd
+     ]]>
+	</statement>
+
+	<!-- 식단가현황(TAB6) 현황목록(을)를 삭제한다. -->
+	<statement name="deleteMpriceInfo" type="delete">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.deleteMpriceInfo */
+		<![CDATA[
+		DELETE 
+		  FROM SCO_UPJANG_MPRICE
+		 WHERE UPJANG = :upjang
+		   AND GUBUN_CD1 = :gubunCd1
+		   AND GUBUN_CD2 = :gubunCd2
+		   AND MPRICE_OPENDD = :mpriceOpendd
+	]]>
+	</statement>
+
+	<!-- 식단가현황(TAB6) History목록(을)를 등록한다. -->
+	<statement name="insertMpriceHistory" type="insert">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.insertMpriceHistory */
+		<![CDATA[
+		INSERT INTO SCO_UPJANG_MPRICE_HIS
+		(
+			 CHG_DATE		/* 변경일 */
+			,SEQ			/* 순번 */
+			,UPJANG			/* 업장코드 */
+			,GUBUN_CD1		/* 식구분 */
+			,GUBUN_CD2		/* 메뉴구분 */
+			,MPRICE_OPENDD	/* 단가개시일 */
+			,MEAL_UPRICE	/* 식단가 */
+			,USE_YN			/* 사용 여부 */
+			,ATTR01			/* 여분01 */
+			,ATTR02			/* 여분02 */
+			,ATTR03			/* 여분03 */
+			,ATTR04			/* 여분04 */
+			,ATTR05			/* 여분05 */
+			,CUSER
+		    ,CDATE
+		    ,UUSER
+		    ,UDATE
+		)VALUES
+		(
+			TO_CHAR(SYSDATE, 'YYYYMMDD')
+		   ,(SELECT NVL(MAX(SEQ),0)+1 FROM SCO_UPJANG_MPRICE_HIS WHERE CHG_DATE =TO_CHAR(SYSDATE, 'YYYYMMDD'))
+		   ,<#if upjang?has_content> :upjang <#else> null </#if>
+		   ,<#if gubunCd1?has_content> :gubunCd1 <#else> null </#if>
+		   ,<#if gubunCd2?has_content> :gubunCd2 <#else> null </#if>
+		   ,<#if mpriceOpendd?has_content> :mpriceOpendd <#else> null </#if>
+		   ,<#if mealUprice?has_content> :mealUprice <#else> null </#if>
+		   ,<#if useYn?has_content> :useYn <#else> null </#if>
+		   ,<#if attr01?has_content> :attr01 <#else> null </#if>
+		   ,<#if attr02?has_content> :attr02 <#else> null </#if>
+		   ,<#if attr03?has_content> :attr03 <#else> null </#if>
+		   ,<#if attr04?has_content> :attr04 <#else> null </#if>
+		   ,<#if attr05?has_content> :attr05 <#else> null </#if>
+		   ,:loginSabun
+		   ,SYSDATE
+		   ,:loginSabun
+		   ,SYSDATE
+		)
+	]]>
+	</statement>
+
+	<!-- 레시피분류를 재등록하기 위해 삭제한다. -->
+	<statement name="deleteFsaRecipeLink" type="delete">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.deleteFsaRecipeLink */
+		<![CDATA[
+		DELETE 
+		FROM   FSA_UPJANG_RECIPE_LINK 
+		WHERE  UPJANG = :upjang
+	]]>
+	</statement>
+
+	<!-- (TAB3) 업장 대표식단가,식수 목록을 등록한다. -->
+	<statement name="insertRespMealList" type="insert">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.insertRespMealList */
+		<![CDATA[
+			INSERT INTO SCO_UPJANG_MST_RESP_MEAL
+			(
+				UPJANG				/* 업장코드 */
+			   ,SEQ					/* 순번 */
+			   ,RESP_MEAL_UPRICE	/* 업장대표식단가1 */
+			   ,RESP_MEAL_QTY		/* 업장대표식수1 */
+			   ,CUSER
+			   ,CDATE
+			   ,UUSER
+			   ,UDATE
+			)
+			VALUES
+			(
+				:upjang
+			   ,( SELECT NVL(MAX(SEQ),0)+1 FROM SCO_UPJANG_MST_RESP_MEAL WHERE UPJANG = :upjang )
+			   ,<#if respMealUprice?has_content> :respMealUprice <#else> null </#if>
+			   ,<#if respMealQty?has_content> :respMealQty <#else> null </#if>
+			   ,:loginSabun
+			   ,SYSDATE
+			   ,:loginSabun
+			   ,SYSDATE
+			)
+		]]>
+	</statement>
+
+	<!-- (TAB3) 업장 대표식단가,식수 목록을 수정한다. -->
+	<statement name="updateRespMealList" type="update">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.updateRespMealList */
+		<![CDATA[
+		UPDATE SCO_UPJANG_MST_RESP_MEAL
+		   SET RESP_MEAL_UPRICE	= <#if respMealUprice?has_content> :respMealUprice <#else> null </#if>
+			  ,RESP_MEAL_QTY	= <#if respMealQty?has_content> :respMealQty <#else> null </#if>
+			  ,UUSER  = :loginSabun
+		      ,UDATE  = SYSDATE
+		 WHERE UPJANG = :upjang
+		   AND SEQ = :seq
+	 ]]>
+	</statement>
+
+	<!-- (TAB3) 업장 대표식단가,식수 목록을 삭제한다. -->
+	<statement name="deleteRespMealList" type="delete">
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.deleteRespMealList */
+		<![CDATA[
+		DELETE 
+		  FROM SCO_UPJANG_MST_RESP_MEAL
+		 WHERE UPJANG = :upjang
+		   AND SEQ = :seq
+	]]>
+	</statement>
+	
+	<!-- (TAB2) 상세 배송 주소 조회. -->
+	<statement name="selectDetailAddr" type="select">
+		<![CDATA[
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.selectDetailAddr */
+		
+				SELECT 
+			      SSHP.UPJANG AS UPJANG
+			      ,SSHP.UPJANGNM AS UPJANG_NM
+			      --,SSHP.BU_NM
+			      --,SSHP.MU_NM
+			      --,SHPO.OPER_ORG_SN			      
+			      ,SHPO.WH_CNTR_CD
+			      ,SWHU.WH_CD
+			      ,SWHU.WH_NM
+			      ,SWHU.WH_CLS_CD
+			      ,(SELECT EPROCUSR.FC_GET_NAME(SWHU.SYS_ID,'ko_KR',SWHU.COMP_CD,'CODE','C111',SWHU.WH_CLS_CD,'','','','') FROM DUAL) AS WH_CLS_NM
+			      ,STRN.TRANS_CD
+			      ,STRN.TRANS_NM
+			      ,STRN.POST_NO
+			      ,STRN.ADDR1
+			      ,(SELECT SCC_CRYPTO.DEC_FUN(STRN.ADDR2) FROM DUAL) AS ADDR2
+			      --,(SELECT SCC_CRYPTO.DEC_FUN(STRN.ADDR3) FROM DUAL) AS ADDR3
+			      ,STRN.ADDR3 AS ADDR3
+			      --,STRN.TRANS_SNM
+			      --,STRN.CUST_TYPE_CD
+			      ,STRN.CHR
+			      ,(SELECT SCC_CRYPTO.DEC_FUN(STRN.PHONE_NO) FROM DUAL) AS PHONE_NO
+			      ,(SELECT SCC_CRYPTO.DEC_FUN(STRN.MOBILE_NO) FROM DUAL) AS MOBILE_NO
+			      --,STRN.REM
+			      --,STRN.BIZ_REG_NO
+			      --,STRN.PART_ID
+                      --     ,(SELECT EPROCUSR.FC_GET_NAME(SWHU.SYS_ID, 'ko_KR', SWHU.COMP_CD, 'USER', STRN.PART_ID,'','','','', '') FROM DUAL) AS PART_NM
+                      --     ,STRN.CS_ID
+                      --     ,(SELECT EPROCUSR.FC_GET_NAME(SWHU.SYS_ID, 'ko_KR', SWHU.COMP_CD, 'USER', STRN.CS_ID,'','','','', '') FROM DUAL) AS CS_NM
+                      --     ,(SELECT EPROCUSR.FC_GET_NAME(SWHU.SYS_ID,'ko_KR',SWHU.COMP_CD,'CODE','D003',SWHU.USE_YN,'','','','') FROM DUAL) AS WH_USE_YN
+                      --     ,STRN.USE_YN
+			  FROM EPROCUSR.ESPSTRN   STRN
+			      ,EPROCUSR.ESPSWHU   SWHU
+			      ,FCUS.EPROC_UPJANG_V SSHP
+			      ,EPROCUSR.ESPSSHPORG SHPO
+			 WHERE 1 = 1
+			   AND STRN.SYS_ID = SWHU.SYS_ID(+)
+			   AND STRN.COMP_CD = SWHU.COMP_CD(+)
+			   AND STRN.TRANS_CD = SWHU.TRANS_CD(+)
+			   AND SWHU.SHOP_CD = SSHP.UPJANG(+)
+			   AND SSHP.UPJANG = SHPO.SHOP_CD(+)
+			   AND STRN.SYS_ID = '100'
+			   AND STRN.COMP_CD = 'HFC'
+			   AND STRN.STS <> 'D'
+			   AND SWHU.USE_YN = 'Y'  --창고사용여부
+			   AND TO_CHAR(SSHP.UPJANG) = :upjangCd
+			   ORDER BY STRN.TRANS_CD, SWHU.WH_CD
+		
+			]]>
+	</statement>
+	
+	<!-- (TAB2) 상세 배송주소 담당자/연락처 수정한다. -->
+	<statement name="updateDetailAddr" type="update">
+		<![CDATA[
+		/*+ com.hwfs.fs.fsb.dao.UpjangPackMgntDAO.updateDetailAddr */
+		UPDATE EPROCUSR.ESPSTRN
+		   SET CHR	= <#if chr?has_content> :chr <#else> null </#if>
+			  ,PHONE_NO	= <#if phoneNo?has_content> SCC_CRYPTO.ENC_FUN(:phoneNo) <#else> null </#if>
+			  ,MOBILE_NO	= <#if mobileNo?has_content> SCC_CRYPTO.ENC_FUN(:mobileNo) <#else> null </#if>
+			  ,MOD_ID  = :loginSabun
+		      ,MOD_DT  = TO_CHAR(SYSDATE,'yyyymmddhh24miss')
+		 WHERE TRANS_CD = :transCd
+	 ]]>
+	</statement>
+	
+	
+</hqml>

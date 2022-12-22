@@ -1,0 +1,29 @@
+package com.hwfs.rc.bms.service;
+
+import hone.core.util.record.RecordSet;
+import hone.online.xplatform.map.DataSetMap;
+
+import java.util.Map;
+
+ /**
+ * BasOrderplceGoodsService에 대한 설명 작성
+ * @ClassName BasOrderplceGoodsService.java
+ * @Description BasOrderplceGoodsService Class 
+ * @Modification-Information
+ * <pre>
+ *    수정일       수정자              수정내용
+ *  ----------   ----------   -------------------------------
+ *  2015. 2. 26.   Administrator        최초생성
+ * </pre>
+ * @author FC종합전산구축 : 팀명 Administrator
+ * @since 2015. 2. 26.
+ * @version 1.0
+ * @see 
+ * <pre>
+ *  Copyright (C) 2014 by HANWHA S&C CO.,LTD. All right reserved.
+ * </pre>
+ */
+public interface BasOrderplceGoodsService {
+	RecordSet selectOrderplceGoodsList(Map<String, Object> parameter) throws Exception;
+	int saveOrderplceGoods(DataSetMap bmsAmMgmt) throws Exception;
+}

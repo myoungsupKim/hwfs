@@ -1,0 +1,82 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="frmSelectMaxID" classname="frmSelectMaxID" left="0" top="0" width="540" height="758" titletext="New Form" onload="frmSelectMaxID_onload">
+    <Layouts>
+      <Layout>
+        <Button id="btnInsert" taborder="0" text="입력" left="384" top="92" width="140" height="46" onclick="btnInsert_onclick"/>
+        <Edit id="edtIns" taborder="1" left="24" top="24" width="504" height="60" value="가나다라마바사"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_max" preload="true" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true">
+        <ColumnInfo>
+          <Column id="COLSEQ" size="10" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_input" preload="true" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true">
+        <ColumnInfo>
+          <Column id="COLCONT" size="255" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript5.0"><![CDATA[include "lib::sz_fsp_xp.xjs"
+
+this.frmSelectMaxID_onload = function(obj:Form, e:nexacro.LoadEventInfo)
+{
+	this.fsp_init();
+}
+
+this.btnInsert_onclick = function(obj:Button,  e:nexacro.ClickEventInfo)
+{
+	this.ds_input.addRow();
+	
+	this.ds_input.setColumn(0, "COLCONT", this.edtIns.text);
+	
+	this.fn_save();
+}
+
+/*******************************************************************************
+* 기      능   : 저장
+* 설      명   : 
+********************************************************************************/
+this.fn_save  = function ()
+{
+	this.fsp_clear();
+	this.fsp_addSingle
+	(
+		"sample:TMP_EXERCISE_INSERT",
+		"sample:FSP_GET_MAX",
+		0,
+		""
+	); // 키값 채번용 "emp:TBL_NO_MAXSEARCH"를 입력, '1'은 키값의 증가값을 말한다.
+    
+    // 서버 호출 
+	this.fsp_callService(
+		""
+		,""
+		,"ds_input=ds_input:U"	// inDs
+		,"ds_max=ds_max"	// outDs
+		,""	// args 
+		,"fn_afterSave"
+		,false
+	);
+}
+
+/*******************************************************************************
+* 기      능   : save callback
+********************************************************************************/
+this.fn_afterSave = function (ErrorCode, ErrorMsg)
+{
+	if(ErrorCode == "0")
+	{
+		this.alert("성공!");
+	}
+	else
+	{
+		this.alert(ErrorCode + " : " + ErrorMsg);
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

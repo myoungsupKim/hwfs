@@ -1,0 +1,847 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fm.fms.custSysInterfaceDAO">
+    <desc>고객시스템 Interface HQML Query</desc>
+
+    <!-- 고객시스템 Interface - 창고(배송처) 목록을 조회한다. -->
+    <statement name="selectSubinv" type="select">
+        /*+ com.hwfs.fm.fms.dao.CustSysInterfaceDAO.selectSubinv */
+        <![CDATA[
+        SELECT A.SUBINV_CODE
+		     , A.SUBINV_NAME
+		     , B.AP_UNITPRICE_UPJANG AS UPJANG
+		     , '0' AS CHK
+		  FROM HLDC_PO_SUBINVENTORY A
+		     , (SELECT DISTINCT Y.UPJANG, Y.AP_UNITPRICE_UPJANG
+		          FROM PO_CONTRACT_FSALE Z, ST_UPJANG Y
+		         WHERE Z.UPJANG = Y.AP_UNITPRICE_UPJANG
+		           AND Z.CUSTCD = (SELECT VD_CD FROM VO_FC_VENDOR WHERE OLD_VD_CD = :schCust)
+		        ) B
+		 WHERE A.UPJANG = B.UPJANG
+		   AND A.USE_YN = 'Y'
+		 ORDER BY A.SUBINV_CODE
+        ]]>
+    </statement>
+    
+    <!-- 고객시스템 Interface - 창고(배송처) 목록을 조회한다. -->
+    <statement name="selectSubinvBatch" type="select">
+        /*+ com.hwfs.fm.fms.dao.CustSysInterfaceDAO.selectSubinv */
+        <![CDATA[
+        SELECT A.SUBINV_CODE
+		     , A.SUBINV_NAME
+		     , B.AP_UNITPRICE_UPJANG AS UPJANG
+		     , '0' AS CHK
+		     , '' AS IF_JOBID
+			 , '' AS MOD
+			 , '' AS LOGIN_SABUN
+			 , '' AS LOGIN_USERID
+			 , '' AS LOGIN_PERS_MASK
+			 , NVL((SELECT K.SET1 FROM SCC_COMMON_CODE K WHERE K.GROUP_CODE = 'FM003' AND K.USE_YN = 'Y' AND K.CODE = A.UPJANG), '01') AS GUBUN
+		  FROM HLDC_PO_SUBINVENTORY A
+		     , (SELECT DISTINCT Y.UPJANG, Y.AP_UNITPRICE_UPJANG
+		          FROM PO_CONTRACT_FSALE Z, ST_UPJANG Y
+		         WHERE Z.UPJANG = Y.AP_UNITPRICE_UPJANG
+		           --AND Z.CUSTCD = (SELECT VD_CD FROM VO_FC_VENDOR WHERE OLD_VD_CD = :schCust)
+		           AND Z.CUSTCD IN ('1060257', '1148215') -- 음성공장, 오송공장
+		        ) B
+		 WHERE A.UPJANG = B.UPJANG
+		   AND A.USE_YN = 'Y'
+		 ORDER BY A.SUBINV_CODE
+        ]]>
+    </statement>
+    
+    <!-- 고객시스템 Interface - 상품정보 목록을 조회한다 : 사용 X. -->
+    <statement name="selectItem_old" type="select">
+        /*+ com.hwfs.fm.fms.dao.CustSysInterfaceDAO.selectItem_old */
+        <![CDATA[
+        SELECT :schCust AS UPJANG                                                        /*고객사*/
+             , :schCustName AS UPJANGNM                                                 /*고객사명*/
+             , B.CONTRACT_START AS START_DATE                                            /*단가적용일*/
+             , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.UOM_CODE                        /*상품코드*//*상품명*//*규격*//*단위*/
+             , DECODE(A.TAX_CODE,'100','과세','210','면세','220','영세') AS TAX_CODE    /*과세구분*/
+             , B.SALE_PRICE AS UNIT_PRICE                                                /*판매단가*/
+             , DECODE(A.TAX_CODE,'100',0.1,0) * B.SALE_PRICE AS UNIT_VAT                /*부가세*/
+             , NVL((SELECT Z.D_DAYS FROM PO_PREORDER_LIST Z                                
+                 WHERE Z.CENTER_CODE = B.CENTER_CODE
+                   AND Z.ITEM_CODE = B.ITEM_CODE),0) + 1 AS DELIVER_DAY                    /*선발주*/
+             , '0' AS CHK                                                                /*선택*/
+          FROM HLDC_PO_ITEM_MST A
+             ,(SELECT C.CENTER_CODE, C.UPJANG, C.ITEM_CODE, C.SALE_PRICE, C.CONTRACT_START
+                 FROM PO_CONTRACT_FSALE C 
+                    ,(SELECT /*+ INDEX(E PO_CONTRACT_FSALE_PK) */
+                             E.CENTER_CODE, E.UPJANG, E.ITEM_CODE, MAX(E.CONTRACT_START) AS CONTRACT_START
+                        FROM PO_CONTRACT_FSALE E, HLDC_PO_ITEM_MST F
+                       WHERE E.CENTER_CODE = (SELECT Z.CENTER_CODE FROM VO_CENTER_UPJANG Z WHERE Z.UPJANG = :schCust)
+                         AND E.CONTRACT_START <= :schDate1
+                         AND E.UPJANG = :schCust
+                         AND E.ITEM_CODE = F.ITEM_CODE
+                         AND F.ITEM_CLASS1 = 'F'
+                         AND E.USE_YN = 'Y'
+                       GROUP BY E.CENTER_CODE, E.UPJANG, E.ITEM_CODE) D
+                WHERE C.CENTER_CODE    = D.CENTER_CODE
+                  AND C.UPJANG         = D.UPJANG
+                  AND C.ITEM_CODE      = D.ITEM_CODE
+                  AND C.CONTRACT_START = D.CONTRACT_START
+                  AND EXISTS (SELECT 1 FROM PO_TREAT_UPJANG_V F
+                               WHERE F.UPJANG = C.UPJANG
+                                 AND F.ITEM_CODE = C.ITEM_CODE)
+                  AND C.CONTRACT_PRICE > 0
+                  AND C.SALE_PRICE > 0
+                  AND C.USE_YN = 'Y') B
+           <#if schIsNotUse?has_content>
+                WHERE A.ITEM_CODE = B.ITEM_CODE(+)
+           <#else>
+                 WHERE A.ITEM_CODE = B.ITEM_CODE      
+                     AND A.USE_YN = 'Y'               
+           </#if>
+           <#if schItemType == 'ITEM_CODE'>
+                     AND A.ITEM_CODE LIKE '%'|| :schItem ||'%'
+           <#elseif schItemType == 'ITEM_NAME'>
+                     AND A.ITEM_NAME LIKE '%'|| :schItem ||'%'  
+           </#if>
+        ]]>
+    </statement>
+
+
+    <!-- 고객시스템 Interface - 상품정보 목록을 조회한다. -->
+    <statement name="selectItem_old2" type="select">
+        /*+ com.hwfs.fm.fms.dao.CustSysInterfaceDAO.selectItem */
+        <![CDATA[
+			SELECT B.UPJANG
+			     , B.UPJANGNM
+			     , B.CONTRACT_START AS START_DATE
+			     , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.UOM_CODE
+			     , DECODE(A.TAX_CODE,'100','과세','210','면세','220','영세') AS TAX_CODE
+			     , B.SALE_PRICE AS UNIT_PRICE
+			     , DECODE(A.TAX_CODE,'100',0.1,0) * B.SALE_PRICE AS UNIT_VAT
+			     , NVL((SELECT Z.D_DAYS FROM PO_PREORDER_LIST Z
+			         WHERE Z.CENTER_CODE = B.CENTER_CODE
+			           AND Z.ITEM_CODE = B.ITEM_CODE),0) + 1 AS DELIVER_DAY
+			     , '0' AS CHK
+			  FROM HLDC_PO_ITEM_MST A
+			     ,(SELECT C.CENTER_CODE, C.UPJANG, E.UPJANGNM, C.ITEM_CODE, C.SALE_PRICE, C.CONTRACT_START
+			         FROM PO_CONTRACT_FSALE C
+			            , (SELECT /*+ INDEX(E PO_CONTRACT_FSALE_PK) */
+			                      E.CENTER_CODE, E.UPJANG, E.ITEM_CODE, MAX(E.CONTRACT_START) AS CONTRACT_START
+			                 FROM PO_CONTRACT_FSALE E
+			                WHERE E.CENTER_CODE IN (SELECT Y.CENTER_CODE FROM HLDC_PO_UPJANG_CENTER Y 
+			                                         WHERE EXISTS (SELECT 1 FROM SCC_COMMON_CODE Z WHERE Z.GROUP_CODE = 'FM002' AND Z.REMARK = :schCust AND Y.UPJANG = Z.CODE)) 
+			                  AND E.CONTRACT_START <= :schDate1
+			                  AND EXISTS (SELECT 1 FROM SCC_COMMON_CODE Z
+			                               WHERE Z.GROUP_CODE = 'FM002'
+			                                 AND Z.REMARK = :schCust
+			                                 AND Z.CODE = E.UPJANG)
+			                  AND E.ITEM_CODE LIKE '01%'
+			                  AND E.USE_YN = 'Y'
+			                GROUP BY E.CENTER_CODE, E.UPJANG, E.ITEM_CODE) D
+			            , ST_UPJANG E
+			        WHERE C.CENTER_CODE    = D.CENTER_CODE
+			          AND C.UPJANG         = D.UPJANG
+			          AND C.ITEM_CODE      = D.ITEM_CODE
+			          AND C.CONTRACT_START = D.CONTRACT_START
+			          AND C.UPJANG = E.UPJANG
+			          AND EXISTS (SELECT 1 FROM PO_CONTRACT_FSALE F
+			                       WHERE F.UPJANG = C.UPJANG
+			                         AND F.ITEM_CODE = C.ITEM_CODE)
+			          AND C.CONTRACT_PRICE > 0
+			          AND C.SALE_PRICE > 0
+			          AND C.USE_YN = 'Y') B
+			 WHERE A.ITEM_CODE = B.ITEM_CODE
+			   AND A.USE_YN = 'Y'
+			   <#if schItem?has_content>
+				<#if schItemType == 'ITEM_CODE'>
+					AND A.ITEM_CODE LIKE '%'|| :schItem ||'%'
+				<#elseif schItemType == 'ITEM_NAME'>
+					AND A.ITEM_NAME LIKE '%'|| :schItem ||'%'  
+				</#if>			   
+			   </#if>
+			 UNION ALL
+			SELECT A.UPJANG
+			     , A.UPJANGNM
+			     , B.START_DATE
+			     , B.ITEM_CODE
+			     , B.ITEM_NAME
+			     , B.ITEM_SIZE
+			     , B.UOM_CODE
+			     , B.TAX_CODE
+			     , B.UNIT_PRICE
+			     , B.UNIT_VAT
+			     , NVL((SELECT Z.D_DAYS FROM PO_PREORDER_LIST Z
+			             WHERE Z.CENTER_CODE = B.CENTER_CODE
+			               AND Z.ITEM_CODE = B.ITEM_CODE),0) + 1 AS DELIVER_DAY
+			     , 'N' AS CHK
+			  FROM (SELECT DISTINCT Z.CENTER_CODE, Z.CUSTCD, Z.UPJANG, Y.UPJANGNM, Z.ITEM_CODE
+			          FROM PO_CONTRACT_FSALE Z, ST_UPJANG Y
+			         WHERE Z.UPJANG = Y.AP_UNITPRICE_UPJANG
+			           AND NVL(Y.CUSTCD, 0) =0
+			           AND Z.CUSTCD = (SELECT VD_CD FROM VO_FC_VENDOR WHERE OLD_VD_CD = :schCust)) A
+			     , (SELECT B.CENTER_CODE, B.CUSTCD
+			             , B.CONTRACT_START AS START_DATE
+			             , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.UOM_CODE
+			             , DECODE(A.TAX_CODE,'100','과세','210','면세','220','영세') AS TAX_CODE
+			             , B.CONTRACT_PRICE_M AS UNIT_PRICE
+			             , DECODE(A.TAX_CODE,'100',0.1,0) * B.CONTRACT_PRICE_M AS UNIT_VAT
+			          FROM HLDC_PO_ITEM_MST A
+			             , (SELECT C.CENTER_CODE, C.CUSTCD, C.ITEM_CODE, C.CONTRACT_PRICE_M, C.CONTRACT_START
+			                  FROM PO_CONTRACT_F C
+			                     , (SELECT E.CENTER_CODE, E.CUSTCD, E.ITEM_CODE, MAX(E.CONTRACT_START) AS CONTRACT_START , E.UPJANG
+			                          FROM PO_CONTRACT_FSALE E
+			                         WHERE E.CUSTCD = (SELECT VD_CD FROM VO_FC_VENDOR WHERE OLD_VD_CD = :schCust)
+			                           AND E.CONTRACT_START <= :schDate1
+					                   AND EXISTS (SELECT 1 FROM SCC_COMMON_CODE Z
+					                              WHERE Z.GROUP_CODE = 'FM002'
+					                                AND Z.REMARK = :schCust
+					                                AND Z.CODE = E.UPJANG)			                           
+			                           AND E.USE_YN = 'Y'
+			                         GROUP BY E.CENTER_CODE, E.CUSTCD, E.ITEM_CODE , E.UPJANG) D
+			                 WHERE C.CENTER_CODE    = D.CENTER_CODE
+			                   AND C.CUSTCD         = D.CUSTCD
+			                   AND C.UPJANG			= D.UPJANG
+			                   AND C.ITEM_CODE      = D.ITEM_CODE
+			                   AND C.CONTRACT_START = D.CONTRACT_START
+			                   AND C.CONTRACT_PRICE > 0
+			                   AND C.CONTRACT_PRICE_M > 0
+			                   AND C.USE_YN = 'Y') B
+			         WHERE A.ITEM_CODE = B.ITEM_CODE
+			           AND A.USE_YN = 'Y') B
+			 WHERE A.CENTER_CODE = B.CENTER_CODE
+			   AND A.CUSTCD = B.CUSTCD
+			   AND A.ITEM_CODE = B.ITEM_CODE
+			  <#if schItem?has_content>
+				<#if schItemType == 'ITEM_CODE'>
+					AND B.ITEM_CODE LIKE '%'|| :schItem ||'%'
+				<#elseif schItemType == 'ITEM_NAME'>
+					AND B.ITEM_NAME LIKE '%'|| :schItem ||'%'  
+				</#if>
+			  </#if>
+        ]]>
+    </statement>
+
+
+  <!-- 고객시스템 Interface - 상품정보 목록을 조회한다. -->
+    <statement name="selectItem" type="select">
+        /*+ com.hwfs.fm.fms.dao.CustSysInterfaceDAO.selectItem */
+        <![CDATA[
+			SELECT B.UPJANG
+			     , B.UPJANGNM
+			     , B.CONTRACT_START AS START_DATE
+			     , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.UOM_CODE
+			     , DECODE(A.TAX_CODE,'100','과세','210','면세','220','영세') AS TAX_CODE
+			     , B.SALE_PRICE AS UNIT_PRICE
+			     , CEIL(DECODE(A.TAX_CODE,'100',0.1,0) * B.SALE_PRICE) AS UNIT_VAT
+			     , NVL((SELECT Z.D_DAYS FROM PO_PREORDER_LIST Z
+			         WHERE Z.CENTER_CODE = B.CENTER_CODE
+			           AND Z.ITEM_CODE = B.ITEM_CODE),0) /*+ 1*/ AS DELIVER_DAY
+			     , '0' AS CHK
+			  FROM HLDC_PO_ITEM_MST A
+			     ,(SELECT C.CENTER_CODE, C.UPJANG, E.UPJANGNM, C.ITEM_CODE, C.SALE_PRICE, C.CONTRACT_START
+			         FROM PO_CONTRACT_FSALE C
+			            , (SELECT /*+ INDEX(E PO_CONTRACT_FSALE_PK) */
+			                      E.CENTER_CODE, E.UPJANG, E.ITEM_CODE, MAX(E.CONTRACT_START) AS CONTRACT_START
+			                 FROM PO_CONTRACT_FSALE E
+			                WHERE E.CENTER_CODE IN (SELECT Y.CENTER_CODE FROM HLDC_PO_UPJANG_CENTER Y 
+			                                         WHERE EXISTS (SELECT 1 FROM SCC_COMMON_CODE Z WHERE Z.GROUP_CODE = 'FM002' AND Z.REMARK = :schCust AND Y.UPJANG = Z.CODE)) 
+			                  AND :schDate1 BETWEEN E.CONTRACT_START AND E.CONTRACT_END
+			                  AND EXISTS (SELECT 1 FROM SCC_COMMON_CODE Z
+			                               WHERE Z.GROUP_CODE = 'FM002'
+			                                 AND Z.REMARK = :schCust
+			                                 AND Z.CODE = E.UPJANG)
+			                  AND E.ITEM_CODE LIKE 'F%'
+			                  AND E.USE_YN = 'Y'
+			                GROUP BY E.CENTER_CODE, E.UPJANG, E.ITEM_CODE) D
+			            , ST_UPJANG E
+			        WHERE C.CENTER_CODE    = D.CENTER_CODE
+			          AND C.UPJANG         = D.UPJANG
+			          AND C.ITEM_CODE      = D.ITEM_CODE
+			          AND C.CONTRACT_START = D.CONTRACT_START
+			          AND C.UPJANG = E.UPJANG
+			          AND EXISTS (SELECT 1 FROM PO_CONTRACT_FSALE F
+			                       WHERE F.UPJANG = C.UPJANG
+			                         AND F.ITEM_CODE = C.ITEM_CODE)
+			          AND C.CONTRACT_PRICE > 0
+			          AND C.SALE_PRICE > 0
+			          AND C.USE_YN = 'Y') B
+			 WHERE A.ITEM_CODE = B.ITEM_CODE
+			   AND A.USE_YN = 'Y'
+			   <#if schItem?has_content>
+				<#if schItemType == 'ITEM_CODE'>
+					AND A.ITEM_CODE LIKE '%'|| :schItem ||'%'
+				<#elseif schItemType == 'ITEM_NAME'>
+					AND A.ITEM_NAME LIKE '%'|| :schItem ||'%'  
+				</#if>			   
+			   </#if>
+
+			 UNION ALL
+			SELECT A.UPJANG
+			     , A.UPJANGNM
+			     , B.START_DATE
+			     , B.ITEM_CODE
+			     , B.ITEM_NAME
+			     , B.ITEM_SIZE
+			     , B.UOM_CODE
+			     , B.TAX_CODE
+			     , B.UNIT_PRICE
+			     , B.UNIT_VAT
+			     , NVL((SELECT Z.D_DAYS FROM PO_PREORDER_LIST Z
+			             WHERE Z.CENTER_CODE = B.CENTER_CODE
+			               AND Z.ITEM_CODE = B.ITEM_CODE),0) /*+ 1*/ AS DELIVER_DAY
+			     , '0' AS CHK
+			  FROM (SELECT DISTINCT Z.CENTER_CODE, Z.CUSTCD, Z.UPJANG, Y.UPJANGNM, Z.ITEM_CODE
+			          FROM PO_CONTRACT_FSALE Z, ST_UPJANG Y
+			         WHERE Z.UPJANG = Y.AP_UNITPRICE_UPJANG
+			           AND NVL(Y.CUSTCD, 0) =0
+			           AND Z.CUSTCD = (SELECT VD_CD FROM VO_FC_VENDOR WHERE OLD_VD_CD = :schCust)) A
+			     , (SELECT B.CENTER_CODE, B.CUSTCD
+			             , B.CONTRACT_START AS START_DATE
+			             , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.UOM_CODE
+			             , DECODE(A.TAX_CODE,'100','과세','210','면세','220','영세') AS TAX_CODE
+			             , B.CONTRACT_PRICE_M AS UNIT_PRICE
+			             ,CEIL(DECODE(A.TAX_CODE,'100',0.1,0) * B.CONTRACT_PRICE_M) AS UNIT_VAT
+			          FROM HLDC_PO_ITEM_MST A
+			             , (SELECT C.CENTER_CODE, C.CUSTCD, C.ITEM_CODE, C.CONTRACT_PRICE_M, C.CONTRACT_START
+			                  FROM PO_CONTRACT_F C
+			                     , (SELECT E.CENTER_CODE, E.CUSTCD, E.ITEM_CODE, MAX(E.CONTRACT_START) AS CONTRACT_START , E.UPJANG
+			                          FROM PO_CONTRACT_FSALE E
+			                         WHERE E.CUSTCD = (SELECT VD_CD FROM VO_FC_VENDOR WHERE OLD_VD_CD = :schCust)
+			                           AND E.CONTRACT_START <= :schDate1
+					                   AND EXISTS (SELECT 1 FROM SCC_COMMON_CODE Z
+					                              WHERE Z.GROUP_CODE = 'FM002'
+					                                AND Z.REMARK = :schCust
+					                                AND Z.CODE = E.UPJANG)			                           
+			                           AND E.USE_YN = 'Y'
+			                         GROUP BY E.CENTER_CODE, E.CUSTCD, E.ITEM_CODE , E.UPJANG) D
+			                 WHERE C.CENTER_CODE    = D.CENTER_CODE
+			                   AND C.CUSTCD         = D.CUSTCD
+			                   AND C.UPJANG			= D.UPJANG
+			                   AND C.ITEM_CODE      = D.ITEM_CODE
+			                   AND C.CONTRACT_START = D.CONTRACT_START
+			                   AND C.CONTRACT_PRICE > 0
+			                   AND C.CONTRACT_PRICE_M > 0
+			                   AND C.USE_YN = 'Y') B
+			         WHERE A.ITEM_CODE = B.ITEM_CODE
+			           AND A.USE_YN = 'Y') B
+			 WHERE A.CENTER_CODE = B.CENTER_CODE
+			   AND A.CUSTCD = B.CUSTCD
+			   AND A.ITEM_CODE = B.ITEM_CODE
+			  <#if schItem?has_content>
+				<#if schItemType == 'ITEM_CODE'>
+					AND B.ITEM_CODE LIKE '%'|| :schItem ||'%'
+				<#elseif schItemType == 'ITEM_NAME'>
+					AND B.ITEM_NAME LIKE '%'|| :schItem ||'%'  
+				</#if>
+			  </#if>
+
+        ]]>
+    </statement>
+
+<!-- 고객시스템 Interface - 상품정보 목록을 조회한다.(Batch) -->
+    <statement name="selectItemBatch" type="select">
+        /*+ com.hwfs.fm.fms.dao.CustSysInterfaceDAO.selectItem */
+        <![CDATA[
+			SELECT B.UPJANG
+			     , B.UPJANGNM
+			     , B.CONTRACT_START AS START_DATE
+			     , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.UOM_CODE
+			     , DECODE(A.TAX_CODE,'100','과세','210','면세','220','영세') AS TAX_CODE
+			     , B.SALE_PRICE AS UNIT_PRICE
+			     , CEIL(DECODE(A.TAX_CODE,'100',0.1,0) * B.SALE_PRICE) AS UNIT_VAT
+			     , NVL((SELECT Z.D_DAYS FROM PO_PREORDER_LIST Z
+			         WHERE Z.CENTER_CODE = B.CENTER_CODE
+			           AND Z.ITEM_CODE = B.ITEM_CODE),0) /*+ 1*/ AS DELIVER_DAY
+			     , '0' AS CHK
+			     , '' AS IF_JOBID
+			     , '' AS MOD
+			     , '' AS LOGIN_SABUN
+			     , '' AS LOGIN_USERID
+			     , '' AS LOGIN_PERS_MASK
+			  FROM HLDC_PO_ITEM_MST A
+			     ,(SELECT C.CENTER_CODE, C.UPJANG, E.UPJANGNM, C.ITEM_CODE, C.SALE_PRICE, C.CONTRACT_START
+			         FROM PO_CONTRACT_FSALE C
+			            , (SELECT /*+ INDEX(E PO_CONTRACT_FSALE_PK) */
+			                      E.CENTER_CODE, E.UPJANG, E.ITEM_CODE, MAX(E.CONTRACT_START) AS CONTRACT_START
+			                 FROM PO_CONTRACT_FSALE E
+			                WHERE E.CENTER_CODE IN (SELECT Y.CENTER_CODE FROM HLDC_PO_UPJANG_CENTER Y 
+			                                         WHERE EXISTS (SELECT 1 FROM SCC_COMMON_CODE Z WHERE Z.GROUP_CODE = 'FM002' AND Z.REMARK = :schCust AND Y.UPJANG = Z.CODE)) 
+			                  AND TO_CHAR(TO_DATE(:schDate1, 'YYYYMMDD')+5, 'YYYYMMDD') BETWEEN E.CONTRACT_START AND E.CONTRACT_END
+			                  AND EXISTS (SELECT 1 FROM SCC_COMMON_CODE Z
+			                               WHERE Z.GROUP_CODE = 'FM002'
+			                                 AND Z.REMARK = :schCust
+			                                 AND Z.CODE = E.UPJANG)
+			                  AND E.ITEM_CODE LIKE 'F%'
+			                  AND E.USE_YN = 'Y'
+			                GROUP BY E.CENTER_CODE, E.UPJANG, E.ITEM_CODE) D
+			            , ST_UPJANG E
+			        WHERE C.CENTER_CODE    = D.CENTER_CODE
+			          AND C.UPJANG         = D.UPJANG
+			          AND C.ITEM_CODE      = D.ITEM_CODE
+			          AND C.CONTRACT_START = D.CONTRACT_START
+			          AND C.UPJANG = E.UPJANG
+			          AND EXISTS (SELECT 1 FROM PO_CONTRACT_FSALE F
+			                       WHERE F.UPJANG = C.UPJANG
+			                         AND F.ITEM_CODE = C.ITEM_CODE)
+			          AND C.CONTRACT_PRICE > 0
+			          AND C.SALE_PRICE > 0
+			          AND C.USE_YN = 'Y') B
+			 WHERE A.ITEM_CODE = B.ITEM_CODE
+			   AND A.USE_YN = 'Y'
+			   AND B.UPJANG = '117710'	-- 이연본사단간업장정보만 보냄
+			 UNION ALL
+			SELECT A.UPJANG
+			     , A.UPJANGNM
+			     , B.START_DATE
+			     , B.ITEM_CODE
+			     , B.ITEM_NAME
+			     , B.ITEM_SIZE
+			     , B.UOM_CODE
+			     , B.TAX_CODE
+			     , B.UNIT_PRICE
+			     , B.UNIT_VAT
+			     , NVL((SELECT Z.D_DAYS FROM PO_PREORDER_LIST Z
+			             WHERE Z.CENTER_CODE = B.CENTER_CODE
+			               AND Z.ITEM_CODE = B.ITEM_CODE),0) /*+ 1*/ AS DELIVER_DAY
+			     , '0' AS CHK
+			     , '' AS IF_JOBID
+			     , '' AS MOD
+			     , '' AS LOGIN_SABUN
+			     , '' AS LOGIN_USERID
+			     , '' AS LOGIN_PERS_MASK
+			  FROM (SELECT DISTINCT Z.CENTER_CODE, Z.CUSTCD, Z.UPJANG, Y.UPJANGNM, Z.ITEM_CODE
+			          FROM PO_CONTRACT_FSALE Z, ST_UPJANG Y
+			         WHERE Z.UPJANG = Y.AP_UNITPRICE_UPJANG
+			           AND NVL(Y.CUSTCD, 0) =0
+			           AND Z.CUSTCD = (SELECT VD_CD FROM VO_FC_VENDOR WHERE OLD_VD_CD = :schCust)) A
+			     , (SELECT B.CENTER_CODE, B.CUSTCD
+			             , B.CONTRACT_START AS START_DATE
+			             , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.UOM_CODE
+			             , DECODE(A.TAX_CODE,'100','과세','210','면세','220','영세') AS TAX_CODE
+			             , B.CONTRACT_PRICE_M AS UNIT_PRICE
+			             ,CEIL(DECODE(A.TAX_CODE,'100',0.1,0) * B.CONTRACT_PRICE_M) AS UNIT_VAT
+			          FROM HLDC_PO_ITEM_MST A
+			             , (SELECT C.CENTER_CODE, C.CUSTCD, C.ITEM_CODE, C.CONTRACT_PRICE_M, C.CONTRACT_START
+			                  FROM PO_CONTRACT_F C
+			                     , (SELECT E.CENTER_CODE, E.CUSTCD, E.ITEM_CODE, MAX(E.CONTRACT_START) AS CONTRACT_START , E.UPJANG
+			                          FROM PO_CONTRACT_FSALE E
+			                         WHERE E.CUSTCD = (SELECT VD_CD FROM VO_FC_VENDOR WHERE OLD_VD_CD = :schCust)
+			                           AND E.CONTRACT_START <= TO_CHAR(TO_DATE(:schDate1, 'YYYYMMDD')+5, 'YYYYMMDD')
+					                   AND EXISTS (SELECT 1 FROM SCC_COMMON_CODE Z
+					                              WHERE Z.GROUP_CODE = 'FM002'
+					                                AND Z.REMARK = :schCust
+					                                AND Z.CODE = E.UPJANG)			                           
+			                           AND E.USE_YN = 'Y'
+			                           AND E.AP_UNITPRICE_UPJANG = '117710'		-- 이연본사단간업장정보만 보냄
+			                         GROUP BY E.CENTER_CODE, E.CUSTCD, E.ITEM_CODE , E.UPJANG) D
+			                 WHERE C.CENTER_CODE    = D.CENTER_CODE
+			                   AND C.CUSTCD         = D.CUSTCD
+			                   AND C.UPJANG			= D.UPJANG
+			                   AND C.ITEM_CODE      = D.ITEM_CODE
+			                   AND C.CONTRACT_START = D.CONTRACT_START
+			                   AND C.CONTRACT_PRICE > 0
+			                   AND C.CONTRACT_PRICE_M > 0
+			                   AND C.USE_YN = 'Y') B
+			         WHERE A.ITEM_CODE = B.ITEM_CODE
+			           AND A.USE_YN = 'Y') B
+			 WHERE A.CENTER_CODE = B.CENTER_CODE
+			   AND A.CUSTCD = B.CUSTCD
+			   AND A.ITEM_CODE = B.ITEM_CODE
+
+        ]]>
+    </statement>
+    
+    <!-- 고객시스템 Interface - 주문정보 목록을 조회한다. -->
+    <statement name="selectOrder" type="select">
+        /*+ com.hwfs.fm.fms.dao.CustSysInterfaceDAO.selectOrder */
+        <![CDATA[
+        SELECT A.PO_ID AS PR_ID
+		     , D.PR_DATE
+		     , A.SUBINV_CODE
+		     , B.SUBINV_NAME
+		     , A.ITEM_CODE
+		     , C.ITEM_NAME
+		     , (A.CENTER_DELI_QTY + A.DIRECT_DELI_QTY) AS PR_QTY
+		     , A.UNIT_PRICE
+		     , CEIL(DECODE(A.TAX_CODE,'100',0.1,0) * A.UNIT_PRICE) AS UNIT_VAT
+		     , ROUND((A.CENTER_DELI_QTY + A.DIRECT_DELI_QTY) * A.UNIT_PRICE) AS SALE_AMOUNT
+		     , A.NEED_DATE
+		     , D.PR_REMARK AS REMARK
+		     , DECODE(PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.NEED_DATE), (SELECT VD_CD FROM VO_FC_VENDOR WHERE OLD_VD_CD = :schCust), 'Y', 'N') AS SELF_CUST_YN
+             , 0 CHK
+             , :schDate1 AS NEED_DATE_F 
+             , :schDate2 AS NEED_DATE_T		     
+		  FROM (SELECT A.PO_ID,A.PO_NUM, A.CUSTCD, A.SUBINV_CODE, A.ITEM_CODE, A.CENTER_DELI_QTY, A.DIRECT_DELI_QTY, A.MARGIN_PRICE AS UNIT_PRICE, A.TAX_CODE, A.NEED_DATE, A.PR_ID
+		          FROM HLDC_PO_PO A
+		         WHERE A.NEED_DATE BETWEEN :schDate1 AND :schDate2
+		           --AND A.SUBINV_CODE BETWEEN 'C1000000' AND 'C1099999'
+		           AND SUBSTR(A.SUBINV_CODE,1,2) = 'C1'
+		           AND A.LINE_STATUS <> 'PD'
+		           AND A.CUSTCD = (SELECT VD_CD FROM VO_FC_VENDOR WHERE OLD_VD_CD = :schCust)
+		         UNION ALL
+		        SELECT A.PO_ID,A.PO_NUM, A.CUSTCD, A.SUBINV_CODE, A.ITEM_CODE, A.CENTER_DELI_QTY, A.DIRECT_DELI_QTY, A.SALE_PRICE AS UNIT_PRICE, A.TAX_CODE, A.NEED_DATE, A.PR_ID
+		          FROM HLDC_PO_PO A, ST_UPJANG B
+		         WHERE A.RC_UPJANG = B.UPJANG
+		           AND A.NEED_DATE BETWEEN :schDate1 AND :schDate2
+		           AND A.LINE_STATUS <> 'PD'
+		           --AND A.SUBINV_CODE BETWEEN 'S1000000' AND 'S1099999'
+		           AND SUBSTR(A.SUBINV_CODE,1,2) = 'S1'
+		           AND EXISTS (SELECT 1 FROM SCC_COMMON_CODE Z
+		                        WHERE Z.GROUP_CODE = 'FM002'
+		                          AND Z.REMARK = :schCust
+		                          AND Z.CODE = B.AP_UNITPRICE_UPJANG)
+		       ) A, HLDC_PO_SUBINVENTORY B, HLDC_PO_ITEM_MST C, SO_PR D
+		 WHERE A.SUBINV_CODE = B.SUBINV_CODE
+		   AND A.ITEM_CODE = C.ITEM_CODE
+		   AND A.PR_ID = D.PR_ID
+		   AND A.PO_NUM = D.PR_NUM
+		   AND D.SO_STATUS NOT IN ( '003' , '005', '999' )
+		 ORDER BY A.NEED_DATE, A.SUBINV_CODE, A.ITEM_CODE
+        ]]>
+    </statement>
+    
+    <!-- 고객시스템 Interface - 거래내역 목록을 조회한다. -->
+    <statement name="selectTrans" type="select">
+        /*+ com.hwfs.fm.fms.dao.CustSysInterfaceDAO.selectTrans */
+        <![CDATA[
+        SELECT A.TRANS_DATE AS TR_DATE                                                            /*입고일자*/
+             , C.SAUPNO AS BIZ_NUM                                                                /*사업자번호*/
+             , A.ITEM_CODE                                                                        /*상품코드*/
+             , D.ITEM_NAME                                                                        /*상품명*/
+             , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * A.TRANS_QTY) AS TR_QTY            /*수량*/
+             , A.SALE_PRICE AS UNIT_PRICE                                                        /*단가*/
+             --, SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * A.SALE_AMOUNT) AS SALE_AMOUNT    /*금액*/
+			 , SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(A.SALE_PRICE * A.TRANS_QTY)) AS SALE_AMOUNT 
+             , 0 CHK
+             ,:schDate1 TRANS_DATE_F
+             ,:schDate2 TRANS_DATE_T     
+          FROM FMS_TRANSACTION_V A, ST_UPJANG B, ST_CUST C, HLDC_PO_ITEM_MST D
+         WHERE A.TRANS_DATE BETWEEN :schDate1 AND :schDate2     
+           AND (A.TRANS_TYPE = 'I001' OR (A.TRANS_TYPE LIKE '_002' AND A.SOURCE_TYPE = 'PO'))
+           AND B.AP_UNITPRICE_UPJANG = :schCust
+           AND SUBSTR(A.SUBINV_CODE,1,2) = 'S1'
+           AND A.TRANS_UPJANG = B.UPJANG        
+           AND B.CUSTCD = C.CUSTCD
+           AND A.ITEM_CODE = D.ITEM_CODE
+         GROUP BY A.TRANS_DATE, C.SAUPNO, A.ITEM_CODE, D.ITEM_NAME, A.SALE_PRICE
+        ]]>
+    </statement>
+    
+    <!-- 고객시스템 Interface - 결과확인 목록을 조회한다. -->
+    <statement name="selectResult" type="select">
+        /*+ com.hwfs.fm.fms.dao.CustSysInterfaceDAO.selectResult */
+        <![CDATA[
+        SELECT '고객시스템' FROM DUAL
+        ]]>
+    </statement>
+    
+    <!-- 고객시스템 Interface - 주문정보2 목록을 조회한다. -->
+    <statement name="selectOrder2" type="select">
+        /*+ com.hwfs.fm.fms.dao.CustSysInterfaceDAO.selectOrder2 */
+        <![CDATA[
+		SELECT A.PO_ID AS PR_ID
+		     , D.PR_DATE
+		     , A.SUBINV_CODE
+		     , B.SUBINV_NAME
+		     , A.ITEM_CODE
+		     , C.ITEM_NAME
+		     , (A.CENTER_DELI_QTY + A.DIRECT_DELI_QTY) AS PR_QTY
+		     , A.UNIT_PRICE
+		     , CEIL(DECODE(A.TAX_CODE,'100',0.1,0) * A.UNIT_PRICE) AS UNIT_VAT
+		     , ROUND((A.CENTER_DELI_QTY + A.DIRECT_DELI_QTY) * A.UNIT_PRICE) AS SALE_AMOUNT
+		     , A.NEED_DATE
+		     , D.PR_REMARK AS REMARK
+		     --, DECODE(PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.NEED_DATE), (SELECT VD_CD FROM VO_FC_VENDOR WHERE OLD_VD_CD = :schCust), 'Y', 'N') AS SELF_CUST_YN
+             , CASE           
+         			WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.NEED_DATE) = 300005 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.NEED_DATE) = 350511 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.NEED_DATE) = 1060257 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.NEED_DATE) = 1063273 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.NEED_DATE) = 300006 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.NEED_DATE) = 1148215 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.NEED_DATE) = 1159593 THEN 'Y'
+              		WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.NEED_DATE) IS NULL THEN 
+                  	CASE 
+                    	WHEN EXISTS (SELECT 1 FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'CK_418579' AND CODE = A.ITEM_CODE) THEN 'Y'
+                    ELSE 'N'
+                   END
+             ELSE 'N'
+        		END AS SELF_CUST_YN
+             , 0 CHK
+             , :schDate1 AS NEED_DATE_F 
+             , :schDate2 AS NEED_DATE_T   		     
+		  FROM (SELECT A.PO_ID,A.PO_NUM, A.CUSTCD, A.SUBINV_CODE, A.ITEM_CODE, A.CENTER_DELI_QTY, A.DIRECT_DELI_QTY, A.MARGIN_PRICE AS UNIT_PRICE, A.TAX_CODE, A.NEED_DATE, A.PR_ID
+		          FROM HLDC_PO_PO A
+		         WHERE A.NEED_DATE BETWEEN:schDate1 AND :schDate2
+		           AND SUBSTR(A.SUBINV_CODE,1,2) = 'C1'
+		           AND A.LINE_STATUS <> 'PD'
+		           --AND A.CUSTCD = (SELECT VD_CD FROM VO_FC_VENDOR WHERE OLD_VD_CD = :schCust)
+		           AND A.CUSTCD IN ('300005', '350511', '1060257', '1063273', '300006', '1148215')
+		         UNION ALL
+		        SELECT A.PO_ID,A.PO_NUM, A.CUSTCD, A.SUBINV_CODE, A.ITEM_CODE, A.CENTER_DELI_QTY, A.DIRECT_DELI_QTY, A.SALE_PRICE AS UNIT_PRICE, A.TAX_CODE, A.NEED_DATE, A.PR_ID
+		          FROM HLDC_PO_PO A, ST_UPJANG B
+		         WHERE A.RC_UPJANG = B.UPJANG
+		           AND A.NEED_DATE BETWEEN:schDate1 AND :schDate2
+		           AND SUBSTR(A.SUBINV_CODE,1,2) = 'S1'
+		           AND A.LINE_STATUS <> 'PD'
+		           AND EXISTS (SELECT 1 FROM SCC_COMMON_CODE Z
+		                        WHERE Z.GROUP_CODE = 'FM002'
+		                          AND Z.REMARK = :schCust
+		                          AND Z.CODE = B.AP_UNITPRICE_UPJANG)
+		       ) A, HLDC_PO_SUBINVENTORY B, HLDC_PO_ITEM_MST C, SO_PR D
+		 WHERE A.SUBINV_CODE = B.SUBINV_CODE
+		   AND A.ITEM_CODE = C.ITEM_CODE
+		   AND A.PO_ID = D.PR_ID
+		   AND A.PO_NUM = D.PR_NUM
+		 ORDER BY A.NEED_DATE, A.SUBINV_CODE, A.ITEM_CODE
+        ]]>
+    </statement>
+    
+        <!-- 고객시스템 Interface - 주문정보2Batch 목록을 조회한다. -->
+    <statement name="selectOrder2Batch" type="select">
+        /*+ com.hwfs.fm.fms.dao.CustSysInterfaceDAO.selectOrder2Batch */
+        <![CDATA[
+		SELECT A.PO_ID AS PR_ID
+		     , D.PR_DATE
+		     , A.SUBINV_CODE
+		     , B.SUBINV_NAME
+		     , A.ITEM_CODE
+		     , C.ITEM_NAME
+		     , (A.CENTER_DELI_QTY + A.DIRECT_DELI_QTY) AS PR_QTY
+		     , A.UNIT_PRICE
+		     , CEIL(DECODE(A.TAX_CODE,'100',0.1,0) * A.UNIT_PRICE) AS UNIT_VAT
+		     , ROUND((A.CENTER_DELI_QTY + A.DIRECT_DELI_QTY) * A.UNIT_PRICE) AS SALE_AMOUNT
+		     , A.NEED_DATE
+		     , D.PR_REMARK AS REMARK
+		     -- , DECODE(PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.NEED_DATE), (SELECT VD_CD FROM VO_FC_VENDOR WHERE OLD_VD_CD = :schCust), 'Y', 'N') AS SELF_CUST_YN
+		     , CASE           
+         			WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.NEED_DATE) = 300005 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.NEED_DATE) = 350511 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.NEED_DATE) = 1060257 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.NEED_DATE) = 1063273 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.NEED_DATE) = 300006 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.NEED_DATE) = 1148215 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.NEED_DATE) = 1159593 THEN 'Y'
+              		WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.NEED_DATE) IS NULL THEN 
+                  	CASE 
+                    	WHEN EXISTS (SELECT 1 FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'CK_418579' AND CODE = A.ITEM_CODE) THEN 'Y'
+                    ELSE 'N'
+                   END
+             ELSE 'N'
+        		END AS SELF_CUST_YN
+             , 0 CHK
+             , TO_CHAR(SYSDATE+1,'YYYYMMDD') AS NEED_DATE_F
+             , TO_CHAR(SYSDATE+6,'YYYYMMDD') AS NEED_DATE_T 
+             , '' AS IF_JOBID
+			 , '' AS MOD
+			 , '' AS LOGIN_SABUN
+			 , '' AS LOGIN_USERID
+			 , '' AS LOGIN_PERS_MASK  	
+			 , NVL((SELECT K.SET1 FROM SCC_COMMON_CODE K WHERE K.GROUP_CODE = 'FM003' AND K.USE_YN = 'Y' AND K.CODE = B.UPJANG), '01') AS GUBUN
+		  FROM (SELECT A.PO_ID,A.PO_NUM, A.CUSTCD, A.SUBINV_CODE, A.ITEM_CODE, A.CENTER_DELI_QTY, A.DIRECT_DELI_QTY, A.MARGIN_PRICE AS UNIT_PRICE, A.TAX_CODE, A.NEED_DATE, A.PR_ID
+		          FROM HLDC_PO_PO A
+		         WHERE A.NEED_DATE BETWEEN TO_CHAR(SYSDATE+1,'YYYYMMDD') AND TO_CHAR(SYSDATE+6,'YYYYMMDD')
+		           AND SUBSTR(A.SUBINV_CODE,1,2) = 'C1'
+		           AND A.LINE_STATUS <> 'PD'
+		           --AND A.CUSTCD = (SELECT VD_CD FROM VO_FC_VENDOR WHERE OLD_VD_CD = :schCust)
+		           AND A.CUSTCD IN ('300005', '350511', '1060257', '1063273', '300006', '1148215')
+		         UNION ALL
+		        SELECT A.PO_ID,A.PO_NUM, A.CUSTCD, A.SUBINV_CODE, A.ITEM_CODE, A.CENTER_DELI_QTY, A.DIRECT_DELI_QTY, A.SALE_PRICE AS UNIT_PRICE, A.TAX_CODE, A.NEED_DATE, A.PR_ID
+		          FROM HLDC_PO_PO A, ST_UPJANG B
+		         WHERE A.RC_UPJANG = B.UPJANG
+		           AND A.NEED_DATE BETWEEN TO_CHAR(SYSDATE+1,'YYYYMMDD') AND TO_CHAR(SYSDATE+6,'YYYYMMDD')
+		           AND SUBSTR(A.SUBINV_CODE,1,2) = 'S1'
+		           AND A.LINE_STATUS <> 'PD'
+		           AND EXISTS (SELECT 1 FROM SCC_COMMON_CODE Z
+		                        WHERE Z.GROUP_CODE = 'FM002'
+		                          AND Z.REMARK = :schCust
+		                          AND Z.CODE = B.AP_UNITPRICE_UPJANG)
+		       ) A, HLDC_PO_SUBINVENTORY B, HLDC_PO_ITEM_MST C, SO_PR D
+		 WHERE A.SUBINV_CODE = B.SUBINV_CODE
+		   AND A.ITEM_CODE = C.ITEM_CODE
+		   AND A.PO_ID = D.PR_ID
+		   AND A.PO_NUM = D.PR_NUM
+		 ORDER BY A.NEED_DATE, A.SUBINV_CODE, A.ITEM_CODE
+        ]]>
+    </statement>
+    
+    <!-- 고객시스템 Interface - 거래내역2 목록을 조회한다. -->
+    <statement name="selectTrans2" type="select">
+        /*+ com.hwfs.fm.fms.dao.CustSysInterfaceDAO.selectTrans2 */
+        <![CDATA[
+        SELECT A.TRANS_ID AS TRANS_ID
+		     , A.TRANS_DATE
+		     , A.SUBINV_CODE
+		     , B.SUBINV_NAME
+		     , A.ITEM_CODE
+		     , C.ITEM_NAME
+		     , DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * A.TRANS_QTY AS TRANS_QTY
+		     , A.UNIT_PRICE
+		     , CEIL(DECODE(A.TAX_CODE,'100',0.1,0) * A.UNIT_PRICE) AS UNIT_VAT
+		     , DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * A.UNIT_AMOUNT AS SALE_AMOUNT
+		     , A.REMARK
+		     -- , DECODE(PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.TRANS_DATE), (SELECT VD_CD FROM VO_FC_VENDOR WHERE OLD_VD_CD = :schCust), 'Y', 'N') AS SELF_CUST_YN
+		     , CASE           
+         			WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.TRANS_DATE) = 300005 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.TRANS_DATE) = 350511 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.TRANS_DATE) = 1060257 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.TRANS_DATE) = 1063273 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.TRANS_DATE) = 300006 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.TRANS_DATE)  = 1148215 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.TRANS_DATE) = 1159593 THEN 'Y'
+              		WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.TRANS_DATE) IS NULL THEN 
+                  	CASE 
+                    	WHEN EXISTS (SELECT 1 FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'CK_418579' AND CODE = A.ITEM_CODE) THEN 'Y'
+                    ELSE 'N'
+                   END
+             ELSE 'N'
+        		END AS SELF_CUST_YN
+             , 0 CHK
+             ,:schDate1 TRANS_DATE_F
+             ,:schDate2 TRANS_DATE_T
+             , '' AS IF_JOBID
+			 , '' AS MOD
+			 , '' AS LOGIN_SABUN
+			 , '' AS LOGIN_USERID
+			 , '' AS LOGIN_PERS_MASK      		     
+		  FROM (SELECT A.TRANS_ID, A.TRANS_DATE, A.SUBINV_CODE, A.ITEM_CODE, A.TRANS_TYPE, A.TRANS_QTY, A.MARGIN_PRICE AS UNIT_PRICE, A.MARGIN_AMOUNT AS UNIT_AMOUNT, A.TAX_CODE, A.REMARK, A.CUSTCD
+		          FROM FMS_TRANSACTION_V A
+		         WHERE A.TRANS_DATE BETWEEN :schDate1 AND :schDate2
+		           AND (A.TRANS_TYPE = 'I001' OR (A.TRANS_TYPE LIKE '_002' AND A.SOURCE_TYPE = 'PO'))
+		           AND SUBSTR(A.SUBINV_CODE,1,2) = 'C1'
+		           -- AND A.CUSTCD = (SELECT VD_CD FROM VO_FC_VENDOR WHERE OLD_VD_CD = :schCust)
+		            AND A.CUSTCD IN ('300005', '350511', '1060257', '1063273', '300006', '1148215')
+		         UNION ALL
+		        SELECT A.TRANS_ID, A.TRANS_DATE, A.SUBINV_CODE, A.ITEM_CODE, A.TRANS_TYPE, A.TRANS_QTY, A.SALE_PRICE AS UNIT_PRICE, A.SALE_AMOUNT AS UNIT_AMOUNT, A.TAX_CODE, A.REMARK, A.CUSTCD
+		          FROM FMS_TRANSACTION_V A, ST_UPJANG B
+		         WHERE A.TRANS_UPJANG = B.UPJANG
+		           AND A.TRANS_DATE BETWEEN :schDate1 AND :schDate2
+		           AND (A.TRANS_TYPE = 'I001' OR (A.TRANS_TYPE LIKE '_002' AND A.SOURCE_TYPE = 'PO'))
+		           AND SUBSTR(A.SUBINV_CODE,1,2) = 'S1'
+		           AND EXISTS (SELECT 1 FROM SCC_COMMON_CODE Z
+		                        WHERE Z.GROUP_CODE = 'FM002'
+		                          AND Z.REMARK = :schCust
+		                          AND Z.CODE = B.AP_UNITPRICE_UPJANG)
+		       ) A, HLDC_PO_SUBINVENTORY B, HLDC_PO_ITEM_MST C
+		 WHERE A.SUBINV_CODE = B.SUBINV_CODE
+		   AND A.ITEM_CODE = C.ITEM_CODE
+		 ORDER BY A.TRANS_DATE, A.SUBINV_CODE, A.ITEM_CODE
+        ]]>
+    </statement>
+    
+    <!-- 고객시스템 Interface - 거래내역2Batch 목록을 조회한다. -->
+    <statement name="selectTrans2Batch" type="select">
+        /*+ com.hwfs.fm.fms.dao.CustSysInterfaceDAO.selectTrans2Batch */
+        <![CDATA[
+        SELECT A.TRANS_ID AS TRANS_ID
+		     , A.TRANS_DATE
+		     , A.SUBINV_CODE
+		     , B.SUBINV_NAME
+		     , A.ITEM_CODE
+		     , C.ITEM_NAME
+		     , DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * A.TRANS_QTY AS TRANS_QTY
+		     , A.UNIT_PRICE
+		     , CEIL(DECODE(A.TAX_CODE,'100',0.1,0) * A.UNIT_PRICE) AS UNIT_VAT
+		     , DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * A.UNIT_AMOUNT AS SALE_AMOUNT
+		     , A.REMARK
+		     --, DECODE(PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.TRANS_DATE), (SELECT VD_CD FROM VO_FC_VENDOR WHERE OLD_VD_CD = :schCust), 'Y', 'N') AS SELF_CUST_YN
+		     , CASE           
+         			WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.TRANS_DATE) = 300005 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.TRANS_DATE) = 350511 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.TRANS_DATE) = 1060257 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.TRANS_DATE) = 1063273 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.TRANS_DATE) = 300006 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.TRANS_DATE)  = 1148215 THEN 'Y'
+	            	WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.TRANS_DATE) = 1159593 THEN 'Y'
+              		WHEN PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.TRANS_DATE) IS NULL THEN 
+                  	CASE 
+                    	WHEN EXISTS (SELECT 1 FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'CK_418579' AND CODE = A.ITEM_CODE) THEN 'Y'
+                    ELSE 'N'
+                   END
+             ELSE 'N'
+        		END AS SELF_CUST_YN
+             , 0 CHK
+             , SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,6)||'01' TRANS_DATE_F
+             , TO_CHAR(SYSDATE,'YYYYMMDD') TRANS_DATE_T
+             , '' AS IF_JOBID
+			 , '' AS MOD
+			 , '' AS LOGIN_SABUN
+			 , '' AS LOGIN_USERID
+			 , '' AS LOGIN_PERS_MASK 
+			 , NVL((SELECT K.SET1 FROM SCC_COMMON_CODE K WHERE K.GROUP_CODE = 'FM003' AND K.USE_YN = 'Y' AND K.CODE = B.UPJANG), '01') AS GUBUN
+		  FROM (SELECT A.TRANS_ID, A.TRANS_DATE, A.SUBINV_CODE, A.ITEM_CODE, A.TRANS_TYPE, A.TRANS_QTY, A.MARGIN_PRICE AS UNIT_PRICE, A.MARGIN_AMOUNT AS UNIT_AMOUNT, A.TAX_CODE, A.REMARK, A.CUSTCD
+		          FROM FMS_TRANSACTION_V A
+		         WHERE A.TRANS_DATE2 BETWEEN SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,6)||'01' AND TO_CHAR(SYSDATE,'YYYYMMDD')
+		           AND (A.TRANS_TYPE = 'I001' OR (A.TRANS_TYPE LIKE '_002' AND A.SOURCE_TYPE = 'PO'))
+		           AND SUBSTR(A.SUBINV_CODE,1,2) = 'C1'
+		           -- AND A.CUSTCD = (SELECT VD_CD FROM VO_FC_VENDOR WHERE OLD_VD_CD = :schCust)
+		           AND A.CUSTCD IN ('300005', '350511', '1060257', '1063273', '300006', '1148215')
+		         UNION ALL
+		        SELECT A.TRANS_ID, A.TRANS_DATE, A.SUBINV_CODE, A.ITEM_CODE, A.TRANS_TYPE, A.TRANS_QTY, A.SALE_PRICE AS UNIT_PRICE, A.SALE_AMOUNT AS UNIT_AMOUNT, A.TAX_CODE, A.REMARK, A.CUSTCD
+		          FROM FMS_TRANSACTION_V A, ST_UPJANG B
+		         WHERE A.TRANS_UPJANG = B.UPJANG
+		           AND A.TRANS_DATE2 BETWEEN SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,6)||'01' AND TO_CHAR(SYSDATE,'YYYYMMDD')
+		           AND (A.TRANS_TYPE = 'I001' OR (A.TRANS_TYPE LIKE '_002' AND A.SOURCE_TYPE = 'PO'))
+		           AND SUBSTR(A.SUBINV_CODE,1,2) = 'S1'
+		           AND EXISTS (SELECT 1 FROM SCC_COMMON_CODE Z
+		                        WHERE Z.GROUP_CODE = 'FM002'
+		                          AND Z.REMARK = :schCust
+		                          AND Z.CODE = B.AP_UNITPRICE_UPJANG)
+		       ) A, HLDC_PO_SUBINVENTORY B, HLDC_PO_ITEM_MST C
+		 WHERE A.SUBINV_CODE = B.SUBINV_CODE
+		   AND A.ITEM_CODE = C.ITEM_CODE
+		   AND A.TRANS_DATE >= SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),1,6)||'01'
+		 ORDER BY A.TRANS_DATE, A.SUBINV_CODE, A.ITEM_CODE
+        ]]>
+    </statement>
+    
+    <!-- 고객시스템 Interface - 월 거래내역 목록을 조회한다. -->
+    <statement name="selectTransMonth" type="select">
+        /*+ com.hwfs.fm.fms.dao.CustSysInterfaceDAO.selectTransMonth */
+        <![CDATA[
+        SELECT A.TRANS_ID AS TRANS_ID
+		     , A.TRANS_DATE
+		     , A.SUBINV_CODE
+		     , B.SUBINV_NAME
+		     , A.ITEM_CODE
+		     , C.ITEM_NAME
+		     , DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * A.TRANS_QTY AS TRANS_QTY
+		     , A.UNIT_PRICE
+		     , CEIL(DECODE(A.TAX_CODE,'100',0.1,0) * A.UNIT_PRICE) AS UNIT_VAT
+		     , DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * A.UNIT_AMOUNT AS SALE_AMOUNT
+		     , A.REMARK
+		     , DECODE(PO_SOURCECUSTCD_FUN(A.CUSTCD, A.ITEM_CODE, A.TRANS_DATE), (SELECT VD_CD FROM VO_FC_VENDOR WHERE OLD_VD_CD = :schCust), 'Y', 'N') AS SELF_CUST_YN
+             , 0 CHK
+             , :schDate1 TRANS_MM		     
+		  FROM (SELECT A.TRANS_ID, A.TRANS_DATE, A.SUBINV_CODE, A.ITEM_CODE, A.TRANS_TYPE, A.TRANS_QTY, A.MARGIN_PRICE AS UNIT_PRICE, A.MARGIN_AMOUNT AS UNIT_AMOUNT, A.TAX_CODE, '' REMARK, A.CUSTCD
+		          FROM HLDC_PO_TRANSACTION A
+		         WHERE A.TRANS_DATE BETWEEN :schDate1||'01' AND :schDate1||'31'
+		           AND (A.TRANS_TYPE = 'I001' OR (A.TRANS_TYPE LIKE '_002' AND A.SOURCE_TYPE = 'PO'))
+		           AND SUBSTR(A.SUBINV_CODE,1,2) = 'C1'
+		           AND A.CUSTCD = (SELECT VD_CD FROM VO_FC_VENDOR WHERE OLD_VD_CD = :schCust)
+		         UNION ALL
+		        SELECT A.TRANS_ID, A.TRANS_DATE, A.SUBINV_CODE, A.ITEM_CODE, A.TRANS_TYPE, A.TRANS_QTY, A.UNIT_PRICE AS UNIT_PRICE, A.UNIT_AMOUNT AS UNIT_AMOUNT, A.TAX_CODE, '' REMARK, A.CUSTCD
+		          FROM HLDC_PO_TRANSACTION A, ST_UPJANG B
+		         WHERE A.TRANS_UPJANG = B.UPJANG
+		           AND A.TRANS_DATE BETWEEN :schDate1||'01' AND :schDate1||'31'
+		           AND (A.TRANS_TYPE = 'I001' OR (A.TRANS_TYPE LIKE '_002' AND A.SOURCE_TYPE = 'PO'))
+		           AND SUBSTR(A.SUBINV_CODE,1,2) = 'S1'
+		           AND EXISTS (SELECT 1 FROM PO_CODE Z
+		                        WHERE Z.GROUP_CODE = 'FM002'
+		                          AND Z.REMARK = :schCust
+		                          AND Z.CODE = B.AP_UNITPRICE_UPJANG)
+		       ) A, HLDC_PO_SUBINVENTORY B, HLDC_PO_ITEM_MST C
+		 WHERE A.SUBINV_CODE = B.SUBINV_CODE
+		   AND A.ITEM_CODE = C.ITEM_CODE
+		 ORDER BY A.TRANS_DATE, A.SUBINV_CODE, A.ITEM_CODE
+        ]]>
+    </statement>
+    
+    <!-- 고객시스템 Interface - 월 거래내역 목록을 조회한다. -->
+    <statement name="insert" type="insert">
+        /*+ com.hwfs.fm.fms.dao.CustSysInterfaceDAO.insert */
+        <![CDATA[
+        INSERT INTO TEMP_HW_PRODUCT ( ITEM_CODE,ITEM_NAME,ITEM_SIZE,UOM_CODE )
+		VALUES ( :itemCode, :itemName, :itemSize, :uomCode )
+        ]]>
+    </statement>
+
+
+
+</hqml>
+

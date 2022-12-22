@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT B.PART_NAME
+     , B.PART_SALES_NAME
+     , A.SDATE
+     , B.MAIN_UPJANGNM
+     , B.UPJANGNM
+     , SUM(PRE_SALE_AMOUNT) AS PRE_SALE_AMOUNT
+     , SUM(PRE_SALE_AMOUNT) - SUM(PRE_UNIT_AMOUNT) AS PRE_UNIT_AMOUNT
+     , DECODE(SUM(PRE_SALE_AMOUNT),0,0,100*(SUM(PRE_SALE_AMOUNT) - SUM(PRE_UNIT_AMOUNT))/SUM(PRE_SALE_AMOUNT)) AS YUL
+     , B.PART_NAME||'-'||B.PART_SALES_NAME AS PL_CD
+     ,  '1' PL_UP_CD
+     ,  '0' BL_SHOW
+     ,  3 LEVEL_NO
+     ,  '+' BL_PLUS
+  FROM (
+        SELECT C.UPJANG
+             , SUBSTR(C.BILL_DATE,1,6) AS SDATE
+             , BILL_AMOUNT AS PRE_SALE_AMOUNT
+             ,(SELECT SUM(DECODE(SUBSTR(Z.TRANS_TYPE,1,1),'I',1,-1) * Z.UNIT_AMOUNT)
+                 FROM PO_TRANSACTION@FCUS_TO_HLDC Z
+                WHERE Z.SGAMU = C.GAMU
+                  AND Z.SGADATE = C.GADATE
+                  AND Z.SGANO = C.GANO) AS PRE_UNIT_AMOUNT
+          FROM FM_BILL@FCUS_TO_HLDC C
+             , FMS_UPJANG@FCUS_TO_FSUS B
+         WHERE C.UPJANG = B.UPJANG
+           AND C.BILL_DATE   BETWEEN #TRANS_DATEFR# AND #TRANS_DATETO#
+           AND C.CANCEL_FLAG = 'N'
+           --AND C.DCGUBUN     = '1'
+           --AND C.ACCTCD      = '1110411'
+           AND C.DCGUBUN     = '2'
+           --AND C.ACCTCD      = '4010231'
+<isNotNull col="DEPT_ID">
+           AND B.DEPT_ID = #DEPT_ID#
+</isNotNull>         
+<isNotNull col="MAIN_UPJANG">
+           AND B.MAIN_UPJANG = #MAIN_UPJANG#
+</isNotNull>  
+<isNotNull col="UPJANG">
+           AND B.UPJANG = #UPJANG#
+</isNotNull>  
+<isNotNull col="JOB">    
+           AND B.BIZ_GROUP = #JOB#
+</isNotNull>   
+<isNotNull col="SUB_JOB">    
+           AND B.BIZ_DETAIL = #SUB_JOB#
+</isNotNull>      
+       ) A
+     , (
+        SELECT A.MAIN_UPJANG
+             , F.UPJANGNM_DISP AS MAIN_UPJANGNM
+             , A.UPJANG
+             , A.UPJANGNM_DISP AS UPJANGNM
+             , A.DEPT_ID
+             , D.TM_CD
+             , D.TM_NM
+             , B.CENTER_CODE
+             , C.CENTER_NAME
+             , E.AP_UNITPRICE_UPJANG
+             , A.PART_SALES_SABUN
+             , NM_KOR AS PART_SALES_NAME
+             , A.PART_CODE
+             , NVL((SELECT CODE_NAME FROM SCC_COMMON_CODE@FCUS_TO_FSUS  WHERE CODE  = A.PART_CODE AND GROUP_CODE = 'FM0022'),' 파트없음') AS PART_NAME
+          FROM FMS_UPJANG@FCUS_TO_FSUS A
+             , PO_UPJANG_CENTER@FCUS_TO_HLDC B
+             , PO_CENTER@FCUS_TO_HLDC C
+             , SC_DEPT_V@FCUS_TO_HLDC D
+             , ST_UPJANG@FCUS_TO_HLDC E
+             , FMS_UPJANG@FCUS_TO_FSUS F
+             , HR_PERSONAL@FCUS_TO_HLDC G
+         WHERE A.UPJANG = E.UPJANG
+           AND E.AP_UNITPRICE_UPJANG = B.UPJANG
+           AND B.CENTER_CODE = C.CENTER_CODE
+           AND A.DEPT_ID = D.DEPT_ID
+           AND A.MAIN_UPJANG = F.UPJANG
+           AND A.PART_SALES_SABUN = G.SABUN(+)
+       ) B
+ WHERE A.UPJANG = B.UPJANG
+<isNotNull col="PART_SALES_SABUN">
+   AND B.PART_SALES_SABUN = #PART_SALES_SABUN#
+</isNotNull>  
+<isNotNull col="PART_CODE">
+   AND B.PART_CODE = #PART_CODE#
+</isNotNull>  
+<isNotNull col="CENTER_CODE">
+   AND B.CENTER_CODE = #CENTER_CODE#
+</isNotNull>  
+ GROUP BY B.PART_NAME
+     , B.PART_SALES_NAME
+     , A.SDATE
+     , B.MAIN_UPJANGNM
+     , B.UPJANGNM
+</statement>
+	<input default-name="ds_cond">
+	    <col name="CENTER_CODE" size="256" type="VARCHAR" description="" /> 
+		<col name="DEPT_ID" size="255" type="NUMERIC" description="" /> 
+		<col name="PART_CODE" size="256" type="VARCHAR" description="" />
+		<col name="MAIN_UPJANG" size="256" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="256" type="VARCHAR" description="" />  
+		<col name="PART_SALES_SABUN" size="256" type="VARCHAR" description="" /> 
+		<col name="TRANS_DATEFR" size="255" type="VARCHAR" description="" /> 
+		<col name="TRANS_DATETO" size="255" type="VARCHAR" description="" /> 
+		<col name="JOB" size="255" type="VARCHAR" description="" /> 
+		<col name="SUB_JOB" size="255" type="VARCHAR" description="" /> 		
+	</input>
+	<output default-name="ds_list">      
+	</output>
+</query>

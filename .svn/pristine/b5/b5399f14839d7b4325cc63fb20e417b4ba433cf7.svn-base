@@ -1,0 +1,133 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\..\..\default_typedef.xml"/>
+  <Form id="COMP_GUIDE_13" classname="COMP_GUIDE_13" inheritanceid="" position="absolute 0 0 546 340" titletext="대외비문서관리이력" scrollbars="autoboth" onload="form_onload">
+    <Layouts>
+      <Layout>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 531 10"/>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 341"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 531 0 546 341"/>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 15 326 531 341"/>
+        <Static id="Static07" class="sta_WFSA_Labelbg" position="absolute 15 40 531 81" anchor="left top right"/>
+        <Static id="Static12" text="W10" visible="false" position="absolute 88 50 98 71" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static13" text="W30" visible="false" position="absolute 245 50 275 71" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static21" text="W10" visible="false" position="absolute 30 40 530 50" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static23" text="W10" visible="false" position="absolute 30 71 530 81" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static24" text="W15" visible="false" position="absolute 15 50 30 71" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static11" text="h15" visible="false" position="absolute 15 81 531 96" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static04" text="h05" class="Guide01_AreaRed" visible="false" position="absolute 284 35 531 40"/>
+        <Button id="btn_close" taborder="14" text="닫기" onclick="btn_close_onclick" class="btn_WF_CRUD" anchor="top right" position="absolute 486 10 531 35" positiontype="position"/>
+        <Grid id="grd_list" taborder="15" binddataset="ds_DocList" autoenter="select" useinputpanel="false" cellsizingtype="col" autofittype="col" position="absolute 15 96 531 326" anchor="left top right">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="47"/>
+                <Column size="80"/>
+                <Column size="127"/>
+                <Column size="80"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="순번"/>
+                <Cell col="1" text="상태"/>
+                <Cell col="2" text="사업장"/>
+                <Cell col="3" text="상태변경일"/>
+              </Band>
+              <Band id="body">
+                <Cell text="bind:LOG_SEQ"/>
+                <Cell col="1" text="bind:STATUS_NM"/>
+                <Cell col="2" displaytype="text" text="bind:UPJANGNM"/>
+                <Cell col="3" displaytype="date" text="bind:UDATE"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="Static00" text="문서종류" class="sta_WFSA_label" position="absolute 275 51 352 72" anchor="left top"/>
+        <Static id="Static05" text="문서번호" class="sta_WFSA_label" position="absolute 30 50 107 71" anchor="left top"/>
+        <Static id="Static08" text="W10" visible="false" position="absolute 333 50 343 71" style="background:#ff000055;align:center middle;"/>
+        <Edit id="ed_DocNum" taborder="16" position="absolute 98 50 245 72" enable="false" displaynulltext="WS-10875"/>
+        <Edit id="ed_DocKindNm" taborder="17" enable="false" position="absolute 343 50 515 72" displaynulltext="위생지침서"/>
+        <Static id="Static09" text="W15" visible="false" position="absolute 515 50 530 71" style="background:#ff000055;align:center middle;"/>
+      </Layout>
+    </Layouts>
+    <Bind/>
+    <Objects>
+      <Dataset id="ds_DocList" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="LOG_SEQ" type="STRING" size="256"/>
+          <Column id="UPJANGNM" type="STRING" size="256"/>
+          <Column id="STATUS_NM" type="STRING" size="256"/>
+          <Column id="UDATE" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_Cond" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="DOC_KIND_CD" type="STRING" size="256"/>
+          <Column id="DOC_NUM" type="INT" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+
+/*
+ ******************************************************************************************
+ * 시스템구분   : IFIS/영업관리/대외비문서관리
+ * 프로그램명   : MAS50010E.XML
+ * 기      능   : 대외비문서이력(팝업)
+ * 작  성  자   : 김민수
+ * 작성  일자   : 2015-01-26
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(this);
+
+	// X-Framework : Action 정보 생성
+	fsp_init(this);
+}
+
+function fn_search() 
+{
+	fsp_clear(this);
+	ds_DocList.clearData();
+	fsp_addSearch(this,"ma/mas:MAS50010P_S001");
+	fsp_callService(
+	        this
+	      , ""
+	      , ""
+	      , "ds_Cond=ds_Cond"
+	      , "ds_DocList=ds_DocList"
+	      , ""
+	      , ""
+    );
+}
+
+function btn_close_onclick(obj:Button,  e:ClickEventInfo)
+{
+	this.closePopup();
+}
+
+function fn_setPopupParameter(sObjParam) {
+    if (typeof sObjParam != "undefined" && sObjParam != null) {
+    
+		// 조회조건 DataSet
+		ds_Cond.clearData();
+		ds_Cond.addRow();
+		ds_Cond.setColumn(0, "DOC_KIND_CD", sObjParam.sParam1 );
+		ds_Cond.setColumn(0, "DOC_NUM",     sObjParam.sParam3 );
+    
+		ed_DocNum.value = sObjParam.sParam1 + "-" + sObjParam.sParam3;
+		ed_DocKindNm.value = sObjParam.sParam2;
+		
+		// 검색
+		fn_search();
+    }
+}
+]]></Script>
+  </Form>
+</FDL>

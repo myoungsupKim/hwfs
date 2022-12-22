@@ -1,0 +1,118 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\..\..\default_typedef.xml"/>
+  <Form id="MessageDetailBoardPop" classname="GUIDE_class" left="0" top="0" width="540" height="760" titletext="공지사항상세내용" onload="form_onload" style="padding:5 10 5 10;">
+    <Layouts>
+      <Layout>
+        <Static id="staFormSize" taborder="44" cssclass="sta_POP_Bg" left="0" top="0" width="540" height="760"/>
+        <Static id="sta_title" taborder="46" text="제목" cssclass="sta_POP_TitleBg" left="0" top="0" width="496" height="70"/>
+        <Button id="btnClose" taborder="45" onclick="btnClose_onclick" cssclass="btn_POP_XBtn" left="471" top="0" width="70" height="70"/>
+        <Static id="Static37" taborder="52" cssclass="sta_WFSA_LabelBg" left="9" top="70" right="8" height="59"/>
+        <Static id="Static15" taborder="50" text="w10" cssclass="sta_GUIDE_Area" visible="false" left="0" top="70" width="10" height="689" style="align:center middle;"/>
+        <Static id="Static13" taborder="48" text="w10" cssclass="sta_GUIDE_Area" visible="false" left="531" top="70" width="10" height="688" style="align:center middle;"/>
+        <Static id="Static38" taborder="53" text="부서" cssclass="sta_WF_Label02" left="0" top="70" width="135" height="59"/>
+        <Edit id="edt_dept" taborder="54" enable="true" left="139" top="76" right="10" height="47" readonly="true"/>
+        <Static id="Static00" taborder="55" cssclass="sta_WFSA_LabelBg" left="10" top="128" right="9" height="59"/>
+        <Edit id="edt_writer" taborder="56" enable="true" left="139" top="134" right="297" height="47" readonly="true"/>
+        <Static id="Static01" taborder="57" text="작성자" cssclass="sta_WF_Label02" left="0" top="128" width="135" height="59"/>
+        <Edit id="edt_noticeDate" taborder="58" enable="true" left="370" top="134" right="10" height="47" readonly="true"/>
+        <Static id="Static02" taborder="59" text="공지일" cssclass="sta_WF_Label02" left="248" top="128" width="135" height="59"/>
+        <WebBrowser id="webInfo" left="10" top="238" right="8" bottom="1" taborder="60"/>
+        <Static id="Static03" taborder="61" text=" ※ 모바일 공지사항은 첨부파일 다운로드를 지원하지 않습니다. 첨부파일 있는경우 PC에서 다운받아 보시기 바랍니다." left="10" top="193" width="520" height="39" style="color:red;font:bold antialias 10 Droid Sans;" wordwrap="char"/>
+      </Layout>
+    </Layouts>
+    <Bind>
+      <BindItem id="item1" compid="sta_title" propid="text" datasetid="ds_list" columnid="title"/>
+    </Bind>
+    <Objects>
+      <Dataset id="ds_grd" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="conId" type="STRING" size="256"/>
+          <Column id="userId" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript5.0"><![CDATA[//########################################################
+// [프로젝트]		FC종합전산 모바일시스템 구축
+// [시스템명]		가계약상세등록
+// [부시스템명]	가계약상세등록 - 조회
+// [설명]
+// 		부서 검색하기.
+// [작성자명] 		강대성
+// [작성일자]		2015.02.09
+// -----------------[수정이력]--------------------------
+// 수정일자 : 수정자 : 수정내용
+// 2015.02.09 : 강대성 : 수정이 필요하여 수정함.
+//########################################################
+include "lib::lib_Com.xjs"
+/*================================================================================
+ * 1. 변수 선언
+ *===============================================================================*/
+
+/*================================================================================
+ * 2. Form관련 Script
+ *===============================================================================*/
+/** 
+ * Form의 모든 컴포넌트가 생성되고, 모든 Object가 Load 되었을 때에 발생하는 Event
+ * @param
+	obj : Event가 발생한 Object
+	e : Event Object
+ * @return : 없음
+ */ 
+this.form_onload = function(obj:Form, e:nexacro.LoadEventInfo)
+{
+	application.goMenu = this;	
+	
+	this.arg = application.goMain.gfn_POP_getArg();
+
+	this.webInfo.set_url(this.gfn_subStrB(application.services["svc"].url) + this.arg[0]); //상세내용	
+	
+	if(this.gfn_isNull(this.arg[2]))
+ 	{
+		this.edt_dept.set_value(this.arg[5]);       //부서명이 없을경우 업장명을 보여준다
+ 	}else{
+		this.edt_dept.set_value(this.arg[2]);       //부서
+ 	}
+	this.edt_writer.set_value(this.arg[3]);     //작성자
+	this.edt_noticeDate.set_value(this.arg[4]); //공지일
+	
+	var nRow = this.ds_grd.addRow();
+	this.ds_grd.setColumn(nRow, "conId", this.arg[6]); //게시키값
+	this.ds_grd.setColumn(nRow, "userId", application.g_userId); //userId
+	
+	this.sta_title.set_text("상세내용");
+	
+	//조회건수갱신 function호출
+	this.saveReadCnt();
+	
+	application.goMain.gfn_POP_resize(this);	
+	
+}
+
+/*******************************************************************************
+* 기      능   :  조회건수갱신
+* 설      명   :  조회건수갱신
+********************************************************************************/
+this.saveReadCnt = function(obj:Button,  e:nexacro.ClickEventInfo)
+{
+	var strSvcID   		 = "saveReadCnt";
+	var strUrl     		 = "ms/mmb/messageBoard/saveList.xdo";
+	var strInDataset     = "ds_list=ds_grd:U";
+	var strOutDataset    = "";
+	var strArguments	 = "";
+	var strCallbackFunc	 = "fn_callBack";
+	var bAsync			 = true;
+
+	this.gfn_transaction(this, strSvcID, strUrl, strInDataset, strOutDataset, strArguments, strCallbackFunc, bAsync);
+  	
+}
+
+//닫기버튼 클릭 시
+this.btnClose_onclick = function(obj:Button,  e:nexacro.ClickEventInfo)
+{
+	var arg = new Array();
+	application.goMain.gfn_POP_close(this, arg);
+}
+]]></Script>
+  </Form>
+</FDL>

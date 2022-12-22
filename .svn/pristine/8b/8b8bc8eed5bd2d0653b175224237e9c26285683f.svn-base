@@ -1,0 +1,991 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Script type="xscript4.0"><![CDATA[/**
+ * @fileOverview
+ * String 관련 공통 함수 모음
+ */
+
+ /**
+ * @class 입력된 문자열의 양쪽에 쌍따옴표를 붙여 반환
+ * @param Val - 문자열
+ * @return String 양쪽에 쌍따옴표를 붙인 문자열
+ */   
+function gfn_quote()
+{
+	var retVal = '""';
+	var arrArgument = gfn_quote.arguments;
+
+	if ((arrArgument != null) && (arrArgument.length >= 1) && (!gfn_isNull(arrArgument[0]))) {
+		retVal = TOBE.wrapQuote(new String(arrArgument[0]));
+	}
+
+	return retVal;
+}
+
+ /**
+ * @class 입력값을 String으로 변경
+ * @param Val - 문자열
+ * @return String 문자열
+ */   
+function gfn_toString(Val)
+{
+	if (gfn_isNull(Val)) 
+	{
+		return new String();
+	}
+	return new String(Val);
+}
+
+ /**
+ * @class 지정한 위치에서 시작하고 지정한 길이를 갖는 부분 문자열을 반환하는 함수
+ * @param strString - 가운데 부문을 얻어올 원본 문자열
+ * @param nStart    - 얻어올 첫 글자의 Index
+ * @param nLength   - Integer 얻어올 글자수 [Default length(해당 개채의 길이)]
+ * @return String 문자열
+ */   
+function gfn_subStr(sVal, nStart, nLength)
+{
+	var retVal = "";
+	if (!gfn_isNull(sVal)) {
+		if (gfn_isNull(nLength)) {
+			retVal = String(sVal).substr(nStart);
+		} else {
+			retVal = String(sVal).substr(nStart, nLength);
+		}		
+	}
+
+	return retVal;
+}
+
+ /**
+ * @class 입력값 형태에 따라서 길이 또는 범위를 구하는 함수
+ * @param Val - 문자열
+ * @return Integer Type에 따라 구해진 길이
+ */ 
+function gfn_length(Val)
+{
+	if(gfn_isNull(Val)) return 0;
+ 
+ 	if ( typeof(Val) == "object" ) 
+ 	{
+		var rtnVal = 0;
+		
+		// Container
+		if(Val.components)
+		{
+			rtnVal = Val.components.length;
+		}
+		// 배열일 경우
+		else if(Val.constructor == Array) {
+			rtnVal = Val.length;
+		}
+		// 캘린더 등
+		else {
+			rtnVal = String(Val).length;
+		}
+		
+		return rtnVal;
+ 	} 
+ 	else {
+		return Val.toString().length;//string, number인 경우
+ 	}
+}
+
+ /**
+ * @class 문자 전체 길이를 계산
+          - 문자, 숫자, 특수문자 : 1 로 Count
+          - 그외 한글/한자 : 2 로 count 되어 합산 
+ * @param sVal - 문자열
+ * @return Integer Type에 따라 구해진 길이
+ */  
+function gfn_lengthByte(sVal)
+{
+	var lengthByte = 0;
+
+	if (gfn_isNull(sVal)) 
+	{
+		return 0;
+	}
+	
+	sVal = sVal.toString();
+	
+	for (var i = 0; i < sVal.length; i++) 
+	{
+		if (sVal.charCodeAt(i) > 127) 
+		{
+			lengthByte += 2;
+		}
+		else 
+		{
+			lengthByte += 1;
+		}
+	}
+
+	return lengthByte;
+}
+
+ /**
+ * @class 입력받은 string 의 utf8단위의 byte를 리턴한다.
+          - 문자, 숫자, 특수문자 : 1 로 Count
+          - 그외 한글/한자 : 2 ~ 4 로 count 되어 합산 
+ * @param sVal - 문자열
+ * @return Integer Type에 따라 구해진 길이
+ */   
+function gfn_lengthByteUtf8(sValue)
+{
+    var v_ChkStr = sValue.toString();
+    var v_cnt = 0;
+    var charCode = "";
+   
+    for (var i=0; i<v_ChkStr.length; i++)
+    {
+        charCode = v_ChkStr.charCodeAt(i);
+
+        if (charCode <= 0x00007F) {
+            v_cnt += 1;
+        } else if (charCode <= 0x0007FF) {
+            v_cnt += 2;
+        } else if (charCode <= 0x00FFFF) {
+            v_cnt += 3;
+        } else {
+            v_cnt += 4;
+        }
+    }
+	return v_cnt;
+}
+
+ /**
+ * @class 문자열의 오른쪽부분을 지정한 길이만큼 Return
+ * @param Val - 오른 부분을 얻어올 원본 문자열
+ * @param nSize - 얻어올 크기. [Default Value = 0]
+ * @return String 문자열
+ */ 
+function gfn_right(Val, nSize)
+{
+	var nStart = gfn_toString(Val).length;
+	var nEnd = Number(nStart) - Number(nSize);
+	var rtnVal = Val.substring(nStart, nEnd);
+
+	return rtnVal;
+}
+
+ /**
+ * @class 문자열의 왼쪽부분을 지정한 길이만큼 Return
+ * @param Val - 왼쪽 부분을 얻어올 원본 문자열
+ * @param nSize - 얻어올 크기. [Default Value = 0]
+ * @return String 문자열
+ */  
+function gfn_left(Val, nSize)
+{
+	return gfn_toString(Val).substr(0, nSize);
+}
+
+ /**
+ * @class 입력된 문자열의 일부분을 다른 문자열로 치환하는 함수
+ * @param Val - 원본 문자열
+ * @param strOld - 원본 문자열에서 찾을 문자열
+ * @param strNew - 새로 바꿀 문자열
+ * @return String 문자열
+ */   
+function gfn_replace(Val, strOld, strNew)
+{
+	var varRtnValue = "";
+	var arrArgument = gfn_replace.arguments;
+
+	if (gfn_isNull(arrArgument[0]) || gfn_isNull(arrArgument[1])) 
+	{
+		return varRtnValue;
+	}
+	
+	if (gfn_isNull(arrArgument[2])) {
+		arrArgument[2] = "";
+	}
+
+	varRtnValue = arrArgument[0].toString().replace(arrArgument[1], arrArgument[2]);
+	return varRtnValue;
+}
+
+ /**
+ * @class 문자열을 대소문자 구별없이 치환
+ * @param sOrg - 원래문자열
+ * @param sRepFrom - 치환할 문자열
+ * @param sRepTo - 치환될 문자열
+ * @return String 문자열
+ */    
+function gfn_replaceCase(sOrg, sRepFrom, sRepTo)
+{
+	var pos,nStart = 0,sRet = "";
+
+	if (gfn_isNull(sOrg)) 
+	{
+		return "";
+	}
+	if (gfn_isNull(sRepFrom)) 
+	{
+		return sOrg;
+	}
+	if (gfn_isNull(sRepTo)) 
+	{
+		return sOrg;
+	}
+
+	while (1) 
+	{
+		pos = gfn_posCase(sOrg, sRepFrom, nStart);
+		if (pos < 0) 
+		{
+			sRet += sOrg.substr(nStart);
+			break;
+		}
+		else 
+		{
+			sRet += sOrg.substr(nStart, pos - nStart);
+			sRet += sRepTo;
+			nStart = pos + sRepFrom.length;
+		}
+	}
+	return sRet;
+}
+
+ /**
+ * @class 문자 포맷 형식 변환 ( 해당 문자는 포맷에서 @ 사용)
+ * @param Val - 문자열
+ * @param strMask - 문자열 포맷, (@:문자, 포맷스트링("-", ",", ".")등
+ * @return String 포맷된 문자
+ */   
+function gfn_getFormat(Val, strMask)
+{
+	var strRetVal = "";
+	var sUnit;
+
+	if (gfn_isNull(Val)) 
+	{
+		return "";
+	}
+
+	Val = gfn_toString(Val);
+
+	for (var i = 0; i < strMask.length; i++) 
+	{
+		sUnit = strMask.substr(i, 1);
+
+		if (sUnit == "@") 
+		{
+			strRetVal += Val.substr(0, 1);
+			Val = Val.substr(1);
+		}
+		else 
+		{
+			strRetVal += sUnit;
+		}
+	}
+	return strRetVal;
+}
+
+ /**
+ * @class 특정 문자열을 기준으로 전체 문자열을 나누어서 하나의 배열(Array)로 만들어 반납하는 함수
+ * @param strString - 원본 문자열
+ * @param strChar - 나눌 기준이 되는 문자
+ * @return Array 1 차원 배열
+ */  
+function gfn_split()
+{
+	var rtnArr = new Array();
+	var arrArgument = gfn_split.arguments;
+
+	if (arrArgument.length < 1) {
+	} else if (arrArgument.length < 2) {
+		if (!gfn_isNull(arrArgument[0])) {
+			rtnArr[0] = arrArgument[0];
+		}
+	} else if (arrArgument.length == 2) {
+		if (!gfn_isNull(arrArgument[0])) {
+			rtnArr = arrArgument[0].toString().split(arrArgument[1]);
+		}
+	} else {
+		if (!gfn_isNull(arrArgument[0])) {
+			rtnArr = arrArgument[0].toString().split(arrArgument[1]);
+		}
+	}
+	
+	return rtnArr;
+}
+
+ /**
+ * @class 입력된 문자열을 strDelimiter1과 strDelimiter2로 2 번 Parsing 한 2차원 배열을 Return
+ * @param Val - 원본 문자열
+ * @param strDelimiter1 - 첫번째로 잘라낼 구분 문자열
+ * @param strDelimiter2 - 두번째로 잘라낼 구분 문자열
+ * @return Array 2 차원 배열
+ */   
+function gfn_split2(Val, strDelimiter1, strDelimiter2)
+{
+	var split2Arr = new Array();
+
+	Val = gfn_toString(Val);
+
+	var splitArr = Val.split(strDelimiter1);
+	for (var i = 0; i < splitArr.length; i++) 
+	{
+		split2Arr.getSetter(i).set(splitArr[i].split(strDelimiter2));
+	}
+	return split2Arr;
+}
+
+ /**
+ * @class 전체 문자열 중 특정 문자열이 포함된 위치를 반납
+ * @param Val    - 원본 문자열
+ * @param strOld - 검사할 문자열
+ * @param index  - 시작순서
+ * @return Integer 문자열이 포함된 위치의 index값
+ */    
+function gfn_indexOf(Val, strOld, index)
+{
+	if (gfn_isNull(index)) 
+	{
+		index = 0;
+	}
+	return gfn_toString(Val).indexOf(strOld, index);
+}
+
+ /**
+ * @class 문자열의 위치를 대소문자 구별하여 찾는다
+ * @param sOrg   - 원래 문자열
+ * @param sFind  - 찾고자 하는 문자열
+ * @param nStart - 검색 시작위치 (옵션 : Default=0) 
+ * @return Integer 찾고자 하는 문자열의 시작위치
+ */     
+function gfn_pos(sOrg, sFind, nStart)
+{
+	if (gfn_isNull(sOrg) || gfn_isNull(sFind)) 
+	{
+		return -1;
+	}
+	if (gfn_isNull(nStart)) 
+	{
+		nStart = 0;
+	}
+
+	return sOrg.indexOf(sFind, nStart);
+}
+
+ /**
+ * @class 문자열의 위치를 대소문자 구별없이 찾는다
+ * @param sOrg   - 원래 문자열
+ * @param sFind  - 찾고자 하는 문자열
+ * @param nStart - 검색 시작위치 (옵션 : Default=0)
+ * @return Integer 찾고자 하는 문자열의 시작위치
+ */  
+function gfn_posCase(sOrg, sFind, nStart)
+{
+	if (gfn_isNull(sOrg) || gfn_isNull(sFind)) 
+	{
+		return -1;
+	}
+	if (gfn_isNull(nStart)) 
+	{
+		nStart = 0;
+	}
+
+	return sOrg.toLowerCase().indexOf(sFind.toLowerCase(), nStart);
+}
+
+ /**
+ * @class 문자열의 위치를 대소문자 구별하여 거꾸로 찾는다
+ * @param sOrg   - 원래 문자열
+ * @param sFind  - 찾고자 하는 문자열( 예 : "bb" )
+ * @param nStart - 검색 시작위치 (옵션 : Default=문자열의 끝 )
+ * @return Integer 찾고자 하는 문자열의 시작위치
+ */   
+function gfn_posReverse(sOrg, sFind, nStart)
+{
+	var pos;
+
+	if (gfn_isNull(sOrg) || gfn_isNull(sFind)) 
+	{
+		return -1;
+	}
+	if (gfn_isNull(nStart)) 
+	{
+		nStart = sOrg.length - 1;
+	}
+
+	for (pos = nStart; pos >= 0; pos--) 
+	{
+		if (sOrg.substr(pos, sFind.length) == sFind) 
+		{
+			break;
+		}
+	}
+
+	return pos;
+}
+                                          
+ /**
+ * @class 입력된 문자열에서 가운데 부분을 주어진 길이만큼 Return
+ * @param strString   - 가운데 부문을 얻어올 원본 문자열
+ * @param nIndex - 얻어올 첫 글자의 Index
+ * @param nSize   - 얻어올 글자수
+ * @return String 오른쪽 부분이 얻어진 문자열
+ */                       
+function gfn_mid(strString, nIndex, nSize)                     
+{
+    var nStart = ((nIndex == null) ? 0 : ((nIndex.toString().length <= 0) ? 0 : nIndex-1));                                      
+    var nEnd = ((nSize == null) ? strString.toString().length : ((nSize.toString().length <= 0) ? strString.toString().length : nSize));                                                           
+    var rtnVal = strString.substr(nStart, nEnd);               
+ 
+    return String(rtnVal);                                     
+}
+
+ /**
+ * @class 시작글자와 끝글자에 해당하는 글자의 사이에 있는 가운데 글자를 대소문자를 구별하여 찾는다.
+          ( 예 : aaBBbbccdd에서 bb, dd사이의 글자 cc를 찾는다 )
+ * @param sOrg   - 원래 문자열
+ * @param sStart - 찾고자 하는 시작 문자열(옵션 : Default = "")
+ * @param sEnd   - 찾고자 하는 끝 문자열 (옵션 : Default = "")
+ * @param nStart - 검색 시작위치 (옵션 : Default=0)
+ * @return String 가운데 글자
+ */    
+function gfn_midString(sOrg, sStart, sEnd, nStart)
+{
+	var pos_start,pos_end,ret_str;
+
+	if (gfn_isNull(sOrg)) 
+	{
+		return "";
+	}
+	if (gfn_isNull(sStart)) 
+	{
+		sStart = "";
+	}
+	if (gfn_isNull(sEnd)) 
+	{
+		sEnd = "";
+	}
+	if (gfn_isNull(nStart)) 
+	{
+		nStart = 0;
+	}
+
+	if (sStart == "") 
+	{
+		pos_start = nStart;
+	}
+	else 
+	{
+		pos_start = gfn_pos(sOrg, sStart, nStart);
+		if (pos_start < 0) 
+		{
+			return "";
+		}
+	}
+	if (sEnd == "") 
+	{
+		pos_end = sOrg.length;
+	}
+	else 
+	{
+		pos_end = gfn_pos(sOrg, sEnd, pos_start + sStart.length, nStart);
+		if (pos_end < 0) 
+		{
+			return "";
+		}
+	}
+
+	return sOrg.substring(pos_start + sStart.length, pos_end);
+}
+
+ /**
+ * @class 시작글자와 끝글자에 해당하는 글자의 사이에 있는 가운데 글자를 대소문자 구별없이 찾는다.
+          ( 예 : aaBBbbccdd에서 bb, dd사이의 글자 cc를 찾는다 )
+ * @param sOrg   - 원래 문자열
+ * @param sStart - 찾고자 하는 시작 문자열(옵션 : Default = "")
+ * @param sEnd   - 찾고자 하는 끝 문자열 (옵션 : Default = "")
+ * @param nStart - 검색 시작위치 (옵션 : Default=0)
+ * @return String 가운데 글자
+ */   
+function gfn_midStringCase(sOrg, sStart, sEnd, nStart)
+{
+	var pos_start,pos_end,ret_str;
+
+	if (gfn_isNull(sOrg)) 
+	{
+		return "";
+	}
+	if (gfn_isNull(sStart)) 
+	{
+		sStart = "";
+	}
+	if (gfn_isNull(sEnd)) 
+	{
+		sEnd = "";
+	}
+	if (gfn_isNull(nStart)) 
+	{
+		nStart = 0;
+	}
+
+	if (sStart == "") 
+	{
+		pos_start = nStart;
+	}
+	else 
+	{
+		pos_start = gfn_posCase(sOrg, sStart, nStart);
+		if (pos_start < 0) 
+		{
+			return "";
+		}
+	}
+	if (sEnd == "") 
+	{
+		pos_end = sOrg.length;
+	}
+	else 
+	{
+		pos_end = gfn_posCase(sOrg, sEnd, pos_start + sStart.length, nStart);
+		if (pos_end < 0) 
+		{
+			return "";
+		}
+	}
+
+	return sOrg.substring(pos_start + sStart.length, pos_end);
+}
+
+ /**
+ * @class 시작글자와 끝글자에 해당하는 글자의 사이에 있는 가운데 글자를 대소문자를 구별하여 찾는다.
+           gfn_mid()함수와 동일하나 Return을 Array로 한다.
+ * @param sOrg   - 원래 문자열
+ * @param sStart - 찾고자 하는 시작 문자열(옵션 : Default = "")
+ * @param sEnd   - 찾고자 하는 끝 문자열 (옵션 : Default = "")
+ * @param nStart - 검색 시작위치 (옵션 : Default=0)
+ * @return Array  Array[0] = 가운데 글자 
+                  Array[1] = sStart의 위치
+                  Array[2] = sEnd의 위치 
+ */   
+function gfn_midArray(sOrg, sStart, sEnd, nStart)
+{
+	var pos_start,pos_end,ret_str;
+	var arr = new Array("", -1, -1);
+
+	if (gfn_isNull(sOrg)) 
+	{
+		return "";
+	}
+	if (gfn_isNull(sStart)) 
+	{
+		sStart = "";
+	}
+	if (gfn_isNull(sEnd)) 
+	{
+		sEnd = "";
+	}
+	if (gfn_isNull(nStart)) 
+	{
+		nStart = 0;
+	}
+
+	if (sStart == "") 
+	{
+		pos_start = nStart;
+	}
+	else 
+	{
+		pos_start = gfn_pos(sOrg, sStart, nStart);
+		if (pos_start < 0) 
+		{
+			return arr;
+		}
+	}
+	if (sEnd == "") 
+	{
+		pos_end = sOrg.length;
+	}
+	else 
+	{
+		pos_end = gfn_pos(sOrg, sEnd, pos_start + sStart.length, nStart);
+		if (pos_end < 0) 
+		{
+			return arr;
+		}
+	}
+
+	arr[0] = sOrg.substring(pos_start + sStart.length, pos_end);
+	arr[1] = pos_start;
+	arr[2] = pos_end;
+	return arr;
+}
+
+ /**
+ * @class 시작글자와 끝글자에 해당하는 글자의 사이에 있는 가운데 글자를 대소문자를 구별없이 찾는다.
+           gfn_midCase()함수와 동일하나 Return을 Array로 한다.
+ * @param sOrg   - 원래 문자열
+ * @param sStart - 찾고자 하는 시작 문자열(옵션 : Default = "")
+ * @param sEnd   - 찾고자 하는 끝 문자열 (옵션 : Default = "")
+ * @param nStart - 검색 시작위치 (옵션 : Default=0)
+ * @return Array  Array[0] = 가운데 글자
+                  Array[1] = sStart의 위치
+                  Array[2] = sEnd의 위치
+ */  
+function gfn_midCaseArray(sOrg, sStart, sEnd, nStart)
+{
+	var pos_start,pos_end,ret_str;
+	var arr = new Array("", -1, -1);
+
+	if (gfn_isNull(sOrg)) 
+	{
+		return "";
+	}
+	if (gfn_isNull(sStart)) 
+	{
+		sStart = "";
+	}
+	if (gfn_isNull(sEnd)) 
+	{
+		sEnd = "";
+	}
+	if (gfn_isNull(nStart)) 
+	{
+		nStart = 0;
+	}
+
+	if (sStart == "") 
+	{
+		pos_start = nStart;
+	}
+	else 
+	{
+		pos_start = gfn_posCase(sOrg, sStart, nStart);
+		if (pos_start < 0) 
+		{
+			return arr;
+		}
+	}
+	if (sEnd == "") 
+	{
+		pos_end = sOrg.length;
+	}
+	else 
+	{
+		pos_end = gfn_posCase(sOrg, sEnd, pos_start + sStart.length, nStart);
+		if (pos_end < 0) 
+		{
+			return arr;
+		}
+	}
+
+	arr[0] = sOrg.substring(pos_start + sStart.length, pos_end);
+	arr[1] = pos_start;
+	arr[2] = pos_end;
+	return arr;
+}
+
+ /**
+ * @class 대소문자 구별하여 왼쪽, 오른쪽 문자열 삭제
+ * @param sOrg - 원래 문자열
+ * @param sTrim - Trim할 문자열(옵션 : Default=" ") 
+ * @return String Trim된 문자열
+ */  
+function gfn_trim(sOrg, sTrim)
+{
+	var rtnVal = "";
+	if (gfn_isNull(sTrim)) 
+	{
+		sTrim = " ";
+	}
+	rtnVal = gfn_rTrim(sOrg, sTrim);
+	rtnVal = gfn_lTrim(rtnVal, sTrim);
+
+	return rtnVal;
+}
+
+ /**
+ * @class 대소문자 구별하여 왼쪽에서 문자열 삭제
+ * @param sOrg - 원래 문자열
+ * @param sTrim - Trim할 문자열(옵션 : Default=" ")
+ * @return String Trim된 문자열
+ */   
+function gfn_lTrim(sOrg, sTrim)
+{
+	var chk,pos;
+
+	sOrg = gfn_toString(sOrg);
+
+	if (gfn_isNull(sOrg)) 
+	{
+		return "";
+	}
+	if (gfn_isNull(sTrim)) 
+	{
+		sTrim = " ";
+	}
+
+	for (pos = 0; pos < sOrg.length; pos += sTrim.length) 
+	{
+		if (sOrg.substr(pos, sTrim.length) != sTrim) 
+		{
+			break;
+		}
+	}
+
+	return sOrg.substr(pos);
+}
+
+ /**
+ * @class 대소문자 구별없이 왼쪽에서 문자열 삭제
+ * @param sOrg - 원래 문자열
+ * @param sTrim - Trim할 문자열(옵션 : Default=" ") 
+ * @return String Trim된 문자열
+ */    
+function gfn_lTrimCase(sOrg, sTrim)
+{
+	var pos;
+
+	if (gfn_isNull(sOrg)) 
+	{
+		return "";
+	}
+	if (gfn_isNull(sTrim)) 
+	{
+		sTrim = " ";
+	}
+
+	for (pos = 0; pos < sOrg.length; pos += sTrim.length) 
+	{
+		if (sOrg.toLowerCase().substr(pos, sTrim.length) != sTrim.toLowerCase()) 
+		{
+			break;
+		}
+	}
+
+	return sOrg.substr(pos);
+}
+
+ /**
+ * @class 대소문자 구별하여 오른쪽에서 문자열 삭제
+ * @param sOrg - 원래 문자열
+ * @param sTrim - Trim할 문자열(옵션 : Default=" ")
+ * @return String Trim된 문자열
+ */     
+function gfn_rTrim(sOrg, sTrim)
+{
+	var pos,nStart;
+
+	sOrg = gfn_toString(sOrg);
+
+	if (gfn_isNull(sOrg)) 
+	{
+		return "";
+	}
+	if (gfn_isNull(sTrim)) 
+	{
+		sTrim = " ";
+	}
+
+	for (pos = sOrg.length - sTrim.length; pos >= 0; pos -= sTrim.length) 
+	{
+		if (sOrg.substr(pos, sTrim.length) != sTrim) 
+		{
+			break;
+		}
+	}
+
+	return sOrg.substr(0, pos + sTrim.length);
+}
+
+ /**
+ * @class 대소문자 구별없이 오른쪽에서 문자열 삭제
+ * @param sOrg - 원래 문자열
+ * @param sTrim - Trim할 문자열(옵션 : Default=" ")
+ * @return String Trim된 문자열
+ */ 
+function gfn_rTrimCase(sOrg, sTrim)
+{
+	var pos,nStart;
+
+	if (gfn_isNull(sOrg)) 
+	{
+		return "";
+	}
+	if (gfn_isNull(sTrim)) 
+	{
+		sTrim = " ";
+	}
+
+	for (pos = sOrg.length - sTrim.length; pos >= 0; pos -= sTrim.length) 
+	{
+		if (sOrg.toLowerCase().substr(pos, sTrim.length) != sTrim.toLowerCase()) 
+		{
+			break;
+		}
+	}
+
+	return sOrg.substr(0, pos + sTrim.length);
+}
+
+ /**
+ * @class 자리수 만큼 왼쪽에 문자열 추가
+ * @param sOrg - 원래 문자열
+ * @param sPad - Pad할 문자열
+ * @param nCnt - 자리수
+ * @return String Pad된 문자열
+ */ 
+function gfn_lPad(sOrg, sPad, nCnt)
+{
+	var i,sRet = "";
+	var nLength;
+
+	if (gfn_isNull(sOrg)) 
+	{
+		return "";
+	}
+	if (gfn_isNull(sPad)) 
+	{
+		sPad = " ";
+	}
+	if (gfn_isNull(nCnt)) 
+	{
+		nCnt = 1;
+	}
+
+	for (i = 0; i < nCnt; i++) 
+	{
+		sRet += sPad;
+	}
+	sRet += sOrg;
+	
+	nLength = gfn_length(sOrg) > nCnt ? gfn_length(sOrg) : nCnt;
+
+	return gfn_right(sRet,nLength);
+}
+
+ /**
+ * @class 자리수 만큼 오른쪽에 문자열 추가
+ * @param sOrg - 원래 문자열
+ * @param sPad - Pad할 문자열
+ * @param nCnt - 자리수
+ * @return String Pad된 문자열
+ */ 
+function gfn_rPad(sOrg, sPad, nCnt)
+{
+	var i,sRet = "";
+	var nLength;
+	
+	if (gfn_isNull(sOrg)) 
+	{
+		return "";
+	}
+	if (gfn_isNull(sPad)) 
+	{
+		sPad = " ";
+	}
+	if (gfn_isNull(nCnt)) 
+	{
+		nCnt = 1;
+	}
+
+	sRet += sOrg;
+	for (i = 0; i < nCnt; i++) 
+	{
+		sRet += sPad;
+	}
+
+	nLength = gfn_length(sOrg) > nCnt ? gfn_length(sOrg) : nCnt;
+	
+	return gfn_left(sRet,nLength);
+}
+
+ /**
+ * @class 대소문자 구별하여 문자개수 세기
+ * @param sOrg - 원래 문자열
+ * @param sCnt - 개수를 셀 문자열 
+ * @return Integer 문자개수
+ */  
+function gfn_strCount(sOrg, sCnt)
+{
+	var i,sRet = "";
+	var nCnt = 0;
+
+	if (gfn_isNull(sOrg) || gfn_isNull(sCnt)) 
+	{
+		return -1;
+	}
+
+	for (i = 0; i < sOrg.length; i += sCnt.length) 
+	{
+		if (sOrg.substr(i, sCnt.length) == sCnt) 
+		{
+			nCnt++;
+		}
+	}
+
+	return nCnt;
+}
+
+ /**
+ * @class 대소문자 구분없이 문자개수 세기
+ * @param sOrg - 원래 문자열
+ * @param sCnt - 개수를 셀 문자열
+ * @return Integer 문자개수
+ */   
+function gfn_strCountCase(sOrg, sCnt)
+{
+	var i,sRet = "";
+	var nCnt = 0;
+
+	if (gfn_isNull(sOrg) || gfn_isNull(sCnt)) 
+	{
+		return -1;
+	}
+
+	for (i = 0; i < sOrg.length; i += sCnt.length) 
+	{
+		if (sOrg.toLowerCase().substr(i, sCnt.length) == sCnt.toLowerCase()) 
+		{
+			nCnt++;
+		}
+	}
+
+	return nCnt;
+}
+
+ /**
+ * @class html형식의 문자열에서 태그문자를 특수문자로 변형
+ * @param str - html형식 문자열
+ * @return String 변형문자열
+ */ 
+function gfn_htmlToChars(str)
+{
+	str = "" + str;
+	if (gfn_isNull(str)) 
+	{
+		return "";
+	}
+	str = gfn_replace(str, "\&", '&amp;');
+	str = gfn_replace(str, "\'", '&apos;');
+	str = gfn_replace(str, "\"", '&quot;');
+	str = gfn_replace(str, "\'", '&#39;');
+	str = gfn_replace(str, "<", '&lt;');
+	str = gfn_replace(str, ">", '&gt;');
+	return str;
+}
+
+ /**
+ * @class 특수문자가 들어있는 문자열에서 html형식의 문자로 변형
+ * @param str - 특수문자 형식 문자열
+ * @return String html형식의 문자
+ */  
+function gfn_specToChars(str)
+{
+	str = "" + str;
+	if (gfn_isNull(str)) 
+	{
+		return "";
+	}
+	str = gfn_replace(str, "\&amp;", '&');
+	str = gfn_replace(str, "\&quot;", '"');
+	str = gfn_replace(str, "\&#39;", '\'');
+	str = gfn_replace(str, "\&lt;", '<');
+	str = gfn_replace(str, "\&gt;", '>');
+	return str;
+}]]></Script>

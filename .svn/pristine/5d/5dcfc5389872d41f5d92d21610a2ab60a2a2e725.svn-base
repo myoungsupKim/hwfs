@@ -1,0 +1,201 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FSP00171P" onload="form_onload" titletext="창고검색" position="absolute 0 0 529 405" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Grid autoenter="select" binddataset="ds_Subinv" enable="true" fillareatype="none" id="grd_list" useinputpanel="false" oncelldblclick="grd_list_OnCellDblClick" onkeydown="common_OnKeyDown" taborder="4" tabstop="true" usecontextmenu="true" useselcolor="true" visible="true" wheelscrollrow="1" position="absolute 15 74 514 390" readonly="true" selecttype="row">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="100"/>
+                <Column size="383"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="text" text="코드"/>
+                <Cell col="1" displaytype="text" text="창고"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" edittype="normal" style="align:middle left;" text="bind:CD"/>
+                <Cell col="1" displaytype="text" edittype="normal" style="align:left middle;" text="bind:NM"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="Static03" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 514 16 529 397"/>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 32 15 389"/>
+        <Static id="Static04" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 23 390 491 405"/>
+        <Static id="Static07" class="sta_WFSA_Labelbg" position="absolute 15 18 514 59" anchor="left top right"/>
+        <Static id="Static21" text="W10" visible="false" position="absolute 30 18 469 28" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static23" text="W10" visible="false" position="absolute 30 49 475 59" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static00" text="W15" visible="false" position="absolute 15 28 30 49" style="background:#ff000055;align:center middle;"/>
+        <Static id="Static11" text="h15" visible="false" position="absolute 15 59 381 74" style="background:#ff000055;align:center middle;"/>
+        <Edit id="ed_CD" imemode="none" onkeydown="common_OnKeyDown" taborder="1" position="absolute 30 28 159 50"/>
+        <Edit id="ed_NM" imemode="native,full" onkeydown="common_OnKeyDown" taborder="2" position="absolute 161 28 449 50"/>
+        <Button id="btn_Search" onclick="btn_Search_OnClick" taborder="3" text="조회" position="absolute 454 28 499 49" class="btn_WF_Custom" image=""/>
+        <Static id="st_title" text="검색조건" class="sta_WF_Title01" position="absolute 0 0 370 18" anchor="left top"/>
+        <Static id="Static02" text="글자기준간격 h05" class="Guide01_AreaRed" visible="false" position="absolute -1 13 395 18" anchor="left top"/>
+        <Static id="Static05" text="W15" visible="false" position="absolute 499 28 514 49" style="background:#ff000055;align:center middle;"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_Subinv"/>
+      <Dataset id="ds_Input"/>
+    </Objects>
+    <Bind/>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 창고 검색
+ * 프로그램명   : 
+ * 기      능   : 창고
+ * 작  성  자   : 윤상혁
+ * 작성  일자   : 20071120
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ *  1) 
+ ******************************************************************************************
+ */
+//@@컨버터에서 주석처리 #include "LIB::sc_comon.js";			// 시스템공통 함수
+//@@컨버터에서 주석처리 #include "LIB::po_common.js";
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js";
+//@@컨버터에서 주석처리 #include "LIB::sc_sql_common.js";
+//@@컨버터에서 주석처리 #include "LIB::tit_comm_0001.js";		// X-Framework Lib
+//@@컨버터에서 주석처리 #include "lib::fs_common.js"
+
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	fsp_init(this);
+}
+/******************************************************************************************
+ * 함  수  명   : fn_Search()
+ * 입      력   : ,
+ * 반      환   : 없음
+ * 기      능   :  검색
+ * 작  성  자   : 윤상혁
+ * 작성  일자   : 20071120
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ *  1) 
+ ******************************************************************************************
+ */
+function fn_search()
+{
+	ds_Subinv.clearData();
+
+	// 조회
+	ds_Input.clear();
+// 	ds_Input.addColumn("CD");
+// 	ds_Input.addColumn("NM");
+// 	ds_Input.addColumn("g_EmpNo");
+// 	
+	var dsObj = eval("ds_Input");
+	dsObj.addColumn("ITEM_CODE", "STRING", 100);
+	dsObj.addColumn("CD","STRING", 100);
+	dsObj.addColumn("NM","STRING", 100);
+	dsObj.addColumn("g_EmpNo","STRING", 100);
+	
+	ds_Input.addRow();
+	ds_Input.setColumn(0,"CD",gfn_trim(ed_CD.value));
+	ds_Input.setColumn(0,"NM",gfn_trim(ed_NM.value));
+	ds_Input.setColumn(0,"g_EmpNo",gfn_trim(g_EmpNo));
+	var actionName, cmdName, inData, outData, otherArg, callBackFnc;
+
+	actionName		= "FSP00171P_S001";
+	cmdName			= "U_svc::" + "fs/fsp/FSP00171P_S001.jsp";
+	inData			= "ds_Input=ds_Input";
+	outData			= "ds_Subinv=ds_Subinv";
+	
+	callBackFnc		= "";
+	http.Sync=true;
+	jsp_transaction(this,actionName, cmdName ,inData ,outData,"",callBackFnc,true,false,false);
+	http.Sync=false;
+}
+
+function fn_call_back(cd,errmsg)
+{
+	if(cd!=0)
+	{
+
+	}
+	else
+	{
+	}
+}
+
+/******************************************************************************************
+ * 함  수  명   : btn_Search_OnClick()
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : 버튼 클릭시 조회함수 호출
+ * 작  성  자   : 윤상혁
+ * 작성  일자   : 20071120
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ *  1) 
+ ******************************************************************************************
+ */
+function btn_Search_OnClick(obj:Button, e:ClickEventInfo)
+{
+	fn_search();
+}
+/******************************************************************************************
+ * 함  수  명   : grd_list_OnCellDblClick()
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : 그리드 더블 클릭시 값반환
+ * 작  성  자   : 윤상혁
+ * 작성  일자   : 20071120
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ *  1) 
+ ******************************************************************************************
+ */
+function grd_list_OnCellDblClick(obj:Grid, e:GridClickEventInfo)
+{
+	var v_str="";
+	if(ds_Subinv.getRowCount()>0)
+	{
+		v_str=	ds_Subinv.getColumn(e.row,"CD")+";"
+			  +	ds_Subinv.getColumn(e.row,"CD_NM")+";"
+			  +	ds_Subinv.getColumn(e.row,"NM");
+		
+	}
+	close(v_str);	
+}
+
+function common_OnKeyDown(obj:Edit, e:KeyEventInfo)
+{
+	if(e.keycode!=13)
+	{
+		return;
+	}
+	
+	var strObj=GetNextComponent(null);
+	if(e.keycode==13 && strObj.name=="btn_Search")
+	{
+		fn_search();
+		grd_list.setFocus();
+	}
+	else
+	{
+		if(obj.name=="grd_list")
+		{
+			grd_list_OnCellDblClick(eval("grd_list"));
+		}
+		else
+		{
+			
+			strObj.setFocus();
+		}
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

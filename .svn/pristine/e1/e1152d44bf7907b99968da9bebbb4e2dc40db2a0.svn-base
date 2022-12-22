@@ -1,0 +1,777 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="ls.lem.inspectRptIssueInqueryDAO">
+	<desc>성적서발급 및 결과 조회</desc>
+
+	<!-- 시험접수목록 DATA를 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.ls.lem.dao.InspectRptIssueInqueryDAO.selectList */
+		<![CDATA[
+/* 접수목록 조회 */
+SELECT '0' AS CHK
+     , A.REQ_NUM
+     , A.REQ_DATE
+     , A.ACCEPTNM
+     , A.UPJANG_NM
+     , A.ORG_NM
+     , (SELECT COUNT(1)
+          FROM LRM_SPECM_INFO B
+         WHERE A.REQ_NUM = B.REQ_NUM) AS SPECM_CNT		/* 검체목록건수 */
+     , (
+        SELECT NVL(SUM(DECODE(Y.COMM_1_USE_YN, 'Y', SUM(Y.COMM_1), 0)) +
+                   SUM(DECODE(Y.COMM_2_USE_YN, 'Y', SUM(Y.COMM_2), 0)) +
+                   SUM(DECODE(Y.COMM_3_USE_YN, 'Y', SUM(Y.COMM_3), 0)) +
+                   SUM(DECODE(Y.COMM_4_USE_YN, 'Y', SUM(Y.COMM_4), 0)) +
+                   SUM(DECODE(Y.COMM_5_USE_YN, 'Y', SUM(Y.COMM_5), 0)), 0)
+          FROM LRM_SPECM_INFO X
+             , LRM_TEST_INFO Y
+         WHERE 1 = 1
+           AND X.REQ_NUM = A.REQ_NUM
+           AND X.REQ_NUM = Y.REQ_NUM
+           AND X.ACCEPT_NUM = Y.ACCEPT_NUM
+           --AND X.COST_CLASS = '102' -- 유상
+         GROUP BY Y.COMM_1_USE_YN, Y.COMM_2_USE_YN, Y.COMM_3_USE_YN, Y.COMM_4_USE_YN, Y.COMM_5_USE_YN
+       ) AS COMM_TOT_AMT
+     , (SELECT X.NM_KOR
+          FROM SCC_USERINFO X
+         WHERE X.SABUN = A.CUSER) AS USER_NM		/* 접수자 */
+     , (SELECT MAX(ACCEPTDD)
+          FROM LRM_SPECM_INFO B
+         WHERE A.REQ_NUM = B.REQ_NUM) AS ACCEPTDD		/* 접수일자 */
+     , CASE WHEN (SELECT COUNT(1) FROM LRM_TEST_INFO WHERE REQ_NUM = A.REQ_NUM) =
+                 (SELECT COUNT(1) FROM LTM_TEST_DIARY WHERE REQ_NUM = A.REQ_NUM AND LAST_DECISION IS NOT NULL)
+            THEN
+              'Y'
+            ELSE
+              'N'
+       END AS COMPLETE_YN	/* 시험완료 여부 */
+     , CASE WHEN (SELECT COUNT(1) FROM LRM_TEST_INFO WHERE REQ_NUM = A.REQ_NUM) =
+                 (SELECT COUNT(1) FROM LTM_TEST_DIARY WHERE REQ_NUM = A.REQ_NUM AND LAST_DECISION IS NOT NULL)
+            THEN
+              (SELECT TO_CHAR(MAX(UDATE), 'YYYYMMDD')
+                 FROM LTM_TEST_DIARY
+                WHERE REQ_NUM = A.REQ_NUM)
+            ELSE
+              ''
+       END AS COMPLETE_DD	/* 시험완료일자 */
+     , U.PROC_CLASS AS PROGRESS_STATUS	/* 진행상태 */
+     , (
+         SELECT MAX(X.PUBLISH_NUM)
+           FROM LEM_INSPECT_RPT_ISSUE_LOG X
+          WHERE X.REQ_NUM = A.REQ_NUM
+       ) AS PUBLISH_NUM    /* 발급 번호 */
+     , (
+         SELECT MAX(X.PUBLISHDD)
+           FROM LEM_INSPECT_RPT_ISSUE_LOG X
+          WHERE X.REQ_NUM = A.REQ_NUM
+       ) AS PUBLISH_DATE	/* 발급일자 */
+     , (
+         SELECT MAX(X.REQ_DATE)
+           FROM LEM_INSPECT_RPT_ISSUE_LOG X
+          WHERE X.REQ_NUM = A.REQ_NUM
+       ) AS RPTISSUE_REQ_DATE	/* 최근발급신청일자 */
+     , (
+         SELECT MAX(X.ISSUE_REASON) KEEP(DENSE_RANK FIRST ORDER BY X.REQ_DATE DESC)
+           FROM LEM_INSPECT_RPT_ISSUE_LOG X
+          WHERE X.REQ_NUM = A.REQ_NUM
+       ) AS ISSUE_REASON    /* 최근 재발급 사유 */
+     , (
+         SELECT COUNT(1)
+           FROM LEM_INSPECT_RPT_ISSUE_LOG
+          WHERE REQ_NUM = A.REQ_NUM
+            AND PUBLISHDD IS NOT NULL
+       ) AS PUBLISH_CNT	/* 발급횟수 */
+     , DECODE(A.INSPECT_RPT_ISSUE, NULL, 'N', A.INSPECT_RPT_ISSUE) AS INSPECT_RPT_ISSUE    /* 성적서 발급 여부 */
+     , U.PROC_REASON  /* 취소/반려사유 */
+     , (SELECT X.NM_KOR
+          FROM SCC_USERINFO X
+         WHERE X.SABUN = U.PROC_USER) AS PROC_USER_NM  /* 처리자 */
+     , U.PROCDD  /* 처리일자 */
+     , (
+         SELECT MAX(SIGN_INSTANCE_ID)
+           FROM LRM_ELCTNSIGN_INFO
+          WHERE REQ_NUM = A.REQ_NUM
+            AND SEQ = 3 /* 1:최종결재, 2:부적합결재, 3:성적서발급결재, 4:성적서재발급결재 */
+       ) AS SIGN_INSTANCE_ID	/* 전자결재 ID */
+     , CASE WHEN EXISTS (
+                        SELECT 1
+                          FROM LRM_ELCTNSIGN_INFO
+                         WHERE REQ_NUM = A.REQ_NUM
+                           AND SEQ = 3 /* 1:최종결재, 2:부적합결재, 3:성적서발급결재, 4:성적서재발급결재 */
+                        ) THEN
+                 (SELECT NVL(SCC_SIGN_STATUS_FUN(MAX(SIGN_INSTANCE_ID)), 'DRAFT')	/* 결재상태가 1분정도 걸리기때문에 */
+                    FROM LRM_ELCTNSIGN_INFO
+                   WHERE REQ_NUM = A.REQ_NUM
+                     AND SEQ = 3) /* 1:최종결재, 2:부적합결재, 3:성적서발급결재, 4:성적서재발급결재 */
+       END AS SIGN_PROGRESS_STATUS    /* 전자결재 상태 */
+     , (
+         SELECT MAX(SIGN_INSTANCE_ID)
+           FROM LRM_ELCTNSIGN_INFO
+          WHERE REQ_NUM = A.REQ_NUM
+            AND SEQ = 4 /* 1:최종결재, 2:부적합결재, 3:성적서발급결재, 4:성적서재발급결재 */
+       ) AS SIGN_INSTANCE_ID_RE_ISSUE    /* 전자결재 ID */
+     , CASE WHEN EXISTS (
+                        SELECT 1
+                          FROM LRM_ELCTNSIGN_INFO
+                         WHERE REQ_NUM = A.REQ_NUM
+                           AND SEQ = 4 /* 1:최종결재, 2:부적합결재, 3:성적서발급결재, 4:성적서재발급결재 */
+                        ) THEN
+                 (SELECT NVL(SCC_SIGN_STATUS_FUN(MAX(SIGN_INSTANCE_ID)), 'DRAFT')   /* 결재상태가 1분정도 걸리기때문에 */
+                    FROM LRM_ELCTNSIGN_INFO
+                   WHERE REQ_NUM = A.REQ_NUM
+                     AND SEQ = 4) /* 1:최종결재, 2:부적합결재, 3:성적서발급결재, 4:성적서재발급결재 */
+       END AS SIGN_PROGRESS_STATUS_RE_ISSUE    /* 전자결재 상태 */
+  FROM LRM_TEST_REQ_ACCEPT A
+     , (
+        SELECT PD.REQ_NUM
+             , PD.PROC_USER
+             , PD.PROCDD
+             , PD.PROC_REASON
+             , PD.PROC_CLASS
+             , PD.SEQ
+          FROM (
+                SELECT Y.REQ_NUM
+                     , Y.PROC_USER
+                     , Y.PROCDD
+                     , Y.PROC_REASON
+                     , Y.PROC_CLASS
+                     , Y.SEQ
+                     , ROW_NUMBER() OVER (PARTITION BY Y.REQ_NUM ORDER BY Y.REQ_NUM, Y.SEQ DESC) AS RN
+                  FROM LRM_PROC_DESC Y
+               ) PD
+         WHERE RN = 1
+       ) U
+ WHERE 1 = 1
+   AND A.REQ_NUM = U.REQ_NUM(+)
+   AND A.INSPECT_RPT_ISSUE IN ('Y','S')	/* 성적서 발급여부 */
+<#if toDay?has_content> AND A.REQ_DATE BETWEEN :fromDay AND :toDay </#if>
+<#if toDayTest?has_content>
+   AND EXISTS (SELECT 1
+                 FROM LTM_TEST_DIARY
+                WHERE A.REQ_NUM = REQ_NUM
+                  AND TESTDD BETWEEN :fromDayTest AND :toDayTest)
+</#if>
+<#if specmNm?has_content>
+   AND EXISTS (SELECT 1
+                 FROM LRM_SPECM_INFO
+                WHERE A.REQ_NUM = REQ_NUM
+                  AND SPECM_NM LIKE '%' || :specmNm || '%')
+</#if>
+<#if testArticleNm?has_content>
+   AND EXISTS (SELECT 1
+                 FROM LRM_TEST_INFO TI
+                    , LCM_TEST_ARTICLE TA
+                WHERE A.REQ_NUM = TI.REQ_NUM
+                  AND TI.ARTICLE_CD = TA.ARTICLE_CD
+                  AND TA.ARTICLE_NM LIKE '%' || :testArticleNm || '%')
+</#if>
+<#if testUser?has_content>
+   AND EXISTS (SELECT 1
+                 FROM LRM_TEST_INFO TI
+                WHERE A.REQ_NUM = TI.REQ_NUM
+                  AND TI.SABUN = :testUser)
+</#if>
+<#if writeYn?has_content>
+   AND CASE WHEN EXISTS (SELECT 1
+                           FROM LTM_TEST_DIARY
+                          WHERE A.REQ_NUM = REQ_NUM)
+            THEN
+              'Y'
+            ELSE
+              'N'
+       END = :writeYn
+</#if>
+<#if endYn?has_content>
+   AND CASE WHEN (SELECT COUNT(1) FROM LRM_TEST_INFO WHERE REQ_NUM = A.REQ_NUM) =
+                 (SELECT COUNT(1) FROM LTM_TEST_DIARY WHERE REQ_NUM = A.REQ_NUM AND LAST_DECISION IS NOT NULL)
+            THEN
+              'Y'
+            ELSE
+              'N'
+       END = :endYn
+</#if>
+<#if progressStatus?has_content> AND U.PROC_CLASS = :progressStatus </#if>
+ ORDER BY A.REQ_NUM DESC
+        ]]>
+	</statement>
+
+	<!-- 시험진행 및 결과 목록 DATA를 조회한다. -->
+	<statement name="selectSpecmList" type="select">
+		/*+
+		com.hwfs.ls.lem.dao.InspectRptIssueInqueryDAO.selectSpecmList */
+		<![CDATA[
+/* 접수 등록 후 의뢰번호로 검체정보 조회 */
+SELECT A.REQ_NUM,
+       A.ACCEPT_NUM,
+       A.ACCEPTDD,
+       A.SPECM_CLASS,
+       A.SPECM_CD,
+       A.SPECM_NM,
+       A.SPECM_TYPE,
+       A.MGRP_CD,
+       A.MCALSS_CD,
+       A.SCLASS_CD,
+       ((SELECT X.MGRP_NM FROM LCM_SPECM_TYPE_MGRP X WHERE X.SPECM_TYPE = A.SPECM_TYPE AND X.MGRP_CD = A.MGRP_CD) || ' / ' ||
+        (SELECT X.MCALSS_NM FROM LCM_SPECM_TYPE_MCALSS X WHERE X.SPECM_TYPE = A.SPECM_TYPE AND X.MCALSS_CD = A.MCALSS_CD) || ' / ' ||
+        (SELECT X.SCLASS_NM FROM LCM_SPECM_TYPE_SCLASS X WHERE X.SPECM_TYPE = A.SPECM_TYPE AND X.SCLASS_CD = A.SCLASS_CD))
+       AS SPECM_TYPE_NM,				/* 검체 유형명 ( 대분류명 / 중분류명 / 소분류명 ) */
+       SCC_CODE_NM('SPECM_TYPE_PCLS', A.SPECM_TYPE_PCLS) AS SPECM_TYPE_PCLS_NM,	/* 세부 검체 유형 */
+       A.SPECM_TYPE_PCLS,
+       A.COST_CLASS,					/* 비용 */
+       SCC_CODE_NM('COST_CLASS', A.COST_CLASS) AS COST_CLASS_NM,
+       A.INSPT_MTOD,					/* 검사방법 */
+       SCC_CODE_NM('INSPT_MTOD', A.INSPT_MTOD) AS INSPT_MTOD_NM,
+       A.INSPT_CLASS,					/* 검사구분 */
+       SCC_CODE_NM('INSPT_CLASS', A.INSPT_CLASS) AS INSPT_CLASS_NM,
+       A.INSPT_PURP_1,					/* 검사목적1 */
+       SCC_CODE_NM('INSPT_PURP_1', A.INSPT_PURP_1) AS INSPT_PURP_1_NM,
+       A.INSPT_PURP_2,					/* 검사목적2 */
+       SCC_CODE_NM('INSPT_PURP_2', A.INSPT_PURP_2) AS INSPT_PURP_2_NM,
+       A.INSPT_PURP_3,					/* 검사목적3 */
+       SCC_CODE_NM('INSPT_PURP_3', A.INSPT_PURP_3) AS INSPT_PURP_3_NM,
+       A.SPECM_WTRLST_NM,               /* 검체물성 */
+       SCC_CODE_NM('SPECM_WTRLST_NM', A.SPECM_WTRLST_NM) SPECM_WTRLST_NM_NM,
+       A.LONGSTORAGE_YN,                /* 장기보존여부 */
+       SCC_CODE_NM('LONGSTORAGE_YN', A.LONGSTORAGE_YN) AS LONGSTORAGE_YN_NM,
+       A.INSPTBEFORE_SPECM_STATUS,      /* 검사전검체상태 */
+       SCC_CODE_NM('INSPTBEFORE_SPECM_STATUS', A.INSPTBEFORE_SPECM_STATUS) AS INSPTBEFORE_SPECM_STATUS_NM,
+       A.PICK_STATUS,                   /* 채취상태 */
+       SCC_CODE_NM('PICK_STATUS', A.PICK_STATUS) AS PICK_STATUS_NM,
+       A.INSPT_OBJ_1,                   /* 검사대상1 */
+       SCC_CODE_NM('INSPT_OBJ_1', INSPT_OBJ_1) AS INSPT_OBJ_1_NM,
+       A.INSPT_OBJ_2,                   /* 검사대상2 */
+       SCC_CODE_NM('INSPT_OBJ_2', A.INSPT_OBJ_2) AS INSPT_OBJ_2_NM,
+       A.INSPT_OBJ_3,                   /* 검사대상3 */
+       SCC_CODE_NM('INSPT_OBJ_3', A.INSPT_OBJ_3) AS INSPT_OBJ_3_NM,
+       A.INSPT_OBJ_4,                   /* 검사대상4 */
+       SCC_CODE_NM('INSPT_OBJ_4', A.INSPT_OBJ_4) AS INSPT_OBJ_4_NM,
+       A.MFGWON,                        /* 제조원 */
+       A.DTR_VENDOR,                    /* 유통업체 */
+       A.ACCEPTCITY_TEMPR,              /* 접수시품온 */
+       A.STAND,                         /* 규격 */
+       A.UNIT,                          /* 단위 */
+       A.ORIGIN,                        /* 원산지 */
+       A.CHARG_BASIS,                   /* 보관기준 */
+       SCC_CODE_NM('CHARG_BASIS', A.CHARG_BASIS) AS CHARG_BASIS_NM,
+       A.MFGDD,
+       A.DTRLIMT,
+       A.DTRLIMT_MTS,
+       A.DTRLIMT_DD,
+       A.SPECM_DELIVER_PCLSFACT,
+       A.PROGRESS_STATUS,
+       A.NOT_FIT_CLSFI,
+       --SCC_CODE_NM('NOT_FIT_CLSFI', A.NOT_FIT_CLSFI) AS NOT_FIT_CLSFI_NM,
+       C.INSPT_FLD_NM || '/' || C.NOT_FIT_CLSFI_NM AS NOT_FIT_CLSFI_NM,    /* 검사분야 / 부적합분류 */
+       A.LAST_DECISION,
+       A.CUSER,
+       A.CDATE,
+       A.UUSER,
+       A.UDATE,
+       B.REMARK,
+       SCC_CODE_NM('URGENT_YN', A.MFG_VENDOR) AS URGENT_YN  /* 긴급여부 */
+       ,(SELECT DECODE(INSPECT_RPT_ISSUE,NULL,'N',INSPECT_RPT_ISSUE) FROM LRM_TEST_REQ_ACCEPT T1 WHERE T1.REQ_NUM = A.REQ_NUM) AS INSPECT_RPT_ISSUE	/* 성적서 발급여부 */
+FROM   LRM_SPECM_INFO A
+     , LRM_INSPECT_RPT_REMARK B
+     , (
+        SELECT NF.REQ_NUM
+             , NF.ACCEPT_NUM
+             , NF.INSPT_FLD_NM
+             , NF.NOT_FIT_CLSFI_NM
+          FROM (
+                 SELECT /*+ INDEX_FFS(Y) */
+                        Y.REQ_NUM
+                      , Y.ACCEPT_NUM
+                      , P.INSPT_FLD
+                      , SCC_CODE_NM('INSPT_FLD', P.INSPT_FLD) AS INSPT_FLD_NM
+                      , Y.LAST_DECISION
+                      , P.ARTICLE_NM
+                      , P.NOT_FIT_CLSFI
+                      , SCC_CODE_NM('NOT_FIT_CLSFI', P.NOT_FIT_CLSFI) AS NOT_FIT_CLSFI_NM
+                      , ROW_NUMBER() OVER(PARTITION BY Y.REQ_NUM, Y.ACCEPT_NUM ORDER BY Y.REQ_NUM, Y.ACCEPT_NUM, P.NOT_FIT_CLSFI DESC) AS RN
+                   FROM LTM_TEST_DIARY Y
+                      , LCM_TEST_ARTICLE P
+                  WHERE 1 = 1
+                    AND Y.REQ_NUM = :reqNum
+                    AND Y.ARTICLE_CD = P.ARTICLE_CD
+                    AND Y.LAST_DECISION <> '101'
+               ) NF
+         WHERE NF.RN = 1
+       ) C
+WHERE  A.REQ_NUM = :reqNum
+  AND  A.REQ_NUM = B.REQ_NUM(+)
+  AND  A.ACCEPT_NUM = B.ACCEPT_NUM(+)
+  AND  A.REQ_NUM = C.REQ_NUM(+)
+  AND  A.ACCEPT_NUM = C.ACCEPT_NUM(+)
+<#if specmNm?has_content>
+   AND A.SPECM_NM LIKE '%' || :specmNm || '%'
+</#if>
+ORDER BY A.ACCEPT_NUM
+        ]]>
+	</statement>
+
+	<!-- 시험항목 목록 DATA를 조회한다. -->
+	<statement name="selectDetailList" type="select">
+		/*+
+		com.hwfs.ls.lem.dao.InspectRptIssueInqueryDAO.selectDetailList
+		*/
+		<![CDATA[
+/* 시험항목 목록 조회 */
+SELECT A.REQ_NUM	/* 의뢰번호 */
+     , A.ACCEPT_NUM	/* 접수번호 */
+     , A.ARTICLE_CD	/* 시험항목 */
+     , (SELECT ARTICLE_NM FROM LCM_TEST_ARTICLE WHERE A.ARTICLE_CD = ARTICLE_CD) AS ARTICLE_NM	/* 시험항목명 */
+     , SCC_CODE_NM('INSPT_FLD', A.INSPT_FLD) AS INSPT_FLD_NM	/* 검사분야명 */
+     , (SELECT SCC_CODE_NM('NOT_FIT_CLSFI', NOT_FIT_CLSFI) FROM LCM_TEST_ARTICLE WHERE A.ARTICLE_CD = ARTICLE_CD) AS NOT_FIT_CLSFI_NM	/* 부적합분류명 */
+     , B.TESTDD	/* 시험일자 */
+     , A.SABUN	/* 담당자사번 */
+     , (SELECT X.NM_KOR
+          FROM SCC_USERINFO X
+         WHERE X.SABUN = A.SABUN) AS USER_NM		/* 담당자 */
+     , B.TECHRESP_USER	/* 기술책임자 */
+     , (SELECT X.NM_KOR
+          FROM SCC_USERINFO X
+         WHERE X.SABUN = B.TECHRESP_USER) AS TECHRESP_USER_NM		/* 기술책임자명 */
+     , B.RESULT	/* 결과 */
+     , B.DECISION	/* 판정 */
+     , B.LAST_DECISION	/* 최종 판정 */
+     , SCC_CODE_NM('LAST_DECISION', B.LAST_DECISION) AS LAST_DECISION_NM	/* 최종 판정 명 */
+     , CASE WHEN B.LAST_DECISION IS NOT NULL THEN
+              TO_CHAR(B.UDATE, 'YYYYMMDD')
+            ELSE
+              ''
+       END AS COMPLETE_DD	/* 시험완료일자 */
+     , (CASE WHEN EXISTS (SELECT 1
+                            FROM LTM_TEST_DIARY
+                           WHERE REQ_NUM = A.REQ_NUM
+                             AND ACCEPT_NUM = A.ACCEPT_NUM
+                             AND ARTICLE_CD = B.ARTICLE_CD
+                             AND SABUN = A.SABUN) THEN
+           'Y'
+       ELSE
+           'N'
+       END) AS DIARY_WRITE_YN	/* 시험일지 작성 여부 */
+     , CASE WHEN U.PROC_CLASS >= '200' THEN	/* 시험완료 승인 */
+          'Y'
+       ELSE
+          'N'
+       END AS COMPLETE_YN	/* 시험완료승인 */
+     , NVL(A.LEGAL_BASIS, 'N') AS LEGAL_BASIS
+     , NVL(A.INSIDE_BASIS, 'N') AS INSIDE_BASIS
+     , A.JOB_ORDER
+     , DECODE(A.TEST_CLASS, 'TEST', '시험항목', '장기보존') AS TEST_CLASS
+  FROM LRM_TEST_INFO A
+     , LTM_TEST_DIARY B
+     , (
+        SELECT PD.REQ_NUM
+             , PD.PROC_USER
+             , PD.PROCDD
+             , PD.PROC_REASON
+             , PD.PROC_CLASS
+             , PD.SEQ
+          FROM (
+                SELECT Y.REQ_NUM
+                     , Y.PROC_USER
+                     , Y.PROCDD
+                     , Y.PROC_REASON
+                     , Y.PROC_CLASS
+                     , Y.SEQ
+                     , ROW_NUMBER() OVER (PARTITION BY Y.REQ_NUM ORDER BY Y.REQ_NUM, Y.SEQ DESC) AS RN
+                  FROM LRM_PROC_DESC Y
+               ) PD
+         WHERE RN = 1
+       ) U
+ WHERE 1 = 1
+   AND A.REQ_NUM = B.REQ_NUM(+)
+   AND A.REQ_NUM = U.REQ_NUM(+)
+   AND A.ACCEPT_NUM = B.ACCEPT_NUM(+)
+   AND A.REQ_NUM = :reqNum
+   AND A.ACCEPT_NUM = :acceptNum
+   AND A.ARTICLE_CD = B.ARTICLE_CD(+)
+   AND A.SABUN = B.SABUN(+)
+<#if toDayTest?has_content>
+   AND B.TESTDD BETWEEN :fromDayTest AND :toDayTest
+</#if>
+<#if testArticleNm?has_content>
+   AND EXISTS (SELECT 1
+                 FROM LCM_TEST_ARTICLE TA
+                WHERE A.ARTICLE_CD = TA.ARTICLE_CD
+                  AND TA.ARTICLE_NM LIKE '%' || :testArticleNm || '%')
+</#if>
+<#if testUser?has_content>
+   AND A.SABUN = :testUser
+</#if>
+<#if writeYn?has_content>
+   AND CASE WHEN EXISTS (SELECT 1
+                           FROM LTM_TEST_DIARY
+                          WHERE A.REQ_NUM = REQ_NUM)
+            THEN
+              'Y'
+            ELSE
+              'N'
+       END = :writeYn
+</#if>
+<#if endYn?has_content>
+   AND CASE WHEN (SELECT COUNT(1) FROM LRM_TEST_INFO WHERE REQ_NUM = A.REQ_NUM) =
+                 (SELECT COUNT(1) FROM LTM_TEST_DIARY WHERE REQ_NUM = A.REQ_NUM AND LAST_DECISION IS NOT NULL)
+            THEN
+              'Y'
+            ELSE
+              'N'
+       END = :endYn
+</#if>
+ ORDER BY A.ARTICLE_CD
+        ]]>
+	</statement>
+
+	<!-- 성적서 발급번호를 채번 한다. -->
+	<statement name="selectCreatePublishNum" type="select">
+		/*+
+		com.hwfs.ls.lem.dao.InspectRptIssueInqueryDAO.selectCreatePublishNum
+		*/
+		<![CDATA[
+/* 성적서 발급번호를 채번 */
+SELECT 'I-' ||
+       SUBSTR(:reqNum,3,9) ||
+       LPAD(TO_NUMBER(NVL(MAX(SUBSTR(PUBLISH_NUM,12,3)),0)) + 1, 3, '0') AS PUBLISH_NUM
+  FROM LEM_INSPECT_RPT_ISSUE_LOG
+ WHERE SUBSTR(PUBLISH_NUM,3,9) = SUBSTR(:reqNum,3,9)
+        ]]>
+	</statement>
+
+	<!-- 성적서 발급 이력을 저장한다. -->
+	<statement name="saveInsptRptIssueHistory" type="select">
+		/*+
+		com.hwfs.ls.lem.dao.InspectRptIssueInqueryDAO.saveInsptRptIssueHistory
+		*/
+		<![CDATA[
+/* 성적서 발급 이력을 저장 */
+INSERT INTO LEM_INSPECT_RPT_ISSUE_LOG
+(
+     REQ_NUM
+    ,PUBLISH_NUM
+    ,REQ_USER
+    ,REQ_DATE
+    ,ISSUE_REASON
+    ,CUSER
+    ,CDATE
+    ,UUSER
+    ,UDATE
+)
+SELECT :reqNum		/* 접수의뢰번호 */
+     , :publishNum	/* 성적서 발행번호 */
+     , :loginSabun	/* 요청자 */
+     , TO_CHAR(SYSDATE, 'YYYYMMDD')	/* 요청일 */
+     , <#if issueReason?exists> :issueReason <#else> null </#if>
+     , :loginSabun
+     , SYSDATE
+     , :loginSabun
+     , SYSDATE
+  FROM DUAL
+        ]]>
+	</statement>
+
+	<!-- 성적서 발급 이력 승인자정보를 저장한다. -->
+	<statement name="saveInsptRptIssueHistoryAppr" type="select">
+		/*+
+		com.hwfs.ls.lem.dao.InspectRptIssueInqueryDAO.saveInsptRptIssueHistoryAppr
+		*/
+		<![CDATA[
+/* 성적서 발급 이력 승인자 정보를 저장 */
+UPDATE LEM_INSPECT_RPT_ISSUE_LOG SET
+       APPROV_USER = :loginSabun
+      ,APPROV_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+      ,UUSER = :loginSabun
+      ,UDATE = SYSDATE
+ WHERE REQ_NUM = :reqNum
+   AND PUBLISH_NUM = :publishNum
+        ]]>
+	</statement>
+
+	<!-- 성적서 발급 이력 정보를 삭제한다. -->
+	<statement name="deleteInsptRptIssueHistoryAppr" type="select">
+		/*+
+		com.hwfs.ls.lem.dao.InspectRptIssueInqueryDAO.deleteInsptRptIssueHistoryAppr
+		*/
+		<![CDATA[
+/* 성적서 발급 이력 승인자 정보를 저장 */
+DELETE FROM LEM_INSPECT_RPT_ISSUE_LOG
+ WHERE REQ_NUM = :reqNum
+   AND PUBLISH_NUM = :publishNum
+        ]]>
+	</statement>
+
+	<!-- 성적서 발급 이력 발급일자를 저장한다. -->
+	<statement name="saveInsptRptIssueHistoryPub" type="select">
+		/*+
+		com.hwfs.ls.lem.dao.InspectRptIssueInqueryDAO.saveInsptRptIssueHistoryPub
+		*/
+		<![CDATA[
+/* 성적서 발급 이력 발급일자 정보를 저장 */
+UPDATE LEM_INSPECT_RPT_ISSUE_LOG SET
+       PUBLISHDD = TO_CHAR(SYSDATE, 'YYYYMMDD')
+      ,UUSER = :loginSabun
+      ,UDATE = SYSDATE
+ WHERE REQ_NUM = :reqNum
+   AND PUBLISH_NUM = :publishNum
+        ]]>
+	</statement>
+
+	<!-- 성적서재발급 목록을 조회한다. -->
+	<statement name="selectInspectRptIssueHistList" type="select">
+		/*+
+		com.hwfs.ls.lem.dao.InspectRptIssueInqueryDAO.selectInspectRptIssueHistList
+		*/
+		<![CDATA[
+/* 성적서재발급 목록을 조회 */
+SELECT A.REQ_NUM
+     , A.PUBLISH_NUM
+     , A.PUBLISHDD
+     , A.REQ_USER
+     , (SELECT X.NM_KOR
+          FROM SCC_USERINFO X
+         WHERE X.SABUN = A.REQ_USER) AS REQ_USER_NM
+     , A.REQ_DATE
+     , A.APPROV_USER
+     , (SELECT X.NM_KOR
+          FROM SCC_USERINFO X
+         WHERE X.SABUN = A.APPROV_USER) AS APPROV_USER_NM
+     , A.APPROV_DATE
+     , A.ISSUE_REASON
+  FROM LEM_INSPECT_RPT_ISSUE_LOG A
+ WHERE A.REQ_NUM = :reqNum
+ ORDER BY A.PUBLISH_NUM DESC
+        ]]>
+	</statement>
+
+	<!-- 성적서발급이력 목록을 조회한다. -->
+	<statement name="selectInsptRptSpecmtList" type="select">
+		/*+
+		com.hwfs.ls.lem.dao.InspectRptIssueInqueryDAO.selectInsptRptSpecmtList
+		*/
+		<![CDATA[
+/* 성적서발급이력 목록을 조회한다. */
+SELECT B.SPECM_NM       /* 검체명 */
+     , B.ACCEPT_NUM     /* 접수 번호 */
+   /*  , B.SCLASS_CD   */    /* 검체 유형 */
+    /*   , (SELECT X.SCLASS_NM
+          FROM LCM_SPECM_TYPE_SCLASS X
+         WHERE X.SPECM_TYPE = B.SPECM_TYPE
+           AND X.SCLASS_CD = B.SCLASS_CD
+           AND X.USE_YN = 'Y') AS SCLASS_NM	*//* 검체유형 */
+    
+     , B.MCALSS_CD SCLASS_CD     /* 검체 유형 */
+     , (SELECT Z.MCALSS_NM
+          FROM LCM_SPECM_TYPE_SCLASS X,
+               LCM_SPECM_TYPE_MCALSS Z
+         WHERE X.MCALSS_CD = Z.MCALSS_CD
+           AND X.SPECM_TYPE = B.SPECM_TYPE
+           AND X.SCLASS_CD = B.SCLASS_CD
+           AND X.USE_YN = 'Y') AS SCLASS_NM	/* 검체유형 */
+     , B.ACCEPTDD       /* 접수 일자 */
+     , B.INSPT_PURP_1   /* 검사 목적 */
+     , (SELECT SET1
+          FROM SCC_COMMON_CODE
+         WHERE GROUP_CODE = 'INSPT_PURP_1'
+           AND CODE = B.INSPT_PURP_1
+           AND USE_YN = 'Y') AS INSPT_RPT_NM
+     , SCC_CODE_NM('INSPT_PURP_1', B.INSPT_PURP_1) AS INSPT_PURP_1_NM	/* 검사목적 */
+     , CASE WHEN (SELECT COUNT(1) FROM LRM_TEST_INFO WHERE REQ_NUM = A.REQ_NUM) =
+                 (SELECT COUNT(1) FROM LTM_TEST_DIARY WHERE REQ_NUM = A.REQ_NUM AND LAST_DECISION IS NOT NULL)
+            THEN
+              (SELECT MAX(TESTDD)
+                 FROM LTM_TEST_DIARY
+                WHERE REQ_NUM = A.REQ_NUM)
+            ELSE
+              ''
+       END AS COMPLETE_DD	/* 시험완료일자 */
+     , A.UPJANG_NM          /* 업장명 */
+     , B.MFGDD              /* 제조일 */
+     , REPLACE(B.MFGWON,'&','&&') MFGWON         /* 제조원 */
+     , B.MFG_VENDOR         /* 제조 업체 */
+     , B.MFG_NATION         /* 제조 국가 */
+     , B.MFG_LOCATION       /* 제조 소재지 */
+     , CASE WHEN A.REQ_USER_TELNO IS NULL THEN
+                 SCC_CRYPTO.DEC_FUN(A.REQ_USER_EMAIL)
+            ELSE
+                 (
+                   SCC_TELNO_SPLIT_FUN(SCC_CRYPTO.DEC_FUN(A.REQ_USER_TELNO), 1) || '-' ||
+                   SCC_TELNO_SPLIT_FUN(SCC_CRYPTO.DEC_FUN(A.REQ_USER_TELNO), 2) || '-' ||
+                   SCC_TELNO_SPLIT_FUN(SCC_CRYPTO.DEC_FUN(A.REQ_USER_TELNO), 3)
+                 )
+       END AS REQ_USER_TELNO     /* 연락처 */
+     , A.REQ_USER_NM        /* 의뢰자명 */
+     , B.DTRLIMT
+     , B.DTRLIMT_MTS
+     , B.DTRLIMT_DD
+     , U.PROC_CLASS AS PROGRESS_STATUS 	/* 진행상태 */
+     , (
+         SELECT MAX(PUBLISH_NUM)
+           FROM LEM_INSPECT_RPT_ISSUE_LOG
+          WHERE REQ_NUM = :reqNum
+       ) AS PUBLISH_NUM    /* 성적서발행번호 */
+     , (
+         SELECT COUNT(1)
+           FROM LEM_INSPECT_RPT_ISSUE_LOG
+          WHERE REQ_NUM = :reqNum
+            AND PUBLISHDD IS NOT NULL
+       ) AS PUBLISH_CNT
+     , SCC_CODE_NM('INSPT_RPT_COMPANY', '101') AS INSPT_RPT_COMPANY	/* 회사 명 */
+     , SCC_CODE_NM('INSPT_RPT_COMPANYADDR', '101') AS INSPT_RPT_COMPANYADDR	/* 회사 주소 */
+     , DECODE(INSPECT_RPT_ISSUE,NULL,'N',INSPECT_RPT_ISSUE) AS INSPECT_RPT_ISSUE	/* 성적서 발급여부 */
+  FROM LRM_TEST_REQ_ACCEPT A
+     , LRM_SPECM_INFO B
+     , (
+        SELECT PD.REQ_NUM
+             , PD.PROC_USER
+             , PD.PROCDD
+             , PD.PROC_REASON
+             , PD.PROC_CLASS
+             , PD.SEQ
+          FROM (
+                SELECT Y.REQ_NUM
+                     , Y.PROC_USER
+                     , Y.PROCDD
+                     , Y.PROC_REASON
+                     , Y.PROC_CLASS
+                     , Y.SEQ
+                     , ROW_NUMBER() OVER (PARTITION BY Y.REQ_NUM ORDER BY Y.REQ_NUM, Y.SEQ DESC) AS RN
+                  FROM LRM_PROC_DESC Y
+               ) PD
+         WHERE RN = 1
+       ) U
+ WHERE A.REQ_NUM = B.REQ_NUM
+   AND A.REQ_NUM = :reqNum
+   AND A.REQ_NUM = U.REQ_NUM(+)
+<#if acceptNum?has_content> AND B.ACCEPT_NUM = :acceptNum</#if>
+ ORDER BY B.ACCEPT_NUM
+        ]]>
+	</statement>
+
+	<!-- 성적서발급이력 목록을 조회한다. -->
+	<statement name="selectInsptRptTestResultList" type="select"><![CDATA[
+/* 성적서발급이력 목록을 조회한다. */
+SELECT A.ARTICLE_CD    /* 시험항목 */
+     , (SELECT ARTICLE_NM FROM LCM_TEST_ARTICLE WHERE A.ARTICLE_CD = ARTICLE_CD) AS ARTICLE_NM    /* 시험항목명 */
+     , A.BASIS_STAND
+     , CASE WHEN NVL(A.LEGAL_BASIS,'N') = 'Y' AND NVL(A.INSIDE_BASIS,'N') = 'Y' THEN
+                (SELECT X.CODE_NAME
+                   FROM SCC_COMMON_CODE X
+                  WHERE X.GROUP_CODE = 'INSPT_CLSF'
+                    AND X.CODE = '101'
+                    AND X.USE_YN = 'Y') || '/' ||
+                (SELECT X.CODE_NAME
+                   FROM SCC_COMMON_CODE X
+                  WHERE X.GROUP_CODE = 'INSPT_CLSF'
+                    AND X.CODE = '102'
+                    AND X.USE_YN = 'Y')
+            WHEN NVL(A.LEGAL_BASIS,'N') = 'Y' AND NVL(A.INSIDE_BASIS,'N') = 'N' THEN
+                (SELECT X.CODE_NAME
+                   FROM SCC_COMMON_CODE X
+                  WHERE X.GROUP_CODE = 'INSPT_CLSF'
+                    AND X.CODE = '101'
+                    AND X.USE_YN = 'Y')
+            WHEN NVL(A.LEGAL_BASIS,'N') = 'N' AND NVL(A.INSIDE_BASIS,'N') = 'Y' THEN
+                (SELECT X.CODE_NAME
+                   FROM SCC_COMMON_CODE X
+                  WHERE X.GROUP_CODE = 'INSPT_CLSF'
+                    AND X.CODE = '102'
+                    AND X.USE_YN = 'Y')
+       END AS INSPT_CLSF_NM
+     , B.RESULT
+     , B.DECISION
+     , (SELECT X.CODE_NAME
+          FROM SCC_COMMON_CODE X
+         WHERE X.GROUP_CODE = 'DECISION'
+           AND X.CODE = B.DECISION
+           AND X.USE_YN = 'Y') AS DECISION_NM
+     , B.LAST_DECISION
+     , (SELECT X.CODE_NAME
+          FROM SCC_COMMON_CODE X
+         WHERE X.GROUP_CODE = 'LAST_DECISION'
+           AND X.CODE = B.LAST_DECISION
+           AND X.USE_YN = 'Y') AS LAST_DECISION_NM
+     , C.TOT_LAST_DECISION
+     , (SELECT X.CODE_NAME
+          FROM SCC_COMMON_CODE X
+         WHERE X.GROUP_CODE = 'LAST_DECISION'
+           AND X.CODE = C.TOT_LAST_DECISION
+           AND X.USE_YN = 'Y') AS TOT_LAST_DECISION_NM
+     , D.REMARK
+     --2018.06.04 김명섭 LIMS개선(판정일자추가)
+     , TO_CHAR(TO_DATE(B.TESTDD,'YYYYMMDD'),'YYYY-MM-DD') AS JUDGDD	
+  FROM LRM_TEST_INFO A
+     , LTM_TEST_DIARY B
+     , (
+         SELECT REQ_NUM
+              , ACCEPT_NUM
+              , CASE WHEN MAX(LAST_DECISION) = '102' THEN '102'
+                     WHEN PERCENTILE_DISC (0.5) WITHIN GROUP (ORDER BY LAST_DECISION DESC) = '102' THEN
+                         '102'
+                ELSE MAX(LAST_DECISION)
+                END AS TOT_LAST_DECISION
+           FROM LTM_TEST_DIARY
+          WHERE REQ_NUM = :reqNum
+            AND ACCEPT_NUM = :acceptNum
+          GROUP BY REQ_NUM
+                 , ACCEPT_NUM
+       ) C
+     , LRM_INSPECT_RPT_REMARK D
+ WHERE A.REQ_NUM = :reqNum
+   AND A.ACCEPT_NUM = :acceptNum
+   AND A.REQ_NUM = B.REQ_NUM
+   AND A.ACCEPT_NUM = B.ACCEPT_NUM
+   AND A.ARTICLE_CD = B.ARTICLE_CD
+   AND A.REQ_NUM = C.REQ_NUM
+   AND A.ACCEPT_NUM = C.ACCEPT_NUM
+   AND A.REQ_NUM = D.REQ_NUM(+)
+   AND A.ACCEPT_NUM = D.ACCEPT_NUM(+)
+        ]]></statement>
+
+	<!-- 성적서 시험담당자 내역을 조회한다. -->
+	<statement name="selectInsptRptTestUserList" type="select">
+		/*+
+		com.hwfs.ls.lem.dao.InspectRptIssueInqueryDAO.selectInsptRptTestUserList
+		*/
+		<![CDATA[
+/* 성적서 시험담당자 내역을 조회한다. */
+SELECT DISTINCT A.SABUN
+     , (SELECT X.NM_KOR FROM HR_PERSONAL X WHERE X.SABUN = A.SABUN) AS USER_NM
+     , B.APPEND_FILENM
+     , B.SVR_FILENM
+  FROM LTM_TEST_DIARY A
+     , LCM_USER B
+ WHERE A.REQ_NUM = :reqNum
+   AND A.ACCEPT_NUM = :acceptNum
+   AND A.SABUN = B.SABUN
+   AND B.AUTH_CD = '101'     /* 시험담당자 */
+ ORDER BY A.SABUN
+        ]]>
+	</statement>
+
+	<!-- 성적서 시험기술책임자 내역을 조회한다. -->
+	<statement name="selectInsptRptTestTechUserList" type="select">
+		/*+
+		com.hwfs.ls.lem.dao.InspectRptIssueInqueryDAO.selectInsptRptTestTechUserList
+		*/
+		<![CDATA[
+/* 성적서 시험기술책임자 내역을 조회한다. */
+SELECT DISTINCT A.TECHRESP_USER
+     , (SELECT X.NM_KOR FROM HR_PERSONAL X WHERE X.SABUN = A.TECHRESP_USER) AS USER_NM
+     , Y.SVR_FILENM
+  FROM LTM_TEST_DIARY A
+     , LCM_USER B
+     , (SELECT DISTINCT X.SABUN
+             , X.SVR_FILENM
+          FROM LCM_USER X
+         WHERE X.SVR_FILENM IS NOT NULL
+       ) Y
+ WHERE A.REQ_NUM = :reqNum
+   AND A.ACCEPT_NUM = :acceptNum
+   AND A.TECHRESP_USER = B.SABUN
+   AND B.SABUN = Y.SABUN(+)
+   AND B.AUTH_CD = '105'     /* 기술책임자 */
+ ORDER BY A.TECHRESP_USER
+        ]]>
+	</statement>
+
+</hqml>

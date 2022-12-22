@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[업체현황조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT F.VD_CD
+     , F.VD_NM
+     , F.ITEM_CODE
+     , F.ITEM_NAME
+     , F.PO_UOM
+     , F.ITEM_SIZE
+     , F.BOS
+     , F.MAKE_VD_CLS
+     , CASE WHEN F.MAKE_VD_CLS = 'T02' THEN 0
+            ELSE 1
+       END MAKE_SCORE
+     , F.VD_SIZE
+     , CASE WHEN F.VD_SIZE = 'A' THEN 0.5
+            ELSE 1.0
+       END SIZE_SCORE
+     , F.GR_AMT
+     , RANK() OVER(ORDER BY F.GR_AMT DESC) AS RK -- 매입순위
+     , CASE WHEN F.GR_AMT > 1000000 THEN 4
+            WHEN F.GR_AMT > 100000 THEN 3
+            WHEN F.GR_AMT > 10000 THEN 2
+            WHEN F.GR_AMT > 1000 THEN 1
+            ELSE 0
+       END AS AMT_SCORE
+     , F.MGRP_NM
+     , F.MCALSS_NM
+     , F.SCLASS_NM
+     , G.CHK_CLASS    -- 점검구분
+     , G.CHK_DD       -- 검검일
+     , G.SCORE        -- 평가점수
+     , CASE WHEN G.SCORE >= 90 THEN 0
+            WHEN G.SCORE >= 85 THEN 1
+            WHEN G.SCORE >= 80 THEN 2
+            WHEN G.SCORE >= 75 THEN 3
+            WHEN G.SCORE >= 70 THEN 4
+            ELSE 5
+       END AS GRADE_SCORE
+     , G.GRADE_CD     -- 평가등급
+     , NVL(F.FOOD_SCORE, 1) AS FOOD_SCORE  -- 위험등급
+FROM (
+      SELECT A.VD_CD 
+           , A.VD_NM
+           , E.ITEM_CODE
+           , E.ITEM_NAME
+           , E.PO_UOM
+           , E.ITEM_SIZE
+           , A.BOS          -- 업태
+           , A.MAKE_VD_CLS  -- 거래구분(T01:제조, T02:유통)     
+           , A.VD_SIZE      -- 기업군(A:대기업, B:중소기업)
+           , NVL(B.GR_AMT, 0) AS GR_AMT       -- 매입액
+           , E.MGRP_CD
+           , (SELECT MGRP_NM FROM LCM_SPECM_TYPE_MGRP WHERE MGRP_CD = E.MGRP_CD AND USE_YN = 'Y') AS MGRP_NM      
+           , E.MCALSS_CD
+           , (SELECT MCALSS_NM FROM LCM_SPECM_TYPE_MCALSS WHERE MCALSS_CD = E.MCALSS_CD AND USE_YN = 'Y') AS MCALSS_NM
+           , E.SCLASS_CD
+           , E.SCLASS_NM
+           ,(SELECT MAX(CHK_DD)
+               FROM FSC_CONTRT_RESULT
+              WHERE CUSTCD = A.VD_CD) AS CHK_DD
+           , E.FOOD_SCORE
+        FROM EPROCUSR.VO_FC_VENDOR A
+           ,(SELECT VD_CD, REP_ITEM_CD, ROUND(AVG(GR_AMT), 0) AS GR_AMT
+               FROM EPROCUSR.VO_FC_VENDOR_GRAMT
+              WHERE MG_DATE BETWEEN #START_YYMM# AND #END_YYMM#
+              GROUP BY VD_CD, REP_ITEM_CD) B
+           ,(SELECT C.ITEM_CODE
+                  , C.ITEM_NAME
+                  , C.PO_UOM
+                  , C.ITEM_SIZE
+                  , D.MGRP_CD
+                  , D.MCALSS_CD
+                  , D.SCLASS_CD
+                  , D.SCLASS_NM
+                  , CASE WHEN Z.MICBIO_1_GRADE = 'Y' THEN 1
+                         WHEN Z.MICBIO_2_GRADE = 'Y' THEN 2
+                         WHEN Z.MICBIO_3_GRADE = 'Y' THEN 3
+                         WHEN Z.MICBIO_4_GRADE = 'Y' THEN 4
+                         WHEN Z.MICBIO_5_GRADE = 'Y' THEN 5
+                    END AS FOOD_SCORE
+               FROM HLDC_PO_ITEM_MST C
+                  , LCM_SPECM_TYPE_SCLASS D
+                  , LCM_SPECM_DANGER_MAPPING Z
+              WHERE C.FOODCD = D.MCALSS_CD(+)
+                AND C.FOODCD = D.MCALSS_CD(+)
+                AND C.FOOD_CLS = '101'
+                AND C.FOOD_CLS = Z.SPECM_TYPE
+                AND C.FOODCD = Z.SCLASS_CD
+                AND D.USE_YN(+) = 'Y') E
+       WHERE A.VD_CD = B.VD_CD(+)
+         AND B.REP_ITEM_CD = E.ITEM_CODE(+)) F
+     , FSC_CONTRT_RESULT G
+ WHERE F.VD_CD = G.CUSTCD(+)
+   AND F.CHK_DD = G.CHK_DD(+)
+<isNotNull col="DEAL_CLASS">   
+</isNotNull>  
+<isNotNull col="MCALSS_CD">
+   AND F.MCALSS_CD = #MCALSS_CD#
+</isNotNull>
+ ORDER BY F.MCALSS_CD, F.VD_NM
+    </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

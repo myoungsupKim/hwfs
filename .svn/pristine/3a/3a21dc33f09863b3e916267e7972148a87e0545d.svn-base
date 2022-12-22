@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="rc.sle.dailyTicketSaleListDAO">
+	<desc>일별 식권판매현황</desc>
+
+	<!--  일별 식권판매현황  -->
+
+	<statement name="selectList" type="select"><![CDATA[
+
+SELECT A.RECEIPT_NUM
+     , A.SALES_DATE
+     , TO_CHAR(TO_DATE(A.SALES_DATE),'MM/DD') AS SALES_DD
+     , TO_CHAR(TO_DATE(A.SALES_DATE),'DY') AS DD_DAY
+     , A.MENU_NM
+     , A.MENU_UPRICE
+     , A.QUANTITY
+     , A.OCCUR_AMT
+     , B.CARD_AMT
+     , C.CASH_AMT
+  FROM SLE_SALS_GOODS A
+    LEFT OUTER JOIN( SELECT B.SALES_DATE
+                          , B.OUTLET_CD
+                          , B.RECEIPT_NUM
+                          , CASE WHEN B.PAY_CD = 20 THEN SUM(DECODE(B.CHANGE_AMT, 0, B.PAY_AMT, B.ORG_AMT)) ELSE 0 END AS CARD_AMT
+                       FROM SLE_SALS_PAY B
+                      GROUP BY B.SALES_DATE, B.OUTLET_CD, B.RECEIPT_NUM, B.PAY_CD ) B
+      ON     A.SALES_DATE  = B.SALES_DATE
+         AND A.OUTLET_CD   = B.OUTLET_CD
+         AND A.RECEIPT_NUM = B.RECEIPT_NUM
+    LEFT OUTER JOIN( SELECT C.SALES_DATE
+                          , C.OUTLET_CD
+                          , C.RECEIPT_NUM
+                          , CASE WHEN C.PAY_CD = 10 THEN SUM(DECODE(C.CHANGE_AMT, 0 ,C.PAY_AMT, C.ORG_AMT)) ELSE 0 END AS CASH_AMT
+                       FROM SLE_SALS_PAY C
+                      GROUP BY C.SALES_DATE, C.OUTLET_CD, C.RECEIPT_NUM, C.PAY_CD ) C
+      ON     A.SALES_DATE  = C.SALES_DATE
+         AND A.OUTLET_CD   = C.OUTLET_CD
+         AND A.RECEIPT_NUM = C.RECEIPT_NUM
+ WHERE A.OUTLET_CD   = :upjangCd
+   AND A.SALES_DATE BETWEEN :transMonthFr AND :transMonthTo
+   AND A.MENU_CD LIKE 'M%'
+   AND A.RECEIPT_STATUS IN ('Q','R') --영수증 상태
+   AND A.SALS_YN = 'Y'
+ ORDER BY A.SALES_DATE, A.RECEIPT_NUM
+
+		]]></statement>
+</hqml>

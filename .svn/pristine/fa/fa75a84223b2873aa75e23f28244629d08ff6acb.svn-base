@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT
+      -- 운영계획 [MAF_OP_CALENDAR]
+       B.MENU_DATE AS OP_DATE -- 운영일
+      ,B.UPJANG -- 업장
+      ,A.OP_YN  -- 운영유무
+--      ,NVL(A.ACT_MANS,0) ACT_MANS -- 근무인원
+      ,DECODE(B.UPJANG,NULL,NVL(A.ACT_MANS,0),NVL(B.DUTY_MAN_QTY,0)) ACT_MANS -- 근무인원
+--      ,A.ACT_SCHEDULE -- 일정
+      ,DECODE(B.UPJANG,NULL,A.ACT_SCHEDULE,B.PATRON_SCHEDULE) ACT_SCHEDULE -- 일정
+      ,C.WDESC  -- 날씨
+      -- 운영결과 [FSM_DAILY_OP_DIARY]
+      ,NVL(B.LEAVING_QTY,0) LEAVING_QTY -- 잔반량
+      ,NVL(B.LEFTOVER_QTY,0) LEFTOVER_QTY -- 잔식량
+      ,NVL(B.BEFORE_PROC_QTY,0) BEFORE_PROC_QTY  -- 전처리량
+      ,NVL(B.DUTY_MAN_QTY,0) DUTY_MAN_QTY -- 근무인원
+      ,B.SPECIAL_FACT -- 특이사항
+      ,B.MEETING_DESC -- 아침조회내용
+      ,B.PATRON_TREND -- 고객동향
+--      ,B.PATRON_SCHEDULE  -- 고객일정
+      ,A.ACT_SCHEDULE PATRON_SCHEDULE
+      ,DECODE(A.UPJANG,NULL,'N','Y') AS CALEN_FLAG
+      ,DECODE(B.UPJANG,NULL,'N','Y') AS DIARY_FLAG
+FROM (SELECT #UPJANG# AS UPJANG, #MENU_DATE# AS MENU_DATE FROM DUAL) A0,
+      MAF_OP_CALENDAR A,
+      FSM_DAILY_OP_DIARY B,
+      (
+        -- 날씨, 고객사 일정 조회
+        SELECT B.WEEK_DATE,
+               B.WEEK_NAME,
+               DECODE(B.WEEK_NAME,'일','RED','토','BLUE','BLACK') AS WCOLOR,
+               A.WCODE,
+               A.WDESC,
+               DECODE(A.WCODE,NULL,'','NEW' || A.WCODE) AS WIMG,
+               '' REM
+          FROM
+               (SELECT A.CUR_DATE, A.WCODE, A.WDESC
+                  FROM UPOS_SC_WEATHER_INFO_V A,
+                       SCO_UPJANG_MST B
+                 WHERE A.AREA_CODE = B.LOC_CD
+                   AND A.CUR_DATE BETWEEN #MENU_DATE# AND TO_CHAR(TO_DATE(#MENU_DATE#,'YYYYMMDD')+0,'YYYYMMDD')
+                   AND B.UPJANG = #UPJANG#
+               ) A,
+               (
+                SELECT TO_CHAR(TO_DATE(#MENU_DATE#,'YYYYMMDD')+0,'YYYYMMDD') WEEK_DATE, TO_CHAR(TO_DATE(#MENU_DATE#,'YYYYMMDD')+0,'DY','NLS_DATE_LANGUAGE=KOREAN') WEEK_NAME FROM DUAL
+               ) B
+         WHERE B.WEEK_DATE = A.CUR_DATE(+)
+         ORDER BY B.WEEK_DATE
+        ) C
+WHERE A0.UPJANG = A.UPJANG(+)
+AND   A0.MENU_DATE = A.OP_DATE(+)
+AND   A0.UPJANG = B.UPJANG(+)
+AND   A0.MENU_DATE = B.MENU_DATE(+)
+AND   A0.MENU_DATE = C.WEEK_DATE(+)	]]></statement>
+	<input default-name="ds_input">
+		<col name="MENU_DATE" size="255" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_base">
+		<col name="OP_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="UPJANG" size="6" type="VARCHAR" description="" /> 
+		<col name="OP_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="ACT_MANS" size="22" type="NUMERIC" description="" /> 
+		<col name="ACT_SCHEDULE" size="800" type="VARCHAR" description="" /> 
+		<col name="WDESC" size="100" type="VARCHAR" description="" /> 
+		<col name="LEAVING_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="LEFTOVER_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="BEFORE_PROC_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="DUTY_MAN_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="SPECIAL_FACT" size="200" type="VARCHAR" description="" /> 
+		<col name="MEETING_DESC" size="200" type="VARCHAR" description="" /> 
+		<col name="PATRON_TREND" size="200" type="VARCHAR" description="" /> 
+		<col name="PATRON_SCHEDULE" size="200" type="VARCHAR" description="" /> 
+		<col name="CALEN_FLAG" size="1" type="VARCHAR" description="" /> 
+		<col name="DIARY_FLAG" size="1" type="VARCHAR" description="" /> 
+	</output>
+</query>

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>update</type>
+	<description><![CDATA[권장식단 대표자재 설정]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+	MERGE INTO FSM_TERM_MENU_ITEM A
+	USING (
+	       SELECT #TERM_MENU_CD# AS TERM_MENU_CD
+	            , #RECIPE_CD# AS RECIPE_CD
+	            , #ITEM_CODE# AS ITEM_CODE
+	            , #REP_ITEM_YN# AS REP_ITEM_YN
+	         FROM DUAL
+	       ) B
+	   ON (    A.TERM_MENU_CD = B.TERM_MENU_CD
+	       AND A.RECIPE_CD = B.RECIPE_CD
+	       AND A.ITEM_CODE = B.ITEM_CODE
+	      )
+	WHEN MATCHED THEN
+	UPDATE
+	   SET A.REP_ITEM_YN = B.REP_ITEM_YN
+	     , UUSER = #g_EmpNo#
+	     , UDATE = SYSDATE
+	WHEN NOT MATCHED THEN
+	INSERT
+	(
+	   A.TERM_MENU_CD
+	 , A.RECIPE_CD
+	 , A.ITEM_CODE
+	 , A.REP_ITEM_YN
+	 , A.CUSER
+	 , A.CDATE
+	 , A.UUSER
+	 , A.UDATE
+	)
+	VALUES
+	(
+	   B.TERM_MENU_CD
+	 , B.RECIPE_CD
+	 , B.ITEM_CODE
+	 , B.REP_ITEM_YN
+	 , #g_EmpNo#
+	 , SYSDATE
+	 , #g_EmpNo#
+	 , SYSDATE
+	)
+
+    </statement>
+	<input default-name="ds_Item">
+	</input>
+	<output default-name="_none">
+	</output>
+</query>

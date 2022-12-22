@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>       
+        SELECT (SELECT MU_NM||' '||CC_NM FROM HLDC_SC_DEPT_V WHERE DEPT_ID =  C.DEPT_ID) RTNDEPT_IDNM,
+               V.PAY_YMD,
+               V.TOTAL_MON,
+               V.SABUN,
+               V.NAME
+          FROM HLDC_TCPN891 V,
+               HLDC_SC_DEPT_V B,
+               HLDC_ST_UPJANG C
+        WHERE (V.ENTER_CD = 'HWRC')
+        AND   (V.COST_CD  = B.DEPT_ID)
+        AND   (B.CC_CD    = C.CC_CD)
+        AND   (B.MU_CD    = 'YA')
+        AND   (SUBSTR(#TRX_DATE#, 5, 2) IN ('04',  '07', '10', '01') AND V.PAY_YMD LIKE TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE#, 'YYYYMMDD'), -1), 'YYYYMM')||'%')
+        AND   (V.TOTAL_MON       &lt;&gt; 0)
+        AND   (
+                (EXISTS (SELECT 'X' FROM HLDC_TCPN_INTERFACE  WHERE UPDATE_BY LIKE '%잡급' AND ENTER_CD = V.ENTER_CD AND PAYMENT_YMD = V.PAY_YMD AND SABUN = V.SABUN AND GADATE LIKE SUBSTR(#TRX_DATE#, 1, 6)||'%')) OR
+                (NOT EXISTS (SELECT 'X' FROM HLDC_TCPN_INTERFACE  WHERE UPDATE_BY LIKE '%잡급' AND ENTER_CD = V.ENTER_CD AND PAYMENT_YMD = V.PAY_YMD AND SABUN = V.SABUN))
+              )
+        ORDER BY V.ENTER_CD, RTNDEPT_IDNM, PAY_YMD, V.SABUN
+
+</statement>
+	<input default-name="ds_cond">
+	<col name="TRX_DATE" size="255" type="VARCHAR" description="" /> 		
+	</input>
+	<output default-name="ds_list_Detail2">
+ 
+	</output>
+</query>

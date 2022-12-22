@@ -1,0 +1,556 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FSR00101V" onkeydown="frm_OnKeyDown" onload="form_onload" titletext="레시피분류별비교" position="absolute 0 0 1235 570" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Grid autoenter="select" binddataset="ds_list" cellsizingtype="both" readonly="false" enable="true" id="grd_list" useinputpanel="false" oncelldblclick="grd_list_OnCellDblClick" onheadclick="grd_list_OnHeadClick" taborder="1" tabstop="true" usecontextmenu="true" useselcolor="true" visible="true" wheelscrollrow="1" position="absolute 9 10 1225 159" selecttype="row" anchor="left top right" autofittype="col" class="grd_WF_LineNone">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="337"/>
+                <Column size="329"/>
+                <Column size="530"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell displaytype="text" text="레시피유형"/>
+                <Cell col="1" displaytype="text" text="조리법유형"/>
+                <Cell col="2" displaytype="text" text="레시피명"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="text" style="align:center;background2: ;" text="bind:RECIPE_TYPE_NM" suppress="2"/>
+                <Cell col="1" displaytype="text" style="align:center;background2: ;" text="bind:CUISINE_TYPE_NM" suppress="3"/>
+                <Cell col="2" displaytype="text" style="align:left;" text="bind:RECIPE_NAME"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Div id="div_detail" scrollbars="autoboth" taborder="3" position="absolute 9 164 1225 541" anchor="left top right">
+          <Layouts>
+            <Layout width="1216" height="377"/>
+          </Layouts>
+        </Div>
+        <Splitter type="vertical" id="sp_line" position="absolute 9 160 1225 165" anchor="left top right">
+          <Formats>
+            <Format id="default">
+              <SplitterItems id="items">
+                <SplitterItem id="item00" position="leftortop" bindtype="resize" componentid="grd_list"/>
+                <SplitterItem id="item02" position="rightorbottom" bindtype="resize" componentid="div_detail"/>
+              </SplitterItems>
+            </Format>
+          </Formats>
+        </Splitter>
+        <Static id="Static0" text="◆ 행을 더블클릭 시 레시피분류별 비교가 가능합니다." position="absolute 14 548 310 561"/>
+        <Static id="Static60" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 0 0 1235 10" anchor="left top"/>
+        <Static id="Static07" text="w10" class="Guide01_AreaRed" visible="false" position="absolute 0 15 10 561"/>
+        <Static id="Static35" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 10 560 1234 570" anchor="left top"/>
+        <Static id="Static01" text="w10" class="Guide01_AreaRed" visible="false" position="absolute 1225 15 1235 564"/>
+        <Static id="Static00" text="글자기준간격 h05" class="Guide01_AreaRed" visible="false" position="absolute 9 542 459 547"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_list">
+        <ColumnInfo>
+          <Column id="CNT" size="22" type="BIGDECIMAL"/>
+          <Column id="CUISINE_TYPE" size="20" type="STRING"/>
+          <Column id="CUISINE_TYPE_NM" size="100" type="STRING"/>
+          <Column id="RECIPE_CD" size="20" type="STRING"/>
+          <Column id="RECIPE_CLASS" size="20" type="STRING"/>
+          <Column id="RECIPE_CLASS_NM" size="100" type="STRING"/>
+          <Column id="RECIPE_NAME" size="50" type="STRING"/>
+          <Column id="RECIPE_TYPE" size="20" type="STRING"/>
+          <Column id="RECIPE_TYPE_NM" size="100" type="STRING"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_list2">
+        <ColumnInfo>
+          <Column id="RECIPE_CD" size="255" type="STRING"/>
+          <Column id="RECIPE_NAME" size="255" type="STRING"/>
+          <Column id="RECIPE_CLASS" size="255" type="STRING"/>
+          <Column id="RECIPE_CLASS_NM" size="255" type="STRING"/>
+          <Column id="ITEM_CODE" size="255" type="BIGDECIMAL"/>
+          <Column id="ITEM_NAME" size="255" type="STRING"/>
+          <Column id="ITEM_SEQ" type="STRING" size="255"/>
+          <Column id="NEED_QTY" type="BIGDECIMAL" size="255"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/*
+ ******************************************************************************************
+ * 시스템구분   : 메뉴관리/레시피관리/레시피목록 및 보유수량 조회
+ * 프로그램명   : FSR00101V.XML
+ * 기      능   : 레시피분류별비교
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2008-02-14
+ * 비      고   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+include "U_lib::lib_conversionCom.xjs";
+//@@컨버터에서 주석처리 #include "lib::sc_comon.js"
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js"
+//@@컨버터에서 주석처리 #include "lib::tit_comm_0001.js"		// X-Framework Lib
+//@@컨버터에서 주석처리 #include "lib::sc_sql_common.js"		// 공통팝업
+//@@컨버터에서 주석처리 #include "lib::fm_common.js"			// FM공통
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	// X-Framework : Action 정보 생성 
+	fsp_init(this);
+	
+//	sp_line.Top = 505;
+	sp_line.position.y = 541;
+}
+
+function frm_OnKeyDown(obj:Form, e:KeyEventInfo)
+{
+	gfn_formKeyDown(obj, e); //(obj,e.fromreferenceobject,e.keycode,e.shiftKey,e.ctrlKey,e.altKey,-1,-1);
+}
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Search()
+ * 기      능   : [조회버튼] 검색조건에 해당하는 정보를 조회
+ ******************************************************************************************
+ */
+function fn_search()
+{
+	
+	// 초기화
+	ds_list.clearData();
+	
+	var actionName, cmdName, inData, outData, otherArg, callBackFnc;
+	
+	actionName		= "FSR00101V_T001";
+	cmdName			= "U_svc::" + "fs/fsr/FSR00101V_T001.jsp";
+	inData			= "ds_input=ds_input";
+	outData			= "ds_list=ds_list";
+	callBackFnc		= "fn_afterSearchMaster";
+	
+	jsp_transaction(this,actionName, cmdName ,inData ,outData,otherArg,callBackFnc,true,false,false);
+}
+
+function fn_afterSearchMaster(errCode, errMsg)
+{
+	// 기존 콤포넌트삭제
+	var objDivComp = div_detail.components;
+	for ( i = objDivComp.length -1; i >= 0; i-- ) {
+		var objDelete = div_detail.removeChild(objDivComp[i].name);
+		var bSucc = objDelete.destroy();
+	}
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Insert()
+ * 기      능   : [입력버튼] 입력 시 처리되는 작업
+ * 비      고	: 팝업사용
+ ******************************************************************************************
+ */
+function fn_insert()
+{
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Save()
+ * 기      능   : [저장버튼] 저장 시 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_save()
+{ 
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Delete()
+ * 기      능   : [삭제버튼] 삭제 시 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_delete()
+{
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Print()
+ * 기      능   : [출력버튼] 출력 시 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_print()
+{
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_close()
+ * 기      능   : [닫기버튼] 화면을 닫을때 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_close()
+{
+	return true;
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Excel()
+ * 기      능   : [엑셀버튼] 엑셀 변환 시 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_Excel()
+{
+	// Master출력
+	gfn_exportExcel(grd_list, this.titletext);
+	
+	// Detail출력
+	var strComponent;
+	
+	strComponent = "Grid";
+	
+	objComponents = div_detail.all;
+	
+	var nCnt = parseInt(objComponents.length);
+	
+	for(i=0; i<nCnt; i++)
+	{
+		if ( objComponents[i] instanceof Grid ) gfn_exportExcel(objComponents[i], this.titletext);
+	}
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Help()
+ * 기      능   : [도움말버튼] 도움말
+ ******************************************************************************************
+ */
+function fn_help()
+{
+	// tit_addSearchActionInfo(this, "fm/fmo:SCC_MENU_SELECT");
+	// tit_callService(this, "", "", "ds_cond=ds_cond", "ds_Menu=ds_list", "", "");	
+}
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_afterSearch()
+ * 입      력   : errCode 	= 에러코드
+				  errMsg	= 에러메세지
+ * 반      환   : 없음
+ * 기      능   : 사업장 조회 후 실행 함수
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2008-02-14  
+ ******************************************************************************************
+ */
+function fn_afterSearch(errCode, errMsg)
+{
+	//trace("fn_afterSearch==="+ds_list2.rowcount);
+	fn_MakeDetail();
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_SearchSub(nRow)
+ * 입      력   : nRow = Master Row
+ * 반      환   : 없음
+ * 기      능   : 상세내역 조회
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2007-12-12  
+ ******************************************************************************************
+ */
+function fn_SearchSub(nRow)
+{
+	if (!parent.parent.fn_SearchCheck()) return;
+	
+	// 초기화
+	ds_list2.clearData();
+	
+	// 조회
+	var actionName, cmdName, inData, outData, otherArg, callBackFnc,strSqltype;
+	
+	ds_input.setColumn(0,"MST_RECIPE_NAME",ds_list.getColumn(nRow,"RECIPE_NAME"));
+	
+	actionName		= "FSR00101V_T002";
+	cmdName			= "U_svc::" + "fs/fsr/FSR00101V_T002.jsp";
+	inData			= "ds_input=ds_input";
+	outData			= "ds_list2=ds_list";
+	callBackFnc		= "fn_afterSearch";
+	
+	jsp_transaction(this,actionName, cmdName ,inData ,outData,otherArg,callBackFnc,true,false,false);
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_MakeDetail()
+ * 입      력   : 없음
+ * 반      환   : 없음
+ * 기      능   : 상세내역 생성
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2007-12-12  
+ ******************************************************************************************
+ */
+function fn_MakeDetail()
+{
+	if ( ds_list2.getRowCount() > 0 ) 
+	{
+        var strPreRecipeCD,strRecipeCD,strTitle,strTotContents,nARow,nPos;
+        
+        div_detail.visible = false;
+        // 기존 콤포넌트삭제
+        var objDivComp = div_detail.components;
+//trace("objDivComp.length===="+objDivComp.length);
+		for ( i = objDivComp.length -1; i >= 0; i-- ) {
+			var objDelete = div_detail.removeChild(objDivComp[i].name);
+			var bSucc = objDelete.destroy();
+		}
+        
+        // 상세내역 생성
+        nPos = 0;
+        
+        for ( i = 0; i < ds_list2.getRowCount(); i++ ) 
+        {
+			strRecipeCD =  ds_list2.getColumn(i, "RECIPE_CD");
+			
+            if ( i == 0 || strPreRecipeCD != strRecipeCD) // 새로운레시피인 경우 레시피셋트생성
+            {
+				strTitle = ds_list2.getColumn(i, "RECIPE_CLASS_NM") + " (" + strRecipeCD + ")";
+				
+                fn_MakeComp(strRecipeCD, nPos, strTitle);	// 레시피그룹생성
+                
+                nPos += 205;
+				
+				strPreRecipeCD = strRecipeCD;
+            }    
+            //trace("strRecipeCD==="+strRecipeCD);
+        }
+        
+        div_detail.visible = true;
+        sp_line.position.y = 200;
+    }
+}
+
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_MakeComp(strRecipeCD, nPos, strTitle) 
+ * 입      력   : strRecipeCD=레시피코드  , nPos=위치 , strTitle=타이틀
+ * 반      환   : 없음
+ * 기      능   : 레시피코드별 컴포넌트 그룹생성 
+ * 작  성  자   : 박지영
+ * 작성  일자   : 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+function fn_MakeComp(strRecipeCD, nPos, strTitle) 
+{
+	var objParent,sCompType,sCompID,nLeft,nTop,nRight,nBottom,sText,sAlign,sClass,sBindDs,sBindCol;
+	
+	//Dataset 생성
+	objParent   = this;
+	sCompType 	= "Dataset";
+	sCompID 	= "ds_list_" + strRecipeCD;
+	var dsObj = createComponent(objParent,sCompType,sCompID);
+	
+	//Dataset 자료생성
+	dsObj.clear();    
+    ds_list2.filter("RECIPE_CD=='" + strRecipeCD + "'");
+    CopyF(dsObj, ds_list2 );
+    ds_list2.filter("");
+    
+    //BK생성
+	objParent   = div_detail;
+	sCompType 	= "Static";
+	sCompID 	= "st_bk_" + strRecipeCD;
+	nLeft		= nPos;
+	nTop		= 15;
+	nRight		= nLeft + 200;
+	nBottom		= nTop  + 300;
+	sText		= "";
+	sAlign		= "";
+	sClass		= "sta_WFSA_Labelbg";
+	sBindDs		= "";
+	sBindCol	= "";
+	var objCompBK = createComponent(objParent,sCompType,sCompID,nLeft,nTop,nRight,nBottom,sText,sAlign,sClass,sBindDs,sBindCol);
+	
+    //Title 생성
+	objParent   = div_detail;
+	sCompType 	= "Static";
+	sCompID 	= "st_title_" + strRecipeCD;
+	nLeft		= nPos + 3;
+	nTop		= nTop + 3;
+	nRight		= objCompBK.position.right  - 3;
+	nBottom		= nTop  + 13;
+	sText		= strTitle;
+	sAlign		= "";
+	sClass		= "sta_WF_Title01";
+	sBindDs		= "";
+	sBindCol	= "";
+	var objCompTitle = createComponent(objParent,sCompType,sCompID,nLeft,nTop,nRight,nBottom,sText,sAlign,sClass,sBindDs,sBindCol);
+	
+    //그리드 생성
+	objParent   = div_detail;
+	sCompType 	= "Grid";
+	sCompID 	= "grd_" + strRecipeCD;
+	nLeft		= nPos + 3;
+	nTop		= nBottom + 5;
+	nRight		= objCompBK.position.right  - 3;
+	nBottom		= objCompBK.position.bottom - 3;
+	sText		= "";
+	sAlign		= "";
+	sClass		= "";
+	sBindDs		= "ds_list_" + strRecipeCD;
+	sBindCol	= "";
+	var objCompGrid = createComponent(objParent,sCompType,sCompID,nLeft,nTop,nRight,nBottom,sText,sAlign,sClass,sBindDs,sBindCol);
+	//그리드 포맷
+	fn_make_gridFormat(objCompGrid);
+}
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+ /******************************************************************************************
+ * 함  수  명   : grd_List_OnHeadClick(obj,nCell,nX,nY,nPivotIndex)
+ * 기      능   : 그리드헤드 더블클릭시 Sort
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2008-02-14  
+ ******************************************************************************************
+ */
+function grd_list_OnHeadClick(obj:Grid, e:GridClickEventInfo)
+{
+	gfn_gridSort(obj, e); //(eval(obj.binddataset), obj, e.cell);
+}
+
+ /******************************************************************************************
+ * 함  수  명   : grd_list_OnCellDblClick(obj,nRow,nCell,nX,nY,nPivotIndex)
+ * 기      능   : 상세내역조회
+ * 작  성  자   : 박지영
+ * 작성  일자   : 2008-02-20  
+ ******************************************************************************************
+ */
+function grd_list_OnCellDblClick(obj:Grid, e:GridClickEventInfo)
+{
+	fn_SearchSub(e.row);
+}
+
+//Component생성
+function createComponent(objParent,sCompType,sCompID,nLeft,nTop,nRight,nBottom,sText,sAlign,sClass,sBindDs,sBindCol)
+{
+ 	var objComp;
+ 	if ( sCompType == "Static" ) {
+ 		objComp = new Static();
+ 	} else if ( sCompType == "Edit" ) {
+ 		objComp = new Edit();
+ 	} else if ( sCompType == "Calendar" ) {
+ 		objComp = new Calendar();
+ 	} else if ( sCompType == "Button" ) {
+ 		objComp = new Button();
+ 	} else if ( sCompType == "Grid" ) {
+ 		objComp = new Grid();
+ 	} else if ( sCompType == "Dataset" ) {
+ 		if ( objParent.isValidObject(sCompID) ) {
+ 			objComp = eval(sCompID);
+ 		} else {
+ 			objComp = new Dataset();
+			objComp.name = sCompID;
+			objParent.addChild(sCompID,objComp);
+		}
+		return objComp;
+	}
+
+	objComp.init(sCompID, nLeft, nTop, nRight, nBottom);
+	objParent.addChild(objComp.name,objComp);
+	
+	if ( !gfn_isNull(sAlign) ) objComp.align = sAlign + " middle";
+	if ( !gfn_isNull(sClass) ) objComp.class = sClass;
+	
+	if ( sCompType == "Grid" ){
+		if ( !gfn_isNull(sBindDs) ) objComp.binddataset = sBindDs;
+	} else {
+		if ( sCompType == "Static" ) objComp.text = sText;
+		
+		if ( !gfn_isNull(sBindDs) && !gfn_isNull(sBindCol)) {
+			var objBindItem = new BindItem();
+			objBindItem.init("bind_"+sCompID, sCompID, "value", sBindDs, sBindCol);
+			this.addChild(objBindItem.name, objBindItem);
+			objBindItem.bind();
+		}
+	}
+
+	objComp.show();
+	return objComp;
+}
+
+//가변 그리드 포맷생성
+function fn_make_gridFormat(objGrid)
+{
+	// GRID 작성
+	var Contents_grd_lst	= "";
+	var Contents_grd_column = "";
+	var Contents_grd_rows   = "";
+	var Contents_grd_head   = "";
+	var Contents_grd_body   = "";
+	// 
+	// Grid를 작성합니다.
+	//
+	Contents_grd_lst	 = '<Formats>' + '\n';
+	Contents_grd_lst    += '<Format id="Default">' + '\n';
+
+	// Grid columns를 작성합니다.
+	Contents_grd_column  = '  <Columns>' + '\n';
+	Contents_grd_column	+= '    <Column size="123"/>' + '\n';
+	Contents_grd_column	+= '    <Column size="61"/>' + '\n';
+	Contents_grd_column += '  </Columns>' + '\n'; 
+	
+	// Grid rows를 작성합니다.
+	Contents_grd_rows  = '  <Rows>' + '\n';
+	Contents_grd_rows += '    <Row size="26" band="head" />' + '\n';
+	Contents_grd_rows += '    <Row size="24" />' + '\n';
+	Contents_grd_rows += '  </Rows>' + '\n';
+
+	// Grid head를 작성합니다.
+	Contents_grd_head	 = '  <Band id="head">' + '\n';
+	Contents_grd_head	+= '    <Cell col="0" displaytype="text" text="자재명"/>' + '\n';
+	Contents_grd_head	+= '    <Cell col="1" displaytype="text" text="1인량(g)"/>' + '\n';
+	Contents_grd_head	+= '  </Band>' + '\n';
+
+	// Grid body를 작성합니다.
+	Contents_grd_body	= '  <Band id="body">' + '\n';
+	Contents_grd_body	+= '    <Cell col="0" displaytype="text" style="align:left middle" text="bind:ITEM_NAME"/>' + '\n';
+	Contents_grd_body	+= '    <Cell col="1" displaytype="number" style="align:right middle" text="bind:NEED_QTY"/>' + '\n';
+	Contents_grd_body	+= '  </Band>' + '\n';
+	
+	Contents_grd_lst	+= Contents_grd_column + Contents_grd_rows + Contents_grd_head + Contents_grd_body + '</Format>' + '\n' + '</Formats>';
+//trace(	Contents_grd_lst );
+	objGrid.formats  = Contents_grd_lst;
+ 	objGrid.formatid = "Default"; 	
+	objGrid.nodataimage = gv_noData;
+	objGrid.autofittype = "col";
+	//objGrid.selecttype  = "multiarea";
+}]]></Script>
+  </Form>
+</FDL>

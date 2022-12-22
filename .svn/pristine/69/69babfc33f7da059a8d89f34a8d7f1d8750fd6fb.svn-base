@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[게시대상 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.UPJANG
+     , A.UPJANGNM
+     , A.MAIN_UPJANG
+     , A.CUST_TYPE
+     , CHK
+     , ROWNUM AS ROW_NUM
+     , B.CENTER_CODE
+     , (SELECT CENTER_NAME FROM HLDC_PO_CENTER WHERE CENTER_CODE = B.CENTER_CODE) AS CENTER_NAME
+  FROM (
+        SELECT CODE AS UPJANG
+             , CODE_NAME AS UPJANGNM
+             , MAIN_CODE AS MAIN_UPJANG
+             , CUST_TYPE AS CUST_TYPE
+             , '0' AS CHK
+          FROM SCC_UPJANGCUST_V
+         WHERE CODE_TYPE = 'U'
+       ) A
+     , (
+        SELECT A.UPJANG
+             , B.CENTER_CODE
+          FROM HLDC_ST_UPJANG A
+             , HLDC_PO_UPJANG_CENTER B
+         WHERE A.AP_UNITPRICE_UPJANG = B.UPJANG
+           AND A.SHOP_TYP_CD = '02'
+       ) B
+ WHERE B.UPJANG = A.UPJANG
+<isNotNull col="MAIN_UPJANG">
+   AND A.MAIN_UPJANG = #MAIN_UPJANG#
+</isNotNull>
+<isNotNull col="S_GBN">
+   AND A.UPJANGNM LIKE '%' || #S_GBN# || '%'
+</isNotNull>
+<isNotNull col="CENTER_CODE">
+   AND B.CENTER_CODE = #CENTER_CODE#
+</isNotNull>
+ ORDER BY A.MAIN_UPJANG, B.CENTER_CODE, A.UPJANG, A.UPJANGNM, A.CUST_TYPE
+</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list">
+	</output>
+</query>

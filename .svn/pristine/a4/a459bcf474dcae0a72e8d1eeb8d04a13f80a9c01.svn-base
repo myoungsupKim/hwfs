@@ -1,0 +1,385 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="fm.fmc.claimResultSearchDAO">
+	<desc>클레임결과조회 HQML Query</desc>
+
+	<!-- 클레임결과조회 목록을 조회한다. -->
+	<statement name="selectList" type="select"><![CDATA[
+		SELECT 
+				 A.NEED_DATE		/*입고일자*/
+				,TO_CHAR(A.UPDATE_DATE,'YYYYMMDD') UPDATE_DATE /*접수일자*/
+				,A.UPJANG           /*업장*/
+				,C.TM_CD			/*팀코드*/
+                ,C.TM_NM			/*팀명*/
+                ,C.SHOP_TYP_CD		/*업장유형*/
+				,C.UPJANGNM         /*업장명*/
+				,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'SHOP_TYP_CD' AND CODE = C.SHOP_TYP_CD) SHOP_TYP_NM
+				,A.CUSTCD           /*업체코드*/
+                ,B.VD_NM           /*업체명*/
+				,A.ITEM_CODE        /*자재코드*/
+				,A.ITEM_NAME        /*자재명*/
+				,A.ITEM_SIZE        /*자재규격*/
+				,A.PO_UOM           /*단위*/
+				,A.PO_QTY           /*발주량*/
+				,NVL(A.PROC_QTY,0) AS PROC_QTY /*클레임수량*/
+				,A.CT_CLAIM_KIND    /*클레임유형*/
+				,A.REQ_KIND         /*요청사항*/
+				,A.CT_KIND          /*처리유형*/
+				,A.PART_TM_CD       /*처리부서*/
+				,A.LINK_DEPT				   /*책임소재*/
+				,(SELECT TM_NM FROM HLDC_SC_TM WHERE TM_CD = A.PART_TM_CD AND ROWNUM <= 1) AS PART_TM_NM 	/*처리부서명*/
+				,A.MNG_SABUN        /*처리담당자*/
+				,(SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN =  A.MNG_SABUN) AS MNG_NAME   	/*처리담당자명*/
+				,A.PRCS_STATUS      /*처리상태*/
+				,TO_CHAR(A.MNG_DATE,'YYYY-MM-DD HH24:MI') AS MNG_DATE
+                , A.PO_ID		/*주문번호*/
+                , A.PO_NUM       /*주문번호 항번*/
+                , A.CLAIM_NUM    /*클레임번호*/
+				, (SELECT COUNT(1) FROM FMC_CLAIM_PHOTO_MNGT C WHERE C.PO_NUM = A.PO_NUM AND  C.PO_ID = A.PO_ID AND C.CLAIM_NUM = A.CLAIM_NUM) AS PHOTO        /*사진 유무*/
+				, A.CENTER_CODE 	/*센터코드*/
+				, (SELECT MAX(TR.MARGIN_PRICE)
+				     FROM HLDC_PO_TRANSACTION TR
+				    WHERE TR.TRANS_DATE = A.NEED_DATE
+				      AND TR.TRANS_UPJANG = A.UPJANG
+				      AND TR.SUBINV_CODE = A.SUBINV_CODE
+				      AND TR.ITEM_CODE = A.ITEM_CODE
+				      AND SUBSTR(TR.TRANS_TYPE, 0, 1) = 'I') AS SALE_PRICE /*매출단가*/
+                , ROUND( NVL(A.PROC_QTY,0) * (SELECT MAX(TR.UNIT_PRICE)
+				                                FROM HLDC_PO_TRANSACTION TR
+				                               WHERE TR.TRANS_DATE = A.NEED_DATE
+				                                 AND TR.TRANS_UPJANG = A.UPJANG
+				                                 AND TR.ITEM_CODE = A.ITEM_CODE
+				                                 AND TR.SUBINV_CODE = A.SUBINV_CODE
+				                                 AND SUBSTR(TR.TRANS_TYPE, 0, 1) = 'I'), 2) AS TRANS_MPRICE /*클레임매출*/
+				, A.CLAIM_MEMO
+		  FROM 	 PO_CLAIM_LIST A, VO_FC_VENDOR B, SCO_UPJANG_V C
+		 WHERE 	 TO_CHAR(A.CUSTCD) = B.VD_CD
+		   AND 	 A.UPJANG = C.UPJANG(+)
+		<#if schCenterCode?has_content>
+		   AND 	 A.CENTER_CODE = :schCenterCode
+		</#if>
+		<#if schTm?has_content>
+		   AND 	 (C.TM_CD = :schTm OR C.PT_CD = :schTm)
+		</#if>
+		<#if schMu?has_content>
+		   AND 	 C.MU_CD = :schMu
+		</#if>
+		<#if schUpjang?has_content>
+		   AND 	 A.UPJANG = :schUpjang
+		</#if>
+		<#if schDate1?has_content>
+		<#if schDate2?has_content>
+		   AND 	 A.NEED_DATE BETWEEN :schDate1 AND :schDate2
+		</#if>
+		</#if>    
+		<#if schDate3?has_content>
+		<#if schDate4?has_content>
+		   AND 	 TO_CHAR(A.UPDATE_DATE,'YYYYMMDD') BETWEEN :schDate3 AND :schDate4
+		</#if>
+		</#if>
+        <#if schCtClaimKind?has_content>
+		   AND 	 A.CT_CLAIM_KIND = :schCtClaimKind
+		</#if>
+        <#if schCtKind?has_content>
+		   AND 	 A.CT_KIND = :schCtKind
+		</#if>
+        <#if schPrcsStatus?has_content>
+		   AND 	 A.PRCS_STATUS = :schPrcsStatus
+		</#if>
+        <#if schCust?has_content>
+		   AND 	 B.VD_CD = :schCust
+		</#if>]]>
+<!-- 2016.03.09 발주대비클레임건수 화면의 클레임건수와 맞추기 위해 주석처리
+		UNION ALL
+		SELECT  A.NEED_DATE		/*입고일자*/
+				,A.UPJANG           /*업장*/
+				,C.TM_CD			/*팀코드*/
+                ,C.TM_NM			/*팀명*/
+                ,C.SHOP_TYP_CD		/*업장유형*/
+				,C.UPJANGNM         /*업장명*/
+				,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'SHOP_TYP_CD' AND CODE = C.SHOP_TYP_CD) SHOP_TYP_NM
+				,A.CUSTCD           /*업체코드*/
+                ,B.VD_NM           /*업체명*/
+				,A.ITEM_CODE        /*자재코드*/
+				,A.ITEM_NAME        /*자재명*/
+				,A.ITEM_SIZE        /*자재규격*/
+				,A.PO_UOM           /*단위*/
+				,A.PO_QTY           /*발주량*/
+				,NVL(A.PROC_QTY,0) AS PROC_QTY /*클레임수량*/
+				,A.CT_CLAIM_KIND    /*클레임유형*/
+				,A.REQ_KIND         /*요청사항*/
+				,A.CT_KIND          /*처리유형*/
+				,A.PART_TM_CD       /*처리부서*/
+				,A.LINK_DEPT				   /*책임소재*/
+				,(SELECT TM_NM FROM HLDC_SC_TM WHERE TM_CD = A.PART_TM_CD   AND ROWNUM <= 1) AS PART_TM_NM 	/*처리부서명*/
+				,A.MNG_SABUN        /*처리담당자*/
+				,(SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN =  A.MNG_SABUN) AS MNG_NAME   	/*처리담당자명*/
+				,A.PRCS_STATUS      /*처리상태*/
+				,TO_CHAR(A.MNG_DATE,'YYYY-MM-DD HH24:MI') AS MNG_DATE
+                , A.PO_ID		/*주문번호*/
+                , A.PO_NUM       /*주문번호 항번*/
+                , 0 AS CLAIM_NUM    /*클레임번호*/
+				, 0 AS PHOTO        /*사진 유무*/
+				, A.CENTER_CODE 	/*센터코드*/
+		  FROM 	 PO_CLAIM_LIST_HIST A, VO_FC_VENDOR B, SCO_UPJANG_V C
+		 WHERE 	 TO_CHAR(A.CUSTCD) = B.VD_CD
+		   AND 	 A.UPJANG = C.UPJANG(+)
+		<#if schCenterCode?has_content>
+		   AND 	 A.CENTER_CODE = :schCenterCode
+		</#if>
+		<#if schTm?has_content>
+		   AND 	 (C.TM_CD = :schTm OR C.PT_CD = :schTm)
+		</#if>
+		<#if schMu?has_content>
+		   AND 	 C.MU_CD = :schMu
+		</#if>
+		<#if schUpjang?has_content>
+		   AND 	 A.UPJANG = :schUpjang
+		</#if>
+		<#if schDate1?has_content>
+		<#if schDate2?has_content>
+		   AND 	 A.NEED_DATE BETWEEN :schDate1 AND :schDate2
+		</#if>
+		</#if>        
+        <#if schCtClaimKind?has_content>
+		   AND 	 A.CT_CLAIM_KIND = :schCtClaimKind
+		</#if>
+        <#if schCtKind?has_content>
+		   AND 	 A.CT_KIND = :schCtKind
+		</#if>
+        <#if schPrcsStatus?has_content>
+		   AND 	 A.PRCS_STATUS = :schPrcsStatus
+		</#if>
+		<#if schCust?has_content>
+		   AND 	 B.VD_CD = :schCust
+		</#if>	
+-->
+		</statement>
+
+	<!-- 클레임결과조회(식재) 목록을 조회한다. -->
+	<statement name="fmSelectList" type="select"><![CDATA[
+		/*+ com.hwfs.fm.fmc.dao.ClaimResultSearchDAO.fmSelectList */
+		SELECT 
+				 A.NEED_DATE                   /*입고일자*/ 
+				,TO_CHAR(A.UPDATE_DATE,'YYYYMMDD') UPDATE_DATE /*접수일자*/
+				--,TO_CHAR(A.CREATE_DATE,'YYYYMMDD') UPDATE_DATE /*접수일자*/
+				,A.UPJANG                      /*업장*/   
+				,E.UPJANGNM AS UPJANGNM   /*업장명*/  
+				,A.CUSTCD                      /*업체코드*/
+                ,D.TM_CD						/*팀코드*/
+                ,D.TM_NM						/*팀명*/
+                ,E.SHOP_TYP_CD					/*업장유형*/ 
+                ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'SHOP_TYP_CD' AND CODE = E.SHOP_TYP_CD) SHOP_TYP_NM
+				,B.VD_NM                /*업체명*/
+				,(SELECT U.CLASS_NAME FROM VO_ITEM_CLASS U, HLDC_PO_ITEM_MST B WHERE A.ITEM_CODE = B.ITEM_CODE AND B.ITEM_CLASS3 = U.CLASS_CODE AND U.CLASS_TYPE = 'S') AS ITEM_CLASS3
+        		,(SELECT U.CLASS_NAME FROM VO_ITEM_CLASS U, HLDC_PO_ITEM_MST B WHERE A.ITEM_CODE = B.ITEM_CODE AND B.ITEM_CLASS4 = U.CLASS_CODE AND U.CLASS_TYPE = 'D') AS ITEM_CLASS4  
+				,A.ITEM_CODE                   /*자재코드*/ 
+				,A.ITEM_NAME                   /*자재명*/  
+				,A.ITEM_SIZE                   /*자재규격*/ 
+				,A.PO_UOM                      /*단위*/   
+				,A.PO_QTY                      /*발주량*/  
+				,NVL(A.PROC_QTY,0) AS PROC_QTY /*클레임수량*/
+				,A.CT_CLAIM_KIND               /*클레임유형*/
+				,A.REQ_KIND                    /*요청사항*/ 
+				,A.CT_KIND                     /*처리유형*/ 
+				,A.PART_TM_CD				   /*처리부서*/
+				,A.LINK_DEPT				   /*책임소재*/
+				--,(SELECT TM_NM FROM HLDC_SC_TM WHERE TM_CD = A.PART_TM_CD   AND ROWNUM <= 1) AS PART_TM_NM 	/*처리부서명*/
+				,(SELECT TM_NM FROM HR_PERSONAL C WHERE C.SABUN = A.MNG_SABUN) AS PART_TM_NM 	/*처리부서명*/ 
+				,A.MNG_SABUN        			/*처리담당자*/
+				,(SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN =  A.MNG_SABUN) AS MNG_NAME   	/*처리담당자명*/
+				,A.PRCS_STATUS      			/*처리상태*/
+				,TO_CHAR(A.MNG_DATE,'YYYY-MM-DD HH24:MI') AS MNG_DATE				
+                , A.PO_ID		/*주문번호*/
+                , A.PO_NUM       /*주문번호 항번*/
+                , A.CLAIM_NUM    /*클레임번호*/
+				, (SELECT COUNT(1) FROM FMC_CLAIM_PHOTO_MNGT C WHERE C.PO_NUM = A.PO_NUM AND  C.PO_ID = A.PO_ID AND C.CLAIM_NUM = A.CLAIM_NUM) AS PHOTO        /*사진 유무*/
+				, A.CENTER_CODE 	/*센터코드*/
+				, (SELECT MAX(TR.SALE_PRICE)
+				     FROM FMS_TRANSACTION_V TR
+				    WHERE TR.TRANS_DATE = A.NEED_DATE
+				      AND TR.TRANS_UPJANG = A.UPJANG
+				      AND TR.ITEM_CODE = A.ITEM_CODE) AS SALE_PRICE /*매출단가*/
+                , ROUND( NVL(A.PROC_QTY,0) * (SELECT MAX(TR.SALE_PRICE) --MAX(TR.TRANS_MPRICE) 진희씨가 클레임 매출은 관리단가가 아니라 일반 매출이라고
+				                                FROM FMS_TRANSACTION_V TR
+				                               WHERE TR.TRANS_DATE = A.NEED_DATE
+				                                 AND TR.TRANS_UPJANG = A.UPJANG
+				                                 AND TR.ITEM_CODE = A.ITEM_CODE), 2) AS TRANS_MPRICE /*클레임매출*/
+				--,(SELECT TM_NM FROM HLDC_SC_TM WHERE TM_CD = A.PART_TM_CD   AND ROWNUM <= 1) AS UPDATE_PART_TM_NM 	/* 최종처리부서명 */
+				,(SELECT TM_NM FROM HR_PERSONAL C WHERE C.SABUN = A.UPDATE_BY) AS UPDATE_PART_TM_NM 	/* 최종처리부서명 */
+				,(SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN =  A.UPDATE_BY) AS UUSER   	/* 최종처리담당자명 */
+				,TO_CHAR(A.CREATE_DATE, 'YYYY-MM-DD HH24:MI:SS') AS CREATE_DATE1
+				,TO_CHAR(A.UPDATE_DATE, 'YYYY-MM-DD HH24:MI:SS') AS UPDATE_DATE1
+				,(SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN =  A.CREATE_BY) AS CUSER
+				,(SELECT TM_NM FROM HR_PERSONAL C WHERE C.SABUN = A.CREATE_BY) AS CREATE_PART_TM_NM 
+				, A.CLAIM_MEMO
+				--, (SELECT T.CENTER_FLAG FROM HLDC_PO_PO T WHERE T.PO_ID = A.PO_ID AND T.PO_NUM = A.PO_NUM) AS CENTER_FLAG 
+				, T.CENTER_FLAG
+		  FROM 	 PO_CLAIM_LIST A, VO_FC_VENDOR B, FMS_UPJANG C, ST_UPJANG S, HLDC_SC_DEPT_V D, HLDC_ST_UPJANG E, HLDC_PO_PO T
+		 WHERE 	 TO_CHAR(A.CUSTCD) = B.VD_CD(+)
+		   AND 	 A.UPJANG = C.UPJANG(+)
+		   AND   A.UPJANG = S.UPJANG(+)
+		   AND   S.DEPT_ID = D.DEPT_ID(+)
+		   AND 	 A.UPJANG = E.UPJANG(+)
+		   AND   A.PO_ID = T.PO_ID
+		   AND   A.PO_NUM = T.PO_NUM
+		<#if schCenterCode?has_content>
+		   AND 	 A.CENTER_CODE = :schCenterCode
+		</#if>
+        <#if schTm?has_content>
+		   AND 	 D.TM_CD = :schTm
+		</#if>
+		<#if schMu?has_content>
+		   AND 	 D.MU_CD = :schMu
+		</#if>
+		<#if schUpjang?has_content>
+		   AND 	 A.UPJANG = :schUpjang
+		</#if>
+		<#if schDate1?has_content>
+		<#if schDate2?has_content>
+		   AND 	 A.NEED_DATE BETWEEN :schDate1 AND :schDate2
+		</#if>
+		</#if>
+		<#if schDate3?has_content>
+		<#if schDate4?has_content>
+		   AND 	 TO_CHAR(A.UPDATE_DATE,'YYYYMMDD') BETWEEN :schDate3 AND :schDate4
+		   --AND 	 TO_CHAR(A.CREATE_DATE,'YYYYMMDD') BETWEEN :schDate3 AND :schDate4
+		</#if>
+		</#if>
+        <#if schCtClaimKind?has_content>
+		   AND 	 A.CT_CLAIM_KIND = :schCtClaimKind
+		</#if>
+        <#if schCtKind?has_content>
+		   AND 	 A.CT_KIND = :schCtKind
+		</#if>
+        <#if schPrcsStatus?has_content>
+		   AND 	 A.PRCS_STATUS = :schPrcsStatus
+		</#if>
+        <#if schCust?has_content>
+		   AND 	 A.CUSTCD = :schCust
+		</#if>
+		<#if schCenterFlag?has_content>
+		   AND 	T.CENTER_FLAG = :schCenterFlag
+		</#if>
+		<#if schLinkDept?has_content>
+		   AND 	 A.LINK_DEPT = :schLinkDept
+		</#if>
+		]]>
+
+<!-- 2016.03.09 발주대비클레임건수 화면의 클레임건수와 맞추기 위해 주석처리
+		UNION ALL
+		
+		SELECT 
+				 A.NEED_DATE                   /*입고일자*/ 
+				,A.UPJANG                      /*업장*/   
+				,C.UPJANGNM_DISP AS UPJANGNM   /*업장명*/  
+				,A.CUSTCD                      /*업체코드*/
+                ,D.TM_CD						/*팀코드*/
+                ,D.TM_NM						/*팀명*/
+                ,E.SHOP_TYP_CD					/*업장유형*/ 
+                ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'SHOP_TYP_CD' AND CODE = E.SHOP_TYP_CD) SHOP_TYP_NM
+				,B.VD_NM                /*업체명*/  
+				,A.ITEM_CODE                   /*자재코드*/ 
+				,A.ITEM_NAME                   /*자재명*/  
+				,A.ITEM_SIZE                   /*자재규격*/ 
+				,A.PO_UOM                      /*단위*/   
+				,A.PO_QTY                      /*발주량*/  
+				,NVL(A.PROC_QTY,0) AS PROC_QTY /*클레임수량*/
+				,A.CT_CLAIM_KIND               /*클레임유형*/
+				,A.REQ_KIND                    /*요청사항*/ 
+				,A.CT_KIND                     /*처리유형*/ 
+				,A.PART_TM_CD				   /*처리부서*/
+				,A.LINK_DEPT				   /*책임소재*/
+				,(SELECT TM_NM FROM HLDC_SC_TM WHERE TM_CD = A.PART_TM_CD   AND ROWNUM <= 1) AS PART_TM_NM 	/*처리부서명*/
+				,A.MNG_SABUN        			/*처리담당자*/
+				,(SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN =  A.MNG_SABUN) AS MNG_NAME   	/*처리담당자명*/
+				,A.PRCS_STATUS      			/*처리상태*/
+				,TO_CHAR(A.MNG_DATE,'YYYY-MM-DD HH24:MI') AS MNG_DATE				
+                , A.PO_ID		/*주문번호*/
+                , A.PO_NUM       /*주문번호 항번*/
+                , 0 AS CLAIM_NUM    /*클레임번호*/
+				, 0 AS PHOTO        /*사진 유무*/
+				, A.CENTER_CODE 	/*센터코드*/
+		  FROM 	 PO_CLAIM_LIST_HIST A, VO_FC_VENDOR B, FMS_UPJANG C, ST_UPJANG S, HLDC_SC_DEPT_V D, HLDC_ST_UPJANG E
+		 WHERE 	 TO_CHAR(A.CUSTCD) = B.VD_CD
+		   AND 	 A.UPJANG = C.UPJANG(+)
+		   AND   A.UPJANG = S.UPJANG(+)
+		   AND   S.DEPT_ID = D.DEPT_ID(+)
+		   AND 	 A.UPJANG = E.UPJANG(+)
+		<#if schCenterCode?has_content>
+		   AND 	 A.CENTER_CODE = :schCenterCode
+		</#if>
+        <#if schTm?has_content>
+		   AND 	 D.TM_CD = :schTm
+		</#if>
+		<#if schMu?has_content>
+		   AND 	 D.MU_CD = :schMu
+		</#if>
+		<#if schUpjang?has_content>
+		   AND 	 A.UPJANG = :schUpjang
+		</#if>
+		<#if schDate1?has_content>
+		<#if schDate2?has_content>
+		   AND 	 A.NEED_DATE BETWEEN :schDate1 AND :schDate2
+		</#if>
+		</#if>     
+        <#if schCtClaimKind?has_content>
+		   AND 	 A.CT_CLAIM_KIND = :schCtClaimKind
+		</#if>
+        <#if schCtKind?has_content>
+		   AND 	 A.CT_KIND = :schCtKind
+		</#if>
+        <#if schPrcsStatus?has_content>
+		   AND 	 A.PRCS_STATUS = :schPrcsStatus
+		</#if>
+        <#if schCust?has_content>
+		   AND 	 A.CUSTCD = :schCust
+		</#if>			
+-->
+		</statement>
+
+	<!-- 클레임결과조회(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.fm.fmc.dao.ClaimResultSearchDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+
+	<!-- 클레임결과조회(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.fm.fmc.dao.ClaimResultSearchDAO.update */
+		<![CDATA[
+		UPDATE TABLE_NAME 
+		SET    COLUMN_NAME1 = :columnName1,
+		       COLUMN_NAME2 = :columnName2,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+	<!-- 클레임결과조회(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.fm.fmc.dao.ClaimResultSearchDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>

@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="ei.isa.fsspRptDAO">
+	<desc>정산 HQML Query</desc>
+
+	<!-- 정산 목록을 조회한다. -->
+	<statement name="selectTeam" type="select">
+		/*+ com.hwfs.ei.isa.dao.FsspRptDAO.selectTeam */
+		<![CDATA[
+SELECT CASE WHEN A.ORG_LEVEL_CD4 IS NULL THEN A.ORG_LEVEL_CD2 ELSE A.ORG_LEVEL_CD4 END CD
+     , CASE WHEN A.ORG_LEVEL_NM4 IS NULL THEN A.ORG_LEVEL_NM2 ELSE '    ' || A.ORG_LEVEL_NM4 END NM
+     , A.GRP
+     , A.AMT01_SALE AS AMT01_SALE
+     , A.AMT01_DC AS AMT01_DC
+     , A.AMT01 AS AMT01
+     , A.AMT02_SALE AS AMT02_SALE
+     , A.AMT02_DC AS AMT02_DC
+     , A.AMT02 AS AMT02
+     , A.AMT03_SALE AS AMT03_SALE
+     , A.AMT03_DC AS AMT03_DC
+     , A.AMT03 AS AMT03
+     , A.AMT04_SALE AS AMT04_SALE
+     , A.AMT04_DC AS AMT04_DC
+     , A.AMT04 AS AMT04
+     , A.TOT_SALE AS TOT_SALE
+     , A.TOT_DC AS TOT_DC
+     , A.TOT AS TOT
+     , A.PROFIT_SALE AS PROFIT_SALE
+     , A.PROFIT_DC AS PROFIT_DC
+     , A.PROFIT AS PROFIT
+     , TO_CHAR(CASE WHEN A.TOT_SALE = 0 THEN 0.00 ELSE ROUND((A.PROFIT_SALE / A.TOT_SALE) * 100, 2) END) AS RATE_SALE
+     , TO_CHAR(CASE WHEN A.TOT_DC = 0 THEN 0.00 ELSE ROUND((A.PROFIT_DC / A.TOT_DC) * 100, 2) END) AS RATE_DC
+     , TO_CHAR(CASE WHEN (A.TOT_SALE - A.TOT_DC) = 0 THEN 0.00 ELSE ROUND(((A.PROFIT_SALE - A.PROFIT_DC) / (A.TOT_SALE - A.TOT_DC)) * 100, 2) END) AS RATE
+  FROM (SELECT A.ORG_LEVEL_CD2
+             , A.ORG_LEVEL_NM2
+             , A.ORG_LEVEL_CD4
+             , A.ORG_LEVEL_NM4
+             , A.AMT01_SALE --직원판촉 판매가
+             , A.AMT01_DC   --직원판촉 DC가
+             , A.AMT01_SALE - A.AMT01_DC AS AMT01 -- 직원판촉 실제 판매가
+             , A.AMT02_SALE --협력업체 판매가
+             , A.AMT02_DC   --협력업체 DC가
+             , A.AMT02_SALE - A.AMT02_DC AS AMT02 --협력업체 실제 판매가
+             , A.AMT03_SALE --내부거래 판매가
+             , A.AMT03_DC   --내부거래 DC가
+             , A.AMT03_SALE - A.AMT03_DC AS AMT03 --내부거래 실제 판매가
+             , A.AMT04_SALE --원가
+             , A.AMT04_DC   --원가 DC적용가
+             , A.AMT04_SALE - A.AMT04_DC AS AMT04 --원가 DC적용가
+             , A.AMT01_SALE + A.AMT02_SALE + A.AMT03_SALE AS TOT_SALE -- 매출계 판매가
+             , A.AMT01_DC + A.AMT02_DC + A.AMT03_DC AS TOT_DC       -- 매출계 DC가
+             , (A.AMT01_SALE - A.AMT01_DC) + (A.AMT02_SALE - A.AMT02_DC) + (A.AMT03_SALE - A.AMT03_DC) AS TOT --매출계 실제 판매가
+             , (A.AMT01_SALE + A.AMT02_SALE + A.AMT03_SALE) - A.AMT04_SALE AS PROFIT_SALE --매출이익 판매가
+             , (A.AMT01_DC + A.AMT02_DC + A.AMT03_DC) - A.AMT04_DC AS PROFIT_DC           --매출이익 DC가
+             , ((A.AMT01_SALE - A.AMT01_DC) + (A.AMT02_SALE - A.AMT02_DC) + (A.AMT03_SALE - A.AMT03_DC)) - (A.AMT04_SALE - A.AMT04_DC) AS PROFIT --매출이익 DC적용가
+             , A.G1 || A.G2 || A.G3 || A.G4 AS GRP
+          FROM (SELECT D.ORG_LEVEL_CD2
+                     , D.ORG_LEVEL_NM2
+                     , D.ORG_LEVEL_CD4
+                     , D.ORG_LEVEL_NM4
+                     , SUM(CASE WHEN B.SALE_TYPE = '직원판촉' THEN B.SALE_AMOUNT ELSE 0 END) AS AMT01_SALE
+                     , SUM(CASE WHEN B.SALE_TYPE = '직원판촉' THEN B.DC_AMOUNT ELSE 0 END) AS AMT01_DC
+                     , SUM(CASE WHEN B.SALE_TYPE = '협력업체' THEN B.SALE_AMOUNT ELSE 0 END) AS AMT02_SALE
+                     , SUM(CASE WHEN B.SALE_TYPE = '협력업체' THEN B.DC_AMOUNT ELSE 0 END) AS AMT02_DC
+                     , SUM(CASE WHEN B.SALE_TYPE = '내부거래' THEN B.SALE_AMOUNT ELSE 0 END) AS AMT03_SALE
+                     , SUM(CASE WHEN B.SALE_TYPE = '내부거래' THEN B.DC_AMOUNT ELSE 0 END) AS AMT03_DC
+                     , SUM(A.UNIT_PRICE * B.PR_QTY) AS AMT04_SALE
+                     , SUM((A.UNIT_PRICE * B.PR_QTY) * C.APY_DC_RATE / 100) AS AMT04_DC
+                     , GROUPING(D.ORG_LEVEL_CD2) AS G1
+                     , GROUPING(D.ORG_LEVEL_NM2) AS G2
+                     , GROUPING(D.ORG_LEVEL_CD4) AS G3
+                     , GROUPING(D.ORG_LEVEL_NM4) AS G4
+                  FROM FSP_PO_SPECIAL_ITEM A
+                     , FSP_PO_SPECIAL_SALE B
+                     , FSP_PO_SP_SALE_INFO C
+                     , SCC_CC D
+                 WHERE B.ITEM_CODE = A.ITEM_CODE
+                   AND C.SP_ID = B.SP_ID
+                   AND D.CC_CD = C.RQ_CC_CD
+                   AND A.SEASON_NUM = :seasonNum
+                   AND B.SEASON_NUM = :seasonNum
+<#if startDate?has_content>
+                   AND B.SP_DATE >= :startDate
+</#if>
+<#if endDate?has_content>
+                   AND B.SP_DATE <= :endDate
+</#if>
+                   AND B.LINE_STATUS <> '취소'
+                   AND B.BU_CD <> '2000'
+                   AND D.ORG_LEVEL_CD1 <> 'A'
+                 GROUP BY ROLLUP(D.ORG_LEVEL_CD2, D.ORG_LEVEL_NM2, D.ORG_LEVEL_CD4, D.ORG_LEVEL_NM4)
+                 UNION ALL
+                SELECT D.ORG_LEVEL_CD2
+                     , D.ORG_LEVEL_NM2
+                     , D.CC_CD
+                     , D.CC_NM
+                     , SUM(CASE WHEN B.SALE_TYPE = '직원판촉' THEN B.SALE_AMOUNT ELSE 0 END) AS AMT01_SALE
+                     , SUM(CASE WHEN B.SALE_TYPE = '직원판촉' THEN B.DC_AMOUNT ELSE 0 END) AS AMT01_DC
+                     , SUM(CASE WHEN B.SALE_TYPE = '협력업체' THEN B.SALE_AMOUNT ELSE 0 END) AS AMT02_SALE
+                     , SUM(CASE WHEN B.SALE_TYPE = '협력업체' THEN B.DC_AMOUNT ELSE 0 END) AS AMT02_DC
+                     , SUM(CASE WHEN B.SALE_TYPE = '내부거래' THEN B.SALE_AMOUNT ELSE 0 END) AS AMT03_SALE
+                     , SUM(CASE WHEN B.SALE_TYPE = '내부거래' THEN B.DC_AMOUNT ELSE 0 END) AS AMT03_DC
+                     , SUM(A.UNIT_PRICE * B.PR_QTY) AS AMT04_SALE
+                     , SUM((A.UNIT_PRICE * B.PR_QTY) * C.APY_DC_RATE / 100) AS AMT04_DC
+                     , GROUPING(D.ORG_LEVEL_CD2) AS G1
+                     , GROUPING(D.ORG_LEVEL_NM2) AS G2
+                     , GROUPING(D.CC_CD) AS G3
+                     , GROUPING(D.CC_NM) AS G4
+                  FROM FSP_PO_SPECIAL_ITEM A
+                     , FSP_PO_SPECIAL_SALE B
+                     , FSP_PO_SP_SALE_INFO C
+                     , SCC_CC D
+                 WHERE B.ITEM_CODE = A.ITEM_CODE
+                   AND C.SP_ID = B.SP_ID
+                   AND D.CC_CD = C.RQ_CC_CD
+                   AND A.SEASON_NUM = :seasonNum
+                   AND B.SEASON_NUM = :seasonNum
+<#if startDate?has_content>
+                   AND B.SP_DATE >= :startDate
+</#if>
+<#if endDate?has_content>
+                   AND B.SP_DATE <= :endDate
+</#if>
+                   AND B.LINE_STATUS <> '취소'
+                   AND B.BU_CD <> '2000'
+                   AND D.ORG_LEVEL_CD1 = 'A'
+                 GROUP BY ROLLUP(D.ORG_LEVEL_CD2, D.ORG_LEVEL_NM2, D.CC_CD, D.CC_NM)) A) A
+ WHERE A.GRP IN ('0000', '0011')
+ ORDER BY A.ORG_LEVEL_CD2, A.GRP DESC
+		]]>
+	</statement>
+
+
+</hqml>

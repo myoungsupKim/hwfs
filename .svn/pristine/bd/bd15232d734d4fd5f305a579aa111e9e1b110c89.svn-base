@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT V.SAUP_TYPE,
+       V.SAUP_TYPENM,
+       V.TM_CD,
+       DECODE(V.SAUP_TYPE, '001', (SELECT TM_NM FROM HLDC_SC_TM WHERE TM_CD = V.TM_CD), '') TM_NM,
+       V.DO_AK_BOND_AMT,
+       V.DO_BOND_AMT,
+       V.AK_BOND_AMT
+  FROM (
+        SELECT DECODE(A.SAUP_TYPE, '001', A.SAUP_TYPE, '003', A.SAUP_TYPE, '004', A.SAUP_TYPE, '006') SAUP_TYPE,
+               MAX((SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0001' AND CODE = DECODE(A.SAUP_TYPE, '001', A.SAUP_TYPE, '003', A.SAUP_TYPE, '004', A.SAUP_TYPE, '006'))) SAUP_TYPENM,
+               DECODE(A.SAUP_TYPE, '001', A.TM_CD, A.SAUP_TYPE) TM_CD,
+               ROUND(NVL(SUM(V.DO_BOND_AMT), 0)/1000000) + ROUND(NVL(SUM(V.AK_BOND_AMT), 0)/1000000) DO_AK_BOND_AMT, -- 채권합계
+               ROUND(NVL(SUM(V.DO_BOND_AMT), 0)/1000000) DO_BOND_AMT, -- 도래채권
+               ROUND(NVL(SUM(V.AK_BOND_AMT), 0)/1000000) AK_BOND_AMT  -- 악성채권
+          FROM  SCO_UPJANG_MST_V A,
+                (
+                 SELECT V.UPJANG,
+                        NVL(SUM(V.DO_BOND_AMT), 0) DO_BOND_AMT,
+                        NVL(SUM(V.AK_BOND_AMT), 0) AK_BOND_AMT
+                   FROM MAS_DD_BOND V
+                 WHERE (V.BOND_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'))
+                 AND   ((NVL(V.DO_BOND_AMT, 0) + NVL(V.AK_BOND_AMT, 0)) <> 0)
+                 GROUP BY V.UPJANG
+                ) V
+        WHERE (A.UPJANG = V.UPJANG(+))
+        AND   (DECODE(A.SAUP_TYPE, '001', A.TM_CD, 'ZZZ') IN (SELECT CODE  FROM SCC_COMMON_CODE  WHERE GROUP_CODE = 'MA1003'))        
+        GROUP BY DECODE(A.SAUP_TYPE, '001', A.SAUP_TYPE, '003', A.SAUP_TYPE, '004', A.SAUP_TYPE, '006'),  DECODE(A.SAUP_TYPE, '001', A.TM_CD, A.SAUP_TYPE)
+       ) V
+ORDER BY V.SAUP_TYPE, (SELECT SORT_SEQ  FROM SCC_COMMON_CODE  WHERE GROUP_CODE = 'MA1003' AND CODE = V.TM_CD)
+	]]></statement>
+	<input default-name="ds_in">
+	</input>
+	<output default-name="ds_bond">
+	</output>
+</query>

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[업장별 사용현황조회 마스터]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT B.TM_CD
+     , B.TM_NAME
+     , B.JOB_CD
+     , B.JOB_NAME
+     , B.SUB_JOB_CD
+     , B.SUB_JOB_NAME
+     , B.UPJANG 
+     , B.UPJANGNM
+     , C.ITEM_CODE
+     , C.ITEM_NAME
+     , C.ITEM_SIZE
+     , C.PO_UOM
+     , A.START_DATE
+     , A.END_DATE
+     , A.CENTER_CODE
+     , A.CUSTCD     
+     , NVL(A.TRANS_QTY, 0) AS TRANS_QTY
+     , TO_CHAR(TO_DATE(A.START_DATE, 'YYYYMMDD'), 'YYYY.MM.DD') || '~' || TO_CHAR(TO_DATE(A.END_DATE, 'YYYYMMDD'), 'YYYY.MM.DD') AS PERIOD  /* 기간 */
+  FROM (             
+        SELECT B.UPJANG
+             , A.CENTER_CODE
+             , A.CUSTCD
+             , A.ITEM_CODE
+             , A.START_DATE
+             , A.END_DATE
+             , SUM(ROUND(NVL(B.TRANS_QTY, 0), 2)) AS TRANS_QTY
+          FROM FSI_DUTY_MST A
+             , FSI_DUTY_DAILY_SUM B
+             , MAC_UPJANG_V C 
+             , SCC_COMMON_CODE D
+         WHERE A.CENTER_CODE = B.CENTER_CODE
+           AND A.CUSTCD = B.CUSTCD
+           AND A.ITEM_CODE = B.ITEM_CODE
+           AND A.START_DATE = B.START_DATE
+           AND B.DUTY_YN = 'Y'
+           AND A.START_DATE &lt;= #END_DATE# AND A.END_DATE &gt;= #START_DATE#
+           AND B.TRANS_DATE BETWEEN A.START_DATE AND A.END_DATE
+           AND A.USE_YN = 'Y'
+           AND B.UPJANG = C.UPJANG
+           AND B.TM_CD = D.CODE
+           AND D.GROUP_CODE = 'MA0045' 
+           AND D.USE_YN = 'Y'
+<isNotNull col="MU_CD">           
+           AND C.MU_CD = #MU_CD#
+</isNotNull>
+<isNotNull col="TM_CD">  
+          -- AND (C.TM_CD = #TM_CD# OR C.PT_CD = #TM_CD#)
+          --부문 조회 추가   20160229  요청자:윤지혜  처리자 : 맹수영
+          AND (C.TM_CD LIKE #TM_CD# || '%' OR C.PT_CD LIKE #TM_CD# || '%')
+</isNotNull>           
+<isNotNull col="CENTER_CODE">
+           AND A.CENTER_CODE = #CENTER_CODE#
+</isNotNull>
+<isNotNull col="UPJANG">
+           AND B.UPJANG = #UPJANG#
+</isNotNull>
+<isEqual col="CLOSED" value="1">   
+           AND C.CLOSE_DATE IS NULL
+</isEqual>   
+         GROUP BY B.UPJANG, A.CENTER_CODE, A.CUSTCD, A.ITEM_CODE, A.START_DATE, A.END_DATE
+       ) A
+     , MAC_UPJANG_V B
+     , HLDC_PO_ITEM_MST C
+ WHERE A.UPJANG = B.UPJANG
+   AND A.ITEM_CODE = C.ITEM_CODE	    
+ ORDER BY B.TM_CD, B.JOB_CD, B.SUB_JOB_CD, B.UPJANG, NVL(A.TRANS_QTY, 0) DESC
+    </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_list21">
+	</output>
+</query>

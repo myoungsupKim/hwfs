@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="ft.fsi.ftSapInterfaceDAO">
+	<desc>SAP 인터페이스 HQML Query</desc>
+
+	<!-- SAP 인터페이스 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.ft.fsi.dao.FtSapInterfaceDAO.selectList */
+		<![CDATA[
+SELECT SLIP_NUM,
+       BU_CD,
+       FISCAL_SLIP_NUM,
+       FISCAL_YEAR,
+       SLIP_STATUS,
+       REVERSE_SLIP_DATE,
+       REVERSE_SLIP_NUM,
+       REVERSE_SLIP_FISCAL_YEAR,
+       PROC_DATE,
+       RESULT_MSG
+FROM   FT_SAP_INTERFACE
+WHERE  SLIP_NUM = :slipNum
+
+        ]]>
+	</statement>
+
+	<!-- SAP 인터페이스(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.ft.fsi.dao.FtSapInterfaceDAO.insert */
+		<![CDATA[
+INSERT INTO FT_SAP_INTERFACE
+(
+ SLIP_NUM,
+ BU_CD,
+ FISCAL_SLIP_NUM,
+ FISCAL_YEAR,
+ SLIP_STATUS,
+ REVERSE_SLIP_DATE,
+ REVERSE_SLIP_NUM,
+ REVERSE_SLIP_FISCAL_YEAR,
+ PROC_DATE,
+ RESULT_MSG,
+ WORK_CLASS,
+ CUSER,
+ CDATE,
+ UUSER,
+ UDATE
+
+) VALUES (
+ :slipNum,
+<#if buCd?exists> :buCd, <#else> null, </#if>
+<#if fiscalSlipNum?exists> :fiscalSlipNum, <#else> null, </#if>
+<#if fiscalYear?exists> :fiscalYear, <#else> null, </#if>
+<#if slipStatus?exists> :slipStatus, <#else> null, </#if>
+<#if reverseSlipDate?exists> :reverseSlipDate, <#else> null, </#if>
+<#if reverseSlipNum?exists> :reverseSlipNum, <#else> null, </#if>
+<#if reverseSlipFiscalYear?exists> :reverseSlipFiscalYear, <#else> null, </#if>
+<#if procDate?exists> :procDate, <#else> null, </#if>
+<#if resultMsg?exists> :resultMsg, <#else> null, </#if>
+<#if workClass?exists> :workClass, <#else> null, </#if>
+:loginSabun,
+SYSDATE,
+:loginSabun,
+SYSDATE
+)
+        ]]>
+	</statement>
+
+	<!-- SAP 인터페이스(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.ft.fsi.dao.FtSapInterfaceDAO.update */
+		<![CDATA[
+UPDATE FT_SAP_INTERFACE SET
+<#if buCd?exists> BU_CD = :buCd, </#if>
+<#if fiscalSlipNum?exists> FISCAL_SLIP_NUM = :fiscalSlipNum, </#if>
+<#if fiscalYear?exists> FISCAL_YEAR = :fiscalYear, </#if>
+<#if slipStatus?exists> SLIP_STATUS = :slipStatus, </#if>
+<#if reverseSlipDate?exists> REVERSE_SLIP_DATE = :reverseSlipDate, </#if>
+<#if reverseSlipNum?exists> REVERSE_SLIP_NUM = :reverseSlipNum, </#if>
+<#if reverseSlipFiscalYear?exists> REVERSE_SLIP_FISCAL_YEAR = :reverseSlipFiscalYear, </#if>
+<#if procDate?exists> PROC_DATE = :procDate, </#if>
+<#if resultMsg?exists> RESULT_MSG = :resultMsg, </#if>
+UUSER = :loginSabun,
+UDATE = SYSDATE
+WHERE  SLIP_NUM = :slipNum
+
+        ]]>
+	</statement>
+
+	<!-- SAP 인터페이스(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.ft.fsi.dao.FtSapInterfaceDAO.delete */
+		<![CDATA[
+DELETE
+FROM   FT_SAP_INTERFACE
+WHERE  SLIP_NUM = :slipNum
+
+        ]]>
+	</statement>
+
+	<!-- SAP 전표 마스터 목록을 조회한다. -->
+	<statement name="selectSlipMst" type="select">
+		/*+ com.hwfs.ft.fsi.dao.FtSapInterfaceDAO.selectSlipMst */
+		<![CDATA[
+SELECT
+     A.SLIP_NUM --전표번호
+    ,(SELECT CODE_NAME FROM SCC_COMMON_CODE T WHERE  T.GROUP_CODE = 'SLIP_TYPE' AND  T.CODE=A.SLIP_TYPE ) AS WORK_CLASS
+    ,TO_CHAR(TO_DATE(A.SLIP_EVIDENCE_DATE,'YYYYMMDD'),'YYYY-MM-DD') SLIP_EVIDENCE_DATE  --전표 증빙 일자
+    ,TO_CHAR(TO_DATE(A.SLIP_PERIOD_DATE,'YYYYMMDD'),'YYYY-MM-DD') SLIP_PERIOD_DATE      --전표 전기 일자
+    ,(SELECT DISTINCT T.TM_NM FROM HR_PERSONAL T WHERE A.WRITE_EMP_SABUN = T.SABUN) AS BU_NM   --부서
+    , (SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.WRITE_EMP_SABUN) AS UUSER  --작성자
+    ,TO_CHAR(TO_DATE(A.PIDATE,'YYYYMMDD'),'YYYY-MM-DD') PIDATE      --작성일
+    ,(SELECT SUM(T.SLIP_CURRENCY_AMT) FROM SAP_IF.SAP_IFC_SLIP_DTL T WHERE A.SLIP_NUM= T.SLIP_NUM AND T.DR_CR_CLASS =1 ) AS SLIP_CURRENCY_AMT
+    ,(SELECT T.NM_KOR FROM SCC_USERINFO T WHERE T.SABUN = B.CUSER) AS CUSER
+    ,(SELECT MIN(SUBSTRB(T.ITEM_TEXT,0,100))  FROM SAP_IF.SAP_IFC_SLIP_DTL T WHERE T.SLIP_NUM = A.SLIP_NUM ) AS ITEM_TEXT
+FROM SAP_IF.SAP_IFC_SLIP_MST  A
+     ,FT_SAP_INTERFACE B
+
+WHERE 1=1
+AND A.SLIP_NUM = B.SLIP_NUM
+AND A.SLIP_NUM IN (:searchId)
+
+        ]]>
+	</statement>
+
+	<!-- SAP 전표 목록을 조회한다. -->
+	<statement name="selectSlipList" type="select"><![CDATA[
+SELECT
+     TO_CHAR(TO_DATE(A.SLIP_EVIDENCE_DATE,'YYYYMMDD'),'YYYY-MM-DD') SLIP_EVIDENCE_DATE
+    ,TO_CHAR(TO_DATE(A.SLIP_PERIOD_DATE,'YYYYMMDD'),'YYYY-MM-DD') SLIP_PERIOD_DATE
+    ,TO_CHAR(TO_DATE(A.EXPIRE_CAL_BASIS_DATE,'YYYYMMDD'),'YYYY-MM-DD') EXPIRE_CAL_BASIS_DATE
+    ,A.MASTER_ACCT
+    ,(SELECT DISTINCT T.BU_NM FROM HLDC_SC_DEPT_V T WHERE A.BU_CD = T.BU_CD) AS BU_NM
+    ,C.TM_NM
+    ,CASE WHEN A.MASTER_ACCT = '11101021' THEN
+         (SELECT T.CC_NM FROM SCC_CC T WHERE T.CC_CD = A.ATTACH_DEPT AND T.USE_YN='Y')
+     ELSE
+     	 --부서이관
+     	 CASE WHEN A.SLIP_TYPE = '7P' AND A.DR_CR_CLASS = '1' AND A.DTL_NUM = '0' THEN
+     	 (SELECT T.CC_NM FROM SCC_CC T WHERE T.CC_CD = A.MGMT_DEPT)
+     	 ELSE
+          (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE  GROUP_CODE = 'ATTACH_DEPT' AND  SET1=A.ATTACH_DEPT )
+          END
+     END CC_NM
+    ,DECODE(A.DR_CR_CLASS,1,B.ACCTNM5,'') DR_ACCT_NM
+    ,DECODE(A.DR_CR_CLASS,2,B.ACCTNM5,'') CR_ACCT_NM
+    ,A.SLIP_CURRENCY_AMT
+    ,A.STD_AMT
+    ,A.TAX_AMT
+    ,SUBSTRB(A.ITEM_TEXT,0,100) AS ITEM_TEXT
+    ,(SELECT MAX(T.VD_NM_LOC) FROM EPROCUSR.ESMVDFW T WHERE A.SUPPLYPLCE_NUM = T.VD_CD AND T.VD_STS = 'C' ) AS SUPPLYPLCE_NM
+FROM SAP_IF.SAP_IFC_SLIP_DTL  A
+     ,ST_ACCOUNT B
+     ,(
+        SELECT  A.CC_CD,B.TM_NM
+        FROM    SCC_CC A
+                ,HLDC_SC_DEPT_V B
+        WHERE   B.CC_CD = A.CC_CD
+        AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+        AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+        --AND     A.CC_CD = P_CC_CD;
+     ) C
+WHERE 1=1
+AND A.MASTER_ACCT = B.ACCTCD
+AND A.ATTACH_DEPT = C.CC_CD
+AND A.SLIP_NUM IN (:searchId)
+AND B.BU_CD ='2000'
+ORDER BY A.SLIP_NUM, A.DTL_NUM
+
+        ]]></statement>
+
+	<!-- SAP 전표 목록을 조회한다. -->
+	<statement name="selectGwSlipList" type="select">
+		/*+ com.hwfs.ft.fsi.dao.FtSapInterfaceDAO.selectGwSlipList */
+		<![CDATA[
+           SELECT  D.SLIP_NUM
+                    ,D.DTL_NUM
+                    ,D.SLIP_TYPE
+                    ,SCC_COMMON_CODE_NAME_FUN('SLIP_TYPE',D.SLIP_TYPE) SLIP_TYPE_NM
+                    ,SUBSTR(D.SLIP_EVIDENCE_DATE,0,4)||'-'||SUBSTR(D.SLIP_EVIDENCE_DATE,5,2)||'-'||SUBSTR(D.SLIP_EVIDENCE_DATE,7,2) SLIP_EVIDENCE_DATE
+                    ,SUBSTR(D.EXPIRE_CAL_BASIS_DATE,0,4)||'-'||SUBSTR(D.EXPIRE_CAL_BASIS_DATE,5,2)||'-'||SUBSTR(D.EXPIRE_CAL_BASIS_DATE,7,2) EXPIRE_CAL_BASIS_DATE
+                    ,SUBSTR(D.SLIP_PERIOD_DATE,0,4)||'-'||SUBSTR(D.SLIP_PERIOD_DATE,5,2)||'-'||SUBSTR(D.SLIP_PERIOD_DATE,7,2) SLIP_DATE
+                    ,D.MASTER_ACCT
+                    ,(SELECT DISTINCT ACCT.ACCTNM FROM HLDC_ST_ACCOUNT_V ACCT WHERE D.MASTER_ACCT = ACCT.ACCTCD) ACCT_NM
+                    ,DECODE(D.DR_CR_CLASS,'1',(SELECT DISTINCT ACCT.ACCTNM FROM HLDC_ST_ACCOUNT_V ACCT WHERE D.MASTER_ACCT = ACCT.ACCTCD),'') D_ACCT_NM
+                    ,DECODE(D.DR_CR_CLASS,'2',(SELECT DISTINCT ACCT.ACCTNM FROM HLDC_ST_ACCOUNT_V ACCT WHERE D.MASTER_ACCT = ACCT.ACCTCD),'') C_ACCT_NM
+                    ,D.DR_CR_CLASS
+                    ,D.MU_CD
+                    ,(SELECT DISTINCT MU.MU_NM FROM HLDC_SC_DEPT_V MU WHERE D.CC_CD = MU.CC_CD) MU_NM
+                    ,SCC_GET_TM_BY_CC('CODE',D.CC_CD) TM_CD
+                    ,SCC_GET_TM_BY_CC('NAME',D.CC_CD) TM_NM
+                    ,D.CC_CD
+                    ,(SELECT DISTINCT MU.CC_NM FROM HLDC_SC_DEPT_V MU WHERE D.CC_CD = MU.CC_CD) CC_NM
+                    ,D.SLIP_CURRENCY_AMT SLIP_AMT
+                    ,DECODE(D.DR_CR_CLASS,'1',D.SLIP_CURRENCY_AMT,NULL) D_SLIP_AMT
+                    ,DECODE(D.DR_CR_CLASS,'2',D.SLIP_CURRENCY_AMT,NULL) C_SLIP_AMT
+                    ,ITEM_TEXT REMARK
+                    ,FO_CUST_NM
+                    ,(SELECT MAX(T.VD_NM_LOC) FROM EPROCUSR.ESMVDFW T WHERE D.SUPPLYPLCE_NUM = T.VD_CD AND T.VD_STS = 'C' ) AS SUPPLYPLCE_NM
+                    ,D.TAX_AMT
+                    ,D.STD_AMT AS LCAL_AMT
+                    --,DECODE(D.VAT_CD,'10',D.TAX_AMT,'20',D.TAX_AMT,'0') AS TAX_AMT
+                    --,DECODE(D.VAT_CD,'10',D.STD_AMT,'20',D.STD_AMT,'0') AS LCAL_AMT
+            FROM    SAP_IF.SAP_IFC_SLIP_DTL D
+            WHERE   D.SLIP_NUM IN (:searchId)
+             ORDER BY D.SLIP_NUM , D.DTL_NUM
+        ]]>
+	</statement>
+
+	<!-- SAP 인터페이스 전자결재 id(을)를 수정한다. -->
+	<statement name="updateSignInstanceId" type="update">
+		/*+ com.hwfs.ft.fsi.dao.FtSapInterfaceDAO.updateSignInstanceId
+		*/
+		<![CDATA[
+            UPDATE  SAP_IF.SAP_IFC_SLIP_MST
+            SET      ELCTN_SIGN_ID      = (SELECT DISTINCT CLIENT_ID FROM SIGN_IF.TB_EVT_INFO WHERE INSTANCE_ID = :signInstanceId)
+            WHERE   SLIP_NUM            = :slipNum
+        ]]>
+	</statement>
+</hqml>

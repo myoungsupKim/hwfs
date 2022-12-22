@@ -1,0 +1,135 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="LiteDB" classname="LiteDB" inheritanceid="" position="absolute 0 0 1024 768" onload="form_onload" userdata="">
+    <Layouts>
+      <Layout>
+        <Button id="Button00" taborder="0" text="Button00" position="absolute 64 50 151 80" onclick="Button00_onclick"/>
+        <Grid id="Grid00" taborder="1" useinputpanel="false" position="absolute 62 111 839 381" binddataset="Dataset00" autofittype="col" anchor="all" cellsizingtype="col">
+          <Formats>
+            <Format id="default"/>
+          </Formats>
+        </Grid>
+        <Button id="Button01" taborder="2" text="Button01" position="absolute 67 409 164 454" onclick="Button01_onclick"/>
+        <Button id="Button02" taborder="3" text="Button02" position="absolute 177 410 258 457" onclick="Button02_onclick"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <SQLConnection id="SQLConnection00" datasource="..\AppData\LocalLow\TOBESOFT\XPLATFORM\9.2\Cache\http1721611218091xuiFICSxadl_FICS.db" openflag="openReadWrite"/>
+      <SQLStatement id="SQLStatement00" sqlconnection="@SQLConnection00" query="SELECT * FROM sqlite_master WHERE type='table'"/>
+      <Dataset id="Dataset00" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false"/>
+      <Dataset id="ds_cache" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="Id" type="STRING" size="255"/>
+          <Column id="SessionValue" type="INT" size="255"/>
+          <Column id="Version" type="STRING" size="255"/>
+          <Column id="Etag" type="STRING" size="255"/>
+          <Column id="CacheDate" type="STRING" size="255"/>
+          <Column id="CacheLevel" type="INT" size="255"/>
+          <Column id="ContentLen" type="INT" size="255"/>
+          <Column id="Content" type="BLOB" size="255" encript="base64"/>
+          <Column id="timeEnter" type="STRING" size="255"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[
+var lstModDt;
+function form_onload(obj:Form, e:LoadEventInfo) {
+		
+}
+
+function Button00_onclick(obj:Button,  e:ClickEventInfo) {
+	SQLConnection00.open();
+	trace(SQLConnection00.isConnected());
+	SQLStatement00.query = "SELECT * FROM tbl_Cache";
+	SQLConnection00.begin();
+	
+	var objRs = SQLStatement00.executeQuery();
+	if ( objRs ) {
+		while ( objRs.next() ) {
+			/*
+			for ( var p in objRs ) {
+				trace(p+"="+objRs[p]);
+			}
+			*/
+			objRs.applyToDataset(Dataset00, "append");
+		}		
+	}
+	
+	SQLStatement00.close();
+	SQLConnection00.close();
+	trace(Dataset00.saveXML());
+	Grid00.createFormat();
+}
+
+function Button01_onclick(obj:Button,  e:ClickEventInfo)
+{
+	this.transaction( "test" ,"svc::hwfs_svc/sc/scc/SCC_FILE_CHECK_T002.jsp","","","","fn_callback");
+}
+
+function fn_callback() {
+	alert(lstModDt);
+}
+
+
+function Button02_onclick(obj:Button,  e:ClickEventInfo) {
+	fn_getCacheInfo("xui/lib/lib_com.xjs");
+}
+
+function fn_getCacheInfo( strFile ) {
+	gv_webRoot = "http://172.16.1.121:8091"; // test
+	var strID = gv_webRoot+"/"+strFile;
+	trace("strID=="+strID);
+	if ( ds_cache.rowcount == 0 || ds_cache.findRow("Id", strID) == -1 ) {
+		// ..\AppData\LocalLow\TOBESOFT\XPLATFORM\9.2\Cache\http1721611218091xuiFICSxadl_FICS.db
+		
+		var dbName = "";
+		// http1721611218091xuiFICSxadl_FICS
+		// http1721611218091xuiHWFSxadl_HWFS_DEV.db
+		switch ( gv_runMode ) {
+			case "L" :
+			case "D" :
+				if ( g_AppId == "HWFS" ) {
+					dbName = "http1721611218091xuiHWFSxadl_HWFS_DEV.db";
+				} else if ( g_AppId == "FICS" ){
+					dbName = "http1721611218091xuiFICSxadl_FICS.db";
+				}	
+				break;
+				
+			case "P" :
+				if ( g_AppId == "HWFS" ) {
+					dbName = "httpshwfs.hanwhafoodistcokrxuiHWFSxadl_HWFS.db";
+				} else if ( g_AppId == "FICS" ){
+					dbName = "httpsnfics.hanwhafoodistcokrxuiFICSxadl_FICS.db";
+				}
+				break;
+		}
+		
+		SQLConnection00.datasource = application.cachedir+dbName;
+		trace(application.cachedir+dbName);
+		SQLConnection00.open();
+		SQLStatement00.query = "SELECT * FROM tbl_Cache";
+		SQLConnection00.begin();
+		
+		var oRs = SQLStatement00.executeQuery();
+		if ( oRs ) {
+			while ( oRs.next() ) {
+				oRs.applyToDataset(ds_cache, "append");
+			}		
+		}
+		
+		SQLStatement00.close();
+		SQLConnection00.close();
+	}
+	
+	var cachedDt = ds_cache.lookup("Id", strID, "timeEnter");
+	var regExp = /[\{\}\[\]\/?.,;:|\)*~`!^\-_+<>@\#$%&\\\=\(\'\"\s*]/gi;
+	
+	return (cachedDt.replace(regExp, ""));
+}
+
+function fn_getSrvFileInfo( strFile ) {
+
+}]]></Script>
+  </Form>
+</FDL>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[3-2 대분류/소모품별 거래실적(캐터링본사) 사업장별 운영단가별]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT DECODE(SUBSTRB(A.CLASS_NAME,1,4),'영업','소모',SUBSTRB(A.CLASS_NAME,1,4)) AS CLASS_NAME
+     , NVL(SUM(ROUND(DECODE(B.TAX_CODE,'100',1.1,1) * B.OP_AMOUNT)),0) AS OP_AMOUNT
+  FROM HLDC_PO_ITEM_CLASS_HLDC_V A
+     ,(SELECT A.*
+            , ROUND(A.TRANS_QTY * DECODE(NVL(C.OP_PRICE, 0), 0, SCC_CEIL(A.SALE_PRICE + (A.SALE_PRICE * NVL(C.OP_RATE,0) / 100),C.CEIL_VAL), C.OP_PRICE)) AS OP_AMOUNT
+         FROM HLDC_PO_TRANSACTION A, HLDC_PO_ITEM_MST B
+            , FMU_OP_RATE C
+        WHERE A.ITEM_CODE = B.ITEM_CODE
+          AND A.TRANS_UPJANG = C.UPJANG(+)
+          AND A.TRANS_DATE BETWEEN C.SDATE(+) AND C.EDATE(+)
+          AND A.ITEM_CODE BETWEEN C.ITEM_CODE(+) AND C.ITEM_CODE(+)||'9999'
+          AND C.USE_YN(+) = 'Y'
+          AND A.TRANS_DATE BETWEEN TO_CHAR(SYSDATE,'YYYYMM"01"') AND TO_CHAR(SYSDATE,'YYYYMMDD')
+          AND A.TRANS_TYPE = 'I001'
+          AND A.TRANS_UPJANG = #UPJANG#
+          AND B.CONSUM_YN = 'N') B
+ WHERE A.CLASS_CODE = SUBSTR(B.ITEM_CODE(+),1,4)||'0000'
+   AND A.CLASS_CODE BETWEEN '01000000' AND '01999999'
+   AND A.CLASS_TYPE = 'M'
+ GROUP BY A.CLASS_CODE, A.CLASS_NAME	]]></statement>
+	<input default-name="ds_in">
+	</input>
+	<output default-name="ds_sales">
+	</output>
+</query>

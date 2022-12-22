@@ -1,0 +1,255 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\..\..\default_typedef.xml"/>
+  <Form id="CloseMgntDtlPop" classname="COMP_GUIDE_13" inheritanceid="" position="absolute 0 0 550 500" titletext="일마감상세" scrollbars="autoboth" onload="form_onload">
+    <Layouts>
+      <Layout>
+        <Static id="Static06" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 535 0 550 500" anchor="top right"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 500"/>
+        <Static id="Static14" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 15 485 535 500"/>
+        <Grid id="grd_list" taborder="0" binddataset="ds_list" autoenter="select" useinputpanel="false" cellsizingtype="col" autofittype="col" position="absolute 15 30 535 485" oncellclick="grd_list_oncellclick" anchor="all" onexpanddown="grd_list_onexpanddown" scrollbars="autoboth">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="30"/>
+                <Column size="160"/>
+                <Column size="80"/>
+                <Column size="80"/>
+                <Column size="80"/>
+                <Column size="80"/>
+              </Columns>
+              <Rows>
+                <Row size="26" band="head"/>
+                <Row size="24"/>
+                <Row size="24" band="summ"/>
+              </Rows>
+              <Band id="head">
+                <Cell style="background:#566572ff URL('theme://convertImages/new/img_WF_Excel.png') center middle;" class="head_Excel"/>
+                <Cell col="1" text="업장"/>
+                <Cell col="2" text="영수증번호"/>
+                <Cell col="3" text="매출금액"/>
+                <Cell col="4" text="지불금액"/>
+                <Cell col="5" text="카드금액"/>
+              </Band>
+              <Band id="body">
+                <Cell style="align:center middle;" expr="currow+1"/>
+                <Cell col="1" style="align:left middle;" text="bind:upjangNm" suppress="1"/>
+                <Cell col="2" text="bind:receiptNum"/>
+                <Cell col="3" displaytype="number" style="align:right middle;" text="bind:salAmt" displayexpdec="0"/>
+                <Cell col="4" displaytype="number" style="align:right middle;" text="bind:payAmt"/>
+                <Cell col="5" displaytype="number" style="align:right middle;" text="bind:useAmt"/>
+              </Band>
+              <Band id="summary">
+                <Cell colspan="3" style="align:center middle;" text="합계" taborder="undefined"/>
+                <Cell col="3" displaytype="number" style="align:right middle;" text="expr:getSum('salAmt')"/>
+                <Cell col="4" displaytype="number" style="align:right middle;" text="expr:getSum('payAmt')"/>
+                <Cell col="5" displaytype="number" style="align:right middle;" text="expr:getSum('useAmt')"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Button id="btn_search00" taborder="17" text="조회" onclick="fn_search" class="btn_WF_searchCm" position2="absolute r:-84 w:59 t:-3 h:25" positiontype="position2" visible="false"/>
+        <Static id="sta_title" text="일마감상세" onclick="sta_title_onclick" class="sta_WF_Title" visible="true" position="absolute 14 6 464 25"/>
+        <Static id="Static71" text="h05" class="Guide01_AreaRed" visible="false" position="absolute 15 25 535 30" style="background:slateblue;"/>
+        <Button id="btn_confirm" taborder="18" text="확인" onclick="btn_confirm_onclick" class="btn_WF_CRUD" position2="absolute r:15 w:45 t:0 h:25" positiontype="position2"/>
+      </Layout>
+    </Layouts>
+    <Bind/>
+    <Objects>
+      <Dataset id="ds_list" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false" oncolumnchanged="ds_list_oncolumnchanged" onrowposchanged="ds_list_onrowposchanged" canrowposchange="ds_list_canrowposchanged" cancolumnchange="ds_list_cancolumnchanged">
+        <ColumnInfo>
+          <Column id="occurDate" type="STRING" size="256"/>
+          <Column id="sysClass" type="STRING" size="256"/>
+          <Column id="upjangCd" type="STRING" size="256"/>
+          <Column id="upjangNm" type="STRING" size="256"/>
+          <Column id="receiptNum" type="STRING" size="256"/>
+          <Column id="salAmt" type="BIGDECIMAL" size="256"/>
+          <Column id="payAmt" type="BIGDECIMAL" size="256"/>
+          <Column id="useAmt" type="BIGDECIMAL" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_search" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="muCd" type="STRING" size="256"/>
+          <Column id="tmCd" type="STRING" size="256"/>
+          <Column id="upjangCd" type="STRING" size="256"/>
+          <Column id="occurDate" type="STRING" size="256"/>
+          <Column id="sysClass" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : CloseMgntDtlPop
+  파 일 명 : CloseMgntDtlPop.xfdl
+  기    능 : 일마감상세팝업
+
+    수정일    수정자                  수정내용
+  ----------   -------  --------------------------------------------------
+  2015.08.30   JUN   최초 생성
+*/
+
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+************************************************************************************************/
+include "lib::lib_com.xjs";
+include "lib::SMCommon.xjs";	//영업회계 공통 스크립트
+
+/************************************************************************************************
+ * FORM 변수 선언 영역 (필수)
+************************************************************************************************/
+var fv_sToday = gfn_today();
+var fv_objColInfo; 		//가수금데이터셋 컬럼정보
+var v_ds_check = "";
+
+/************************************************************************************************
+ * FORM EVENT 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Form Load (필수)
+ *---------------------------------------------------------------------------------------------*/
+function form_onload(obj:Form, e:LoadEventInfo){
+
+	// Form Load 시 공통 기능 처리(obj:Form, bCreateEvent:이벤트 생성 여부)
+	gfn_formOnLoad(this);
+
+	// 초기값 셋팅
+	fn_init();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 초기값 셋팅
+ *---------------------------------------------------------------------------------------------*/
+function fn_init(){
+
+	// 업데이트여부를 체크할 DataSet, 여러개 있을 경우 ;로 구분
+	v_ds_check = "ds_list";
+
+	//ds_search.clearData();
+	var nRow = ds_search.addRow();
+
+	if(arrSchVal.length > 0){
+		ds_search.setColumn(nRow, "occurDate",  arrSchVal[0]);
+		ds_search.setColumn(nRow, "sysClass",   arrSchVal[1]);
+		ds_search.setColumn(nRow, "muCd",    	arrSchVal[2]);
+		ds_search.setColumn(nRow, "tmCd",    	arrSchVal[3]);
+		ds_search.setColumn(nRow, "upjangCd",   arrSchVal[4]);
+	}
+	fn_search();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 화면 닫기 전 변경 유무 체크 (필수-Frame에서 창 닫힐때 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_close(){	
+
+}
+
+/************************************************************************************************
+ * 공통기능 FUNCTION 영역 (필수-공통버튼)
+************************************************************************************************/
+ /*----------------------------------------------------------------------------------------------
+ * 설명      : 조회 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ * gfn_transaction(
+ * 		@param objForm         - Form Object(this)
+ * 		@param strSvcID        - 트랜잭션을 구분하기 위한 ID
+ * 		@param strURL          - 트랜잭션을 요청할 주소
+ * 		@param strInDatasets   - 트랜잭션을 요청할 때 입력값으로 보낼 데이터셋의 ID
+ * 		@param strOutDatasets  - 트랜잭션을 처리 결과를 받을 데이터셋의 ID
+ * 		@param strArgument     - 트랜잭션을 위한 인자값
+ * 		@param strCallbackFunc - 트랜잭션의 결과를 돌려줄 함수의 이름
+ * 		@param bAsync          - 비동기 여부(true: Async, false : Sync)
+ * 		@param bProgress       - Wait Cursor 표시여부 (true : 사용, false : 사용안함)
+ * )
+ *---------------------------------------------------------------------------------------------*/
+function fn_search(){
+
+    // Grid sort 표시 초기화(필수)
+    gfn_clearSortMark(grd_list);
+
+	//서비스 쿼리결과로 데이터가 없는 경우 데이터셋 컬럼정보가 사라지는 현상을 복원하기 위해 현재 컬럼정보 저장
+	fv_objColInfo = gfn_getDatasetInfo (ds_list);
+	
+    gfn_transaction(this
+					,"search"
+					,"rc/rcm/closeMgntDtlPop/selectList.xdo"
+					,"ds_search=ds_search:A"
+					,"ds_list=ds_list"
+					,""
+					,"fn_callBack"
+					,true);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 입력 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_insert(){
+
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 삭제 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_delete(){	//대체취소 처리
+
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 저장 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_save(){		//대체 처리
+
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 출력 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_print(){
+
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 도움말 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+function fn_help(){
+
+}
+
+/************************************************************************************************
+ * TRANSACTION 및 CallBack 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 트랜잭션 콜백 함수 (필수)
+ *---------------------------------------------------------------------------------------------*/
+function fn_callBack(strSvcID, nErrorCode, strErrorMsg){
+	// 에러시 gfn_callBack에서 메시지 제공, 화면별 특정 에러 발생시에만 사용하세요.
+	if (nErrorCode < 0){
+		return;
+	}
+	
+    switch(strSvcID){
+
+        //조회
+        case "search" :
+			//서비스 쿼리 결과로 데이터가 없는 경우 데이터셋 컬럼정보 복원
+			if(ds_list.getRowCount() == 0) gfn_loadDatasetInfo (ds_list, fv_objColInfo);
+            break;
+           
+    }
+}
+
+/************************************************************************************************
+ * 사용자 FUNCTION 영역 (필수)
+************************************************************************************************/
+
+/************************************************************************************************
+ * 각 COMPONENT 별 EVENT 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 확인 클릭 EVENT
+ *---------------------------------------------------------------------------------------------*/
+function btn_confirm_onclick(obj:Button,  e:ClickEventInfo){
+	this.close();
+}
+]]></Script>
+  </Form>
+</FDL>

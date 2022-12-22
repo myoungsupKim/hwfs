@@ -1,0 +1,275 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="CmmnPop" classname="GUIDE_class" left="0" top="0" width="420" height="458" titletext="공통팝업" onload="CmmnDeptSearchPop_onload">
+    <Layouts>
+      <Layout>
+        <Static id="staFormSize" taborder="44" cssclass="sta_POP_Bg" left="0" top="0" width="420" height="458"/>
+        <Static id="Static04" taborder="46" cssclass="sta_POP_TitleBg" left="0" top="0" width="420" height="70" text="검색"/>
+        <Static id="Static06" taborder="47" text="h10" cssclass="sta_GUIDE_Area" visible="false" left="0" top="70" width="420" height="10" style="align:center middle;"/>
+        <Static id="Static13" taborder="48" text="w10" cssclass="sta_GUIDE_Area" visible="false" left="410" top="80" width="10" height="358" style="align:center middle;"/>
+        <Static id="Static15" taborder="50" text="w10" cssclass="sta_GUIDE_Area" visible="false" left="0" top="80" width="10" height="358" style="align:center middle;"/>
+        <Button id="btnClose" taborder="45" onclick="btnClose_onclick" cssclass="btn_POP_XBtn" left="350" top="0" width="70" height="70"/>
+        <Static id="Static03" taborder="54" text="h20" cssclass="sta_GUIDE_Area" visible="false" left="0" top="438" style="align:center middle;" width="420" height="20"/>
+        <Edit id="edt_value" taborder="71" left="10" top="80" width="295" height="47" displaynulltext="업장명" imemode="hangul"/>
+        <Button id="btn_search" taborder="72" text="검색" cssclass="btn_WF_Search" left="310" top="80" width="100" height="47" onclick="btnSearch_onclick"/>
+        <Static id="Static01" taborder="73" text="h05" cssclass="sta_GUIDE_Area2" visible="false" left="305" top="86" width="5" height="30" style="align:center middle;"/>
+        <Static id="Static02" taborder="74" text="h10" cssclass="sta_GUIDE_Area" visible="false" left="0" top="127" width="420" height="10" style="align:center middle;"/>
+        <Grid id="grd_list" taborder="75" useinputpanel="false" left="10" top="137" width="400" height="301" binddataset="ds_grd" scrollbars="autovert" scrollpixel="all" oncellclick="grdList_oncellclick">
+          <Formats>
+            <Format id="default">
+              <Columns>
+                <Column size="43"/>
+                <Column size="48"/>
+                <Column size="40"/>
+                <Column size="40"/>
+                <Column size="40"/>
+                <Column size="40"/>
+                <Column size="40"/>
+                <Column size="40"/>
+                <Column size="40"/>
+                <Column size="40"/>
+              </Columns>
+              <Rows>
+                <Row size="0" band="head"/>
+                <Row size="50" band="head"/>
+                <Row size="50"/>
+              </Rows>
+              <Band id="head">
+                <Cell text="Column0"/>
+                <Cell col="1"/>
+                <Cell col="2"/>
+                <Cell col="3"/>
+                <Cell col="4"/>
+                <Cell col="5"/>
+                <Cell col="6"/>
+                <Cell col="7"/>
+                <Cell col="8"/>
+                <Cell col="9"/>
+                <Cell row="1"/>
+                <Cell row="1" col="1"/>
+                <Cell row="1" col="2"/>
+                <Cell row="1" col="3"/>
+                <Cell row="1" col="4"/>
+                <Cell row="1" col="5"/>
+                <Cell row="1" col="6"/>
+                <Cell row="1" col="7"/>
+                <Cell row="1" col="8"/>
+                <Cell row="1" col="9"/>
+              </Band>
+              <Band id="body">
+                <Cell style="align:center middle;padding:0 10 0 10;" editlimitbymask="decimal"/>
+                <Cell col="1" style="align:left;"/>
+                <Cell col="2"/>
+                <Cell col="3"/>
+                <Cell col="4"/>
+                <Cell col="5"/>
+                <Cell col="6"/>
+                <Cell col="7"/>
+                <Cell col="8"/>
+                <Cell col="9"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Button id="btn_moreView" taborder="79" onclick="div_tab01_btn_moreView_onclick" visible="false" left="128" right="136" bottom="21" height="42" style="background:darkgray;color:white;opacity:75;"/>
+      </Layout>
+    </Layouts>
+    <Bind/>
+    <Objects>
+      <Dataset id="ds_grd" firefirstcount="0" firenextcount="0" useclientlayout="true" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="upjang" type="STRING" size="256"/>
+          <Column id="upjangnmDisp" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript5.0"><![CDATA[//########################################################
+// [프로젝트]		FC종합전산 모바일시스템 구축
+// [시스템명]		공통검색팝업
+// [부시스템명]	공통검색팝업 - 조회
+// [설명]		    공통검색팝업.
+// [작성자명] 		강대성
+// [작성일자]		2015.02.02
+// -----------------[수정이력]--------------------------
+// 수정일자 : 수정자 : 수정내용
+// 2015.02.02 : 강대성 : 수정이 필요하여 수정함.
+//########################################################
+include "lib::lib_Com.xjs"
+/*================================================================================
+ * 1. 변수 선언
+ *===============================================================================*/
+this.fv_totalpageRow;	// 전체건수
+
+/*================================================================================
+ * 2. Form관련 Script
+ *===============================================================================*/
+/** 
+ * Form의 모든 컴포넌트가 생성되고, 모든 Object가 Load 되었을 때에 발생하는 Event
+ * @param
+	obj : Event가 발생한 Object
+	e : Event Object
+ * @return : 없음
+ */ 
+this.form_onload = function(obj:Form, e:nexacro.LoadEventInfo)
+{
+	// Form Load 시 공통 기능 처리(obj:Form, bCreateEvent:이벤트 생성 여부)
+	this.gfn_formOnLoad(this);
+	
+	// 초기값 셋팅
+	this.fn_init();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 초기값 셋팅
+ *---------------------------------------------------------------------------------------------*/
+this.fn_init = function()
+{
+	//그리드를 디자인한다.
+	this.fn_gridDesign();
+}
+
+/************************************************************************************************
+ * 공통기능 FUNCTION 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 조회 버튼 클릭 시 (필수-공통버튼에서 호출됨)
+ *---------------------------------------------------------------------------------------------*/
+this.fn_search = function()
+{
+	var parameter = gfn_jsonStringToObject(SEND_PARAMETER);
+	parameter.option.value = gfn_nvl(edt_value.value);
+	
+    var strSvcID    = "search";
+    var strURL      = "/sc/cmn/binding/select.xdo";
+    var strInDs     = "";
+    var strOutDs    = "ds_grd=output";
+    var strArg      = "input="+wrapQuote(gfn_jsonObjectToString(parameter));
+    var strCallback = "fn_callBack";
+    var bAsync      = true;
+    
+    this.gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+}
+
+
+/************************************************************************************************
+ * TRANSACTION 및 CallBack 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 트랜잭션 콜백 함수 (필수)
+ *---------------------------------------------------------------------------------------------*/
+this.fn_callBack = function(strSvcID, nErrorCode, strErrorMsg)
+{
+    switch(strSvcID)
+    {
+		// 조회
+        case "search" :    
+            break;
+    }
+}
+
+/************************************************************************************************
+ * 사용자 FUNCTION 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : Return할 Array 생성 및 창 닫기
+ *---------------------------------------------------------------------------------------------*/
+this.fn_return = function()
+{
+	var design = gfn_jsonStringToObject(SEND_DESIGN_PARAMETER);
+	var parameter = gfn_jsonStringToObject(SEND_PARAMETER);
+	var rowIdx = ds_grd.rowposition;
+	var arr = new Array();
+	var openerDataset = opener.objects[parameter.outDs];
+	openerDataset.clear();
+
+	for ( var i = 0; i < ds_grd.getColCount(); i++ ) {
+		openerDataset.addColumn(ds_grd.getColID(i), "string", 1000);
+		arr[ds_grd.getColID(i)] = ds_grd.getColumn(rowIdx, i);
+	}
+	
+ 	var newRow = openerDataset.addRow();
+ 	openerDataset.copyRow(newRow, ds_grd, rowIdx);
+	
+	this.close(arr);
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 그리드를 디자인한다.
+ *---------------------------------------------------------------------------------------------*/
+this.fn_gridDesign = function()
+{
+	var parameter = gfn_jsonStringToObject(SEND_PARAMETER);
+	var design = gfn_jsonStringToObject(SEND_DESIGN_PARAMETER);
+	var cols = null;
+	
+	//[[디자인 정보를 각 화면에서 설정한 경우에 처리한다.
+	if (parameter.option.design != undefined) {
+		var p = parameter.option.design;
+		
+		if (p.title != undefined) {
+			design.title = p.title;
+		}
+		
+		if (p.label != undefined) {
+			design.label = p.label;
+		}
+		
+		if (p.labelWidth != undefined) {
+			design.labelWidth = p.labelWidth;
+		}
+		
+		if (p.columns != undefined) {
+			cols = p.columns;
+		}
+	}
+	//디자인 정보를 각 화면에서 설정한 경우에 처리한다.]]
+	
+	this.titletext = design.title; //SEND_DESIGN_DATASET.getColumn(0, "title");
+	sta_title.text = design.title; //SEND_DESIGN_DATASET.getColumn(0, "title");
+	
+	var width = parseInt(design.labelWidth); //SEND_DESIGN_DATASET.getColumn(0, "labelWidth"));
+	var right = sta_label.position.left + width;
+	sta_label.position.width = width;
+	sta_label.position.right = right;
+	sta_label.text = design.label; //SEND_DESIGN_DATASET.getColumn(0, "label");
+
+	this.edt_value.position.left = sta_label.position.right + 8;
+	edt_value.position.right = parseInt(design.width) - 30; //SEND_DESIGN_DATASET.getColumn(0, "width")) - 30;
+	
+	var columnInfo = design.columns; //gfn_jsonStringToObject(SEND_DESIGN_DATASET.getColumn(0, "columnInfo")).columnInfo;
+	
+	for (var i=0, len=grd_list.getCellCount("head"); i<len; i++) grd_list.setFormatColProperty(i, "size", 0); //보여지는 컬럼을 숨긴다.
+	//[[그리드에 열의 Width 및 Align, Text를 설정한다.
+	for (var i=0, len=columnInfo.length; i<len; i++)
+	{
+		//[[디자인 정보를 각 화면에서 설정한 경우에 처리한다.
+		if (cols != null) {
+			if (cols[i].width != undefined) {
+				columnInfo[i].width = cols[i].width;
+			}
+			
+			if (cols[i].text != undefined) {
+				columnInfo[i].text = cols[i].text;
+			}
+		}
+		//디자인 정보를 각 화면에서 설정한 경우에 처리한다.]]
+		
+		grd_list.setFormatColProperty(i, "size", parseInt(columnInfo[i].width));
+		grd_list.setCellProperty("head", i, "text", columnInfo[i].text);
+		
+		if (columnInfo[i].align != undefined) grd_list.setCellProperty("body", i, "align", columnInfo[i].align);
+		else grd_list.setCellProperty("body", i, "align", "center");
+		
+		grd_list.setCellProperty("body", i, "displaytype", "text");
+		grd_list.setCellProperty("body", i, "text", "bind:"+columnInfo[i].id);
+	}
+	//그리드에 열의 Width 및 Align, Text를 설정한다.]]
+	
+	//ds_search.copyData(SEND_DESIGN_DATASET);
+	//this.removeChild("SEND_DESIGN_DATASET");
+}
+
+]]></Script>
+  </Form>
+</FDL>

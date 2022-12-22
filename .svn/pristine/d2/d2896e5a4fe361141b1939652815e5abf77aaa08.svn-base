@@ -1,0 +1,2020 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="sc.app.orderDAO">
+	<desc>FC POS 마스터 외부 인터페이스 HQML</desc>
+
+
+
+
+
+
+
+
+
+	<statement name="selectTest"><![CDATA[SELECT '1' AS CHECK_NUM
+  FROM DUAL]]></statement>
+	<statement name="logInsert"><![CDATA[INSERT INTO APP_INTERFACE_LOG(
+INSDT,
+TXID,
+TXDIV,
+TXHEADER,
+TXDATA,
+TXRESULT)
+VALUES(
+TO_CHAR(SYSDATE,'YYYY-MM-DD HH24:MI:SS'),
+<#if txId?has_content >:txId,<#else>null,</#if> 
+<#if txDiv?has_content >:txDiv,<#else>null,</#if> 
+<#if tHeader?has_content >:tHeader,<#else>null,</#if> 
+<#if tData?has_content >:tData,<#else>null,</#if> 
+<#if tResult?has_content >:tResult<#else>null</#if> 
+)]]></statement>
+	<statement name="selectImgInfo"><![CDATA[SELECT  
+       A.ITEM_CD            AS ITEM_CODE           /* 품목코드 */
+     , A.ITEM_NM            AS ITEM_NAME           /* 품목명 */
+     , Y.ATT_FILE_PATH||Y.ATT_FILE_NM AS IMG_PATH  /* 자재이미지경로 */
+  FROM EPROCUSR.ESMMTGL A 
+     , EPROCUSR.ESAATTH Y
+ WHERE 1=1
+   AND A.SYS_ID       = Y.SYS_ID
+   AND A.ITEM_CD      = :itemCode
+   AND A.IMG_ATT_NO   = Y.GRP_CD      
+   AND A.SYS_ID       = '100'
+   AND Y.FILE_PRPT_CD = 'FP002'  -- 자재이미지
+   AND A.STS <> 'D'  
+   AND Y.STS <> 'D'
+ORDER BY Y.ATT_SEQ]]></statement>
+	<statement name="selectFavGrpInfo"><![CDATA[SELECT T1.UPJANG,
+       T1.FAVOR_GROUP,
+       T1.FAVOR_NAME,
+       T1.SORT_SEQ AS GRP_SORTSEQ,
+       T1.USE_YN AS GRP_USEYN
+<#if appUserGroup?has_content>
+	<#if appUserGroup == '30' || appUserGroup == '31'>
+	  FROM FSP_FAVORITE_GROUP T1
+	<#else>
+	  FROM FMP_FAVORITE_GROUP T1  
+	</#if>
+<#else>
+  FROM FMP_FAVORITE_GROUP T1
+</#if>
+ WHERE T1.UPJANG = :upjangCd
+   AND T1.USE_YN = 'Y'
+<#if grpCode?has_content>
+       AND T1.FAVOR_GROUP   = :grpCode
+</#if>
+ORDER BY T1.SORT_SEQ]]></statement>
+	<statement name="selectFavItemInfo"><![CDATA[
+SELECT T2.UPJANG,
+       T2.FAVOR_GROUP,
+       T2.ITEM_CODE,
+       T2.USE_YN AS ITEM_USE_YN
+<#if appUserGroup?has_content>
+	<#if appUserGroup == '30' || appUserGroup == '31'>
+	  FROM FSP_FAVORITE T2
+	<#else>
+	  FROM FMP_FAVORITE T2
+	</#if>
+<#else>
+  FROM FMP_FAVORITE T2
+</#if>
+ WHERE T2.UPJANG = :upjangCd
+   AND T2.USE_YN = 'Y'
+<#if grpCode?has_content>
+       AND T2.FAVOR_GROUP   = :grpCode
+</#if>
+ORDER BY T2.ITEM_CODE]]></statement>
+
+	<statement name="selectFavItemInfoPage"><![CDATA[
+SELECT UPJANG, FAVOR_GROUP, ITEM_CODE, ITEM_USE_YN, ITEM_NAME, LISTNUM, ROWCNT
+FROM (
+    SELECT T2.UPJANG,
+       T2.FAVOR_GROUP,
+       T2.ITEM_CODE,
+       T2.USE_YN AS ITEM_USE_YN,
+       CASE WHEN T3.ITEM_CODE IS NOT NULL THEN T3.ITEM_NAME
+            ELSE T4.ITEM_NAME END AS ITEM_NAME,
+       ROW_NUMBER() OVER (ORDER BY NVL(ITM_MST.CONTRACT_YN,'N') DESC, (CASE WHEN T3.ITEM_CODE IS NOT NULL THEN T3.ITEM_NAME ELSE T4.ITEM_NAME END), T2.ITEM_CODE DESC) AS LISTNUM, --정렬기준(판가유무,상품명,상품코드)
+       COUNT(1) OVER () AS ROWCNT
+<#if appUserGroup?has_content>
+	<#if appUserGroup == '30' || appUserGroup == '31'>
+	  FROM FSP_FAVORITE T2
+	<#else>
+	  FROM FMP_FAVORITE T2
+	</#if>
+<#else>
+  FROM FMP_FAVORITE T2
+</#if>
+     , (SELECT ITEM_CODE, ITEM_NAME FROM APP_PO_ITEM_MST WHERE PROC_GB <> 'D') T3
+     , (SELECT ITEM_CODE, ITEM_NAME FROM APP_OTCUST_ITEM_MST WHERE PROC_GB <> 'D') T4
+     , (SELECT ITEM_CODE, NVL(MAX('Y'),'N') CONTRACT_YN
+          FROM APP_PO_CONTRACT_FSALE
+         WHERE UPJANG = :apUnitpriceUpjang --단가업장코드
+           AND :needDate BETWEEN CONTRACT_START and CONTRACT_END  --입고예정일
+        GROUP BY ITEM_CODE
+        union all
+        SELECT ITEM_CODE, NVL(MAX('Y'),'N') CONTRACT_YN
+          FROM APP_OTCUST_PRICE
+         WHERE upjang = :apUnitpriceUpjang --단가업장코드
+        GROUP BY ITEM_CODE) ITM_MST
+ WHERE T2.UPJANG = :upjangCd  --업장코드
+   AND T2.USE_YN = 'Y'     --사용유무
+<#if grpCode?has_content>
+   AND T2.FAVOR_GROUP = :grpCode
+</#if>
+   AND T2.ITEM_CODE = T3.ITEM_CODE(+)
+   AND T2.ITEM_CODE = T4.ITEM_CODE(+)
+   AND T2.ITEM_CODE = ITM_MST.ITEM_CODE(+)
+ <#if itemName?has_content>
+   AND T3.ITEM_NAME LIKE '%' || :itemName || '%'
+</#if>
+ ) TT
+WHERE 1=1
+AND LISTNUM BETWEEN :listCnt * ( :pageNum - 1 ) + 1 AND :listCnt * :pageNum]]></statement>
+
+	<statement name="selectFavInfo"><![CDATA[SELECT T1.UPJANG,
+       T1.FAVOR_GROUP,
+       T1.FAVOR_NAME,
+       T1.SORT_SEQ AS GRP_SORTSEQ,
+       T1.USE_YN AS GRP_USEYN,
+       T2.ITEM_CODE,
+       T2.USE_YN AS ITEM_USE_YN
+<#if appUserGroup?has_content>
+	<#if appUserGroup == '30' || appUserGroup == '31'>
+	  FROM FSP_FAVORITE_GROUP T1, FSP_FAVORITE T2
+	<#else>
+	  FROM FMP_FAVORITE_GROUP T1, FMP_FAVORITE T2
+	</#if>
+<#else>
+  FROM FMP_FAVORITE_GROUP T1, FMP_FAVORITE T2
+</#if>
+ WHERE T1.UPJANG = :upjangCd
+   AND T1.UPJANG = T2.UPJANG(+)
+   AND T1.FAVOR_GROUP = T2.FAVOR_GROUP(+)
+ORDER BY T1.SORT_SEQ, T2.ITEM_CODE]]></statement>
+
+
+	<statement name="favgrpNextval"><![CDATA[SELECT TO_CHAR(FSP_FAVORITE_GROUP_S.NEXTVAL) AS GRP_CODE
+  FROM DUAL]]></statement>
+	<statement name="favgrpProc"><![CDATA[
+<#if appUserGroup?has_content>
+	<#if appUserGroup == '30' || appUserGroup == '31'>
+	MERGE INTO FSP_FAVORITE_GROUP A
+	<#else>
+	MERGE INTO FMP_FAVORITE_GROUP A
+	</#if>
+<#else>
+MERGE INTO FMP_FAVORITE_GROUP A
+</#if>
+USING DUAL
+ON (
+     A.UPJANG      = :upjangCd
+AND  A.FAVOR_GROUP = :grpCode
+)
+WHEN MATCHED THEN
+    UPDATE SET
+    A.FAVOR_NAME = :grpName,
+    A.SORT_SEQ   = :grpSortSeq,
+    A.USE_YN     = DECODE(:delYn,'Y','N','Y'),
+    A.UUSER      = (SELECT SABUN FROM SCC_USERINFO WHERE USERID = :userid),
+    A.UDATE      = SYSDATE
+WHEN NOT MATCHED THEN
+    INSERT (
+         UPJANG,
+         FAVOR_GROUP,
+         FAVOR_NAME,
+         SORT_SEQ,
+         USE_YN,
+         CUSER,
+         CDATE
+        ) VALUES (
+         :upjangCd,
+         :grpCode,
+         :grpName,
+         :grpSortSeq,
+         DECODE(:delYn,'Y','N','Y'),
+         (SELECT SABUN FROM SCC_USERINFO WHERE USERID = :userid),
+         SYSDATE
+    )]]></statement>
+	<statement name="favgrpItemProc"><![CDATA[
+<#if appUserGroup?has_content>
+	<#if appUserGroup == '30' || appUserGroup == '31'>
+	MERGE INTO FSP_FAVORITE A
+	<#else>
+	MERGE INTO FMP_FAVORITE A
+	</#if>
+<#else>
+MERGE INTO FMP_FAVORITE A
+</#if>
+USING DUAL
+ON (
+     A.UPJANG      = :upjangCd
+AND  A.FAVOR_GROUP = :grpCode
+AND  A.ITEM_CODE   = :itemCode
+)
+WHEN MATCHED THEN
+    UPDATE SET
+    A.USE_YN = DECODE(:delYn,'Y','N','Y'),
+    A.UUSER  = (SELECT SABUN FROM SCC_USERINFO WHERE USERID = :userid),
+    A.UDATE  = SYSDATE
+WHEN NOT MATCHED THEN
+    INSERT (
+         UPJANG,
+         FAVOR_GROUP,
+         ITEM_CODE,
+         USE_YN,
+         CUSER,
+         CDATE
+        ) VALUES (
+         :upjangCd,
+         :grpCode,
+         :itemCode,
+         DECODE(:delYn,'Y','N','Y'),
+         (SELECT SABUN FROM SCC_USERINFO WHERE USERID = :userid),
+         SYSDATE
+    )]]></statement>
+    
+	<statement name="selectPreOrder"><![CDATA[
+SELECT A.ITEM_CODE
+  FROM SO_PR A
+ WHERE 1=1
+ AND A.NEED_DATE BETWEEN :startDt AND :endDt
+   AND A.RC_UPJANG = :upjangCd
+   AND A.SUBINV_CODE = :subinvCd
+   AND A.LINE_STATUS NOT IN ('003','005','999')
+ UNION
+SELECT A.ITEM_CODE
+  FROM FMP_OTCUST_PR A
+ WHERE 1=1
+ AND A.NEED_DATE BETWEEN :startDt AND :endDt
+   AND A.UPJANG = :upjangCd
+   AND A.SUBINV_CODE = :subinvCd
+   AND A.LINE_STATUS NOT IN ('003','005','999')]]></statement>
+    
+<statement name="selectCtrlAmt"><![CDATA[SELECT NVL(T4.CREDIT_AMOUNT,0) AS CREDIT_AMOUNT, /* 기본여신금액  */
+       NVL(T4.CREDIT_OVER_AMOUNT,0) AS CREDIT_OVER_AMOUNT, /* 임시여신금액  */
+       NVL(T4.CREDIT_RMN_AMT,0) AS CREDIT_RMN_AMT,
+       NVL(T4.CREDIT_AMOUNT,0) - NVL(T4.CREDIT_RMN_AMT,0) AS BOND_AMT,
+       NVL(T4.CREDIT_AMOUNT_CONTROL_YN,'N') AS CREDIT_CTRL_YN,
+       NVL(T4.CREDIT_AVAIL_AMT,0) AS CREDIT_AVAIL_AMT, /* 실주문가능금액 */
+       NVL(T4.CREDIT_TURN_CONTROL_YN,'N') AS CREDIT_TURN_CONTROL_YN, /* 'Y'이면 여신회전일통제, 'N'이면 '통제안함' */
+       T4.LAST_TURN_CNT,
+       T4.CREDIT_TURN_DAYS_TOT, /* 'Y'이면 여신회전일통제, 'N'이면 '통제안함' */
+       T4.L_BILL_DATE_DISP /* 최장 미입금된 외상매출발생일 */
+  FROM TABLE(FT_UPJANG_CREDIT_LIMIT(:upjangCd, :needDate)) T4]]></statement>
+
+<statement name="selectSubinvCtrlAmt"><![CDATA[SELECT RC_UPJANG, SUBINV_CODE, CONTROL_YN, CONTROL_AMT, PO_AMT
+FROM (SELECT RC_UPJANG
+           , SUBINV_CODE
+           , CONTROL_YN
+           , CONTROL_AMT
+ , SUM(NVL(ROUND(SUM(PO_AMT)), 0)) OVER () AS PO_AMT
+      FROM (SELECT A.UPJANG              AS RC_UPJANG
+                 , A.SUBINV_CODE
+<#if subinvCode?has_content>
+                 , CASE WHEN A.SUBINV_CODE = :subinvCode THEN 0
+                     ELSE
+                     (DECODE(C.TAX_CODE, '100', 1.1, 1)
+                   * (C.CENTER_DELI_QTY + C.DIRECT_DELI_QTY - C.DELIVERED_QTY - C.UNDELIVERED_QTY)
+                   * C.SAL_OPER_PRICE) END AS PO_AMT
+<#else>
+				 , 0 AS PO_AMT
+</#if>
+                 , NVL(A.CONTROL_AMT, 0) AS CONTROL_AMT
+                 , CASE
+                       WHEN A.CONTROL_SD <= :needDate AND A.CONTROL_ED >= :needDate THEN 'Y'
+                       ELSE 'N' END      AS CONTROL_YN
+            FROM FMS_SUBINVENTORY A
+               , FMS_UPJANG B
+               , HLDC_PO_PO C
+               , (SELECT X.UPJANG
+                  FROM FMS_SUBINVENTORY X,
+                       HLDC_PO_PO Y
+                  WHERE X.SUBINV_CODE = Y.SUBINV_CODE(+)
+                    AND X.UPJANG = Y.RC_UPJANG(+)
+                    AND X.UPJANG = :upjangCd
+                    AND (
+                              NVL(X.CONTROL_YN, 'N') = 'N'
+                          OR (NOT :needDate BETWEEN X.CONTROL_SD AND X.CONTROL_ED)
+                      )
+                    AND Y.LINE_STATUS(+) = 'PC'
+                    AND Y.NEED_DATE(+) = :needDate
+                    AND FMS_PREORDER_FUN(Y.CENTER_CODE, Y.ITEM_CODE, 'D_DAYS') <= 1
+                  GROUP BY X.UPJANG) D
+            WHERE A.UPJANG = C.RC_UPJANG(+)
+              AND A.UPJANG = B.UPJANG
+              AND A.UPJANG = :upjangCd
+              AND A.SUBINV_CODE = C.SUBINV_CODE(+)
+              AND A.UPJANG = D.UPJANG(+)
+              AND C.NEED_DATE(+) = :needDate
+              AND C.LINE_STATUS(+) = 'PC')
+      GROUP BY RC_UPJANG, SUBINV_CODE, CONTROL_AMT, CONTROL_YN)
+<#if subinvCode?has_content>
+WHERE SUBINV_CODE = :subinvCode
+<#else>
+WHERE SUBINV_CODE = '0'
+</#if>
+]]></statement>
+
+<statement name="selectOrderInfo"><![CDATA[SELECT A.*
+ --운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 맹수영 20150919 시작
+     ,  DECODE(NVL(A.OP_PRICE_S,0), 0, A.SALE_PRICE, A.OP_PRICE_S) AS OP_PRICE --운영단가
+     ,  DECODE(NVL(A.OP_PRICE_S,0), 0, A.SALE_AMOUNT, ROUND(A.OP_PRICE_S * A.PR_QTY)) AS OP_AMOUNT
+     ,  DECODE(NVL(A.OP_PRICE_S,0), 0, A.SALE_AMOUNT, ROUND(A.OP_PRICE_S * A.PR_QTY)) AS OP_AMOUNT_OLD
+ --운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 맹수영 20150919  끝
+     , DECODE(NVL(A.D_DAYS,0),0,'-','D-'||TO_CHAR(A.D_DAYS)) AS D_DAY_DISP
+     , SCC_SOPR_AGG_FUN(A.SUBINV_CODE, A.ITEM_CODE, '1') AS MAX_SO_QTY
+     , DECODE(A.CENTER_FLAG, 'VC', 'Y', '') AS VC_YN
+  FROM
+      (SELECT A.PR_ID, A.PR_NUM, A.APPROVE_NUM
+		    , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.PO_UOM, A.UNIT_PRICE, A.MARGIN_PRICE
+		    , A.SALE_PRICE, A.OP_PRICE AS OP_PRICE_S,A.PR_QTY, ROUND(A.SALE_PRICE * A.PR_QTY) AS SALE_AMOUNT
+		    , A.LINE_STATUS
+		    , CASE WHEN FMS_PO_LINESTATUS_FUN(A.PR_ID, A.PR_NUM, 'C') IN('DL', 'GC', 'IV') OR A.SO_STATUS IN('005', '007', '008') THEN '마감' ELSE '마감전' END AS CLS_STATUS
+		    , A.PR_REMARK
+		    , FMS_PO_LINESTATUS_FUN(A.PR_ID, A.PR_NUM, 'N') AS PO_LINE_STATUS
+		    , A.SUBINV_CODE, A.NEED_DATE
+		    , A.TAX_CODE, A.CUSTCD, A.CENTER_FLAG
+		    , A.CENTER_CODE, B.POINT_FLAG, A.PR_UPJANG
+		    , A.RC_UPJANG, A.INVAT_FLAG, A.OUTVAT_FLAG
+			  --수량통제 안하는 업장의 경우 소숫점발주가 Y이면 무조건 최소발주량/발주승수량을 무조건 0.1로 세팅하여 조회
+		  	, DECODE(:qtyControlYn||B.POINT_FLAG,'NY',DECODE(B.MIN_ORD_QTY,0,0,0.1),B.MIN_ORD_QTY) AS MIN_ORD_QTY
+		  	, B.MAX_ORD_QTY
+		  	, DECODE(:qtyControlYn||B.POINT_FLAG,'NY',DECODE(B.MULTIPLIER_QTY,0,0,0.1),B.MULTIPLIER_QTY) AS MULTIPLIER_QTY
+		    , '0000' AS OTCUSTCD
+		    , B.IMG_PATH AS IMAGE_PATH
+		      --디데이날짜와 입고일이 같으면 디타임을 체크하여 넘었으면 디데이 하루 추가
+		    , DECODE( SIGN(TO_DATE(:needDate,'YYYYMMDD') - TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD'),'YYYYMMDD') - NVL(C.D_DAYS,0) )
+		            , 0, DECODE(SIGN(DECODE(C.D_TIMES,'',24,0,24,C.D_TIMES) - TO_NUMBER(TO_CHAR(SYSDATE,'HH24'))),1,0,1)
+		            , 0 ) + NVL(C.D_DAYS,0) AS D_DAYS
+		    , DECODE(C.D_TIMES,'',2400,0,2400,C.D_TIMES*100) AS D_TIMES
+		    , A.DOCU_SOURCE
+		    , B.ITEM_CLASS4
+		    , B.KEEPING_TYPE
+		    , A.APPLY_SD
+		    , A.VD_SN
+		    , B.ORIGIN_TYPE
+		    , A.UPJANG_GRP
+		    , A.OP_RATE
+		    , TO_CHAR(A.CREATE_DATE, 'YYYY-MM-DD HH24:MI:SS') AS APPROVE_TIME
+		    , A.CREATE_BY
+		    , A.T_ORDER
+		    , B.KG_CONVERT_RATE
+		    , B.UOM_CONVERT_RATE
+		    , ROUND((B.KG_CONVERT_RATE * A.PR_QTY),2)  AS TOT_WGHT
+	     FROM SO_PR A, HLDC_PO_ITEM_MST B, HLDC_PO_PREORDER_LIST C
+	    WHERE A.ITEM_CODE   = B.ITEM_CODE
+	      AND A.SUBINV_CODE = :subinvCode
+	      AND A.NEED_DATE = :needDate
+--	      AND A.DOCU_SOURCE IN ('07 FM(상품)','07 FM','01 BO','07 FM(모바일)')
+<#if scrnId=="M_01">
+		  AND A.DOCU_SOURCE IN (:docuSource,:docuSource1,:docuSource2,:docuSource3)
+<#elseif scrnId=="M_02">
+          AND A.DOCU_SOURCE IN (:docuSource4)
+<#elseif scrnId=="M_05">
+          AND A.DOCU_SOURCE IN (:docuSource5)
+</#if>
+	      AND A.LINE_STATUS NOT IN ('003','999')
+	      AND A.CENTER_CODE = C.CENTER_CODE(+)
+	      AND A.ITEM_CODE = C.ITEM_CODE(+)
+	    -----------
+	    UNION ALL
+	    -----------
+	   SELECT A.PR_ID, A.PR_NUM, '' AS APPROVE_NUM
+	        , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.PO_UOM, A.UNIT_PRICE, A.UNIT_PRICE AS MARGIN_PRICE
+	        , A.SALE_PRICE, A.OP_PRICE AS OP_PRICE_S, A.PR_QTY, A.SALE_AMOUNT
+	        , A.LINE_STATUS
+	        --LINE_STATUS 변경으로 상태값을 '002'로, DECODE(A.LINE_STATUS, '004'
+	        , DECODE(A.LINE_STATUS, '002'
+	                , DECODE( SIGN( TO_DATE(:needDate,'YYYYMMDD') - TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD'),'YYYYMMDD') - NVL(B.D_DAYS,0) - 1)
+	                        , 1, '마감전'
+	                        , 0, DECODE(SIGN(DECODE(B.D_TIMES,'',2400,0,2400,TO_NUMBER(B.D_TIMES)) - TO_NUMBER(TO_CHAR(SYSDATE,'HH24MI'))),1,'마감전','마감')
+	                        , '마감' )
+	                , '마감') AS CLS_STATUS
+	        , A.CONTENTS AS PR_REMARK
+	        , '발주완료' AS PO_LINE_STATUS
+	        , A.SUBINV_CODE, A.NEED_DATE
+	        , A.TAX_CODE, NULL AS CUSTCD, NULL AS CENTER_FLAG
+	        , NULL AS CENTER_CODE, B.POINT_FLAG, A.UPJANG AS PR_UPJANG
+	        , A.UPJANG AS RC_UPJANG, NULL AS INVAT_FLAG, NULL AS OUTVAT_FLAG
+	        , B.MIN_ORD_QTY, B.MAX_ORD_QTY, B.MULTIPLIER_QTY
+	        , B.OTCUSTCD AS OTCUSTCD
+	        , B.SIMAGE_PATH AS IMAGE_PATH
+	          --디데이날짜와 입고일이 같으면 디타임을 체크하여 넘었으면 디데이 하루 추가
+		    , DECODE( SIGN(TO_DATE(:needDate,'YYYYMMDD') - TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD'),'YYYYMMDD') - NVL(B.D_DAYS,0) -1 )
+		            , 0, DECODE(SIGN(DECODE(B.D_TIMES,'',2400,0,2400,TO_NUMBER(B.D_TIMES)) - TO_NUMBER(TO_CHAR(SYSDATE,'HH24MI'))),1,0,1)
+		            , 0 ) + NVL(B.D_DAYS,0) + 1 AS D_DAYS
+		    , DECODE(B.D_TIMES,'',2400,0,2400,TO_NUMBER(B.D_TIMES)) AS D_TIMES
+	        , A.DOCU_SOURCE
+	        , B.ITEM_CLASS4
+	        , B.KEEPING_TYPE
+	        , '' AS APPLY_SD
+		    , '' AS VD_SN
+		    , B.ORIGIN_TYPE
+		    , '' AS UPJANG_GRP
+		    , NULL AS OP_RATE
+		    , TO_CHAR(A.CDATE, 'YYYY-MM-DD HH24:MI:SS') AS APPROVE_TIME
+		    , A.CUSER AS CREATE_BY
+		    , A.T_ORDER
+		    , B.KG_CONVERT_RATE
+		    , B.UOM_CONVERT_RATE
+		    , ROUND((B.KG_CONVERT_RATE * A.PR_QTY),2)  AS TOT_WGHT
+	     FROM FMP_OTCUST_PR A, FMP_OTCUST_ITEM B
+	    WHERE A.ITEM_CODE   = B.ITEM_CODE
+	      AND A.SUBINV_CODE = :subinvCode
+	      AND A.NEED_DATE = :needDate
+--	      AND A.DOCU_SOURCE IN ('07 FM(상품)','07 FM','01 BO','07 FM(모바일)')
+<#if scrnId=="M_01">
+		  AND A.DOCU_SOURCE IN (:docuSource,:docuSource1,:docuSource2,:docuSource3)
+<#elseif scrnId=="M_02">
+          AND A.DOCU_SOURCE IN (:docuSource4)
+<#elseif scrnId=="M_05">
+          AND A.DOCU_SOURCE IN (:docuSource5)
+</#if>
+	      AND A.LINE_STATUS NOT IN ('003','999')
+	   ) A
+ ORDER BY A.PR_ID, A.PR_NUM]]></statement>
+
+<statement name="selectPrSeq"><![CDATA[
+SELECT TO_CHAR(SYSDATE,'YYYYMMDD')||'-'||LPAD(SO_PR_NUM_S.NEXTVAL,5,'0') AS PRNUM
+     , NVL((SELECT PR_NUM
+              FROM (SELECT PR_NUM FROM FMP_OTCUST_PR WHERE NEED_DATE = :needDate AND SUBINV_CODE = :subinvCd AND ROWNUM <= 1)
+             WHERE ROWNUM <= 1)
+          ,TO_CHAR(SYSDATE,'YYYYMMDD')||'-'||LPAD(SO_PR_NUM_S.NEXTVAL,5,'0')) AS OTCUST_PRNUM
+     , '자동'||TO_CHAR(SYSDATE,'YYYYMMDD')||'-'||LPAD(SO_PR_APV_NUM_S.NEXTVAL,4,'0') AS PR_APPR_NUM
+  FROM DUAL
+]]></statement>
+<statement name="selectPrIdSeq"><![CDATA[
+SELECT SO_PR_S.NEXTVAL AS PR_ID
+  FROM DUAL
+]]></statement>
+<statement name="saveOrderInfo"><![CDATA[
+INSERT INTO SO_PR(
+  PR_ID
+, PR_NUM
+, PR_DATE
+, PR_DEPT_ID
+, PR_UPJANG
+, PR_SABUN
+, APPROVER
+, APPROVE_TIME
+, APPROVE_NUM
+, PO_TYPE
+, DOCU_SOURCE
+, CUSTCD
+, SUBINV_CODE
+, RC_MU_CD
+, RC_DEPT_ID
+, RC_UPJANG
+, BUDDEPT_ID
+, CENTER_CODE
+, ITEM_CODE
+, ITEM_NAME
+, ITEM_SIZE
+, PO_UOM
+, TAX_CODE
+, ACCTCD
+, BUD_CLS
+, CENTER_FLAG
+, UNIT_PRICE
+, MARGIN_PRICE
+, SALE_PRICE
+, PR_QTY
+, PO_QTY
+, NEED_DATE
+, INVAT_FLAG
+, OUTVAT_FLAG
+, PR_REMARK
+, LINE_STATUS
+, CREATE_BY
+, CREATE_DATE
+, UPDATE_BY
+, UPDATE_DATE
+, APPLY_SD
+, VD_SN
+, MOBILE_GUBUN
+, UPJANG_GRP
+, OP_PRICE
+, OP_RATE
+, WMS_INT_ID
+, WMS_INT_FLAG)
+VALUES(
+:prId,
+:prNum,
+TO_CHAR(SYSDATE,'YYYYMMDD'),
+(SELECT DEPT_ID FROM HLDC_ST_UPJANG WHERE UPJANG = :prUpjangCd),
+:prUpjangCd,
+:sabun,
+:sabun,
+TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'),
+:prApprNum,
+'07',
+:docuGb,
+:custcd,
+:subinvCd,
+(SELECT B.MU_CD FROM HLDC_ST_UPJANG A, HLDC_SC_DEPT B WHERE A.DEPT_ID = B.DEPT_ID AND A.UPJANG = :rcUpjangCd),
+(SELECT DEPT_ID FROM HLDC_ST_UPJANG WHERE UPJANG = :rcUpjangCd),
+:rcUpjangCd,
+(SELECT BUDCC_CD FROM HLDC_PO_SUBINVENTORY WHERE SUBINV_CODE = :subinvCd),
+:centerCd,
+:itemCd,
+:itemNm,
+:itemSize,
+:poUom,
+:taxCode,
+(SELECT MATERIAL_ACCTCD FROM HLDC_PO_SUBINVENTORY WHERE SUBINV_CODE = :subinvCd),
+(SELECT MATERIAL_ACCTCD FROM HLDC_PO_SUBINVENTORY WHERE SUBINV_CODE = :subinvCd),
+:centerFlag,
+:unitPrice,
+:unitPrice,
+:salePrice,
+:prQty,
+:prQty,
+:needDate,
+:invatFlag,
+:outvatFlag,
+:prRemark,
+:lineStatus,
+:sabun,
+SYSDATE,
+:sabun,
+SYSDATE,
+:applySd,
+:vdSn,
+:mobileGubun,
+:upjangGrp,
+:opPrice,
+:opRate,
+:eventId,
+'A')
+]]></statement>
+<statement name="saveOtcustOrderInfo"><![CDATA[
+INSERT INTO FMP_OTCUST_PR(
+  PR_ID
+, PR_NUM
+, DOCU_SOURCE
+, PR_DATE
+, PR_SABUN
+, NEED_DATE
+, UPJANG
+, SUBINV_CODE
+, ITEM_CODE
+, ITEM_NAME
+, ITEM_SIZE
+, PO_UOM
+, TAX_CODE
+, PO_QTY
+, PR_QTY
+, UNIT_PRICE
+, UNIT_AMOUNT
+, SALE_PRICE
+, SALE_AMOUNT
+, OP_PRICE
+, OP_AMOUNT
+, OTCUSTCD
+, CONTENTS
+, LINE_STATUS
+, CUSER
+, CDATE
+, UUSER
+, UDATE)
+VALUES(
+:prId,
+:otcustPrNum,
+:docuGb,
+TO_CHAR(SYSDATE,'YYYYMMDD'),
+:sabun,
+:needDate,
+:rcUpjangCd,
+:subinvCd,
+:itemCd,
+:itemNm,
+:itemSize,
+:poUom,
+:taxCode,
+:prQty,
+:prQty,
+:unitPrice,
+ROUND(:prQty * :unitPrice),
+:salePrice,
+ROUND(:prQty * :salePrice),
+:opPrice,
+ROUND(:prQty * :opPrice),
+:otcustCd,
+:prRemark,
+:lineStatus,
+:sabun,
+SYSDATE,
+:sabun,
+SYSDATE)
+]]></statement>
+<statement name="updateOrderInfo"><![CDATA[
+UPDATE SO_PR
+   SET PR_QTY = DECODE(:prQty,0,PR_QTY,:prQty)
+     , PO_QTY = DECODE(:prQty,0,PO_QTY,:prQty)
+     , PR_REMARK = DECODE(:prQty,0,PR_REMARK,:prRemark)
+     , LINE_STATUS = DECODE(:prQty,0,'003',LINE_STATUS)
+     , SO_STATUS = DECODE(:prQty,0,'003',SO_STATUS)
+     , APPROVER = DECODE(:prQty,0,APPROVER,:sabun)
+     , APPROVE_TIME = DECODE(:prQty,0,APPROVE_TIME,TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'))
+     , UPDATE_BY = :sabun
+     , UPDATE_DATE = SYSDATE
+ WHERE PR_ID = :prId
+   AND LINE_STATUS <= '004'
+]]></statement>
+<statement name="updateOtcustOrderInfo"><![CDATA[
+UPDATE SO_PR
+   SET PR_QTY = DECODE(:prQty,0,PR_QTY,:prQty)
+     , PO_QTY = DECODE(:prQty,0,PO_QTY,:prQty)
+     , UNIT_AMOUNT = DECODE(:prQty,0,UNIT_AMOUNT,ROUND(:prQty * :unitPrice))
+     , SALE_AMOUNT = DECODE(:prQty,0,SALE_AMOUNT,ROUND(:prQty * :salePrice))
+     , OP_AMOUNT = DECODE(:prQty,0,OP_AMOUNT,ROUND(:prQty * :opPrice))
+     , CONTENTS = DECODE(:prQty,0,CONTENTS,:prRemark)
+     , LINE_STATUS = DECODE(:prQty,0,'003',LINE_STATUS)
+     , UUSER = :sabun
+     , UDATE = SYSDATE
+ WHERE PR_ID = :prId
+   AND LINE_STATUS <= '004'
+]]></statement>
+<statement name="selectGdsGnvTot"><![CDATA[
+SELECT
+       AA.UPJANG
+     , AA.NEED_DATE
+     , AA.PR_NUM
+     , SUM(ROUND(NVL(
+               CASE WHEN AA.TAX_CODE = '100' THEN AA.SALE_AMT * 1.1   /* 과세일 경우 */
+                    ELSE                          AA.SALE_AMT
+               END
+       , 0))) AS GDS_GNV_TOT  /* 상품발주합계 */
+  FROM (
+        SELECT
+               A.RC_UPJANG AS UPJANG
+             , A.NEED_DATE
+             , A.PR_NUM
+             , A.TAX_CODE
+             , NVL(A.SALE_PRICE, 0) * NVL(A.PO_QTY, 0)  AS SALE_AMT
+	      FROM SO_PR A
+	     WHERE A.SUBINV_CODE = :subinvCd
+	       AND (A.NEED_DATE   = :needDate
+	        OR A.NEED_DATE   = :needDate2)
+<#if isBfYn=="Y">
+ 	       AND A.PR_NUM   = :prNum
+</#if>
+<#if rowStatus?has_content>
+	<#if rowStatus=="D">
+ 	       AND A.PR_ID   = :prId
+ 	</#if>
+</#if>
+<#if scrnId=="M_01">
+		  AND A.DOCU_SOURCE IN (:docuSource,:docuSource1,:docuSource2,:docuSource3)
+<#elseif scrnId=="M_02">
+          AND A.DOCU_SOURCE IN (:docuSource4)
+<#elseif scrnId=="M_05">
+          AND A.DOCU_SOURCE IN (:docuSource5)
+</#if>
+          AND A.LINE_STATUS NOT IN ('003','999')
+       ) AA
+GROUP BY AA.UPJANG
+       , AA.NEED_DATE
+       , AA.PR_NUM
+ ]]></statement>
+<statement name="saveOrderTempInfo"><![CDATA[
+INSERT INTO FMP_PR_ID_TEMP(
+  PR_ID
+, PR_NUM
+, ROW_TYPE
+, CREATE_BY
+, CREATE_DATE
+, UPDATE_BY
+, UPDATE_DATE)
+VALUES(
+:prId,
+:prNum,
+:rowType,
+:sabun,
+SYSDATE,
+:sabun,
+SYSDATE)
+]]></statement>
+<statement name="saveOrderPreChk"><![CDATA[
+SELECT PO_STATUS, EXCEPTION_ORDER FROM (
+SELECT CASE WHEN PO_WEEK_STATUS IN ('XE', 'NN') THEN '요일별 신청불가 체크 오류'
+            WHEN PO_STATUS IN ('HE', 'NN') THEN '수발주 스케쥴에 따른 유효성 체크 오류'
+            ELSE 'OK' END AS PO_STATUS
+     , NVL(DECODE(T.EXC_GUBUN,'1',DECODE(T.BRAND_YN, 'Y', T.ORDER_YN, DECODE(T.MART_YN, 'Y', T.ORDER_YN, '')),'2', DECODE(T.BRAND_YN, 'Y', T.ORDER_YN, ''), '3', DECODE(T.MART_YN, 'Y', T.ORDER_YN, ''),''),'OK') AS EXCEPTION_ORDER
+FROM (SELECT DECODE(:otcustcd, '0000', EPROCUSR.FN_ITEM_PROCURE_SCH('100', 'HFC', (SELECT OPER_ORG_SN_PURC
+                                                                                   FROM HLDC_PO_CENTER
+                                                                                   WHERE CENTER_CODE = :centerCd),
+                                                                    :itemCode, :vdSn, '02',
+                                                                    FMS_PREORDER_FUN(:centerCd, :itemCode, 'D_DAYS'),
+                                                                    FMS_PREORDER_FUN(:centerCd, :itemCode, 'D_TIMES'),
+                                                                    TO_CHAR(SYSDATE, 'YYYYMMDD'), :needDate),
+                    'HK')                                                              AS PO_STATUS
+           , DECODE(:otcustcd, '0000', EPROCUSR.FN_ITEM_PROCURE_REQ_WKD('100', 'HFC', (SELECT OPER_ORG_SN_PURC FROM HLDC_PO_CENTER WHERE CENTER_CODE = :centerCd), :itemCode, :vdSn, '02', :needDate), 'XR') AS PO_WEEK_STATUS
+           , NVL((SELECT 'Y'
+                  FROM FMS_UPJANG
+                  WHERE UPJANG = :rcUpjangCd
+                    AND DEPT_ID IN ( /* 브랜드유통사업장만 */
+                      SELECT CC_CD
+                      FROM HLDC_SC_DEPT_V
+                      WHERE BU_CD = '2000'
+                        AND MU_CD = '2004'
+                        AND TM_CD LIKE 'CI%')), '')                                    AS BRAND_YN
+           , NVL((SELECT 'Y'
+                  FROM FMS_UPJANG
+                  WHERE UPJANG = :rcUpjangCd
+                    AND DEPT_ID IN ( /* 마트사업장 */
+                      SELECT CC_CD
+                      FROM HLDC_SC_DEPT_V
+                      WHERE BU_CD = '2000'
+                        AND MU_CD = '2004'
+                        AND DEPT_ID IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'BRAND_UPJANG_POP_ETC'))),
+                 '')                                                                   AS MART_YN
+           , NVL((SELECT EXC_GUBUN FROM EXC_ITEM_MST WHERE ITEM_CODE = :itemCode), '') AS EXC_GUBUN
+           , NVL((SELECT ORDER_YN FROM EXC_ITEM_MST WHERE ITEM_CODE = :itemCode), '')  AS ORDER_YN
+      FROM DUAL) T) Z
+WHERE (Z.PO_STATUS <> 'OK' AND Z.EXCEPTION_ORDER <> 'Y') OR Z.EXCEPTION_ORDER = 'N'
+ ]]></statement>
+<statement name="saveOrderPreChk2"><![CDATA[
+SELECT A.PR_ID, A.PR_NUM, A.ITEM_CODE, A.ITEM_NAME, A.PO_LINE_STATUS
+  FROM
+      (SELECT A.PR_ID, A.PR_NUM, A.ITEM_CODE, A.ITEM_NAME
+            , FMS_PO_LINESTATUS_FUN(A.PR_ID, A.PR_NUM, 'N') AS PO_LINE_STATUS
+	     FROM SO_PR A
+	    WHERE A.SUBINV_CODE = :subinvCd
+	      AND A.NEED_DATE = :needDate
+	    UNION ALL
+	   SELECT A.PR_ID, A.PR_NUM, A.ITEM_CODE, A.ITEM_NAME
+	        , '발주완료' AS PO_LINE_STATUS
+	     FROM FMP_OTCUST_PR A
+	    WHERE A.SUBINV_CODE = :subinvCd
+	      AND A.NEED_DATE = :needDate
+	    UNION ALL
+	   SELECT A.PR_ID, A.PR_NUM, A.ITEM_CODE, A.ITEM_NAME
+	        , (SELECT S.CODE_NAME FROM SCC_COMMON_CODE S WHERE S.GROUP_CODE = 'RTN_LINE_STATUS' AND S.CODE = A.LINE_STATUS) AS PO_LINE_STATUS
+	     FROM SO_PR_RTN A
+	    WHERE A.SUBINV_CODE = :subinvCd
+	      AND A.NEED_DATE = :needDate
+	   ) A
+ ]]></statement>
+<statement name="selectValidChk1"><![CDATA[
+SELECT A.ITEM_CODE
+     , A.ITEM_NAME
+--     , A.CENTER_CODE
+--     , A.RC_UPJANG
+--     , A.CENTER_FLAG
+     , '단가업장 수발주 스케쥴에 따른 해당상품 발주제한' AS ITEM_VAL
+FROM  SO_PR A , FMP_PR_ID_TEMP B
+WHERE 1=1
+AND   (CENTER_CODE, CUSTCD, ITEM_CODE) IN
+      (SELECT CENTER_CODE, CUSTCD, ITEM_CODE
+       FROM   FMP_ORDER_SCHEDULE
+       WHERE  CENTER_CODE = :centerCd
+       AND    UPJANG = :apUnitpriceUpjang
+       AND    USE_YN = 'Y'
+       AND    DECODE(TO_CHAR(TO_DATE(:needDate,'YYYYMMDD'),'D'),
+                     1,SUN,2,MON,3,TUE,4,WED,5,THU,6,FRI,7,SAT) = 'Y'
+       UNION ALL
+       (SELECT CENTER_CODE, CUSTCD, ITEM_CODE
+       FROM    FMP_ORDER_SCHEDULE
+       WHERE   CENTER_CODE = :centerCd
+       AND     UPJANG = -2
+       AND     USE_YN = 'Y'
+       AND     DECODE(TO_CHAR(TO_DATE(:needDate,'YYYYMMDD'),'D'),
+                      1,SUN,2,MON,3,TUE,4,WED,5,THU,6,FRI,7,SAT) = 'Y'
+       MINUS
+       SELECT  CENTER_CODE, CUSTCD, ITEM_CODE
+       FROM    FMP_ORDER_SCHEDULE
+       WHERE   CENTER_CODE = :centerCd
+       AND     UPJANG = :apUnitpriceUpjang
+       AND     USE_YN = 'Y'
+       AND     DECODE(TO_CHAR(TO_DATE(:needDate,'YYYYMMDD'),'D'),
+                      1,SUN,2,MON,3,TUE,4,WED,5,THU,6,FRI,7,SAT) = 'Y'))
+AND A.PR_NUM = :prNum
+AND A.LINE_STATUS = '002' AND A.DOCU_SOURCE = :docuGb
+AND A.PR_ID   = B.PR_ID
+]]></statement>
+<statement name="selectValidChk2"><![CDATA[
+SELECT Z.ITEM_CODE, Z.ITEM_NAME, Z.ITEM_VAL, Z.BRAND_YN, Z.MART_YN, Z.EXC_GUBUN, Z.ORDER_YN, Z.EXCEPTION_ORDER
+  FROM (SELECT T.ITEM_CODE, T.ITEM_NAME, T.ITEM_VAL, T.BRAND_YN, T.MART_YN, T.EXC_GUBUN, T.ORDER_YN,
+                      NVL(DECODE(T.EXC_GUBUN, '1',
+                                 DECODE(T.BRAND_YN, 'Y', T.ORDER_YN, DECODE(T.MART_YN, 'Y', T.ORDER_YN, '')), '2',
+                                 DECODE(T.BRAND_YN, 'Y', T.ORDER_YN, ''), '3', DECODE(T.MART_YN, 'Y', T.ORDER_YN, ''),
+                                 ''), 'OK') AS EXCEPTION_ORDER
+               FROM (SELECT A.ITEM_CODE
+                          , A.ITEM_NAME
+                          , (SELECT CASE
+                                        WHEN VAL_SHP_CNT IN ('CE', 'NN') THEN '자재 업장군 맵핑 유효성 체크 오류'
+                                        WHEN VAL_UNS_CNT IN ('UK', 'NN') THEN '자재 불용체크 오류'
+                                        WHEN VAL_STP_CNT IN ('TK', 'NN') THEN '자재 중지체크 오류'
+                                        WHEN VAL_EVT_CNT IN ('VE', 'NN') THEN '기획자재 한정수량체크 오류'
+                                        WHEN VAL_CTR_CNT IN ('SE', 'NN') THEN 'SPOT계약 발주횟수체크 오류'
+                                        WHEN VAL_REQ_CNT IN ('XE', 'NN') THEN '요일별 신청불가 체크 오류'
+                                        WHEN VAL_SCH_CNT IN ('HE', 'NN') THEN '수발주 스케쥴에 따른 유효성 체크 오류'
+                                        WHEN A.CENTER_FLAG = 'DC'
+                                            AND EPROCUSR.FC_GET_CENTER_IVT_YN('100', 'HFC', A.CENTER_CODE
+                                                    , A.ITEM_CODE, A.PR_QTY) = 'N' THEN 'DC자재 수량체크 오류'
+                                        ELSE 'OK' END
+                             FROM TABLE (EPROCUSR.FN_ITEM_PROCURE_VALIDATE('100', 'HFC', (SELECT OPER_ORG_SN_PURC
+                                                                                          FROM HLDC_PO_CENTER
+                                                                                          WHERE CENTER_CODE = A.CENTER_CODE)
+                                 , A.ITEM_CODE, A.VD_SN, A.APPLY_SD, A.PR_QTY, A.UPJANG_GRP, '02'
+                                 , FMS_PREORDER_FUN(A.CENTER_CODE, A.ITEM_CODE, 'D_DAYS')
+                                 , FMS_PREORDER_FUN(A.CENTER_CODE, A.ITEM_CODE, 'D_TIMES'),
+                                                                           TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                                                                           :needDate)))                  AS ITEM_VAL
+                          , NVL((SELECT 'Y'
+                                 FROM FMS_UPJANG
+                                 WHERE UPJANG = A.RC_UPJANG
+                                   AND DEPT_ID IN ( /* 브랜드유통사업장만 */
+                                     SELECT CC_CD
+                                     FROM HLDC_SC_DEPT_V
+                                     WHERE BU_CD = '2000'
+                                       AND MU_CD = '2004'
+                                       AND TM_CD LIKE 'CI%')), '')                                       AS BRAND_YN
+                          , NVL((SELECT 'Y'
+                                 FROM FMS_UPJANG
+                                 WHERE UPJANG = A.RC_UPJANG
+                                   AND DEPT_ID IN ( /* 마트사업장 */
+                                     SELECT CC_CD
+                                     FROM HLDC_SC_DEPT_V
+                                     WHERE BU_CD = '2000'
+                                       AND MU_CD = '2004'
+                                       AND DEPT_ID IN (SELECT CODE
+                                                       FROM SCC_COMMON_CODE
+                                                       WHERE GROUP_CODE = 'BRAND_UPJANG_POP_ETC'))), '') AS MART_YN
+                          , NVL((SELECT EXC_GUBUN FROM EXC_ITEM_MST WHERE ITEM_CODE = A.ITEM_CODE), '')  AS EXC_GUBUN
+                          , NVL((SELECT ORDER_YN FROM EXC_ITEM_MST WHERE ITEM_CODE = A.ITEM_CODE), '')   AS ORDER_YN
+                     FROM SO_PR A
+                        , FMP_PR_ID_TEMP B
+                     WHERE A.PR_NUM = :prNum
+                       AND A.PR_ID = B.PR_ID
+                       AND A.LINE_STATUS = '002'
+                       AND A.DOCU_SOURCE = :docuGb) T) Z
+WHERE (Z.ITEM_VAL <> 'OK' AND Z.EXCEPTION_ORDER <> 'Y') OR Z.EXCEPTION_ORDER = 'N'
+ ]]></statement>
+<statement name="saveOrderCreditLog"><![CDATA[
+INSERT INTO FMP_ORDER_CREDIT_LOG(
+         ORDER_UPJANG
+        ,UPJANG
+        ,UPJANGNM_DISP
+        ,MAIN_UPJANG
+        ,HEAD_CREDIT_YN
+        ,CREDIT_TURN_DAYS
+        ,CREDIT_TURN_DAYS_TOT
+        ,CREDIT_AMOUNT
+        ,CREDIT_OVER_AMOUNT
+        ,BOND_AMT
+        ,L_BILL_DATE
+        ,CREDIT_RMN_AMT
+        ,CREDIT_AVAIL_AMT
+        ,LAST_TURN_CNT
+        ,CREDIT_TURN_CONTROL_YN
+        ,CREDIT_AMOUNT_CONTROL_YN
+        ,CREDIT_CONTROL_YN
+        ,CREDIT_CONTROL_DESC
+        ,CREDIT_START
+        ,CREDIT_END
+        ,L_BILL_DATE_DISP
+        ,NEED_DATE
+        ,CDATE
+        ,CUSER)
+ SELECT
+        :p_upjang_cd AS ORDER_UPJANG  /*주문업장*/
+      , A.UPJANG                    /* 업장                                       */
+      , A.UPJANGNM_DISP             /* 업장명                                     */
+      , A.MAIN_UPJANG               /* 메인업장(본사)                             */
+      , A.HEAD_CREDIT_YN            /* 통합관리여부*/
+      , A.CREDIT_TURN_DAYS          /* 여신회전일                                 */
+      , A.CREDIT_TURN_DAYS_TOT      /* 총 여신회전일                              */
+      , A.CREDIT_AMOUNT             /* 기본여신금액                               */
+      , A.CREDIT_OVER_AMOUNT        /* 여신한도초과액                             */
+      , (A.CREDIT_AMOUNT - A.CREDIT_RMN_AMT)  AS BOND_AMT     /* 채권잔액         */
+      , A.L_BILL_DATE               /* 최장 미입금된 외상매출발생일               */
+      , A.CREDIT_RMN_AMT            /* 가용여신                                   */
+      , A.CREDIT_AVAIL_AMT          /* 실주문가능금액                             */
+      , A.LAST_TURN_CNT
+      , A.CREDIT_TURN_CONTROL_YN    /* 'Y'이면 여신회전일통제, 'N'이면 '통제안함' */
+      , A.CREDIT_AMOUNT_CONTROL_YN  /* 'Y'이면 여신금액통제, 'N'이면 '통제안함'   */
+      , A.CREDIT_CONTROL_YN         /* 여신통제여부                               */
+      , A.CREDIT_CONTROL_DESC       /* 통제구분                                   */
+      , A.CREDIT_START              /* 여신부여일                                 */
+      , A.CREDIT_END                /* 여신부여일                                 */
+      , A.L_BILL_DATE_DISP          /* 최장 미입금된 외상매출발생일               */
+      , :p_apply_date
+      , SYSDATE
+      , :p_cuser
+   FROM TABLE(
+            FT_UPJANG_CREDIT_LIMIT(:p_upjang_cd, :p_apply_date)
+        ) A
+]]></statement>
+<statement name="deleteOrderTempInfo"><![CDATA[
+DELETE FMP_PR_ID_TEMP
+WHERE  PR_NUM = :prNum
+]]></statement>
+<statement name="deleteOrderInfo"><![CDATA[
+UPDATE SO_PR A
+   SET A.LINE_STATUS = '003'
+     , A.SO_STATUS = '003'
+     , A.UPDATE_BY = :sabun
+     , A.UPDATE_DATE = SYSDATE
+ WHERE A.PR_ID = :prId
+   AND A.LINE_STATUS <= '004'
+]]></statement>
+<statement name="deleteOtcustOrderInfo"><![CDATA[
+UPDATE FMP_OTCUST_PR A
+   SET A.LINE_STATUS = '003'
+	 , A.UUSER = :sabun
+	 , A.UDATE = SYSDATE
+ WHERE A.PR_ID = :prId
+   AND A.LINE_STATUS <= '004'
+   AND (SELECT DECODE( SIGN( TO_DATE(A.NEED_DATE,'YYYYMMDD') - TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD'),'YYYYMMDD') - NVL(Z.D_DAYS,0) - 1)
+   					 , 1, 'Y'
+   					 , 0, DECODE(SIGN(DECODE(Z.D_TIMES,'',2400,0,2400,TO_NUMBER(Z.D_TIMES)) - TO_NUMBER(TO_CHAR(SYSDATE,'HH24MI'))),1,'Y','N')
+   					 , 'N'
+   					 ) AS DEL_POS
+   		  FROM FMP_OTCUST_ITEM Z
+		 WHERE Z.ITEM_CODE = A.ITEM_CODE) = 'Y'
+]]></statement>
+
+<statement name="selectOrderHistInfo"><![CDATA[SELECT A.PR_NUM
+     , A.NEED_DATE
+     , A.CENTER_CODE
+     , A.SUBINV_CODE
+     , (SELECT SUBINV_NAME FROM HLDC_PO_SUBINVENTORY V WHERE V.SUBINV_CODE = A.SUBINV_CODE) AS SUBINV_NAME
+     , A.PO_TYPE
+     , CASE WHEN PO_TYPE IN ('51', '52') THEN '반환'
+            ELSE (SELECT C.TYPE_NAME FROM HLDC_PO_TYPE C WHERE A.PO_TYPE = C.PO_TYPE)
+       END AS PO_TYPE_NAME
+     , A.PO_LINE_STATUS AS PO_LINE_STATUS_CD
+     , CASE WHEN PO_TYPE IN ('51', '52') THEN
+             (SELECT S.CODE_NAME FROM SCC_COMMON_CODE S WHERE S.GROUP_CODE = 'RTN_LINE_STATUS' AND S.CODE = A.PO_LINE_STATUS)
+            ELSE
+             (SELECT S.CODE_NAME FROM SCC_COMMON_CODE S WHERE S.GROUP_CODE = 'FM0037' AND S.CODE = A.PO_LINE_STATUS)
+       END AS PO_LINE_STATUS
+     , SUM(A.OP_TOT) AS TOT
+     , MIN(A.ITEM_NAME) || DECODE(SIGN(COUNT(1) - 1),1,' 외 ' || TO_CHAR(COUNT(1) - 1) || '건') AS TITLE		/* 제목 */
+     , MIN(A.PR_DATE) AS PR_DATE
+     , MAX(A.CLOSE_YN) AS CLOSE_YN /* FS 발주내역 마감여부 체크 */
+  FROM
+(
+SELECT A.ITEM_CODE
+     , A.ITEM_NAME
+     , ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * A.PR_QTY)+ROUND(ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * A.PR_QTY)*DECODE(A.TAX_CODE,100,0.1,0)) AS OP_TOT
+	 , A.NEED_DATE
+     , A.PR_NUM
+	 , APP_PO_LINESTATUS_FUN(A.PR_ID, A.PR_NUM, A.PO_TYPE,'C') AS PO_LINE_STATUS
+     , A.PO_TYPE
+     , A.CENTER_CODE
+     , A.SUBINV_CODE
+     , A.PR_DATE
+     , '' AS CLOSE_YN
+  FROM SO_PR A
+   WHERE A.RC_UPJANG = :upjangCd
+   AND A.PO_TYPE = '07' --식재
+   AND A.NEED_DATE BETWEEN :startDt AND :endDt
+ UNION ALL
+SELECT A.ITEM_CODE
+     , A.ITEM_NAME
+     , (NVL(A.MARGIN_PRICE,0) * PR_QTY) + (NVL(A.MARGIN_PRICE,0) * PR_QTY)*DECODE(A.TAX_CODE,100,0.1,0) AS OP_TOT
+	 , A.NEED_DATE
+     , A.ORG_PR_NUM AS PR_NUM
+--     , APP_PO_LINESTATUS_FUN(A.PR_ID, A.PR_NUM, A.PO_TYPE,'C') AS PO_LINE_STATUS
+     , NVL((SELECT /*+ LEADING(IA.PODT) USE_NL(IA.PODT IA.POHD) */ MAX(IA.LINE_STATUS) KEEP(DENSE_RANK FIRST ORDER BY DECODE(IA.LINE_STATUS, 'IV', 1, 'GC', 2, 'DL', 3, 'PC', 4, 'PW', 5, 'PD', 6, 'PR', 7, 8) ASC)
+                       FROM HLDC_PO_PO IA
+                          , SO_PR      IB
+                          , SO_PR      IC
+                      WHERE IA.PO_ID = IB.PR_ID
+                                AND IA.PO_NUM = IB.PR_NUM
+                            AND IB.PR_NUM = IC.PR_NUM
+                                AND IB.PR_ID = IC.PR_ID
+                        AND IC.ORG_PR_NUM = A.ORG_PR_NUM
+                 ), A.LINE_STATUS) AS PO_LINE_STATUS
+     , A.PO_TYPE
+     , A.CENTER_CODE
+     , A.SUBINV_CODE
+     , A.PR_DATE
+     , CASE WHEN TO_CHAR(TO_DATE(A.NEED_DATE) - C.D_DAYS + (C.D_TIMES/24), 'YYYYMMDDHH24') <= TO_CHAR(SYSDATE, 'YYYYMMDDHH24') THEN 'Y'
+       ELSE 'N'  END AS CLOSE_YN
+  FROM SO_PR A, HLDC_PO_TYPE_FS C
+   WHERE A.RC_UPJANG = :upjangCd
+   AND A.PO_TYPE IN ('04', '05') --FS
+   AND A.LINE_STATUS <> '999'
+   AND A.NEED_DATE BETWEEN :startDt AND :endDt
+   AND A.PO_TYPE = C.PO_TYPE
+ UNION ALL
+SELECT A.ITEM_CODE
+     , A.ITEM_NAME
+     , ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * A.PR_QTY)+ROUND(ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * A.PR_QTY)*DECODE(A.TAX_CODE,100,0.1,0)) AS OP_TOT
+     , A.NEED_DATE
+     , A.PR_NUM
+     , 'PC' AS PO_LINE_STATUS
+     , '07' AS PO_TYPE
+     , '0' AS CENTER_CODE
+     , A.SUBINV_CODE
+     , A.PR_DATE
+     , '' AS CLOSE_YN
+  FROM FMP_OTCUST_PR A
+   WHERE A.UPJANG = :upjangCd
+   AND A.LINE_STATUS NOT IN ('003','999')
+   AND A.NEED_DATE BETWEEN :startDt AND :endDt
+ UNION ALL
+SELECT A.ITEM_CODE
+     , A.ITEM_NAME
+     , ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * A.PR_QTY)+ROUND(ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * A.PR_QTY)*DECODE(A.TAX_CODE,100,0.1,0)) AS OP_TOT
+	 , A.NEED_DATE
+     , A.PR_NUM
+	 , A.LINE_STATUS
+     , A.PO_TYPE
+     , A.CENTER_CODE
+     , A.SUBINV_CODE
+     , A.PR_DATE
+     , '' AS CLOSE_YN
+  FROM SO_PR_RTN A
+   WHERE A.RC_UPJANG = :upjangCd
+   AND A.PO_TYPE IN ('51', '52') --반환
+   AND A.LINE_STATUS <> '998'
+   AND A.NEED_DATE BETWEEN :startDt AND :endDt
+) A
+GROUP BY PR_NUM, NEED_DATE, PO_TYPE, PO_LINE_STATUS, CENTER_CODE, SUBINV_CODE
+ORDER BY NEED_DATE DESC, PR_NUM DESC
+]]></statement>
+<statement name="selectOrderHistItemInfo"><![CDATA[SELECT A.PR_NUM
+     , A.PR_ID
+     , A.NEED_DATE
+     , A.PO_TYPE
+     , CASE WHEN PO_TYPE IN ('51', '52') THEN '반환'
+            ELSE (SELECT C.TYPE_NAME FROM HLDC_PO_TYPE C WHERE A.PO_TYPE = C.PO_TYPE)
+       END AS PO_TYPE_NAME
+     , A.PO_LINE_STATUS AS PO_LINE_STATUS_CD
+     , CASE WHEN PO_TYPE IN ('51', '52') THEN
+             (SELECT S.CODE_NAME FROM SCC_COMMON_CODE S WHERE S.GROUP_CODE = 'RTN_LINE_STATUS' AND S.CODE = A.PO_LINE_STATUS)
+            ELSE
+             (SELECT S.CODE_NAME FROM SCC_COMMON_CODE S WHERE S.GROUP_CODE = 'FM0037' AND S.CODE = A.PO_LINE_STATUS)
+       END AS PO_LINE_STATUS
+     , A.OP_TOT
+     , A.ITEM_CODE
+     , A.ITEM_NAME
+     , A.ITEM_SIZE
+     , A.PO_UOM
+     , A.TAX_CODE
+     , NVL(FN_GET_BOX_QTY_FUN(ITEM_CODE, (SELECT X.OPER_ORG_SN_PURC FROM HLDC_PO_CENTER X WHERE X.CENTER_CODE = A.CENTER_CODE), A.VD_SN, A.CENTER_FLAG), 0) AS BOX_QTY
+     , A.PR_QTY
+     , A.PR_DATE
+     , A.OP_PRICE
+     , B.WIN_ITEM_CD
+  FROM
+(
+SELECT A.ITEM_CODE
+     , A.ITEM_NAME
+     , A.CENTER_CODE
+     , A.CENTER_FLAG
+     , A.VD_SN
+     , A.TAX_CODE
+     , ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * A.PR_QTY)+ROUND(ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * A.PR_QTY)*DECODE(A.TAX_CODE,100,0.1,0)) AS OP_TOT
+	 , A.NEED_DATE
+     , A.PR_NUM
+     , A.PR_ID
+	 , APP_PO_LINESTATUS_FUN(A.PR_ID, A.PR_NUM, A.PO_TYPE,'C') AS PO_LINE_STATUS
+     , A.PO_TYPE
+     , A.ITEM_SIZE
+     , A.PO_UOM
+     , A.PR_QTY
+     , A.PR_DATE
+     , DECODE(NVL(A.OP_PRICE,0), 0, A.SALE_PRICE, A.OP_PRICE) AS OP_PRICE
+  FROM SO_PR A
+   WHERE A.RC_UPJANG = :upjangCd
+   AND A.PR_NUM = :prNum
+   AND A.PO_TYPE = '07' --식재
+   AND A.NEED_DATE = :needDate
+ UNION ALL
+SELECT A.ITEM_CODE
+     , A.ITEM_NAME
+     , A.CENTER_CODE
+     , A.CENTER_FLAG
+     , A.VD_SN
+     , A.TAX_CODE
+     , (NVL(A.MARGIN_PRICE,0) * PR_QTY) + (NVL(A.MARGIN_PRICE,0) * PR_QTY)*DECODE(A.TAX_CODE,100,0.1,0) AS OP_TOT
+	 , A.NEED_DATE
+     , A.PR_NUM
+     , A.PR_ID
+     , APP_PO_LINESTATUS_FUN(A.PR_ID, A.PR_NUM, A.PO_TYPE,'C') AS PO_LINE_STATUS
+     , A.PO_TYPE
+     , A.ITEM_SIZE
+     , A.PO_UOM
+     , A.PR_QTY
+     , A.PR_DATE
+     , A.MARGIN_PRICE AS OP_PRICE
+  FROM SO_PR A
+   WHERE A.RC_UPJANG = :upjangCd
+   AND A.ORG_PR_NUM = :prNum
+   AND A.PO_TYPE IN ('04', '05') --FS
+   AND A.LINE_STATUS <> '999'
+   AND A.NEED_DATE = :needDate
+ UNION ALL
+SELECT A.ITEM_CODE
+     , A.ITEM_NAME
+     , '0' AS CENTER_CODE
+     , 'N' AS CENTER_FLAG
+     , '' AS VD_SN
+     , A.TAX_CODE
+     , ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * A.PR_QTY)+ROUND(ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * A.PR_QTY)*DECODE(A.TAX_CODE,100,0.1,0)) AS OP_TOT
+     , A.NEED_DATE
+     , A.PR_NUM
+     , A.PR_ID
+     , 'PC' AS PO_LINE_STATUS
+     , '07' AS PO_TYPE
+     , A.ITEM_SIZE
+     , A.PO_UOM
+     , A.PR_QTY
+     , A.PR_DATE
+     , DECODE(NVL(A.OP_PRICE,0), 0, A.SALE_PRICE, A.OP_PRICE) AS OP_PRICE
+  FROM FMP_OTCUST_PR A
+   WHERE A.UPJANG = :upjangCd
+   AND A.PR_NUM = :prNum
+   AND A.LINE_STATUS NOT IN ('003','999')
+   AND A.NEED_DATE = :needDate
+ UNION ALL
+SELECT A.ITEM_CODE
+     , A.ITEM_NAME
+     , A.CENTER_CODE
+     , A.CENTER_FLAG
+     , A.VD_SN
+     , A.TAX_CODE
+     , ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * A.PR_QTY)+ROUND(ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * A.PR_QTY)*DECODE(A.TAX_CODE,100,0.1,0)) AS OP_TOT
+	 , A.NEED_DATE
+     , A.PR_NUM
+     , A.PR_ID
+	 , A.LINE_STATUS
+     , A.PO_TYPE
+     , A.ITEM_SIZE
+     , A.PO_UOM
+     , A.PR_QTY
+     , A.PR_DATE
+     , DECODE(NVL(A.OP_PRICE,0), 0, A.SALE_PRICE, A.OP_PRICE) AS OP_PRICE
+     /* 브랜드는 단가정보를 모바일 프론트에서 부가세포함으로 직접 계산 */
+--     , DECODE(NVL(A.OP_PRICE,0), 0, ROUND(DECODE(A.TAX_CODE, 100, A.SALE_PRICE*1.1, A.SALE_PRICE)), ROUND(DECODE(A.TAX_CODE, 100, A.OP_PRICE*1.1, A.OP_PRICE))) AS OP_PRICE
+  FROM SO_PR_RTN A
+   WHERE A.RC_UPJANG = :upjangCd
+   AND A.PR_NUM = :prNum
+   AND A.PO_TYPE IN ('51', '52') --반환
+   AND A.LINE_STATUS <> '998'
+   AND A.NEED_DATE = :needDate
+) A, EPROCUSR.ESMMTGL B
+WHERE 1=1
+AND A.ITEM_CODE = B.ITEM_CD(+)
+AND B.SYS_ID    = '100'
+-- AND A.PO_LINE_STATUS = :poLineStatusCd
+AND (A.PO_LINE_STATUS = :poLineStatusCd OR A.PO_TYPE IN ('04', '05'))
+ORDER BY NEED_DATE DESC, PR_NUM DESC
+]]></statement>
+<statement name="selectDelvHistInfo"><![CDATA[SELECT TT.PR_NUM
+     , TT.NEED_DATE
+     , TT.PO_TYPE
+     , CASE WHEN PO_TYPE IN ('51', '52') THEN '반환'
+            ELSE (SELECT C.TYPE_NAME FROM HLDC_PO_TYPE C WHERE TT.PO_TYPE = C.PO_TYPE)
+       END AS PO_TYPE_NAME
+     , TT.PO_LINE_STATUS AS PO_LINE_STATUS_CD
+     , CASE WHEN TT.PO_LINE_STATUS IN ('002') THEN '발주완료'
+            WHEN TT.PO_LINE_STATUS IN ('007', '008') THEN '배송준비'
+            WHEN TT.PO_LINE_STATUS IN ('009', '100', 'DL', 'PC', 'PW', 'RV', 'RW') THEN '배송중'
+            WHEN TT.PO_LINE_STATUS IN ('GC', 'IV', '999') THEN '배송완료'
+       END AS DELI_STATUS
+     , SUM(TT.OP_TOT) AS TOT
+     , MIN(TT.ITEM_NAME) || DECODE(SIGN(COUNT(1) - 1),1,' 외 ' || TO_CHAR(COUNT(1) - 1) || '건') AS TITLE		/* 제목 */
+     , SUM(TT.ITEM_QTY) AS ITEM_QTY_TOT
+     , SUM(TT.GR_QTY) AS GR_QTY_TOT
+     , SUM(TT.UNDELIVERED_QTY) AS UNDELIVERED_QTY_TOT
+     , MAX(TT.TRANS_DATE2) AS M_TRANS_DATE /* 최종입고일 */
+  FROM
+(
+SELECT A.ITEM_CODE
+     , A.ITEM_NAME
+     , CASE WHEN DT.TRANS_QTY IS NULL THEN ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * A.PR_QTY)+ROUND(ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * A.PR_QTY)*DECODE(A.TAX_CODE,100,0.1,0))
+            ELSE ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * DT.TRANS_QTY)+ROUND(ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * DT.TRANS_QTY)*DECODE(A.TAX_CODE,100,0.1,0))
+       END AS OP_TOT
+	 , A.NEED_DATE
+     , A.PR_NUM
+	 , APP_PO_LINESTATUS_FUN(A.PR_ID, A.PR_NUM, A.PO_TYPE,'C') AS PO_LINE_STATUS
+     , A.PO_TYPE
+     , PO.ITEM_QTY -- 실발주수량
+     , NVL(DECODE(SUBSTR(DT.TRANS_TYPE,1,1),'I',1,-1) * DT.TRANS_QTY,0) AS GR_QTY
+     , CASE
+         WHEN PO.PO_COMP_YN='Y' OR PO.GR_COMP_YN='Y' THEN NVL(PO.ITEM_QTY,0) - NVL(PO.GR_QTY,0) -- 입고완료
+         ELSE 0
+       END AS UNDELIVERED_QTY -- 감량수량
+     , SL.TRANS_DATE2 -- 입고일
+  FROM SO_PR A
+     , EPROCUSR.ESPPODT PO /* PO 상세(품목) */
+     , (SELECT CASE WHEN (SUBSTR(PODT.MOVEMENT_TYP, 0, 1) = '3' AND PODT.GR_QTY IS NULL) THEN 'O002' /* 재고이동 - 이동출고   */
+                    WHEN (SUBSTR(PODT.MOVEMENT_TYP, 0, 1) = '3' AND PODT.GR_QTY IS NOT NULL) THEN 'I002' /*재고이동 - 이동입고  */
+                    WHEN (PODT.MOVEMENT_TYP = '251' OR PODT.MOVEMENT_TYP = '252') THEN 'O001' /* POS 매출 유형  */
+                    WHEN (PODT.MOVEMENT_TYP = '701' OR PODT.MOVEMENT_TYP = '702') THEN 'O004' /* 재고실사 */
+                    ELSE 'I001'
+               END AS TRANS_TYPE
+             , CASE WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=0 AND PODT.PROC_TYP_CD IS NOT NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_PURC_QTY*-1, PODT.GR_PURC_QTY*-1)
+                    WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=1 AND PODT.PROC_TYP_CD IS NOT NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_PURC_QTY, PODT.GR_PURC_QTY)
+                    WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=0 AND PODT.PROC_TYP_CD IS NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_QTY*-1, PODT.GR_QTY*-1)
+                    WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=1 AND PODT.PROC_TYP_CD IS NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_QTY, PODT.GR_QTY)
+               END AS TRANS_QTY
+             , CASE WHEN SUBSTR(PODT.MOVEMENT_TYP, 0, 2)='25' THEN 'FO'
+                    WHEN (PODT.PROC_TYP_CD IS NULL AND PODT.IVT_INSP_NO IS NOT NULL) THEN '재고조정'
+                    WHEN (PODT.PROC_TYP_CD IS NULL AND PODT.IVT_INSP_NO IS NULL ) THEN 'INV'
+                    ELSE 'PO'
+               END AS SOURCE_TYPE /*FO, PO, INV, 재고조정*/
+             , PODT.SYS_ID, PODT.COMP_CD, PODT.PO_NO, PODT.PO_LNO, PODT.MG_NO, PODT.MOVEMENT_TYP
+            FROM EPROCUSR.ESIMGDT PODT) DT
+     , EPROCUSR.ESISALP SL /* 판매단가 */
+ WHERE A.RC_UPJANG = :upjangCd
+   AND A.SUBINV_CODE = :subinvCd
+--    AND A.RC_UPJANG = PO.SHOP_CD(+)
+   AND A.PR_NUM = PO.LEGCY_REQ_NO(+)
+   AND A.PR_ID = PO.LEGCY_REQ_LNO(+)
+   AND DT.SYS_ID(+) = '100'
+   AND DT.COMP_CD(+) = 'HFC'
+   AND DT.PO_NO(+) = PO.PO_NO
+   AND DT.PO_LNO(+) = PO.PO_LNO
+   AND DT.SYS_ID = SL.SYS_ID(+)
+   AND DT.COMP_CD = SL.COMP_CD(+)
+   AND DT.MG_NO = SL.MG_NO(+)
+   AND PO.STS(+) <> 'D'
+   AND DT.MOVEMENT_TYP(+) NOT IN ('561', '562', '998', '999', '901', '902', '801', '802', '111', '112', '211', '212', '663') /* 기초 , 기말 재고,배송입출고, 직송 가상입출고  제외 */
+   AND (DT.TRANS_TYPE(+) = 'I001' OR (DT.TRANS_TYPE(+) LIKE '_002' AND DT.SOURCE_TYPE(+) = 'PO'))
+   AND A.PO_TYPE = '07' --식재
+--   AND A.LINE_STATUS IN ('002', '007', '008')
+   AND A.NEED_DATE BETWEEN :startDt AND :endDt
+ UNION ALL
+SELECT A.ITEM_CODE
+     , A.ITEM_NAME
+     , CASE WHEN DT.TRANS_QTY IS NULL THEN (NVL(A.MARGIN_PRICE,0) * A.PR_QTY) + (NVL(A.MARGIN_PRICE,0) * A.PR_QTY)*DECODE(A.TAX_CODE,100,0.1,0)
+            ELSE (NVL(A.MARGIN_PRICE,0) * DT.TRANS_QTY) + (NVL(A.MARGIN_PRICE,0) * DT.TRANS_QTY)*DECODE(A.TAX_CODE,100,0.1,0)
+       END AS OP_TOT
+	 , A.NEED_DATE
+     , A.ORG_PR_NUM AS PR_NUM
+--     , APP_PO_LINESTATUS_FUN(A.PR_ID, A.PR_NUM, A.PO_TYPE,'C') AS PO_LINE_STATUS
+     , NVL((SELECT /*+ LEADING(IA.PODT) USE_NL(IA.PODT IA.POHD) */ MAX(IA.LINE_STATUS) KEEP(DENSE_RANK FIRST ORDER BY DECODE(IA.LINE_STATUS, 'IV', 1, 'GC', 2, 'DL', 3, 'PC', 4, 'PW', 5, 'PD', 6, 'PR', 7, 8) ASC)
+                       FROM HLDC_PO_PO IA
+                          , SO_PR      IB
+                          , SO_PR      IC
+                      WHERE IA.PO_ID = IB.PR_ID
+                                AND IA.PO_NUM = IB.PR_NUM
+                            AND IB.PR_NUM = IC.PR_NUM
+                                AND IB.PR_ID = IC.PR_ID
+                        AND IC.ORG_PR_NUM = A.ORG_PR_NUM
+                 ), A.LINE_STATUS) AS PO_LINE_STATUS
+     , A.PO_TYPE
+     , PO.ITEM_QTY -- 실발주수량
+     , NVL(DECODE(SUBSTR(DT.TRANS_TYPE,1,1),'I',1,-1) * DT.TRANS_QTY,0) AS GR_QTY -- 입고수량
+     , CASE
+         WHEN PO.PO_COMP_YN='Y' OR PO.GR_COMP_YN='Y' THEN NVL(PO.ITEM_QTY,0) - NVL(PO.GR_QTY,0) -- 입고완료
+         ELSE 0
+       END AS UNDELIVERED_QTY -- 감량수량
+     , SL.TRANS_DATE2 -- 입고일
+  FROM SO_PR A
+     , EPROCUSR.ESPPODT PO /* PO 상세(품목) */
+     , (SELECT CASE WHEN (SUBSTR(PODT.MOVEMENT_TYP, 0, 1) = '3' AND PODT.GR_QTY IS NULL) THEN 'O002' /* 재고이동 - 이동출고   */
+                    WHEN (SUBSTR(PODT.MOVEMENT_TYP, 0, 1) = '3' AND PODT.GR_QTY IS NOT NULL) THEN 'I002' /*재고이동 - 이동입고  */
+                    WHEN (PODT.MOVEMENT_TYP = '251' OR PODT.MOVEMENT_TYP = '252') THEN 'O001' /* POS 매출 유형  */
+                    WHEN (PODT.MOVEMENT_TYP = '701' OR PODT.MOVEMENT_TYP = '702') THEN 'O004' /* 재고실사 */
+                    ELSE 'I001'
+               END AS TRANS_TYPE
+             , CASE WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=0 AND PODT.PROC_TYP_CD IS NOT NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_PURC_QTY*-1, PODT.GR_PURC_QTY*-1)
+                    WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=1 AND PODT.PROC_TYP_CD IS NOT NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_PURC_QTY, PODT.GR_PURC_QTY)
+                    WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=0 AND PODT.PROC_TYP_CD IS NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_QTY*-1, PODT.GR_QTY*-1)
+                    WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=1 AND PODT.PROC_TYP_CD IS NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_QTY, PODT.GR_QTY)
+               END AS TRANS_QTY
+             , CASE WHEN SUBSTR(PODT.MOVEMENT_TYP, 0, 2)='25' THEN 'FO'
+                    WHEN (PODT.PROC_TYP_CD IS NULL AND PODT.IVT_INSP_NO IS NOT NULL) THEN '재고조정'
+                    WHEN (PODT.PROC_TYP_CD IS NULL AND PODT.IVT_INSP_NO IS NULL ) THEN 'INV'
+                    ELSE 'PO'
+               END AS SOURCE_TYPE /*FO, PO, INV, 재고조정*/
+             , PODT.SYS_ID, PODT.COMP_CD, PODT.PO_NO, PODT.PO_LNO, PODT.MG_NO, PODT.MOVEMENT_TYP
+            FROM EPROCUSR.ESIMGDT PODT) DT
+     , EPROCUSR.ESISALP SL /* 판매단가 */
+ WHERE A.RC_UPJANG = :upjangCd
+   AND A.SUBINV_CODE = :subinvCd
+   AND A.PR_NUM = PO.LEGCY_REQ_NO(+)
+   AND A.PR_ID = PO.LEGCY_REQ_LNO(+)
+   AND DT.SYS_ID(+) = '100'
+   AND DT.COMP_CD(+) = 'HFC'
+   AND DT.PO_NO(+) = PO.PO_NO
+   AND DT.PO_LNO(+) = PO.PO_LNO
+   AND DT.SYS_ID = SL.SYS_ID(+)
+   AND DT.COMP_CD = SL.COMP_CD(+)
+   AND DT.MG_NO = SL.MG_NO(+)
+   AND PO.STS(+) <> 'D'
+   AND DT.MOVEMENT_TYP(+) NOT IN ('561', '562', '998', '999', '901', '902', '801', '802', '111', '112', '211', '212', '663') /* 기초 , 기말 재고,배송입출고, 직송 가상입출고  제외 */
+   AND (DT.TRANS_TYPE(+) = 'I001' OR (DT.TRANS_TYPE(+) LIKE '_002' AND DT.SOURCE_TYPE(+) = 'PO'))
+   AND A.PO_TYPE IN ('04', '05') --FS
+--    AND A.LINE_STATUS IN ('002', '007', '008')
+   AND A.NEED_DATE BETWEEN :startDt AND :endDt
+ UNION ALL
+SELECT A.ITEM_CODE
+     , A.ITEM_NAME
+     , CASE WHEN DT.TRANS_QTY IS NULL THEN ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * A.PR_QTY)+ROUND(ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * A.PR_QTY)*DECODE(A.TAX_CODE,100,0.1,0))
+            ELSE ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * DT.TRANS_QTY)+ROUND(ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * DT.TRANS_QTY)*DECODE(A.TAX_CODE,100,0.1,0))
+       END AS OP_TOT
+	 , A.NEED_DATE
+     , A.PR_NUM
+	 , A.LINE_STATUS AS PO_LINE_STATUS
+     , A.PO_TYPE
+     , PO.ITEM_QTY -- 실발주수량
+     , PO.GR_QTY  -- 입고수량
+     , CASE
+         WHEN PO.RO_COMP_YN='Y' OR PO.GR_COMP_YN='Y' THEN NVL(PO.ITEM_QTY,0) - NVL(PO.GR_QTY,0) -- 입고완료
+         ELSE 0
+       END AS UNDELIVERED_QTY -- 감량수량
+     , SL.TRANS_DATE2 -- 입고일
+  FROM SO_PR_RTN A
+     , EPROCUSR.ESPRODT PO   -- PO 상세(품목)
+     , (SELECT CASE WHEN (SUBSTR(PODT.MOVEMENT_TYP, 0, 1) = '3' AND PODT.GR_QTY IS NULL) THEN 'O002' /* 재고이동 - 이동출고   */
+                    WHEN (SUBSTR(PODT.MOVEMENT_TYP, 0, 1) = '3' AND PODT.GR_QTY IS NOT NULL) THEN 'I002' /*재고이동 - 이동입고  */
+                    WHEN (PODT.MOVEMENT_TYP = '251' OR PODT.MOVEMENT_TYP = '252') THEN 'O001' /* POS 매출 유형  */
+                    WHEN (PODT.MOVEMENT_TYP = '701' OR PODT.MOVEMENT_TYP = '702') THEN 'O004' /* 재고실사 */
+                    ELSE 'I001'
+               END AS TRANS_TYPE
+             , CASE WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=0 AND PODT.PROC_TYP_CD IS NOT NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_PURC_QTY*-1, PODT.GR_PURC_QTY*-1)
+                    WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=1 AND PODT.PROC_TYP_CD IS NOT NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_PURC_QTY, PODT.GR_PURC_QTY)
+                    WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=0 AND PODT.PROC_TYP_CD IS NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_QTY*-1, PODT.GR_QTY*-1)
+                    WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=1 AND PODT.PROC_TYP_CD IS NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_QTY, PODT.GR_QTY)
+               END AS TRANS_QTY
+             , CASE WHEN SUBSTR(PODT.MOVEMENT_TYP, 0, 2)='25' THEN 'FO'
+                    WHEN (PODT.PROC_TYP_CD IS NULL AND PODT.IVT_INSP_NO IS NOT NULL) THEN '재고조정'
+                    WHEN (PODT.PROC_TYP_CD IS NULL AND PODT.IVT_INSP_NO IS NULL ) THEN 'INV'
+                    ELSE 'PO'
+               END AS SOURCE_TYPE /*FO, PO, INV, 재고조정*/
+             , PODT.SYS_ID, PODT.COMP_CD, PODT.PO_NO, PODT.PO_LNO, PODT.MG_NO, PODT.MOVEMENT_TYP
+            FROM EPROCUSR.ESIMGDT PODT) DT
+     , EPROCUSR.ESISALP SL /* 판매단가 */
+   WHERE A.RC_UPJANG = :upjangCd
+   AND A.SUBINV_CODE = :subinvCd
+   AND A.PR_NUM = PO.LEGCY_REQ_NO(+)
+   AND A.PR_ID = PO.LEGCY_REQ_LNO(+)
+   AND DT.SYS_ID(+) = '100'
+   AND DT.COMP_CD(+) = 'HFC'
+   AND DT.PO_NO(+) = PO.RO_NO
+   AND DT.PO_LNO(+) = PO.RO_LNO
+   AND DT.SYS_ID = SL.SYS_ID(+)
+   AND DT.COMP_CD = SL.COMP_CD(+)
+   AND DT.MG_NO = SL.MG_NO(+)
+   AND PO.STS(+) <> 'D'
+   AND DT.MOVEMENT_TYP(+) NOT IN ('561', '562', '998', '999', '901', '902', '801', '802', '111', '112', '211', '212', '663') /* 기초 , 기말 재고,배송입출고, 직송 가상입출고  제외 */
+   AND (DT.TRANS_TYPE(+) = 'I001' OR (DT.TRANS_TYPE(+) LIKE '_002' AND DT.SOURCE_TYPE(+) = 'PO'))
+   AND A.PO_TYPE IN ('51', '52') --반환
+--    AND A.LINE_STATUS IN ('002', '008', '009', '100', '999')
+   AND A.NEED_DATE BETWEEN :startDt AND :endDt
+) TT
+WHERE TT.PO_LINE_STATUS IN ('002', '007', '008', '009', '100', 'DL', 'PC', 'PW', 'RV', 'RW', 'GC', 'IV', '999')
+GROUP BY TT.PR_NUM, TT.NEED_DATE, TT.PO_TYPE, TT.PO_LINE_STATUS
+ORDER BY TT.NEED_DATE DESC, TT.PR_NUM DESC
+]]></statement>
+<statement name="selectDelvHistItemInfo"><![CDATA[SELECT TT.PR_NUM
+     , TT.PR_ID
+     , TT.NEED_DATE
+     , TT.PO_TYPE
+     , CASE WHEN PO_TYPE IN ('51', '52') THEN '반환'
+            ELSE (SELECT C.TYPE_NAME FROM HLDC_PO_TYPE C WHERE TT.PO_TYPE = C.PO_TYPE)
+       END AS PO_TYPE_NAME
+     , TT.PO_LINE_STATUS AS PO_LINE_STATUS_CD
+     , CASE WHEN TT.PO_LINE_STATUS IN ('002') THEN '발주완료'
+            WHEN TT.PO_LINE_STATUS IN ('007', '008') THEN '배송준비'
+            WHEN TT.PO_LINE_STATUS IN ('009', '100', 'DL', 'PC', 'PW', 'RV', 'RW') THEN '배송중'
+            WHEN TT.PO_LINE_STATUS IN ('GC', 'IV', '999') THEN '배송완료'
+       END AS DELI_STATUS
+     , TT.OP_TOT AS TOT
+     , TT.ITEM_CODE
+     , TT.ITEM_NAME
+     , TT.ITEM_SIZE
+     , TT.PO_UOM
+     , TT.TAX_CODE
+     , NVL(FN_GET_BOX_QTY_FUN(TT.ITEM_CODE, (SELECT X.OPER_ORG_SN_PURC FROM HLDC_PO_CENTER X WHERE X.CENTER_CODE = TT.CENTER_CODE), TT.VD_SN, TT.CENTER_FLAG), 0) AS BOX_QTY
+     , TT.ITEM_QTY
+     , TT.GR_QTY
+     , TT.UNDELIVERED_QTY
+     , TT.TRANS_DATE2 AS TRANS_DATE /* 최종입고일 */
+     , NVL(TT.WM_CANCEL_YN, 'N') AS WM_CANCEL_YN /* 센터발주취소여부 */
+     , CASE WHEN PO_LINE_STATUS = 'PD' AND NVL(TT.WM_CANCEL_YN, 'N') != 'Y' THEN 'N' ELSE 'Y' END AS REQ_YN /* 클레임처리가능유무 */
+     , TT.CENTER_FLAG AS CENTER_GUBUN
+     , TT.CENTER_CODE
+     , TT.SUBINV_CODE
+     , TT.CUSTCD
+     , DECODE(TV.CLAIM_NUM,'','I','C') AS PROC_FLAG
+     , TV.PRCS_STATUS    /*진행상황 C00*/
+     ,(SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'C00' AND CODE = TV.PRCS_STATUS) AS PRCS_STATUS_NM
+     , TT.OP_PRICE
+     , NVL(TV.CLAIM_NUM,1) AS CLAIM_NUM /* 클레임SEQ */
+     , (SELECT TB.WIN_ITEM_CD FROM  EPROCUSR.ESMMTGL TB WHERE TT.ITEM_CODE = TB.ITEM_CD AND TB.SYS_ID = '100') AS WIN_ITEM_CD
+  FROM
+(
+SELECT A.ITEM_CODE
+     , A.ITEM_NAME
+     , A.CENTER_CODE
+     , A.CENTER_FLAG
+     , A.VD_SN
+     , A.TAX_CODE
+     , CASE WHEN DT.TRANS_QTY IS NULL THEN ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * A.PR_QTY)+ROUND(ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * A.PR_QTY)*DECODE(A.TAX_CODE,100,0.1,0))
+            ELSE ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * DT.TRANS_QTY)+ROUND(ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * DT.TRANS_QTY)*DECODE(A.TAX_CODE,100,0.1,0))
+       END AS OP_TOT
+	 , A.NEED_DATE
+     , A.PR_NUM
+     , A.PR_ID
+	 , APP_PO_LINESTATUS_FUN(A.PR_ID, A.PR_NUM, A.PO_TYPE,'C') AS PO_LINE_STATUS
+     , A.PO_TYPE
+     , A.ITEM_SIZE
+     , A.PO_UOM
+     , PO.ITEM_QTY -- 실발주수량
+     , NVL(DECODE(SUBSTR(DT.TRANS_TYPE,1,1),'I',1,-1) * DT.TRANS_QTY,0) AS GR_QTY
+     , CASE
+         WHEN PO.PO_COMP_YN='Y' OR PO.GR_COMP_YN='Y' THEN NVL(PO.ITEM_QTY,0) - NVL(PO.GR_QTY,0) -- 입고완료
+         ELSE 0
+       END AS UNDELIVERED_QTY -- 감량수량
+     , SL.TRANS_DATE2 -- 입고일
+     , PO.WM_CANCEL_YN
+     , A.SUBINV_CODE
+     , A.CUSTCD
+     , DECODE(NVL(A.OP_PRICE,0), 0, A.SALE_PRICE, A.OP_PRICE) AS OP_PRICE
+  FROM SO_PR A
+     , EPROCUSR.ESPPODT PO /* PO 상세(품목) */
+     , (SELECT CASE WHEN (SUBSTR(PODT.MOVEMENT_TYP, 0, 1) = '3' AND PODT.GR_QTY IS NULL) THEN 'O002' /* 재고이동 - 이동출고   */
+                    WHEN (SUBSTR(PODT.MOVEMENT_TYP, 0, 1) = '3' AND PODT.GR_QTY IS NOT NULL) THEN 'I002' /*재고이동 - 이동입고  */
+                    WHEN (PODT.MOVEMENT_TYP = '251' OR PODT.MOVEMENT_TYP = '252') THEN 'O001' /* POS 매출 유형  */
+                    WHEN (PODT.MOVEMENT_TYP = '701' OR PODT.MOVEMENT_TYP = '702') THEN 'O004' /* 재고실사 */
+                    ELSE 'I001'
+               END AS TRANS_TYPE
+             , CASE WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=0 AND PODT.PROC_TYP_CD IS NOT NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_PURC_QTY*-1, PODT.GR_PURC_QTY*-1)
+                    WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=1 AND PODT.PROC_TYP_CD IS NOT NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_PURC_QTY, PODT.GR_PURC_QTY)
+                    WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=0 AND PODT.PROC_TYP_CD IS NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_QTY*-1, PODT.GR_QTY*-1)
+                    WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=1 AND PODT.PROC_TYP_CD IS NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_QTY, PODT.GR_QTY)
+               END AS TRANS_QTY
+             , CASE WHEN SUBSTR(PODT.MOVEMENT_TYP, 0, 2)='25' THEN 'FO'
+                    WHEN (PODT.PROC_TYP_CD IS NULL AND PODT.IVT_INSP_NO IS NOT NULL) THEN '재고조정'
+                    WHEN (PODT.PROC_TYP_CD IS NULL AND PODT.IVT_INSP_NO IS NULL ) THEN 'INV'
+                    ELSE 'PO'
+               END AS SOURCE_TYPE /*FO, PO, INV, 재고조정*/
+             , PODT.SYS_ID, PODT.COMP_CD, PODT.PO_NO, PODT.PO_LNO, PODT.MG_NO, PODT.MOVEMENT_TYP
+            FROM EPROCUSR.ESIMGDT PODT) DT
+     , EPROCUSR.ESISALP SL /* 판매단가 */
+ WHERE A.RC_UPJANG = :upjangCd
+--    AND A.RC_UPJANG = PO.SHOP_CD(+)
+   AND A.PR_NUM = :prNum
+   AND A.PR_NUM = PO.LEGCY_REQ_NO(+)
+   AND A.PR_ID = PO.LEGCY_REQ_LNO(+)
+   AND DT.SYS_ID(+) = '100'
+   AND DT.COMP_CD(+) = 'HFC'
+   AND DT.PO_NO(+) = PO.PO_NO
+   AND DT.PO_LNO(+) = PO.PO_LNO
+   AND DT.SYS_ID = SL.SYS_ID(+)
+   AND DT.COMP_CD = SL.COMP_CD(+)
+   AND DT.MG_NO = SL.MG_NO(+)
+   AND PO.STS(+) <> 'D'
+   AND DT.MOVEMENT_TYP(+) NOT IN ('561', '562', '998', '999', '901', '902', '801', '802', '111', '112', '211', '212', '663') /* 기초 , 기말 재고,배송입출고, 직송 가상입출고  제외 */
+   AND (DT.TRANS_TYPE(+) = 'I001' OR (DT.TRANS_TYPE(+) LIKE '_002' AND DT.SOURCE_TYPE(+) = 'PO'))
+   AND A.PO_TYPE = '07' --식재
+--   AND A.LINE_STATUS IN ('002', '007', '008')
+--    AND A.NEED_DATE BETWEEN :startDt AND :endDt
+ UNION ALL
+SELECT A.ITEM_CODE
+     , A.ITEM_NAME
+     , A.CENTER_CODE
+     , A.CENTER_FLAG
+     , A.VD_SN
+     , A.TAX_CODE
+     , CASE WHEN DT.TRANS_QTY IS NULL THEN (NVL(A.MARGIN_PRICE,0) * A.PR_QTY) + (NVL(A.MARGIN_PRICE,0) * A.PR_QTY)*DECODE(A.TAX_CODE,100,0.1,0)
+            ELSE (NVL(A.MARGIN_PRICE,0) * DT.TRANS_QTY) + (NVL(A.MARGIN_PRICE,0) * DT.TRANS_QTY)*DECODE(A.TAX_CODE,100,0.1,0)
+       END AS OP_TOT
+	 , A.NEED_DATE
+	 , A.PR_NUM
+     , A.PR_ID
+     , APP_PO_LINESTATUS_FUN(A.PR_ID, A.PR_NUM, A.PO_TYPE,'C') AS PO_LINE_STATUS
+     , A.PO_TYPE
+     , A.ITEM_SIZE
+     , A.PO_UOM
+     , PO.ITEM_QTY -- 실발주수량
+     , NVL(DECODE(SUBSTR(DT.TRANS_TYPE,1,1),'I',1,-1) * DT.TRANS_QTY,0) AS GR_QTY -- 입고수량
+     , CASE
+         WHEN PO.PO_COMP_YN='Y' OR PO.GR_COMP_YN='Y' THEN NVL(PO.ITEM_QTY,0) - NVL(PO.GR_QTY,0) -- 입고완료
+         ELSE 0
+       END AS UNDELIVERED_QTY -- 감량수량
+     , SL.TRANS_DATE2 -- 입고일
+     , PO.WM_CANCEL_YN
+     , A.SUBINV_CODE
+     , A.CUSTCD
+     , A.MARGIN_PRICE AS OP_PRICE
+  FROM SO_PR A
+     , EPROCUSR.ESPPODT PO /* PO 상세(품목) */
+     , (SELECT CASE WHEN (SUBSTR(PODT.MOVEMENT_TYP, 0, 1) = '3' AND PODT.GR_QTY IS NULL) THEN 'O002' /* 재고이동 - 이동출고   */
+                    WHEN (SUBSTR(PODT.MOVEMENT_TYP, 0, 1) = '3' AND PODT.GR_QTY IS NOT NULL) THEN 'I002' /*재고이동 - 이동입고  */
+                    WHEN (PODT.MOVEMENT_TYP = '251' OR PODT.MOVEMENT_TYP = '252') THEN 'O001' /* POS 매출 유형  */
+                    WHEN (PODT.MOVEMENT_TYP = '701' OR PODT.MOVEMENT_TYP = '702') THEN 'O004' /* 재고실사 */
+                    ELSE 'I001'
+               END AS TRANS_TYPE
+             , CASE WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=0 AND PODT.PROC_TYP_CD IS NOT NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_PURC_QTY*-1, PODT.GR_PURC_QTY*-1)
+                    WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=1 AND PODT.PROC_TYP_CD IS NOT NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_PURC_QTY, PODT.GR_PURC_QTY)
+                    WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=0 AND PODT.PROC_TYP_CD IS NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_QTY*-1, PODT.GR_QTY*-1)
+                    WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=1 AND PODT.PROC_TYP_CD IS NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_QTY, PODT.GR_QTY)
+               END AS TRANS_QTY
+             , CASE WHEN SUBSTR(PODT.MOVEMENT_TYP, 0, 2)='25' THEN 'FO'
+                    WHEN (PODT.PROC_TYP_CD IS NULL AND PODT.IVT_INSP_NO IS NOT NULL) THEN '재고조정'
+                    WHEN (PODT.PROC_TYP_CD IS NULL AND PODT.IVT_INSP_NO IS NULL ) THEN 'INV'
+                    ELSE 'PO'
+               END AS SOURCE_TYPE /*FO, PO, INV, 재고조정*/
+             , PODT.SYS_ID, PODT.COMP_CD, PODT.PO_NO, PODT.PO_LNO, PODT.MG_NO, PODT.MOVEMENT_TYP
+            FROM EPROCUSR.ESIMGDT PODT) DT
+     , EPROCUSR.ESISALP SL /* 판매단가 */
+ WHERE A.RC_UPJANG = :upjangCd
+   AND A.ORG_PR_NUM = :prNum
+   AND A.PR_NUM = PO.LEGCY_REQ_NO(+)
+   AND A.PR_ID = PO.LEGCY_REQ_LNO(+)
+   AND DT.SYS_ID(+) = '100'
+   AND DT.COMP_CD(+) = 'HFC'
+   AND DT.PO_NO(+) = PO.PO_NO
+   AND DT.PO_LNO(+) = PO.PO_LNO
+   AND DT.SYS_ID = SL.SYS_ID(+)
+   AND DT.COMP_CD = SL.COMP_CD(+)
+   AND DT.MG_NO = SL.MG_NO(+)
+   AND PO.STS(+) <> 'D'
+   AND DT.MOVEMENT_TYP(+) NOT IN ('561', '562', '998', '999', '901', '902', '801', '802', '111', '112', '211', '212', '663') /* 기초 , 기말 재고,배송입출고, 직송 가상입출고  제외 */
+   AND (DT.TRANS_TYPE(+) = 'I001' OR (DT.TRANS_TYPE(+) LIKE '_002' AND DT.SOURCE_TYPE(+) = 'PO'))
+   AND A.PO_TYPE IN ('04', '05') --FS
+--    AND A.LINE_STATUS IN ('002', '007', '008')
+--    AND A.NEED_DATE BETWEEN :startDt AND :endDt
+ UNION ALL
+SELECT A.ITEM_CODE
+     , A.ITEM_NAME
+     , A.CENTER_CODE
+     , A.CENTER_FLAG
+     , A.VD_SN
+     , A.TAX_CODE
+     , CASE WHEN DT.TRANS_QTY IS NULL THEN ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * A.PR_QTY)+ROUND(ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * A.PR_QTY)*DECODE(A.TAX_CODE,100,0.1,0))
+            ELSE ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * DT.TRANS_QTY)+ROUND(ROUND(DECODE(NVL(A.OP_PRICE,0),0,A.SALE_PRICE,A.OP_PRICE) * DT.TRANS_QTY)*DECODE(A.TAX_CODE,100,0.1,0))
+       END AS OP_TOT
+	 , A.NEED_DATE
+     , A.PR_NUM
+     , A.PR_ID
+	 , A.LINE_STATUS AS PO_LINE_STATUS
+     , A.PO_TYPE
+     , A.ITEM_SIZE
+     , A.PO_UOM
+     , PO.ITEM_QTY -- 실발주수량
+     , PO.GR_QTY  -- 입고수량
+     , CASE
+         WHEN PO.RO_COMP_YN='Y' OR PO.GR_COMP_YN='Y' THEN NVL(PO.ITEM_QTY,0) - NVL(PO.GR_QTY,0) -- 입고완료
+         ELSE 0
+       END AS UNDELIVERED_QTY -- 감량수량
+     , SL.TRANS_DATE2 -- 입고일
+     , PO.WM_CANCEL_YN
+     , A.SUBINV_CODE
+     , A.CUSTCD
+     , DECODE(NVL(A.OP_PRICE,0), 0, A.SALE_PRICE, A.OP_PRICE) AS OP_PRICE
+     /* 브랜드는 단가정보를 모바일 프론트에서 부가세포함으로 직접 계산 */
+--     , DECODE(NVL(A.OP_PRICE,0), 0, ROUND(DECODE(A.TAX_CODE, 100, A.SALE_PRICE*1.1, A.SALE_PRICE)), ROUND(DECODE(A.TAX_CODE, 100, A.OP_PRICE*1.1, A.OP_PRICE))) AS OP_PRICE
+  FROM SO_PR_RTN A
+     , EPROCUSR.ESPRODT PO   -- PO 상세(품목)
+     , (SELECT CASE WHEN (SUBSTR(PODT.MOVEMENT_TYP, 0, 1) = '3' AND PODT.GR_QTY IS NULL) THEN 'O002' /* 재고이동 - 이동출고   */
+                    WHEN (SUBSTR(PODT.MOVEMENT_TYP, 0, 1) = '3' AND PODT.GR_QTY IS NOT NULL) THEN 'I002' /*재고이동 - 이동입고  */
+                    WHEN (PODT.MOVEMENT_TYP = '251' OR PODT.MOVEMENT_TYP = '252') THEN 'O001' /* POS 매출 유형  */
+                    WHEN (PODT.MOVEMENT_TYP = '701' OR PODT.MOVEMENT_TYP = '702') THEN 'O004' /* 재고실사 */
+                    ELSE 'I001'
+               END AS TRANS_TYPE
+             , CASE WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=0 AND PODT.PROC_TYP_CD IS NOT NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_PURC_QTY*-1, PODT.GR_PURC_QTY*-1)
+                    WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=1 AND PODT.PROC_TYP_CD IS NOT NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_PURC_QTY, PODT.GR_PURC_QTY)
+                    WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=0 AND PODT.PROC_TYP_CD IS NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_QTY*-1, PODT.GR_QTY*-1)
+                    WHEN (MOD(TO_NUMBER(PODT.MOVEMENT_TYP), 2)=1 AND PODT.PROC_TYP_CD IS NULL) THEN DECODE(PODT.GR_QTY, NULL, PODT.GI_QTY, PODT.GR_QTY)
+               END AS TRANS_QTY
+             , CASE WHEN SUBSTR(PODT.MOVEMENT_TYP, 0, 2)='25' THEN 'FO'
+                    WHEN (PODT.PROC_TYP_CD IS NULL AND PODT.IVT_INSP_NO IS NOT NULL) THEN '재고조정'
+                    WHEN (PODT.PROC_TYP_CD IS NULL AND PODT.IVT_INSP_NO IS NULL ) THEN 'INV'
+                    ELSE 'PO'
+               END AS SOURCE_TYPE /*FO, PO, INV, 재고조정*/
+             , PODT.SYS_ID, PODT.COMP_CD, PODT.PO_NO, PODT.PO_LNO, PODT.MG_NO, PODT.MOVEMENT_TYP
+            FROM EPROCUSR.ESIMGDT PODT) DT
+     , EPROCUSR.ESISALP SL /* 판매단가 */
+   WHERE A.RC_UPJANG = :upjangCd
+   AND A.PR_NUM = :prNum
+   AND A.PR_NUM = PO.LEGCY_REQ_NO(+)
+   AND A.PR_ID = PO.LEGCY_REQ_LNO(+)
+   AND DT.SYS_ID(+) = '100'
+   AND DT.COMP_CD(+) = 'HFC'
+   AND DT.PO_NO(+) = PO.RO_NO
+   AND DT.PO_LNO(+) = PO.RO_LNO
+   AND DT.SYS_ID = SL.SYS_ID(+)
+   AND DT.COMP_CD = SL.COMP_CD(+)
+   AND DT.MG_NO = SL.MG_NO(+)
+   AND PO.STS(+) <> 'D'
+   AND DT.MOVEMENT_TYP(+) NOT IN ('561', '562', '998', '999', '901', '902', '801', '802', '111', '112', '211', '212', '663') /* 기초 , 기말 재고,배송입출고, 직송 가상입출고  제외 */
+   AND (DT.TRANS_TYPE(+) = 'I001' OR (DT.TRANS_TYPE(+) LIKE '_002' AND DT.SOURCE_TYPE(+) = 'PO'))
+   AND A.PO_TYPE IN ('51', '52') --반환
+--    AND A.LINE_STATUS IN ('002', '008', '009', '100', '999')
+--    AND A.NEED_DATE BETWEEN :startDt AND :endDt
+) TT, PO_CLAIM_LIST TV
+WHERE (TT.PO_LINE_STATUS = :poLineStatusCd OR TT.PO_TYPE IN ('04', '05'))
+-- TT.PO_LINE_STATUS = :poLineStatusCd
+  AND TT.PR_ID = TV.PO_ID(+)
+  AND TT.PR_NUM = TV.PO_NUM(+)
+ORDER BY TT.NEED_DATE DESC, TT.PR_NUM DESC
+]]></statement>
+
+<statement name="selectRtnOrderYn"><![CDATA[
+SELECT A.UPJANG,
+       A.UPJANGNM_DISP
+FROM   FMS_UPJANG A,
+       ST_UPJANG B,
+       HLDC_SC_DEPT_V C,
+       ST_CUST D
+WHERE  B.UPJANG = A.UPJANG
+AND    C.CC_CD = B.CC_CD
+AND    D.CUSTCD = B.CUSTCD
+AND    A.USE_YN = 'Y'
+AND    B.VIRTURE_UPJANG_YN <> 'Y'
+AND	   C.BU_CD = '2000' 
+AND    C.MU_CD = '2004' 
+AND    A.RTN_YN = 'Y'
+AND    (C.TM_CD LIKE 'CI%' OR A.DEPT_ID IN ( SELECT INV.CC_CD FROM HLDC_SC_DEPT_V INV WHERE INV.DEPT_ID IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'BRAND_UPJANG_POP_ETC')) ) -- 브랜드유통사업장 식별
+AND    A.UPJANG = <#if upjangCd?has_content> :upjangCd <#else> '' </#if>
+]]></statement>
+
+<statement name="selectSoPrGetNeedDate"><![CDATA[
+SELECT RC_UPJANG, NEED_DATE, NEED_DATE_DESC
+FROM (
+SELECT A.RC_UPJANG
+     , A.NEED_DATE
+     , TO_CHAR(TO_DATE(A.NEED_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS NEED_DATE_DESC
+  FROM SO_PR A,
+       HLDC_PO_PO B
+ WHERE A.PR_ID = B.PO_ID
+   AND A.PR_NUM = B.PO_NUM
+   AND A.NEED_DATE > TO_CHAR(SYSDATE, 'YYYYMMDD')
+   AND A.NEED_DATE > '20220109' -- 브랜드유통 프로젝트 오픈
+   AND A.PO_TYPE IN ('07', '29', '97') -- 일반주문
+   AND A.LINE_STATUS NOT IN ('003', '005')
+   AND A.RC_DEPT_ID IN (
+    					SELECT X.CC_CD
+    					  FROM HLDC_SC_DEPT_V X
+			  		     WHERE X.BU_CD = '2000'
+      					   AND X.MU_CD = '2004'
+      					   --AND X.TM_CD LIKE 'CI%'
+      					   AND (X.TM_CD LIKE 'CI%' OR X.DEPT_ID IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'BRAND_UPJANG_POP_ETC'))
+						) -- 브랜드유통사업장장
+   AND A.RC_UPJANG = <#if upjangCd?has_content> :upjangCd <#else> '' </#if>
+<#if needDate?has_content>		   
+   AND A.NEED_DATE =  :needDate 
+</#if>
+ 
+ UNION ALL
+ 
+ SELECT A.RC_UPJANG
+	  , A.NEED_DATE
+	  , TO_CHAR(TO_DATE(A.NEED_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS NEED_DATE_DESC
+FROM SO_PR_RTN A
+WHERE A.NEED_DATE > TO_CHAR(SYSDATE, 'YYYYMMDD')
+ AND A.NEED_DATE > '20220109' -- 브랜드유통 프로젝트 오픈
+ AND A.PO_TYPE IN ('52', '51') -- 반환주문
+ AND A.LINE_STATUS IN ('001', '008', '100') -- 신청저장, 주문확정, 발주확정
+	 AND A.RC_DEPT_ID IN (
+		    					SELECT X.CC_CD
+		    					  FROM HLDC_SC_DEPT_V X
+					  		     WHERE X.BU_CD = '2000'
+		      					   AND X.MU_CD = '2004'
+		      					   --AND X.TM_CD LIKE 'CI%'
+		      					   AND (X.TM_CD LIKE 'CI%' OR X.DEPT_ID IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'BRAND_UPJANG_POP_ETC'))
+								) -- 브랜드유통사업장장
+		   AND A.RC_UPJANG = <#if upjangCd?has_content> :upjangCd <#else> '' </#if>
+		<#if needDate?has_content>		   
+		   AND A.NEED_DATE =  :needDate 
+		</#if>
+	 )
+	 GROUP BY RC_UPJANG, NEED_DATE, NEED_DATE_DESC
+	 ORDER BY NEED_DATE 
+]]></statement>
+
+<statement name="selectRtnType"><![CDATA[
+SELECT CODE, CODE_NAME, SORT_SEQ
+FROM SCC_COMMON_CODE
+WHERE GROUP_CODE = 'RTN_ORD_TYPE'
+AND CODE NOT IN ('G01', 'H01', 'I01')
+AND :needDate BETWEEN ATTR01 AND ATTR02
+AND USE_YN = 'Y'
+ORDER BY SORT_SEQ
+]]></statement>
+
+<statement name="selectRtnDtime"><![CDATA[
+SELECT CASE WHEN :needDate BETWEEN SET1 AND SET2 THEN ATTR01 ELSE ATTR02 END AS D_TIME
+FROM SCC_COMMON_CODE
+WHERE GROUP_CODE = 'SYS_PROPERTY'
+AND CODE = 'SO_PR_RTN'
+AND USE_YN = 'Y'
+]]></statement>
+
+<!-- 반환발주 prNum채번 -->
+<statement name="selectGetPrNum">
+	<![CDATA[
+	SELECT 'R'||:needDate||'-'||LPAD(SO_PR_RTN_NUM_S.NEXTVAL,5,'0') AS PR_NUM FROM DUAL
+	]]>
+</statement>
+
+<!-- 반환발주 prId채번 -->
+<statement name="selectGetPrId">
+	<![CDATA[
+	SELECT SO_PR_RTN_S.NEXTVAL AS PR_ID FROM DUAL
+	]]>
+</statement>
+
+<!-- 반환내역조회 -->
+<statement name="selectRtnOrderInfo"><![CDATA[
+		SELECT PR_ID
+		     , PR_NUM
+		     , APPROVE_NUM
+		     , ITEM_CODE
+		     , ITEM_NAME
+		     , ITEM_SIZE
+		     , PO_UOM
+		     , UNIT_PRICE
+		     , MARGIN_PRICE
+		     , SALE_PRICE
+		     , PR_QTY
+		     , SALE_AMOUNT
+		     , LINE_STATUS
+		     , CLS_STATUS
+		     , PR_REMARK
+		     , PO_LINE_STATUS
+		     , SUBINV_CODE
+		     , NEED_DATE
+		     , TAX_CODE
+		     , CUSTCD
+		     , CENTER_FLAG
+		     , CENTER_CODE
+		     , POINT_FLAG
+		     , PR_UPJANG
+		     , RC_UPJANG
+		     , INVAT_FLAG
+		     , OUTVAT_FLAG
+		     , MIN_ORD_QTY
+		     , MAX_ORD_QTY
+		     , MULTIPLIER_QTY
+		     , OTCUSTCD
+		     , IMAGE_PATH
+		     , A.D_DAYS
+		     , A.D_TIMES
+		     , DOCU_SOURCE
+		     , ITEM_CLASS4
+		     , KEEPING_TYPE
+		     , APPLY_SD
+		     , VD_SN
+		     , ORIGIN_TYPE
+		     , UPJANG_GRP
+		     , OP_RATE
+		     , APPROVE_TIME
+		     , CREATE_BY
+		     , UPDATE_BY
+		     , T_ORDER
+		     , KG_CONVERT_RATE
+		     , UOM_CONVERT_RATE
+		     , TOT_WGHT
+		     , EVENT_ID
+		     , BOX_QTY
+		     , RTN_ORD_TYPE
+		     , MOBILE_GUBUN
+		     /* 브랜드는 단가정보를 모바일 프론트에서 부가세포함으로 직접 계산 */
+		     , DECODE(NVL(A.OP_PRICE,0), 0, A.SALE_PRICE, A.OP_PRICE) AS OP_PRICE
+		 --운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 맹수영 20150919 시작
+--		     , DECODE(NVL(A.OP_PRICE,0), 0, ROUND(DECODE(A.TAX_CODE, 100, A.SALE_PRICE*1.1, A.SALE_PRICE)), ROUND(DECODE(A.TAX_CODE, 100, A.OP_PRICE*1.1, A.OP_PRICE))) AS OP_PRICE
+		     , DECODE(NVL(A.OP_PRICE,0), 0, A.SALE_AMOUNT, ROUND(A.OP_PRICE * A.PR_QTY)) AS OP_AMOUNT
+		 --운영율 FMU_OP_RATE -> FMS_TRANSACTION_V 수정 맹수영 20150919  끝	      
+		     , DECODE(NVL(A.D_DAYS,0),0,'-','D-'||TO_CHAR(A.D_DAYS)) AS D_DAY_DISP 
+		     , SCC_SOPR_AGG_FUN(A.SUBINV_CODE, A.ITEM_CODE, '1') AS MAX_SO_QTY
+		     , DECODE(A.CENTER_FLAG, 'VC', 'Y', '') AS VC_YN
+		     --[PJT]주문채널통합
+		     , B.WIN_ITEM_CD          --바코드
+		     , DECODE(A.BOX_QTY, 0, 0, TRUNC(A.PR_QTY/A.BOX_QTY, 0)) AS  PR_BOX_QTY     --박스수량
+		     , DECODE(A.BOX_QTY, 0, 0, MOD(A.PR_QTY, A.BOX_QTY))     AS  PR_PC_QTY      --낱개수량
+		     , NVL((SELECT X.NM_KOR FROM HR_PERSONAL X WHERE X.SABUN = A.UPDATE_BY), 
+                   (SELECT X.NM_KOR FROM SCC_USERINFO X WHERE X.SABUN = A.UPDATE_BY)) AS UPDATE_BY_NM
+		  FROM 
+		      (SELECT A.PR_ID, A.PR_NUM, A.APPROVE_NUM
+				    , A.ITEM_CODE, A.ITEM_NAME, A.ITEM_SIZE, A.PO_UOM, A.UNIT_PRICE, A.MARGIN_PRICE
+				    , A.SALE_PRICE, A.OP_PRICE, A.PR_QTY, ROUND(A.SALE_PRICE * A.PR_QTY) AS SALE_AMOUNT
+				    , A.LINE_STATUS
+				      , CASE WHEN A.LINE_STATUS NOT IN ('001','003','004') THEN '마감' ELSE '마감전' END  AS CLS_STATUS
+				    , A.PR_REMARK
+				    , (SELECT S.CODE_NAME FROM SCC_COMMON_CODE S WHERE S.GROUP_CODE = 'RTN_LINE_STATUS' AND S.CODE = A.LINE_STATUS) AS PO_LINE_STATUS
+				    , A.SUBINV_CODE, A.NEED_DATE
+				    , A.TAX_CODE, A.CUSTCD, A.CENTER_FLAG
+				    , A.CENTER_CODE, B.POINT_FLAG, A.PR_UPJANG
+				    , A.RC_UPJANG, A.INVAT_FLAG, A.OUTVAT_FLAG
+					  --수량통제 안하는 업장의 경우 소숫점발주가 Y이면 무조건 최소발주량/발주승수량을 무조건 0.1로 세팅하여 조회				  					  	
+				  	, DECODE(:qtyControlYn||B.POINT_FLAG,'NY',DECODE(B.MIN_ORD_QTY,0,0,0.1),B.MIN_ORD_QTY) AS MIN_ORD_QTY
+				  	, B.MAX_ORD_QTY
+				  	, DECODE(:qtyControlYn||B.POINT_FLAG,'NY',DECODE(B.MULTIPLIER_QTY,0,0,0.1),B.MULTIPLIER_QTY) AS MULTIPLIER_QTY
+				    , '0000' AS OTCUSTCD
+				    , B.IMG_PATH AS IMAGE_PATH
+				      --디데이날짜와 입고일이 같으면 디타임을 체크하여 넘었으면 디데이 하루 추가
+				    , DECODE( SIGN(TO_DATE(:needDate,'YYYYMMDD') - TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD'),'YYYYMMDD') - NVL(C.D_DAYS,0) )
+--6:00
+--				            , 0, DECODE(SIGN(DECODE(C.D_TIMES,'',24,0,24,C.D_TIMES) - TO_NUMBER(TO_CHAR(SYSDATE,'HH24'))),1,0,1)
+--				            , 0 ) + NVL(C.D_DAYS,0) AS D_DAYS
+--				    , DECODE(C.D_TIMES,'',2400,0,2400,C.D_TIMES*100) AS D_TIMES
+--5:30				    				    
+				            , 0, DECODE(SIGN(DECODE(
+				            						(SELECT CASE WHEN Z.SET1 <= :needDate AND Z.SET2 >= :needDate THEN ATTR01 ELSE ATTR02 END FROM SCC_COMMON_CODE Z WHERE GROUP_CODE = 'SYS_PROPERTY' AND CODE = 'SO_PR_RTN')
+				            						,'',24,0,24,
+				            									(SELECT CASE WHEN Z.SET1 <= :needDate AND Z.SET2 >= :needDate THEN ATTR01 ELSE ATTR02 END FROM SCC_COMMON_CODE Z WHERE GROUP_CODE = 'SYS_PROPERTY' AND CODE = 'SO_PR_RTN')
+				            									) - TO_NUMBER(TO_CHAR(SYSDATE,'HH24'))),1,0,1)
+				            , 0 ) + NVL(C.D_DAYS,0) AS D_DAYS
+				    , DECODE(
+				    		(SELECT CASE WHEN Z.SET1 <= :needDate AND Z.SET2 >= :needDate THEN ATTR01 ELSE ATTR02 END FROM SCC_COMMON_CODE Z WHERE GROUP_CODE = 'SYS_PROPERTY' AND CODE = 'SO_PR_RTN')
+				    		,'',2400,0,2400,
+				    						(SELECT CASE WHEN Z.SET1 <= :needDate AND Z.SET2 >= :needDate THEN ATTR01 ELSE ATTR02 END FROM SCC_COMMON_CODE Z WHERE GROUP_CODE = 'SYS_PROPERTY' AND CODE = 'SO_PR_RTN')
+				    		) AS D_TIMES
+				    		
+				    , A.DOCU_SOURCE
+				    , B.ITEM_CLASS4
+				    , B.KEEPING_TYPE
+				    , A.APPLY_SD
+				    , A.VD_SN
+				    , B.ORIGIN_TYPE
+				    , A.UPJANG_GRP
+				    , A.OP_RATE
+				    , TO_CHAR(A.CREATE_DATE, 'YYYY-MM-DD HH24:MI:SS') AS APPROVE_TIME
+				    , A.CREATE_BY
+				    , A.UPDATE_BY
+				    , A.T_ORDER
+				    , B.KG_CONVERT_RATE
+				    , B.UOM_CONVERT_RATE
+				    , ROUND((B.KG_CONVERT_RATE * A.PR_QTY),2)  AS TOT_WGHT
+				    , A.WMS_INT_ID AS EVENT_ID
+				    , NVL(FN_GET_BOX_QTY_FUN(A.ITEM_CODE, (SELECT OPER_ORG_SN_PURC FROM HLDC_PO_CENTER WHERE CENTER_CODE = A.CENTER_CODE), A.VD_SN, A.CENTER_FLAG), 0) AS BOX_QTY --박스입수량
+				    , RTN_ORD_TYPE --반환/교환유형코드
+					, A.MOBILE_GUBUN
+			     FROM SO_PR_RTN A, HLDC_PO_ITEM_MST B, HLDC_PO_PREORDER_LIST C
+			    WHERE A.ITEM_CODE   = B.ITEM_CODE
+			      AND A.SUBINV_CODE = :subinvCd			      
+			      AND A.NEED_DATE = :needDate
+			      AND A.PO_TYPE IN ('51','52') /* 반환 */			      
+			      AND A.LINE_STATUS NOT IN ('003','004','005')
+			      AND A.CENTER_CODE = C.CENTER_CODE(+)
+			      AND A.ITEM_CODE = C.ITEM_CODE(+)
+			   ) A
+			   , EPROCUSR.ESMMTGL B
+		   WHERE A.ITEM_CODE = B.ITEM_CD(+)
+		     AND B.SYS_ID      = '100'
+		 ORDER BY A.PR_ID, A.PR_NUM 
+		]]>
+</statement>
+
+<!-- 반환발주를 등록 -->
+<statement name="saveRtnOrderInfo">
+	<![CDATA[
+       INSERT INTO SO_PR_RTN( 
+              PR_ID                                                              
+            , PR_NUM 
+            , PR_DATE 
+            , PR_DEPT_ID 
+            , PR_UPJANG 
+            , PR_SABUN 
+            , APPROVER 
+            , APPROVE_TIME                      
+            , PO_TYPE  
+            , DOCU_SOURCE                    
+            , CUSTCD 
+            , SUBINV_CODE 
+            , RC_MU_CD 
+            , RC_DEPT_ID 
+            , RC_UPJANG 
+            , BUDDEPT_ID 
+            , CENTER_CODE 
+            , ITEM_CODE 
+            , ITEM_NAME 
+            , ITEM_SIZE 
+            , PO_UOM 
+            , TAX_CODE 
+            , ACCTCD 
+            , BUD_CLS 
+            , CENTER_FLAG 
+            , UNIT_PRICE 
+            , MARGIN_PRICE 
+            , SALE_PRICE 
+            , PR_QTY 
+            , PO_QTY 
+            , NEED_DATE 
+            , INVAT_FLAG 
+            , OUTVAT_FLAG 
+            , PR_REMARK 
+            , LINE_STATUS 
+            , CREATE_BY 
+            , CREATE_DATE 
+            , UPDATE_BY 
+            , UPDATE_DATE 
+            , APPLY_SD 
+            , VD_SN 
+            , MOBILE_GUBUN 
+            , UPJANG_GRP 
+        	, OP_PRICE 
+        	, OP_RATE
+            , RTN_ORD_TYPE					 
+            , WMS_INT_FLAG
+         ) VALUES ( 
+        	  :prId
+        	, :prNum
+        	, TO_CHAR(SYSDATE,'YYYYMMDD') 
+        	, (SELECT DEPT_ID FROM HLDC_ST_UPJANG WHERE UPJANG = :prUpjangCd ) 
+        	, :prUpjangCd
+        	, :sabun
+        	, :sabun
+        	, TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')                  
+        	, (SELECT CASE WHEN USER_TYPE = '외부' THEN '51'
+                          WHEN USER_TYPE = '내부' THEN '52'                           
+                      END   
+                FROM SCC_USERINFO
+               WHERE SABUN = :sabun)          	
+        	, (SELECT CASE WHEN USER_TYPE = '외부' THEN '51 반환고객'
+                          WHEN USER_TYPE = '내부' THEN '52 반환영업'                           
+                      END   
+                FROM SCC_USERINFO
+               WHERE SABUN = :sabun)          	
+        	, :custcd
+        	, :subinvCd
+        	, (SELECT B.MU_CD FROM HLDC_ST_UPJANG A, HLDC_SC_DEPT B WHERE A.DEPT_ID = B.DEPT_ID AND A.UPJANG = :rcUpjangCd) 
+        	, (SELECT DEPT_ID FROM HLDC_ST_UPJANG WHERE UPJANG = :rcUpjangCd)
+        	, :rcUpjangCd
+           , (SELECT BUDCC_CD FROM HLDC_PO_SUBINVENTORY WHERE SUBINV_CODE = :subinvCd)
+           , :centerCd
+           , :itemCd
+           , :itemNm
+           , :itemSize			
+           , :poUom
+           , :taxCode
+           , (SELECT MATERIAL_ACCTCD FROM HLDC_PO_SUBINVENTORY WHERE SUBINV_CODE = :subinvCd)                     
+           , (SELECT MATERIAL_ACCTCD FROM HLDC_PO_SUBINVENTORY WHERE SUBINV_CODE = :subinvCd) 
+           , :centerFlag
+           , :unitPrice
+           , :unitPrice
+           , :salePrice
+           , :prQty
+           , :prQty
+           , :needDate
+           , :invatFlag
+           , :outvatFlag
+           , :prRemark
+           , '001'
+           , :sabun
+           , SYSDATE 
+           , :sabun
+           , SYSDATE 
+           , :applySd
+           , :vdSn
+           , :mobileGubun
+           , :upjangGrp
+           , :opPrice
+           , :opRate
+           , :rtnOrdType
+           , 'A'
+            )
+	]]>
+</statement>
+
+<!-- 반환발주를 수정 -->
+<statement name="updateRtnOrderInfo">
+	<![CDATA[
+	UPDATE SO_PR_RTN
+          SET PR_QTY = <#if prQty?has_content> DECODE(:prQty,0,PR_QTY,:prQty) <#else> '' </#if>
+            , PO_QTY = <#if prQty?has_content> DECODE(:prQty,0,PO_QTY,:prQty) <#else> '' </#if>
+            , PR_REMARK = <#if prRemark?has_content> :prRemark <#else> '' </#if>
+		    , LINE_STATUS = DECODE(:prQty,0,(SELECT CASE WHEN USER_TYPE = '내부' THEN '004' ELSE '003' END
+				                               FROM SCC_USERINFO
+				                              WHERE SABUN = :sabun),LINE_STATUS)
+		    , SO_STATUS = DECODE(:prQty,0,(SELECT CASE WHEN USER_TYPE = '내부' THEN '004' ELSE '003' END
+				                             FROM SCC_USERINFO
+				                            WHERE SABUN = :sabun),SO_STATUS)
+<#if rtnOrdType?has_content>
+            , RTN_ORD_TYPE = :rtnOrdType
+</#if>            
+            , APPROVER = :sabun
+            , APPROVE_TIME = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+            , UPDATE_BY = :sabun
+            , UPDATE_DATE = SYSDATE
+        WHERE PR_ID = :prId
+	]]>
+</statement>
+
+<!-- 반환발주를 삭제(수정 0처리포함) -->
+<statement name="deleteRtnOrderInfo">
+	<![CDATA[
+	UPDATE SO_PR_RTN
+          SET PR_REMARK = <#if prRemark?has_content> :prRemark <#else> '' </#if>
+            , LINE_STATUS = (SELECT CASE WHEN USER_TYPE = '내부' THEN '004' ELSE '003' END
+                               FROM SCC_USERINFO
+                              WHERE SABUN = :sabun)
+            , SO_STATUS = (SELECT CASE WHEN USER_TYPE = '내부' THEN '004' ELSE '003' END
+                             FROM SCC_USERINFO
+                            WHERE SABUN = :sabun)             
+<#if rtnOrdType?has_content>
+            , RTN_ORD_TYPE = :rtnOrdType
+</#if>
+            , APPROVER = :sabun
+            , APPROVE_TIME = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+            , UPDATE_BY = :sabun
+            , UPDATE_DATE = SYSDATE
+        WHERE PR_ID = :prId
+	]]>
+</statement>
+
+</hqml>

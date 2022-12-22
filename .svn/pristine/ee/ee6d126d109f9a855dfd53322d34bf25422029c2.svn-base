@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+
+SELECT * FROM (
+SELECT /*+ USE_HASH(V2) */ 
+		A.MAIN_UPJANG,
+       (SELECT UPJANGNM_DISP FROM FMS_UPJANG WHERE UPJANG = A.MAIN_UPJANG) MAIN_UPJANGNM,
+       V.UPJANG,
+       (SELECT UPJANGNM FROM SCO_UPJANG_MST_V WHERE UPJANG = V.UPJANG) UPJANGNM,    
+       A.PART_SALES_SABUN,
+       (SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN = A.PART_SALES_SABUN) PART_SALES_SABUNNM,
+       NVL(MAX(A.CREDIT_TURN_DAYS), 0) + NVL(SUM(V2.CREDIT_EXT_DAYS), 0) 여신회전일,
+       '(' || A.DEPT_ID || ')' || NVL((SELECT CC_NM FROM HLDC_SC_DEPT_V WHERE DEPT_ID = A.DEPT_ID), '') 부서명,
+       TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), 0), 'YY/MM') DATE1,
+       0                                                                                                                                                                        GICHO_AMT_BEFORE,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -12), 'YYYYMM') THEN V.AMT              ELSE 0 END))   MACHU_AMT_BEFORE,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -12), 'YYYYMM') THEN V.RCP_AMT1         ELSE 0 END))   RCP_AMT_BEFORE,       
+       0                                                                                                                                                                        +
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -12), 'YYYYMM') THEN V.AMT              ELSE 0 END)) -
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -12), 'YYYYMM') THEN V.RCP_AMT1         ELSE 0 END))   GIMAL_AMT_BEFORE,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -1), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_01,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), 0), 'YYYYMM'),                              V.AMT, 0))                        MACHU_AMT_01,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), 0), 'YYYYMM'),                              V.RCP_AMT1, 0))                   RCP_AMT_01,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -1), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), 0), 'YYYYMM'),                              V.AMT, 0))                      -  
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), 0), 'YYYYMM'),                              V.RCP_AMT1, 0))                   GIMAL_AMT_01,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -2), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_02,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -1), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_02,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -1), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_02,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -2), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -1), 'YYYYMM'),                              V.AMT, 0))                      -  
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -1), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_02,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -3), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_03,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -2), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_03,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -2), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_03,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -3), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -2), 'YYYYMM'),                              V.AMT, 0))                      -  
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -2), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_03,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -4), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_04,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -3), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_04,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -3), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_04,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -4), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -3), 'YYYYMM'),                              V.AMT, 0))                      -  
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -3), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_04,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -5), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_05,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -4), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_05,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -4), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_05,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -5), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -4), 'YYYYMM'),                              V.AMT, 0))                      -  
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -4), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_05,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -6), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_06,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -5), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_06,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -5), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_06,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -6), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -5), 'YYYYMM'),                              V.AMT, 0))                      -  
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -5), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_06,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -7), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_07,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -6), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_07,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -6), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_07,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -7), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -6), 'YYYYMM'),                              V.AMT, 0))                      -  
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -6), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_07,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -8), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_08,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -7), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_08,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -7), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_08,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -8), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -7), 'YYYYMM'),                              V.AMT, 0))                      -  
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -7), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_08,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -9), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_09,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -8), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_09,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -8), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_09,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -9), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -8), 'YYYYMM'),                              V.AMT, 0))                      -  
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -8), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_09,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -10), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_10,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -9), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_10,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -9), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_10,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -10), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -9), 'YYYYMM'),                              V.AMT, 0))                      -  
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -9), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_10,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -11), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_11,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -10), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_11,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -10), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_11,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -11), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -10), 'YYYYMM'),                              V.AMT, 0))                      -  
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -10), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_11,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -12), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END))   GICHO_AMT_12,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -11), 'YYYYMM'),                              V.AMT, 0))                       MACHU_AMT_12,
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -11), 'YYYYMM'),                              V.RCP_AMT1, 0))                  RCP_AMT_12,
+       SUM((CASE WHEN SUBSTR(V.BOND_DATE, 1, 6) BETWEEN '190001' AND TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -12), 'YYYYMM')  THEN V.AMT - V.RCP_AMT1 ELSE 0 END)) +
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -11), 'YYYYMM'),                              V.AMT, 0))                      -  
+       SUM(DECODE(SUBSTR(V.BOND_DATE, 1, 6),  TO_CHAR(ADD_MONTHS(TO_DATE(#TRX_DATE_LAST#, 'YYYYMMDD'), -11), 'YYYYMM'),                              V.RCP_AMT1, 0))                  GIMAL_AMT_12,       
+       NVL(SUM(MI_BOND_AMT), 0)            MI_BOND_AMT,
+       NVL(SUM(DO_BOND_AMT), 0)            DO_BOND_AMT,
+       NVL(SUM(AK_BOND_AMT), 0)            AK_BOND_AMT,
+       NVL(SUM(MI_BOND_AMT), 0) + NVL(SUM(DO_BOND_AMT), 0) +  NVL(SUM(AK_BOND_AMT), 0) BOND_TOTAL_AMT,   
+       A.MAIN_UPJANG||'-'||V.UPJANG PL_CD,
+       '1' PL_UP_CD,
+       '0' BL_SHOW,
+       2 LEVEL_NO,
+       '+' BL_PLUS
+  FROM (  
+		-- 채권
+        SELECT 
+			   V.UPJANG_CD UPJANG
+             , NVL(V.AR_AMT,0) - NVL(V.MNGMV_AMT,0) AMT	--이관된 금액이 중복으로 잡혀 이관된 금액 뺌
+             , V.OCCUR_DATE BOND_DATE
+			 , 0 AS RCP_AMT1
+             , ( CASE WHEN V.OCCUR_DATE BETWEEN SUBSTR(#TRX_DATE_LAST# , 1, 6)||'01' AND SUBSTR(#TRX_DATE_LAST# , 1, 6)||'31'
+                       THEN V.AR_AMT ELSE 0 END ) CURR_MACHUL
+             , 0 MI_BOND_AMT
+             , 0 DO_BOND_AMT
+             , 0 AK_BOND_AMT
+          FROM SLA_AR_MST V INNER JOIN FMS_UPJANG B ON 1 = 1
+																			<isNotNull col="MAIN_UPJANG">
+																			AND   (B.MAIN_UPJANG          = #MAIN_UPJANG#)
+																			</isNotNull>
+																			<isNotNull col="UPJANG">
+																			AND   (B.UPJANG          = #UPJANG#)
+																			</isNotNull>
+																			<isNotNull col="PART_SALES_SABUN">
+																			AND   (B.PART_SALES_SABUN     = #PART_SALES_SABUN#)
+																			</isNotNull>  
+																			AND  V.UPJANG_CD = B.UPJANG
+										 INNER JOIN ST_UPJANG S ON 1 = 1
+																			<isNotNull col="schCc">
+																			AND   (S.CC_CD     = #schCc#)
+																			</isNotNull>
+																			AND	B.UPJANG = S.UPJANG
+										 INNER JOIN HLDC_SC_DEPT_V D ON 1 = 1
+																						<isNotNull col="MU_CD">
+																						AND   (D.MU_CD      = #MU_CD#)
+																						</isNotNull>
+																						<isNotNull col="TM_CD">
+																						AND   (D.TM_CD      = #TM_CD#)
+																						</isNotNull>
+																						AND	S.DEPT_ID = D.DEPT_ID
+         WHERE V.OCCUR_DATE BETWEEN '19000101' AND #TRX_DATE_LAST#
+               AND V.SYS_CLASS IN ('13','14')
+               AND V.RECD_STATUS='L'
+
+            UNION ALL
+
+		-- 입금
+        SELECT 
+			   V.UPJANG_CD UPJANG
+             , 0 AS  AMT
+             , V1.RECEIVE_DATE BOND_DATE
+			 , NVL(V1.RECEIVE_AMT,0) - NVL(V.MNGMV_AMT,0) AS RCP_AMT1 --이관된 금액이 중복으로 잡혀 이관된 금액 뺌
+             , 0 AS CURR_MACHUL
+             , 0 MI_BOND_AMT
+             , 0 DO_BOND_AMT
+             , 0 AK_BOND_AMT
+          FROM SLA_AR_MST V INNER JOIN SLA_AR_RECEIVE_DETAIL V1 ON V1.RECEIVE_DATE BETWEEN '19000101' AND #TRX_DATE_LAST#
+																							   AND V1.RECD_STATUS = 'L'	
+																							   AND V.AR_NUM = V1.AR_NUM
+										 INNER JOIN FMS_UPJANG B ON 1 = 1
+																			<isNotNull col="MAIN_UPJANG">                
+																			AND   (B.MAIN_UPJANG          = #MAIN_UPJANG#)
+																			</isNotNull>     
+																			<isNotNull col="UPJANG">                
+																			AND   (B.UPJANG          = #UPJANG#)
+																			</isNotNull>     
+																			<isNotNull col="PART_SALES_SABUN">    
+																			AND   (B.PART_SALES_SABUN     = #PART_SALES_SABUN#)
+																			</isNotNull>  
+																			AND V.UPJANG_CD = B.UPJANG
+										INNER JOIN ST_UPJANG S ON 1 = 1
+																			<isNotNull col="schCc">
+																			AND   (S.CC_CD     = #schCc#)
+																			</isNotNull>
+																			AND  B.UPJANG = S.UPJANG
+										INNER JOIN HLDC_SC_DEPT_V D ON  1 = 1
+																			<isNotNull col="MU_CD">
+																			AND   (D.MU_CD      = #MU_CD#)
+																			</isNotNull>
+																			<isNotNull col="TM_CD">
+																			AND   (D.TM_CD      = #TM_CD#)
+																			</isNotNull>
+																			AND S.DEPT_ID = D.DEPT_ID
+         WHERE V.SYS_CLASS IN ('13','14')
+		 AND    V.RECD_STATUS='L'
+
+            UNION ALL
+		
+        SELECT TO_NUMBER(UPJANG) AS UPJANG,
+               0          AMT,
+               #TRX_DATE_LAST# BOND_DATE,
+               0          RCP_AMT1,
+               0          CURR_MACHUL,
+               SUM(DECODE(V.DUE_GUBUN, '미도래채권', V.AMT - (V.RCP_AMT1 + V.RCP_AMT2), 0))             MI_BOND_AMT,
+               SUM(DECODE(V.DUE_GUBUN, '도래채권',   V.AMT - (V.RCP_AMT1 + V.RCP_AMT2), 0))             DO_BOND_AMT,
+               SUM(DECODE(V.DUE_GUBUN, '악성채권',   V.AMT - (V.RCP_AMT1 + V.RCP_AMT2), 0))             AK_BOND_AMT
+        FROM (
+              SELECT DEPT_ID, PART_SALES_SABUN, MAIN_UPJANG, UPJANG,
+                     SUM(AMT) AMT,
+                     BOND_DATE,
+                     DUE_GUBUN,
+                     SUM(RCP_AMT1) RCP_AMT1,
+                     SUM(RCP_AMT2) RCP_AMT2
+                FROM (
+                      SELECT /*+ NO_MERGE FULL(V) USE_HASH(V1)  */ B.DEPT_ID, B.PART_SALES_SABUN, B.MAIN_UPJANG, V.UPJANG_CD UPJANG,
+                             V.AR_AMT AMT,
+                             V.OCCUR_DATE                  BOND_DATE,
+                             (CASE WHEN #TRX_DATE_LAST# &gt;  DECODE(C.PAY_GUBUN_CD, '999', TO_CHAR(ADD_MONTHS(LAST_DAY(TO_DATE(V.OCCUR_DATE, 'YYYYMMDD')),1),'YYYYMMDD'), TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(C.PAY_GUBUN_CD) + 1), 'YYYYMM')||
+                                                   LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(C.PAY_GUBUN_CD) + 1), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(C.PAY_DATE, 2, '0'))
+                                                   ) THEN
+                                        '악성채권'
+                                   WHEN #TRX_DATE_LAST# &lt;=  DECODE(C.PAY_GUBUN_CD, '999', TO_CHAR(ADD_MONTHS(LAST_DAY(TO_DATE(V.OCCUR_DATE, 'YYYYMMDD')),1),'YYYYMMDD'), TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(C.PAY_GUBUN_CD) + 1), 'YYYYMM')||
+                                                   LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(C.PAY_GUBUN_CD) + 1), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(C.PAY_DATE, 2, '0'))
+                                                   ) AND
+                                        #TRX_DATE_LAST# &gt; DECODE(C.PAY_GUBUN_CD, '999', TO_CHAR(LAST_DAY(TO_DATE(V.OCCUR_DATE, 'YYYYMMDD')),'YYYYMMDD'), TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(C.PAY_GUBUN_CD)), 'YYYYMM')||
+                                                   LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(C.PAY_GUBUN_CD)), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(C.PAY_DATE, 2, '0'))
+                                                   ) THEN
+                                        '도래채권'
+                                   WHEN #TRX_DATE_LAST# &lt;=  DECODE(C.PAY_GUBUN_CD, '999', TO_CHAR(LAST_DAY(TO_DATE(V.OCCUR_DATE, 'YYYYMMDD')),'YYYYMMDD'), TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(C.PAY_GUBUN_CD)), 'YYYYMM')||
+                                                   LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(C.PAY_GUBUN_CD)), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(C.PAY_DATE, 2, '0'))
+                                                   ) THEN
+                                        '미도래채권' END) DUE_GUBUN,
+							(SELECT NVL(SUM(V1.RECEIVE_AMT), 0) FROM SLA_AR_RECEIVE_DETAIL V1 WHERE V1.RECD_STATUS = 'L' AND V1.RECEIVE_DATE BETWEEN '19000101' AND #TRX_DATE_LAST# AND V1.AR_NUM = V.AR_NUM) AS RCP_AMT1,
+                             0 RCP_AMT2
+                        FROM SLA_AR_MST V , 
+                             FMS_UPJANG B,
+                             (
+                                SELECT UPJANG,
+                                       MAX(PAY_GUBUN_CD) AS PAY_GUBUN_CD,
+                                       MAX(PAY_DATE) AS PAY_DATE
+                                FROM SCO_UPJANG_CUST
+                                GROUP BY UPJANG
+                            ) C ,
+							ST_UPJANG S,
+							HLDC_SC_DEPT_V D
+                      WHERE   (V.OCCUR_DATE  BETWEEN '19000101' AND #TRX_DATE_LAST#)
+                      AND    (V.SYS_CLASS      IN ('13','14'))
+                      AND    (V.RECD_STATUS  = 'L')
+					  AND    (V.UPJANG_CD = B.UPJANG)
+                      AND    (B.UPJANG       = C.UPJANG)
+                      AND    (B.UPJANG       = S.UPJANG)
+                      AND    (S.DEPT_ID       = D.DEPT_ID)
+					<isNotNull col="MU_CD">
+					AND   (D.MU_CD      = #MU_CD#)
+					</isNotNull>
+					<isNotNull col="TM_CD">
+					AND   (D.TM_CD      = #TM_CD#)
+					</isNotNull>
+                      <isNotNull col="MAIN_UPJANG">                
+                      AND   (B.MAIN_UPJANG          = #MAIN_UPJANG#)
+                      </isNotNull>     
+                      <isNotNull col="UPJANG">                
+                      AND   (B.UPJANG          = #UPJANG#)
+                      </isNotNull>     
+                      
+                      <isNotNull col="PART_SALES_SABUN">    
+                      AND   (B.PART_SALES_SABUN     = #PART_SALES_SABUN#)
+                      </isNotNull>  
+                                                                  
+						<isNotNull col="schCc">
+						AND   (S.CC_CD     = #schCc#)
+						</isNotNull>
+                      
+	                <isNotNull col="JOB">    
+	                AND   (B.BIZ_GROUP     = #JOB#)
+	                </isNotNull>   
+	                <isNotNull col="SUB_JOB">    
+	                AND   (B.BIZ_DETAIL    = #SUB_JOB#)
+	                </isNotNull>                                            
+                      
+                      )
+                GROUP BY DEPT_ID, PART_SALES_SABUN, MAIN_UPJANG, UPJANG,BOND_DATE,DUE_GUBUN
+               ) V
+        GROUP BY DEPT_ID, PART_SALES_SABUN, MAIN_UPJANG, UPJANG        
+        
+        ) V,
+        FMS_UPJANG A,
+		ST_UPJANG S,
+        (
+         SELECT V.UPJANG, SUM(V.CREDIT_EXT_DAYS) CREDIT_EXT_DAYS
+           FROM FMS_CREDIT_EXT V
+          WHERE #TRX_DATE_LAST# BETWEEN V.SUPPLY_START AND V.SUPPLY_END
+            AND V.APPR_YN = 'Y'
+          GROUP BY V.UPJANG
+        ) V2
+WHERE (V.UPJANG = A.UPJANG)
+  AND A.UPJANG = S.UPJANG
+  AND V2.UPJANG(+) = V.UPJANG
+<isNotNull col="MAIN_UPJANG">
+AND   (A.MAIN_UPJANG          = #MAIN_UPJANG#)
+</isNotNull>
+<isNotNull col="UPJANG">
+AND   (A.UPJANG          = #UPJANG#)
+</isNotNull>
+<isNotNull col="PART_SALES_SABUN">
+AND   (A.PART_SALES_SABUN     = #PART_SALES_SABUN#)
+</isNotNull>
+<isNotNull col="schCc">
+AND   (S.DEPT_ID              = #schCc#)
+</isNotNull>
+<isNotNull col="JOB">    
+AND   (A.BIZ_GROUP     = #JOB#)
+</isNotNull>   
+<isNotNull col="SUB_JOB">    
+AND   (A.BIZ_DETAIL    = #SUB_JOB#)
+</isNotNull>     
+GROUP BY A.MAIN_UPJANG,
+         V.UPJANG,
+         A.DEPT_ID,
+         A.PART_SALES_SABUN
+) WHERE 1=1
+   AND NOT (GICHO_AMT_01 = 0 AND MACHU_AMT_01 = 0 AND RCP_AMT_01 = 0 AND GIMAL_AMT_01 = 0
+       AND GICHO_AMT_02 = 0 AND MACHU_AMT_02 = 0 AND RCP_AMT_02 = 0 AND GIMAL_AMT_02 = 0
+       AND GICHO_AMT_03 = 0 AND MACHU_AMT_03 = 0 AND RCP_AMT_03 = 0 AND GIMAL_AMT_03 = 0
+       AND GICHO_AMT_04 = 0 AND MACHU_AMT_04 = 0 AND RCP_AMT_04 = 0 AND GIMAL_AMT_04 = 0
+       AND GICHO_AMT_05 = 0 AND MACHU_AMT_05 = 0 AND RCP_AMT_05 = 0 AND GIMAL_AMT_05 = 0
+       AND GICHO_AMT_06 = 0 AND MACHU_AMT_06 = 0 AND RCP_AMT_06 = 0 AND GIMAL_AMT_06 = 0
+       AND GICHO_AMT_07 = 0 AND MACHU_AMT_07 = 0 AND RCP_AMT_07 = 0 AND GIMAL_AMT_07 = 0
+       AND GICHO_AMT_08 = 0 AND MACHU_AMT_08 = 0 AND RCP_AMT_08 = 0 AND GIMAL_AMT_08 = 0
+       AND GICHO_AMT_09 = 0 AND MACHU_AMT_09 = 0 AND RCP_AMT_09 = 0 AND GIMAL_AMT_09 = 0
+       AND GICHO_AMT_10 = 0 AND MACHU_AMT_10 = 0 AND RCP_AMT_10 = 0 AND GIMAL_AMT_10 = 0
+       AND GICHO_AMT_11 = 0 AND MACHU_AMT_11 = 0 AND RCP_AMT_11 = 0 AND GIMAL_AMT_11 = 0
+       AND GICHO_AMT_12 = 0 AND MACHU_AMT_12 = 0 AND RCP_AMT_12 = 0 AND GIMAL_AMT_12 = 0)
+        
+         
+</statement>
+	<input default-name="ds_cond">
+		<col name="DEPT_ID" size="255" type="NUMERIC" description="" /> 	
+		<col name="MAIN_UPJANG" size="6" type="NUMERIC" description="업장코드" /> 
+		<col name="UPJANG" size="6" type="NUMERIC" description="업장코드" /> 
+		<col name="TRX_DATE_LAST" size="255" type="VARCHAR" description="" /> 
+		<col name="schCc" size="255" type="VARCHAR" description="CC_CD" />
+		<col name="JOB" size="255" type="VARCHAR" description="" /> 
+		<col name="SUB_JOB" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">      
+
+
+	</output>
+</query>

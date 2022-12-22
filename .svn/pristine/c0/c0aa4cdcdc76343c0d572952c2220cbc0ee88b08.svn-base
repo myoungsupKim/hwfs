@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.cmn.personalSearchDAO">
+	<desc>시스템에서 사용되는 사원(직원)정보를 조회한다.</desc>
+
+	<!-- 사용자를 검색한다. -->
+	<statement name="selectList" type="select">
+/*+ com.hwfs.cmn.dao.PersonalSearchDAO.selectList */
+		<![CDATA[
+SELECT A.SABUN,
+       A.NM_KOR,
+       A.MU_CD,
+       A.MU_NM,
+       A.TM_CD,
+       A.TM_NM,
+       A.CC_CD,
+       A.CC_NM,
+       A.GB_JAEJIK,
+       A.HDOC_STATUS_NM,
+       A.EMP_TYPE_CD,
+       A.EMP_TYPE_NM,
+       A.JIK_KUN,
+       A.JOB_CLASS_NM,
+       A.JIK_KUP,
+       A.JOB_GRADE_NM,
+       A.JIK_WI,
+       A.JOB_ASSIGN_NM,
+       A.JIK_MU,
+       A.JOB_DUTY_NM,
+       A.OTHER_NAME_CD,
+       A.OTHER_NAME,
+       A.PER_DTA,
+       A.PER_DTB,
+       A.PER_DTD,
+       A.OFFICE_TEL_NUM,
+       SCC_TELNO_SPLIT_FUN(A.OFFICE_TEL_NUM, 1) AS OFFICE_TEL_NUM1,
+       SCC_TELNO_SPLIT_FUN(A.OFFICE_TEL_NUM, 2) AS OFFICE_TEL_NUM2,
+       SCC_TELNO_SPLIT_FUN(A.OFFICE_TEL_NUM, 3) AS OFFICE_TEL_NUM3,
+       A.FAX_NUM,
+       SCC_TELNO_SPLIT_FUN(A.FAX_NUM, 1) AS FAX_NUM1,
+       SCC_TELNO_SPLIT_FUN(A.FAX_NUM, 2) AS FAX_NUM2,
+       SCC_TELNO_SPLIT_FUN(A.FAX_NUM, 3) AS FAX_NUM3,
+       A.COMM_EMAIL_ENC,
+       A.HP_NUM,
+       SCC_TELNO_SPLIT_FUN(A.HP_NUM, 1) AS HP_NUM1,
+       SCC_TELNO_SPLIT_FUN(A.HP_NUM, 2) AS HP_NUM2,
+       SCC_TELNO_SPLIT_FUN(A.HP_NUM, 3) AS HP_NUM3,
+       A.SAP_CUST_CD       
+FROM   (SELECT A.SABUN,
+               A.NM_KOR,
+               B.MU_CD,
+               (SELECT MU_NM FROM SCC_MU WHERE MU_CD = B.MU_CD) AS MU_NM,
+               B.TM_CD,
+               B.TM_NM,
+               B.CC_CD,
+               B.CC_NM,
+               A.GB_JAEJIK,
+               A.HDOC_STATUS_NM,
+               A.EMP_TYPE_CD,
+               A.EMP_TYPE_NM,
+               A.JIK_KUN,
+               A.JOB_CLASS_NM,
+               A.JIK_KUP,
+               A.JOB_GRADE_NM,
+               A.JIK_WI,
+               A.JOB_ASSIGN_NM,
+               A.JIK_MU,
+               A.JOB_DUTY_NM,
+               A.OTHER_NAME_CD,
+               A.OTHER_NAME,
+               A.PER_DTA,
+               A.PER_DTB,
+               A.PER_DTD,
+               SCC_CRYPTO.DEC_FUN(A.OFFICE_TEL_NUM) AS OFFICE_TEL_NUM,
+               SCC_CRYPTO.DEC_FUN(A.FAX_NUM) AS FAX_NUM,
+               SCC_CRYPTO.DEC_FUN(A.COMM_EMAIL_ENC) AS COMM_EMAIL_ENC,
+               SCC_CRYPTO.DEC_FUN(A.HP_NUM) AS HP_NUM,
+               A.CUST_CD AS SAP_CUST_CD       
+        FROM   HR_PERSONAL A,
+               HLDC_SC_DEPT_V B
+        WHERE  B.CC_CD = A.CC_CD
+<#if tempGb2?has_content>        
+    <#if tempGb2 == "Y"> 
+		AND    A.BU_CD = '2000' AND B.MU_CD <> '2003'  --FC만 외식제외
+	</#if>
+	<#if tempGb2 == "N">
+		AND    (A.BU_CD != '2000' OR (A.BU_CD = '2000' AND B.MU_CD = '2003')) --리조트/외식만
+	</#if>
+</#if>	
+<#if sabun?has_content>
+AND    A.SABUN = :sabun
+</#if>
+<#if nmKor?has_content>
+AND    A.NM_KOR LIKE :nmKor || '%'
+</#if>
+<#if muCd?has_content>
+	<#if muCd == "2003">
+		AND    B.MU_CD IN ('1600','2003') --외식 예외처리		
+	<#else>
+		AND    B.MU_CD = :muCd
+	</#if>
+</#if>
+<#if tmCd?has_content>
+AND    B.TM_CD = :tmCd
+</#if>
+<#if ccCd?has_content>
+AND    A.CC_CD = :ccCd
+</#if>
+AND    (
+        A.GB_JAEJIK = 'AA'
+<#if outSayu?has_content>
+	<#if outSayu == "Y">
+OR     A.GB_JAEJIK = 'RA'
+	</#if>
+</#if>
+<#if tempGb?has_content>
+	<#if tempGb == "Y">
+OR     A.GB_JAEJIK = 'CA'
+	</#if>
+</#if>
+       ) ) A
+ORDER BY A.SABUN, A.NM_KOR
+		]]>
+	</statement>
+</hqml>

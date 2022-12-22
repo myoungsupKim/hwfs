@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[메뉴에 해당하는 식단 구성 정보 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.MENU_CD
+     , A.RECIPE_SEQ
+     , A.RECIPE_CD
+     , A.RECIPE_NAME
+     , A.RECIPE_CLASS
+     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0001' AND CODE = A.RECIPE_CLASS) CLASS_NAME --레시피분류
+     , A.RECIPE_TYPE
+     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0002' AND CODE = A.RECIPE_TYPE) TYPE_NAME --레시피유형
+     , A.CUISINE_TYPE
+     , (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'FS0003' AND CODE = A.CUISINE_TYPE) CUISINE_NAME --조리법유형
+     , A.RECIPE_COST
+     , A.EXPECT_SALE_QTY
+     , A.HALL_CLASS
+     , NVL2(B.RECIPE_CD,'Y','N') UPJANG_STD_YN
+     , '' CHK
+     , RECIPE_RATE
+     , A.SALE_PRICE
+     , 0 V_STA
+     , 0 V_RATE
+     , ORDER_YN
+     , A.UPJANG
+  FROM (
+        SELECT A.MENU_CD
+             , A.UPJANG
+             , B.RECIPE_SEQ
+             , B.RECIPE_CD
+             , B.RECIPE_NAME
+             , B.RECIPE_CLASS
+             , B.RECIPE_TYPE
+             , B.CUISINE_TYPE 
+             , NVL(ROUND( SUM(C.NEED_QTY * ROUND(C.MARGIN_PRICE/E.KG_CONVERT_RATE/1000,2))),0) RECIPE_COST
+             , DECODE(NVL(A.SALE_PRICE,0),0,0, (NVL(ROUND(SUM( (C.NEED_QTY * ROUND(C.MARGIN_PRICE/E.KG_CONVERT_RATE/1000,2)))),0) / A.SALE_PRICE) * 100) RECIPE_RATE --원가 대비 원가율
+             , B.EXPECT_SALE_QTY
+             , D.HALL_CLASS
+		     , A.SALE_PRICE
+		     , MAX(C.ORDER_YN) AS ORDER_YN
+          FROM FSM_REAL_MENU_MST A
+             , FSM_REAL_RECIPE_MST B
+             , FSM_REAL_RECIPE_ITEM C
+             , FSA_HALL_MST D
+			 , HLDC_PO_ITEM_MST E
+         WHERE A.UPJANG = B.UPJANG
+           AND A.MENU_CD = B.MENU_CD
+           AND B.UPJANG = C.UPJANG(+)
+           AND B.MENU_CD = C.MENU_CD(+)
+           AND B.RECIPE_CD = C.RECIPE_CD(+) 
+           AND A.UPJANG = D.UPJANG
+           AND A.HALL_CD = D.HALL_CD
+           AND C.ITEM_CODE = E.ITEM_CODE
+           AND A.UPJANG  =  #UPJANG#
+           AND A.MENU_CD = #MENU_CD#
+         GROUP BY A.MENU_CD
+                , A.UPJANG
+                , D.HALL_CLASS
+                , B.RECIPE_SEQ
+                , B.RECIPE_TYPE
+                , B.CUISINE_TYPE
+                , B.RECIPE_CD
+                , B.RECIPE_NAME
+                , B.RECIPE_CLASS
+                , B.EXPECT_SALE_QTY
+	            , A.SALE_PRICE
+       ) A
+     , FSR_UPJANG_RECIPE_MST B
+ WHERE A.UPJANG = B.UPJANG(+)
+   AND A.HALL_CLASS = B.HALL_CLASS(+)
+   AND A.RECIPE_CD = B.RECIPE_CD(+)
+ ORDER BY A.RECIPE_SEQ
+        , A.RECIPE_TYPE
+        , A.CUISINE_TYPE	]]></statement>
+	<input default-name="ds_cond">
+		<col name="UPJANG" size="22" type="NUMERIC" description="" /> 
+		<col name="MENU_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="HALL_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="SUBINV_CODE" size="20" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="RECIPE_SEQ" size="22" type="NUMERIC" description="" /> 
+		<col name="RECIPE_CD" size="20" type="VARCHAR" description="" /> 
+		<col name="RECIPE_NAME" size="50" type="VARCHAR" description="" /> 
+		<col name="RECIPE_CLASS" size="20" type="VARCHAR" description="" /> 
+		<col name="CLASS_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="RECIPE_TYPE" size="20" type="VARCHAR" description="" /> 
+		<col name="TYPE_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="CUISINE_TYPE" size="20" type="VARCHAR" description="" /> 
+		<col name="CUISINE_NAME" size="100" type="VARCHAR" description="" /> 
+		<col name="RECIPE_COST" size="22" type="NUMERIC" description="" /> 
+		<col name="EXPECT_SALE_QTY" size="22" type="NUMERIC" description="" /> 
+		<col name="HALL_CLASS" size="20" type="VARCHAR" description="" /> 
+		<col name="UPJANG_STD_YN" size="1" type="VARCHAR" description="" /> 
+		<col name="CHK" size="0" type="CHAR" description="" /> 
+		<col name="RECIPE_RATE" size="22" type="NUMERIC" description="" /> 
+		<col name="SALE_PRICE" size="22" type="NUMERIC" description="" /> 
+	</output>
+</query>

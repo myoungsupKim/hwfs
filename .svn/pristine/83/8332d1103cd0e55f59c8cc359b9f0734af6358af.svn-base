@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="rc.rrm.menuMgntInqDAO">
+	<desc>할인 전 후 재료비율비교 HQML Query</desc>
+
+	<!-- 할인 전 후 재료비율비교 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.rc.rrm.menuMgntInqDAO.selectList	*/
+		<![CDATA[
+SELECT   DENSE_RANK() OVER(ORDER BY B.MENU_CD) AS ROW_NUM
+         , B.LVL
+         , B.OUTLET_CD
+	     , B.MENU_CD
+	     , B.MENU_NM
+	     , B.DC_CD
+	     , B.DC_NM
+	     , B.MENU_UCST
+	     , B.MENU_CLASS
+	     , B.QTY
+	     , ROUND(B.INVEST_AMT) AS INVEST_AMT
+	     , B.NET
+	     , B.TOT_AMT
+         , B.MATERIAL_RATE
+		 , B.O_NET
+	     , B.O_TOT_AMT
+         , B.O_MATERIAL_RATE
+         , '1' AS TREE_STATUS  --트리 펼침상태(0:닫힘, 1:펼침)
+FROM (
+		SELECT   '1' AS LVL
+	       	 , OUTLET_CD
+		     , MENU_CD
+		     , MENU_NM
+		     , '' AS DC_CD
+		     , '전체매출' AS DC_NM
+		     , MENU_UCST
+		     , MENU_CLASS
+		     , QTY
+		     , (QTY * INVEST_AMT) AS INVEST_AMT
+		     , NET
+		     , TOT_AMT
+		     , DECODE(TOT_AMT, 0, 0, ROUND(((QTY * INVEST_AMT) / TOT_AMT) * 100, 2)) AS MATERIAL_RATE
+		     , O_NET
+		     , O_TOT_AMT
+		     , DECODE(O_TOT_AMT, 0, 0, ROUND(((QTY * INVEST_AMT) / O_TOT_AMT) * 100, 2)) AS O_MATERIAL_RATE
+		  FROM (
+		        SELECT OUTLET_CD  -- 업장코드
+		             , MENU_CD AS MENU_CD  -- 메뉴코드
+		             , MAX(MENU_NM) AS MENU_NM  -- 메뉴명
+		             --, NVL(DC_CD, '') AS DC_CD  -- 할인코드
+		             --, NVL((SELECT PRMT_NM FROM SLE_PRMT W WHERE W.PRMT_CD = DC_CD), '') AS DC_NM  -- 할인코드명
+		             , ROUND(AVG(MENU_UCST),2) AS MENU_UCST  -- 판매금액
+		             , MENU_CLASS AS MENU_CLASS  -- 메뉴구분(F:식료,B:음료,G:상품,O:기타)
+		             , SUM(QTY) AS QTY  -- 판매수량
+		             , NVL((SELECT INVEST_AMT
+		                      FROM SLE_OUTLET_MENU S
+		                         , (SELECT UPJANG_CD
+		                                 , MAIN_RECIPE_CD
+		                                 , INVEST_AMT
+		                              FROM RSS_UPJANG_RECIPE_DAILY_DTL
+		                             --WHERE UPJANG_CD = :upjangCd
+		                             WHERE UPJANG_CD IN (${upjangCd})
+		                               --AND STD_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		                               AND STD_DATE = :schBtDate 
+		                               AND SEMI_GOODS_YN = 'Y'
+		                               AND LOSS_RATE IS NULL) D
+		                     WHERE S.OUTLET_CD = A.OUTLET_CD
+		                       AND S.MENU_CD = A.MENU_CD
+		                       AND S.OUTLET_CD = D.UPJANG_CD
+		                       AND S.RECP_CD = D.MAIN_RECIPE_CD), 0) AS INVEST_AMT -- 투입재료비
+		             , CASE WHEN SUM(QTY) = 0 THEN 0 ELSE ROUND(SUM(NET_AMT) / SUM(QTY), -1) END AS NET  -- 할인후 판매금액(VAT제외)
+		             --, NVL(SUM(TOT_AMT), 0) AS TOT_AMT  -- 할인후 총매출액
+		             , NVL(SUM(NET_AMT), 0) AS TOT_AMT  -- 할인후 총매출액(TAX제외)
+		             , CASE WHEN SUM(QTY) = 0 THEN 0 ELSE ROUND((SUM(OCCR_AMT) / SUM(QTY)) / 1.1, -1) END AS O_NET  -- 할인전 판매금액(VAT제외)		             
+		             --, SUM(OCCR_AMT) AS O_TOT_AMT  -- 할인전 총매출금액
+		             , NVL(ROUND(SUM(OCCR_AMT)/1.1,0),0) AS O_TOT_AMT  -- 할인전 총매출금액(TAX제외)
+		        --   , SUM(DSCN_AMT) AS DSCN_AMT  -- 할인 총금액
+		        --   , SUM(NET_AMT) AS NET_AMT  -- NET
+		        --   , SUM(SVC) AS SVC  -- SVC
+		        --   , SUM(VAT) AS VAT  -- VAT
+		          FROM (
+		                SELECT DECODE('SELL', 'SALE', MST.OUTLET_CD, MST.ATTACH_OUTLET_CD) AS OUTLET_CD
+		                     , MST.MENU_CD
+		                     , MST.MENU_NM
+		                     , MST.MENU_UPRICE AS MENU_UCST
+		                     , MST.QUANTITY AS QTY
+		                     , MST.OCCUR_AMT AS OCCR_AMT
+		                     , MST.DISCNT_AMT AS DSCN_AMT
+		                     , MST.NET_AMT
+		                     , MST.SVC
+		                     , MST.VAT
+		                     , MST.TOT_AMT
+		                     ,(SELECT MAX(Q.PRMT_CD) FROM SLE_SALS_DISCNT Q WHERE Q.SALES_DATE = MST.SALES_DATE AND Q.OUTLET_CD = MST.OUTLET_CD AND Q.RECEIPT_NUM = MST.RECEIPT_NUM AND Q.GOODS_SEQ = MST.SEQ) AS DC_CD
+		                     , MST.MENU_CLASS
+		                  FROM SLE_SALS_GOODS MST
+		                     , (
+		                        SELECT INFO.OUTLET_CD
+		                             , INFO.SALES_DATE
+		                             , INFO.RECEIPT_NUM
+		                             , NVL(INFO.TABLE_CD, '00') AS TABLE_CD
+		                          FROM SLE_SALS_INFO INFO
+		                             , (
+		                                SELECT OUTLET_CD
+		                                     , POS_NUM
+		                                     , CODE_NAME
+		                                  FROM SLE_POS_SET POS
+		                                     , SCC_COMMON_CODE GRP
+		                                 WHERE GRP.GROUP_CODE = 'SLE_0111'
+		                                <#if outletSub?has_content>
+		                                   AND GRP.CODE = :outletSub
+		                                </#if>
+		                                   AND GRP.CODE = POS.OUTLET_SUB_CD
+		                               ) POS
+		                         WHERE POS.OUTLET_CD(+) = INFO.OUTLET_CD
+		                           AND POS.POS_NUM(+) = INFO.POS_NUM
+		                           AND INFO.SALS_CLASS     = '0'  -- 0:정상매출, 1:쿠폰(상품권)대행, 2:선수금수납, 3:후불정산, 4:영업곤리, 5:미포스
+		                           AND INFO.MODIFY_STATUS  IN ('0','1')  -- 매출조정 0:정상, 1:조정		                           
+		                           <#if internalYn == 'Y' > AND INFO.RECEIPT_STATUS IN ('Q','R','E') </#if> --영수증 상태 Q:정상 R:반품(-)
+   				      			   <#if internalYn == 'N' > AND INFO.RECEIPT_STATUS IN ('Q','R') </#if> --영수증 상태 Q:정상 R:반품(-)
+		                           AND INFO.SALES_DATE BETWEEN :startDate AND :endDate
+		                           --AND INFO.OUTLET_CD = :upjangCd
+		                           AND INFO.OUTLET_CD IN (${upjangCd})
+		                       ) INFO
+		                 WHERE INFO.OUTLET_CD = MST.OUTLET_CD		                 	                                     
+        			       --시작 : 2017.03.02 현대카드M포인트 제휴 추가로 매출여부 조건 변경 처리자:김호석 CH201702_00668
+				           AND MST.SELL_YN  = DECODE(MST.RECEIPT_STATUS ,'E','N','Y')				--매출 여부
+  					 	   --종료			                       
+		                   AND INFO.SALES_DATE = MST.SALES_DATE
+		                   AND INFO.RECEIPT_NUM = MST.RECEIPT_NUM
+		                   <#if internalYn == 'Y' > AND MST.RECEIPT_STATUS IN ('Q','R','E') </#if> --영수증 상태 Q:정상 R:반품(-)
+   				      	   <#if internalYn == 'N' > AND MST.RECEIPT_STATUS IN ('Q','R') </#if> --영수증 상태 Q:정상 R:반품(-)
+		                   AND MST.MODIFY_STATUS IN ('0', '1')  -- 매출조정 0:정상, 1:조정
+		                   AND MST.SALS_CLASS = '0'  -- 0:정상매출, 1:쿠폰(상품권)대행, 2:선수금수납, 3:후불정산, 4:영업곤리, 5:미포스
+		                   AND MST.DATA_CLASS IN ('1') -- 1:메뉴, 3:주문사항
+		                   AND MST.SALES_DATE BETWEEN :startDate AND :endDate  -- 매출일자
+		                   AND DECODE(:outletSet, 'SALE', MST.OUTLET_CD, MST.ATTACH_OUTLET_CD) = <#if outletCd?has_content> :upjangCd
+		                                                                                         <#else> DECODE(:outletSet, 'SALE', MST.OUTLET_CD, MST.ATTACH_OUTLET_CD)
+		                                                                                         </#if>
+		                <#if sellYn?has_content>
+		                    <#if internalYn == 'N' >
+		                   		AND MST.SELL_YN = 'Y'  -- 매출여부
+		                	</#if>   		
+		                </#if>
+		                <#if salsYn?has_content>
+		                   AND MST.SALS_YN = 'Y'  -- 판매여부
+		                </#if>
+		                <#if menuClass?has_content>
+		                   AND MST.MENU_CLASS = :menuClass
+		                </#if>
+		               ) A
+		         GROUP BY OUTLET_CD, MENU_CD, MENU_CLASS
+		       ) A
+				/* 전체 트리를 조회할때 */   
+				<#if schType == '1' >
+				UNION ALL
+				
+				SELECT '2' AS LVL 
+					       , OUTLET_CD
+						     , MENU_CD
+						     , MENU_NM
+						     , DC_CD
+						     , DC_NM
+						     , MENU_UCST
+						     , MENU_CLASS
+						     , QTY
+						     , ROUND(QTY * INVEST_AMT) AS INVEST_AMT
+						     , NET
+						     , TOT_AMT
+						     , DECODE(TOT_AMT, 0, 0, ROUND(((QTY * INVEST_AMT) / TOT_AMT) * 100, 2)) AS MATERIAL_RATE
+						     , O_NET
+						     , O_TOT_AMT
+						     , DECODE(O_TOT_AMT, 0, 0, ROUND(((QTY * INVEST_AMT) / O_TOT_AMT) * 100, 2)) AS O_MATERIAL_RATE
+						  FROM (
+						        SELECT OUTLET_CD  -- 업장코드
+						             , MENU_CD AS MENU_CD  -- 메뉴코드
+						             , MAX(MENU_NM) AS MENU_NM  -- 메뉴명
+						             , NVL(DC_CD, '') AS DC_CD  -- 할인코드
+						             , NVL((SELECT PRMT_NM FROM SLE_PRMT W WHERE W.PRMT_CD = DC_CD), '할인없음') AS DC_NM  -- 할인코드명
+						             , MENU_UCST AS MENU_UCST  -- 판매금액
+						             , MENU_CLASS AS MENU_CLASS  -- 메뉴구분(F:식료,B:음료,G:상품,O:기타)
+						             , SUM(QTY) AS QTY  -- 판매수량
+						             , NVL((SELECT INVEST_AMT
+						                      FROM SLE_OUTLET_MENU S
+						                         , (SELECT UPJANG_CD
+						                                 , MAIN_RECIPE_CD
+						                                 , INVEST_AMT
+						                              FROM RSS_UPJANG_RECIPE_DAILY_DTL
+						                             --WHERE UPJANG_CD = :upjangCd
+						                             WHERE UPJANG_CD IN (${upjangCd})
+						                               --AND STD_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+						                               AND STD_DATE = :schBtDate 
+						                               AND SEMI_GOODS_YN = 'Y'
+						                               AND LOSS_RATE IS NULL) D
+						                     WHERE S.OUTLET_CD = A.OUTLET_CD
+						                       AND S.MENU_CD = A.MENU_CD
+						                       AND S.OUTLET_CD = D.UPJANG_CD
+						                       AND S.RECP_CD = D.MAIN_RECIPE_CD), 0) AS INVEST_AMT
+						             , CASE WHEN SUM(QTY) = 0 THEN 0 ELSE ROUND(SUM(NET_AMT) / SUM(QTY), -1) END AS NET  -- 할인후 판매금액(VAT제외)
+						             , NVL(SUM(TOT_AMT), 0) AS TOT_AMT  -- 할인후 총매출액
+						             , CASE WHEN SUM(QTY) = 0 THEN 0 ELSE ROUND((SUM(OCCR_AMT) / SUM(QTY)) / 1.1, -1) END AS O_NET  -- 할인전 판매금액(VAT제외)
+						             , SUM(OCCR_AMT) AS O_TOT_AMT  -- 할인전 총매출금액
+						        --   , SUM(DSCN_AMT) AS DSCN_AMT  -- 할인 총금액
+						        --   , SUM(NET_AMT) AS NET_AMT  -- NET
+						        --   , SUM(SVC) AS SVC  -- SVC
+						        --   , SUM(VAT) AS VAT  -- VAT
+						          FROM (
+						                SELECT DECODE(:outletSet, 'SALE', MST.OUTLET_CD, MST.ATTACH_OUTLET_CD) AS OUTLET_CD
+						                     , MST.MENU_CD
+						                     , MST.MENU_NM
+						                     , MST.MENU_UPRICE AS MENU_UCST
+						                     , MST.QUANTITY AS QTY
+						                     , MST.OCCUR_AMT AS OCCR_AMT
+						                     , MST.DISCNT_AMT AS DSCN_AMT
+						                     , MST.NET_AMT
+						                     , MST.SVC
+						                     , MST.VAT
+						                     , MST.TOT_AMT
+						                     ,(SELECT MAX(Q.PRMT_CD) FROM SLE_SALS_DISCNT Q WHERE Q.SALES_DATE = MST.SALES_DATE AND Q.OUTLET_CD = MST.OUTLET_CD AND Q.RECEIPT_NUM = MST.RECEIPT_NUM AND Q.GOODS_SEQ = MST.SEQ) AS DC_CD
+						                     , MST.MENU_CLASS
+						                  FROM SLE_SALS_GOODS MST
+						                     , (
+						                        SELECT INFO.OUTLET_CD
+						                             , INFO.SALES_DATE
+						                             , INFO.RECEIPT_NUM
+						                             , NVL(INFO.TABLE_CD, '00') AS TABLE_CD
+						                          FROM SLE_SALS_INFO INFO
+						                             , (
+						                                SELECT OUTLET_CD
+						                                     , POS_NUM
+						                                     , CODE_NAME
+						                                  FROM SLE_POS_SET POS
+						                                     , SCC_COMMON_CODE GRP
+						                                 WHERE GRP.GROUP_CODE = 'SLE_0111'
+						                                <#if outletSub?has_content>
+						                                   AND GRP.CODE = :outletSub
+						                                </#if>
+						                                   AND GRP.CODE = POS.OUTLET_SUB_CD
+						                               ) POS
+						                         WHERE POS.OUTLET_CD(+) = INFO.OUTLET_CD
+						                           AND POS.POS_NUM(+) = INFO.POS_NUM
+						                           AND INFO.SALS_CLASS     = '0'  -- 0:정상매출, 1:쿠폰(상품권)대행, 2:선수금수납, 3:후불정산, 4:영업곤리, 5:미포스
+						                           AND INFO.MODIFY_STATUS  IN ('0','1')  -- 매출조정 0:정상, 1:조정
+						                           <#if internalYn == 'Y' > AND INFO.RECEIPT_STATUS IN ('Q','R','E') </#if> --영수증 상태 Q:정상 R:반품(-)
+				   				      	           <#if internalYn == 'N' > AND INFO.RECEIPT_STATUS IN ('Q','R') </#if> --영수증 상태 Q:정상 R:반품(-)                   
+						                           AND INFO.SALES_DATE BETWEEN :startDate AND :endDate
+						                           --AND INFO.OUTLET_CD = :upjangCd						                            
+						                           AND INFO.OUTLET_CD IN (${upjangCd})
+						                       ) INFO
+						                 WHERE INFO.OUTLET_CD = MST.OUTLET_CD           	                                     
+        							       --시작 : 2017.03.02 현대카드M포인트 제휴 추가로 매출여부 조건 변경 처리자:김호석 CH201702_00668
+								           AND MST.SELL_YN  = DECODE(MST.RECEIPT_STATUS ,'E','N','Y')				--매출 여부
+  					 	   		  		   --종료			                       
+						                   AND INFO.SALES_DATE = MST.SALES_DATE
+						                   AND INFO.RECEIPT_NUM = MST.RECEIPT_NUM		                   
+						                   <#if internalYn == 'Y' > AND MST.RECEIPT_STATUS IN ('Q','R','E') </#if> --영수증 상태 Q:정상 R:반품(-)
+				   				      	   <#if internalYn == 'N' > AND MST.RECEIPT_STATUS IN ('Q','R') </#if> --영수증 상태 Q:정상 R:반품(-)
+						                   AND MST.MODIFY_STATUS IN ('0', '1')  -- 매출조정 0:정상, 1:조정
+						                   AND MST.SALS_CLASS = '0'  -- 0:정상매출, 1:쿠폰(상품권)대행, 2:선수금수납, 3:후불정산, 4:영업곤리, 5:미포스
+						                   AND MST.DATA_CLASS IN ('1') -- 1:메뉴, 3:주문사항
+						                   AND MST.SALES_DATE BETWEEN :startDate AND :endDate  -- 매출일자
+						                   AND DECODE(:outletSet, 'SALE', MST.OUTLET_CD, MST.ATTACH_OUTLET_CD) = <#if outletCd?has_content> :upjangCd
+						                                                                                         <#else> DECODE(:outletSet, 'SALE', MST.OUTLET_CD, MST.ATTACH_OUTLET_CD)
+						                                                                                         </#if>
+						                <#if sellYn?has_content>
+						                   <#if internalYn == 'N' >
+						                   		AND MST.SELL_YN = 'Y'  -- 매출여부
+						                   </#if>
+						                </#if>
+						                <#if salsYn?has_content>
+						                   AND MST.SALS_YN = 'Y'  -- 판매여부
+						                </#if>
+						                <#if menuClass?has_content>
+						                   AND MST.MENU_CLASS = :menuClass 
+						                </#if>
+						               ) A
+						         GROUP BY OUTLET_CD, MENU_CD, DC_CD, MENU_UCST, MENU_CLASS
+						       ) A		    
+					</#if>  
+			) B
+			WHERE  B.QTY > 0 -- 정산, 반품으로 총 합계가 0인 경우 제외하고 조회
+			 ORDER BY OUTLET_CD, MENU_CD, LVL, DC_CD, MENU_UCST, MENU_CLASS
+
+		]]>
+	</statement>
+
+</hqml>

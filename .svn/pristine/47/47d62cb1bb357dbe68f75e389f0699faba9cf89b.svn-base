@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[담보정보현황]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.*
+  FROM (
+        SELECT A.UPJANG
+             , D.UPJANGNM AS UPJANG_NM
+             , E.CUSTNM
+             , E.GUBUN
+		     , DECODE(E.GUBUN,'채권양도',E.SETUP_DATE,DECODE(E.SETUP_DATE, NULL, '', TO_CHAR(TO_DATE(E.SETUP_DATE,'YYYYMMDD'),'YYYY-MM-DD'))) AS SETUP_DATE
+     		 , DECODE(E.GUBUN,'채권양도',E.CANCEL_DATE,DECODE(E.CANCEL_DATE, NULL, '', TO_CHAR(TO_DATE(E.CANCEL_DATE,'YYYYMMDD'),'YYYY-MM-DD'))) AS CANCEL_DATE             
+             , DECODE(E.CANCEL_YN,'Y',
+                      DECODE(E.GUBUN,'채권양도',E.CANCEL_DATE,DECODE(E.CANCEL_DATE, NULL, '', TO_CHAR(TO_DATE(E.CANCEL_DATE,'YYYYMMDD'),'YYYY-MM-DD'))),
+                      DECODE(E.GUBUN,'채권양도',E.SETUP_DATE,DECODE(E.SETUP_DATE, NULL, '', TO_CHAR(TO_DATE(E.SETUP_DATE,'YYYYMMDD'),'YYYY-MM-DD')))
+                      ) AS SC_DATE
+             , E.SECURE_AMT
+             , '' AS PART_SALES_NAME
+             , C.TM_NM
+             , C.TM_CD
+             , CASE WHEN DECODE(A.CLOSE_DATE, NULL,TO_CHAR(SYSDATE, 'YYYYMMDD'),A.CLOSE_DATE) >= TO_CHAR(SYSDATE, 'YYYYMMDD') THEN 'Y' ELSE 'N' END AS USE_YN
+             , E.CANCEL_YN
+             , DECODE(E.CANCEL_YN,'Y','해지','설정') AS CANCEL_YN_NM
+             , E.TRAN_YN
+             , E.PNAME
+             , E.JUMINNO
+			 , C.MU_CD
+			 , C.MU_NM
+          FROM (SELECT * FROM SCO_UPJANG_MST WHERE FICS_YN = 'N') A
+             , HLDC_SC_DEPT_V C
+             , HLDC_ST_UPJANG D
+             , (
+                SELECT A.UPJANG
+                     , '부동산' AS GUBUN
+                     , A.LAND_SETUP_DATE AS SETUP_DATE
+                     , A.LAND_CANCEL_DATE AS CANCEL_DATE
+                     , A.LAND_AMT AS SECURE_AMT
+                     , A.LAND_CANCEL_YN AS CANCEL_YN
+                     , 'N' AS TRAN_YN
+                     , '' AS PNAME
+                     , '' AS JUMINNO
+                     , B.CUSTNM
+                  FROM FMS_SECURE_LAND A
+                     , HLDC_ST_CUST B
+                 WHERE A.CUSTNO = B.CUSTCD(+)
+                 UNION ALL
+                SELECT A.UPJANG
+                     , '보증보험' AS GUBUN
+                     , A.GUARAN_BEGIN_DATE AS SETUP_DATE
+                     , A.GUARAN_CANCEL_DATE AS CANCEL_DATE
+                     , A.GUARAN_AMT AS SECURE_AMT
+                     , A.GUARAN_CANCEL_YN AS CANCEL_YN
+                     , 'N' AS TRAN_YN
+                     , '' AS PNAME
+                     , '' AS JUMINNO
+                     , B.CUSTNM
+                  FROM FMS_SECURE_GUARANTEE A
+                     , HLDC_ST_CUST B
+                 WHERE A.CUSTNO = B.CUSTCD(+)
+                 UNION ALL
+                SELECT A.UPJANG
+                     , '인보증' AS GUBUN
+                     , A.PERSON_SETUP_DATE AS SETUP_DATE
+                     , A.PERSON_CANCEL_DATE AS CANCEL_DATE
+                     , A.PERSON_LIMIT_AMT AS SECURE_AMT
+                     , A.PERSON_CANCEL_YN AS CANCEL_YN
+                     , 'N' AS TRAN_YN
+                     , A.PERSON_NAME AS PNAME
+                     --, A.PERSON_JUMINNO AS JUMINNO
+                     , SC_CRYPTO_FUN('DEC', A.PERSON_JUMINNO_ENC , '1') AS JUMINNO
+                     , B.CUSTNM
+                  FROM FMS_SECURE_PERSON A
+                     , HLDC_ST_CUST B
+                 WHERE A.CUSTNO = B.CUSTCD(+)
+                 UNION ALL
+                SELECT A.UPJANG
+                     , '현금보증' AS GUBUN
+                     , A.CASH_DEPOSIT_DATE AS SETUP_DATE
+                     , A.CASH_CANCEL_DATE AS CANCEL_DATE
+                     , A.CASH_AMT AS SECURE_AMT
+                     , A.CASH_CANCEL_YN AS CANCEL_YN
+                     , 'N' AS TRAN_YN
+                     , '' AS PNAME
+                     , '' AS JUMINNO
+                     , B.CUSTNM
+                  FROM FMS_SECURE_CASH A
+                     , HLDC_ST_CUST B
+                 WHERE A.CUSTNO = B.CUSTCD(+)
+                 UNION ALL
+                SELECT A.UPJANG
+                     , '질권' AS GUBUN
+                     , A.PLEDGER_BEGIN_DATE AS SETUP_DATE
+                     , A.PLEDGER_CANCEL_DATE AS CANCEL_DATE
+                     , A.PLEDGER_AMT AS SECURE_AMT
+                     , A.PLEDGER_CANCEL_YN AS CANCEL_YN
+                     , 'N' AS TRAN_YN
+                     , '' AS PNAME
+                     , '' AS JUMINNO
+                     , B.CUSTNM
+                  FROM FMS_SECURE_PLEDGER A
+                     , HLDC_ST_CUST B
+                 WHERE A.CUSTNO = B.CUSTCD(+)
+                 UNION ALL
+                SELECT A.UPJANG
+                     , '채권양도' AS GUBUN
+                     , A.TRAN_COPY AS SETUP_DATE
+                     , A.TRAN_DESC AS CANCEL_DATE
+                     , 0 AS SECURE_AMT
+                     , 'N' AS CANCEL_YN
+                     , 'Y' AS TRAN_YN
+                     , '' AS PNAME
+                     , '' AS JUMINNO
+                     , B.CUSTNM
+                  FROM FMS_SECURE_TRANSFER A
+                     , HLDC_ST_CUST B
+                 WHERE A.CUSTNO = B.CUSTCD(+)                 
+                 UNION ALL
+                SELECT A.UPJANG
+                     , '예치보증금' AS GUBUN
+                     , A.GUARAN_BEGIN_DATE AS SETUP_DATE
+                     , A.GUARAN_CANCEL_DATE AS CANCEL_DATE
+                     , A.GUARAN_AMT AS SECURE_AMT
+                     , A.GUARAN_CANCEL_YN AS CANCEL_YN
+                     , 'N' AS TRAN_YN
+                     , '' AS PNAME
+                     , '' AS JUMINNO
+                     , B.CUSTNM
+                  FROM FMS_SECURE_DEPO_GUARANTEE A
+                     , HLDC_ST_CUST B
+                 WHERE A.CUSTNO = B.CUSTCD(+)
+<isNotEqual col="CANCEL_YN" value="설정">
+                 UNION ALL
+                SELECT A.UPJANG
+                     , '부동산' AS GUBUN
+                     , A.LAND_SETUP_DATE AS SETUP_DATE
+                     , '' AS CANCEL_DATE
+                     , A.LAND_AMT AS SECURE_AMT
+                     , 'N' AS CANCEL_YN
+                     , 'N' AS TRAN_YN
+                     , '' AS PNAME
+                     , '' AS JUMINNO
+                     , B.CUSTNM
+                  FROM FMS_SECURE_LAND A
+                     , HLDC_ST_CUST B
+                 WHERE A.CUSTNO = B.CUSTCD(+)
+                   AND A.LAND_CANCEL_YN = 'Y'
+                 UNION ALL
+                SELECT A.UPJANG
+                     , '보증보험' AS GUBUN
+                     , A.GUARAN_BEGIN_DATE AS SETUP_DATE
+                     , '' AS CANCEL_DATE
+                     , A.GUARAN_AMT AS SECURE_AMT
+                     , 'N' AS CANCEL_YN
+                     , 'N' AS TRAN_YN
+                     , '' AS PNAME
+                     , '' AS JUMINNO
+                     , B.CUSTNM
+                  FROM FMS_SECURE_GUARANTEE A
+                     , HLDC_ST_CUST B
+                 WHERE A.CUSTNO = B.CUSTCD(+)
+                   AND A.GUARAN_CANCEL_YN = 'Y'
+                 UNION ALL
+                SELECT A.UPJANG
+                     , '인보증' AS GUBUN
+                     , A.PERSON_SETUP_DATE AS SETUP_DATE
+                     , '' AS CANCEL_DATE
+                     , A.PERSON_LIMIT_AMT AS SECURE_AMT
+                     , 'N' AS CANCEL_YN
+                     , 'N' AS TRAN_YN
+                     , A.PERSON_NAME AS PNAME
+                    -- , A.PERSON_JUMINNO AS JUMINNO
+                     , SC_CRYPTO_FUN('DEC', A.PERSON_JUMINNO_ENC , '1') AS JUMINNO
+                     , B.CUSTNM
+                  FROM FMS_SECURE_PERSON A
+                     , HLDC_ST_CUST B
+                 WHERE A.CUSTNO = B.CUSTCD(+)
+                   AND A.PERSON_CANCEL_YN = 'Y'
+                 UNION ALL
+                SELECT A.UPJANG
+                     , '현금보증' AS GUBUN
+                     , A.CASH_DEPOSIT_DATE AS SETUP_DATE
+                     , '' AS CANCEL_DATE
+                     , A.CASH_AMT AS SECURE_AMT
+                     , 'N' AS CANCEL_YN
+                     , 'N' AS TRAN_YN
+                     , '' AS PNAME
+                     , '' AS JUMINNO
+                     , B.CUSTNM
+                  FROM FMS_SECURE_CASH A
+                     , HLDC_ST_CUST B
+                 WHERE A.CUSTNO = B.CUSTCD(+)
+                   AND A.CASH_CANCEL_YN = 'Y'
+                 UNION ALL
+                SELECT A.UPJANG
+                     , '질권' AS GUBUN
+                     , A.PLEDGER_BEGIN_DATE AS SETUP_DATE
+                     , '' AS CANCEL_DATE
+                     , A.PLEDGER_AMT AS SECURE_AMT
+                     , 'N' AS CANCEL_YN
+                     , 'N' AS TRAN_YN
+                     , '' AS PNAME
+                     , '' AS JUMINNO
+                     , B.CUSTNM
+                  FROM FMS_SECURE_PLEDGER A
+                     , HLDC_ST_CUST B
+                 WHERE A.CUSTNO = B.CUSTCD(+) 
+                   AND A.PLEDGER_CANCEL_YN = 'Y'  
+                 UNION ALL
+                SELECT A.UPJANG
+                     , '예치보증금' AS GUBUN
+                     , A.GUARAN_BEGIN_DATE AS SETUP_DATE
+                     , '' AS CANCEL_DATE
+                     , A.GUARAN_AMT AS SECURE_AMT
+                     , 'N' AS CANCEL_YN
+                     , 'N' AS TRAN_YN
+                     , '' AS PNAME
+                     , '' AS JUMINNO
+                     , B.CUSTNM
+                  FROM FMS_SECURE_DEPO_GUARANTEE A
+                     , HLDC_ST_CUST B
+                 WHERE A.CUSTNO = B.CUSTCD(+)
+                   AND A.GUARAN_CANCEL_YN = 'Y'
+</isNotEqual>                   
+               ) E
+         WHERE A.UPJANG = E.UPJANG(+)
+           AND A.UPJANG = D.UPJANG
+           AND D.DEPT_ID = C.DEPT_ID
+       ) A
+ WHERE GUBUN IS NOT NULL
+
+<isNotNull col="MU_CD">
+	AND A.MU_CD = #MU_CD#
+</isNotNull>
+ <isNotNull col="TM_CD">
+
+	AND A.TM_CD = #TM_CD#
+
+</isNotNull>
+<isNotNull col="GUBUN">
+	 AND A.GUBUN = #GUBUN#
+</isNotNull>
+<isNotNull col="UPJANG">
+	 AND A.UPJANG = #UPJANG#
+</isNotNull>	
+<isEqual col="CANCEL_YN" value="전체">
+     AND ((A.TRAN_YN = 'Y')   
+          OR
+         ( (REPLACE(A.SETUP_DATE,'-','')  BETWEEN DECODE(NVL(#FROM_DATE#,''),'','00000000',NVL(#FROM_DATE#,'')) AND DECODE(NVL(#TO_DATE#,''),'','99991231',NVL(#TO_DATE#,'')) ) OR
+           (REPLACE(A.CANCEL_DATE,'-','') BETWEEN DECODE(NVL(#FROM_DATE#,''),NULL,'00000000',NVL(#FROM_DATE#,'')) AND DECODE(NVL(#TO_DATE#,''),'','99991231',NVL(#TO_DATE#,'')) )
+		 ))
+</isEqual>
+<isEqual col="CANCEL_YN" value="설정">
+     AND ((A.TRAN_YN = 'Y') OR (  
+            REPLACE(A.SETUP_DATE,'-','')  BETWEEN DECODE(NVL(#FROM_DATE#,''),'','00000000',NVL(#FROM_DATE#,'')) AND DECODE(NVL(#TO_DATE#,''),'','99991231',NVL(#TO_DATE#,''))
+           AND A.CANCEL_YN = 'N'))
+</isEqual>
+<isEqual col="CANCEL_YN" value="해지">
+     AND ( REPLACE(A.CANCEL_DATE,'-','') BETWEEN DECODE(NVL(#FROM_DATE#,''),'','00000000',NVL(#FROM_DATE#,'')) AND DECODE(NVL(#TO_DATE#,''),'','99991231',NVL(#TO_DATE#,''))
+           OR
+           REPLACE(A.SETUP_DATE,'-','')  BETWEEN DECODE(NVL(#FROM_DATE#,''),'','00000000',NVL(#FROM_DATE#,'')) AND DECODE(NVL(#TO_DATE#,''),'','99991231',NVL(#TO_DATE#,'')) 
+         )  
+     AND A.CANCEL_YN = 'Y'
+</isEqual>
+ORDER BY UPJANG_NM, GUBUN
+</statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_main">
+	</output>
+</query>

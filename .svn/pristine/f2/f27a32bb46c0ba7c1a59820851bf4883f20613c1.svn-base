@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="sc.app.orderDAO">
+	<desc>FC POS 마스터 외부 인터페이스 HQML</desc>
+
+
+
+
+
+
+
+
+
+	<statement name="selectTest"><![CDATA[SELECT '1' AS CHECK_NUM
+  FROM DUAL]]></statement>
+	<statement name="logInsert"><![CDATA[INSERT INTO APP_INTERFACE_LOG(
+INSDT,
+TXID,
+TXDIV,
+TXHEADER,
+TXDATA,
+TXRESULT)
+VALUES(
+TO_CHAR(SYSDATE,'YYYY-MM-DD HH24:MI:SS'),
+<#if txId?has_content >:txId,<#else>null,</#if> 
+<#if txDiv?has_content >:txDiv,<#else>null,</#if> 
+<#if tHeader?has_content >:tHeader,<#else>null,</#if> 
+<#if tData?has_content >:tData,<#else>null,</#if> 
+<#if tResult?has_content >:tResult<#else>null</#if> 
+)]]></statement>
+	<statement name="selectImgInfo"><![CDATA[SELECT  
+       A.ITEM_CD            AS ITEM_CODE           /* 품목코드 */
+     , A.ITEM_NM            AS ITEM_NAME           /* 품목명 */
+     , Y.ATT_FILE_PATH||Y.ATT_FILE_NM AS IMG_PATH  /* 자재이미지경로 */
+  FROM EPROCUSR.ESMMTGL A 
+     , EPROCUSR.ESAATTH Y
+ WHERE 1=1
+   AND A.SYS_ID       = Y.SYS_ID
+   AND A.ITEM_CD      = :itemCode
+   AND A.IMG_ATT_NO   = Y.GRP_CD      
+   AND A.SYS_ID       = '100'
+   AND Y.FILE_PRPT_CD = 'FP002'  -- 자재이미지
+   AND A.STS <> 'D'  
+   AND Y.STS <> 'D'
+ORDER BY Y.ATT_SEQ]]></statement>
+	<statement name="selectFavInfo"><![CDATA[SELECT T1.UPJANG,
+       T1.FAVOR_GROUP,
+       T1.FAVOR_NAME,
+       T1.SORT_SEQ AS GRP_SORTSEQ,
+       T1.USE_YN AS GRP_USEYN,
+       T2.ITEM_CODE,
+       T2.USE_YN AS ITEM_USE_YN
+  FROM FMP_FAVORITE_GROUP T1, FMP_FAVORITE T2
+ WHERE T1.UPJANG = :upjangCd
+   AND T1.UPJANG = T2.UPJANG
+   AND T1.FAVOR_GROUP = T2.FAVOR_GROUP
+ORDER BY T1.SORT_SEQ, T2.ITEM_CODE]]></statement>
+
+
+	<statement name="favgrpNextval"><![CDATA[SELECT TO_CHAR(FSP_FAVORITE_GROUP_S.NEXTVAL) AS GRP_CODE
+  FROM DUAL]]></statement>
+	<statement name="favgrpProc"><![CDATA[MERGE INTO FMP_FAVORITE_GROUP A
+USING DUAL
+ON (
+     A.UPJANG      = :upjangCd
+AND  A.FAVOR_GROUP = :grpCode
+)
+WHEN MATCHED THEN
+    UPDATE SET
+    A.FAVOR_NAME = :grpName,
+    A.SORT_SEQ = :grpSortSeq,
+    A.USE_YN = DECODE(:delYn,'Y','N','Y'),
+    A.UUSER = (SELECT SABUN FROM SCC_USERINFO WHERE USERID = :userid)
+    A.UDATE = SYSDATE
+WHEN NOT MATCHED THEN
+    INSERT (
+         UPJANG,
+         FAVOR_GROUP,
+         FAVOR_NAME,
+         SORT_SEQ,
+         USE_YN,
+         CUSER,
+         CDATE
+        ) VALUES (
+         :upjangCd,
+         :grpCode,
+         :grpName,
+         :grpSortSeq,
+         DECODE(:delYn,'Y','N','Y'),
+         (SELECT SABUN FROM SCC_USERINFO WHERE USERID = :userid),
+         SYSDATE
+    )]]></statement>
+	<statement name="favgrpItemProc"><![CDATA[MERGE INTO FMP_FAVORITE A
+USING DUAL
+ON (
+     A.UPJANG      = :upjangCd
+AND  A.FAVOR_GROUP = :grpCode
+AND  A.ITEM_CODE   = :itemCode
+)
+WHEN MATCHED THEN
+    UPDATE SET
+    A.USE_YN = DECODE(:delYn,'Y','N','Y'),
+    A.UUSER = (SELECT SABUN FROM SCC_USERINFO WHERE USERID = :userid)
+    A.UDATE = SYSDATE
+WHEN NOT MATCHED THEN
+    INSERT (
+         UPJANG,
+         FAVOR_GROUP,
+         ITEM_CODE,
+         USE_YN,
+         CUSER,
+         CDATE
+        ) VALUES (
+         :upjangCd,
+         :grpCode,
+         :itemCode,
+         DECODE(:delYn,'Y','N','Y'),
+         (SELECT SABUN FROM SCC_USERINFO WHERE USERID = :userid),
+         SYSDATE
+    )]]></statement>
+</hqml>

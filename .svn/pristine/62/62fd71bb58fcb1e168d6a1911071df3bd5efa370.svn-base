@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.rcg.couponExchangeDAO">
+	<desc>쿠폰교환 처리 HQML Query</desc>
+
+	<!-- 쿠폰교환 처리 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.rc.rcg.dao.CouponExchangeDAO.selectList */
+		<![CDATA[
+			SELECT A.COUPON_PROC_NUM,
+			       A.PROC_DATE,
+			       A.COUPON_PROC_OCCUR_CLASS,
+			       DECODE(A.FOC_YN, 'Y', 1, 0) AS FOC_YN,
+			       A.CUST_CD,
+			       A.CUST_NM,
+			       A.MU_CD,
+			       A.CC_CD,
+			       A.COUPON_AMT,
+			       A.SUPPLY_AMT,
+			       A.VAT_AMT,
+			       A.VAT_CD,
+			       A.NEWHGHT_UPJANG,
+			       A.TAX_BILL_PUBLISH_DATE,
+			       A.EXC_AMT,
+			       A.PROC_AMT,
+			       A.PAY_GRP,
+			       A.PAY_TYPE,
+			       A.PAY_SCHD_DATE,
+			       A.REMARK,
+			       A.UPJANG_CD,
+			       A.RECEIPT_NUM,
+			       A.POS_NUM,
+			       A.AR_TYPE_CD,
+			       A.AR_NUM,
+			       A.BATCH_ID,
+			       A.RECD_STATUS,
+			       DECODE(A.JOURNALZ_YN, 'Y', 1, 0) AS JOURNALZ_YN,
+			       A.JOURNALZ_NUM,
+           	 	   B.SEQ,
+                   B.RECEIVE_TYPE_CD,
+                   B.BUYCPNY_CD,
+                   B.SELF_BU_CLASS_CD,
+                   B.CREDIT_CARD_NUM,
+                   B.APPRV_NUM,
+                   B.VALID_YYMM,
+                   B.RECEIVE_BANKCD,
+                   B.IMNO_CRGLEFT_NUM,
+                   B.SUSPENSE_DATE,
+                   B.IMNO_RECEIVE_SEQ,
+                   B.SUSPENSE_SRLNUM,
+                   B.IMNO_ALT_NUM,
+                   B.ADVANCE_NUM,
+                   B.RECEIVE_AMT
+			FROM   SLA_COUPON_PROC_MST A, SLA_COUPON_RECEIVE_WAY B
+            WHERE A.COUPON_PROC_NUM = B.COUPON_PROC_NUM
+            	AND A.COUPON_PROC_OCCUR_CLASS='2'
+				<#if couponProcNum?has_content>AND    A.COUPON_PROC_NUM = :couponProcNum</#if>
+				<#if procDateFr?has_content>AND A.PROC_DATE >= :procDateFr</#if>
+				<#if procDateTo?has_content>AND A.PROC_DATE <= :procDateTo</#if>
+				<#if custCd?has_content>AND    A.CUST_CD >= :custCd</#if>
+				<#if muCd?has_content>AND     A.MU_CD = :muCd</#if>
+				<#if ccCd?has_content>AND     A.CC_CD = :ccCd</#if>
+				<#if tmCd?has_content>
+					AND     A.CC_CD IN (
+					                SELECT  A.CC_CD
+					                FROM    SCC_CC A
+					                        ,HLDC_SC_DEPT_V B
+					                WHERE   B.CC_CD = A.CC_CD
+					                AND     A.START_DATE <= TO_CHAR(SYSDATE,'YYYYMMDD')
+					                AND     A.END_DATE > TO_CHAR(SYSDATE,'YYYYMMDD')
+					                AND     B.TM_CD = :tmCd
+					                )
+		        </#if>
+				AND A.RECD_STATUS = 'L'
+			ORDER BY A.COUPON_PROC_NUM DESC
+		]]>			
+	</statement>
+
+	<!-- 쿠폰교환 처리(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.rc.rcg.dao.CouponExchangeDAO.insert */
+		<![CDATA[
+		INSERT INTO TABLE_NAME 
+		(
+		       COLUMN_NAME1,
+			   COLUMN_NAME2,
+		       CUSER,
+		       CDATE
+		)
+		VALUES
+		(
+		       :columnName1,
+			   <#if columnName2?has_content> :columnName2, <#else> null, </#if>
+		       :loginSabun,
+		       SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 쿠폰교환 처리(을)를 수정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.rc.rcg.dao.CouponExchangeDAO.update */
+		<![CDATA[
+		UPDATE TABLE_NAME 
+		SET    COLUMN_NAME1 = :columnName1,
+		       COLUMN_NAME2 = :columnName2,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+	<!-- 쿠폰교환 처리(을)를 삭제한다. -->
+	<statement name="delete" type="delete">
+		/*+ com.hwfs.rc.rcg.dao.CouponExchangeDAO.delete */
+		<![CDATA[
+		DELETE 
+		FROM   TABLE_NAME 
+		WHERE  COLUMN_NAME = :columnName
+		]]>
+	</statement>
+
+</hqml>

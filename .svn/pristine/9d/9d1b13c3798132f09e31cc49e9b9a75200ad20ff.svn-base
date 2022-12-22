@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+	SELECT V.UPJANG,
+			       V.ITEM_TYPE,
+			       (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0122' AND CODE = V.ITEM_TYPE) ITEM_TYPENM,
+			       V.ITEM_CODE,
+			       (SELECT ITEM_NAME || '; '  || ITEM_SIZE || '; ' || PO_UOM FROM HLDC_PO_ITEM_MST WHERE ITEM_CODE = V.ITEM_CODE) ITEM_CODENM,
+			       V.TAX_SHET_PUBLISH_YN,
+			       V.UPRICE,
+			       V.QTY,
+			       V.OO_QTY,       
+			       V.ALT_QTY - V.LINE_QTY ALT_QTY,
+			       0 WR_QTY,
+			       '' RECEIPT_NUM
+			  FROM (
+			        SELECT V.UPJANG,
+			               V.ITEM_TYPE,
+			               V.ITEM_CODE,
+			               V.TAX_SHET_PUBLISH_YN,
+			               V.UPRICE,
+                     NVL(X.QTY, 0) AS QTY,
+                     NVL(Y.OO_QTY, 0) AS OO_QTY,
+                     NVL(Z.ALT_QTY, 0) AS ALT_QTY,
+			              0 LINE_QTY  
+			          FROM MAS_TICKET_STD V
+                   , (SELECT A.ITEM_CODE, NVL(SUM(QTY), 0) AS QTY
+			                    FROM MAS_TICKET_MST A,
+			                         MAS_TICKET_CODE B
+			                WHERE A.TRANS_TYPE  = B.TRANS_TYPE
+			                AND   A.TRANS_GUBUN = B.TRANS_GUBUN
+			                AND   A.UPJANG      = #UPJANG#
+			                AND   B.SET1        = 'I'
+			                AND   A.SUBUL_YN    = 'Y'
+                      GROUP BY A.ITEM_CODE) X
+                   , (SELECT A.ITEM_CODE, NVL(SUM(QTY), 0) AS OO_QTY
+			                    FROM MAS_TICKET_MST A,
+			                         MAS_TICKET_CODE B
+			                WHERE A.TRANS_TYPE  = B.TRANS_TYPE
+			                AND   A.TRANS_GUBUN = B.TRANS_GUBUN
+			                AND   A.UPJANG      = #UPJANG#
+			                AND   B.TRANS_GUBUN = 'OO'
+			                AND   A.SUBUL_YN    = 'Y'
+                      GROUP BY A.ITEM_CODE) Y 
+                   , (SELECT A.ITEM_CODE, NVL(SUM(QTY), 0) AS ALT_QTY
+			                    FROM MAS_TICKET_MST A,
+			                         MAS_TICKET_CODE B
+			                WHERE A.TRANS_TYPE  = B.TRANS_TYPE
+			                AND   A.TRANS_GUBUN = B.TRANS_GUBUN
+			                AND   A.UPJANG      = #UPJANG#
+			                AND   B.TRANS_GUBUN = 'WR'  
+			                AND   A.SUBUL_YN    = 'Y'
+                      GROUP BY A.ITEM_CODE ) Z     
+			        WHERE V.UPJANG      = #UPJANG#
+					 AND  V.USE_YN      = 'Y'
+					 <isEqual col="ITEM_TYPE" value="F05">
+			            	  AND     V.ITEM_TYPE = '001'
+					 </isEqual>
+			        <isEqual col="ITEM_TYPE" value="F10">
+			            	  AND     V.ITEM_TYPE = '002'
+					 </isEqual>
+  			         AND  V.ITEM_CODE IS NOT NULL
+                 AND  V.ITEM_CODE = X.ITEM_CODE (+)
+                 AND  V.ITEM_CODE = Y.ITEM_CODE (+)
+                 AND  V.ITEM_CODE = Z.ITEM_CODE (+)
+			       ) V
+			   WHERE  V.OO_QTY &lt;&gt; 0
+			ORDER BY V.UPJANG, V.ITEM_TYPE, V.ITEM_CODE
+	</statement>
+	<input default-name="ds_cond">
+		<col name="UPJANG" size="" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">
+		<col name="UPJANG" size="256" type="VARCHAR" description="" /> 	
+	    <col name="ITEM_TYPE" size="255" type="VARCHAR" description="" />
+	    <col name="ITEM_TYPENM" size="255" type="VARCHAR" description="" />
+	    <col name="ITEM_CODE" size="255" type="VARCHAR" description="" />
+	    <col name="ITEM_CODENM" size="255" type="VARCHAR" description="" />
+	    <col name="TAX_SHET_PUBLISH_YN" size="2" type="VARCHAR" description="" />
+	    <col name="UPRICE" size="" type="NUMERIC" description="" />
+	    <col name="QTY" size="" type="NUMERIC" description="" />   
+	    <col name="OO_QTY" size="" type="NUMERIC" description="" />    
+	    <col name="ALT_QTY" size="" type="NUMERIC" description="" />    
+	    <col name="WR_QTY" size="" type="NUMERIC" description="" />        
+		<col name="RECEIPT_NUM" size="255" type="VARCHAR" description="" /> 							
+	</output>
+</query>

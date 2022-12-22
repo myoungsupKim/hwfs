@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT * 
+
+FROM (
+SELECT 'A' SAUP_TYPE,
+       V.MU_CD,
+       (SELECT MU_NM FROM HLDC_SC_MU WHERE MU_CD = V.MU_CD AND USE_YN = 'Y') MU_NM,
+       V.BONBU,
+       V.TM_CD,
+       (SELECT TM_NM FROM HLDC_SC_TM WHERE MU_CD = V.MU_CD AND TM_CD = V.TM_CD AND USE_YN = 'Y') TM_NM,
+       V.UPJANG,
+       (SELECT UPJANGNM FROM SCO_UPJANG_MST_V WHERE UPJANG = V.UPJANG) UPJANGNM,
+       V.CUSTCD,
+       -- 결제일 계산시 사업장기준정보에 관리되지 않는 거래처는 표시되지 않아 수정 처리:20160721 맹수영 (CH201607_00400)
+       NVL((SELECT CUSTNM FROM HLDC_ST_CUST WHERE CUSTCD = V.CUSTCD),(SELECT BUYCPNY_NM FROM SLA_BUY_CPNY_MGMT WHERE CUST_CD = V.CUSTCD)) CUSTNM,
+       NVL((SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0015' AND CODE = (SELECT PAY_GUBUN_CD FROM (SELECT A.UPJANG, A.CUSTCD , A.PAY_GUBUN_CD , A.PAY_DATE  FROM SCO_UPJANG_CUST A  WHERE CUSTCD NOT IN (SELECT CUST_CD FROM SLA_BUY_CPNY_MGMT)
+				UNION ALL
+				SELECT A.UPJANG_CD AS UPJANG ,A.CUST_CD AS CUSTCD ,'999' PAY_GUBUN_CD ,31 PAY_DATE
+				 FROM SLA_AR_MST A  , SLA_BUY_CPNY_MGMT B
+				WHERE A.CUST_CD = B.CUST_CD GROUP BY A.UPJANG_CD , A.CUST_CD) WHERE UPJANG = V.UPJANG AND CUSTCD = V.CUSTCD))||
+       (SELECT PAY_DATE FROM (SELECT A.UPJANG, A.CUSTCD , A.PAY_GUBUN_CD , A.PAY_DATE  FROM SCO_UPJANG_CUST A  WHERE CUSTCD NOT IN (SELECT CUST_CD FROM SLA_BUY_CPNY_MGMT)
+				UNION ALL
+				SELECT A.UPJANG_CD AS UPJANG ,A.CUST_CD AS CUSTCD ,'999' PAY_GUBUN_CD ,31 PAY_DATE
+				 FROM SLA_AR_MST A  , SLA_BUY_CPNY_MGMT B
+				WHERE A.CUST_CD = B.CUST_CD GROUP BY A.UPJANG_CD , A.CUST_CD) WHERE UPJANG = V.UPJANG AND CUSTCD = V.CUSTCD),'익월31')||'일' PAY_GUBUN_CDNM,
+    --(SELECT CUSTNM FROM HLDC_ST_CUST WHERE CUSTCD = V.CUSTCD),(SELECT BUYCPNY_NM FROM SLA_BUY_CPNY_MGMT WHERE CUST_CD = V.CUSTCD)) CUSTNM,
+    --   (SELECT CODE_NAME FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'MA0015' AND CODE = (SELECT PAY_GUBUN_CD FROM (SELECT A.UPJANG, A.CUSTCD , A.PAY_GUBUN_CD , A.PAY_DATE  FROM SCO_UPJANG_CUST A  WHERE CUSTCD NOT IN (SELECT CUST_CD FROM SLA_BUY_CPNY_MGMT)
+	--			UNION ALL
+	--			SELECT A.UPJANG_CD AS UPJANG ,A.CUST_CD AS CUSTCD ,'999' PAY_GUBUN_CD ,31 PAY_DATE
+	--			 FROM SLA_AR_MST A  , SLA_BUY_CPNY_MGMT B
+	--			WHERE A.CUST_CD = B.CUST_CD GROUP BY A.UPJANG_CD , A.CUST_CD) WHERE UPJANG = V.UPJANG AND CUSTCD = V.CUSTCD))||
+    --   (SELECT PAY_DATE FROM (SELECT A.UPJANG, A.CUSTCD , A.PAY_GUBUN_CD , A.PAY_DATE  FROM SCO_UPJANG_CUST A  WHERE CUSTCD NOT IN (SELECT CUST_CD FROM SLA_BUY_CPNY_MGMT)
+	--			UNION ALL
+	--			SELECT A.UPJANG_CD AS UPJANG ,A.CUST_CD AS CUSTCD ,'999' PAY_GUBUN_CD ,31 PAY_DATE
+	--			 FROM SLA_AR_MST A  , SLA_BUY_CPNY_MGMT B
+	--			WHERE A.CUST_CD = B.CUST_CD GROUP BY A.UPJANG_CD , A.CUST_CD) WHERE UPJANG = V.UPJANG AND CUSTCD = V.CUSTCD)||'일' PAY_GUBUN_CDNM,				
+       V.SAUPNO,
+       V.USE_YN,				
+       SUM(V.CURR_TRX_AMT)                                         CURR_TRX_AMT,
+       SUM(v.CURR_RCP_AMT)                                         CURR_RCP_AMT,
+       SUM(DECODE(V.DUE_GUBUN, '미도래채권', V.AMT - V.RCP_AMT, 0))             MI_BOND_AMT,
+       SUM(CASE WHEN ((DATE1 BETWEEN 0 AND 30) AND V.DUE_GUBUN = '미도래채권') THEN V.AMT - V.RCP_AMT ELSE 0 END)            MI_BOND_AMT1,
+       SUM(CASE WHEN ((DATE1 BETWEEN 31 AND 60) AND V.DUE_GUBUN = '미도래채권') THEN
+       		 V.AMT - V.RCP_AMT ELSE 0 END
+       )            MI_BOND_AMT2,
+       SUM(CASE WHEN ((DATE1 BETWEEN 61 AND 90) AND V.DUE_GUBUN = '미도래채권') THEN
+       		 V.AMT - V.RCP_AMT ELSE 0 END
+       )            MI_BOND_AMT3,
+       SUM(CASE WHEN ((DATE1 >= 91) AND V.DUE_GUBUN = '미도래채권') THEN
+       		 V.AMT - V.RCP_AMT ELSE 0 END
+       )            MI_BOND_AMT4,
+       SUM(DECODE(V.DUE_GUBUN, '도래채권',   V.AMT - V.RCP_AMT, 0))             DO_BOND_AMT,
+       SUM(DECODE(V.DUE_GUBUN, '악성채권',   V.AMT - V.RCP_AMT, 0))             AK_BOND_AMT,
+       SUM(CASE WHEN ((DATE2 BETWEEN 31 AND 60) AND V.DUE_GUBUN = '악성채권') THEN
+       		 V.AMT - V.RCP_AMT ELSE 0 END
+       )            AK_BOND_AMT1,
+       SUM(CASE WHEN ((DATE2 BETWEEN 61 AND 90) AND V.DUE_GUBUN = '악성채권') THEN
+       		 V.AMT - V.RCP_AMT ELSE 0 END
+       )            AK_BOND_AMT2,
+       SUM(CASE WHEN ((DATE2 >= 91) AND V.DUE_GUBUN = '악성채권') THEN
+       		 V.AMT - V.RCP_AMT ELSE 0 END
+       )            AK_BOND_AMT3,  3,      
+       SUM(CASE WHEN V.DUE_GUBUN = '예외' THEN
+       		 V.AMT - V.RCP_AMT ELSE 0 END
+       )            EX_BOND_AMT,         
+       SUM(DECODE(V.DUE_GUBUN, '미수금',     V.AMT - V.RCP_AMT, 0))             MISU_BOND_AMT,
+       SUM(DECODE(V.DUE_GUBUN, '미수금(신용카드)',     V.AMT - V.RCP_AMT, 0))   MISUCARD_BOND_AMT,
+       V.TM_CD||'-'||V.UPJANG||'-'||V.CUSTCD PL_CD,
+       SUM(V.RCP_AMT) RCP_AMT,
+       '1' PL_UP_CD,
+       '0' BL_SHOW,
+       3 LEVEL_NO,
+       '+' BL_PLUS
+  FROM (
+	
+         SELECT C.MU_CD, 
+			   E.ORG_LEVEL_NM3 BONBU,
+			   C.TM_CD,
+               V.UPJANG_CD UPJANG,
+               V.CUST_CD CUSTCD,
+               NVL(D.SAUPNO,'') AS SAUPNO,
+               NVL(B.USE_YN,'') AS USE_YN,
+               NVL(V.AR_AMT, 0) AMT,
+               V.OCCUR_DATE BOND_DATE,
+               CASE WHEN (B.PAY_GUBUN_CD IS NULL) THEN '예외'
+                ELSE 
+               (CASE WHEN #TRX_DATE# &gt;  DECODE(NVL(B.PAY_GUBUN_CD,'999'), '999', TO_CHAR(ADD_MONTHS(LAST_DAY(TO_DATE(V.OCCUR_DATE, 'YYYYMMDD')),1),'YYYYMMDD'), TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(NVL(B.PAY_GUBUN_CD,'001'))+1), 'YYYYMM')||
+                                     LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(NVL(B.PAY_GUBUN_CD,'001'))+1), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(B.PAY_DATE, 2, '0'))
+                                     ) THEN
+                          '악성채권'
+                     WHEN #TRX_DATE# &lt;=  DECODE(NVL(B.PAY_GUBUN_CD,'999'), '999', TO_CHAR(ADD_MONTHS(LAST_DAY(TO_DATE(V.OCCUR_DATE, 'YYYYMMDD')),1),'YYYYMMDD'), TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(NVL(B.PAY_GUBUN_CD,'001'))+1), 'YYYYMM')||
+                                     LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(NVL(B.PAY_GUBUN_CD,'001'))+1), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(B.PAY_DATE, 2, '0'))
+                                     ) AND
+                          #TRX_DATE# &gt; DECODE(NVL(B.PAY_GUBUN_CD,'999'), '999', TO_CHAR(LAST_DAY(TO_DATE(V.OCCUR_DATE, 'YYYYMMDD')),'YYYYMMDD'), TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(NVL(B.PAY_GUBUN_CD,'001'))), 'YYYYMM')||
+                                     LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(NVL(B.PAY_GUBUN_CD,'001'))), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(B.PAY_DATE, 2, '0'))
+                                     ) THEN
+                          '도래채권'
+                     WHEN #TRX_DATE# &lt;=  DECODE(NVL(B.PAY_GUBUN_CD,'999'), '999', TO_CHAR(LAST_DAY(TO_DATE(V.OCCUR_DATE, 'YYYYMMDD')),'YYYYMMDD'), TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(NVL(B.PAY_GUBUN_CD,'001'))), 'YYYYMM')||
+                                     LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(NVL(B.PAY_GUBUN_CD,'001'))), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(B.PAY_DATE, 2, '0'))
+                                     ) THEN
+                          '미도래채권' END) END DUE_GUBUN,
+					  
+                      TO_CHAR(TO_DATE( DECODE(NVL(B.PAY_GUBUN_CD,'999'), '999', TO_CHAR(LAST_DAY(TO_DATE(V.OCCUR_DATE, 'YYYYMMDD')),'YYYYMMDD'), TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(NVL(B.PAY_GUBUN_CD,'001'))), 'YYYYMM')||
+                      LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(NVL(B.PAY_GUBUN_CD,'001'))), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(B.PAY_DATE, 2, '0'))
+                      )) - TO_DATE(#TRX_DATE#,'YYYYMMDD')) AS DATE1, --만기일 - 기준일
+                      
+                      TO_CHAR(TO_DATE(#TRX_DATE#,'YYYYMMDD') - TO_DATE( DECODE(NVL(B.PAY_GUBUN_CD,'999'), '999', TO_CHAR(LAST_DAY(TO_DATE(V.OCCUR_DATE, 'YYYYMMDD')),'YYYYMMDD'), TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(NVL(B.PAY_GUBUN_CD,'001'))), 'YYYYMM')||
+                      LEAST(TO_CHAR(LAST_DAY(TO_DATE(TO_CHAR(ADD_MONTHS(TO_DATE(SUBSTR(V.OCCUR_DATE, 1, 6), 'YYYYMM'), TO_NUMBER(NVL(B.PAY_GUBUN_CD,'001'))), 'YYYYMMDD'), 'YYYYMMDD')), 'DD'), LPAD(B.PAY_DATE, 2, '0'))
+                      ))) AS DATE2,  --기준일 -만기일
+					 
+                                     
+                      NVL((SELECT SUM(RECEIVE_AMT) FROM SLA_AR_RECEIVE_DETAIL   WHERE AR_NUM  = V.AR_NUM AND RECD_STATUS  = 'L' AND RECEIVE_DATE BETWEEN '19000101' AND #TRX_DATE2#), 0) RCP_AMT,
+
+               NVL((SELECT SUM(CASE WHEN OCCUR_DATE   BETWEEN SUBSTR(#TRX_DATE#  , 1, 6)||'01' AND SUBSTR(#TRX_DATE#  , 1, 6)||'31' THEN
+                                AR_AMT --(V.BILL_AMOUNT + V.BILL_VAT)
+                           ELSE
+                                0
+                      END) FROM SLA_AR_MST   WHERE AR_NUM  = V.AR_NUM AND RECD_STATUS  = 'L' AND OCCUR_DATE BETWEEN '19000101' AND #TRX_DATE#), 0) CURR_TRX_AMT,       
+ 
+               NVL((SELECT SUM(CASE WHEN RECEIVE_DATE   BETWEEN SUBSTR(#TRX_DATE#  , 1, 6)||'01' AND SUBSTR(#TRX_DATE#  , 1, 6)||'31' THEN
+                                RECEIVE_AMT --(V.BILL_AMOUNT + V.BILL_VAT)
+                           ELSE
+                                0
+                      END) FROM SLA_AR_RECEIVE_DETAIL   WHERE AR_NUM  = V.AR_NUM AND RECD_STATUS  = 'L' AND RECEIVE_DATE BETWEEN '19000101' AND #TRX_DATE#), 0) CURR_RCP_AMT
+                      
+                                       
+          FROM SLA_AR_MST V,
+               (SELECT A.UPJANG, A.CUSTCD , A.PAY_GUBUN_CD , A.PAY_DATE, DECODE(A.USE_YN,'Y','예','아니요') AS USE_YN FROM SCO_UPJANG_CUST A  WHERE CUSTCD NOT IN (SELECT CUST_CD FROM SLA_BUY_CPNY_MGMT)
+				UNION ALL
+				SELECT A.UPJANG_CD AS UPJANG ,A.CUST_CD AS CUSTCD ,'999' PAY_GUBUN_CD ,31 PAY_DATE, '예' USE_YN
+				 FROM SLA_AR_MST A  , SLA_BUY_CPNY_MGMT B
+				WHERE A.CUST_CD = B.CUST_CD GROUP BY A.UPJANG_CD , A.CUST_CD)   B,
+               SCO_UPJANG_MST_V C,
+               ST_CUST D,
+               SCC_CC E,
+               MAC_UPJANG_V F
+        WHERE V.RECD_STATUS  = 'L' 
+        AND   (V.UPJANG_CD     = B.UPJANG(+))
+        AND   (V.CUST_CD     = B.CUSTCD(+))
+        AND   (V.UPJANG_CD     = C.UPJANG)
+        AND   (V.CUST_CD = D.CUSTCD(+))
+        AND   (V.CC_CD   = E.CC_CD) 
+        AND   (V.CC_CD   = F.CC_CD) 
+        AND   (V.OCCUR_DATE   BETWEEN '19000101' AND #TRX_DATE#)
+		<isNotNull col="MU_CD">
+        AND   (C.MU_CD      = #MU_CD#)
+        </isNotNull>        
+        <isNotNull col="TM_CD">
+		       --AND   (C.TM_CD      = #TM_CD#)
+		       AND (F.TM_CD LIKE '%' || #TM_CD# || '%' OR F.PT_CD LIKE '%' || #TM_CD# || '%')
+		
+        </isNotNull>
+        <isNotNull col="CC_CD">
+        AND   (V.CC_CD     = #CC_CD#)
+        </isNotNull>
+        <isNotNull col="SUB_JOB_CD">
+        AND   (C.SUB_JOB_CD = #SUB_JOB_CD#)
+        </isNotNull>
+        <isNotNull col="LOC_CD">
+        AND   (C.LOC_CD     = #LOC_CD#)
+        </isNotNull>
+        UNION ALL
+		SELECT C.MU_CD
+		 , E.ORG_LEVEL_NM3 BONBU
+		 , C.TM_CD 
+		 , A.UPJANG_CD UPJANG
+		 , A.CUST_CD CUSTCD
+		 , D.SAUPNO
+     	 , '예' AS USE_YN
+		 , A.AR_AMT AMT
+		 , A.OCCUR_DATE BOND_DATE
+		 , DECODE(a.ACCT_CD,'11202010','미수금','11204014','미수금(신용카드)') DUE_GUBUN
+     	 , '' DATE1
+     	 , '' DATE2
+		 --, B.RECEIVE_AMT RCP_AMT
+		 ,NVL((SELECT SUM(RECEIVE_AMT) FROM SLA_AR_RECEIVE_DETAIL   WHERE AR_NUM  = A.AR_NUM AND RECD_STATUS  = 'L' AND RECEIVE_DATE BETWEEN '19000101' AND  #TRX_DATE#), 0) RCP_AMT
+		 , 0 CURR_TRX_AMT
+         , 0 CURR_RCP_AMT
+		 FROM SLA_AR_MST A
+		,SLA_AR_RECEIVE_DETAIL B
+		,SCO_UPJANG_CUST  B
+		,SCO_UPJANG_MST_V C
+    	,ST_CUST D
+    	,SCC_CC E
+		WHERE A.AR_NUM = B.AR_NUM(+)
+		AND  A.RECD_STATUS  = 'L'
+		AND  B.RECD_STATUS  = 'L'
+		AND  A.UPJANG_CD     = B.UPJANG(+)
+		AND  A.CUST_CD     = B.CUSTCD(+)
+		AND  A.UPJANG_CD   = C.UPJANG
+		AND  A.CC_CD       = E.CC_CD
+		AND  A.CUST_CD     = D.CUSTCD(+)
+       -- AND  A.ACCT_CD IN ('11202010' , '11204014')
+       --미수금 개념은 IFIS 에서 사용하던 개념이라 없앰  20160520 처리자:맹수영 요청자:김성권
+        AND  A.ACCT_CD IN ( '11204014')
+        AND (A.OCCUR_DATE   BETWEEN '19000101' AND #TRX_DATE#)
+		<isNotNull col="MU_CD">
+        AND   (C.MU_CD      = #MU_CD#)
+        </isNotNull>
+		<isNotNull col="TM_CD">
+        AND   (C.TM_CD      = #TM_CD#)
+        </isNotNull>
+        <isNotNull col="CC_CD">
+        AND   (A.CC_CD     = #CC_CD#)
+        </isNotNull>
+        <isNotNull col="SUB_JOB_CD">
+        AND   (C.SUB_JOB_CD = #SUB_JOB_CD#)
+        </isNotNull>
+        <isNotNull col="LOC_CD">
+        AND   (C.LOC_CD     = #LOC_CD#)
+        </isNotNull>
+      
+       ) V
+GROUP BY V.USE_YN,
+		 V.MU_CD,
+		 V.BONBU,
+         V.TM_CD,
+         V.UPJANG,
+         V.CUSTCD,
+         V.SAUPNO
+)
+<isEqual col="AR_SUM_YN" value="1">
+	WHERE NOT (MI_BOND_AMT + DO_BOND_AMT + AK_BOND_AMT + EX_BOND_AMT = 0)
+</isEqual>     
+
+</statement>
+	<input default-name="ds_cond">
+	  <col name="MU_CD" size="255" type="VARCHAR" description="사업부" />
+	  <col name="TM_CD" size="255" type="VARCHAR" description="팀" /> 
+	  <col name="UPJANG" size="6" type="NUMERIC" description="업장코드" /> 
+	  <col name="CC_CD" size="6" type="NUMERIC" description="CC코드" /> 
+	  <col name="SUB_JOB_CD" size="255" type="VARCHAR" description="" /> 
+	  <col name="LOC_CD" size="255" type="VARCHAR" description="" /> 
+	  <col name="TRX_DATE" size="255" type="VARCHAR" description="" /> 
+	  <col name="AR_SUM_YN" size="255" type="VARCHAR" description="" /> 
+	</input>
+	<output default-name="ds_list">   
+		<col name="SAUP_TYPE" size="255" type="VARCHAR" description="" />      	
+		<col name="BONBU" size="255" type="VARCHAR" description="" />      	  	
+		<col name="TM_CD" size="255" type="VARCHAR" description="" />      	
+		<col name="TM_NM" size="255" type="VARCHAR" description="" />      	
+		<col name="UPJANG" size="" type="NUMERIC" description="" />
+		<col name="UPJANGNM" size="255" type="VARCHAR" description="" />
+		<col name="CUSTCD" size="" type="NUMERIC" description="" />
+		<col name="CUSTNM" size="255" type="VARCHAR" description="" />
+		<col name="PAY_GUBUN_CDNM" size="255" type="VARCHAR" description="" />
+		<col name="CURR_TRX_AMT" size="" type="NUMERIC" description="" />
+		<col name="CURR_RCP_AMT" size="" type="NUMERIC" description="" />
+		<col name="MI_BOND_AMT" size="" type="NUMERIC" description="" />
+		<col name="MI_BOND_AMT1" size="" type="NUMERIC" description="" />
+		<col name="MI_BOND_AMT2" size="" type="NUMERIC" description="" />
+		<col name="MI_BOND_AMT3" size="" type="NUMERIC" description="" />
+		<col name="MI_BOND_AMT4" size="" type="NUMERIC" description="" />
+		<col name="DO_BOND_AMT" size="" type="NUMERIC" description="" />
+		<col name="AK_BOND_AMT" size="" type="NUMERIC" description="" />
+		<col name="AK_BOND_AMT1" size="" type="NUMERIC" description="" />
+		<col name="AK_BOND_AMT2" size="" type="NUMERIC" description="" />
+		<col name="AK_BOND_AMT3" size="" type="NUMERIC" description="" />
+		<col name="MISU_BOND_AMT" size="" type="NUMERIC" description="" />
+		<col name="MISUCARD_BOND_AMT" size="" type="NUMERIC" description="" />
+		<col name="PL_CD" size="255" type="VARCHAR" description="" />
+		<col name="PL_UP_CD" size="255" type="VARCHAR" description="" />
+		<col name="BL_SHOW" size="255" type="VARCHAR" description="" />
+		<col name="LEVEL_NO" size="255" type="NUMERIC" description="" />
+		<col name="BL_PLUS" size="255" type="VARCHAR" description="" />
+
+	</output>
+</query>

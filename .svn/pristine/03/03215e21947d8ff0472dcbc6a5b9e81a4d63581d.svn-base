@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml"
+	name="ft.fsi.salsplceDAO">
+	<desc>매출처 조회 HQML Query</desc>
+
+	<!-- 매출처 조회 목록을 조회한다. -->
+	<statement name="selectList" type="select"><![CDATA[
+	   /*+ com.hwfs.ft.fsi.dao.salsplceDAO.selectList */
+        <#if attachDept?has_content>
+           WITH LV_CUST AS
+           (
+            SELECT A.SET1
+            FROM   SCC_COMMON_CODE A
+            WHERE  A.GROUP_CODE = 'ATTACH_DEPT'
+            AND    A.USE_YN = 'Y'
+            --AND    A.CODE =:attachDept
+           )
+                SELECT A.CUSTCD SALSPLCE_CD,
+                       C.UPJANGNM AS  SALSPLCE_NM,
+                       A.SAP_CUST_CD,
+                       SCC_TELNO_SAUPNO_EXPR('SAUPNO', A.SAUPNO) AS SAUPNO,
+                       A.ADDR,
+                       SCC_TELNO_SAUPNO_EXPR('TELNO', SCC_CRYPTO.DEC_FUN(A.TEL_NO_ENC)) AS TEL_NO_ENC,
+                       B.CC_CD,
+                       D.SET1
+                FROM   ST_CUST A,
+                       ST_UPJANG B,
+                       FMS_UPJANG_V C,
+                       LV_CUST D
+                WHERE  B.CUSTCD = A.CUSTCD
+                AND    C.UPJANG = B.UPJANG
+                AND    NVL(B.ATTR01, 'Y') <> 'N'
+                AND    B.CC_CD =D.SET1             --축산
+                AND    B.SHOP_TYP_CD ='02'
+                AND B.CC_CD IN (
+                  SELECT A.SET1
+                  FROM   SCC_COMMON_CODE A
+                  WHERE  A.GROUP_CODE = 'ATTACH_DEPT'
+                  AND    A.USE_YN = 'Y'
+                )
+                <#if salsplceNm?has_content>
+                    AND A.CUSTNM LIKE '%'||:salsplceNm||'%'
+                </#if>
+                UNION ALL
+                SELECT
+                       A.CUSTCD
+                      ,A.CUSTNM
+                      ,A.SAP_CUST_CD
+                      ,SCC_TELNO_SAUPNO_EXPR('SAUPNO', A.SAUPNO) AS SAUPNO
+                      ,A.ADDR
+                      ,SCC_TELNO_SAUPNO_EXPR('TELNO', SCC_CRYPTO.DEC_FUN(A.TEL_NO_ENC)) AS TEL_NO_ENC
+                      ,'' CC_CD
+                      ,'' SET1
+                FROM ST_CUST  A
+                WHERE A.CUSTCD='999999'
+                <#if salsplceNm?has_content>
+                    AND A.CUSTNM LIKE '%'||:salsplceNm||'%'
+                </#if>
+                ORDER BY SALSPLCE_NM ASC
+
+                --ORDER BY A.CUSTCD ASC
+        <#else>
+                SELECT A.CUSTCD SALSPLCE_CD,
+                       C.UPJANGNM AS  SALSPLCE_NM,
+                       SCC_TELNO_SAUPNO_EXPR('SAUPNO', A.SAUPNO) AS SAUPNO,
+                       A.ADDR,
+                       SCC_TELNO_SAUPNO_EXPR('TELNO', SCC_CRYPTO.DEC_FUN(A.TEL_NO_ENC)) AS TEL_NO_ENC,
+                       B.CC_CD,
+                       C.UPJANG,
+                       C.MAIN_UPJANG,
+                       C.HEAD_CREDIT_YN
+                FROM   ST_CUST A,
+                       ST_UPJANG B,
+                       FMS_UPJANG_V C
+                WHERE  B.CUSTCD = A.CUSTCD
+                AND    C.UPJANG = B.UPJANG
+                AND    NVL(B.ATTR01, 'Y') <> 'N'
+                AND B.CC_CD IN (
+                  SELECT A.SET1
+                  FROM   SCC_COMMON_CODE A
+                  WHERE  A.GROUP_CODE = 'ATTACH_DEPT'
+                  AND    A.USE_YN = 'Y'
+                )
+                AND    B.SHOP_TYP_CD ='02'
+                <#if salsplceNm?has_content>
+                    AND A.CUSTNM LIKE '%'||:salsplceNm||'%'
+                </#if>
+                <#if salsplceCd?has_content>
+                    AND A.CUSTCD =:salsplceCd
+                </#if>
+
+                UNION ALL
+                SELECT
+                       A.CUSTCD
+                      ,A.CUSTNM
+                      ,SCC_TELNO_SAUPNO_EXPR('SAUPNO', A.SAUPNO) AS SAUPNO
+                      ,A.ADDR
+                      ,SCC_TELNO_SAUPNO_EXPR('TELNO', SCC_CRYPTO.DEC_FUN(A.TEL_NO_ENC)) AS TEL_NO_ENC
+                      ,NULL CC_CD
+                      ,NULL UPJANG
+                      ,NULL MAIN_UPJANG
+                      ,NULL HEAD_CREDIT_YN
+                FROM ST_CUST  A
+                WHERE A.CUSTCD='999999'
+                <#if salsplceNm?has_content>
+                    AND A.CUSTNM LIKE '%'||:salsplceNm||'%'
+                </#if>
+
+                ORDER BY SALSPLCE_NM ASC
+        </#if>
+
+        ]]></statement>
+
+
+	<!-- 매출처 조회 목록을 조회한다. -->
+	<statement name="selectList2" type="select"><![CDATA[
+	/*+ com.hwfs.ft.fsi.dao.salsplceDAO.selectList2 */
+                SELECT A.CUSTCD SALSPLCE_CD,
+                       C.UPJANGNM AS  SALSPLCE_NM,
+                       SCC_TELNO_SAUPNO_EXPR('SAUPNO', A.SAUPNO) AS SAUPNO,
+                       A.ADDR,
+                       SCC_TELNO_SAUPNO_EXPR('TELNO', SCC_CRYPTO.DEC_FUN(A.TEL_NO_ENC)) AS TEL_NO_ENC,
+                       B.CC_CD,
+                       C.UPJANG,
+                       C.MAIN_UPJANG,
+                       C.HEAD_CREDIT_YN
+                FROM   ST_CUST A,
+                       ST_UPJANG B,
+                       FMS_UPJANG_V C
+                WHERE  B.CUSTCD = A.CUSTCD
+                AND    C.UPJANG = B.UPJANG
+                AND    NVL(B.ATTR01, 'Y') <> 'N'
+                AND B.CC_CD IN (
+                  SELECT A.SET1
+                  FROM   SCC_COMMON_CODE A
+                  WHERE  A.GROUP_CODE = 'ATTACH_DEPT'
+                  AND    A.USE_YN = 'Y'
+                  
+                )
+                AND    B.SHOP_TYP_CD ='02'
+                AND    B.USE_YN = 'Y'
+                <#if salsplceNm?has_content>
+                    AND A.CUSTNM LIKE '%'||:salsplceNm||'%'
+                </#if>
+                <#if custCd?has_content>
+                    AND A.CUSTCD =:custCd
+                </#if>
+        ]]></statement>
+
+</hqml>

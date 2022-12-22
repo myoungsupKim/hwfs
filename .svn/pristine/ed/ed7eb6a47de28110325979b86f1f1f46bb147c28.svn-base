@@ -1,0 +1,240 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="../../../default_typedef.xml"/>
+  <Form id="FMO00111P" onload="form_onload" titletext="손익계산서 구성비 수식 설정" position="absolute 0 0 520 560" scrollbars="none">
+    <Layouts>
+      <Layout>
+        <Grid autoenter="select" binddataset="ds_Line" cellmovingtype="col" cellsizingtype="both" readonly="false" enable="true" id="grd_Line" useinputpanel="false" taborder="1" tabstop="true" usecontextmenu="true" useselcolor="true" visible="true" wheelscrollrow="1" position="absolute 15 10 505 510" selecttype="row" autofittype="col">
+          <Formats>
+            <Format id="Default">
+              <Columns>
+                <Column size="50"/>
+                <Column size="200"/>
+                <Column size="110"/>
+                <Column size="110"/>
+              </Columns>
+              <Rows>
+                <Row size="24" band="head"/>
+                <Row size="24" band="head"/>
+                <Row size="24"/>
+              </Rows>
+              <Band id="head">
+                <Cell rowspan="2" displaytype="text" text="순번" wordwrap="word"/>
+                <Cell col="1" rowspan="2" displaytype="text" text="출 력 명" wordwrap="word"/>
+                <Cell col="2" colspan="2" displaytype="text" text="구 성 비" wordwrap="word"/>
+                <Cell row="1" col="2" displaytype="text" text="기준값" wordwrap="word"/>
+                <Cell row="1" col="3" displaytype="text" text="대비값" wordwrap="word"/>
+              </Band>
+              <Band id="body">
+                <Cell displaytype="number" style="align:center;" text="bind:SORT_SEQ"/>
+                <Cell col="1" displaytype="text" style="align:left;" text="bind:LINE_NAME"/>
+                <Cell col="2" displaytype="combo" edittype="combo" style="align:left;" text="bind:NUMERATOR" combodataset="ds_Line" combocodecol="LINE_ID" combodatacol="LINE_NAME"/>
+                <Cell col="3" displaytype="combo" edittype="combo" style="align:left;" text="bind:DENOMINATOR" combodataset="ds_InnerLine" combocodecol="LINE_ID" combodatacol="LINE_NAME"/>
+              </Band>
+            </Format>
+          </Formats>
+        </Grid>
+        <Static id="Static01" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 0 0 15 476"/>
+        <Static id="Static15" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 15 0 485 10"/>
+        <Static id="Static02" text="w15" class="Guide01_AreaRed" visible="false" position="absolute 505 0 520 476"/>
+        <Static id="Static03" text="h15" class="Guide01_AreaRed" visible="false" position="absolute 15 545 485 560"/>
+        <Static id="Static00" text="h10" class="Guide01_AreaRed" visible="false" position="absolute 253 510 485 520"/>
+        <Button id="btn_Save" taborder="3" text="저장" onclick="fn_commBtn_OnClick" class="btn_POP_Default" position="absolute 403 520 453 545"/>
+        <Button id="btn_close" taborder="4" text="취소" onclick="fn_Close" class="btn_POP_Default" position="absolute 455 520 505 545"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_Line"/>
+      <Dataset id="ds_InnerLine"/>
+      <Dataset id="ds_Input"/>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[include "U_lib::lib_conversionCom.xjs";
+/*
+ ******************************************************************************************
+ * 시스템구분   : 운영관리 > 급식운영관리 > 손익계산서 양식 설정
+ * 프로그램명   : FMO00111P.XML
+ * 기      능   : 손익계산서 구성비 계산 수식 설정
+ * 작  성  자   : 손 창 덕
+ * 작성  일자   : 2008-02-20
+ * 비      고   : 
+ *		- 
+ * ----------------------------------------------------------------------------------------
+ * HISTORY    :
+ ******************************************************************************************
+ */
+//=========================================================================================
+// [ PART 1 ]
+// Form에서 Include 할 내용을 정의
+//
+//=========================================================================================
+//@@컨버터에서 주석처리 #include "LIB::sc_comon.js";			// 시스템공통 함수
+//@@컨버터에서 주석처리 #include "LIB::lib_comm_0001.js";
+//@@컨버터에서 주석처리 #include "LIB::sc_sql_common.js";
+//@@컨버터에서 주석처리 #include "LIB::tit_comm_0001.js";		// X-Framework Lib
+//=========================================================================================
+// [ PART 2 ]
+// Form에서 사용될 전역변수를 선언
+//
+//=========================================================================================
+
+//=========================================================================================
+// [ PART 3 ]
+// Form Loading 시 작업 정의
+//
+//=========================================================================================
+function form_onload(obj:Form, e:LoadEventInfo)
+{
+	gfn_formOnLoad(obj, false);
+
+	// X-Framework : Action 정보 생성 
+	fsp_init(this);
+	
+	// 리스트 조회
+	fn_search();
+}
+//=========================================================================================
+// [ PART 4 ]
+// Main Process Event 정의(조회,입력,삭제,저장,인쇄,도움말,form닫기)
+//
+//=========================================================================================
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Search()
+ * 기      능   : [조회버튼] 검색조건에 해당하는 정보를 조회
+ ******************************************************************************************
+ */
+function fn_search()
+{
+	// 본사 사업장 손익계산표 양식 조회
+	fn_SearchLine();
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Insert()
+ * 기      능   : [등록버튼] 등록 버튼 클릭 시 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_insert()
+{
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Save()
+ * 기      능   : [저장버튼] 저장 버튼 클릭 시 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_Save()
+{
+	if( !gfn_dsIsUpdated(ds_Line)) {
+		g_Message("EE", "변경된 내역이 없습니다.");
+		return;
+	}
+	
+	fsp_clear(this);
+	fsp_callService(this, "FMO00110E_ACT", "saveCalcLine", "ds_Line=ds_Line:U", "", "", "fn_CallBackSave");
+}
+/*------------------------------------------------------------
+	1. Function    : fn_CallBackSave(errCode, errMsg)
+	2. Description : fn_Save() CallBack Function
+	3. Arguments   : 
+	4. History     : 2008. 02. 19 - 최초작성
+*------------------------------------------------------------*/
+function fn_CallBackSave(errCode, errMsg)
+{	
+	if( errCode != 0 ) {
+		return;
+	} else {
+		g_Message("02");
+		fn_SearchLine();
+		return;
+	}
+}
+/* 
+ ******************************************************************************************
+ * 함  수  명   : fn_Delete()
+ * 기      능   : [삭제버튼] 삭제 시 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_delete(nRow)
+{
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Print()
+ * 기      능   : [출력버튼] 출력 시 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_print()
+{
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Close()
+ * 기      능   : [닫기버튼] 화면을 닫을때 처리되는 작업
+ ******************************************************************************************
+ */
+function fn_Close(obj:Button, e:ClickEventInfo)
+{
+	this.close();
+}
+/*
+ ******************************************************************************************
+ * 함  수  명   : fn_Help()
+ * 기      능   : [도움말버튼] 도움말
+ ******************************************************************************************
+ */
+function fn_help()
+{
+}
+//=========================================================================================
+// [ PART 5 ]
+// Detail Process Event 정의 ( User Define function )
+//
+//=========================================================================================
+/*------------------------------------------------------------
+	1. Function    : fn_SearchLine()
+	2. Description : 손익계산서 양식 조회
+	3. Arguments   : 
+	4. History     : 2008. 02. 19 - 최초작성
+*------------------------------------------------------------*/
+function fn_SearchLine()
+{
+	// 전체 데이타셋 가져오기
+	ds_Input.assign(opener.ds_Input);
+		
+	ds_Line.clearData();
+	fsp_clear(this);
+	fsp_callService(this, "FMO00110E_ACT", "searchLine", "ds_Input=ds_Input", "ds_Line=ds_Line ds_InnerLine=ds_Line", "", "fn_CallBackSearchLine");
+}
+/*------------------------------------------------------------
+	1. Function    : fn_CallBackSearchLine(errCode, errMsg)
+	2. Description : fn_SearchLine() CallBack Function
+	3. Arguments   : 
+	4. History     : 2008. 02. 19 - 최초작성
+*------------------------------------------------------------*/
+function fn_CallBackSearchLine(errCode, errMsg)
+{	
+	if( errCode != 0 ) {
+		return;
+	} else {
+		ds_InnerLine.copyData(ds_Line);
+		grd_Line.enableredraw = false;
+		ds_InnerLine.insertRow(0);
+		ds_InnerLine.setColumn(0, "LINE_ID",   0 );
+		ds_InnerLine.setColumn(0, "LINE_NAME", "");
+		grd_Line.enableredraw = true;
+	}
+}
+//=========================================================================================
+// [ PART 6 ]
+// component Event 정의 ( User Define function )
+// --> component Event의 기요,기능,동작 등 상세내용은 MiPlatform 메뉴얼을 참조하시기 바랍니다.
+//=========================================================================================
+
+function Common_Btn_Image17_OnClick(obj:ImageViewer, e:ClickEventInfo)
+{
+	
+}
+]]></Script>
+  </Form>
+</FDL>

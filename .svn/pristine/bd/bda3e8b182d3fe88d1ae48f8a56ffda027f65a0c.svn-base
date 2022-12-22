@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[사용횟수
+:사업장별 제공횟수]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT C.BIZ_GROUP AS JOB_CD
+      ,(SELECT SC.CODE_NAME FROM SCC_COMMON_CODE SC --,FMS_UPJANG C            
+        WHERE SC.GROUP_CODE IN ('FM0004')      
+        AND SC.USE_YN = 'Y' 
+        AND SC.CODE = C.BIZ_GROUP) AS JOB_NAME
+      -- ,C.JOB_NAME
+      ,C.BIZ_DETAIL AS SUB_JOB_CD
+      ,(SELECT SC.CODE_NAME FROM SCC_COMMON_CODE SC --,FMS_UPJANG C            
+        WHERE SC.GROUP_CODE IN ('FM0021')      
+        AND SC.USE_YN = 'Y' 
+        AND SC.CODE = C.BIZ_GROUP) AS SUB_JOB_NAME
+       --,C.SUB_JOB_NAME
+       ,A.UPJANG
+       ,C.UPJANGNM_DISP AS UPJANGNM
+       ,B.RECIPE_CD
+       ,B.RECIPE_NAME
+       ,B.RECIPE_CD || A.UPJANG AS RECIPE_CD_SORT
+       ,B.RECIPE_NAME || A.UPJANG AS RECIPE_NAME_SORT
+       ,G.ITEM_CODE
+       ,H.ITEM_NAME
+       ,ROUND(AVG(NEED_QTY),2) AS NEED_QTY_AVG
+  FROM FMM_MENU	 A
+       ,FMM_RECIPE B
+       ,FMS_UPJANG C
+       ,FMM_RECIPE_ITEM G
+       ,(
+       SELECT ITEM_CODE,
+              ITEM_NAME,
+              ITEM_SIZE,
+              PO_UOM,
+              KG_CONVERT_RATE
+         FROM HLDC_PO_ITEM_MST
+        WHERE ITEM_CLASS1 = 'F'
+       ) H
+<isNotNull col="FROM_DT">
+       ,FMR_STD_RECIPE_MST F
+</isNotNull>
+ WHERE A.UPJANG = B.UPJANG
+   AND A.MENU_CD = B.MENU_CD
+   AND A.UPJANG = C.UPJANG
+   AND B.UPJANG = G.UPJANG
+   AND B.MENU_CD = G.MENU_CD
+   AND B.RECIPE_CD = G.RECIPE_CD
+   AND G.ITEM_CODE = H.ITEM_CODE
+<isNotNull col="UPJANG">
+   AND A.UPJANG = #UPJANG#
+</isNotNull>
+<isNotNull col="HALL_CLASS">
+   AND B.SUBINV_CLASS = #HALL_CLASS#
+</isNotNull>
+<isNotNull col="MEAL">
+   AND A.MEAL = #MEAL#
+</isNotNull>
+<isNotNull col="CORNER">
+   AND A.CORNER = #CORNER#
+</isNotNull>
+<isNotNull col="RECIPE_CLASS">
+   AND B.RECIPE_CLASS = #RECIPE_CLASS#
+</isNotNull>
+<isNotNull col="RECIPE_TYPE">
+   AND B.RECIPE_TYPE = #RECIPE_TYPE#
+</isNotNull>
+<isNotNull col="CUISINE_TYPE">
+   AND B.CUISINE_TYPE = #CUISINE_TYPE#
+</isNotNull>
+<isNotNull col="RECIPE_NAME">
+   AND B.RECIPE_NAME LIKE '%' || #RECIPE_NAME# || '%'
+</isNotNull>
+<isNotNull col="FROM_MENU_DATE">
+   AND A.MENU_DATE BETWEEN #FROM_MENU_DATE# AND #TO_MENU_DATE#
+</isNotNull>
+<isNotNull col="FROM_DT">
+   AND B.RECIPE_CD = F.RECIPE_CD
+   AND TO_CHAR(F.CDATE,'YYYYMMDD') BETWEEN #FROM_DT# AND #TO_DT#
+</isNotNull>
+GROUP BY C.BIZ_GROUP,C.BIZ_DETAIL,A.UPJANG,C.UPJANGNM_DISP,B.RECIPE_CD,B.RECIPE_NAME,G.ITEM_CODE,H.ITEM_NAME
+ORDER BY C.BIZ_GROUP,C.BIZ_DETAIL,C.UPJANGNM_DISP,B.RECIPE_CD,B.RECIPE_NAME,G.ITEM_CODE,H.ITEM_NAME	</statement>
+	<input default-name="ds_input">
+	</input>
+	<output default-name="ds_list2">
+	</output>
+</query>

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[CS진단 개선항목 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT A.TABLE_TYPE
+     , A.FORM_CD
+     , A.CLASS_CD
+     , A.HL_CLASS_CD
+     , A.HL_CLASS_NM
+     , A.HM_CLASS_CD
+     , A.HM_CLASS_NM
+     , A.CLASS_NM
+     , A.USE_YN
+     , A.CUSER
+     , A.CDATE
+     , A.UUSER
+     , A.UDATE
+     , B.CHK_IDCTR
+     , B.NOT_FIT_SCORE
+     , B.CHK_SCORE
+     , B.CHK_RESULT
+	 , DECODE(B.NA_YN,'Y',1,0) AS NA_YN
+	 , DECODE(B.IMPROV_CHECK,'Y',1,0) AS IMPROV_CHECK
+     , B.CHK_CONTENTS
+     , B.IMPROV_MRMT_DD
+     , B.IMPROV_MRMT_CONTENTS
+     , (SELECT COUNT(1)
+          FROM FSC_PATL_CHK_IMGE
+         WHERE TABLE_TYPE = B.TABLE_TYPE
+           AND FORM_CD = B.FORM_CD
+           AND UPJANG = B.UPJANG
+           AND CHK_DD = B.CHK_DD
+           AND CLASS_CD = B.CLASS_CD) AS IMGE_CNT
+     , D.FOCS_ARTICLE_YN
+     , B.UPJANG
+     , B.CHK_DD
+  FROM FSC_PATL_FORM_DTL A
+     , FSC_PATL_RESULT_DTL B
+     , FSC_PATL_FORM_DTL C
+     , FSC_PATL_CLASS D
+ WHERE A.TABLE_TYPE = B.TABLE_TYPE
+   AND A.FORM_CD = B.FORM_CD
+   AND A.CLASS_CD = B.CLASS_CD
+   AND B.TABLE_TYPE = C.TABLE_TYPE
+   AND B.FORM_CD = C.FORM_CD
+   AND B.CLASS_CD = C.CLASS_CD
+   AND C.TABLE_TYPE = D.TABLE_TYPE
+   AND C.FORM_CD = D.FORM_CD
+   AND C.HL_CLASS_CD = D.CLASS_CD
+   AND A.TABLE_TYPE = #TABLE_TYPE#
+   AND A.FORM_CD = #FORM_CD#
+   AND B.UPJANG = #UPJANG#   
+   AND B.CHK_DD = #CHK_DD#
+   AND (B.IMPROV_CHECK = 'Y' OR D.FOCS_ARTICLE_YN = 'Y' OR IMPROV_MRMT_DD IS NOT NULL)
+ ORDER BY A.CLASS_CD
+    </statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_dtlList">
+	</output>
+</query>

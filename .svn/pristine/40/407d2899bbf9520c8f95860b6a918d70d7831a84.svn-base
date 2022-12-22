@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fm.fms.exceptionBrandItemMgntDAO">
+	<desc>발주제한상품등록(브랜드) HQML Query</desc>
+
+	<!-- 브랜드 업장 목록 조회 -->
+	<statement name="selectUpjangList" type="select">
+		/*+ com.hwfs.fm.fms.dao.exceptionBrandItemMgntDAO.selectUpjangList */
+		<![CDATA[
+		SELECT '0' AS CHK,
+		       TO_CHAR(A.UPJANG) AS UPJANG_CD,
+		       A.UPJANGNM_DISP AS UPJANG_NM,
+		       B.AP_UNITPRICE_UPJANG,
+		       (SELECT Z.UPJANGNM_DISP
+		          FROM FMS_UPJANG Z
+		         WHERE Z.UPJANG = B.AP_UNITPRICE_UPJANG) AS AP_UNITPRICE_UPJANG_NM, /* 단가계약업장명 */
+		       (SELECT Z.CENTER_CODE FROM HLDC_PO_UPJANG_CENTER Z WHERE Z.UPJANG = A.UPJANG) AS CENTER_CODE, /* 센터코드 */
+		       B.CC_CD,
+		       C.CC_NM,
+		       B.CUSTCD,
+		       D.SAP_CUST_CD,
+		       C.TM_CD,
+		       C.TM_NM,
+		       B.JONGSAUPNO,
+		       A.RTN_YN,
+		       TO_CHAR(SYSDATE,'YYYYMMDD') AS APPLY_SD
+		FROM   FMS_UPJANG A,
+		       ST_UPJANG B,
+		       HLDC_SC_DEPT_V C,
+		       ST_CUST D
+		WHERE  B.UPJANG = A.UPJANG
+		AND    C.CC_CD = B.CC_CD
+		AND    D.CUSTCD = B.CUSTCD
+		AND    A.USE_YN = 'Y'
+		AND    B.VIRTURE_UPJANG_YN <> 'Y'
+		AND	   C.BU_CD = '2000' 
+		AND    C.MU_CD = '2004' 
+		--AND    C.TM_CD LIKE 'CI%' -- 브랜드유통사업장 식별
+		AND    (C.TM_CD LIKE 'CI%' OR A.DEPT_ID IN ( SELECT INV.CC_CD FROM HLDC_SC_DEPT_V INV WHERE INV.DEPT_ID IN (SELECT CODE FROM SCC_COMMON_CODE WHERE GROUP_CODE = 'BRAND_UPJANG_POP_ETC')) ) -- 브랜드유통사업장 식별
+		<#if upjangCd?has_content> 
+		AND B.UPJANG = :upjangCd
+		</#if>
+		ORDER BY A.UPJANG
+		]]>
+	</statement>
+	
+	<!-- 발주제한상품 목록 조회 -->
+	<statement name="selectItemList" type="select">
+		/*+ com.hwfs.fm.fms.dao.exceptionBrandItemMgntDAO.selectItemList */
+		<![CDATA[
+		SELECT /*+ PUSH_PRED(B) */
+			   '0' AS CHK
+		     , A.UPJANG AS UPJANG_CD
+		     , A.ITEM_CODE  
+		     , B.WIN_ITEM_CD
+		     , B.ITEM_NAME
+		     , B.ITEM_SIZE
+		     , NVL(B.CONTRACT_PRICE, 0) AS CONTRACT_PRICE -- 정상입고가
+             , NVL(B.SALE_PRICE, 0) AS SALE_PRICE     -- 정상출고가		    
+		     , A.USE_YN
+		     , A.CUSER 
+		     , (SELECT NM_KOR FROM HR_PERSONAL WHERE SABUN = A.CUSER) AS CUSER_NM
+		     , A.CDATE
+		     , A.UUSER
+		     , A.UDATE 
+		  FROM FMP_ORD_LIMIT A   
+		     , (SELECT /*+ INDEX (B PO_CONTRACT_FSALE_I1) */ B.ITEM_CODE  -- 상품코드
+             , D.ITEM_NAME  -- 상품명
+             , D.ITEM_SIZE  -- 상품규격
+             , B.CENTER_CODE -- 센터코드
+             , NVL(A.CONTRACT_PRICE, 0) AS CONTRACT_PRICE -- 정상입고가
+             , NVL(B.SALE_PRICE, 0) AS SALE_PRICE     -- 정상출고가
+             , C.WIN_ITEM_CD    -- 바코드
+             , A.UPJANG AS UPJANG_CD
+          FROM PO_CONTRACT_F A
+             , PO_CONTRACT_FSALE B
+             , EPROCUSR.ESMMTGL C
+             , HLDC_PO_ITEM_MST D
+             , (SELECT /*+ INDEX (X PO_CONTRACT_FSALE_IM_ACT) */ MAX(X.CONTRACT_ID) AS CONTRACT_ID-- 최종 판매단가 생성 차수
+                                  FROM PO_CONTRACT_FSALE X
+                                 WHERE X.CENTER_CODE =  <#if centerCode?has_content> :centerCode <#else> '' </#if>
+                                   AND X.UPJANG =  <#if apUnitpriceUpjang?has_content> :apUnitpriceUpjang <#else> '' </#if> 
+                                   AND <#if applySd?has_content> :applySd <#else> '' </#if>   BETWEEN X.CONTRACT_START AND X.CONTRACT_END
+                                ) E
+         WHERE A.CENTER_CODE = B.CENTER_CODE
+           AND A.UPJANG = B.UPJANG
+           AND A.ITEM_CODE = B.ITEM_CODE
+           AND B.ITEM_CODE = C.ITEM_CD
+           AND A.ITEM_CODE = D.ITEM_CODE
+           AND B.CONTRACT_START BETWEEN A.CONTRACT_START AND A.CONTRACT_END
+           AND A.UPJANG_GRP = (SELECT Y.UPJANG_GRP FROM HLDC_PO_UPJANG_GRP Y WHERE Y.UPJANG = A.UPJANG)
+           AND C.SYS_ID = '100'
+           AND B.CONTRACT_ID = E.CONTRACT_ID
+		           ) B
+		 WHERE A.ITEM_CODE = B.ITEM_CODE(+) 
+		   AND A.UPJANG = <#if upjangCd?has_content> :upjangCd <#else> '' </#if>
+		   
+		   <#if useYn?has_content>
+		   AND A.USE_YN = :useYn
+		   </#if>
+		 ORDER BY A.ITEM_CODE
+		      
+		]]>
+	</statement>
+	
+	<!-- 발주제한상품 중복cnt -->
+	<statement name="selectItemDupCnt" type="select">
+		/*+ com.hwfs.fm.fms.dao.exceptionBrandItemMgntDAO.selectItemDupCnt */
+		<![CDATA[
+		SELECT COUNT(*) AS CNT 
+		  FROM FMP_ORD_LIMIT
+		 WHERE UPJANG = <#if upjangCd?has_content> :upjangCd <#else> '' </#if>
+		   AND ITEM_CODE = <#if itemCode?has_content> :itemCode <#else> '' </#if>
+		]]>
+	</statement>	
+	
+	<!-- 발주제한상품 등록 -->
+	<statement name="insertItemInfo" type="insert">
+		/*+ com.hwfs.fm.fms.dao.exceptionBrandItemMgntDAO.insertItemInfo */
+		<![CDATA[
+		INSERT INTO FMP_ORD_LIMIT
+		     ( 
+		       UPJANG
+			 , ITEM_CODE
+			 , SDATE
+			 , EDATE
+		     , USE_YN
+		     , CUSER
+		     , CDATE
+		     , UUSER
+		     , UDATE
+		     )
+		VALUES
+		     (
+		       :upjangCd
+		     , :itemCode
+		     , TO_CHAR(TO_DATE(SYSDATE),'YYYYMMDD')
+		     , '20991231'
+		     , :useYn
+		     , :loginSabun
+		     , SYSDATE
+		     , :loginSabun
+		     , SYSDATE
+		     )
+		]]>
+	</statement>
+
+	<!-- 발주제한상품 수정 -->
+	<statement name="updateItemInfo" type="update">
+		/*+ com.hwfs.fm.fms.dao.exceptionBrandItemMgntDAO.updateItemInfo */
+		<![CDATA[
+		UPDATE FMP_ORD_LIMIT 
+		   SET USE_YN = :useYn
+			 , UUSER = :loginSabun
+			 , UDATE = SYSDATE
+		 WHERE UPJANG = :upjangCd
+		   AND ITEM_CODE = :itemCode
+		]]>
+	</statement>	
+	
+	
+	<!-- 발주제한상품 DATA를 삭제한다  -->
+	<statement name="deleteExceptionItem" type="delete">
+		/* fm.fms.exceptionBrandItemMgntDAO.deleteExceptionItem */
+		<![CDATA[
+		DELETE FROM FMP_ORD_LIMIT 
+		WHERE UPJANG = :upjangCd 
+		AND ITEM_CODE = :itemCode
+		]]>
+	</statement>	
+	
+	
+	<!-- 발주제한상품관리 엑셀 조회 -->
+	<statement name="selectItemListExcel" type="select">
+		/*+ com.hwfs.fm.fms.dao.exceptionBrandItemMgntDAO.selectItemListExcel */
+		<![CDATA[
+        SELECT B.ITEM_CODE  -- 상품코드
+             , D.ITEM_NAME  -- 상품명
+             , D.ITEM_SIZE  -- 상품규격
+             , B.CENTER_CODE -- 센터코드
+             , NVL(B.CONTRACT_PRICE, 0) AS CONTRACT_PRICE -- 정상입고가
+             , NVL(B.SALE_PRICE, 0) AS SALE_PRICE     -- 정상출고가
+             , C.WIN_ITEM_CD    -- 바코드
+          FROM 
+          --PO_CONTRACT_F A,
+               PO_CONTRACT_FSALE B
+             , EPROCUSR.ESMMTGL C
+             , HLDC_PO_ITEM_MST D
+         WHERE 1=1
+          -- A.CENTER_CODE = B.CENTER_CODE
+          -- AND A.UPJANG = B.UPJANG
+          -- AND A.ITEM_CODE = B.ITEM_CODE
+           AND B.ITEM_CODE = C.ITEM_CD
+          -- AND A.ITEM_CODE = D.ITEM_CODE
+           AND B.ITEM_CODE = D.ITEM_CODE
+          -- AND B.CONTRACT_START BETWEEN A.CONTRACT_START AND A.CONTRACT_END
+           AND B.UPJANG_GRP = (SELECT Y.UPJANG_GRP FROM HLDC_PO_UPJANG_GRP Y WHERE Y.UPJANG = B.UPJANG)
+           AND C.SYS_ID = '100'
+           AND B.CONTRACT_ID = (SELECT MAX(X.CONTRACT_ID) -- 최종 판매단가 생성 차수
+                                  FROM PO_CONTRACT_FSALE X
+                                 WHERE X.CENTER_CODE = <#if centerCode?has_content> :centerCode <#else> '' </#if>
+                                   AND X.UPJANG = <#if apUnitpriceUpjang?has_content> :apUnitpriceUpjang <#else> '' </#if> 
+                                   AND <#if applySd?has_content> :applySd <#else> '' </#if> BETWEEN X.CONTRACT_START AND X.CONTRACT_END -- 행사기간내
+                                )
+           AND B.ITEM_CODE = (SELECT CASE WHEN MAX(Z.TOT_CNT) = 1 THEN MAX(Z.ITEM_CODE) ELSE '' END
+                                FROM (SELECT X.ITEM_CODE
+                                           , COUNT(*) OVER() AS TOT_CNT
+                                        FROM PO_CONTRACT_FSALE X
+                                           , EPROCUSR.ESMMTGL Y 
+                                       WHERE Y.SYS_ID = '100'
+                                         AND X.ITEM_CODE = Y.ITEM_CD 
+                                         AND X.CENTER_CODE = <#if centerCode?has_content> :centerCode <#else> '' </#if>
+                                         AND X.UPJANG = <#if apUnitpriceUpjang?has_content> :apUnitpriceUpjang <#else> '' </#if> 
+                                         AND <#if applySd?has_content> :applySd <#else> '' </#if> BETWEEN X.CONTRACT_START AND X.CONTRACT_END -- 행사기간내
+                                         --AND Y.WIN_ITEM_CD = <#if winItemCd?has_content> :winItemCd <#else> '' </#if> 
+                                         AND X.ITEM_CODE = <#if itemCode?has_content> :itemCode <#else> '' </#if> 
+                                      ) Z
+                              )		   
+		]]>
+	</statement>	
+	
+	
+</hqml>

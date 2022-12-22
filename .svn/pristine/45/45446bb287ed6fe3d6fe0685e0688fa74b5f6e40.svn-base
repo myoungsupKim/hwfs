@@ -1,0 +1,486 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.4">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="UserSearchComponent" classname="UserSearchComponent" inheritanceid="" position="absolute 0 0 196 21" titletext="사용자 검색용 Component" bindDataset="" bindSabunColumn="" bindNameColumn="" onload="UserSearchComponent_onload" eventBeforeTrigger="" eventAfterTrigger="" qoUserGroup="" qoUseYn="" qoSosok="" qoSosokName="" isMultiChoice="false">
+    <Layouts>
+      <Layout>
+        <Button id="btn_search" taborder="1" class="btn_WF_popSearch" position="absolute 175 0 196 21" anchor="top right" onclick="btn_search_onclick" tabstop="false"/>
+        <Edit id="edt_userName" taborder="0" position="absolute 0 0 176 21" anchor="left top right" sabun="" readonly="true" upjangCode="" upjangName="" custCode="" custName="" otCustCode="" otCustName="" userGroupCode="" userGroupName="" userType="" sosokCode="" sosokName="" userId="" onkeydown="edt_userName_onkeydown" imemode="hangul"/>
+        <Edit id="edt_sabun" taborder="2" readonly="true" onkeydown="edt_userName_onkeydown" position="absolute 5 25 181 46" anchor="left top right" sabun="" upjangCode="" upjangName="" custCode="" custName="" otCustCode="" otCustName="" userGroupCode="" userGroupName="" userType="" sosokCode="" sosokName="" userId="" visible="false"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="ds_searchUserSearchComponent" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="useYn" type="STRING" size="256"/>
+          <Column id="userGroup" type="STRING" size="256"/>
+          <Column id="sosokCode" type="STRING" size="256"/>
+          <Column id="sosokName" type="STRING" size="256"/>
+          <Column id="userid" type="STRING" size="256"/>
+          <Column id="sabun" type="STRING" size="256"/>
+          <Column id="nmKor" type="STRING" size="256"/>
+          <Column id="systemMst" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+      <Dataset id="ds_listUserSearchComponent" firefirstcount="0" firenextcount="0" useclientlayout="true" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="sabun" type="STRING" size="255"/>
+          <Column id="userid" type="STRING" size="255"/>
+          <Column id="nmKor" type="STRING" size="255"/>
+          <Column id="userGroup" type="STRING" size="255"/>
+          <Column id="userGroupName" type="STRING" size="255"/>
+          <Column id="userType" type="STRING" size="255"/>
+          <Column id="upjang" type="BIGDECIMAL" size="255"/>
+          <Column id="upjangnm" type="STRING" size="255"/>
+          <Column id="custcd" type="BIGDECIMAL" size="255"/>
+          <Column id="custnm" type="STRING" size="255"/>
+          <Column id="otcustcd" type="STRING" size="255"/>
+          <Column id="otcustnm" type="STRING" size="255"/>
+          <Column id="sosokCode" type="STRING" size="255"/>
+          <Column id="sosokName" type="STRING" size="256"/>
+          <Column id="useYn" type="STRING" size="256"/>
+          <Column id="chk" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript4.0"><![CDATA[/*
+  화 면 명 : 사용자 검색용 컴포넌트
+  파 일 명 : UserSearchComponent.xfdl
+  기    능 : 사용자 검색 Composite 콤포넌트
+
+    수정일     수정자                  수정내용
+  ----------   -------  --------------------------------------------------
+  2015.01.30   김재섭   최초 생성
+*/
+
+/************************************************************************************************
+ * 공통 라이브러리 INCLUDE 영역 (필수)
+************************************************************************************************/
+include "lib::lib_com.xjs";
+
+var fv_isEvent = true;
+var fv_clearEventName = "";
+var fv_isEditable = false;
+var fv_isApplySystemMst = false;
+var fv_forcedUserGroup = "";
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 초기설정한다.
+ *---------------------------------------------------------------------------------------------*/
+function UserSearchComponent_onload(obj:Form, e:LoadEventInfo)
+{
+	
+	if (!gfn_isNull(this.class) && this.class == "edt_WF_Essential")
+	{
+		edt_userName.class = this.class;
+		btn_search.class = "btn_WF_popSearchEssential";
+	}
+	
+	fn_setBindItem();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 바인딩 정보를 처리한다.
+ *---------------------------------------------------------------------------------------------*/
+function fn_setBindItem()
+{
+	if (!gfn_isNull(this.bindDataset))
+	{
+		if (!gfn_isNull(this.bindNameColumn))
+		{
+			var bindItem0 = new BindItem("userSearchBindItem0", "edt_userName", "value", this.bindDataset, this.bindNameColumn);
+			this.addChild(bindItem0.name, bindItem0);
+			bindItem0.bind();
+		}
+		
+		if (!gfn_isNull(this.bindSabunColumn))
+		{
+			//var bindItem1 = new BindItem("userSearchBindItem1", "edt_userName", "sabun", this.bindDataset, this.bindSabunColumn);
+			var bindItem1 = new BindItem("userSearchBindItem1", "edt_sabun", "value", this.bindDataset, this.bindSabunColumn);
+			this.addChild(bindItem1.name, bindItem1);
+			bindItem1.bind();
+		}
+	}
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 값을 지울경우에 대한 이벤트
+ *---------------------------------------------------------------------------------------------*/
+function setValueClearEvent(val)
+{
+	fv_clearEventName = val;
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 사번을 가져온다.
+ *---------------------------------------------------------------------------------------------*/
+function getSabun()
+{
+	//return edt_userName.sabun;
+	return edt_sabun.value;
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 사번을 설정한다.
+ *---------------------------------------------------------------------------------------------*/
+function setSabun(val)
+{
+	edt_userName.sabun = val;
+	edt_sabun.value = val;
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 사원명을 가져온다.
+ *---------------------------------------------------------------------------------------------*/
+function getUserName()
+{
+	return edt_userName.value;
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 사원명을 설정한다.
+ *---------------------------------------------------------------------------------------------*/
+function setUserName(val)
+{
+	edt_userName.value = val;
+}
+
+function setEnable(val)
+{
+	fv_isEvent = val;
+}
+
+function setEditable(val)
+{
+	fv_isEditable = val;
+	
+	if (val)
+	{
+		edt_userName.readonly = false;
+	}
+	else
+	{
+		edt_userName.readonly = true;
+	}
+}
+
+function setApplySystemMaster(val)
+{
+	fv_isApplySystemMst = val;
+}
+
+
+function setForcedUserGroup(val) 
+{
+	fv_forcedUserGroup = val;
+}
+
+function runEvent()
+{
+	btn_search.click();
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 
+ *---------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 
+ *---------------------------------------------------------------------------------------------*/
+
+/************************************************************************************************
+ * 각 COMPONENT 별 EVENT 영역 (필수)
+************************************************************************************************/
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 버튼에 대한 이벤트
+ *---------------------------------------------------------------------------------------------*/
+function btn_search_onclick(obj:Button,  e:ClickEventInfo)
+{
+	if (!fv_isEvent)
+	{
+		return;
+	}
+	
+	//[[Before Event를 정의한다.
+	if (!gfn_isNull(this.eventBeforeTrigger))
+	{
+		var beforeEvent = eval("parent."+this.eventBeforeTrigger);
+		var rtn = beforeEvent(this);
+		
+		if (!rtn) return;
+	}
+	//Before Event를 정의한다.]]
+	
+	var isShowPopup = true;
+	var arrRtn;
+	
+	if (fv_isEditable)
+	{
+		if (!gfn_isNull(edt_userName.value)) {
+			ds_searchUserSearchComponent.clearData();
+			ds_listUserSearchComponent.clearData();
+			var nRow = ds_searchUserSearchComponent.addRow();
+			ds_searchUserSearchComponent.setColumn(nRow, "useYn", "Y");
+			ds_searchUserSearchComponent.setColumn(nRow, "nmKor", edt_userName.value);
+			
+			if (fv_isApplySystemMst)
+			{
+				ds_searchUserSearchComponent.setColumn(nRow, "systemMst", g_System_Mst);
+			}
+			
+			var strSvcID    = "searchUserSearchComponent";
+			var strURL      = "/sc/cmn/userSearch/selectList.xdo";
+			var strInDs     = "ds_search=ds_searchUserSearchComponent:A";
+			var strOutDs    = "ds_listUserSearchComponent=ds_list";
+			var strArg      = "";
+			var strCallback = "";
+			var bAsync      = false;
+			
+			gfn_transaction(this, strSvcID, strURL, strInDs, strOutDs, strArg, strCallback, bAsync);
+			
+			if (ds_listUserSearchComponent.getRowCount() == 1) {
+				isShowPopup = false;
+				var arr = new Array();
+				var retVal = {
+					isMultiChoice : false,
+					dataRow : 1,
+					datas : null
+				};
+				
+				var arrCol = new Array();
+				for ( var i = 0; i < ds_listUserSearchComponent.getColCount(); i++ ) {
+					arrCol[ds_listUserSearchComponent.getColID(i)] = ds_listUserSearchComponent.getColumn(0, i);
+				}
+				arr[0] = arrCol;
+				retVal.datas = arr;
+				
+				arrRtn = retVal;
+			}
+			else {
+				isShowPopup = true;
+			}
+		}
+	}
+	
+	if (isShowPopup)
+	{
+		//[[팝업창을 호출한다.
+		var strId       = "UserSearch";
+		var strURL      = "cmn::UserSearchPop.xfdl";
+		var objArgument = {
+			P_SOSOK_CODE      : this.qoSosok,
+			P_SOSOK_NAME      : this.qoSosokName,
+			P_USER_GROUP      : this.qoUserGroup,
+			P_USE_YN          : this.qoUseYn,
+			P_IS_MULTI_CHOICE : this.isMultiChoice.toLowerCase(),
+			P_USER_NAME       : gfn_isNull(edt_userName.value)?"":edt_userName.value,
+			P_APPLY_SYSTEM_MST: fv_isApplySystemMst?"Y":"N",
+			P_FORCED_USER_GROUP : fv_forcedUserGroup
+		};
+		var nWidth      = 700;
+		var nHeight     = 495;
+		var strStyle    = "";
+		var nLeft       = -1;
+		var nTop        = -1;
+		var isModeless  = false;
+		var bShowTitle  = true;
+		var strAlign    = "-1";
+		
+		// 리턴값을 배열로 받을 경우	
+		arrRtn = gfn_dialog(strId, strURL, objArgument, nWidth, nHeight, strStyle, nLeft, nTop, isModeless, bShowTitle, strAlign);
+	}
+	
+	if (arrRtn instanceof Object)
+	{
+		if (arrRtn.isMultiChoice)
+		{
+			var sabun="", nmKor="", userid="", sosokCode="", sosokName="", upjang="", upjangnm="", custcd="", custnm="", otcustcd="", otcustnm="", userType="", userGroup="", userGroupName="";
+			
+			arr = arrRtn.datas;
+			
+			for(var i=0; i<arrRtn.dataRow; i++)
+			{
+				if (i==0)
+				{
+					sabun += gfn_trim(arr[i].sabun);
+					nmKor += gfn_trim(arr[i].nmKor);
+					userid += gfn_trim(arr[i].userid);
+					sosokCode += gfn_trim(arr[i].sosokCode);
+					sosokName += gfn_trim(arr[i].sosokName);
+					upjang += gfn_trim(arr[i].upjang);
+					upjangnm += gfn_trim(arr[i].upjangnm);
+					custcd += gfn_trim(arr[i].custcd);
+					custnm += gfn_trim(arr[i].custnm);
+					otcustcd += gfn_trim(arr[i].otcustcd);
+					otcustnm += gfn_trim(arr[i].otcustnm);
+					userType += gfn_trim(arr[i].userType);
+					userGroup += gfn_trim(arr[i].userGroup);
+					userGroupName += gfn_trim(arr[i].userGroupName);
+				}
+				else
+				{
+					sabun += "," + gfn_trim(arr[i].sabun);
+					nmKor += "," + gfn_trim(arr[i].nmKor);
+					userid += "," + gfn_trim(arr[i].userid);
+					sosokCode += "," + gfn_trim(arr[i].sosokCode);
+					sosokName += "," + gfn_trim(arr[i].sosokName);
+					upjang += "," + gfn_trim(arr[i].upjang);
+					upjangnm += "," + gfn_trim(arr[i].upjangnm);
+					custcd += "," + gfn_trim(arr[i].custcd);
+					custnm += "," + gfn_trim(arr[i].custnm);
+					otcustcd += "," + gfn_trim(arr[i].otcustcd);
+					otcustnm += "," + gfn_trim(arr[i].otcustnm);
+					userType += "," + gfn_trim(arr[i].userType);
+					userGroup += "," + gfn_trim(arr[i].userGroup);
+					userGroupName += "," + gfn_trim(arr[i].userGroupName);
+				}
+			}
+			
+			setSabun(sabun);
+			setUserName(nmKor);
+ 			edt_userName.userId = userid;
+			edt_userName.sosokCode = sosokCode;
+			edt_userName.sosokName = sosokName;
+			edt_userName.upjangCode = upjang;
+			edt_userName.upjangName = upjangnm;
+			edt_userName.custCode = custcd;
+			edt_userName.custName = custnm;
+			edt_userName.otCustCode = otcustcd;
+			edt_userName.otCustName = otcustnm;
+			edt_userName.userType = userType;
+			edt_userName.userGroupCode = userGroup;
+ 			edt_userName.userGroupName = userGroupName;
+ 			
+ 			arrRtn = arr;
+		}
+		else
+		{
+			arr = arrRtn.datas;
+			arrRtn = arr[0];
+			
+			setSabun(arrRtn.sabun);
+			setUserName(arrRtn.nmKor);
+			edt_userName.userId = arrRtn.userid;
+			edt_userName.sosokCode = arrRtn.sosokCode;
+			edt_userName.sosokName = arrRtn.sosokName;
+			edt_userName.upjangCode = arrRtn.upjang;
+			edt_userName.upjangName = arrRtn.upjangnm;
+			edt_userName.custCode = arrRtn.custcd;
+			edt_userName.custName = arrRtn.custnm;
+			edt_userName.otCustCode = arrRtn.otcustcd;
+			edt_userName.otCustName = arrRtn.otcustnm;
+			edt_userName.userType = arrRtn.userType;
+			edt_userName.userGroupCode = arrRtn.userGroup;
+			edt_userName.userGroupName = arrRtn.userGroupName;
+		}
+		
+		
+		//[[After Event를 정의한다.
+		if (!gfn_isNull(this.eventAfterTrigger))
+		{
+			var afterEvent = eval("parent."+this.eventAfterTrigger);
+			afterEvent(this, arrRtn);
+		}
+		//After Event를 정의한다.]]
+	}
+	//팝업창을 호출한다.]]
+}
+
+/*----------------------------------------------------------------------------------------------
+ * 설명      : 
+ *---------------------------------------------------------------------------------------------*/
+
+function edt_userName_onkeydown(obj:Edit, e:KeyEventInfo)
+{
+	if (fv_isEditable) {
+		if (e.keycode == 13) {
+			setSabun("");
+			obj.userId = "";
+			obj.sosokCode = "";
+			obj.sosokName = "";
+			obj.upjangCode = "";
+			obj.upjangName = "";
+			obj.custCode = "";
+			obj.custName = "";
+			obj.otCustCode = "";
+			obj.otCustName = "";
+			obj.userType = "";
+			obj.userGroupCode = "";
+			obj.userGroupName = "";
+			btn_search.click();
+		}
+		else if (e.keycode == 46) {
+			if (!fv_isEvent)
+			{
+				return;
+			}
+			
+			if (!gfn_isNull(fv_clearEventName))
+			{
+				var clearEvent = eval("parent." + fv_clearEventName);
+				var ret = clearEvent(obj);
+				
+				if (!ret) return;
+			}
+
+			setSabun("");
+			setUserName("");
+			obj.userId = "";
+			obj.sosokCode = "";
+			obj.sosokName = "";
+			obj.upjangCode = "";
+			obj.upjangName = "";
+			obj.custCode = "";
+			obj.custName = "";
+			obj.otCustCode = "";
+			obj.otCustName = "";
+			obj.userType = "";
+			obj.userGroupCode = "";
+			obj.userGroupName = "";
+		}
+	}
+	else {
+		// Enter 키
+		if(e.keycode == 13) 
+		{		
+			if (gfn_isNull(obj.sabun))
+			{
+				btn_search.click();
+			}
+		}
+		// Del 키
+		else if(e.keycode == 46) 
+		{
+			if (!fv_isEvent)
+			{
+				return;
+			}
+			
+			if (!gfn_isNull(fv_clearEventName))
+			{
+				var clearEvent = eval("parent." + fv_clearEventName);
+				var ret = clearEvent(obj);
+				
+				if (!ret) return;
+			}
+
+			setSabun("");
+			setUserName("");
+			obj.userId = "";
+			obj.sosokCode = "";
+			obj.sosokName = "";
+			obj.upjangCode = "";
+			obj.upjangName = "";
+			obj.custCode = "";
+			obj.custName = "";
+			obj.otCustCode = "";
+			obj.otCustName = "";
+			obj.userType = "";
+			obj.userGroupCode = "";
+			obj.userGroupName = "";
+			
+		}
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

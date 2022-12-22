@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="ft.ftr.wholesaleSubulRptDAO">
+	<desc>도매유통수불현황 조회 HQML Query</desc>
+
+	<!-- 도매유통수불현황 조회 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.ft.ftr.dao.WholesaleSubulRptDAO.selectList */
+		<![CDATA[
+		-- 미착 수불
+		SELECT   ATTACH_DEPT AS CC_CD
+		       , (SELECT DISTINCT MU.CC_NM
+		         FROM             HLDC_SC_DEPT_V MU
+		         WHERE            MU.CC_CD = ATTACH_DEPT
+		         )
+		         CC_NM
+		       , '11404000' ACCT_CD
+		       , '미착품' ACCT_NM
+		       , SUM(G_INI_IN_AMT)-SUM(G_INI_OUT_AMT)                                      AS G_INI_AMT
+		       , SUM(G_CUR_IN_AMT)                                                         AS G_IN_AMT
+		       , SUM(G_CUR_OUT_AMT)                                                        AS G_OUT_AMT
+		       , SUM(G_INI_IN_AMT)-SUM(G_INI_OUT_AMT)+SUM(G_CUR_IN_AMT)-SUM(G_CUR_OUT_AMT) AS G_FIN_AMT
+		FROM     ( SELECT  D.ATTACH_DEPT
+		                , 0 AS G_INI_IN_AMT
+		                , 0 AS G_INI_OUT_AMT
+		                , SUM(
+		                  CASE
+		                           WHEN D.DR_CR_CLASS = 2
+		                           AND      F.SLIP_STATUS IN('R'
+		                                                   ,'Z')
+		                           THEN D.SLIP_CURRENCY_AMT
+		                           ELSE
+		                                    CASE
+		                                             WHEN D.DR_CR_CLASS = 1
+		                                             THEN D.SLIP_CURRENCY_AMT
+		                                    END
+		                  END) AS G_CUR_IN_AMT
+		                , SUM(
+		                  CASE
+		                           WHEN D.DR_CR_CLASS = 1
+		                           AND      F.SLIP_STATUS IN('R'
+		                                                   ,'Z')
+		                           THEN D.SLIP_CURRENCY_AMT
+		                           ELSE
+		                                    CASE
+		                                             WHEN D.DR_CR_CLASS = 2
+		                                             THEN D.SLIP_CURRENCY_AMT
+		                                    END
+		                  END) AS G_CUR_OUT_AMT
+		         FROM     SAP_IF.SAP_IFC_SLIP_MST M
+		                , SAP_IF.SAP_IFC_SLIP_DTL D
+		                , FT_SAP_INTERFACE F
+		         WHERE    M.SLIP_NUM =D.SLIP_NUM
+		         AND      D.SLIP_NUM = F.SLIP_NUM
+		         AND      M.SLIP_PERIOD_DATE BETWEEN :meDate || '01' AND  :meDate || '31'
+		         AND      F.SLIP_STATUS IN ('P'
+		                                  ,'V')
+		         AND      MASTER_ACCT='11404000'
+		         GROUP BY D.ATTACH_DEPT
+		         
+		         UNION ALL
+		         
+		         -- 미착기초
+		         SELECT   D.ATTACH_DEPT
+		                , SUM(
+		                  CASE
+		                           WHEN D.DR_CR_CLASS = 2
+		                           AND      F.SLIP_STATUS IN('R'
+		                                                   ,'Z')
+		                           THEN D.SLIP_CURRENCY_AMT
+		                           ELSE
+		                                    CASE
+		                                             WHEN D.DR_CR_CLASS = 1
+		                                             THEN D.SLIP_CURRENCY_AMT
+		                                    END
+		                  END) AS G_INI_IN_AMT
+		                , SUM(
+		                  CASE
+		                           WHEN D.DR_CR_CLASS = 1
+		                           AND      F.SLIP_STATUS IN('R'
+		                                                   ,'Z')
+		                           THEN D.SLIP_CURRENCY_AMT
+		                           ELSE
+		                                    CASE
+		                                             WHEN D.DR_CR_CLASS = 2
+		                                             THEN D.SLIP_CURRENCY_AMT
+		                                    END
+		                  END) AS G_INI_OUT_AMT
+		                , 0    AS G_CUR_IN_AMT
+		                , 0    AS G_CUR_OUT_AMT
+		         FROM     SAP_IF.SAP_IFC_SLIP_MST M
+		                , SAP_IF.SAP_IFC_SLIP_DTL D
+		                , FT_SAP_INTERFACE F
+		         WHERE    M.SLIP_NUM         =D.SLIP_NUM
+		         AND      D.SLIP_NUM         = F.SLIP_NUM
+		         AND      M.SLIP_PERIOD_DATE < :meDate || '01'
+		         AND      F.SLIP_STATUS IN ('P'
+		                                  ,'V')
+		         AND      MASTER_ACCT='11404000'
+		         GROUP BY D.ATTACH_DEPT
+		         )
+		GROUP BY ATTACH_DEPT
+		
+		UNION ALL
+		
+		--상품 입고/출고
+		SELECT   ATTACH_DEPT
+		       , (SELECT DISTINCT MU.CC_NM
+		         FROM             HLDC_SC_DEPT_V MU
+		         WHERE            MU.CC_CD = ATTACH_DEPT
+		         )
+		         CC_NM
+		       , '11401010' ACCT_CD
+		       , '일반상품' ACCT_NM
+		       , SUM(G_INI_IN_AMT)-SUM(G_INI_OUT_AMT)                                      AS G_INI_AMT
+		       , SUM(G_CUR_IN_AMT)                                                         AS G_IN_AMT
+		       , SUM(G_CUR_OUT_AMT)                                                        AS G_OUT_AMT
+		       , SUM(G_INI_IN_AMT)-SUM(G_INI_OUT_AMT)+SUM(G_CUR_IN_AMT)-SUM(G_CUR_OUT_AMT) AS G_FIN_AMT
+		FROM     ( SELECT  D.ATTACH_DEPT
+		                , 0 AS G_INI_IN_AMT
+		                , 0 AS G_INI_OUT_AMT
+		                , SUM(
+		                  CASE
+		                           WHEN D.DR_CR_CLASS = 2
+		                           AND      F.SLIP_STATUS IN('R'
+		                                                   ,'Z')
+		                           THEN D.SLIP_CURRENCY_AMT
+		                           ELSE
+		                                    CASE
+		                                             WHEN D.DR_CR_CLASS = 1
+		                                             THEN D.SLIP_CURRENCY_AMT
+		                                    END
+		                  END) AS G_CUR_IN_AMT
+		                , SUM(
+		                  CASE
+		                           WHEN D.DR_CR_CLASS = 1
+		                           AND      F.SLIP_STATUS IN('R'
+		                                                   ,'Z')
+		                           THEN D.SLIP_CURRENCY_AMT
+		                           ELSE
+		                                    CASE
+		                                             WHEN D.DR_CR_CLASS = 2
+		                                             THEN D.SLIP_CURRENCY_AMT
+		                                    END
+		                  END) AS G_CUR_OUT_AMT
+		         FROM     SAP_IF.SAP_IFC_SLIP_MST M
+		                , SAP_IF.SAP_IFC_SLIP_DTL D
+		                , FT_SAP_INTERFACE F
+		         WHERE    M.SLIP_NUM =D.SLIP_NUM
+		         AND      D.SLIP_NUM = F.SLIP_NUM
+		         AND      M.SLIP_PERIOD_DATE BETWEEN :meDate || '01' AND  :meDate || '31'
+		         AND      F.SLIP_STATUS IN ('P'
+		                                  ,'V')
+		         AND      MASTER_ACCT='11401010'
+		         GROUP BY D.ATTACH_DEPT
+		         
+		         UNION ALL
+		         
+		         -- 상품기초
+		         SELECT   D.ATTACH_DEPT
+		                , SUM(
+		                  CASE
+		                           WHEN D.DR_CR_CLASS = 2
+		                           AND      F.SLIP_STATUS IN('R'
+		                                                   ,'Z')
+		                           THEN D.SLIP_CURRENCY_AMT
+		                           ELSE
+		                                    CASE
+		                                             WHEN D.DR_CR_CLASS = 1
+		                                             THEN D.SLIP_CURRENCY_AMT
+		                                    END
+		                  END) AS G_INI_IN_AMT
+		                , SUM(
+		                  CASE
+		                           WHEN D.DR_CR_CLASS = 1
+		                           AND      F.SLIP_STATUS IN('R'
+		                                                   ,'Z')
+		                           THEN D.SLIP_CURRENCY_AMT
+		                           ELSE
+		                                    CASE
+		                                             WHEN D.DR_CR_CLASS = 2
+		                                             THEN D.SLIP_CURRENCY_AMT
+		                                    END
+		                  END) AS G_INI_OUT_AMT
+		                , 0    AS G_CUR_IN_AMT
+		                , 0    AS G_CUR_OUT_AMT
+		         FROM     SAP_IF.SAP_IFC_SLIP_MST M
+		                , SAP_IF.SAP_IFC_SLIP_DTL D
+		                , FT_SAP_INTERFACE F
+		         WHERE    M.SLIP_NUM         =D.SLIP_NUM
+		         AND      D.SLIP_NUM         = F.SLIP_NUM
+		         AND      M.SLIP_PERIOD_DATE < :meDate || '01'
+		         AND      F.SLIP_STATUS IN ('P'
+		                                  ,'V')
+		         AND      MASTER_ACCT='11401010'
+		         GROUP BY D.ATTACH_DEPT
+		         )
+		GROUP BY ATTACH_DEPT
+		]]>
+	</statement>	
+
+</hqml>

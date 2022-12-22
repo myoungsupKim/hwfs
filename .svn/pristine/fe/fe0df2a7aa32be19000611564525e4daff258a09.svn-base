@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fs.fso.accOrderPropReptDAO">
+	<desc>수주 및 운영품의 HQML Query</desc>
+	
+	<!-- 물건 목록을 조회한다. -->
+	<statement name="selectObjectList" type="select">
+	/*+ com.hwfs.fs.fso.dao.ObjectMngtCardDAO.selectObjectList */
+	<![CDATA[
+  		  SELECT MU_CD                  /* 사업부 코드 */
+                ,TM_CD                  /* 팀 코드 */
+                ,BIZ_NO                 /* 사업자 등록번호 */
+                ,OBJECT_CD              /* 물건 코드 */
+                ,OBJECT_NM              /* 물건 명 */            
+                ,BIZ_GRP                /* 사업군/직군 */
+                ,(SELECT A.JOB_NAME FROM FSO_JOB /* MAS_JOB */ A WHERE A.JOB_CD = BIZ_GRP AND A.USE_YN = 'L') BIZ_GRP_NM 	/* 사업군/직군 명(급식,식재) */
+                ,LOC                    /* 지역 */
+                ,(SELECT A.CODE_NAME FROM SCC_COMMON_CODE A WHERE A.CODE = LOC AND A.GROUP_CODE ='MA0040') LOC_NM   /* 지역명(급식/식재) */
+                ,BUILDING_YN            /* 신축 여부 */
+                ,CONTRACT_END_DATE      /* 계약 만료 일자 */
+            FROM FSO_ACC_OBJECT_CARD    /* 물건관리카드 */
+		   WHERE MU_CD = :muCd
+		     AND TM_CD = :tmCd
+		   <#if objectNm?has_content>
+		    AND OBJECT_NM LIKE '%'||:objectNm||'%'
+		   </#if>
+		   <#if saupType=="E">
+		   <#else>
+			   <#if contractEndFrom?has_content>
+			    	<#if contractEndTo?has_content>
+			    		AND CONTRACT_END_DATE BETWEEN :contractEndFrom AND :contractEndTo
+				    </#if>
+			   </#if>
+		   </#if>
+		ORDER BY MU_CD, TM_CD, BIZ_NO, OBJECT_CD
+	]]>
+	</statement>
+	
+	<!-- 수주 및 운영품의 목록을 조회한다. -->
+	<statement name="selectAccOrderOpProposal" type="select">
+		/*+ com.hwfs.fs.fso.dao.AccOrderPropReptDAO.selectAccOrderOpProposal */
+		<![CDATA[
+		SELECT A.OBJECT_CD            /* 물건 코드 */
+              ,B.OBJECT_NM
+              ,A.PROPOSAL_KIND        /* 품의 종류(S:수주 : /O:운영품의) */
+              ,A.PROPOSAL_KIND_SEQ
+              ,A.ELCTNSIGN_KEY        /* 전자결재 KEY */
+              ,SCC_SIGN_STATUS_FUN(A.ELCTNSIGN_KEY) SIGN_PROGRESS_STATUS  /* 결재진행상태 공통코드    */
+              ,A.FILE_ID                /* 파일 id */
+              ,A.SALS_AMT                /* 매출금액(1개월) */
+              ,A.SALS_GAINRAT_BEFORE     /* 매출 이익율_전 */
+              ,A.CST_CONTRACT_AMT        /* 원가 계약 금액 */
+              ,A.SALS_GAINRAT_AFTER    /* 매출 이익율_후 */
+              ,A.SALS_GAIN_AMT        /* 매출 이익 금액 */
+          FROM FSO_ACC_ORDER_OP_PROPOSAL A   /* 수주및 운영품의(결재 관리) */
+              ,FSO_ACC_OBJECT_CARD B
+         WHERE A.OBJECT_CD = B.OBJECT_CD
+		   AND A.OBJECT_CD = :objectCd
+		   <#if proposalKind?has_content>AND A.PROPOSAL_KIND = :proposalKind</#if>
+	  ORDER BY A.OBJECT_CD, A.PROPOSAL_KIND, A.PROPOSAL_KIND_SEQ
+		]]>
+	</statement>
+	
+	<!-- 해당 수주(운영) 손익추정보고서 존재여부를 조회한다. -->
+	<statement name="selectOpProposalChk" type="select">
+		/*+ com.hwfs.fs.fso.dao.AccOrderPropReptDAO.selectOpProposalChk */
+		<![CDATA[
+		  SELECT CASE WHEN COUNT(*) >0 THEN 'Y'
+		              WHEN COUNT(*) = 0 THEN 'N'
+		         END PROPOSAL_YN     	
+			FROM FSO_PL_PRESUM
+		   WHERE MU_CD         = :muCd
+	         AND OBJECT_CD 	   = :objectCd
+	         AND PROPOSAL_KIND = :proposalKind
+		]]>
+	</statement>
+
+	<!-- 수주 및 운영품의(을)를 등록한다. -->
+	<statement name="insertAccOrderOpProposal" type="insert">
+		/*+ com.hwfs.fs.fso.dao.AccOrderPropReptDAO.insertAccOrderOpProposal */
+		<![CDATA[
+		INSERT INTO FSO_ACC_ORDER_OP_PROPOSAL
+		(
+			OBJECT_CD			/* 물건 코드 */
+		   ,PROPOSAL_KIND		/* 품의 종류(S:수주 : /O:운영품의) */
+		   ,PROPOSAL_KIND_SEQ
+		   ,ELCTNSIGN_KEY		/* 전자결재 KEY */
+		   ,FILE_ID				/* 파일 id */
+		   ,SALS_AMT			/* 매출금액(1개월) */
+		   ,SALS_GAINRAT_BEFORE /* 매출 이익율_전 */
+		   ,CST_CONTRACT_AMT	/* 원가 계약 금액 */
+		   ,SALS_GAINRAT_AFTER	/* 매출 이익율_후 */
+		   ,SALS_GAIN_AMT		/* 매출 이익 금액 */
+		   ,CUSER
+		   ,CDATE
+		   ,UUSER
+		   ,UDATE
+		)VALUES
+		(
+			:objectCd
+		   ,<#if proposalKind?has_content> :proposalKind <#else> null </#if>
+		   ,(SELECT NVL(MAX(A.PROPOSAL_KIND_SEQ),0)+1 FROM FSO_ACC_ORDER_OP_PROPOSAL A WHERE A.OBJECT_CD =:objectCd AND A.PROPOSAL_KIND=:proposalKind)
+		   ,<#if elctnsignKey?has_content> :elctnsignKey <#else> null </#if>
+		   ,<#if fileId?has_content> :fileId <#else> null </#if>
+		   ,<#if salsAmt?has_content> :salsAmt <#else> null </#if>
+		   ,<#if salsGainratBefore?has_content> :salsGainratBefore <#else> null </#if>
+		   ,<#if cstContractAmt?has_content> :cstContractAmt <#else> null </#if>
+		   ,<#if salsGainratAfter?has_content> :salsGainratAfter <#else> null </#if>
+		   ,<#if salsGainAmt?has_content> :salsGainAmt <#else> null </#if>
+		   ,:loginSabun
+		   ,SYSDATE
+		   ,:loginSabun
+		   ,SYSDATE
+		)
+		]]>
+	</statement>
+	
+	<!-- 수주 및 운영품의(을)를 수정한다. -->
+	<statement name="updateAccOrderOpProposal" type="update">
+		/*+ com.hwfs.fs.fso.dao.AccOrderPropReptDAO.updateAccOrderOpProposal */
+		<![CDATA[
+		UPDATE FSO_ACC_ORDER_OP_PROPOSAL
+		   SET SALS_AMT				= :salsAmt			/* 매출금액(1개월) */
+			   ,SALS_GAINRAT_BEFORE = :salsGainratBefore	/* 매출 이익율_전 */
+			   ,CST_CONTRACT_AMT	= :cstContractAmt	/* 원가 계약 금액 */
+			   ,SALS_GAINRAT_AFTER	= :salsGainratAfter	/* 매출 이익율_후 */
+			   ,SALS_GAIN_AMT		= :salsGainAmt		/* 매출 이익 금액 */
+			  ,UUSER	=  :loginSabun
+			  ,UDATE	=  SYSDATE
+		 WHERE OBJECT_CD 	 = 	:objectCd		/* 물건 코드 */
+		   AND PROPOSAL_KIND =	:proposalKind	/* 품의 종류(S:수주 : /O:운영품의) */
+		   AND PROPOSAL_KIND_SEQ = :proposalKindSeq
+		]]>
+	</statement>
+
+	<!-- 수주 및 운영품의(을)를 삭제한다. -->
+	<statement name="deleteAccOrderOpProposal" type="delete">
+		/*+ com.hwfs.fs.fso.dao.AccOrderPropReptDAO.deleteAccOrderOpProposal */
+		<![CDATA[
+		DELETE FROM FSO_ACC_ORDER_OP_PROPOSAL
+		 WHERE OBJECT_CD 	 = 	:objectCd		/* 물건 코드 */
+		   AND PROPOSAL_KIND =	:proposalKind	/* 품의 종류(S:수주 : /O:운영품의) */
+		   AND PROPOSAL_KIND_SEQ = :proposalKindSeq
+		]]>
+	</statement>
+	
+	<!-- 전자결재정보를 Update한다. -->
+	<statement name="updateSign" type="update">
+		/*+ com.hwfs.fs.fso.dao.AccOrderPropReptDAO.updateSign */
+		<![CDATA[
+		UPDATE FSO_ACC_ORDER_OP_PROPOSAL
+		   SET ELCTNSIGN_KEY =	:elctnsignKey	/* 전자결재 KEY */
+			  ,UUSER	=  :loginSabun
+			  ,UDATE	=  SYSDATE
+		 WHERE OBJECT_CD 	 = 	:objectCd		/* 물건 코드 */
+		   AND PROPOSAL_KIND =	:proposalKind	/* 품의 종류(S:수주 : /O:운영품의) */
+		   AND PROPOSAL_KIND_SEQ = :proposalKindSeq
+		]]>
+	</statement>
+
+</hqml>

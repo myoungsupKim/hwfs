@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.bms.proWeeklyListDAO">
+	<desc>주간 판촉조회</desc>
+
+	<!-- DATA를 조회한다. -->
+	
+	<!-- 날자를 구한다. 달력에 표시할 첫번재 요일과 해당월의 처음일자 마지막일자 
+	     조건 : monthly = yyyymmdd 로 들어와야 함.
+	-->
+	<statement name="selectList" type="select">
+	/*+ com.hwfs.rc.bms.proWeeklyListDAO.selectList */
+	
+		<![CDATA[
+		   
+			with TTB_SD_ED AS (
+			  select 
+			          to_date(:searchDt, 'yyyymmdd') - (to_number(to_char(to_date(:searchDt, 'yyyymmdd'), 'D')) -1) start_dt
+			         ,to_date(:searchDt, 'yyyymmdd') + (7 - to_number(to_char(to_date(:searchDt, 'yyyymmdd'), 'D'))) end_dt
+			  from dual
+			),
+			 TTB_TIMES AS (
+			  select '01' times from dual
+			  union all 
+			  select '02' times from dual
+			  union all 
+			  select '03' times from dual
+			  union all 
+			  select '04' times from dual
+			  union all 
+			  select '05' times from dual
+			  union all 
+			  select '06' times from dual
+			  union all 
+			  select '07' times from dual
+			  union all 
+			  select '08' times from dual
+			  union all 
+			  select '09' times from dual
+			  union all 
+			  select '10' times from dual
+			  union all 
+			  select '11' times from dual
+			  union all 
+			  select '12' times from dual
+			  union all 
+			  select '13' times from dual
+			  union all 
+			  select '14' times from dual
+			  union all 
+			  select '15' times from dual
+			  union all 
+			  select '16' times from dual
+			  union all 
+			  select '17' times from dual
+			  union all 
+			  select '18' times from dual
+			  union all 
+			  select '19' times from dual
+			  union all 
+			  select '20' times from dual
+			  union all 
+			  select '21' times from dual
+			  union all 
+			  select '22' times from dual
+			  union all 
+			  select '23' times from dual
+			  union all 
+			  select '24' times from dual
+			)
+			, TTB_LAST AS (
+				SELECT TTL.AM_CD,
+					   TTL.CUST_NM || '/' || TTL.EXPECT_AMT || '/' || TTL.AM_NM AS SCHEDULE_TITLE,
+					   TTL.SCHD_DATE,
+					   TTL.TIMES,
+					   TTL.WEEK				
+				FROM ( 
+				SELECT 	MGMT.AM_CD,				
+						(SELECT  AM.AM_NM FROM  BMS_AM_MST AM WHERE  AM.AM_CD  = MGMT.AM_CD) AS AM_NM,
+						(SELECT  CUST.CUST_NM FROM  BMS_CUST_MST CUST WHERE  CUST.CUST_CD  = MGMT.CUST_CD) AS CUST_NM, 
+					MGMT.SCHD_DATE,
+					MGMT.SEQ,
+					--MGMT.EXPECT_AMT,
+					TRIM(TO_CHAR(MGMT.EXPECT_AMT,'999,999,999,999,999')) AS EXPECT_AMT,
+				       	MGMT.SCHEDULE_TITLE,
+				       	MGMT.SCHEDULE_CONTENTS,
+			          substr(MGMT.STR_TIME,1,2) TIMES
+			          , to_number(to_char(to_date(MGMT.DIARY_DATE,'yyyymmdd'), 'D')) week
+				FROM    BMS_SCHEDULE_MGMT MGMT
+			          ,TTB_SD_ED           TSE
+			          
+				WHERE 1=1
+			      AND  MGMT.DIARY_DATE BETWEEN TSE.start_dt AND TSE.end_dt
+				  AND  MGMT.AM_CD    = MGMT.AM_CD
+				  AND  MGMT.SCHEDULE_KIND = '1002'
+				  AND  MGMT.USE_YN = 'Y'
+				  <#if amCd?has_content>AND MGMT.AM_CD = :amCd </#if>
+				 ) TTL
+			)  
+			select   TT.times
+			        ,nvl(max(decode(week,1,SCHEDULE_TITLE)), ' ') "일"
+			        ,nvl(max(decode(week,2,SCHEDULE_TITLE)), ' ') "월"
+			        ,nvl(max(decode(week,3,SCHEDULE_TITLE)), ' ') "화"
+			        ,nvl(max(decode(week,4,SCHEDULE_TITLE)), ' ') "수"
+			        ,nvl(max(decode(week,5,SCHEDULE_TITLE)), ' ') "목"
+			        ,nvl(max(decode(week,6,SCHEDULE_TITLE)), ' ') "금"
+			        ,nvl(max(decode(week,7,SCHEDULE_TITLE)), ' ') "토"
+			from     TTB_LAST  TL,
+			         TTB_TIMES TT
+			where    TT.times = TL.times(+)
+			group by TT.times
+			order by TT.times
+		
+		]]>
+	</statement>
+
+	<statement name="selectDtList" type="select">
+	/*+ com.hwfs.rc.bms.proWeeklyListDAO.selectDtList */
+		<![CDATA[
+		  SELECT	TO_CHAR(START_DT +0,'YYYY-MM-DD') ||'(일)' DT01,
+				TO_CHAR(START_DT +1,'YYYY-MM-DD') ||'(월)' DT02,
+				TO_CHAR(START_DT +2,'YYYY-MM-DD') ||'(화)' DT03,
+				TO_CHAR(START_DT +3,'YYYY-MM-DD') ||'(수)' DT04,
+				TO_CHAR(START_DT +4,'YYYY-MM-DD') ||'(목)' DT05,
+				TO_CHAR(START_DT +5,'YYYY-MM-DD') ||'(금)' DT06,
+				TO_CHAR(START_DT +6,'YYYY-MM-DD') ||'(토)' DT07
+		 FROM	(
+				SELECT TO_DATE(:searchDt, 'YYYYMMDD') - (TO_NUMBER(TO_CHAR(TO_DATE(:searchDt, 'YYYYMMDD'), 'D')) -1) START_DT
+				FROM DUAL
+			 	)
+		]]>
+	</statement>
+	
+
+
+</hqml>
+		

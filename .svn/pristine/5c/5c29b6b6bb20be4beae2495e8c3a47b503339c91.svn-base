@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[일매출현황조회 조회기준일 조회 SQL]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT /*+ INDEX_DESC(SCC_BATCH_LOG SCC_BATCH_LOG_IDX) */
+       CASE WHEN #END_DATE# = TO_CHAR(SYSDATE,'YYYYMMDD') THEN
+       DECODE(EXE_DATE,TO_CHAR(SYSDATE,'YYYY-MM-DD'),TO_CHAR(TO_DATE(EXE_DATE,'YYYY-MM-DD')-1,'YYYY-MM-DD'),TO_CHAR(TO_DATE(EXE_DATE,'YYYY-MM-DD')-2,'YYYY-MM-DD'))
+       ELSE TO_CHAR(TO_DATE(#END_DATE#,'YYYYMMDD'),'YYYY-MM-DD') END AS BASE_DATE,
+       CASE WHEN #END_DATE# BETWEEN TO_CHAR(SYSDATE-1,'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD') THEN
+       DECODE(EXE_DATE,TO_CHAR(SYSDATE,'YYYY-MM-DD'),' ','일마감 완료 전입니다.')
+       ELSE ' ' END AS ALERT_MSG
+  FROM SCC_BATCH_LOG
+ WHERE PROC_NAME = 'IF_GW_PORTLET_SALE_PRO'
+   AND ROWNUM = 1
+	</statement>
+	<input default-name="ds_cond">
+	</input>
+	<output default-name="ds_cond2">
+		<col name="START_DATE_PM" size="256" type="VARCHAR" description="" />  
+		<col name="END_DATE_PM" size="256" type="VARCHAR" description="" />  
+		<col name="START_DATE_LY" size="256" type="VARCHAR" description="" />  
+		<col name="END_DATE_LY" size="256" type="VARCHAR" description="" />  
+		<col name="BASE_DATE" size="256" type="VARCHAR" description="" />  
+		<col name="ALERT_MSG" size="256" type="VARCHAR" description="" />  
+	</output>
+</query>

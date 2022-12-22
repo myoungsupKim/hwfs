@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type>
+	<description><![CDATA[날씨정보 조회]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.FDAY
+     , A.WE
+     , DECODE(A.WE,'일','FF7878','토','99CCFF','FFFFFF') AS WE_COLOR
+     , B.WCODE WCD
+     , B.WDESC WNM
+     , DECODE(B.WCODE,NULL,'','NEW' || LPAD(B.WCODE,2,'0')) AS WIMG
+     , '' REM
+     , TO_CHAR(TO_DATE(A.FDAY), 'd') AS WEEK       
+  FROM (SELECT FDAY
+             , TO_CHAR(TO_DATE(FDAY, 'YYYYMMDD'), 'DY', 'NLS_DATE_LANGUAGE=KOREAN') AS WE
+          FROM (SELECT TO_CHAR(TO_DATE(#START_DATE#, 'YYYYMMDD') + LEVEL - 1, 'YYYYMMDD') AS FDAY
+                  FROM DUAL
+                CONNECT BY LEVEL <= TO_DATE(#END_DATE#, 'YYYYMMDD') - TO_DATE(#START_DATE#, 'YYYYMMDD') + 1)) A
+     , (SELECT A.CUR_DATE, A.WCODE, A.WDESC
+          FROM UPOS_SC_WEATHER_INFO_V A
+         WHERE A.AREA_CODE = NVL((SELECT LOC_CD FROM SCO_UPJANG_MST_V WHERE UPJANG = #UPJANG#), '01')
+       ) B
+ WHERE A.FDAY = B.CUR_DATE(+)
+ORDER BY A.FDAY ASC   
+]]></statement>
+	<input default-name="ds_in">
+	</input>
+	<output default-name="DS_head">
+	</output>
+</query>

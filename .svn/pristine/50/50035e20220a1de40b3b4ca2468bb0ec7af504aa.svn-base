@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="rc.bms.roomResListDAO">
+	<desc>연회일람표(기간별)</desc>
+
+	<!-- DATA를 조회한다. -->
+	
+	<statement name="selectList" type="select">
+		<![CDATA[
+		SELECT  RESERV_NUM
+			     , FNB_CLASS
+			     , SEQ
+			     , OUTLET_CD, OUTLET_NM 
+			       
+			     , RESERV_STATUS
+			     , RESERV_STATUS_NM	--행사상태
+			     
+			     , RESERV_CD
+			     , RESERV_CD_NM	    --행사형태명
+			     
+			     , KIND_CD
+			     , KIND_CD_NM		    --행사종류명
+			     
+			     , STR_DATE	
+			     , END_DATE				
+			     , RESERV_DT  --행사일자
+			     
+			     , MENU_CD
+			     , MENU_NM	   --연회룸
+			     , RESERV_NM   --행사명
+			     , TIME_NM	   --시작~종료 시간
+			     , REMARK 	   --특이사항
+				 , RSVN_NM       --예약자명
+				 
+			     , CASE  LENGTH(LTRIM(RTRIM(HAND_PHONE))) 
+			        WHEN  9 THEN SUBSTR(HAND_PHONE,1,2) || '-' || SUBSTR(HAND_PHONE,3,3) || '-' || SUBSTR(HAND_PHONE,6,4)
+			        WHEN 10 THEN SUBSTR(HAND_PHONE,1,2) || '-' || SUBSTR(HAND_PHONE,3,4) || '-' || SUBSTR(HAND_PHONE,7,4)
+			        WHEN 11 THEN SUBSTR(HAND_PHONE,1,3) || '-' || SUBSTR(HAND_PHONE,4,4) || '-' || SUBSTR(HAND_PHONE,8,4)
+			        ELSE '' END    AS HAND_PHONE  
+											 
+			     , SCC_TELNO_SPLIT_FUN(HAND_PHONE,1)     AS HAND_PHONE1
+			     , SCC_TELNO_SPLIT_FUN(HAND_PHONE,2)     AS HAND_PHONE2
+			     , SCC_TELNO_SPLIT_FUN(HAND_PHONE,3)     AS HAND_PHONE3
+			    
+			     , STR_TIME
+			     , END_TIME
+			          
+			     , MENU_CLASS
+			     , MENU_CLSFI
+			     , MENU_SCLASS
+			     --인원은 연회룸인원수만 표시
+			     , QUANTITY
+			     , UPRICE
+			     , AMT
+			     , DISCNT_AMT
+			     --견적금액은 전체 금액 표시			      				      
+			     , TOT_AMT		
+			     
+			     
+			     
+			     , ADLT_PSN
+			     , CHILD_PSN
+			     
+			       
+			     , VENDOR_CD
+			     , VENDOR_NM
+			       
+			     , ORDER_CONFIRM
+			     , ORDER_DATE
+			     , ORDER_CANCEL_DATE
+			     , USE_YN
+			     
+			     , AM_NM        --담당자명
+		         , STR_TIME_NM  --시작시간
+		   		 , END_TIME_NM  --종료시간
+		   		 
+		
+		FROM (
+			SELECT MENU.RESERV_NUM
+			     , MENU.FNB_CLASS
+			     , MENU.SEQ
+			     , MENU.OUTLET_CD, OUTLET.OUTLET_NM AS OUTLET_NM 
+			       
+			     , MAST.RESERV_STATUS
+			     , SANG.CODE_NAME AS RESERV_STATUS_NM	--행사상태
+			     
+			     , MAST.RESERV_CD
+			     , CODE.CODE_NAME AS RESERV_CD_NM	    --행사형태명
+			     
+			     , MAST.KIND_CD
+			     , KIND.CODE_NAME AS KIND_CD_NM		    --행사종류명
+			     
+			     , TO_CHAR(TO_DATE(MENU.STR_DATE,'YYYY-MM-DD'),'YYYY-MM-DD') AS STR_DATE	
+			     				
+			     , CASE WHEN MENU.STR_DATE = MENU.END_DATE THEN TO_CHAR(TO_DATE(MENU.STR_DATE,'YYYY-MM-DD'),'YYYY-MM-DD')
+			     		ELSE TO_CHAR(TO_DATE(MENU.STR_DATE,'YYYY-MM-DD'),'YYYY-MM-DD')  || '~' || 
+			                 TO_CHAR(TO_DATE(MENU.END_DATE,'YYYY-MM-DD'),'YYYY-MM-DD')
+			       END  AS RESERV_DT  --행사일자
+			     
+			     , MENU.MENU_CD
+			     , CASE MENU.FNB_CLASS WHEN 'P' THEN
+			       							(SELECT  MENU_NM   FROM BMS_ORDERPLCE_GOODS A 
+			       										      WHERE A.OUTLET_CD = MENU.OUTLET_CD 
+			                                                    AND A.VENDOR_CD = MENU.VENDOR_CD 
+			                                                    AND A.MENU_CD   = MENU.MENU_CD   ) 
+			                           WHEN 'R' THEN
+			       							(SELECT  CATERCHF_NM   FROM BMS_CATERCHF_MST A 
+			       										      WHERE A.OUTLET_CD = MENU.OUTLET_CD 
+			                                                    AND A.CLASS_CD  = '10' 
+			                                                    AND A.CATERCHF_CD   = MENU.MENU_CD   )  
+			                                                      
+			       					   ELSE   
+									       	(SELECT  MENU_NM FROM SLE_OUTLET_MENU A 
+									       	                WHERE A.OUTLET_CD = MENU.OUTLET_CD 
+									                          AND A.MENU_CD   = MENU.MENU_CD   ) 
+			       END AS  MENU_NM	--연회룸
+			     , MAST.RESERV_NM   --행사명
+			     , STRT.CODE_NAME || '~' || ENDT.CODE_NAME AS TIME_NM	--시작~종료 시간
+			     , MENU.REMARK 		--특이사항
+			     
+			     
+				 , SCC_CRYPTO.MASKAUTH_FUN(MAST.RSVN_NM,12,:loginPersMask,:maskAuth) AS RSVN_NM       --예약자명
+			     , SCC_CRYPTO.MASKAUTH_FUN(MAST.HAND_PHONE,8,:loginPersMask,:maskAuth) AS HAND_PHONE  --핸드폰번호
+			     
+			    
+			     
+			     , MENU.STR_TIME
+			     , MENU.END_TIME
+			          
+			     , MENU.MENU_CLASS
+			     , MENU.MENU_CLSFI
+			     , MENU.MENU_SCLASS
+			     , MENU.QUANTITY
+			     , MENU.UPRICE
+			     , MENU.AMT
+			     , MENU.DISCNT_AMT
+			     ,(SELECT SUM(A.TOT_AMT) FROM   BMS_RESERV_MENU A  WHERE  A.RESERV_NUM = MENU.RESERV_NUM AND A.USE_YN = 'Y') AS TOT_AMT
+			     --, MENU.TOT_AMT		
+			     
+			     , MENU.END_DATE
+			     
+			     , MENU.ADLT_PSN
+			     , MENU.CHILD_PSN
+			     
+			       
+			     , MENU.VENDOR_CD
+			     , (SELECT  VENDOR_NM FROM BMS_ORDERPLCE_MST VENDOR WHERE VENDOR.OUTLET_CD = MENU.OUTLET_CD 
+			                                                 AND VENDOR.VENDOR_CD = MENU.VENDOR_CD 
+			                ) AS  VENDOR_NM
+			       
+			     , MENU.ORDER_CONFIRM
+			     , MENU.ORDER_DATE
+			     , MENU.ORDER_CANCEL_DATE
+			     , DECODE(MENU.USE_YN, 'Y', 1, 0) AS USE_YN
+			     
+			     
+			     , SCC_CRYPTO.MASKAUTH_FUN(SMGR.AM_NM,12,:loginPersMask,:maskAuth) AS AM_NM           --담당자명
+		         , STRT.CODE_NAME AS STR_TIME_NM		                                              --시작시간
+		   		 , ENDT.CODE_NAME AS END_TIME_NM		                                              --종료시간
+		   		 
+		   
+		   	FROM   BMS_RESERV_MENU MENU
+		   			INNER JOIN BMS_RESERV_MST  MAST ON MAST.RESERV_NUM = MENU.RESERV_NUM                               --예약 마스터
+					INNER JOIN (SELECT MST.OUTLET_CD, MST.OUTLET_TYPE, MST.OUTLET_NM 
+			                       FROM   SLE_OUTLET_MST MST
+			                          INNER JOIN  SCO_UPJANG_V   UPJANG ON  UPJANG.UPJANG = TO_NUMBER(MST.OUTLET_CD) 
+			                                     <#if muCd?has_content> AND  UPJANG.MU_CD = :muCd </#if>
+			                                     <#if tmCd?has_content> AND  UPJANG.TM_CD = :tmCd </#if>
+			          			 ) OUTLET ON OUTLET.OUTLET_CD =  MENU.OUTLET_CD 
+				 	INNER JOIN BMS_AM_MST      SMGR ON SMGR.AM_CD = MAST.AM_CD                                         --AM명칭
+				    INNER JOIN SCC_COMMON_CODE CODE ON CODE.GROUP_CODE = 'BMS_0005' AND CODE.CODE = MAST.RESERV_CD	   --행사형태
+				    INNER JOIN SCC_COMMON_CODE SANG ON SANG.GROUP_CODE = 'BMS_0001' AND SANG.CODE = MAST.RESERV_STATUS --예약상태
+				    INNER JOIN SCC_COMMON_CODE KIND ON KIND.GROUP_CODE = 'BMS_0002' AND KIND.CODE = MAST.KIND_CD       --예약종류
+				    INNER JOIN SCC_COMMON_CODE STRT ON STRT.GROUP_CODE = 'BMS_0015' AND STRT.CODE = MENU.STR_TIME      --시작시간
+				    INNER JOIN SCC_COMMON_CODE ENDT ON ENDT.GROUP_CODE = 'BMS_0015' AND ENDT.CODE = MENU.END_TIME      --종료시간
+					
+					 
+			WHERE MENU.USE_YN = 'Y'    --사용유무
+			  AND MENU.FNB_CLASS ='R'  --연회룸 예약건만 검색 한다.
+				<#if reservDtFr?has_content >   
+						AND (   ( MENU.STR_DATE BETWEEN :reservDtFr   AND :reservDtTo    OR  MENU.END_DATE BETWEEN :reservDtFr   AND :reservDtTo )
+					         OR ( :reservDtFr   BETWEEN MENU.STR_DATE AND MENU.END_DATE  OR :reservDtTo    BETWEEN MENU.STR_DATE AND MENU.END_DATE ))
+				</#if>
+				<#if outletCd?has_content >     AND MENU.OUTLET_CD  = :outletCd  </#if>
+				<#if amCd?has_content >         AND MAST.AM_CD      = :amCd      </#if>
+				<#if kindCd?has_content >       AND MAST.KIND_CD    = :kindCd    </#if>
+				<#if reservStatus?has_content > AND :reservStatus   LIKE '%' || MAST.RESERV_STATUS || '%' </#if>	
+		) DUAL
+		ORDER BY STR_DATE
+		]]>
+	</statement>
+
+</hqml>	
+
+	

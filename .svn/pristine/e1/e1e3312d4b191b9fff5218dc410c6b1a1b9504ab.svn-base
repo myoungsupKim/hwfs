@@ -1,0 +1,380 @@
+<?xml version="1.0" encoding="utf-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.cmn.sendCreditInfoDAO">
+sc.cmn.scSearchDAO
+	<desc>영업사원 대상 여신잔액조회 메일 발송</desc>
+
+	<!-- 영업사원리스트 -->
+	<statement name="selectPartSalesList" type="select">
+		<![CDATA[
+			/*+ com.hwfs.sc.cmn.dao.SendCreditInfo.selectPartSalesList" */
+			SELECT DISTINCT A.SABUN, A.NM_KOR, SCC_CRYPTO.DEC_FUN (A.EMAIL_ENC) AS MAIL
+					FROM SCC_USERINFO A, FMS_UPJANG B
+  					WHERE 1=1
+			  		AND A.EMAIL_ENC IS NOT NULL
+			  		AND A.SABUN = B.PART_SALES_SABUN
+			  		AND B.CUST_TYPE = '일반'
+		]]>
+	</statement>
+
+	<!-- 여신잔액조회 -->
+	<statement name="selectCreditInfo" type="select">
+		<![CDATA[
+			/*+ com.hwfs.sc.cmn.dao.SendCreditInfo.selectCreditInfo" */
+			WITH SALE_WITH AS (SELECT B.UPJANG, B.MAIN_UPJANG
+                      , MAX(NVL(TO_CHAR(TO_DATE(A.SALE_DATE, 'YYYYMMDD')+1, 'YYYYMMDD'), GREATEST(TO_CHAR(ADD_MONTHS(B.CDATE, -1), 'YYYYMM')||'01', TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMM')||'01'))) AS SALE_DATE
+                   FROM FMS_SALES A, FMS_UPJANG B
+                  WHERE 1=1
+					AND A.SALE_DATE(+) < TO_CHAR(SYSDATE, 'YYYYMMDD')
+                    AND A.TRANS_YN(+) = 'Y'
+                    AND A.UPJANG(+) = B.UPJANG
+                    AND B.USE_YN = 'Y'
+                  GROUP BY B.UPJANG, B.MAIN_UPJANG)
+,
+ FMS_UPJANG_BB_WITH AS (SELECT UPJANG, MAIN_UPJANG
+                    FROM    FMS_UPJANG
+                    WHERE   1=1
+                    AND     USE_YN         = 'Y')
+, MAX_NEED_DATE_WITH AS ( SELECT MAX(NEED_DATE) AS NEED_DATE, RC_UPJANG 
+														FROM SO_PR
+														WHERE 1=1
+                            AND NEED_DATE BETWEEN TO_CHAR(SYSDATE, 'YYYYMMDD') AND TO_CHAR(SYSDATE+15,'YYYYMMDD')
+                            AND SUBINV_CODE LIKE 'S1%' AND LINE_STATUS NOT IN ('003', '005','999')
+                            AND RC_UPJANG IN (SELECT UPJANG FROM FMS_UPJANG_BB_WITH)
+                            GROUP BY RC_UPJANG)
+                            
+SELECT  
+		PART_SALES_NM AS 담당자,
+		UPJANG AS 사업장,
+		UPJANGNM_DISP AS 사업장명,
+        CREDIT_AMOUNT AS 총여신액,
+        CREDIT_AMOUNT AS 기본여신액,
+        CREDIT_OVER_AMOUNT AS 임시여신한도초과액,
+        CREDIT_OVER_END AS 임시여신종료일,
+        PO_AMT+PR_AMT AS 매입예정액,
+        TR_AMT AS 매입확정액,
+        RMN_AMT AS 외상매출,
+        PRE_AMT AS 선수금,
+		DECODE(MAIN_UPJANG, UPJANG, CREDIT_RMN_AMT, '') AS 가용여신,
+        CREDIT_TURN_DAYS AS 회전일,
+        HEAD_CREDIT_YN AS 통합여부,
+        CREDIT_CONTROL_DESC AS 통제구분,
+        DECODE(CREDIT_START, NULL, '00000000', CREDIT_START) || '~' || DECODE(CREDIT_END, NULL, '00000000', CREDIT_END) AS 통제기간
+        FROM  (SELECT /*+ optimizer_features_enable('10.2.0.5') */ A1.MAIN_UPJANG 
+     , A1.UPJANG 
+     , A1.UPJANGNM_DISP 
+     , CASE WHEN 20170819 BETWEEN NVL(A.CREDIT_START,'00000000') AND NVL(A.CREDIT_END,'99999999') 
+            THEN NVL(A.CREDIT_AMOUNT,0) ELSE 0 END AS CREDIT_AMOUNT /* 여신금액 */ 
+     , CASE WHEN 20170819 BETWEEN NVL(A.CREDIT_START,'00000000') AND NVL(A.CREDIT_END,'99999999') 
+            THEN NVL(A.CREDIT_AMOUNT,0) ELSE 0 END AS CREDIT_EXT_AMOUNT /* 여신연장금액-여신연장금액 삭제 */ 
+     , CASE WHEN 20170819 BETWEEN NVL(A.CREDIT_START,'00000000') AND NVL(A.CREDIT_END,'99999999') 
+            THEN NVL(A.CREDIT_AMOUNT,0) ELSE 0 END AS CREDIT_AMOUNT_TOT /* 총 여신책정금액-여신연장금액 삭제 */ 
+     , NVL(CASE WHEN NVL(A.CREDIT_OVER_END,'99999999') >= TO_CHAR(SYSDATE,'YYYYMMDD') 
+                THEN A.CREDIT_OVER_AMOUNT ELSE 0 END,0) AS CREDIT_OVER_AMOUNT /* 여신한도초과액 */ 
+     , CASE WHEN NVL(A.CREDIT_OVER_END,'99999999') >= TO_CHAR(SYSDATE,'YYYYMMDD') THEN A.CREDIT_OVER_END ELSE '' END AS CREDIT_OVER_END /*한도초과종료*/ 
+     , NVL(A.CREDIT_TURN_DAYS,0) AS CREDIT_TURN_DAYS /* 여신회전일 */ 
+     , NVL(A.CREDIT_TURN_DAYS,0) AS CREDIT_EXT_DAYS /* 총 여신회전일 : 여신연장일 삭제 */ 
+     , NVL(A.CREDIT_TURN_DAYS,0) AS CREDIT_TURN_DAYS_TOT 
+     , DECODE(C.L_BILL_DATE,NULL,-1,TO_DATE(20170819,'YYYYMMDD') - TO_DATE(C.L_BILL_DATE,'YYYYMMDD')) AS LAST_TURN_CNT 
+     , NVL(F.PR_AMT,0) AS PR_AMT /* 매입예정(신청) */ 
+     , NVL(E.PO_AMT,0) AS PO_AMT /* 매입예정(발주) */ 
+     , NVL(D.TR_AMT,0) AS TR_AMT /* 매입확정 */ 
+     , NVL(C0.RMN_AMT,0) AS RMN_AMT /* 외상매출잔액 */ 
+     , NVL(C1.PRE_AMT,0) AS PRE_AMT /* 선수잔액 */ 
+     , NVL(C0.RMN_AMT,0) - NVL(C1.PRE_AMT,0) + NVL(D.TR_AMT,0) + NVL(E.PO_AMT,0) + NVL(F.PR_AMT,0) AS BOND_AMT /* 채권잔액*/ 
+     , CASE WHEN 20170819 BETWEEN NVL(A.CREDIT_START,'00000000') AND NVL(A.CREDIT_END,'99999999') 
+            THEN NVL(A.CREDIT_AMOUNT,0) ELSE 0 END - NVL(C0.RMN_AMT,0) + NVL(C1.PRE_AMT,0) - NVL(D.TR_AMT,0) - NVL(E.PO_AMT,0) - NVL(F.PR_AMT,0) AS CREDIT_RMN_AMT /* 가용여신 */ 
+     , CASE WHEN 20170819 BETWEEN NVL(A.CREDIT_START,'00000000') AND NVL(A.CREDIT_END,'99999999') 
+            THEN NVL(A.CREDIT_AMOUNT,0) ELSE 0 END - NVL(C0.RMN_AMT,0) + NVL(C1.PRE_AMT,0) - NVL(D.TR_AMT,0) - NVL(E.PO_AMT,0) - NVL(F.PR_AMT,0) 
+               + NVL(CASE WHEN NVL(A.CREDIT_OVER_END,'99999999') >= TO_CHAR(SYSDATE,'YYYYMMDD') THEN A.CREDIT_OVER_AMOUNT ELSE 0 END,0) AS CREDIT_AVAIL_AMT /* 실주문가능금액*/ 
+     , NVL(C.L_BILL_DATE,'00000000') AS L_BILL_DATE /* 최장 미입금된 외상매출발생일*/ 
+     , DECODE(C.L_BILL_DATE,NULL,'채권없음',TO_CHAR(TO_DATE(C.L_BILL_DATE,'YYYYMMDD'),'YYYY"년"MM"월"DD"일"')) AS L_BILL_DATE_DISP /* 최장 미입금된 외상매출발생일*/ 
+     , A.HEAD_CREDIT_YN /*통합관리여부*/ 
+     , A.CREDIT_CONTROL_YN /* 여신통제여부 */ 
+     , A.CREDIT_TURN_CONTROL_YN /* 'Y'이면 여신회전일통제, 'N'이면 '통제안함' */ 
+     , A.CREDIT_AMOUNT_CONTROL_YN /* 'Y'이면 여신금액통제, 'N'이면 '통제안함' */ 
+     , SC_CRYPTO_FUN('DEC', A.ACNTCD_ENC , '3') AS ACNTCD /* 계좌정보*/ 
+     , DECODE(A.CREDIT_CONTROL_YN||A.CREDIT_TURN_CONTROL_YN||A.CREDIT_AMOUNT_CONTROL_YN 
+          ,'YYY','금액+회전일' 
+          ,'YYN','회전일통제' 
+          ,'YNY','금액통제','무통제') AS CREDIT_CONTROL_DESC /*통제구분*/ 
+     , A.CREDIT_START /*여신부여일*/ 
+     , A.CREDIT_END /*여신종료일*/ 
+     , 'TEST' as PART_SALES_NM
+  FROM FMS_UPJANGv A, FMS_UPJANGv A1 
+       /************************************************************************ 
+        C.외상잔액정보 
+       **************************************************************************/ 
+     , (SELECT B.MAIN_UPJANG 
+             , MIN(M.OCCUR_DATE) AS L_BILL_DATE 
+             , SUM(NVL(M.AR_AMT,0)-NVL(D.RECEIVE_AMT,0)) AS RMN_AMT 
+          FROM SLA_AR_MST M, SLA_AR_RECEIVE_DETAIL D, FMS_UPJANG B 
+         WHERE M.SYS_CLASS = '13' 
+           AND M.RECD_STATUS = 'L' 
+           AND D.RECEIVE_DATE <= 20170819 /* 조건 : 입고예정일 */ 
+           AND M.AR_NUM = D.AR_NUM 
+           AND D.RECD_STATUS = 'L' 
+           AND M.OCCUR_DATE <= 20170819 /* 조건 : 입고예정일 */ 
+           AND B.HEAD_CREDIT_YN = 'Y' 
+           AND M.UPJANG_CD = B.UPJANG 
+           AND NVL(M.AR_AMT,0) - NVL(D.RECEIVE_AMT,0) > 0  /*  채권잔액이 있는 자료 기준 */ 
+           AND M.UPJANG_CD IN (SELECT UPJANG FROM FMS_UPJANG WHERE MAIN_UPJANG = 123857 AND HEAD_CREDIT_YN = 'Y' AND USE_YN = 'Y') 
+         GROUP BY B.MAIN_UPJANG ) C 
+       /************************************************************************ 
+        C0.선수잔액정보 
+       **************************************************************************/ 
+     , (SELECT T.MAIN_UPJANG 
+             , SUM(NVL(T.AR_AMT,0) - NVL(T.RECEIVE_AMT,0)) AS RMN_AMT 
+          FROM (SELECT B.MAIN_UPJANG 
+                     , NVL(M.AR_AMT, 0) AS AR_AMT 
+                     , (SELECT NVL(SUM(D.RECEIVE_AMT),0) 
+                          FROM SLA_AR_RECEIVE_DETAIL D 
+                         WHERE D.RECD_STATUS  = 'L' 
+                           AND D.RECEIVE_DATE <= 20170819 
+                           AND D.AR_NUM = M.AR_NUM) AS RECEIVE_AMT 
+                  FROM SLA_AR_MST M, FMS_UPJANG B 
+                 WHERE M.SYS_CLASS = '13' 
+                   AND M.RECD_STATUS = 'L' 
+                   AND M.OCCUR_DATE <= 20170819 
+                   AND B.HEAD_CREDIT_YN = 'Y' 
+                   AND M.UPJANG_CD = B.UPJANG 
+                   AND M.UPJANG_CD IN (SELECT UPJANG FROM FMS_UPJANG WHERE MAIN_UPJANG = 123857 AND HEAD_CREDIT_YN = 'Y' AND USE_YN = 'Y') 
+                ) T 
+         GROUP BY T.MAIN_UPJANG 
+        ) C0 
+       /************************************************************************ 
+        C1.선수잔액정보 
+       **************************************************************************/ 
+     , (SELECT T.MAIN_UPJANG 
+             , SUM(NVL(T.OCCUR_AMT,0) - NVL(T.APPLY_AMT,0)) AS PRE_AMT 
+          FROM (SELECT B.MAIN_UPJANG 
+                     , NVL(M.OCCUR_AMT, 0) AS OCCUR_AMT 
+                     , (SELECT NVL(SUM(D.APPLY_AMT),0) 
+                          FROM SLA_ADVANCE_ALT_DETAIL D 
+                         WHERE D.RECD_STATUS  = 'L' 
+                           AND D.ALT_DATE <= 20170819 
+                           AND D.ADVANCE_NUM = M.ADVANCE_NUM) AS APPLY_AMT 
+                  FROM SLA_ADVANCE_MST M, FMS_UPJANG B 
+                 WHERE M.SYS_CLASS = '13' 
+                   AND M.RECD_STATUS = 'L' 
+                   AND M.OCCUR_DATE <= 20170819 
+                   AND B.HEAD_CREDIT_YN = 'Y' 
+                   AND M.UPJANG_CD = B.UPJANG 
+                   AND M.UPJANG_CD IN (SELECT UPJANG FROM FMS_UPJANG WHERE MAIN_UPJANG = 123857 AND HEAD_CREDIT_YN = 'Y' AND USE_YN = 'Y') 
+                ) T 
+         GROUP BY T.MAIN_UPJANG 
+        ) C1 
+       /************************************************************************ 
+        D.당월 미매출마감된 검수금액 
+       **************************************************************************/ 
+     , (SELECT X.MAIN_UPJANG                                                                                                                                                                                                                                                   
+             , SUM(X.TR_AMT) AS TR_AMT                                                                                                                                                                                                                                         
+          FROM (                                                                                                                                                                                                                                                               
+                               SELECT  /*+ PUSH_PRED(A) */                                                                                                                                                                                                                     
+                                       C.MAIN_UPJANG                                                                                                                                                                                                                           
+                                    ,  SUM(DECODE(SUBSTR(A.TRANS_TYPE,1,1),'I',1,-1) * ROUND(DECODE(A.TAX_CODE,'100',1.1,1) * ROUND(A.SALE_PRICE * A.TRANS_QTY))) AS TR_AMT                                                                                                    
+                                           FROM (                                                                                                                                                                                                                              
+                                                SELECT DT.MG_NO AS TRANS_ID,  /* 자재수불번호 */                                                                                                                                                                               
+                                                       CASE                                                                                                                                                                                                                    
+                                                         WHEN SUBSTR(DT.MOVEMENT_TYP,0,2)='25' THEN 'FO'                                                                                                                                                                       
+                                                         WHEN DT.PROC_TYP_CD IS NULL AND DT.IVT_INSP_NO IS NOT NULL THEN '재고조정'                                                                                                                                            
+                                                         WHEN DT.PROC_TYP_CD IS NULL AND DT.IVT_INSP_NO IS NULL THEN 'INV'                                                                                                                                                     
+                                                         ELSE 'PO'                                                                                                                                                                                                             
+                                                       END AS SOURCE_TYPE,  /* FO, PO, INV, 재고조정 */                                                                                                                                                                        
+                                                       SL.CUST_GR_DATE AS TRANS_DATE,  /* 판매일자 */                                                                                                                                                                          
+                                                       DT.MG_DATE AS MG_DATE,  /* 수불일자*/                                                                                                                                                                                   
+                                                       CASE                                                                                                                                                                                                                    
+                                                         WHEN SUBSTR(DT.MOVEMENT_TYP,0,1) = '3' AND DT.GR_QTY IS NULL THEN 'O002'         /* 재고이동 - 이동출고   */                                                                                                          
+                                                         WHEN SUBSTR(DT.MOVEMENT_TYP,0,1) = '3' AND DT.GR_QTY IS NOT NULL THEN 'I002'      /*재고이동 - 이동입고  */                                                                                                           
+                                                         WHEN DT.MOVEMENT_TYP = '251'OR DT.MOVEMENT_TYP = '252' THEN 'O001'      /* POS 매출 유형  */                                                                                                                          
+                                                         WHEN DT.MOVEMENT_TYP = '701' OR DT.MOVEMENT_TYP = '702' THEN 'O004'      /* 재고실사 */                                                                                                                               
+                                                         ELSE 'I001'                                                                                                                                                                                                           
+                                                       END AS TRANS_TYPE,                                                                                                                                                                                                      
+                                                      CASE                                                                                                                                                                                                                     
+                                                         WHEN MOD(TO_NUMBER(DT.MOVEMENT_TYP),2)=0 AND DT.PROC_TYP_CD IS NOT NULL THEN DECODE(DT.GR_QTY,NULL,DT.GI_PURC_QTY*-1,DT.GR_PURC_QTY*-1)                                                                               
+                                                         WHEN MOD(TO_NUMBER(DT.MOVEMENT_TYP),2)=1 AND DT.PROC_TYP_CD IS NOT NULL THEN DECODE(DT.GR_QTY,NULL,DT.GI_PURC_QTY,DT.GR_PURC_QTY)                                                                                     
+                                                         WHEN MOD(TO_NUMBER(DT.MOVEMENT_TYP),2)=0 AND DT.PROC_TYP_CD IS NULL THEN DECODE(DT.GR_QTY,NULL,DT.GI_QTY*-1,DT.GR_QTY*-1)                                                                                             
+                                                         WHEN MOD(TO_NUMBER(DT.MOVEMENT_TYP),2)=1 AND DT.PROC_TYP_CD IS NULL THEN DECODE(DT.GR_QTY,NULL,DT.GI_QTY,DT.GR_QTY)                                                                                                   
+                                                       END AS TRANS_QTY,             /* 수량 */                                                                                                                                                                                
+                                                       SL.SHOP_CD AS TRANS_UPJANG,    /* 업장코드 */                                                                                                                                                                           
+                                                       SL.CUST_WH_CD AS SUBINV_CODE,     /* 창고코드*/                                                                                                                                                                         
+                                                       DECODE(MT.ACC_TAX_CD,'1','100','3','210','220') AS TAX_CODE,             /* 과면세 코드 */                                                                                                                              
+                                                       SL.SAL_PRICE AS SALE_PRICE                               /* 외부판매단가 */                                                                                                                                             
+                                                 FROM EPROCUSR.ESIMGHD HD,                                                /* 수불헤더*/                                                                                                                                        
+                                                      EPROCUSR.ESIMGDT DT,                                               /* 수불상세 */                                                                                                                                        
+                                                      EPROCUSR.ESPPODT PO,                                              /* 발주 상세 */                                                                                                                                        
+                                                      EPROCUSR.ESPPOHD PH,                                              /* 발주 헤더 */                                                                                                                                        
+                                                      EPROCUSR.ESMMTGL MT,                                              /* 품목마스터 */                                                                                                                                       
+                                                      EPROCUSR.ESISALP SL                                               /* 판매단가 */                                                                                                                                         
+                                                WHERE HD.SYS_ID = '100'                                                                                                                                                                                                        
+                                                  AND HD.COMP_CD = 'HFC'                                                                                                                                                                                                       
+                                                  AND HD.BU_CD = '2000'                                                                                                                                                                                                        
+                                                  AND HD.SYS_ID = DT.SYS_ID                                                                                                                                                                                                    
+                                                  AND HD.COMP_CD = DT.COMP_CD                                                                                                                                                                                                  
+                                                  AND HD.WH_CD = DT.WH_CD                                                                                                                                                                                                      
+                                                  AND HD.ITEM_CD = DT.ITEM_CD                                                                                                                                                                                                  
+                                                  AND DT.MOVEMENT_TYP NOT IN ('561','562','998','999','901','902','801','802','111','112','211','212')   /* 기초 , 기말 재고,배송입출고, 직송 가상입출고  제외 */                                                              
+                                                  AND DT.SYS_ID = PO.SYS_ID(+)                                                                                                                                                                                                 
+                                                  AND DT.COMP_CD = PO.COMP_CD(+)                                                                                                                                                                                               
+                                                  AND DT.PO_NO = PO.PO_NO(+)                                                                                                                                                                                                   
+                                                  AND DT.PO_LNO = PO.PO_LNO(+)                                                                                                                                                                                                 
+                                                  AND DT.SYS_ID = PH.SYS_ID(+)                                                                                                                                                                                                 
+                                                  AND DT.COMP_CD = PH.COMP_CD(+)                                                                                                                                                                                               
+                                                  AND DT.PO_NO = PH.PO_NO(+)                                                                                                                                                                                                   
+                                                  AND DT.SYS_ID = MT.SYS_ID                                                                                                                                                                                                    
+                                                  AND DT.ITEM_CD = MT.ITEM_CD                                                                                                                                                                                                  
+                                                  AND DT.SYS_ID = SL.SYS_ID                                                                                                                                                                                                    
+                                                  AND DT.COMP_CD = SL.COMP_CD                                                                                                                                                                                                  
+                                                  AND DT.MG_NO = SL.MG_NO                                                                                                                                                                                                      
+                                                  AND DT.STS <> 'D'                                                                                                                                                                                                            
+                                                  AND SL.SHOP_CD IN (SELECT UPJANG FROM FMS_UPJANG WHERE MAIN_UPJANG = 123857 AND HEAD_CREDIT_YN = 'Y' AND USE_YN = 'Y')                                                                                                     
+                                                  AND DT.MG_DATE BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(20170819, 'YYYYMMDD'), -1), 'YYYYMM') || '01' AND 20170819                                                                                                                 
+                                                UNION ALL                                                                                                                                                                                                                      
+                                                   SELECT B.TRANS_ID,                                                                                                                                                                                                          
+                                                          B.SOURCE_TYPE ,                                                                                                                                                                                                      
+                                                          B.TRANS_DATE,                                                                                                                                                                                                        
+                                                          B.TRANS_DATE AS MG_DATE,                                                                                                                                                                                             
+                                                          B.TRANS_TYPE,                                                                                                                                                                                                        
+                                                          B.TRANS_QTY,                                                                                                                                                                                                         
+                                                          TO_CHAR (B.TRANS_UPJANG) AS TRANS_UPJANG,                                                                                                                                                                            
+                                                          B.SUBINV_CODE,                                                                                                                                                                                                       
+                                                          B.TAX_CODE,                                                                                                                                                                                                          
+                                                          B.SALE_PRICE                                                                                                                                                                                                         
+                                                     FROM FMS_TRANSACTION B                                                                                                                                                                                                    
+                                                    WHERE B.TRANS_UPJANG IN (SELECT UPJANG FROM FMS_UPJANG WHERE MAIN_UPJANG = '123857' AND HEAD_CREDIT_YN = 'Y' AND USE_YN = 'Y')                                                                                             
+                                                      AND B.TRANS_DATE BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(20170819, 'YYYYMMDD'), -1), 'YYYYMM') || '01' AND 20170819                                                                                                           
+                                                ) A                                                                                                                                                                                                                            
+                                              , (SELECT UPJANG                                                                                                                                                                                                                 
+                                                     , MAX(SALE_DATE) AS SALE_DATE                                                                                                                                                                                             
+                                                  FROM FMS_SALES                                                                                                                                                                                                               
+                                                 WHERE SALE_DATE BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(20170819, 'YYYYMMDD'), -1), 'YYYYMM') || '01' AND 20170819                                                                                                                 
+                                                   AND TRANS_YN = 'Y'                                                                                                                                                                                                          
+                                                   AND UPJANG IN (SELECT UPJANG FROM FMS_UPJANG WHERE MAIN_UPJANG = '123857' AND HEAD_CREDIT_YN = 'Y' AND USE_YN = 'Y')                                                                                                        
+                                                 GROUP BY UPJANG                                                                                                                                                                                                               
+                                                ) B                                                                                                                                                                                                                            
+                                              , FMS_UPJANG C                                                                                                                                                                                                                   
+                                           WHERE A.TRANS_UPJANG = C.UPJANG                                                                                                                                                                                                     
+                                             AND A.TRANS_UPJANG = B.UPJANG(+)                                                                                                                                                                                                  
+                                             AND C.HEAD_CREDIT_YN = 'Y'                                                                                                                                                                                                        
+                                             AND (A.TRANS_TYPE='I001' OR (A.TRANS_TYPE LIKE '_002' AND A.SOURCE_TYPE='PO'))                                                                                                                                                    
+                                             AND A.MG_DATE BETWEEN DECODE(B.SALE_DATE, NULL, GREATEST(TO_CHAR(ADD_MONTHS(TO_DATE(20170819, 'YYYYMMDD'), -1), 'YYYYMM') || '01', NVL(TO_CHAR(TO_DATE(B.SALE_DATE, 'YYYYMMDD')+1, 'YYYYMMDD'),' ')),  TO_CHAR(TO_DATE(B.SALE_DATE, 'YYYYMMDD')+1, 'YYYYMMDD')) AND 20170819 
+                                             AND C.MAIN_UPJANG = '123857'                                                                                                                                                                                                      
+                                             AND A.TRANS_UPJANG IN (SELECT UPJANG FROM FMS_UPJANG WHERE MAIN_UPJANG = '123857' AND HEAD_CREDIT_YN = 'Y' AND USE_YN = 'Y')                                                                                                      
+                                           GROUP BY C.MAIN_UPJANG                                                                                                                                                                                                              
+                ) X                                                                                                                                                                                                                                                            
+         GROUP BY X.MAIN_UPJANG                                                                                                                                                                                                                                                
+        ) D                                                                                                                                                                                                                                                                    
+       /************************************************************************ 
+       E.당월 미검수 발주금액 
+       **************************************************************************/ 
+     , (                                                                                                                                             
+                SELECT                                                                                                                               
+                                           C.MAIN_UPJANG                                                                                             
+                                         , SUM(ROUND(DECODE(A.TAX_CODE,'100',1.1,1)*ROUND((A.CENTER_DELI_QTY+A.DIRECT_DELI_QTY-A.DELIVERED_QTY-A.UNDELIVERED_QTY)*A.SALE_PRICE))) AS PO_AMT 
+                                      FROM                                                                                                           
+                (                                                                                                                                    
+                        SELECT                                                                                                                       
+                               SAL.SHOP_CD              AS RC_UPJANG   -- 입고업장 코드                                                              
+                             , CASE                                                                                                                  
+                                 WHEN PODT.DUTY_FREE_YN ='1' THEN '100'                                                                              
+                                 WHEN PODT.DUTY_FREE_YN ='3' THEN '210'                                                                              
+                                 WHEN PODT.DUTY_FREE_YN ='2' THEN '220'                                                                              
+                               END  AS TAX_CODE   -- 과세구분코드                                                                                    
+                             , PODT.PR_QTY              AS PR_QTY      -- 신청 수량                                                                  
+                             , PODT.ITEM_QTY            AS PO_QTY      -- 발수 수량                                                                  
+                             , CASE WHEN PODT.PROC_TYP_CD IN('DC', 'TC') THEN PODT.ITEM_QTY ELSE 0 END  AS CENTER_DELI_QTY  -- 센터입고수량          
+                             , 0  AS CENTER_UNDELI_QTY             -- 센터미입고 수량                                                                
+                             , CASE PODT.PROC_TYP_CD WHEN 'VC' THEN PODT.ITEM_QTY ELSE 0 END  AS DIRECT_DELI_QTY  -- 직송 수량                       
+                             , CASE PODT.PROC_TYP_CD WHEN 'VC' THEN NVL(PODT.GR_QTY,0) ELSE NVL(PODT.GR_QTY_WMS,0) END  AS DELIVERED_QTY    --업장입고수량(센터출고) 
+                            , CASE                                                                                                                   
+                                 WHEN PODT.PO_COMP_YN='Y' OR PODT.GR_COMP_YN='Y' THEN NVL(PODT.ITEM_QTY,0) - NVL(PODT.GR_QTY,0) -- 입고완료          
+                                 ELSE 0                                                                                                              
+                               END AS UNDELIVERED_QTY -- 감량수량                                                                                    
+                             , PODT.RTN_QTY AS RETURNED_QTY -- 반품수량                                                                              
+                             , SAL.CUST_GR_DATE                AS NEED_DATE -- 입고희망일자                                                          
+                             , NVL(CASE WHEN POHD.PO_TYP = 'BP' THEN                                                                                 
+                                     CASE                                                                                                            
+                                       WHEN PODT.GR_COMP_YN='N' AND POHD.APRV_STS = 'T'         THEN 'RW' --통합영업에서 뷰 불가                     
+                                       WHEN PODT.GR_COMP_YN='N' AND POHD.APRV_STS = 'P'         THEN 'PW'                                            
+                                       WHEN PODT.GR_COMP_YN='N' AND POHD.APRV_STS IN ('R', 'W') THEN 'PD'                                            
+                                       WHEN PODT.GR_COMP_YN='N' AND POHD.APRV_STS = 'B'         THEN 'PD'                                            
+                                       WHEN PODT.GR_COMP_YN='Y' AND POHD.APRV_STS = 'B'         THEN 'GC'                                            
+                                       WHEN PODT.GR_COMP_YN='Y' AND POHD.APRV_STS IN ('C', 'K') THEN 'GC'                                            
+                                     END                                                                                                             
+                                  ELSE DECODE(PODT.GR_COMP_YN, 'Y', 'GC', NVL(PRDT.PR_PROG_STS,'PC'))                                                
+                               END,'PC') AS LINE_STATUS  -- 라인 상태 코드                                                                           
+                             , NVL(SAL.SAL_PRICE,0)      AS SALE_PRICE -- 판매 단가                                                                  
+                          FROM EPROCUSR.ESPPOHD POHD   -- PO 헤더                                                                                    
+                             , EPROCUSR.ESPPODT PODT   -- PO 상세(품목)                                                                              
+                             , EPROCUSR.ESMMTGL MTGL   -- 자재마스터                                                                                 
+                             , EPROCUSR.ESPPODTSAL SAL -- 판매단가정보[통합영업]                                                                     
+                             , EPROCUSR.ESPPRDT PRDT   -- PR 상세(품목)                                                                              
+                         WHERE PODT.SYS_ID  = POHD.SYS_ID(+)                                                                                         
+                           AND PODT.COMP_CD = POHD.COMP_CD (+)                                                                                       
+                           AND PODT.PO_NO   = POHD.PO_NO(+)                                                                                          
+                           AND PODT.SYS_ID  = SAL.SYS_ID(+)                                                                                          
+                           AND PODT.COMP_CD = SAL.COMP_CD(+)                                                                                         
+                           AND PODT.PO_NO   = SAL.PO_NO(+)                                                                                           
+                           AND PODT.PO_LNO  = SAL.PO_LNO(+)                                                                                          
+                           AND PODT.SYS_ID  = MTGL.SYS_ID                                                                                            
+                           AND PODT.ITEM_CD = MTGL.ITEM_CD                                                                                           
+                           AND PODT.PR_NO   = PRDT.PR_NO(+)                                                                                          
+                           AND PODT.PR_LNO  = PRDT.PR_LNO(+)                                                                                         
+                           AND PODT.SYS_ID  = PRDT.SYS_ID(+)                                                                                         
+                           AND PODT.COMP_CD = PRDT.COMP_CD(+)                                                                                        
+                           AND PODT.SYS_ID  = '100'                                                                                                  
+                           AND PODT.COMP_CD = 'HFC'                                                                                                  
+                           AND PODT.SHOP_TYP_CD = '02'                                                                                               
+                           AND PODT.STS    <> 'D'                                                                                                    
+                           AND POHD.PO_TYP IN ('UP','BP')                                                                                            
+                           and SAL.CUST_GR_DATE between to_char(add_months(sysdate,-1),'yyyymm') || '01' and '20170819'                              
+                           and SAL.SHOP_CD IN (SELECT UPJANG FROM FMS_UPJANG WHERE MAIN_UPJANG = '123857' AND HEAD_CREDIT_YN = 'Y' AND USE_YN = 'Y') 
+                           and NVL(CASE WHEN POHD.PO_TYP = 'BP' THEN                                                                                 
+                                     CASE                                                                                                            
+                                       WHEN PODT.GR_COMP_YN='N' AND POHD.APRV_STS = 'T'         THEN 'RW' --통합영업에서 뷰 불가                     
+                                       WHEN PODT.GR_COMP_YN='N' AND POHD.APRV_STS = 'P'         THEN 'PW'                                            
+                                       WHEN PODT.GR_COMP_YN='N' AND POHD.APRV_STS IN ('R', 'W') THEN 'PD'                                            
+                                       WHEN PODT.GR_COMP_YN='N' AND POHD.APRV_STS = 'B'         THEN 'PD'                                            
+                                       WHEN PODT.GR_COMP_YN='Y' AND POHD.APRV_STS = 'B'         THEN 'GC'                                            
+                                       WHEN PODT.GR_COMP_YN='Y' AND POHD.APRV_STS IN ('C', 'K') THEN 'GC'                                            
+                                     END                                                                                                             
+                                  ELSE DECODE(PODT.GR_COMP_YN, 'Y', 'GC', NVL(PRDT.PR_PROG_STS,'PC'))                                                
+                               END,'PC') IN ('PW', 'PC', 'DL')                                                                                       
+                        ) A                                                                                                                          
+                        , FMS_UPJANG C                                                                                                               
+                     WHERE A.RC_UPJANG = C.UPJANG                                                                                                    
+                       AND C.HEAD_CREDIT_YN = 'Y'                                                                                                    
+                       AND C.MAIN_UPJANG = '123857'                                                                                                  
+                     GROUP BY C.MAIN_UPJANG                                                                                                          
+        ) E                                                                                                                                          
+       /************************************************************************ 
+       F.당월 미발주 주문금액 
+       **************************************************************************/ 
+     , (SELECT B.MAIN_UPJANG 
+             , SUM(ROUND(DECODE(A.TAX_CODE,'100',1.1,1)*ROUND(A.PR_QTY*A.SALE_PRICE))) AS PR_AMT 
+          FROM SO_PR A, FMS_UPJANG B 
+         WHERE A.RC_UPJANG = B.UPJANG 
+           AND B.HEAD_CREDIT_YN = 'Y' 
+           AND A.NEED_DATE <= 20170819 
+           AND A.LINE_STATUS = '001' /* 진행상태 : 001(신청저장) */ 
+           AND A.RC_UPJANG IN ( 129103, 148303, 147142, 136663, 136882, 128984, 123865, 123868, 149063, 138499, 134222, 140308, 123857, 123867, 123869, 123870, 123860, 123861, 123862, 123863, 123864, 123866, 131162, 137027, 149867, 123859, 123858, 141602, 152562, 150809, 150655, 166909, 165950, 165951, 165952, 165953, 165954, 165956, 165955, 165957, 165958, 165959, 165960, 165949, 165073, 165987, 165988, 165989, 165990, 165991, 165992, 165806, 162331, 162830, 163744, 162455, 162222, 161759, 152941, 154469, 154643, 157527, 151026, 150656, 151170, 151942, 129386, 143308, 149263) 
+         GROUP BY B.MAIN_UPJANG) F 
+ WHERE A1.MAIN_UPJANG = A.UPJANG 
+   AND A1.MAIN_UPJANG = 123857 
+   AND A1.UPJANG = 123857 
+   AND A.UPJANG = C.MAIN_UPJANG(+) 
+   AND A.UPJANG = C0.MAIN_UPJANG(+) 
+   AND A.UPJANG = C1.MAIN_UPJANG(+) 
+   AND A.UPJANG = D.MAIN_UPJANG(+) 
+   AND A.UPJANG = E.MAIN_UPJANG(+) 
+   AND A.UPJANG = F.MAIN_UPJANG(+) 
+   AND A1.HEAD_CREDIT_YN = 'Y' 
+   AND A1.USE_YN = 'Y' 
+   AND A.CREDIT_CONTROL_YN = 'Y' 
+   AND (A.CREDIT_TURN_CONTROL_YN = 'Y' OR A.CREDIT_AMOUNT_CONTROL_YN = 'Y') 
+
+		)
+		]]>
+	</statement>
+
+
+</hqml>

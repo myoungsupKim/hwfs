@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="fm.fms.upriceContractUpjangSetDAO">
+	<desc>단가계약업장관련 HQML Query</desc>
+
+	<!-- 센터 목록을 조회한다. -->
+	<statement name="selectCenter" type="select">
+		/*+ com.hwfs.fm.fms.dao.UpriceContractUpjangSetDAO.selectCenter */
+		<![CDATA[
+		SELECT TO_CHAR(CENTER_CODE) AS CENTER_CODE, 
+		           CENTER_NAME,
+		      	    '1' AS ORDR
+		FROM   VO_CENTER
+		WHERE  1=1
+		UNION ALL
+		SELECT '*',
+			   '전체',
+			   '0'
+		FROM DUAL
+		ORDER BY ORDR ASC, CENTER_CODE ASC
+		]]>
+	</statement>
+
+	<!-- 팀 목록을 조회한다. -->
+	<statement name="selectTeam" type="select">
+		<![CDATA[
+		/*+ com.hwfs.fm.fms.dao.UpriceContractUpjangSetDAO.selectTeam */
+		SELECT TM_CD,
+		       TM_NM,
+		       USE_YN,
+		       BU_CD,
+		       BU_NM,
+		       MU_CD,
+		       MU_NM,
+		       '0' AS CHK
+		FROM   HLDC_SC_TM
+		WHERE  1=1
+		AND    USE_YN = 'Y'
+		<#if schMuCd?has_content>
+			<#if schMuCd == "'2002'">
+				AND MU_CD = '2002'
+				AND TM_CD IN ('CDGA','CDGB','CDGC','CDGD','CDFA','CDJA','CDJB')
+			<#else>                             
+				AND MU_CD IN (${schMuCd})
+			</#if>
+		</#if>
+		ORDER BY TM_CD
+		]]>
+	</statement>
+
+	<!-- 단가계약업장 목록을 조회한다. -->
+	<statement name="selectStd" type="select">
+		/*+ com.hwfs.fm.fms.dao.UpriceContractUpjangSetDAO.selectStd */
+		<![CDATA[
+		SELECT DISTINCT	      
+	  			  A.AP_UNITPRICE_UPJANG AS STD_UPJANG
+				, B.UPJANGNM AS STD_UPJANG_NM
+				,(SELECT V.TM_NM FROM HLDC_SC_DEPT_V V WHERE V.CC_CD = A.CC_CD) AS TM_NM
+		        , DECODE(C.ATTR09, 'Y', '1', '0') AS CHK2
+		        , DECODE(C.ATTR10, 'Y', '1', '0') AS CHK3
+		        , DECODE(C.ATTR09, 'Y', '1', '0') AS PREV_CHK2
+		        , DECODE(C.ATTR10, 'Y', '1', '0') AS PREV_CHK3
+				<#if schGainYn?has_content>
+				, (SELECT COUNT(*) FROM FMS_MARGIN_V WHERE AP_UNITPRICE_UPJANG = A.AP_UNITPRICE_UPJANG) AS STD_CNT		/* 자재별 이익율 정보 여부 */
+				</#if>
+				, 0 STD_CHK
+				, C.ATTR11				/* 이익율 설정 관련 비고 */
+		FROM  ST_UPJANG A INNER JOIN ST_UPJANG B ON A.AP_UNITPRICE_UPJANG = B.UPJANG
+						  			  INNER JOIN FMS_UPJANG C ON  C.USE_YN = 'Y'
+						  			  										AND  A.AP_UNITPRICE_UPJANG = C.UPJANG		
+		WHERE   A.UPJANG = A.AP_UNITPRICE_UPJANG
+		<#if schStdUpjang?has_content>
+		AND (A.AP_UNITPRICE_UPJANG LIKE '%' || :schStdUpjang || '%' OR B.UPJANGNM LIKE '%' || :schStdUpjang || '%')
+		</#if>
+		ORDER BY A.AP_UNITPRICE_UPJANG ASC		
+		]]>
+	</statement>
+
+
+	<!-- 업장 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.fm.fms.dao.UpriceContractUpjangSetDAO.selectList */
+		<![CDATA[
+		SELECT 
+			   A.UPJANG,
+		       A.UPJANGNM AS UPJANG_NM,
+		       (SELECT V.TM_NM FROM HLDC_SC_DEPT_V V WHERE V.CC_CD = A.DEPT_ID) AS TM_NM,
+		       A.AP_UNITPRICE_UPJANG,
+		       NVL(B.UPJANGNM,'') AS AP_UNITPRICE_UPJANG_NM,
+		       D.CENTER_CODE,
+		       NVL(E.CENTER_NAME,'') AS CENTER_NAME,
+		       '' AS CHK1,
+		       DECODE(C1.ATTR09, 'Y', '1', '0') AS CHK2,
+		       DECODE(C1.ATTR10, 'Y', '1', '0') AS CHK3,
+		       '' AS PREV_CHK1
+		FROM   ST_UPJANG A LEFT JOIN ST_UPJANG B ON A.AP_UNITPRICE_UPJANG = B.UPJANG
+						   			   LEFT JOIN FMS_UPJANG C1 ON A.AP_UNITPRICE_UPJANG = C1.UPJANG
+						   			   INNER JOIN FMS_UPJANG C2 ON C2.USE_YN = 'Y'
+						   			   										  AND A.UPJANG = C2.UPJANG
+						   			   INNER JOIN VO_CENTER_UPJANG D ON D.CENTER_CODE = :schCenter
+						   			   												  AND A.UPJANG = D.UPJANG
+						   			   LEFT JOIN VO_CENTER E ON D.CENTER_CODE = E.CENTER_CODE
+		WHERE  1=1
+		<#if schUpjang?has_content>
+   		AND (A.UPJANG LIKE '%' || :schUpjang || '%' OR A.UPJANGNM LIKE '%' || :schUpjang || '%')
+		</#if>
+		ORDER BY A.UPJANG ASC
+		]]>
+	</statement>
+
+	<!-- 단가계약업장 목록을 조회한다.(COMBO) -->
+	<statement name="selectUpjangList" type="select">
+		/*+ com.hwfs.fm.fms.dao.UpriceContractUpjangSetDAO.selectUpjangList */
+		<![CDATA[
+        SELECT
+            S.UPJANG,
+            S.UPJANGNM AS UPJANG_NM
+        FROM
+        (
+        	SELECT NULL AS UPJANG,
+               '지정안함' AS UPJANGNM,
+               '1' AS ORDR
+        	FROM DUAL    
+        	UNION ALL   
+        	SELECT 
+               DISTINCT A.AP_UNITPRICE_UPJANG,
+               NVL(B.UPJANGNM,''),
+               '2' AS ORDR
+        	FROM   ST_UPJANG A LEFT JOIN ST_UPJANG B ON A.AP_UNITPRICE_UPJANG = B.UPJANG
+        								   INNER JOIN FMS_UPJANG C ON A.AP_UNITPRICE_UPJANG = C.UPJANG
+        	WHERE  1=1
+        	AND    A.AP_UNITPRICE_UPJANG IS NOT NULL 
+        ) S
+        ORDER BY S.ORDR ASC, S.UPJANGNM ASC
+		]]>
+	</statement>
+
+	<!-- 단가계약업장으로(을)를 지정한다. -->
+	<statement name="update" type="update">
+		/*+ com.hwfs.fm.fms.dao.UpriceContractUpjangSetDAO.update */
+		<![CDATA[
+		UPDATE ST_UPJANG 
+		SET  AP_UNITPRICE_UPJANG = :selUpjang,
+		       UPDATE_BY = :loginSabun,
+		       UPDATE_DATE = SYSDATE
+		WHERE  UPJANG = :upjang
+		]]>
+	</statement>
+
+	<!-- 업장별 관리이익 항목(을)를 지정한다. -->
+	<statement name="update2" type="update">
+		/*+ com.hwfs.fm.fms.dao.UpriceContractUpjangSetDAO.update2 */
+		<![CDATA[
+		UPDATE FMS_UPJANG 
+		SET  ATTR09 = <#if chk2=='1'> 'Y', <#else> 'N', </#if>
+			   ATTR10 = <#if chk3=='1'> 'Y', <#else> 'N', </#if>
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  MAIN_UPJANG = :upjang OR UPJANG = :upjang
+		]]>
+	</statement>
+
+
+	<!-- 단가계약업장으로(을)를 해제한다. -->
+	<statement name="updateNon" type="update">
+		/*+ com.hwfs.fm.fms.dao.UpriceContractUpjangSetDAO.updateNon */
+		<![CDATA[
+		UPDATE ST_UPJANG 
+		SET    AP_UNITPRICE_UPJANG = NULL,
+		       UPDATE_BY = :loginSabun,
+		       UPDATE_DATE = SYSDATE
+		WHERE  UPJANG = :upjang
+		]]>
+	</statement>
+
+
+	<!-- 단가계약업장 해제 시 해당 업장을 지정한 업장의 단가계약업장 모두 해제한다.(선택) -->
+	<statement name="updateAll" type="update">
+		/*+ com.hwfs.fm.fms.dao.UpriceContractUpjangSetDAO.updateAll */
+		<![CDATA[
+		UPDATE ST_UPJANG 
+		SET    AP_UNITPRICE_UPJANG = NULL,
+		       UPDATE_BY = :loginSabun,
+		       UPDATE_DATE = SYSDATE
+		WHERE  AP_UNITPRICE_UPJANG = :upjang
+		]]>
+	</statement>
+
+	<!-- 업장정보의 판매그룹을 지정한다. -->
+	<statement name="updateSale" type="update">
+		/*+ com.hwfs.fm.fms.dao.UpriceContractUpjangSetDAO.updateSale */
+		<![CDATA[
+		UPDATE FMS_UPJANG 
+		SET    ATTR02 = :saleGroup,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  UPJANG = :upjang
+		]]>
+	</statement>
+
+
+	<!-- 업장정보의 비고사항을 저장한다.(이익율 설정관리) -->
+	<statement name="updateAttr" type="update">
+		/*+ com.hwfs.fm.fms.dao.UpriceContractUpjangSetDAO.updateAttr */
+		<![CDATA[
+		UPDATE FMS_UPJANG 
+		SET  ATTR11 = :attr11,
+		       UUSER = :loginSabun,
+		       UDATE = SYSDATE
+		WHERE  UPJANG = :stdUpjang
+		]]>
+	</statement>
+
+
+
+</hqml>
+

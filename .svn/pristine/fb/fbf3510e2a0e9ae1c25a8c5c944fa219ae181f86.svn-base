@@ -1,0 +1,140 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="CmmnInputNumber" classname="GUIDE_class" left="0" top="0" width="420" height="217" titletext="수량입력" onload="AppDetailReqtPop_onload">
+    <Layouts>
+      <Layout>
+        <Static id="staFormSize" taborder="44" cssclass="sta_POP_Bg" left="0" top="0" width="420" height="217"/>
+        <Static id="Static06" taborder="47" text="h10" cssclass="sta_GUIDE_Area" visible="false" left="0" top="70" width="420" height="10" style="align:center middle;"/>
+        <Static id="Static13" taborder="48" text="w10" cssclass="sta_GUIDE_Area" visible="false" left="410" top="80" width="10" height="135" style="align:center middle;"/>
+        <Static id="Static15" taborder="50" text="w10" cssclass="sta_GUIDE_Area" visible="false" left="0" top="80" width="10" height="136" style="align:center middle;"/>
+        <Static id="Static03" taborder="54" text="h20" cssclass="sta_GUIDE_Area" visible="false" left="0" top="196" style="align:center middle;" width="420" height="20"/>
+        <Static id="Static00" taborder="68" text="h10" cssclass="sta_GUIDE_Area" visible="false" left="0" top="139" width="420" height="10" style="align:center middle;"/>
+        <Button id="btn_insert" taborder="1" text="입력" cssclass="btn_WF_Function" left="345" top="149" width="65" height="47" onclick="btn_insert_onclick"/>
+        <Static id="Static09" taborder="72" cssclass="sta_WFSA_LabelBg" left="12" top="80" right="11" height="59" style="background:#ffffffff;"/>
+        <Edit id="edt_count" taborder="0" displaynulltext="수량을 입력하세요" left="9" top="85" width="401" height="47" inputtype="number,dot" autoselect="false" onchar="edt_count_onchar" style="align:right middle;" onkeydown="edt_count_onkeydown"/>
+        <Static id="Static04" taborder="74" text="수량등록" cssclass="sta_POP_TitleBg" left="0" top="0" width="420" height="70"/>
+        <Button id="btnClose" taborder="2" onclick="btnClose_onclick" cssclass="btn_POP_XBtn" left="350" top="0" width="70" height="70"/>
+        <Static id="sta_itemCode" taborder="75" text="Static01" left="17" top="149" width="143" height="47" style="color:blue;"/>
+        <Static id="sta_itemName" taborder="76" text="Static01" left="137" top="149" width="215" height="47" style="color:red;" wordwrap="char"/>
+        <MaskEdit id="msk_count" taborder="77" left="464" top="94" width="400" height="45" onchar="msk_count_onchar" type="number" mask="9,999.99" maskchar="_" limitbymask="decimal"/>
+      </Layout>
+    </Layouts>
+    <Bind/>
+    <Objects/>
+    <Script type="xscript5.0"><![CDATA[//########################################################
+// [프로젝트]		FC종합전산 모바일시스템 구축
+// [시스템명]		수량등록
+// [부시스템명]	수량등록 팝업 - 조회
+// [설명]
+// 		부서 검색하기.
+// [작성자명] 		강대성
+// [작성일자]		2015.02.04
+// -----------------[수정이력]--------------------------
+// 수정일자 : 수정자 : 수정내용
+// 2015.02.04 : 강대성 : 수정이 필요하여 수정함.
+//########################################################
+include "lib::lib_Com.xjs"
+
+/*================================================================================
+ * 1. 변수 선언
+ *===============================================================================*/
+this.preDate = undefined;
+
+/*================================================================================
+ * 2. Form관련 Script
+ *===============================================================================*/
+/** 
+ * Form의 모든 컴포넌트가 생성되고, 모든 Object가 Load 되었을 때에 발생하는 Event
+ * @param
+	obj : Event가 발생한 Object
+	e : Event Object
+ * @return : 없음
+ */ 
+this.AppDetailReqtPop_onload = function(obj:Form, e:nexacro.LoadEventInfo)
+{
+	this.arg = application.goMain.gfn_POP_getArg();
+	
+	this.edt_count.set_value(this.arg[0]);
+	this.sta_itemCode.set_text(this.arg[1]);
+	this.sta_itemName.set_text(this.arg[2]);
+	
+	var itemCount = this.edt_count.value;
+	application.goMain.gfn_POP_resize(this);
+	
+	if(this.edt_count.value == 0)
+	{
+		this.edt_count.set_value("");
+		this.edt_count.setFocus();
+	}
+	else
+	{
+		this.edt_count.setFocus();
+		this.edt_count.setSelect(this.edt_count.text.length, this.edt_count.text.length);
+	}
+}
+
+//닫기 버튼 클릭시
+this.btnClose_onclick = function (obj:Button, e:ClickEventInfo)
+{
+	application.goMain.gfn_POP_close(this, "CLOSEONLY");
+}
+
+//입력 버튼 클릭시
+this.btn_insert_onclick = function(obj:Button,  e:nexacro.ClickEventInfo)
+{
+
+	if (this.gfn_isNull(this.edt_count.value)){
+		application.goMain.gfn_Msg("OK", "알림", "신청수량을 입력하세요.", "OK", "OK");
+        return;		
+	}
+	
+	if(this.edt_count.value <= 0)
+	{
+		application.goMain.gfn_Msg("OK", "알림", "신청수량은 '0'보다 커야 합니다.", "OK");
+		this.edt_count.set_value(0);
+		return;			
+	}
+	
+	application.goMain.gfn_POP_close(this, this.gfn_ToFixed(this.edt_count.value, 2));
+}
+
+this.msk_count_onchar = function(obj:MaskEdit,  e:nexacro.CharEventInfo)
+{
+	var nVal = nexacro.replaceAll(e.posttext, ",", "");
+	var nidx = nVal.indexOf(".");
+	
+	if(nidx > -1)
+	{
+		nVal = nVal.substr(0, nidx);
+	}
+	
+	if(nVal.length > 4)
+	{
+		return false;
+	}
+}
+
+this.edt_count_onchar = function(obj:Edit,  e:nexacro.CharEventInfo)
+{
+	var nVal = nexacro.replaceAll(e.posttext, ",", "");
+	var nidx = nVal.indexOf(".");
+	
+	if(nidx > -1)
+	{
+		nVal = nVal.substr(0, nidx);
+	}
+	
+	if(nVal.length > 4)
+	{
+		return false;
+	}	
+}
+
+this.edt_count_onkeydown = function(obj:Edit, e:nexacro.KeyEventInfo)
+{
+	if(e.keycode == 13){this.getNextComponent(this.getFocus()).setFocus(); this.btn_insert_onclick();}
+}
+]]></Script>
+  </Form>
+</FDL>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query dynamic="true">
+	<type>select</type>
+	<description><![CDATA[]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+SELECT DISTINCT A.CENTER_CODE, B.CENTER_NAME, A.CUSTCD, C.CUSTNM, A.APPLY_DATE
+  FROM HLDC_PO_CENTER B, HLDC_ST_CUST C
+     ,(SELECT DISTINCT CENTER_CODE, CUSTCD, APPLY_DATE, WORK_TYPE
+            , DECODE(WORK_TYPE, 'P', '단가작업','S','업체설정','M','수동등록') AS WORK_NAME
+         FROM FSI_ITEM_FEATURE
+        WHERE APPLY_DATE BETWEEN #p_Year# || '0101' AND #p_Year# || '1231'
+          AND CENTER_CODE = #p_CENTER_CODE#) A
+ WHERE A.CENTER_CODE = B.CENTER_CODE
+   AND A.CUSTCD = C.CUSTCD
+<isNotNull col="p_CUSTCD">
+   AND C.CUSTNM LIKE '%'||#p_CUSTCD#||'%'
+</isNotNull>
+ ORDER BY A.APPLY_DATE DESC, A.CENTER_CODE, C.CUSTNM	</statement>
+	<input default-name="ds_in">
+	</input>
+	<output default-name="ds_out1">
+		<col name="CENTER_CODE" size="22" type="NUMERIC" description="" /> 
+		<col name="CENTER_NAME" size="200" type="VARCHAR" description="" /> 
+		<col name="CUSTCD" size="22" type="NUMERIC" description="" /> 
+		<col name="CUSTNM" size="50" type="VARCHAR" description="" /> 
+		<col name="APPLY_DATE" size="8" type="VARCHAR" description="" /> 
+		<col name="WORK_TYPE" size="20" type="VARCHAR" description="" /> 
+	</output>
+</query>

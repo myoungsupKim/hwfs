@@ -1,0 +1,258 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FDL version="1.5">
+  <TypeDefinition url="..\default_typedef.xml"/>
+  <Form id="ComTabMenu" classname="ComTabMenu" inheritanceid="" position="absolute" titletext="탭" onload="frmTabMenu_onload" onsize="frmTabMenu_onsize" scrollbars="autohorz" ontimer="ComTabMenu_ontimer" left="0" width="540" top="0" height="75">
+    <Layouts>
+      <Layout height="75" width="540">
+        <Static id="sta_bg" position="absolute" left="0" right="0px" top="0px" bottom="0px" cssclass="sta_TopBg2"/>
+        <Button id="btnArrowL" taborder="1" position="absolute" left="0" width="28" top="3" height="70" cssclass="btn_TopLeft" text="&lt;"/>
+        <Button id="btnArrowR" taborder="1" position="absolute" right="0" width="28" top="3" height="70" cssclass="btn_TopRight_S" text="&gt;"/>
+        <Button id="Button06" taborder="2" text="산학/연구" cssclass="btn_TopMenu" left="217" top="4" width="136" height="70" class="btn_TopMenu"/>
+        <Button id="Button05" taborder="3" text="학생" cssclass="btn_TopMenu_S" left="118" top="4" width="84" height="70" class="btn_TopMenu_S"/>
+        <Button id="Button04" taborder="4" text="학사" cssclass="btn_TopMenu" left="34" top="4" width="71" height="70" class="btn_TopMenu"/>
+        <Button id="Button07" taborder="5" text="입찰공고" cssclass="btn_TopMenu" left="373" top="4" width="120" height="70" class="btn_TopMenu"/>
+        <Static id="Static00" taborder="6" text="Static00" left="116" top="28" width="1" height="20" style="background:#c0c0c0ff;"/>
+        <Static id="Static01" taborder="7" text="Static00" left="205" top="27" width="1" height="20" style="background:#c0c0c0ff;"/>
+        <Static id="Static02" taborder="8" text="Static00" left="361" top="27" width="1" height="20" style="background:#c0c0c0ff;"/>
+      </Layout>
+    </Layouts>
+    <Objects>
+      <Dataset id="dsInfo" firefirstcount="0" firenextcount="0" useclientlayout="false" updatecontrol="true" enableevent="true" loadkeymode="keep" loadfiltermode="keep" reversesubsum="false">
+        <ColumnInfo>
+          <Column id="id" type="STRING" size="256"/>
+          <Column id="enable" type="STRING" size="256"/>
+          <Column id="text" type="STRING" size="256"/>
+          <Column id="url" type="STRING" size="256"/>
+        </ColumnInfo>
+      </Dataset>
+    </Objects>
+    <Script type="xscript5.0"><![CDATA[
+/*======================================================
+ 전역변수
+ ======================================================*/
+this.preSelectName = undefined; //이전에 선택한 버튼
+this.tabCount = 0; //탭 버튼 수
+this.tabW = 150; //탭 버튼의 너비 (Ajax에서는 문자열의 길이를 알 수 있는 방법이 없어서 고정 너비로 함)
+this.tabH = 68; //var SELECTED_COLOR = "#ff0068";
+this.SELECTED_COLOR = "#ffffff";
+this.NORMAL_COLOR = "#b8b8b8"; //var NORMAL_COLOR   = "#ffffff";  // 디자인시 테마에 적용한 color값이 반환되지 않아 임의로 지정하도록 한 임시 변수
+
+this.bArrow = true;
+
+
+/*======================================================
+ public function - start
+ ======================================================*/
+this.pfn_initTabMenu = function (ds, btnW, arrow)
+{
+	if (!application.gfn_IsNull(arrow)) 
+	{
+		this.bArrow = arrow;
+	}
+
+	if (!application.gfn_IsNull(btnW)) 
+	{
+		this.tabW = btnW;
+	}
+
+	this.dsInfo.copyData(ds);
+
+	// 탭의 개수
+	this.tabCount = this.dsInfo.getRowCount();
+
+	// 개수만큼 탭버튼 생성
+	this.fn_makeTabButton();
+
+	// // 애초속성을 scrollbars 설정하고 단말에서는 script로 스크롤바 안보이게 함.(터치 스크롤 이용)
+	// if (gfn_IsNull(system.mobileproducttype) == false)	// 단말인 경우
+	// {
+	// // 		divTab.hscrollbar.visible = true;
+	// // 		divTab.hscrollbar.scrollbarsize = 0;
+	// //		divTab.hscrollbar.position.top = divTab.hscrollbar.position.bottom;
+	// divTab.hscrollbar.position.height = 0;
+	// }
+
+	if (!this.bArrow) 
+	{
+		this.btnArrowL.set_visible(false);
+		this.btnArrowR.set_visible(false);
+		this.divTab.__setPosition9x("absolute l:0 r:0 t:0 b:0");
+	}
+
+	this.divTab.resetScroll();
+
+	this.fn_setArrow(0);
+
+	// 애초속성을 scrollbars 설정하고 단말에서는 script로 스크롤바 안보이게 함.(터치 스크롤 이용)
+	if (application.gfn_IsNull(system.mobileproducttype) == false) 
+	{
+		// 단말인 경우
+		// divTab.hscrollbar.visible = true;
+		// divTab.hscrollbar.scrollbarsize = 0;
+		// divTab.hscrollbar.position.top = divTab.hscrollbar.position.bottom;
+		this.divTab.hscrollbar.set_height(0);
+		this.divTab.vscrollbar.set_height(0);
+		this.divTab.vscrollbar.set_enable(false);
+		this.divTab.resetScroll();
+	}
+}
+
+this.pfn_select = function (id)
+{
+	var idx = this.dsInfo.findRow("id", id);
+	this.tabButton_onclick(this.divTab.components["tab" + idx]);
+}
+/*======================================================
+ public function - end
+ ======================================================*/
+
+this.fn_makeTabButton = function ()
+{
+	var btn;
+
+	for (var i = 0; i < this.tabCount; i++) 
+	{
+		btn = new Button();
+		btn.init("tab" + i, "absolute", 0, 5, this.tabW - 0, this.tabH - 5);
+		btn.addEventHandler("onclick", this.tabButton_onclick, this);
+		btn.set_enable(this.dsInfo.getColumn(i, "enable"));
+		btn.set_text(this.dsInfo.getColumn(i, "text"));
+		// class 수정작업 후 반영
+		btn.set_cssclass("btn_TopMenu");
+		// btn.align = "center middle";
+
+		this.divTab.addChild("tab" + i, btn);
+		this.fn_positionTabButton(i, btn);
+		btn.show();
+	}
+}
+
+
+
+// 탭버튼 위치 조정
+this.fn_positionTabButton = function (idx, obj:Button)
+{
+	var posX = 0;
+	posX = this.tabW * idx;
+	obj.set_left(posX);
+}
+
+this.tabButton_onclick = function (obj)
+{
+	var idx = parseInt(obj.name.split("tab").join(""));
+	var id = this.dsInfo.getColumn(idx, "id");
+	var preName = this.preSelectName;
+
+	if (preName == obj.name) 
+	{
+		return;
+	}
+
+	this.fn_initEnableColor(obj);
+	// this.hscrollbar.pos = obj.left;  // 스크롤 위치 이동 : 동작안함
+
+	this.parent.pfn_callbackTabMenu(id);
+}
+
+// 선택 색상지정
+this.fn_initEnableColor = function (obj)
+{
+	if (!application.gfn_IsNull(this.preSelectName)) 
+	{
+		this.divTab.components[this.preSelectName].set_cssclass("btn_TopMenu");
+	}
+
+	obj.set_cssclass("btn_TopMenu_S"); //선택효과 class 적용
+
+	// 이전 아이디에 현재 아이디 저장
+	this.preSelectName = obj.name;
+}
+
+this.frmTabMenu_onsize = function (obj:Form, e:SizeEventInfo)
+{
+	// if (gfn_IsNull(system.mobileproducttype) == false)	// 단말인 경우
+	// {
+	// // 		divTab.hscrollbar.visible = true;
+	// // 		divTab.hscrollbar.scrollbarsize = 0;
+	// 
+	// divTab.hscrollbar.position = "absolute 0 68 418 68";
+	// }
+
+	// obj.resetScroll();
+
+	// // 애초속성을 scrollbars 설정하고 단말에서는 script로 스크롤바 안보이게 함.(터치 스크롤 이용)
+	// if (gfn_IsNull(system.mobileproducttype) == false)	// 단말인 경우
+	// {
+	// // 		divTab.hscrollbar.visible = true;
+	// // 		divTab.hscrollbar.scrollbarsize = 0;
+	// divTab.hscrollbar.position.top = divTab.hscrollbar.position.bottom;
+	// }
+}
+
+
+this.divTab_onsize = function (obj:Div, e:SizeEventInfo)
+{
+	// divTab.hscrollbar.resize(400, 0);
+
+	obj.resetScroll();
+
+	// 
+	this.setTimer(1, 100);
+}
+
+this.ComTabMenu_ontimer = function (obj:Form, e:TimerEventInfo)
+{
+	if (e.timerid == 1) 
+	{
+		this.killTimer(1);
+		// divTab.hscrollbar.position.height = 0;
+	}
+}
+
+this.divTab_onhscroll = function (obj:Div, e:ScrollEventInfo)
+{
+	this.fn_setArrow(e.pos);
+	// var lastBtn = divTab.components["tab"+(tabCount-1)].position.right;
+	// var divW = divTab.position.width;
+	// 
+	// if (e.pos <= 0)
+	// {
+	// btnArrowL.class = "btn_TopLeft";
+	// }
+	// else if (e.pos + divW >= lastBtn)
+	// {
+	// btnArrowR.class = "btn_TopRight";
+	// }
+	// else
+	// {
+	// btnArrowL.class = "btn_TopLeft_S";
+	// btnArrowR.class = "btn_TopRight_S";
+	// }
+}
+
+this.fn_setArrow = function (scrollPos)
+{
+	var lastBtn = this.divTab.components["tab" + (this.tabCount - 1)].getOffsetRight();
+	var divW = this.divTab.getOffsetWidth();
+
+	if (scrollPos <= 0) 
+	{
+		this.btnArrowL.set_cssclass("btn_TopLeft");
+		if (scrollPos + divW >= lastBtn) 
+		{
+			this.btnArrowR.set_cssclass("btn_TopRight");
+		}
+	}
+	else if (scrollPos + divW >= lastBtn) 
+	{
+		this.btnArrowR.set_cssclass("btn_TopRight");
+	}
+	else 
+	{
+		this.btnArrowL.set_cssclass("btn_TopLeft_S");
+		this.btnArrowR.set_cssclass("btn_TopRight_S");
+	}
+}
+]]></Script>
+  </Form>
+</FDL>

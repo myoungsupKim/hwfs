@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hqml xmlns="http://hone.hanwha.co.kr/schema/hqml" name="sc.cmn.kiccApprovalDAO">
+	<desc>KICC 승인처리 HQML Query</desc>
+
+	<statement name="selectCardApproval" type="select">
+		/*+ com.hwfs.sc.cmn.dao.KiccApprovalDAO.selectCardApproval */
+		<![CDATA[
+SELECT A.REF_SYS,
+       A.REF_NO,
+       A.SEQ,
+       A.REQ_DOC_CD,
+       A.REQ_WCC,
+       A.REQ_CARD_NO,
+       A.REQ_DIV,
+       A.REQ_APPROVAL_DT,
+       A.REQ_APPROVAL_NO,
+       A.REQ_AMT,
+       A.REQ_CHARGE,
+       A.REQ_VAT,
+       A.REQ_POS_NO,
+       A.DOC_CD,
+       A.RES_CD,
+       A.TID,
+       A.WCC,
+       A.CARD_DATA_ENC,
+       A.CARD_NO_ENC,
+       A.DIV,
+       A.AMT,
+       A.CHARGE,
+       A.VAT,
+       A.APPROVAL_NO,
+       A.APPROVAL_DT,
+       A.ISSUE_CPN_CD,
+       A.CARD_CPN_NM,
+       A.MEMBER_CD,
+       A.PURCHASE_CPN_CD,
+       A.PURCHASE_CPN_NM,
+       A.POS_NO,
+       A.DSC_DIV,
+       A.MSG,
+       CASE A.REQ_DOC_CD 
+         WHEN 'I2' THEN 'Y'
+         WHEN 'I3' THEN 'Y'
+         WHEN 'B2' THEN 'Y'
+         WHEN 'C1' THEN 'M'
+         WHEN 'F1' THEN 'M'
+         WHEN 'F2' THEN 'M'
+         ELSE CASE WHEN (SELECT COUNT(*)
+                         FROM   SCC_CARD_VAN
+                         WHERE  REF_SYS = A.REF_SYS
+                         AND    REF_NO = A.REF_NO
+                         AND    REQ_APPROVAL_DT = SUBSTR(A.APPROVAL_DT, 1, 6)
+                         AND    REQ_APPROVAL_NO = A.APPROVAL_NO
+                         AND    RES_CD = '0000'  --2015.09.05 박대영추가함 
+                         AND    REQ_AMT = A.AMT) > 0 THEN 'Y' ELSE 'N' END
+       END AS IS_CANCEL_YN
+FROM   SCC_CARD_VAN A
+WHERE  A.REF_SYS = :refSys
+AND    A.REF_NO = :refNo
+AND    A.SEQ = :seq
+		]]>
+	</statement>
+
+	<!-- KICC 승인처리 목록을 조회한다. -->
+	<statement name="selectList" type="select">
+		/*+ com.hwfs.sc.cmn.dao.KiccApprovalDAO.selectList */
+		<![CDATA[
+SELECT REF_SYS,
+       REF_NO,
+       SEQ,
+       REQ_DOC_CD,
+       REQ_WCC,
+       REQ_CARD_NO,
+       REQ_DIV,
+       REQ_APPROVAL_DT,
+       REQ_APPROVAL_NO,
+       REQ_AMT,
+       REQ_CHARGE,
+       REQ_VAT,
+       REQ_POS_NO,
+       DOC_CD,
+       RES_CD,
+       TID,
+       WCC,
+       CARD_DATA_ENC,
+       CARD_NO_ENC,
+       DIV,
+       AMT,
+       CHARGE,
+       VAT,
+       APPROVAL_NO,
+       APPROVAL_DT,
+       ISSUE_CPN_CD,
+       CARD_CPN_NM,
+       MEMBER_CD,
+       PURCHASE_CPN_CD,
+       PURCHASE_CPN_NM,
+       POS_NO,
+       DSC_DIV,
+       MSG
+FROM   SCC_CARD_VAN
+WHERE  REF_SYS = :refSys
+AND    REF_NO = :refNo
+ORDER BY SEQ DESC
+		]]>
+	</statement>
+
+	<!-- KICC 승인처리(을)를 등록한다. -->
+	<statement name="insert" type="insert">
+		/*+ com.hwfs.sc.cmn.dao.KiccApprovalDAO.insert */
+		<![CDATA[
+INSERT INTO SCC_CARD_VAN
+(
+ REF_SYS,
+ REF_NO,
+ SEQ,
+ REQ_DOC_CD,
+ REQ_WCC,
+ REQ_CARD_NO,
+ REQ_DIV,
+ REQ_APPROVAL_DT,
+ REQ_APPROVAL_NO,
+ REQ_AMT,
+ REQ_CHARGE,
+ REQ_VAT,
+ REQ_POS_NO,
+ DOC_CD,
+ RES_CD,
+ TID,
+ WCC,
+ CARD_DATA_ENC,
+ CARD_NO_ENC,
+ DIV,
+ AMT,
+ CHARGE,
+ VAT,
+ APPROVAL_NO,
+ APPROVAL_DT,
+ ISSUE_CPN_CD,
+ CARD_CPN_NM,
+ MEMBER_CD,
+ PURCHASE_CPN_CD,
+ PURCHASE_CPN_NM,
+ POS_NO,
+ DSC_DIV,
+ MSG,
+ CUSER,
+ CDATE,
+ UUSER,
+ UDATE
+) (
+SELECT :refSys,
+       :refNo,
+       NVL(MAX(SEQ), 0) + 1,
+<#if reqDocCd?has_content> :reqDocCd, <#else> null, </#if>
+<#if reqWcc?has_content> :reqWcc, <#else> null, </#if>
+<#if reqCardNo?has_content> :reqCardNo, <#else> null, </#if>
+<#if reqDiv?has_content> :reqDiv, <#else> null, </#if>
+<#if reqApprovalDt?has_content> :reqApprovalDt, <#else> null, </#if>
+<#if reqApprovalNo?has_content> :reqApprovalNo, <#else> null, </#if>
+<#if reqAmt?has_content> :reqAmt, <#else> null, </#if>
+<#if reqCharge?has_content> :reqCharge, <#else> null, </#if>
+<#if reqVat?has_content> :reqVat, <#else> null, </#if>
+<#if reqPosNo?has_content> :reqPosNo, <#else> null, </#if>
+<#if docCd?has_content> :docCd, <#else> null, </#if>
+<#if resCd?has_content> :resCd, <#else> null, </#if>
+<#if tid?has_content> :tid, <#else> null, </#if>
+<#if wcc?has_content> :wcc, <#else> null, </#if>
+<#if cardData?has_content> SCC_CRYPTO.ENC_FUN(:cardData), <#else> null, </#if>
+<#if cardNo?has_content> SCC_CRYPTO.ENC_FUN(:cardNo), <#else> null, </#if>
+<#if div?has_content> :div, <#else> null, </#if>
+<#if amt?has_content> :amt, <#else> null, </#if>
+<#if charge?has_content> :charge, <#else> null, </#if>
+<#if vat?has_content> :vat, <#else> null, </#if>
+<#if approvalNo?has_content> :approvalNo, <#else> null, </#if>
+<#if approvalDt?has_content> :approvalDt, <#else> null, </#if>
+<#if issueCpnCd?has_content> :issueCpnCd, <#else> null, </#if>
+<#if cardCpnNm?has_content> :cardCpnNm, <#else> null, </#if>
+<#if memberCd?has_content> :memberCd, <#else> null, </#if>
+<#if purchaseCpnCd?has_content> :purchaseCpnCd, <#else> null, </#if>
+<#if purchaseCpnNm?has_content> :purchaseCpnNm, <#else> null, </#if>
+<#if posNo?has_content> :posNo, <#else> null, </#if>
+<#if dscDiv?has_content> :dscDiv, <#else> null, </#if>
+<#if msg?has_content> :msg, <#else> null, </#if>
+ :loginSabun,
+ SYSDATE,
+ :loginSabun,
+ SYSDATE
+FROM  SCC_CARD_VAN
+WHERE REF_SYS = :refSys
+AND   REF_NO = :refNo
+)
+		]]>
+	</statement>
+</hqml>

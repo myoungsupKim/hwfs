@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="euc-kr"?>
+<query>
+	<type>select</type> 
+	<description><![CDATA[4. 매출채권현황(담당자별) => 담당자는 소팀장을 의미한다.]]></description>
+	<reload>true</reload>
+	<monitoring>true</monitoring>
+	<result-count>1</result-count>
+	<statement>
+<![CDATA[
+SELECT A.SUBTEAM_MST_SABUN, --소팀장사번
+       (SELECT NM_KOR FROM HLDC_HR_PERSONAL WHERE SABUN = A.SUBTEAM_MST_SABUN)||' 팀장' NM_KOR, --소팀장이름
+       ROUND(NVL(SUM(V.DO_BOND_AMT), 0)/1000000) + ROUND(NVL(SUM(V.AK_BOND_AMT), 0)/1000000) DO_AK_BOND_AMT, -- 채권합계
+       ROUND(NVL(SUM(V.DO_BOND_AMT), 0)/1000000) DO_BOND_AMT, -- 도래채권
+       ROUND(NVL(SUM(V.AK_BOND_AMT), 0)/1000000) AK_BOND_AMT  -- 악성채권
+  FROM  (
+         SELECT SUBTEAM_MST_SABUN, UPJANG
+         FROM SCO_UPJANG_MST_V
+         WHERE (SUBTEAM_MST_SABUN IS NOT NULL)
+           AND (TM_CD = #TM_CD#) --팀장사번
+        ) A,
+        (
+         SELECT V.UPJANG,
+                NVL(SUM(V.DO_BOND_AMT), 0) DO_BOND_AMT,
+                NVL(SUM(V.AK_BOND_AMT), 0) AK_BOND_AMT
+           FROM MAS_DD_BOND V
+         WHERE (V.BOND_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'))
+         AND   ((NVL(V.DO_BOND_AMT, 0) + NVL(V.AK_BOND_AMT, 0)) <> 0)
+         AND   (EXISTS (SELECT 'X' FROM SCO_UPJANG_MST_V WHERE UPJANG = V.UPJANG  AND TM_CD = #TM_CD#)) --팀장사번
+         GROUP BY V.UPJANG
+        ) V
+WHERE (A.UPJANG = V.UPJANG(+))
+GROUP BY A.SUBTEAM_MST_SABUN	]]></statement>
+	<input default-name="ds_in">
+	</input>
+	<output default-name="ds_grd03">
+	</output>
+</query>
